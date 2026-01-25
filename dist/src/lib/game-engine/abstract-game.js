@@ -1,9 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AbstractGameEngine = void 0;
-const db_1 = require("../db");
 class AbstractGameEngine {
     constructor(pin, hostId, setId, settings, questions, io) {
+        // --- Persistence Flags ---
+        this.hasArchived = false;
         this.pin = pin;
         this.hostId = hostId;
         this.setId = setId;
@@ -56,32 +57,7 @@ class AbstractGameEngine {
         this.io.to(this.pin).emit("game-over", {
             players: this.players
         });
-        // Auto-save history
-        this.saveHistory().catch(err => {
-            console.error(`[Game ${this.pin}] Failed to save history:`, err);
-        });
-    }
-    async saveHistory() {
-        if (!this.startTime)
-            return;
-        try {
-            await db_1.db.gameHistory.create({
-                data: {
-                    hostId: this.hostId,
-                    gameMode: this.gameMode,
-                    pin: this.pin,
-                    startedAt: new Date(this.startTime),
-                    endedAt: new Date(),
-                    settings: this.settings,
-                    players: JSON.parse(JSON.stringify(this.players)) // Ensure clean JSON
-                }
-            });
-            console.log(`[Game ${this.pin}] History saved successfully.`);
-        }
-        catch (error) {
-            console.error(`[Game ${this.pin}] Error saving history:`, error);
-            throw error;
-        }
+        // History saving is now handled by GameManager
     }
     // Called every second by the Manager
     tick() {

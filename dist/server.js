@@ -9,7 +9,7 @@ const socket_io_1 = require("socket.io");
 const manager_1 = require("./src/lib/game-engine/manager");
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
-const port = 3000;
+const port = parseInt(process.env.PORT || "3000", 10);
 const app = (0, next_1.default)({ dev, hostname, port });
 const handler = app.getRequestHandler();
 app.prepare().then(async () => {

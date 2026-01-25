@@ -476,6 +476,9 @@ export default function PlayerGamePage() {
                         setView={setView}
                         endTime={endTime}
                         cryptoGoal={gameSettings?.winCondition === "GOLD" ? gameSettings.goldGoal : undefined}
+                        passwordOptions={passwordOptions}
+                        hackHint={hackHint}
+                        boxReveal={boxReveal}
                     />
                 )}
 

@@ -86,34 +86,12 @@ export abstract class AbstractGameEngine {
         this.io.to(this.pin).emit("game-over", {
             players: this.players
         });
-
-        // Auto-save history
-        this.saveHistory().catch(err => {
-            console.error(`[Game ${this.pin}] Failed to save history:`, err);
-        });
+        // History saving is now handled by GameManager
     }
 
-    private async saveHistory() {
-        if (!this.startTime) return;
+    // --- Persistence Flags ---
+    public hasArchived: boolean = false;
 
-        try {
-            await prisma.gameHistory.create({
-                data: {
-                    hostId: this.hostId,
-                    gameMode: this.gameMode,
-                    pin: this.pin,
-                    startedAt: new Date(this.startTime),
-                    endedAt: new Date(),
-                    settings: this.settings,
-                    players: JSON.parse(JSON.stringify(this.players)) // Ensure clean JSON
-                }
-            });
-            console.log(`[Game ${this.pin}] History saved successfully.`);
-        } catch (error) {
-            console.error(`[Game ${this.pin}] Error saving history:`, error);
-            throw error;
-        }
-    }
 
     // Called every second by the Manager
     public tick(): void {

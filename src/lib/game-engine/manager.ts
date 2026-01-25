@@ -67,7 +67,33 @@ class GameManager {
 
     // --- Persistence ---
 
+    private async saveGameToHistory(game: AbstractGameEngine) {
+        if (!game.startTime || game.hasArchived) return;
+
+        try {
+            const { PrismaClient } = require("@prisma/client");
+            const prisma = new PrismaClient();
+
+            await prisma.gameHistory.create({
+                data: {
+                    hostId: game.hostId,
+                    gameMode: game.gameMode,
+                    pin: game.pin,
+                    startedAt: new Date(game.startTime),
+                    endedAt: new Date(game.endTime || Date.now()),
+                    settings: game.settings,
+                    players: JSON.parse(JSON.stringify(game.players))
+                }
+            });
+            console.log(`[Persistence] History archived for game ${game.pin}`);
+            game.hasArchived = true;
+        } catch (err) {
+            console.error(`[Persistence] Failed to archive history for ${game.pin}`, err);
+        }
+    }
+
     private async saveGame(game: AbstractGameEngine) {
+        // ... (existing save logic)
         try {
             const { PrismaClient } = require("@prisma/client");
             const prisma = new PrismaClient(); // In prod, use singleton prisma
@@ -104,7 +130,7 @@ class GameManager {
             const prisma = new PrismaClient();
             await prisma.activeGame.delete({ where: { pin } }).catch(() => { });
         } catch (err) {
-            console.error(`[Persistence] Failed to delete game ${pin}`, err);
+            // Ignore error if already deleted
         }
     }
 
@@ -118,26 +144,20 @@ class GameManager {
             for (const record of activeGames) {
                 if (this.games.has(record.pin)) continue;
 
-                // Re-instantiate
-                // Defaulting to GoldQuestEngine for now as it's the only one
+                // Re-instantiate based on mode
+                // TODO: Support CryptoHack recovery properly (need serialization fix)
                 const game = new GoldQuestEngine(
                     record.pin,
                     record.hostId,
-                    "", // SetId might be missing in record if we didn't save it separate, but it's in serialize? Ah, abstract game has it.
+                    "",
                     record.settings,
                     record.questions as any[],
-                    // IO is tricky. We need the IO instance. 
-                    // But GameManager doesn't hold IO unless we pass it.
-                    // We passed IO to createGame. We need to store IO in GameManager?
-                    // OR pass IO to recoverGames from server.ts?
-                    // Let's assume we can't easily get IO here without storing it.
-                    null // Temporary null, we need to fix this.
+                    null
                 );
 
                 // restore data
                 game.restore({
                     ...record,
-                    // Map DB fields to Restore fields if needed
                     state: record.state
                 });
 
@@ -149,11 +169,8 @@ class GameManager {
         }
     }
 
-    // We need IO to recover games properly.
-    // Let's add setIO or pass it to recoverGames.
     public setIO(io: any) {
         this.io = io;
-        // Propagate to all existing games (especially recovered ones)
         for (const game of this.games.values()) {
             game.setIO(io);
         }
@@ -174,14 +191,23 @@ class GameManager {
 
             for (const [pin, game] of this.games.entries()) {
                 // 1. Tick logic
-                game.tick();
+                try {
+                    game.tick();
+                } catch (e) {
+                    console.error(`[GameManager] Error ticking game ${pin}`, e);
+                }
 
-                // 2. Cleanup Stale Games
+                // 2. Check for End & Archive
+                if (game.status === "ENDED" && !game.hasArchived) {
+                    this.saveGameToHistory(game);
+                }
+
+                // 3. Cleanup Stale Games
                 if (game.status === "ENDED" && game.endTime && (now - game.endTime > 5 * 60 * 1000)) {
                     this.removeGame(pin);
                 }
 
-                // 3. Persistence Snapshot (Every 5 seconds)
+                // 4. Persistence Snapshot (Every 5 seconds)
                 if (tickCount % 5 === 0 && game.status === "PLAYING") {
                     this.saveGame(game);
                 }

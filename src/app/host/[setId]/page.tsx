@@ -353,7 +353,7 @@ export default function HostLobbyPage() {
                             <Copy className="h-6 w-6 text-slate-500" />
                         </div>
                     </div>
-                    <p className="text-slate-500">Go to <span className="text-purple-400 font-bold">localhost:3000/play</span></p>
+                    <p className="text-slate-500">Go to <span className="text-purple-400 font-bold">gameedu-app.onrender.com/play</span></p>
                 </div>
 
                 {/* Player Grid */}

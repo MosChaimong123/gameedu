@@ -270,7 +270,7 @@ export default function HostLobbyPage() {
         return <>
             <SoundController className="fixed top-4 right-4" />
             <GoldQuestHostView
-                players={players}
+                players={players as GoldQuestPlayer[]}
                 events={gameEvents}
                 timeLeft={timeLeft}
                 onEndGame={handleEndGame}

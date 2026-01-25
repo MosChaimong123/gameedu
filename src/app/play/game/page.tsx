@@ -251,7 +251,7 @@ export default function PlayerGamePage() {
 
         socket.on("box-reveal", (data: { index: number, reward: CryptoReward, newTotal: number }) => {
             setBoxReveal(data);
-            play(data.reward.type === "HACK" ? "chest-open" : "coin");
+            play(data.reward.type === "HACK" ? "chest-open" : "correct");
 
             if (data.reward.type === "HACK") {
                 setTimeout(() => setView("HACK_TARGET"), 2000);

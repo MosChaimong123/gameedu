@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { HackTask } from "@/lib/types/game";
 import { cn } from "@/lib/utils";
-import useSound from "use-sound";
+
 
 type Props = {
     task: HackTask;

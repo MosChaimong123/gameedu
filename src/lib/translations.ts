@@ -63,7 +63,7 @@ export const translations = {
         deleteQuestion: "Delete Question",
         deleteConfirm: "Are you sure you want to delete this?",
         cancel: "Cancel",
-        save: "Save",
+
         save: "Save",
         clickToEdit: "Click to edit",
         // Question Editor

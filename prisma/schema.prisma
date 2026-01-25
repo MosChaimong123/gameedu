@@ -1,0 +1,119 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String?
+  email         String    @unique
+  username      String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          String    @default("USER")
+  tokens        Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  questionSets  QuestionSet[]
+  history       GameHistory[]
+}
+
+model Account {
+  id                 String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId             String  @db.ObjectId
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model QuestionSet {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  coverImage  String?
+  isPublic    Boolean  @default(false)
+  
+  questions   Question[]
+  
+  creatorId   String   @db.ObjectId
+  creator     User     @relation(fields: [creatorId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+type Question {
+  id            String   @default(uuid())
+  question      String
+  image         String?
+  timeLimit     Int      @default(20) // Seconds
+  options       String[]
+  optionTypes   String[] // "TEXT" | "IMAGE" | "MATH"
+  questionType  String   @default("MULTIPLE_CHOICE") // "MULTIPLE_CHOICE" | "TYPING_ANSWER"
+  correctAnswer Int
+}
+
+model ActiveGame {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  pin       String   @unique
+  gameMode  String   // "GOLD_QUEST", etc.
+  hostId    String
+  settings  Json
+  players   Json     // Serialized array of players
+  questions Json     // Serialized questions
+  startTime DateTime?
+  state     Json?    // Game specific state (e.g. chests)
+  updatedAt DateTime @updatedAt
+}
+
+model GameHistory {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  hostId    String   @db.ObjectId
+  gameMode  String
+  pin       String?
+  startedAt DateTime
+  endedAt   DateTime @default(now())
+  
+  settings  Json
+  players   Json
+  
+  host      User     @relation(fields: [hostId], references: [id])
+}

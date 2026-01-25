@@ -1,0 +1,17 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "module": "commonjs",
+        "outDir": "dist",
+        "lib": [
+            "es2019"
+        ],
+        "target": "es2019",
+        "moduleResolution": "node",
+        "skipLibCheck": true,
+        "esModuleInterop": true // Important for node imports
+    },
+    "include": [
+        "server.ts"
+    ]
+}

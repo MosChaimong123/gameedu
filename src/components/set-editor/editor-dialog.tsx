@@ -217,10 +217,20 @@ export function EditorDialog({ open, onOpenChange, activeQuestion, setActiveQues
                             <div className="flex-1 relative flex items-center justify-center p-8 overflow-hidden w-full">
                                 {!isEditingQuestion && activeQuestion.question ? (
                                     <div
-                                        className="w-full h-full flex flex-col items-center justify-center cursor-text group/preview transition-all hover:bg-slate-50 rounded-lg border-2 border-transparent hover:border-blue-100"
+                                        className="w-full h-full flex flex-col items-center justify-center cursor-text group/preview transition-all hover:bg-slate-50 rounded-lg border-2 border-transparent hover:border-blue-100 outline-none focus:ring-2 focus:ring-blue-400"
                                         onClick={() => {
                                             setIsEditingQuestion(true)
                                             setActiveField("question")
+                                        }}
+                                        tabIndex={0}
+                                        role="button"
+                                        aria-label="Edit Question"
+                                        data-testid="question-preview"
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" || e.key === " ") {
+                                                setIsEditingQuestion(true)
+                                                setActiveField("question")
+                                            }
                                         }}
                                     >
                                         <div className="text-3xl font-medium text-slate-700 leading-relaxed text-center break-words max-w-full">
@@ -232,6 +242,9 @@ export function EditorDialog({ open, onOpenChange, activeQuestion, setActiveQues
                                     </div>
                                 ) : (
                                     <Textarea
+                                        id="question-input"
+                                        name="question-input"
+                                        data-testid="question-input"
                                         className="w-full h-full border-none resize-none text-center text-3xl font-medium text-slate-700 p-0 leading-relaxed focus-visible:ring-0 placeholder:text-slate-300 flex items-center justify-center bg-transparent"
                                         placeholder={t("questionTextPlaceholder")}
                                         value={activeQuestion.question}

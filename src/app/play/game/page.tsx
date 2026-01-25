@@ -462,7 +462,7 @@ export default function PlayerGamePage() {
                         socket={socket}
                         player={player as GoldQuestPlayer}
                         otherPlayers={otherPlayers as GoldQuestPlayer[]}
-                        onNavigate={setView}
+                        onNavigate={(v) => setView(v as GameView)}
                     />
                 )}
 
@@ -471,7 +471,7 @@ export default function PlayerGamePage() {
                         socket={socket}
                         player={player as CryptoHackPlayer}
                         otherPlayers={otherPlayers as CryptoHackPlayer[]} // Casting partial
-                        onNavigate={setView}
+                        onNavigate={(v) => setView(v as GameView)}
                         view={view}
                         setView={setView}
                         endTime={endTime}

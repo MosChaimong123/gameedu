@@ -27,7 +27,7 @@ export default function HostLobbyPage() {
     const router = useRouter()
 
     const [pin, setPin] = useState<string | null>(null)
-    const [players, setPlayers] = useState<GoldQuestPlayer[]>([])
+    const [players, setPlayers] = useState<(GoldQuestPlayer | CryptoHackPlayer)[]>([])
     const [loading, setLoading] = useState(true)
     const [view, setView] = useState<"SELECT_MODE" | "SETTINGS" | "LOBBY" | "PLAYING" | "ENDED">("SELECT_MODE")
     const [gameEvents, setGameEvents] = useState<any[]>([])
@@ -85,7 +85,7 @@ export default function HostLobbyPage() {
             setView("LOBBY")
         })
 
-        socket.on("player-joined", (data: { players: GoldQuestPlayer[] }) => {
+        socket.on("player-joined", (data: { players: (GoldQuestPlayer | CryptoHackPlayer)[] }) => {
             console.log("Host Received Players Update:", data.players);
             setPlayers(data.players)
         })
@@ -121,7 +121,7 @@ export default function HostLobbyPage() {
             }
         })
 
-        socket.on("game-state-update", (data: { players: GoldQuestPlayer[] }) => {
+        socket.on("game-state-update", (data: { players: (GoldQuestPlayer | CryptoHackPlayer)[] }) => {
             setPlayers(data.players)
         })
 

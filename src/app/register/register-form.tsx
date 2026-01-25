@@ -20,9 +20,7 @@ import { Loader2 } from "lucide-react"
 import { RoleSelection } from "@/components/auth/role-selection"
 
 const formSchema = z.object({
-    role: z.enum(["STUDENT", "TEACHER"], {
-        required_error: "Please select a role",
-    }),
+    role: z.enum(["STUDENT", "TEACHER"]),
     name: z.string().min(2, "Name must be at least 2 characters"),
     username: z.string()
         .min(3, "Username must be at least 3 chars")

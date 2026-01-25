@@ -6,7 +6,7 @@ type Props = {
     question: {
         id: string;
         question: string;
-        question: string;
+
         options: string[];
         optionTypes?: string[];
         image?: string | null;

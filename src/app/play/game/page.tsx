@@ -470,7 +470,7 @@ export default function PlayerGamePage() {
                     <CryptoHackClient
                         socket={socket}
                         player={player as CryptoHackPlayer}
-                        otherPlayers={otherPlayers as CryptoHackPlayer[]} // Casting partial
+                        otherPlayers={otherPlayers as unknown as CryptoHackPlayer[]} // Casting partial
                         onNavigate={(v) => setView(v as GameView)}
                         view={view}
                         setView={setView}

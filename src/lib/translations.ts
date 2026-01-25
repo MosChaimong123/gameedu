@@ -65,6 +65,7 @@ export const translations = {
         cancel: "Cancel",
         save: "Save",
         save: "Save",
+        clickToEdit: "Click to edit",
         // Question Editor
         changeCover: "Change Cover",
         editInfo: "Edit Info",
@@ -151,6 +152,7 @@ export const translations = {
         deleteConfirm: "คุณแน่ใจหรือไม่ที่จะลบคำถามนี้?",
         cancel: "ยกเลิก",
         save: "บันทึก",
+        clickToEdit: "คลิกเพื่อแก้ไข",
         // Question Editor
         changeCover: "เปลี่ยนรูปปก",
         editInfo: "แก้ไขข้อมูล",

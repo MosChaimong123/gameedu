@@ -43,9 +43,10 @@ export class CryptoHackEngine extends AbstractGameEngine {
             crypto: 0,
             password: "",
             hackChance: 1.0,
-            isLocked: false,
             isGlitched: false,
             score: 0,
+            correctAnswers: 0,
+            incorrectAnswers: 0,
             hackingHistory: {}
         };
 
@@ -157,6 +158,12 @@ export class CryptoHackEngine extends AbstractGameEngine {
         if (!question) return;
 
         const isCorrect = question.correctAnswer === answerIndex;
+
+        if (isCorrect) {
+            player.correctAnswers = (player.correctAnswers || 0) + 1;
+        } else {
+            player.incorrectAnswers = (player.incorrectAnswers || 0) + 1;
+        }
 
         socket.emit("answer-result", { correct: isCorrect });
 

@@ -29,6 +29,8 @@ export class GoldQuestEngine extends AbstractGameEngine {
         player.gold = 0;
         player.multiplier = 1;
         player.streak = 0;
+        player.correctAnswers = 0;
+        player.incorrectAnswers = 0;
         super.addPlayer(player, socket);
     }
 
@@ -128,6 +130,16 @@ export class GoldQuestEngine extends AbstractGameEngine {
         if (!question) return;
 
         const isCorrect = question.correctAnswer === answerIndex;
+
+        const player = this.getPlayer(socket.id);
+        if (player) {
+            if (isCorrect) {
+                player.correctAnswers = (player.correctAnswers || 0) + 1;
+            } else {
+                player.incorrectAnswers = (player.incorrectAnswers || 0) + 1;
+            }
+        }
+
         socket.emit("answer-result", { correct: isCorrect });
     }
 

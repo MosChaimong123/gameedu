@@ -6,6 +6,8 @@ export type BasePlayer = {
     avatar?: string;
     isConnected: boolean;
     score: number; // Common score field
+    correctAnswers: number;
+    incorrectAnswers: number;
 };
 
 export type GameSession = {

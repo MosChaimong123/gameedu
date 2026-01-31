@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Loader2, Plus, Save, Clock, Globe, Lock, PenSquare, FileText, Library, Image as ImageIcon } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { SettingsDialog } from "@/components/set-editor/settings-dialog"
 import { QuestionList } from "@/components/set-editor/question-list"
 import { EditorDialog } from "@/components/set-editor/editor-dialog"
+import { ImportSpreadsheetDialog } from "@/components/set-editor/import-spreadsheet-dialog"
 
 // Types matching Prisma Schema
 // TODO: Move to a shared types file
@@ -45,6 +46,16 @@ export default function EditSetPage() {
     const [activeQuestion, setActiveQuestion] = useState<Question | null>(null)
     const [isQuestionDialogOpen, setIsQuestionDialogOpen] = useState(false)
     const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false)
+
+    const [isSpreadsheetOpen, setIsSpreadsheetOpen] = useState(false)
+
+    const searchParams = useSearchParams()
+
+    useEffect(() => {
+        if (searchParams.get("openImport") === "true") {
+            setIsSpreadsheetOpen(true)
+        }
+    }, [searchParams])
 
     useEffect(() => {
         async function fetchSet() {
@@ -120,6 +131,38 @@ export default function EditSetPage() {
         setIsQuestionDialogOpen(false)
     }
 
+    const handleImportQuestions = (importedQuestions: any[]) => {
+        if (!set) return
+
+        // Map imported questions to ensure they conform to our Question type
+        const newQuestions: Question[] = importedQuestions.map(q => ({
+            id: crypto.randomUUID(),
+            question: q.question,
+            image: null,
+            timeLimit: q.timeLimit || 20,
+            options: [
+                q.options[0] || "",
+                q.options[1] || "",
+                q.options[2] || "",
+                q.options[3] || ""
+            ],
+            // Default to TEXT for imported options for now
+            optionTypes: ["TEXT", "TEXT", "TEXT", "TEXT"],
+            questionType: q.questionType || "MULTIPLE_CHOICE",
+            // The importer puts the correct answer at index 0 in the 'answers' array if matched by column
+            // But our ImportDialog actually puts the correct answer in options[0] because of how we mapped it.
+            // Let's verify ImportLogic:
+            // "options": [row["Correct Answer"], row["Option 2"]...]
+            // So index 0 is always correct answer based on that implementation.
+            correctAnswer: 0
+        }))
+
+        setSet(prev => prev ? ({
+            ...prev,
+            questions: [...prev.questions, ...newQuestions]
+        }) : null)
+    }
+
     const deleteQuestion = (qId: string) => {
         if (!set) return
         if (!confirm(t("deleteConfirm"))) return
@@ -180,17 +223,13 @@ export default function EditSetPage() {
                     </Button>
 
                     {/* Secondary Actions */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <Button variant="outline" className="h-10 border-2 font-bold text-slate-600" onClick={() => setIsInfoDialogOpen(true)}>
-                            <PenSquare className="w-4 h-4 mr-2" />
-                            {t("editInfo")}
-                        </Button>
-                        <Button variant="outline" className="h-10 border-2 font-bold text-slate-600">
-                            <Clock className="w-4 h-4 mr-2" />
-                            {t("timeLimit")}
-                        </Button>
-                    </div>
+                    {/* Secondary Actions */}
+                    <Button variant="outline" className="w-full h-10 border-2 font-bold text-slate-600" onClick={() => setIsInfoDialogOpen(true)}>
+                        <PenSquare className="w-4 h-4 mr-2" />
+                        {t("editInfo")}
+                    </Button>
 
+                    {/* Import/Add Options Grid */}
                     {/* Import/Add Options Grid */}
                     <div className="grid grid-cols-2 gap-3 pt-6 border-t">
                         <Button
@@ -200,17 +239,12 @@ export default function EditSetPage() {
                             <Plus className="w-8 h-8 mb-1" />
                             <span className="text-xs font-bold">{t("addQuestion")}</span>
                         </Button>
-                        <Button className="h-24 flex flex-col items-center justify-center bg-indigo-600 hover:bg-indigo-700 p-0 shadow-sm">
-                            <span className="text-2xl font-serif font-black mb-1">Q</span>
-                            <span className="text-xs font-bold">{t("quizletImport")}</span>
-                        </Button>
-                        <Button className="h-24 flex flex-col items-center justify-center bg-emerald-600 hover:bg-emerald-700 p-0 shadow-sm">
+                        <Button
+                            className="h-24 flex flex-col items-center justify-center bg-emerald-600 hover:bg-emerald-700 p-0 shadow-sm"
+                            onClick={() => setIsSpreadsheetOpen(true)}
+                        >
                             <FileText className="w-8 h-8 mb-1" />
                             <span className="text-xs font-bold w-full px-1 text-center truncate">{t("spreadsheetImport")}</span>
-                        </Button>
-                        <Button className="h-24 flex flex-col items-center justify-center bg-slate-700 hover:bg-slate-800 p-0 shadow-sm">
-                            <Library className="w-8 h-8 mb-1" />
-                            <span className="text-xs font-bold">{t("questionBank")}</span>
                         </Button>
                     </div>
                 </div>
@@ -219,17 +253,11 @@ export default function EditSetPage() {
             {/* Right Content - Scrollable */}
             <div className="flex-1 flex flex-col h-full min-w-0">
                 {/* Top Bar */}
+                {/* Top Bar */}
                 <div className="h-20 border-b bg-white px-8 flex items-center justify-between flex-shrink-0">
                     <div className="text-xl font-bold text-slate-700">
                         {set.questions.length} <span className="text-slate-400 ml-1">{t("questionsCount")}</span>
                     </div>
-                    <Button
-                        onClick={addNewQuestion}
-                        className="h-10 px-6 font-bold bg-purple-600 hover:bg-purple-700 shadow-sm"
-                    >
-                        <Plus className="mr-2 h-5 w-5" />
-                        {t("addQuestion")}
-                    </Button>
                 </div>
 
                 {/* Question List Area */}
@@ -259,6 +287,12 @@ export default function EditSetPage() {
                 activeQuestion={activeQuestion}
                 setActiveQuestion={setActiveQuestion}
                 onSave={saveQuestion}
+            />
+
+            <ImportSpreadsheetDialog
+                open={isSpreadsheetOpen}
+                onOpenChange={setIsSpreadsheetOpen}
+                onImport={handleImportQuestions}
             />
         </div>
     )

@@ -19,6 +19,7 @@ model User {
   image         String?
   password      String?
   role          String    @default("USER")
+  school        String?
   tokens        Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

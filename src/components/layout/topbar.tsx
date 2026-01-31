@@ -11,7 +11,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { LogOut, User, Menu } from "lucide-react"
+import { LogOut, User, Menu, Settings, Sparkles } from "lucide-react"
 
 import { LanguageToggle } from "@/components/language-toggle"
 import { useLanguage } from "@/components/providers/language-provider"
@@ -31,6 +31,11 @@ export function Topbar() {
             </div>
 
             <div className="flex items-center space-x-4">
+                <Button className="hidden md:flex bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-sm border-0 h-9">
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    {t("upgradeToPlus")}
+                </Button>
+
                 <LanguageToggle />
 
                 <div className="hidden md:flex items-center px-3 py-1 bg-yellow-100 rounded-full border border-yellow-200">
@@ -79,4 +84,4 @@ export function Topbar() {
     )
 }
 
-import { Settings } from "lucide-react"
+

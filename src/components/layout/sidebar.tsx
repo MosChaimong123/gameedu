@@ -48,15 +48,7 @@ export function Sidebar({ className }: { className?: string }) {
                     })}
                 </nav>
             </div>
-            <div className="border-t p-4">
-                <div className="rounded-lg bg-slate-50 p-4">
-                    <h4 className="text-sm font-semibold text-slate-800">{t("upgradeToPlus")}</h4>
-                    <p className="mt-1 text-xs text-slate-500">{t("getMoreTokens")}</p>
-                    <button className="mt-3 w-full rounded-md bg-purple-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-purple-500">
-                        {t("upgradeNow")}
-                    </button>
-                </div>
-            </div>
         </div>
     )
 }
+

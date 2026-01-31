@@ -54,15 +54,12 @@ export function EditorDialog({ open, onOpenChange, activeQuestion, setActiveQues
                             {/* Time Limit Popover */}
                             <Popover>
                                 <PopoverTrigger asChild>
-                                    <div className="group flex items-center bg-purple-700/60 hover:bg-purple-700 rounded-xl px-4 py-2 border-2 border-purple-400/40 cursor-pointer transition-all active:scale-95 select-none w-32 justify-between">
-                                        <div className="flex items-center">
-                                            <Clock className="w-6 h-6 mr-3 text-purple-200 group-hover:text-white" />
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] font-extrabold tracking-wider text-purple-200 uppercase">{t("timeLimit")}</span>
-                                                <span className="text-2xl font-black leading-none">{activeQuestion.timeLimit}</span>
-                                            </div>
+                                    <div className="group flex items-center bg-purple-700/60 hover:bg-purple-700 rounded-lg px-3 py-2 border border-purple-400/30 cursor-pointer transition-all active:scale-95 select-none h-10 gap-2">
+                                        <Clock className="w-4 h-4 text-purple-200 group-hover:text-white" />
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-purple-200 group-hover:text-white whitespace-nowrap">{t("timeLimit")}:</span>
+                                            <span className="text-sm font-black text-white">{activeQuestion.timeLimit}s</span>
                                         </div>
-                                        <div className="text-purple-300 group-hover:text-white text-[10px]">▲</div>
                                     </div>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-32 p-1 bg-purple-800 border-purple-600 text-white">
@@ -85,38 +82,32 @@ export function EditorDialog({ open, onOpenChange, activeQuestion, setActiveQues
 
                             {/* Random Order */}
                             <div
-                                className="group flex items-center bg-purple-700/60 hover:bg-purple-700 rounded-xl px-4 py-2 border-2 border-purple-400/40 cursor-pointer transition-all active:scale-95 select-none"
+                                className="group flex items-center bg-purple-700/60 hover:bg-purple-700 rounded-lg px-3 py-2 border border-purple-400/30 cursor-pointer transition-all active:scale-95 select-none h-10 gap-2"
                                 onClick={() => {
                                     const isRandom = (activeQuestion as any).randomOrder || false
                                     setActiveQuestion({ ...activeQuestion, randomOrder: !isRandom } as any)
                                 }}
                             >
-                                <div className="flex flex-col leading-none mr-3">
-                                    <span className="text-[10px] font-extrabold tracking-wider text-purple-200 uppercase">{t("randomOrder")}</span>
-                                    <span className="text-sm font-bold">Order</span>
-                                </div>
+                                <span className="text-xs font-bold text-purple-200 group-hover:text-white whitespace-nowrap">{t("randomOrder")}</span>
                                 <div className={cn(
-                                    "w-6 h-6 border-2 rounded flex items-center justify-center transition-all",
-                                    (activeQuestion as any).randomOrder ? "bg-purple-500 border-white" : "border-purple-300/50 bg-transparent"
+                                    "w-5 h-5 border-2 rounded flex items-center justify-center transition-all",
+                                    (activeQuestion as any).randomOrder ? "bg-green-500 border-green-500" : "border-purple-300/50 bg-transparent"
                                 )}>
-                                    {(activeQuestion as any).randomOrder && <CheckCircle2 className="w-4 h-4 text-white" />}
+                                    {(activeQuestion as any).randomOrder && <CheckCircle2 className="w-3 h-3 text-white" />}
                                 </div>
                             </div>
 
                             {/* Question Type Popover */}
                             <Popover>
                                 <PopoverTrigger asChild>
-                                    <div className="hidden md:flex flex-col justify-center bg-purple-700/60 hover:bg-purple-700 rounded-xl px-4 py-2 border-2 border-purple-400/40 cursor-pointer transition-all active:scale-95 select-none min-w-[140px]">
-                                        <span className="text-[10px] font-extrabold tracking-wider text-purple-200 uppercase text-center w-full">{t("selectQuestionType")}</span>
-                                        <div className="flex items-center justify-center gap-2">
-                                            <span className="text-sm font-bold text-center">
-                                                {activeQuestion.questionType === "TYPING_ANSWER" ? t("typingAnswer") : t("multipleChoice")}
-                                            </span>
-                                            <span className="text-[10px] text-purple-300">▼</span>
-                                        </div>
+                                    <div className="hidden md:flex items-center bg-purple-700/60 hover:bg-purple-700 rounded-lg px-3 py-2 border border-purple-400/30 cursor-pointer transition-all active:scale-95 select-none h-10 gap-2">
+                                        <span className="text-xs font-bold text-purple-200 group-hover:text-white whitespace-nowrap">{t("selectQuestionType")}:</span>
+                                        <span className="text-sm font-bold text-white">
+                                            {activeQuestion.questionType === "TYPING_ANSWER" ? t("typingAnswer") : t("multipleChoice")}
+                                        </span>
+                                        <span className="text-[10px] text-purple-300 group-hover:text-white">▼</span>
                                     </div>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[300px] p-0 bg-white border-0 shadow-xl overflow-hidden rounded-xl">
+                                </PopoverTrigger>                                <PopoverContent className="w-[300px] p-0 bg-white border-0 shadow-xl overflow-hidden rounded-xl">
                                     <div className="bg-purple-600 p-3 text-center">
                                         <span className="text-white font-bold">{t("selectQuestionType")}</span>
                                     </div>

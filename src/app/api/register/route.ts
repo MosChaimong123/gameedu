@@ -8,6 +8,7 @@ const registerSchema = z.object({
     email: z.string().email(),
     password: z.string().min(6),
     role: z.string().default("STUDENT"),
+    school: z.string().optional(),
 })
 
 export async function POST(req: Request) {
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
     try {
         step = "parse_body";
         const body = await req.json()
-        const { name, username, email, password, role } = registerSchema.parse(body)
+        const { name, username, email, password, role, school } = registerSchema.parse(body)
 
         step = "check_uniqueness";
         const existingEmail = await db.user.findUnique({ where: { email } })
@@ -39,7 +40,8 @@ export async function POST(req: Request) {
                 username,
                 email,
                 password: hashedPassword,
-                role
+                role,
+                school
             },
         })
 

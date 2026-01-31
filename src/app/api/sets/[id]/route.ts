@@ -77,6 +77,42 @@ export async function PATCH(
         return NextResponse.json(updatedSet)
     } catch (error) {
         console.error("[SET_PATCH]", error)
+    }
+}
+
+export async function DELETE(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const session = await auth()
+        if (!session || !session.user) {
+            return new NextResponse("Unauthorized", { status: 401 })
+        }
+
+        const { id } = await params
+
+        // Check ownership
+        const existingSet = await db.questionSet.findUnique({
+            where: {
+                id: id,
+                creatorId: session.user.id,
+            },
+        })
+
+        if (!existingSet) {
+            return new NextResponse("Not Found", { status: 404 })
+        }
+
+        await db.questionSet.delete({
+            where: {
+                id: id,
+            },
+        })
+
+        return new NextResponse(null, { status: 200 })
+    } catch (error) {
+        console.error("[SET_DELETE]", error)
         return new NextResponse("Internal Error", { status: 500 })
     }
 }

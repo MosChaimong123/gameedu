@@ -60,10 +60,15 @@ export function SettingsDialog({ open, onOpenChange, title, description, coverIm
                         </div>
                         <div className="flex items-center justify-between pt-2 border-t">
                             <Label>{t("privacySetting")}</Label>
-                            <Switch
-                                checked={isPublic}
-                                onCheckedChange={(c) => onUpdate({ title, description, coverImage, isPublic: c })}
-                            />
+                            <div className="flex items-center space-x-2">
+                                <span className="text-xs text-slate-500">
+                                    {isPublic ? t("public") : t("private")}
+                                </span>
+                                <Switch
+                                    checked={!isPublic}
+                                    onCheckedChange={(c) => onUpdate({ title, description, coverImage, isPublic: !c })}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>

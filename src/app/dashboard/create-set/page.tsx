@@ -22,7 +22,7 @@ export default function CreateSetPage() {
     const [description, setDescription] = useState("")
     const [coverImage, setCoverImage] = useState("")
     const [isPublic, setIsPublic] = useState(true)
-    const [creationMethod, setCreationMethod] = useState<"manual" | "quizlet" | "csv">("manual")
+    const [creationMethod, setCreationMethod] = useState<"manual" | "csv">("manual")
 
     const handleSubmit = async () => {
         if (!title.trim()) return
@@ -42,7 +42,11 @@ export default function CreateSetPage() {
 
             if (res.ok) {
                 const set = await res.json()
-                router.push(`/dashboard/edit-set/${set.id}`)
+                if (creationMethod === "csv") {
+                    router.push(`/dashboard/edit-set/${set.id}?openImport=true`)
+                } else {
+                    router.push(`/dashboard/edit-set/${set.id}`)
+                }
                 router.refresh()
             } else {
                 const msg = await res.text()
@@ -164,15 +168,6 @@ export default function CreateSetPage() {
                             >
                                 <FileText className="mr-2 h-5 w-5" />
                                 {t("manual")}
-                            </Button>
-                            <Button
-                                type="button"
-                                variant={creationMethod === "quizlet" ? "default" : "outline"}
-                                className={`flex-1 h-12 font-bold ${creationMethod === "quizlet" ? "bg-teal-500 hover:bg-teal-600 border-none" : "border-2"}`}
-                                onClick={() => setCreationMethod("quizlet")}
-                            >
-                                <span className="mr-2 text-xl font-serif font-black">Q</span>
-                                {t("quizletImport")}
                             </Button>
                             <Button
                                 type="button"

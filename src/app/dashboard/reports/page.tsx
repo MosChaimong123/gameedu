@@ -6,7 +6,6 @@ import { Calendar, Clock, Trophy, Users, ArrowRight, BarChart3, TrendingUp } fro
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 export const dynamic = "force-dynamic";
 

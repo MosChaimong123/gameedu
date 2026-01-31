@@ -34,7 +34,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     }
 
     const t = (key: keyof typeof translations["en"], params?: Record<string, string | number>) => {
-        let text = translations[language][key] || key
+        let text = (translations[language] as any)[key] || key
         if (params) {
             Object.entries(params).forEach(([paramKey, value]) => {
                 text = text.replace(`{${paramKey}}`, String(value))

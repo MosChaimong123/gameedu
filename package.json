@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "ts-node --project tsconfig.server.json server.ts",
-    "build": "next build && tsc --project tsconfig.server.json",
+    "build": "npx prisma generate && next build && tsc --project tsconfig.server.json",
+    "postinstall": "prisma generate",
     "start": "node dist/server.js",
     "lint": "eslint"
   },

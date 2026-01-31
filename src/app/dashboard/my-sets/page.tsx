@@ -21,7 +21,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Plus, BookOpen, Clock, Loader2, MoreVertical, Search, Trash2, ArrowLeft } from "lucide-react"
+import { Plus, BookOpen, Clock, Loader2, MoreVertical, Search, Trash2, ArrowLeft, Image as ImageIcon } from "lucide-react"
 
 type QuestionSet = {
     id: string

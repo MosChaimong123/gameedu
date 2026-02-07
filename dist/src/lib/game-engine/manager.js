@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.gameManager = void 0;
 const gold_quest_engine_1 = require("./gold-quest-engine");
 const crypto_hack_engine_1 = require("./crypto-hack-engine");
+const db_1 = require("../db");
 class GameManager {
     constructor() {
         this.loopInterval = null;
@@ -48,14 +49,18 @@ class GameManager {
         this.deleteGameOnDb(pin);
         console.log(`[GameManager] Removed game ${pin}`);
     }
+    setIO(io) {
+        this.io = io;
+        for (const game of this.games.values()) {
+            game.setIO(io);
+        }
+    }
     // --- Persistence ---
     async saveGameToHistory(game) {
         if (!game.startTime || game.hasArchived)
             return;
         try {
-            const { PrismaClient } = require("@prisma/client");
-            const prisma = new PrismaClient();
-            await prisma.gameHistory.create({
+            await db_1.db.gameHistory.create({
                 data: {
                     hostId: game.hostId,
                     gameMode: game.gameMode,
@@ -76,10 +81,8 @@ class GameManager {
     async saveGame(game) {
         // ... (existing save logic)
         try {
-            const { PrismaClient } = require("@prisma/client");
-            const prisma = new PrismaClient(); // In prod, use singleton prisma
             const data = game.serialize();
-            await prisma.activeGame.upsert({
+            await db_1.db.activeGame.upsert({
                 where: { pin: game.pin },
                 update: {
                     state: data.state,
@@ -105,9 +108,7 @@ class GameManager {
     }
     async deleteGameOnDb(pin) {
         try {
-            const { PrismaClient } = require("@prisma/client");
-            const prisma = new PrismaClient();
-            await prisma.activeGame.delete({ where: { pin } }).catch(() => { });
+            await db_1.db.activeGame.delete({ where: { pin } }).catch(() => { });
         }
         catch (err) {
             // Ignore error if already deleted
@@ -116,32 +117,29 @@ class GameManager {
     async recoverGames() {
         console.log("[Persistence] Recovering games...");
         try {
-            const { PrismaClient } = require("@prisma/client");
-            const prisma = new PrismaClient();
-            const activeGames = await prisma.activeGame.findMany();
+            const activeGames = await db_1.db.activeGame.findMany();
             for (const record of activeGames) {
                 if (this.games.has(record.pin))
                     continue;
-                // Re-instantiate based on mode
-                // TODO: Support CryptoHack recovery properly (need serialization fix)
-                const game = new gold_quest_engine_1.GoldQuestEngine(record.pin, record.hostId, "", record.settings, record.questions, null);
+                let game;
+                if (record.gameMode === "CRYPTO_HACK") {
+                    game = new crypto_hack_engine_1.CryptoHackEngine(record.pin, record.hostId, "", record.settings, record.questions, null);
+                }
+                else {
+                    // Default to Gold Quest
+                    game = new gold_quest_engine_1.GoldQuestEngine(record.pin, record.hostId, "", record.settings, record.questions, null);
+                }
                 // restore data
                 game.restore({
                     ...record,
                     state: record.state
                 });
                 this.games.set(record.pin, game);
-                console.log(`[Persistence] Recovered game ${record.pin}`);
+                console.log(`[Persistence] Recovered game ${record.pin} (${record.gameMode})`);
             }
         }
         catch (err) {
             console.error("[Persistence] Recovery failed", err);
-        }
-    }
-    setIO(io) {
-        this.io = io;
-        for (const game of this.games.values()) {
-            game.setIO(io);
         }
     }
     // --- Global Loop ---

@@ -60,8 +60,19 @@ export function GoldQuestClient({ socket, player, otherPlayers, onNavigate }: Pr
 
     // Handlers
     const handleOpenChest = (index: number) => {
-        if (!socket) return;
+        console.log("Attempting to open chest:", index);
+        if (!socket) {
+            console.error("Socket not connected");
+            return;
+        }
+        if (isChestOpen) return;
+
         const pin = sessionStorage.getItem("game_pin");
+        if (!pin) {
+            console.error("No game PIN found");
+            return;
+        }
+
         socket.emit("open-chest", { pin, chestIndex: index });
     };
 

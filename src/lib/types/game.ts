@@ -73,8 +73,9 @@ export type HackTask =
         };
     }
     | { type: "UPLOAD_DATA"; payload: { size: number } }
-    | { type: "PATTERN"; payload: { length: number } };
-// Add more types here later
+    | { type: "PATTERN"; payload: { length: number } }
+    | { type: "FREQUENCY" }
+    | { type: "MEMORY" };
 
 export interface CryptoHackPlayer extends BasePlayer {
     crypto: number;
@@ -85,6 +86,7 @@ export interface CryptoHackPlayer extends BasePlayer {
     currentTask?: HackTask | null; // The task they must complete to unlock
     pendingRewards?: CryptoReward[]; // Store rewards here for persistence
     hackingHistory: Record<string, number>; // targetId -> failedAttempts
+    completedTaskTypes: string[]; // Track completed tasks to avoid repeats
 }
 
 export interface CryptoHackSession extends GameSession {

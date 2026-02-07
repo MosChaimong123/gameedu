@@ -15,7 +15,7 @@ import { TaskOverlay } from "@/components/game/crypto-hack/task-overlay"
 
 import { cn } from "@/lib/utils"
 
-type GameView = "QUESTION" | "FEEDBACK" | "CHEST" | "GAME_OVER" | "PASSWORD_SELECTION" | "ACTION_CHOICE" | "HACK_TARGET" | "HACK_GUESS" | "BOX_SELECTION";
+type GameView = "LOBBY" | "QUESTION" | "FEEDBACK" | "CHEST" | "GAME_OVER" | "PASSWORD_SELECTION" | "ACTION_CHOICE" | "HACK_TARGET" | "HACK_GUESS" | "BOX_SELECTION";
 
 type QuestionPayload = {
     id: string;
@@ -69,9 +69,11 @@ export default function PlayerGamePage() {
     const [passwordOptions, setPasswordOptions] = useState<string[]>([])
     const [hackHint, setHackHint] = useState<string | null>(null)
     const [boxReveal, setBoxReveal] = useState<{ index: number, reward: CryptoReward } | null>(null)
+    const [hackResult, setHackResult] = useState<{ success: boolean; amount?: number; targetName: string } | null>(null);
 
     // Timer refs
     const navigationTimer = useRef<NodeJS.Timeout | null>(null)
+    const hasRequestedFirstQuestion = useRef(false);
 
     useEffect(() => {
         // Mode Ref Sync
@@ -106,13 +108,24 @@ export default function PlayerGamePage() {
 
         // --- Socket Listeners ---
 
-        socket.on("game-started", (data: { startTime: number, settings: any }) => {
+        socket.on("game-started", (data: { startTime: number, settings: any, gameMode?: string }) => {
             console.log("CLIENT RECEIVED GAME START:", data);
 
             // Ensure music is playing if reconnected
             play("bgm-gold-quest", { volume: 0.3 })
 
             setGameSettings(data.settings)
+
+            // CRITICAL: Update Game Mode immediately if provided
+            if (data.gameMode) {
+                console.log("Setting Game Mode from start payload:", data.gameMode);
+                setGameMode(data.gameMode as any);
+                gameModeRef.current = data.gameMode as any; // Force sync ref immediately for next check
+            }
+
+            // Request first question logic MOVED to game-state-update to ensure correct mode detection
+            // even if server doesn't send gameMode in game-started payload.
+            console.log("Game started. Waiting for state update to confirm mode and request question...");
 
             // ... (timer logic) ...
             if (data.settings?.winCondition === "TIME" && data.startTime && data.settings.timeLimitMinutes) {
@@ -151,16 +164,10 @@ export default function PlayerGamePage() {
                     // Only go to CHEST if Gold Quest
                     if (gameModeRef.current === "GOLD_QUEST") {
                         setView("CHEST")
-                    } else {
+                    } else if (gameModeRef.current === "CRYPTO_HACK") {
                         console.log("Skipping CHEST nav because mode is CRYPTO_HACK. Waiting for choose-box...");
-                        // Fail-safe: If choose-box doesn't arrive in 2.5s, request it
-                        setTimeout(() => {
-                            // We can't easily check 'view' here without a ref, but requesting rewards is safe-ish
-                            if (gameModeRef.current === "CRYPTO_HACK") {
-                                console.log("Requesting missing rewards...");
-                                socket.emit("request-rewards", { pin: sessionStorage.getItem("game_pin") });
-                            }
-                        }, 2500);
+                        // Do not navigate. "choose-box" event will drive the view change.
+                        // If it fails, user stays on Feedback, which is better than Chest.
                     }
                     navigationTimer.current = null;
                 }, 1500)
@@ -178,19 +185,90 @@ export default function PlayerGamePage() {
 
 
         socket.on("game-state-update", (data: { players: (GoldQuestPlayer | CryptoHackPlayer)[] }) => {
-            const others = data.players.filter(p => p.name !== name)
-            setOtherPlayers(others as any[])
+            const others = data.players.filter(p => p.name !== name);
+            setOtherPlayers(others as any[]);
 
-            const me = data.players.find(p => p.name === name)
+            const hackState = (data as any).hackState;
+            const passwordOptions = (data as any).passwordOptions;
+
+            const me = data.players.find(p => p.name === name);
             const isCrypto = me && 'crypto' in me;
             const newMode = isCrypto ? "CRYPTO_HACK" : "GOLD_QUEST";
 
+            // Sync Game Mode
             if (me && gameModeRef.current !== newMode) {
+                console.log(`Switching Game Mode: ${gameModeRef.current} -> ${newMode}`);
                 setGameMode(newMode);
+                gameModeRef.current = newMode;
             }
 
+            // Sync Password Options
+            if (passwordOptions && passwordOptions.length > 0) {
+                // Hot-fix: Override stale server options on client side
+                let opts = passwordOptions.length < 10 ? [
+                    "Bitcoin", "Ethereum", "Dogecoin", "Solana", "Cardano",
+                    "Ripple", "Binance", "Tether", "Polkadot", "Litecoin",
+                    "Chainlink", "Stellar", "Monero", "Tron", "Cosmos",
+                    "Tezos", "IOTA", "Neo", "Dash", "Zcash",
+                    "Maker", "Aave", "Uniswap", "Sushi", "Compound",
+                    "Curve", "Yearn", "Polygon", "Avalanche", "Terra",
+                    "Algorand", "VeChain", "Filecoin", "Sandbox", "Decentraland",
+                    "Axie", "Theta", "Fantom", "Quant", "Hedera",
+                    "Near", "Flow", "EOS", "TrueUSD", "Zilliqa",
+                    "Harmony", "Elrond", "Enjin", "Chiliz", "Kusama"
+                ] : passwordOptions;
 
+                // Client-Side Filter: Remove passwords taken by others to ensure uniqueness
+                if (data.players && Array.isArray(data.players)) {
+                    const taken = new Set(data.players
+                        .map((p: any) => p.password)
+                        .filter((p: any) => p && p !== ""));
 
+                    opts = opts.filter((p: string) => !taken.has(p));
+                }
+
+                setPasswordOptions(opts);
+            }
+
+            // --- Game Logic & View Transitions ---
+
+            if (newMode === "GOLD_QUEST") {
+                // Gold Quest Logic
+                if (!hasRequestedFirstQuestion.current) {
+                    const pin = sessionStorage.getItem("game_pin");
+                    if (pin) {
+                        console.log("Requesting initial question for GOLD_QUEST.");
+                        socket.emit("request-question", { pin });
+                        hasRequestedFirstQuestion.current = true;
+                    }
+                }
+            } else if (newMode === "CRYPTO_HACK") {
+                // Crypto Hack Logic
+                if (hackState === "PASSWORD_SELECTION") {
+                    // Enforce View
+                    if (view !== "PASSWORD_SELECTION") {
+                        console.log("Enforcing PASSWORD_SELECTION view");
+                        setView("PASSWORD_SELECTION");
+                    }
+                    hasRequestedFirstQuestion.current = true; // Prevent question request
+                } else if (hackState === "HACKING") {
+                    // Late join to Hacking Phase/Refresh
+                    if (!hasRequestedFirstQuestion.current) {
+                        console.log("Late join in HACKING phase. Force Update.");
+
+                        // If we are in LOBBY, move to QUESTION immediately (or let choose-box handle it)
+                        if (view === "LOBBY") {
+                            setView("QUESTION");
+                        }
+
+                        const pin = sessionStorage.getItem("game_pin");
+                        if (pin) socket.emit("request-question", { pin });
+                        hasRequestedFirstQuestion.current = true;
+                    }
+                }
+            }
+
+            // Stats Update
             const sorted = [...data.players].sort((a: any, b: any) => {
                 if (isCrypto) return (b.crypto || 0) - (a.crypto || 0);
                 return (b.gold || 0) - (a.gold || 0);
@@ -204,18 +282,12 @@ export default function PlayerGamePage() {
                     ...me,
                     score: rank
                 }));
-                // Sync Task/Glitch State
                 if ('isGlitched' in me) {
                     const hackMe = me as CryptoHackPlayer;
                     setCurrentTask(hackMe.currentTask || null);
                 }
             }
-
-            // Sync Password Options if available (Crucial for reconnects)
-            if ((data as any).passwordOptions && (data as any).passwordOptions.length > 0) {
-                setPasswordOptions((data as any).passwordOptions);
-            }
-        })
+        });
 
         socket.on("interaction-effect", (data: { source: string; target: string; type: "SWAP" | "STEAL" }) => {
             if (data.target === name) {
@@ -238,12 +310,32 @@ export default function PlayerGamePage() {
         });
 
         socket.on("choose-password", (data: { options: string[] }) => {
-            setPasswordOptions(data.options);
+            console.log("Setting Game Mode to CRYPTO_HACK via choose-password");
+            // Force mode update to ensure view renders
+            setGameMode("CRYPTO_HACK");
+            gameModeRef.current = "CRYPTO_HACK";
+
+            // Hot-fix: Override stale server options on client side
+            const opts = data.options.length < 10 ? [
+                "Bitcoin", "Ethereum", "Dogecoin", "Solana", "Cardano",
+                "Ripple", "Binance", "Tether", "Polkadot", "Litecoin",
+                "Chainlink", "Stellar", "Monero", "Tron", "Cosmos",
+                "Tezos", "IOTA", "Neo", "Dash", "Zcash",
+                "Maker", "Aave", "Uniswap", "Sushi", "Compound",
+                "Curve", "Yearn", "Polygon", "Avalanche", "Terra",
+                "Algorand", "VeChain", "Filecoin", "Sandbox", "Decentraland",
+                "Axie", "Theta", "Fantom", "Quant", "Hedera",
+                "Near", "Flow", "EOS", "TrueUSD", "Zilliqa",
+                "Harmony", "Elrond", "Enjin", "Chiliz", "Kusama"
+            ] : data.options;
+
+            setPasswordOptions(opts);
             setView("PASSWORD_SELECTION");
         });
 
         socket.on("hack-options", (data: { targetId: string, options: string[], hint?: string }) => {
             sessionStorage.setItem("hack_target_id", data.targetId);
+
             setPasswordOptions(data.options);
             setHackHint(data.hint || null);
             setView("HACK_GUESS");
@@ -266,14 +358,17 @@ export default function PlayerGamePage() {
             }
         });
 
-        socket.on("hack-result", (data: { success: boolean, amount: number, targetName: string }) => {
-            if (data.success) {
-                alert(`SUCCESS! Hacked ${data.targetName} for ₿${data.amount}!`);
-            } else {
-                alert(`FAILED! ${data.targetName} protected their crypto.`);
-            }
-            setView("QUESTION");
-            if (pin) socket.emit("request-question", { pin });
+        socket.on("hack-result", (data: { success: boolean, amount?: number, targetName: string }) => {
+            // Using boxReveal state to piggyback the UI or add a new one?
+            // Let's add a specialized state for HackResult to avoid conflict
+            setHackResult(data);
+
+            setTimeout(() => {
+                setHackResult(null);
+                setView("QUESTION");
+                const pin = sessionStorage.getItem("game_pin");
+                if (pin) socket.emit("request-question", { pin });
+            }, 3000);
         });
 
         socket.on("selection-error", () => {
@@ -320,10 +415,27 @@ export default function PlayerGamePage() {
             }
         })
 
-        // Initial Question Request
-        socket.emit("request-question", { pin })
+        socket.on("joined-success", (data: any) => {
+            console.log("Joined success. Server says Mode:", data?.gameMode);
+
+            if (data?.gameMode) {
+                setGameMode(data.gameMode as any);
+                gameModeRef.current = data.gameMode as any;
+            }
+
+            // Only request question for Gold Quest
+            if (pin && gameModeRef.current === "GOLD_QUEST") {
+                socket.emit("request-question", { pin });
+            } else {
+                console.log("Waiting for game logic based on mode:", gameModeRef.current);
+            }
+        });
+
+        // Initial Question Request - REMOVED to avoid race condition
+        // socket.emit("request-question", { pin })
 
         return () => {
+            socket.off("joined-success");
             socket.off("game-started");
             socket.off("game-phase-change");
             socket.off("next-question");
@@ -388,8 +500,8 @@ export default function PlayerGamePage() {
 
     return (
         <div className="flex flex-col h-screen bg-slate-900 overflow-hidden text-white font-sans">
-            {/* Audio Toggle */}
-            <SoundController className="absolute top-4 right-16 z-50" />
+            {/* Audio Toggle - Moved to bottom right to avoid header overlap */}
+            <SoundController className="absolute bottom-4 right-16 z-50" />
 
             {/* Notification Container */}
             {notification && (
@@ -401,21 +513,57 @@ export default function PlayerGamePage() {
             )}
 
             <div className="flex-1 w-full h-full relative">
-                {/* Connection Status */}
-                <div className="absolute top-4 right-4 z-50">
+                {/* Connection Status - Moved to bottom right to avoid header overlap */}
+                <div className="absolute bottom-4 right-4 z-50">
                     <div className={cn(
                         "w-3 h-3 rounded-full shadow-md transition-colors",
                         socket?.connected ? "bg-green-500" : "bg-red-500 animate-pulse"
                     )} title={socket?.connected ? "Connected" : "Disconnected"} />
                 </div>
 
+                {/* Leave Button */}
+                <button
+                    onClick={() => {
+                        const pin = sessionStorage.getItem("game_pin");
+                        if (socket && pin) {
+                            socket.emit("leave-game", { pin });
+                        }
+                        sessionStorage.removeItem("game_pin");
+                        // Don't clear player_name so they can rejoin easily if accidental? 
+                        // Actually user wants to leave to remove name. So clear all relevant.
+                        sessionStorage.removeItem("player_name");
+                        window.location.href = "/play";
+                    }}
+                    className="absolute bottom-4 left-4 z-50 bg-red-600/80 hover:bg-red-500 text-white px-4 py-2 rounded-full font-bold text-xs shadow-lg backdrop-blur-sm transition-all hover:scale-105 active:scale-95"
+                >
+                    LEAVE GAME
+                </button>
+
                 {/* Shared Views */}
                 {view === "QUESTION" && currentQuestion && (
-                    <div className="relative z-10 w-full h-full flex items-center justify-center p-4">
-                        <QuestionCard
-                            question={currentQuestion}
-                            onAnswer={handleAnswer}
-                        />
+                    <div className="relative z-10 w-full h-full flex flex-col items-center justify-center">
+                        <div className="w-full absolute top-0 left-0 z-20">
+                            {gameMode === "GOLD_QUEST" ? (
+                                <GameHeader
+                                    player={player as GoldQuestPlayer}
+                                    endTime={endTime}
+                                    goldGoal={gameSettings?.winCondition === "GOLD" ? gameSettings.goldGoal : undefined}
+                                />
+                            ) : (
+                                // Basic placeholder for CryptoHack if needed, or reuse GameHeader with different styling
+                                <GameHeader
+                                    player={{ ...player, gold: (player as CryptoHackPlayer).crypto || 0 } as GoldQuestPlayer}
+                                    endTime={endTime}
+                                    goldGoal={gameSettings?.winCondition === "GOLD" ? gameSettings.goldGoal : undefined}
+                                />
+                            )}
+                        </div>
+                        <div className="flex-1 w-full flex items-center justify-center p-4 pt-16">
+                            <QuestionCard
+                                question={currentQuestion}
+                                onAnswer={handleAnswer}
+                            />
+                        </div>
                     </div>
                 )}
 
@@ -456,13 +604,31 @@ export default function PlayerGamePage() {
                     </div>
                 )}
 
+                {/* Glitch / Task Overlay */}
+                {currentTask && (
+                    <TaskOverlay
+                        task={currentTask}
+                        onComplete={() => {
+                            // Optimistic clear
+                            setCurrentTask(null);
+                            if (socket) socket.emit("task-complete", { pin: sessionStorage.getItem("game_pin") });
+                        }}
+                    />
+                )}
+
                 {/* Game Mode Specific Clients */}
                 {gameMode === "GOLD_QUEST" && view === "CHEST" && (
                     <GoldQuestClient
                         socket={socket}
                         player={player as GoldQuestPlayer}
                         otherPlayers={otherPlayers as GoldQuestPlayer[]}
-                        onNavigate={(v) => setView(v as GameView)}
+                        onNavigate={(v) => {
+                            setView(v as GameView)
+                            if (v === "QUESTION") {
+                                const pin = sessionStorage.getItem("game_pin");
+                                if (pin && socket) socket.emit("request-question", { pin });
+                            }
+                        }}
                     />
                 )}
 
@@ -470,17 +636,20 @@ export default function PlayerGamePage() {
                     <CryptoHackClient
                         socket={socket}
                         player={player as CryptoHackPlayer}
-                        otherPlayers={otherPlayers as unknown as CryptoHackPlayer[]} // Casting partial
+                        otherPlayers={otherPlayers as unknown as CryptoHackPlayer[]}
                         onNavigate={(v) => setView(v as GameView)}
                         view={view}
                         setView={setView}
                         endTime={endTime}
                         cryptoGoal={gameSettings?.winCondition === "GOLD" ? gameSettings.goldGoal : undefined}
+                        // Connect Missing State
                         passwordOptions={passwordOptions}
                         hackHint={hackHint}
+                        hackResult={hackResult}
                         boxReveal={boxReveal}
                     />
                 )}
+
 
                 {/* Background */}
                 <div className="absolute inset-0 -z-10 bg-[url('https://media.blooket.com/image/upload/v1613002626/Backgrounds/goldQuest.jpg')] bg-cover bg-center opacity-20 pointer-events-none" />

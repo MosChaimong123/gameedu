@@ -23,42 +23,51 @@ export function GoldQuestPlayerView({ player, otherPlayers = [], onOpenChest, on
     const isInteraction = currentReward?.type === "SWAP" || currentReward?.type === "STEAL";
 
     return (
-        <div className="flex-1 w-full relative flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-[url('https://media.blooket.com/image/upload/v1613002626/Backgrounds/goldQuest.jpg')] bg-cover bg-center opacity-30" />
+        <div className="h-full w-full relative flex flex-col items-center justify-center p-4">
+            <div className="absolute inset-0 bg-[url('https://media.blooket.com/image/upload/v1613002626/Backgrounds/goldQuest.jpg')] bg-cover bg-center opacity-30 pointer-events-none" />
 
-            <div className="z-10 w-full max-w-lg">
-                {/* Instructions / Prompt */}
-                <div className="text-center mb-8">
-                    <h2 className="text-3xl font-black text-white drop-shadow-md pb-2">
-                        {isChestOpen ? (isInteraction ? "Choose a Victim!" : "Reward Unlocked!") : "Choose a Chest"}
+            <div className="z-40 w-full max-w-4xl flex flex-col items-center">
+                <div className="text-center mb-12">
+                    <h2 className="text-5xl md:text-6xl font-black text-white drop-shadow-[0_4px_0_rgba(0,0,0,0.5)] tracking-tight mb-4">
+                        {isChestOpen ? (isInteraction ? "เลือกเหยื่อ!" : "เปิดหีบสำเร็จ!") : "เลือกหีบสมบัติ"}
                     </h2>
                     {!isChestOpen && (
-                        <p className="text-slate-300 font-bold animate-pulse">Select one of 3 chests (NO ANIM)</p>
+                        <p className="text-xl text-amber-200 font-bold animate-pulse tracking-widest uppercase">เลือกหีบเพื่อลุ้นรับรางวัล</p>
                     )}
                 </div>
 
-                <div className="flex w-full justify-center gap-4">
+                <div className="flex w-full justify-center gap-6 md:gap-12 px-4">
                     {chests.map((i) => (
-                        <div
+                        <button
                             key={i}
+                            type="button"
                             onClick={() => !isChestOpen && onOpenChest(i)}
                             className={cn(
-                                "flex-1 aspect-square rounded-2xl cursor-pointer shadow-xl relative group transition-all max-w-[150px]",
+                                "flex-1 aspect-square rounded-3xl cursor-pointer relative group transition-all duration-300 w-full max-w-[240px] z-50",
                                 isChestOpen
-                                    ? "opacity-50 grayscale cursor-not-allowed"
-                                    : "hover:shadow-amber-500/20 bg-gradient-to-br from-amber-600 to-amber-800 border-b-8 border-amber-900",
-                                // Add a transform hover effect manually since motion is gone
-                                !isChestOpen && "hover:scale-105 hover:-rotate-2"
+                                    ? "opacity-50 grayscale cursor-not-allowed scale-95"
+                                    : "hover:scale-110 hover:-translate-y-4 hover:shadow-[0_0_40px_rgba(245,158,11,0.6)] shadow-2xl bg-gradient-to-b from-amber-500 to-amber-700 border-b-8 border-amber-900",
+                                !isChestOpen && "animate-in slide-in-from-bottom-8 fade-in fill-mode-backwards"
                             )}
+                            style={{ animationDelay: `${i * 100}ms` }}
                         >
-                            {/* Chest Graphic (simplified css/svg) */}
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <div className="w-16 h-12 bg-amber-900 rounded-md border-2 border-amber-400 flex flex-col items-center justify-center shadow-inner relative group-hover:-translate-y-1 transition-transform">
-                                    <div className="w-full h-1/2 border-b-2 border-black/20 bg-amber-800 rounded-t-sm" />
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-5 bg-yellow-400 rounded-sm border border-yellow-600 shadow-sm" />
+                            {/* Chest Graphic */}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 pointer-events-none">
+                                <div className={cn(
+                                    "w-full h-2/3 bg-amber-900/40 rounded-xl border-4 border-amber-300/50 flex flex-col items-center justify-center shadow-inner relative transition-transform duration-300",
+                                    !isChestOpen && "group-hover:-translate-y-2"
+                                )}>
+                                    {/* Lid */}
+                                    <div className="w-[110%] h-1/2 absolute -top-2 bg-gradient-to-b from-amber-400 to-amber-600 rounded-lg border-b-4 border-amber-800 shadow-sm z-10" />
+                                    {/* Lock */}
+                                    <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-10 bg-yellow-400 rounded-lg border-2 border-yellow-600 shadow-md z-20 flex items-center justify-center">
+                                        <div className="w-2 h-3 bg-black/20 rounded-full" />
+                                    </div>
+                                    {/* Body Detail */}
+                                    <div className="absolute bottom-4 w-3/4 h-2 bg-black/10 rounded-full" />
                                 </div>
                             </div>
-                        </div>
+                        </button>
                     ))}
                 </div>
             </div>
@@ -88,7 +97,7 @@ export function GoldQuestPlayerView({ player, otherPlayers = [], onOpenChest, on
                             />
 
                             <div className="text-slate-400 font-bold uppercase tracking-widest text-sm mb-2">
-                                {isInteraction ? "Interaction!" : "You Found"}
+                                {isInteraction ? "แกล้งเพื่อน!" : "คุณได้รับ"}
                             </div>
                             <motion.div
                                 initial={{ scale: 0 }}
@@ -99,11 +108,11 @@ export function GoldQuestPlayerView({ player, otherPlayers = [], onOpenChest, on
                                 {currentReward.label}
                             </motion.div>
                             <div className="text-slate-500 font-bold mb-6">
-                                {currentReward.type === "GOLD" && "Coins added to your total!"}
-                                {currentReward.type === "LOSE_GOLD" && "Oh no! You lost some gold."}
-                                {currentReward.type === "MULTIPLIER" && `Your next chest will be x${currentReward.value}!`}
-                                {currentReward.type === "NOTHING" && "Better luck next time!"}
-                                {isInteraction && "Select a player to target:"}
+                                {currentReward.type === "GOLD" && "เหรียญถูกเพิ่มในกระเป๋าแล้ว!"}
+                                {currentReward.type === "LOSE_GOLD" && "แย่จัง! คุณเสียเหรียญไปบางส่วน"}
+                                {currentReward.type === "MULTIPLIER" && `หีบสมบัติถัดไปจะคูณ x${currentReward.value}!`}
+                                {currentReward.type === "NOTHING" && "โชคดีครั้งหน้านะ!"}
+                                {isInteraction && "เลือกเพื่อนที่จะแกล้ง:"}
                             </div>
 
                             {/* Interaction List */}
@@ -148,7 +157,7 @@ export function GoldQuestPlayerView({ player, otherPlayers = [], onOpenChest, on
                                     }
                                 }}
                             >
-                                {isInteraction ? "Confirm" : "Continue"}
+                                {isInteraction ? "ยืนยัน" : "ไปต่อ"}
                             </Button>
                         </motion.div>
                     </motion.div>

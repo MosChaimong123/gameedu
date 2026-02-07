@@ -111,6 +111,19 @@ export default function PlayerLobbyPage() {
                 <p className="text-slate-500 text-sm max-w-xs text-center">
                     You're in! wait for the host to start the game.
                 </p>
+
+                <button
+                    onClick={() => {
+                        if (socket && pin) {
+                            socket.emit("leave-game", { pin });
+                        }
+                        sessionStorage.clear();
+                        router.push("/play");
+                    }}
+                    className="text-red-500 hover:text-red-400 text-sm font-bold hover:underline transition-colors"
+                >
+                    Leave Game
+                </button>
             </div>
         </div>
     )

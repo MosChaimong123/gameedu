@@ -7,6 +7,7 @@ const node_http_1 = require("node:http");
 const next_1 = __importDefault(require("next"));
 const socket_io_1 = require("socket.io");
 const manager_1 = require("./src/lib/game-engine/manager");
+const db_1 = require("./src/lib/db"); // Use Singleton
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
 const port = parseInt(process.env.PORT || "3000", 10);
@@ -40,9 +41,7 @@ app.prepare().then(async () => {
                 pin = Math.floor(100000 + Math.random() * 900000).toString();
                 attempts++;
             }
-            const { PrismaClient } = require("@prisma/client");
-            const prisma = new PrismaClient();
-            prisma.questionSet.findUnique({
+            db_1.db.questionSet.findUnique({
                 where: { id: setId },
             }).then((set) => {
                 if (!set) {
@@ -87,7 +86,7 @@ app.prepare().then(async () => {
                 }
                 game.handleReconnection(existingPlayer, socket);
                 socket.join(pin);
-                socket.emit("joined-success", { pin, nickname });
+                socket.emit("joined-success", { pin, nickname, gameMode: game.gameMode });
                 return;
             }
             // New Player
@@ -104,12 +103,13 @@ app.prepare().then(async () => {
             socket.join(pin);
             // The engine handles "player-joined" emit
             game.addPlayer(newPlayer, socket);
-            socket.emit("joined-success", { pin, nickname });
+            socket.emit("joined-success", { pin, nickname, gameMode: game.gameMode });
             // Sync state if late join
             if (game.status === "PLAYING") {
                 socket.emit("game-started", {
                     startTime: game.startTime,
-                    settings: game.settings
+                    settings: game.settings,
+                    gameMode: game.gameMode
                 });
                 socket.emit("game-state-update", game.serialize());
             }
@@ -122,7 +122,8 @@ app.prepare().then(async () => {
             if (game.status === "PLAYING") {
                 socket.emit("game-started", {
                     startTime: game.startTime,
-                    settings: game.settings
+                    settings: game.settings,
+                    gameMode: game.gameMode
                 });
                 socket.emit("game-state-update", game.serialize());
             }
@@ -139,6 +140,14 @@ app.prepare().then(async () => {
             const game = manager_1.gameManager.getGame(pin);
             if (game)
                 game.endGame();
+        });
+        socket.on("leave-game", ({ pin }) => {
+            const game = manager_1.gameManager.getGame(pin);
+            if (game) {
+                game.removePlayer(socket.id);
+                socket.leave(pin);
+                console.log(`Player ${socket.id} left game ${pin}`);
+            }
         });
         socket.on("disconnect", () => {
             // We need to find which game this socket was in

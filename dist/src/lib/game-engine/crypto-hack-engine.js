@@ -2,6 +2,18 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CryptoHackEngine = void 0;
 const abstract_game_1 = require("./abstract-game");
+const CRYPTO_PASSWORDS = [
+    "Bitcoin", "Ethereum", "Dogecoin", "Solana", "Cardano",
+    "Ripple", "Binance", "Tether", "Polkadot", "Litecoin",
+    "Chainlink", "Stellar", "Monero", "Tron", "Cosmos",
+    "Tezos", "IOTA", "Neo", "Dash", "Zcash",
+    "Maker", "Aave", "Uniswap", "Sushi", "Compound",
+    "Curve", "Yearn", "Polygon", "Avalanche", "Terra",
+    "Algorand", "VeChain", "Filecoin", "Sandbox", "Decentraland",
+    "Axie", "Theta", "Fantom", "Quant", "Hedera",
+    "Near", "Flow", "EOS", "TrueUSD", "Zilliqa",
+    "Harmony", "Elrond", "Enjin", "Chiliz", "Kusama"
+];
 class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
     constructor(pin, hostId, setId, settings, questions, io) {
         super(pin, hostId, setId, settings, questions, io);
@@ -9,15 +21,19 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
         this.gameMode = "CRYPTO_HACK";
         // Sub-state for Crypto Hack
         this.hackState = "PASSWORD_SELECTION";
-        this.passwords = ["Bitcoin", "Ethereum", "Dogecoin", "Solana", "Cardano"]; // Example passwords
+        this.passwords = CRYPTO_PASSWORDS;
     }
     statusUpdate() {
+        // Calculate available passwords (remove already taken ones)
+        const takenPasswords = new Set(this.players.map(p => p.password).filter(p => p && p !== ""));
+        const availablePasswords = CRYPTO_PASSWORDS.filter(p => !takenPasswords.has(p));
+        // Update local ref ensuring it doesn't get stale in wrong way, though we use calculated one for payload
+        this.passwords = availablePasswords;
         const payload = {
             players: this.players,
-            // Include global hack state
             hackState: this.hackState,
-            // Include password options if in selection phase
-            passwordOptions: this.hackState === "PASSWORD_SELECTION" ? this.passwords : undefined
+            // Send ONLY available passwords
+            passwordOptions: availablePasswords
         };
         this.io.to(this.pin).emit("game-state-update", payload);
     }
@@ -26,19 +42,40 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
             socket.emit("error", { message: "Game is locked" });
             return;
         }
-        const newPlayer = {
-            ...player,
-            crypto: 0,
-            password: "",
-            hackChance: 1.0,
-            isLocked: false,
-            isGlitched: false,
-            score: 0,
-            hackingHistory: {}
-        };
-        this.players.push(newPlayer);
+        const existingPlayerIndex = this.players.findIndex(p => p.name === player.name);
+        if (existingPlayerIndex !== -1) {
+            // Reconnection: Update Socket ID
+            console.log(`[${this.pin}] Player reconnected: ${player.name}`);
+            this.players[existingPlayerIndex].id = socket.id;
+            this.players[existingPlayerIndex].isConnected = true;
+            // Resend current state to this player
+            socket.emit("game-state-update", {
+                players: this.players,
+                hackState: this.hackState,
+                passwordOptions: this.hackState === "PASSWORD_SELECTION" ? this.passwords : undefined
+            });
+        }
+        else {
+            // New Player
+            const newPlayer = {
+                ...player,
+                id: socket.id, // Ensure we use the socket ID
+                crypto: 0,
+                // If joining late (HACKING phase), auto-assign password to prevent bugs
+                password: this.hackState === "HACKING" ? "GuestPass" : "",
+                hackChance: 1.0,
+                isGlitched: false,
+                score: 0,
+                correctAnswers: 0,
+                incorrectAnswers: 0,
+                isLocked: false,
+                hackingHistory: {},
+                completedTaskTypes: []
+            };
+            this.players.push(newPlayer);
+            console.log(`[${this.pin}] New player joined: ${newPlayer.name}`);
+        }
         this.io.to(this.pin).emit("player-joined", { players: this.players });
-        console.log(`[${this.pin}] Player joined: ${newPlayer.name}`);
     }
     startGame() {
         if (this.status !== "LOBBY")
@@ -82,10 +119,16 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
     handleSelectPassword(player, password) {
         if (this.hackState !== "PASSWORD_SELECTION")
             return;
+        // Prevent Duplicate Password Selection
+        const isTaken = this.players.some(p => p.id !== player.id && p.password === password);
+        if (isTaken) {
+            this.io.to(player.id).emit("error", { message: "Protocol Occupied! Choose another." });
+            return;
+        }
         player.password = password;
-        console.log(`[${this.pin}] ${player.name} selected password.`);
-        // Notify player they are ready? Or just wait.
-        // If all players selected, move to next phase?
+        console.log(`[${this.pin}] ${player.name} selected password: ${password}`);
+        this.statusUpdate(); // Refresh available list
+        // If all players selected, move to next phase
         const allSelected = this.players.every(p => p.password !== "");
         if (allSelected && this.players.length > 0) {
             this.startHackingPhase();
@@ -126,6 +169,12 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
         if (!question)
             return;
         const isCorrect = question.correctAnswer === answerIndex;
+        if (isCorrect) {
+            player.correctAnswers = (player.correctAnswers || 0) + 1;
+        }
+        else {
+            player.incorrectAnswers = (player.incorrectAnswers || 0) + 1;
+        }
         socket.emit("answer-result", { correct: isCorrect });
         console.log(`[Crypto] Answer: ${player.name} Correct: ${isCorrect}`);
         if (isCorrect) {
@@ -167,11 +216,23 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
     }
     handleBoxSelection(player, index, socket) {
         try {
+            // Ensure index is a number
+            if (typeof index !== 'number') {
+                index = parseInt(index);
+                if (isNaN(index)) {
+                    console.warn(`[Crypto] Invalid index format from ${player.name}:`, index);
+                    return;
+                }
+            }
             console.log(`[Crypto] Box Selection by ${player.name} (Index: ${index})`);
             const choices = player.pendingRewards;
             if (!choices || !choices[index]) {
-                console.warn(`[Crypto] Invalid box selection for ${player.name}: No pending rewards (Count: ${choices === null || choices === void 0 ? void 0 : choices.length}) or invalid index.`);
+                console.warn(`[Crypto] Invalid box selection for ${player.name}: No pending rewards (Count: ${choices === null || choices === void 0 ? void 0 : choices.length}) or invalid index (${index}).`);
                 socket.emit("selection-error", { message: "No rewards pending or invalid selection." });
+                // Re-emit choose-box to sync client?
+                if (choices && choices.length === 3) {
+                    socket.emit("choose-box", { options: ["HIDDEN", "HIDDEN", "HIDDEN"] });
+                }
                 return;
             }
             const reward = choices[index];
@@ -202,20 +263,35 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
             return;
         // Hint Logic
         let hint;
+        const attempts = (player.hackingHistory && player.hackingHistory[targetId]) || 0;
         if (target.id === player.id) {
-            // Self-hack? (Practice)
             hint = "You";
         }
-        else {
-            const attempts = player.hackingHistory[targetId] || 0;
-            if (attempts > 0) {
-                // Reveal first N chars
-                hint = target.password.substring(0, Math.min(attempts, target.password.length));
-            }
+        else if (attempts > 0) {
+            hint = target.password.substring(0, Math.min(attempts, target.password.length));
+        }
+        // Generate Hack Options (Target + 9 Random Distractors)
+        // Access global constant CRYPTO_PASSWORDS
+        const fullList = CRYPTO_PASSWORDS;
+        const distractors = fullList.filter(p => p !== target.password);
+        // Shuffle distractors
+        for (let i = distractors.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [distractors[i], distractors[j]] = [distractors[j], distractors[i]];
+        }
+        // Pick top 9
+        const selected = distractors.slice(0, 9);
+        // Ensure target password is included
+        if (target.password)
+            selected.push(target.password);
+        // Shuffle final list (Total ~10)
+        for (let i = selected.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [selected[i], selected[j]] = [selected[j], selected[i]];
         }
         socket.emit("hack-options", {
             targetId,
-            options: this.passwords, // In real game, maybe vary options
+            options: selected,
             hint: hint || undefined
         });
     }
@@ -244,7 +320,7 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
                 target.crypto = 0;
             // --- Glitch Mechanic ---
             target.isGlitched = true;
-            target.currentTask = this.generateTask();
+            target.currentTask = this.generateTask(target);
             // Emit Results
             socket.emit("hack-result", { success: true, amount: stealAmount, targetName: target.name });
             this.io.to(target.id).emit("player-hacked", {
@@ -252,6 +328,13 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
                 amount: stealAmount,
                 isGlitched: true,
                 task: target.currentTask
+            });
+            // Broadcast to Host/Room for Log
+            this.io.to(this.pin).emit("interaction-effect", {
+                source: player.name,
+                target: target.name,
+                type: "HACK",
+                amount: stealAmount
             });
             // Clear history on success?
             player.hackingHistory[targetId] = 0;
@@ -267,17 +350,38 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
         this.statusUpdate();
     }
     handleRequestQuestion(socket) {
+        // Enforce Phase Check
+        if (this.hackState === "PASSWORD_SELECTION") {
+            const player = this.getPlayer(socket.id);
+            if (player && !player.password) {
+                // If player hasn't selected password, resent options instead of question
+                socket.emit("choose-password", { options: this.passwords });
+            }
+            return; // STOP HERE
+        }
         const player = this.getPlayer(socket.id);
+        if (!player)
+            return;
+        // Check for Pending Rewards (Stuck in Box Selection)
+        if (player.pendingRewards && player.pendingRewards.length > 0) {
+            console.log(`[Crypto] Player ${player.name} requested question but has pending rewards. Resending choose-box.`);
+            socket.emit("choose-box", { options: ["HIDDEN", "HIDDEN", "HIDDEN"] });
+            return;
+        }
         if (player && player.isGlitched) {
             socket.emit("error", { message: "System Glitched! Complete task to restore." });
             // Resend task just in case
             if (player.currentTask)
                 socket.emit("task-assigned", { task: player.currentTask });
+            // Also emit player-hacked to show overlay?
+            // socket.emit("player-hacked", ...)
             return;
         }
         if (!this.questions || this.questions.length === 0)
             return;
         const q = this.questions[Math.floor(Math.random() * this.questions.length)];
+        // Randomize options order for security/gameplay?
+        // For MVP, sending raw.
         socket.emit("next-question", {
             id: q.id,
             question: q.question,
@@ -286,24 +390,38 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
             image: q.image
         });
     }
-    generateTask() {
-        const rand = Math.random();
-        if (rand < 0.33) {
-            // Type Code
-            const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-            let code = "";
-            for (let i = 0; i < 6; i++) {
-                code += charset.charAt(Math.floor(Math.random() * charset.length));
-            }
-            return { type: "TYPE_CODE", payload: { code } };
+    generateTask(player) {
+        const allTypes = ["TYPE_CODE", "UPLOAD_DATA", "PATTERN", "FREQUENCY", "MEMORY"];
+        let available = allTypes.filter(t => !player.completedTaskTypes.includes(t));
+        // If all types completed, reset history and use all
+        if (available.length === 0) {
+            player.completedTaskTypes = [];
+            available = allTypes;
         }
-        else if (rand < 0.66) {
-            // Upload Data
-            return { type: "UPLOAD_DATA", payload: { size: Math.floor(Math.random() * 500) + 100 } };
-        }
-        else {
-            // Pattern
-            return { type: "PATTERN", payload: { length: 4 } };
+        // Pick Random
+        const type = available[Math.floor(Math.random() * available.length)];
+        // Add to history (will be saved on completion or assignment? Better on assignment to avoid repeats if fail/retry)
+        // Actually, let's track on assignment so next one is different
+        player.completedTaskTypes.push(type);
+        // Generate Payload
+        switch (type) {
+            case "TYPE_CODE":
+                const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+                let code = "";
+                for (let i = 0; i < 6; i++) {
+                    code += charset.charAt(Math.floor(Math.random() * charset.length));
+                }
+                return { type: "TYPE_CODE", payload: { code } };
+            case "UPLOAD_DATA":
+                return { type: "UPLOAD_DATA", payload: { size: Math.floor(Math.random() * 500) + 100 } };
+            case "PATTERN":
+                return { type: "PATTERN", payload: { length: 4 } };
+            case "FREQUENCY":
+                return { type: "FREQUENCY" };
+            case "MEMORY":
+                return { type: "MEMORY" };
+            default:
+                return { type: "TYPE_CODE", payload: { code: "ERROR" } };
         }
     }
     handleTaskComplete(player, socket) {
@@ -333,7 +451,14 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
     restore(data) {
         super.restore(data);
         this.hackState = data.hackState || "PASSWORD_SELECTION";
-        this.passwords = data.passwordOptions || ["Bitcoin", "Ethereum", "Dogecoin", "Solana", "Cardano"];
+        this.passwords = data.passwordOptions || [
+            "Bitcoin", "Ethereum", "Dogecoin", "Solana", "Cardano",
+            "Ripple", "Binance", "Tether", "Polkadot", "Litecoin",
+            "Chainlink", "Stellar", "Monero", "Tron", "Cosmos",
+            "Tezos", "IOTA", "Neo", "Dash", "Zcash",
+            "Maker", "Aave", "Uniswap", "Sushi", "Compound",
+            "Curve", "Yearn", "Polygon", "Avalanche", "Terra"
+        ];
         console.log(`[Crypto] Restored game ${this.pin}. Players: ${this.players.length}`);
     }
     // Override State for Serialization

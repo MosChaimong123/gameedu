@@ -72,7 +72,7 @@ export function GameHeader({ player, endTime, goldGoal }: Props) {
                 <div className="w-6 h-6 rounded-full bg-amber-400 border-2 border-amber-600 shadow-inner flex items-center justify-center text-[10px] text-amber-900 font-bold shrink-0">
                     $
                 </div>
-                <span className="text-2xl font-black text-amber-400">{player.gold.toLocaleString()}</span>
+                <span className="text-2xl font-black text-amber-400">{(player.gold || 0).toLocaleString()}</span>
             </div>
         </div>
     )

@@ -1,4 +1,5 @@
 "use client"
+// Force Rebuild
 
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -17,7 +18,9 @@ type Props = {
 }
 
 export function CryptoHackHostView({ players, events = [], timeLeft, onEndGame, cryptoGoal, pin }: Props) {
-    const sortedPlayers = [...players].sort((a, b) => b.crypto - a.crypto);
+    // Deduplicate players by ID to prevent key duplicate errors
+    const uniquePlayers = Array.from(new Map(players.map(p => [p.id, p])).values());
+    const sortedPlayers = [...uniquePlayers].sort((a, b) => b.crypto - a.crypto);
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -28,130 +31,166 @@ export function CryptoHackHostView({ players, events = [], timeLeft, onEndGame, 
     const totalCrypto = players.reduce((acc, p) => acc + p.crypto, 0);
 
     return (
-        <div className="flex-1 bg-green-950 flex relative overflow-hidden font-mono">
-            {/* Matrix-like Background */}
-            <div className="absolute inset-0 opacity-10" style={{
-                backgroundImage: "linear-gradient(0deg, transparent 24%, rgba(34, 197, 94, .3) 25%, rgba(34, 197, 94, .3) 26%, transparent 27%, transparent 74%, rgba(34, 197, 94, .3) 75%, rgba(34, 197, 94, .3) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(34, 197, 94, .3) 25%, rgba(34, 197, 94, .3) 26%, transparent 27%, transparent 74%, rgba(34, 197, 94, .3) 75%, rgba(34, 197, 94, .3) 76%, transparent 77%, transparent)",
-                backgroundSize: "50px 50px"
-            }}></div>
+        <div className="h-screen w-full bg-black relative overflow-hidden font-mono text-green-400 selection:bg-green-900 selection:text-white">
+            {/* Cyberpunk Grid Background */}
+            <div className="absolute inset-0 opacity-20 pointer-events-none" style={{
+                backgroundImage: "linear-gradient(rgba(16, 185, 129, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(16, 185, 129, 0.1) 1px, transparent 1px)",
+                backgroundSize: "40px 40px"
+            }} />
 
-            {/* Left: Stats & Timer */}
-            <div className="w-64 p-6 flex flex-col gap-6 z-10">
-                <div className="bg-black/50 backdrop-blur-md rounded-lg p-4 text-green-400 border border-green-500/50 shadow-[0_0_15px_rgba(34,197,94,0.3)]">
-                    <h2 className="text-green-500 font-bold uppercase tracking-widest text-xs mb-1">
-                        {cryptoGoal ? "CRYPTO TARGET" : "SYSTEM TIME"}
-                    </h2>
-                    <div className="text-4xl font-black tracking-wider">
+            {/* CRT Scanline Effect */}
+            <div className="absolute inset-0 opacity-10 pointer-events-none bg-[url('https://media.istockphoto.com/id/1130691526/vector/scanlines-vector-grunge-texture-overlay.jpg?s=612x612&w=0&k=20&c=6c0-6d0-6d0-6d0')] bg-repeat" />
+
+            <div className="relative z-10 w-full h-full p-6 grid grid-cols-12 gap-6">
+
+                {/* LEFT COLUMN: System Status */}
+                <div className="col-span-3 flex flex-col gap-6">
+                    {/* Time / Target */}
+                    <div className="bg-black/80 border border-green-500/50 rounded p-6 shadow-[0_0_20px_rgba(34,197,94,0.1)] relative overflow-hidden group">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-green-500/50 animate-pulse" />
+                        <h2 className="text-green-600 font-bold uppercase tracking-widest text-xs mb-2 flex justify-between">
+                            <span>{cryptoGoal ? "TARGET PROTOCOL" : "SYSTEM UPTIME"}</span>
+                            <span className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
+                        </h2>
+
                         {cryptoGoal ? (
-                            <div className="flex flex-col gap-2">
-                                <span className="text-2xl text-green-300">₿ {cryptoGoal.toLocaleString()}</span>
-                                <div className="w-full h-2 bg-green-900 rounded-full overflow-hidden mt-1 border border-green-700">
-                                    {/* Show progress of top player */}
+                            <div className="w-full">
+                                <div className="text-3xl font-black text-green-400 mb-2 truncate">
+                                    ₿ {cryptoGoal.toLocaleString()}
+                                </div>
+                                <div className="w-full h-2 bg-green-900/30 border border-green-500/30 rounded-none overflow-hidden">
                                     <div
-                                        className="h-full bg-green-400 shadow-[0_0_10px_#4ade80]"
+                                        className="h-full bg-green-500 shadow-[0_0_10px_#22c55e]"
                                         style={{ width: `${sortedPlayers.length > 0 ? Math.min(100, (sortedPlayers[0].crypto / cryptoGoal) * 100) : 0}%` }}
                                     />
                                 </div>
-                                <div className="text-xs text-green-600 font-sans tracking-normal">Top Agent: {sortedPlayers[0]?.crypto.toLocaleString() || 0}</div>
+                                <div className="mt-2 text-xs text-green-700 flex justify-between font-bold">
+                                    <span>TOP AGENT</span>
+                                    <span>{sortedPlayers[0]?.crypto.toLocaleString() || 0}</span>
+                                </div>
                             </div>
                         ) : (
-                            formatTime(timeLeft)
+                            <div className="text-6xl font-black text-green-500 tracking-tighter drop-shadow-[0_0_10px_rgba(34,197,94,0.6)]">
+                                {formatTime(timeLeft)}
+                            </div>
                         )}
+                    </div>
+
+                    {/* Network Log */}
+                    <div className="flex-1 bg-black/80 border border-green-500/30 rounded p-4 flex flex-col overflow-hidden relative">
+                        <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-green-500" />
+                        <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-green-500" />
+                        <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-green-500" />
+                        <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-green-500" />
+
+                        <h2 className="text-green-600 font-bold uppercase tracking-widest text-xs mb-4 border-b border-green-900 pb-2">
+                            &gt; NETWORK_LOG
+                        </h2>
+                        <div className="flex-1 overflow-hidden relative space-y-2 font-mono text-xs">
+                            <AnimatePresence mode="popLayout">
+                                {events.slice(-10).reverse().map((event, i) => (
+                                    <motion.div
+                                        layout
+                                        key={`${event.source}-${event.target}-${i}`}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        className="flex flex-wrap items-center gap-1 text-green-300"
+                                    >
+                                        <span className="text-green-500">[{new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' })}]</span>
+                                        <span className="font-bold text-green-200">{event.source}</span>
+                                        <span className={cn(
+                                            "uppercase text-[10px] px-1 rounded bg-opacity-20",
+                                            event.type === "HACK" ? "bg-red-500 text-red-400" : "bg-blue-500 text-blue-400"
+                                        )}>
+                                            {event.type}
+                                        </span>
+                                        <span className="text-green-200">{event.target}</span>
+                                    </motion.div>
+                                ))}
+                            </AnimatePresence>
+                            {events.length === 0 && (
+                                <div className="text-green-900 text-center italic mt-10 animate-pulse">
+                                    LISTENING FOR TRAFFIC...
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                <div className="bg-black/50 backdrop-blur-md rounded-lg p-4 text-green-400 border border-green-500/50 shadow-xl flex-1">
-                    <h2 className="text-green-500 font-bold uppercase tracking-widest text-xs mb-4">Network Log</h2>
-                    <div className="space-y-3 overflow-hidden relative h-full">
-                        <AnimatePresence>
-                            {events.slice(-5).reverse().map((event, i) => (
+                {/* CENTER COLUMN: Leaderboard */}
+                <div className="col-span-6 flex flex-col">
+                    <div className="text-center mb-6 relative">
+                        <h1 className="text-5xl font-black text-green-500 drop-shadow-[0_0_15px_rgba(34,197,94,0.6)] tracking-tighter uppercase glitch-text" data-text="NETWORK STATUS">
+                            NETWORK STATUS
+                        </h1>
+                    </div>
+
+                    <div className="flex-1 bg-green-950/10 border-x border-green-500/10 p-2 space-y-2 overflow-y-auto custom-scrollbar">
+                        <AnimatePresence mode="popLayout">
+                            {sortedPlayers.slice(0, 7).map((player, index) => (
                                 <motion.div
-                                    key={i}
+                                    layout
+                                    key={player.id}
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0 }}
-                                    className="text-xs font-mono border-l-2 border-green-500 pl-2 py-1"
+                                    className={cn(
+                                        "flex items-center p-4 border-l-4 transition-all relative overflow-hidden group bg-black/40",
+                                        index === 0 ? "border-green-400 bg-green-900/20 shadow-[0_0_20px_rgba(34,197,94,0.1)]" :
+                                            index === 1 ? "border-green-600 bg-green-900/10" :
+                                                index === 2 ? "border-green-800 bg-green-900/5" :
+                                                    "border-green-900/50 hover:border-green-700"
+                                    )}
                                 >
-                                    <span className="text-green-300 font-bold">{event.source}</span>
-                                    <span className="mx-1 text-green-600">
-                                        {event.type === "HACK" ? "hacked" : "accessed"}
-                                    </span>
-                                    <span className="text-red-400 font-bold">{event.target}</span>
+                                    <div className="font-black text-2xl w-12 text-center text-green-700 font-mono">
+                                        #{index + 1}
+                                    </div>
+                                    <div className="flex-1 flex items-center gap-2">
+                                        <div className="font-bold text-xl truncate tracking-tight text-green-300 group-hover:text-green-100 transition-colors">
+                                            {player.name}
+                                        </div>
+                                        {/* Icons/Status */}
+                                    </div>
+                                    <div className="font-black text-2xl font-mono px-4 flex items-center gap-3 text-green-400">
+                                        <Bitcoin className={cn("w-5 h-5", index === 0 ? "animate-pulse" : "")} />
+                                        <span>{player.crypto.toLocaleString()}</span>
+                                    </div>
                                 </motion.div>
                             ))}
                         </AnimatePresence>
                     </div>
                 </div>
-            </div>
 
-            {/* Center: Main Leaderboard */}
-            <div className="flex-1 p-6 z-10 flex flex-col justify-center max-w-4xl mx-auto w-full">
-                <h1 className="text-center font-black text-5xl text-green-500 drop-shadow-[0_0_10px_rgba(34,197,94,0.5)] mb-8 tracking-tighter uppercase">
-                    Network Status
-                </h1>
+                {/* RIGHT COLUMN: Controls */}
+                <div className="col-span-3 flex flex-col gap-6">
+                    {/* Access Code */}
+                    <div className="bg-black/90 border border-green-500/50 rounded-lg p-6 text-center shadow-[0_0_30px_rgba(34,197,94,0.15)] relative">
+                        <div className="absolute top-2 right-2 text-[10px] text-green-800 border border-green-900 px-1">SECURE</div>
+                        <div className="text-xs font-bold uppercase text-green-700 tracking-[0.2em] mb-2">Access Code</div>
+                        <div className="text-6xl font-black text-green-400 tracking-widest font-mono drop-shadow-[0_0_10px_rgba(34,197,94,0.8)]">
+                            {pin}
+                        </div>
+                    </div>
 
-                <div className="space-y-3">
-                    <AnimatePresence mode="popLayout">
-                        {sortedPlayers.slice(0, 5).map((player, index) => (
-                            <motion.div
-                                layout
-                                key={player.id}
-                                initial={{ opacity: 0, x: -50 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, scale: 0.8 }}
-                                className={cn(
-                                    "flex items-center p-4 rounded-none border-l-4 shadow-lg transition-colors relative overflow-hidden backdrop-blur-sm",
-                                    index === 0 ? "bg-green-900/40 border-green-400 text-green-100 ring-1 ring-green-500/50" :
-                                        index === 1 ? "bg-emerald-900/30 border-emerald-600 text-emerald-100" :
-                                            index === 2 ? "bg-teal-900/20 border-teal-700 text-teal-100" :
-                                                "bg-black/40 border-slate-700 text-slate-300"
-                                )}
-                            >
-                                <div className="font-black text-3xl w-12 text-center opacity-50 font-mono">
-                                    #{index + 1}
-                                </div>
-                                <div className="flex-1 font-bold text-2xl truncate px-4 font-mono tracking-tight">
-                                    {player.name}
-                                    {player.password && <span className="ml-2 text-xs text-green-700 border border-green-800 px-1 rounded">SECURED</span>}
-                                </div>
-                                <div className="font-black text-3xl font-mono flex items-center gap-2 text-green-400">
-                                    <Bitcoin className="w-6 h-6 animate-pulse" />
-                                    <motion.span
-                                        key={player.crypto}
-                                        initial={{ scale: 1.2, color: "#fff" }}
-                                        animate={{ scale: 1, color: "inherit" }}
-                                        transition={{ duration: 0.3 }}
-                                    >
-                                        {player.crypto.toLocaleString()}
-                                    </motion.span>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
-                </div>
-            </div>
+                    {/* Total Mined */}
+                    <div className="bg-black/80 border-t-2 border-green-600/50 rounded-b-lg p-6 text-center">
+                        <div className="text-xs font-bold uppercase text-green-700 tracking-widest mb-1">Total Mined</div>
+                        <div className="text-4xl font-black text-green-500 flex justify-center items-center gap-2">
+                            <Bitcoin className="w-8 h-8" />
+                            {totalCrypto.toLocaleString()}
+                        </div>
+                    </div>
 
-            {/* Right: Join Info */}
-            <div className="w-64 p-6 flex flex-col justify-between items-end z-10 text-green-500/50 text-right font-mono">
-                <div>
+                    <div className="flex-1" />
+
                     <Button
                         onClick={onEndGame}
-                        variant="destructive"
-                        className="font-bold border border-red-900 bg-red-950/50 hover:bg-red-900 text-red-500 shadow-[0_0_10px_rgba(220,38,38,0.2)]"
+                        className="w-full bg-red-950/80 hover:bg-red-600 text-red-500 hover:text-white border border-red-800 font-bold text-xl py-8 rounded shadow-[0_0_15px_rgba(220,38,38,0.3)] transition-all uppercase tracking-widest font-mono group relative overflow-hidden"
                     >
-                        TERMINATE SESSION
+                        <span className="relative z-10 group-hover:animate-pulse">TERMINATE SESSION</span>
+                        <div className="absolute inset-0 bg-red-600/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                     </Button>
                 </div>
 
-                <div>
-                    <div className="font-bold text-xs uppercase">Total Mined</div>
-                    <div className="text-2xl font-black text-green-400 mb-8 drop-shadow">
-                        ₿ {players.reduce((acc, p) => acc + p.crypto, 0).toLocaleString()}
-                    </div>
-
-                    <div className="text-xs font-bold uppercase tracking-wider mb-1">Access Code</div>
-                    <div className="text-4xl font-black text-green-400 drop-shadow-[0_0_5px_#4ade80]">{pin}</div>
-                </div>
             </div>
         </div>
     )

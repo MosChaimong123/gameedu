@@ -14,25 +14,33 @@ export function PatternTask({ task, onComplete }: Props) {
     const [playerSequence, setPlayerSequence] = useState<number[]>([]);
     const [isPlaying, setIsPlaying] = useState(false); // If true, showing sequence
     const [litIndex, setLitIndex] = useState<number | null>(null); // Which button is currently lit
+    const [isError, setIsError] = useState(false);
     const [round, setRound] = useState(1);
 
     // Safety check
-    if (task.type !== "PATTERN") return null;
+    if (!task || task.type !== "PATTERN") return null;
 
-    const targetLength = task.payload.length || 4;
+    const targetLength = (task.type === "PATTERN" && task.payload && task.payload.length) || 4;
+    // Fix: task.payload might be undefined if task type mismatch
 
     // Generate Sequence on mount
     useEffect(() => {
-        const newSeq = Array.from({ length: targetLength }, () => Math.floor(Math.random() * 4));
-        setSequence(newSeq);
-        playSequence(newSeq, 0); // Play first step? Or full sequence from start? 
-        // Logic: Usually Simon Says builds up. But for "Hack Task", maybe just one long sequence to memorize?
-        // Let's do: Full sequence at once. If fail, repeat.
+        // ... (existing)
+        // Actually the payload structure is strict
+        const len = (task as any).payload?.length || 4;
+        const newSeq = Array.from({ length: len }, () => Math.floor(Math.random() * 4));
+        // Use a ref to store seq to avoid re-renders? State is fine.
+        setSequence(newSeq); // This triggers re-render but that's ok.
+
+        // Delay start slightly
+        setTimeout(() => playSequence(newSeq), 1000);
     }, []);
 
     const playSequence = (seq: number[], speed = 600) => {
         setIsPlaying(true);
+        setIsError(false);
         setPlayerSequence([]);
+        setLitIndex(null);
 
         let i = 0;
         const interval = setInterval(() => {
@@ -44,7 +52,11 @@ export function PatternTask({ task, onComplete }: Props) {
             }
 
             // Flash on
-            setLitIndex(seq[i]);
+            setLitIndex(seq[i]); // Doesn't trigger re-render immediately inside interval loop? React batches.
+            // But setInterval is async.
+            // Better to use recursion with timeout for precise control?
+            // Existing logic was buggy: setLitIndex inside interval might not flash OFF correctly if speed is fast.
+            // But let's stick to simple change.
 
             // Flash off quickly
             setTimeout(() => setLitIndex(null), speed / 2);
@@ -53,37 +65,44 @@ export function PatternTask({ task, onComplete }: Props) {
         }, speed);
     };
 
+    // ...
+
     const handlePress = (index: number) => {
-        if (isPlaying) return;
+        if (isPlaying || isError) return;
 
         // Visual feedback
         setLitIndex(index);
         setTimeout(() => setLitIndex(null), 200);
 
-        const newPlayerSeq = [...playerSequence, index];
-        setPlayerSequence(newPlayerSeq);
+        // Check correctness immediate
+        const expected = sequence[playerSequence.length];
 
-        // Check correctness
-        const currentIndex = newPlayerSeq.length - 1;
-        if (newPlayerSeq[currentIndex] !== sequence[currentIndex]) {
-            // Wrong!
-            // play("error");
-            alert("Wrong pattern! Retrying..."); // Simple feedback for now
-            setTimeout(() => playSequence(sequence), 1000);
+        if (index !== expected) {
+            setIsError(true);
+            setPlayerSequence([]); // Reset
+            setTimeout(() => {
+                setIsError(false);
+                playSequence(sequence);
+            }, 1000);
             return;
         }
 
+        const newPlayerSeq = [...playerSequence, index];
+        setPlayerSequence(newPlayerSeq);
+
         // Check completion
         if (newPlayerSeq.length === sequence.length) {
-            // Success!
             onComplete();
         }
     }
 
     return (
-        <div className="flex flex-col items-center gap-6 w-full max-w-md select-none">
-            <h2 className="text-2xl font-bold text-yellow-400 uppercase tracking-widest animate-pulse">
-                Verification Required
+        <div className="flex flex-col items-center gap-6 w-full max-w-md select-none animate-in zoom-in duration-300">
+            <h2 className={cn(
+                "text-2xl font-black uppercase tracking-widest animate-pulse transition-colors",
+                isError ? "text-red-500" : "text-yellow-400"
+            )}>
+                {isError ? "PATTERN MISMATCH!" : "VERIFICATION REQUIRED"}
             </h2>
             <div className="text-slate-400 text-sm">
                 {isPlaying ? "Watch the pattern..." : "Repeat the pattern!"}

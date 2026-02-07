@@ -7,6 +7,9 @@ class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
     constructor(pin, hostId, setId, settings, questions, io) {
         super(pin, hostId, setId, settings, questions, io);
         this.gameMode = "GOLD_QUEST";
+        // Track seen questions per player: Name -> Set<questionId>
+        // Changed from socket.id to Name to persist across refreshes/reconnects
+        this.seenQuestions = new Map();
     }
     getPlayer(socketId) {
         return super.getPlayer(socketId);
@@ -16,6 +19,8 @@ class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
         player.gold = 0;
         player.multiplier = 1;
         player.streak = 0;
+        player.correctAnswers = 0;
+        player.incorrectAnswers = 0;
         super.addPlayer(player, socket);
     }
     handleEvent(eventName, payload, socket) {
@@ -105,14 +110,43 @@ class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
         if (!question)
             return;
         const isCorrect = question.correctAnswer === answerIndex;
+        const player = this.getPlayer(socket.id);
+        if (player) {
+            if (isCorrect) {
+                player.correctAnswers = (player.correctAnswers || 0) + 1;
+            }
+            else {
+                player.incorrectAnswers = (player.incorrectAnswers || 0) + 1;
+            }
+        }
         socket.emit("answer-result", { correct: isCorrect });
     }
     handleRequestQuestion(socket) {
         if (!this.questions || this.questions.length === 0)
             return;
-        // Random question
-        // In future: Track seen questions per player
-        const q = this.questions[Math.floor(Math.random() * this.questions.length)];
+        const player = this.getPlayer(socket.id);
+        const key = player ? player.name : socket.id;
+        // Initialize set if not exists
+        if (!this.seenQuestions.has(key)) {
+            this.seenQuestions.set(key, new Set());
+        }
+        const seen = this.seenQuestions.get(key);
+        // Filter available questions
+        const available = this.questions.filter(q => !seen.has(q.id));
+        let q;
+        if (available.length > 0) {
+            // Pick a random available question
+            q = available[Math.floor(Math.random() * available.length)];
+        }
+        else {
+            // All questions seen! Reset tracking loop.
+            console.log(`[Quest] Player ${key} has seen all questions. Resetting loop.`);
+            seen.clear();
+            // Pick random from FULL list
+            q = this.questions[Math.floor(Math.random() * this.questions.length)];
+        }
+        // Mark as seen
+        seen.add(q.id);
         socket.emit("next-question", {
             id: q.id,
             question: q.question,

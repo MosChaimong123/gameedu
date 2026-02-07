@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import next from "next";
 import { Server } from "socket.io";
 import { gameManager } from "./src/lib/game-engine/manager";
+import { db } from "./src/lib/db"; // Use Singleton
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
@@ -41,10 +42,7 @@ app.prepare().then(async () => {
                 attempts++;
             }
 
-            const { PrismaClient } = require("@prisma/client");
-            const prisma = new PrismaClient();
-
-            prisma.questionSet.findUnique({
+            db.questionSet.findUnique({
                 where: { id: setId },
             }).then((set: any) => {
                 if (!set) {
@@ -102,7 +100,7 @@ app.prepare().then(async () => {
                 }
                 game.handleReconnection(existingPlayer, socket);
                 socket.join(pin);
-                socket.emit("joined-success", { pin, nickname });
+                socket.emit("joined-success", { pin, nickname, gameMode: game.gameMode });
                 return;
             }
 
@@ -122,13 +120,14 @@ app.prepare().then(async () => {
             // The engine handles "player-joined" emit
             game.addPlayer(newPlayer as any, socket);
 
-            socket.emit("joined-success", { pin, nickname });
+            socket.emit("joined-success", { pin, nickname, gameMode: game.gameMode });
 
             // Sync state if late join
             if (game.status === "PLAYING") {
                 socket.emit("game-started", {
                     startTime: game.startTime,
-                    settings: game.settings
+                    settings: game.settings,
+                    gameMode: game.gameMode
                 });
                 socket.emit("game-state-update", game.serialize());
             }
@@ -143,7 +142,8 @@ app.prepare().then(async () => {
             if (game.status === "PLAYING") {
                 socket.emit("game-started", {
                     startTime: game.startTime,
-                    settings: game.settings
+                    settings: game.settings,
+                    gameMode: game.gameMode
                 });
                 socket.emit("game-state-update", game.serialize());
             } else if (game.status === "ENDED") {
@@ -159,6 +159,15 @@ app.prepare().then(async () => {
         socket.on("end-game", ({ pin }) => {
             const game = gameManager.getGame(pin);
             if (game) game.endGame();
+        });
+
+        socket.on("leave-game", ({ pin }) => {
+            const game = gameManager.getGame(pin);
+            if (game) {
+                game.removePlayer(socket.id);
+                socket.leave(pin);
+                console.log(`Player ${socket.id} left game ${pin}`);
+            }
         });
 
         socket.on("disconnect", () => {

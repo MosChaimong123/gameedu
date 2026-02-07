@@ -27,149 +27,184 @@ export function GoldQuestHostView({ players, events = [], timeLeft, onEndGame, g
     const totalGold = players.reduce((acc, p) => acc + p.gold, 0);
 
     return (
-        <div className="flex-1 bg-[url('https://media.blooket.com/image/upload/v1613002626/Backgrounds/goldQuest.jpg')] bg-cover bg-center flex relative overflow-hidden">
-            {/* Overlay for readability if needed */}
-            <div className="absolute inset-0 bg-black/20" />
+        <div className="h-screen w-full bg-slate-950 relative overflow-hidden font-sans selection:bg-amber-500 selection:text-white">
+            {/* Background Image & Warm Overlay */}
+            <div className="absolute inset-0 bg-[url('https://media.blooket.com/image/upload/v1613002626/Backgrounds/goldQuest.jpg')] bg-cover bg-center" />
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-950/90 via-slate-900/60 to-amber-950/90" />
 
-            {/* Left: Stats & Timer */}
-            <div className="w-64 p-6 flex flex-col gap-6 z-10">
-                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl p-4 text-white border-2 border-amber-500 shadow-xl">
-                    <h2 className="text-amber-400 font-bold uppercase tracking-widest text-xs mb-1">
-                        {goldGoal ? "GOLD GOAL" : "TIME LEFT"}
-                    </h2>
-                    <div className="text-4xl font-black font-mono tracking-wider">
-                        {goldGoal ? (
-                            <div className="flex flex-col gap-2">
-                                <span className="text-2xl text-amber-300">{goldGoal.toLocaleString()}</span>
-                                <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden mt-1">
-                                    {/* Show progress of top player */}
-                                    <div
-                                        className="h-full bg-amber-500 transition-all duration-500"
-                                        style={{ width: `${sortedPlayers.length > 0 ? Math.min(100, (sortedPlayers[0].gold / goldGoal) * 100) : 0}%` }}
-                                    />
+            {/* Animated Gold Dust / Particles (using CSS for simplicity) */}
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 animate-pulse" />
+
+            <div className="relative z-10 w-full h-full p-6 grid grid-cols-12 gap-6">
+
+                {/* LEFT COLUMN: Timer & Feed */}
+                <div className="col-span-3 flex flex-col gap-6">
+                    {/* Timer/Goal Card */}
+                    <div className="bg-black/40 backdrop-blur-xl border-4 border-amber-500/50 rounded-3xl p-6 shadow-[0_0_20px_rgba(245,158,11,0.2)] relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                            <div className="w-16 h-16 rounded-full border-4 border-white" />
+                        </div>
+
+                        <h2 className="text-amber-400 font-extrabold uppercase tracking-widest text-xs mb-2">
+                            {goldGoal ? "GOLD GOAL" : "TIME REMAINING"}
+                        </h2>
+
+                        <div className="flex items-baseline gap-2">
+                            {goldGoal ? (
+                                <div className="w-full">
+                                    <div className="text-4xl font-black text-amber-300 mb-2 drop-shadow-md">
+                                        {goldGoal.toLocaleString()}
+                                    </div>
+                                    <div className="w-full h-4 bg-black/50 rounded-full border border-amber-900/50 p-0.5">
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${sortedPlayers.length > 0 ? Math.min(100, (sortedPlayers[0].gold / goldGoal) * 100) : 0}%` }}
+                                            className="h-full bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-200 rounded-full shadow-[0_0_10px_#f59e0b]"
+                                        />
+                                    </div>
+                                    <div className="mt-3 text-xs font-bold text-amber-200/80 flex justify-between uppercase tracking-wider">
+                                        <span>Current Top</span>
+                                        <span className="text-white">{sortedPlayers[0]?.gold.toLocaleString() || 0}</span>
+                                    </div>
                                 </div>
-                                <div className="text-xs text-slate-400 font-sans tracking-normal">Top: {sortedPlayers[0]?.gold.toLocaleString() || 0}</div>
-                            </div>
-                        ) : (
-                            formatTime(timeLeft)
-                        )}
+                            ) : (
+                                <div className="text-7xl font-black text-white font-mono tracking-tighter drop-shadow-[0_4px_0_rgba(0,0,0,0.5)]">
+                                    {formatTime(timeLeft)}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Live Feed */}
+                    <div className="flex-1 bg-black/40 backdrop-blur-xl border-4 border-amber-500/30 rounded-3xl p-6 shadow-2xl flex flex-col overflow-hidden">
+                        <h2 className="text-blue-300 font-extrabold uppercase tracking-widest text-xs mb-4 flex items-center gap-2 border-b border-white/10 pb-2">
+                            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse box-content border-2 border-blue-400/30" />
+                            Live Activity
+                        </h2>
+                        <div className="flex-1 overflow-hidden relative space-y-3 mask-linear-fade">
+                            <AnimatePresence mode="popLayout">
+                                {events.slice(-8).reverse().map((event, i) => (
+                                    <motion.div
+                                        layout
+                                        key={`${event.source}-${event.target}-${i}`}
+                                        initial={{ opacity: 0, x: -30 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        className="text-sm bg-slate-900/60 border-l-4 border-amber-500 rounded-r-xl p-3 shadow-sm relative group"
+                                    >
+                                        <div className="flex flex-wrap items-center gap-1.5 relative z-10">
+                                            <span className="font-bold text-amber-300 drop-shadow-sm">{event.source}</span>
+                                            <span className={cn(
+                                                "text-[10px] font-black uppercase px-1.5 py-0.5 rounded",
+                                                event.type === "STEAL" ? "bg-red-500/20 text-red-300" : "bg-blue-500/20 text-blue-300"
+                                            )}>
+                                                {event.type === "STEAL" ? "stole" : "swapped"}
+                                            </span>
+                                            <span className="font-bold text-white/90">{event.target}</span>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </AnimatePresence>
+                            {events.length === 0 && (
+                                <div className="text-amber-500/50 text-center text-sm italic mt-10 font-medium">
+                                    Waiting for gold movements...
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl p-4 text-white border-2 border-blue-500 shadow-xl flex-1">
-                    <h2 className="text-blue-400 font-bold uppercase tracking-widest text-xs mb-4">Live Feed</h2>
-                    <div className="space-y-3 overflow-hidden mask-linear-fade relative h-full">
-                        <AnimatePresence>
-                            {events.slice(-5).reverse().map((event, i) => (
+                {/* CENTER COLUMN: Leaderboard */}
+                <div className="col-span-6 flex flex-col">
+                    <div className="text-center mb-8">
+                        <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-amber-500 to-amber-700 drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] stroke-text-gold tracking-tighter transform -rotate-1">
+                            LEADERBOARD
+                        </h1>
+                    </div>
+
+                    <div className="flex-1 p-2 space-y-3 overflow-y-auto custom-scrollbar">
+                        <AnimatePresence mode="popLayout">
+                            {sortedPlayers.slice(0, 7).map((player, index) => (
                                 <motion.div
-                                    key={i}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0 }}
-                                    className="text-sm bg-white/10 rounded p-2"
+                                    layout
+                                    key={player.id}
+                                    initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                                    className={cn(
+                                        "flex items-center p-4 rounded-2xl shadow-xl relative overflow-hidden border-2 transform transition-all",
+                                        index === 0 ? "bg-gradient-to-r from-yellow-500 to-amber-600 border-yellow-300 text-white scale-105 z-10" :
+                                            index === 1 ? "bg-gradient-to-r from-slate-300 to-slate-400 border-white text-slate-900" :
+                                                index === 2 ? "bg-gradient-to-r from-amber-700 to-amber-800 border-amber-600 text-amber-100" :
+                                                    "bg-slate-800/80 border-slate-700 text-slate-200"
+                                    )}
                                 >
-                                    <span className="font-bold text-amber-300">{event.source}</span>
-                                    <span className="mx-1 text-slate-300">
-                                        {event.type === "STEAL" ? "stole from" : "swapped with"}
-                                    </span>
-                                    <span className="font-bold text-red-300">{event.target}</span>
-                                    {/* {event.amount && <span className="block text-xs text-amber-500 font-bold">+{event.amount} Gold</span>} */}
+                                    {/* Rank Badge */}
+                                    <div className={cn(
+                                        "min-w-12 h-12 flex items-center justify-center rounded-xl font-black text-2xl mr-4 shadow-inner",
+                                        index === 0 ? "bg-black/20 text-white" :
+                                            index === 1 ? "bg-white/50 text-slate-800" :
+                                                index === 2 ? "bg-black/20 text-amber-200" :
+                                                    "bg-slate-900/50 text-slate-500"
+                                    )}>
+                                        #{index + 1}
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                        <div className="font-bold text-2xl truncate tracking-tight drop-shadow-md">
+                                            {player.name}
+                                        </div>
+                                    </div>
+
+                                    <div className="font-black text-3xl font-mono px-4 flex items-center gap-3">
+                                        <div className={cn(
+                                            "w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-[inset_0_-2px_4px_rgba(0,0,0,0.3)] border-2",
+                                            index === 0 ? "bg-yellow-400 border-yellow-200 text-yellow-800" :
+                                                "bg-amber-500 border-amber-400 text-amber-900"
+                                        )}>$</div>
+                                        <span className="drop-shadow-sm">{player.gold.toLocaleString()}</span>
+                                    </div>
+
+                                    {/* Shine Effect for #1 */}
+                                    {index === 0 && (
+                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 animate-shine pointer-events-none" />
+                                    )}
                                 </motion.div>
                             ))}
                         </AnimatePresence>
                     </div>
                 </div>
-            </div>
 
-            {/* Center: Main Leaderboard */}
-            <div className="flex-1 p-6 z-10 flex flex-col justify-center max-w-4xl mx-auto w-full">
-                <h1 className="text-center font-black text-5xl text-white drop-shadow-[0_4px_0_rgba(0,0,0,0.5)] mb-8 tracking-tight italic">
-                    LEADERBOARD
-                </h1>
+                {/* RIGHT COLUMN: Stats & Controls */}
+                <div className="col-span-3 flex flex-col gap-6">
+                    {/* Game Code */}
+                    <div className="bg-black/40 backdrop-blur-xl border-4 border-purple-500/50 rounded-3xl p-8 text-center shadow-[0_0_30px_rgba(168,85,247,0.3)] transform hover:scale-105 transition-transform duration-300">
+                        <div className="text-sm font-black uppercase text-purple-300 tracking-[0.3em] mb-4">Join Code</div>
+                        <div className="text-7xl font-black text-white tracking-widest drop-shadow-[0_0_10px_rgba(168,85,247,0.8)]">
+                            {pin}
+                        </div>
+                    </div>
 
-                <div className="space-y-3">
-                    <AnimatePresence mode="popLayout">
-                        {sortedPlayers.slice(0, 5).map((player, index) => (
-                            <motion.div
-                                layout
-                                key={player.id}
-                                initial={{ opacity: 0, x: -50 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, scale: 0.8 }}
-                                transition={{
-                                    type: "spring",
-                                    stiffness: 700,
-                                    damping: 30
-                                }}
-                                className={cn(
-                                    "flex items-center p-4 rounded-xl border-b-4 shadow-lg transition-colors relative overflow-hidden",
-                                    index === 0 ? "bg-amber-400 border-amber-600 text-amber-900" :
-                                        index === 1 ? "bg-slate-300 border-slate-500 text-slate-900" :
-                                            index === 2 ? "bg-amber-700 border-amber-900 text-amber-100" :
-                                                "bg-white border-slate-200 text-slate-800"
-                                )}
-                            >
-                                {/* Rank Shine Effect for Top 3 */}
-                                {index < 3 && (
-                                    <motion.div
-                                        initial={{ x: "-100%" }}
-                                        animate={{ x: "200%" }}
-                                        transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 3 }}
-                                        className="absolute top-0 bottom-0 w-1/3 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 pointer-events-none"
-                                    />
-                                )}
+                    {/* Total Gold */}
+                    <div className="bg-gradient-to-br from-amber-600 to-amber-800 rounded-3xl p-1 shadow-2xl">
+                        <div className="bg-black/30 backdrop-blur-sm rounded-[1.3rem] p-6 text-center h-full border border-amber-400/30">
+                            <div className="text-xs font-bold uppercase text-amber-200 tracking-widest mb-2">Total Loot</div>
+                            <div className="text-5xl font-black text-white drop-shadow-md">
+                                {totalGold.toLocaleString()}
+                            </div>
+                        </div>
+                    </div>
 
-                                <div className="font-black text-3xl w-12 text-center opacity-50 italic">
-                                    #{index + 1}
-                                </div>
-                                <div className="flex-1 font-bold text-2xl truncate px-4">
-                                    {player.name}
-                                </div>
-                                <div className="font-black text-3xl font-mono flex items-center gap-2">
-                                    {/* Gold Icon */}
-                                    <div className={cn(
-                                        "w-8 h-8 rounded-full border-2 shadow-inner flex items-center justify-center text-xs font-bold",
-                                        index === 0 ? "bg-yellow-300 border-yellow-500 text-yellow-800" :
-                                            "bg-yellow-400 border-yellow-600 text-yellow-800"
-                                    )}>
-                                        $
-                                    </div>
-                                    <motion.span
-                                        key={player.gold}
-                                        initial={{ scale: 1.2, color: "#10b981" }}
-                                        animate={{ scale: 1, color: "inherit" }}
-                                        transition={{ duration: 0.3 }}
-                                    >
-                                        {player.gold.toLocaleString()}
-                                    </motion.span>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
-                </div>
-            </div>
+                    <div className="flex-1" />
 
-            {/* Right: Join Info / QR (optional, maybe collapsed) */}
-            <div className="w-64 p-6 flex flex-col justify-between items-end z-10 text-white/50 text-right">
-                <div>
+                    {/* End Game Button */}
                     <Button
                         onClick={onEndGame}
-                        variant="destructive"
-                        className="font-bold border-2 border-red-700 shadow-[0_4px_0_rgb(185,28,28)] active:shadow-none active:translate-y-1"
+                        className="w-full bg-red-600 hover:bg-red-700 text-white font-black text-2xl py-10 rounded-3xl shadow-[0_8px_0_rgb(153,27,27)] active:shadow-none active:translate-y-2 transition-all uppercase tracking-wider border-2 border-red-400"
                     >
-                        End Game Now
+                        End Game
                     </Button>
                 </div>
 
-                <div>
-                    <div className="font-bold">Total Gold</div>
-                    <div className="text-2xl font-black text-white mb-8">
-                        {players.reduce((acc, p) => acc + p.gold, 0).toLocaleString()}
-                    </div>
-
-                    <div className="text-sm font-bold uppercase tracking-wider mb-1">Join Code</div>
-                    <div className="text-4xl font-black text-white">{pin}</div>
-                </div>
             </div>
         </div>
     )

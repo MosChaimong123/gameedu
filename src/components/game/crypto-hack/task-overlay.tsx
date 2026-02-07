@@ -2,6 +2,9 @@ import { HackTask } from "@/lib/types/game";
 import { TypeCodeTask } from "./tasks/type-code-task";
 import { UploadTask } from "./tasks/upload-task";
 import { PatternTask } from "./tasks/pattern-task";
+// New Tasks
+import { FrequencyTask } from "./tasks/frequency-task";
+import { MemoryTask } from "./tasks/memory-task";
 
 type Props = {
     task: HackTask | null;
@@ -36,6 +39,12 @@ export function TaskOverlay({ task, onComplete }: Props) {
                 )}
                 {task.type === "PATTERN" && (
                     <PatternTask task={task} onComplete={onComplete} />
+                )}
+                {task.type === "FREQUENCY" && (
+                    <FrequencyTask task={task} onComplete={onComplete} />
+                )}
+                {task.type === "MEMORY" && (
+                    <MemoryTask task={task} onComplete={onComplete} />
                 )}
             </div>
 

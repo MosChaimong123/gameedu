@@ -256,7 +256,7 @@ export default function HostLobbyPage() {
     if (view === "PLAYING") {
         if (selectedMode === "CRYPTO_HACK") {
             return <>
-                <SoundController className="fixed top-4 right-4" />
+                <SoundController className="fixed bottom-6 left-6 z-[60]" />
                 <CryptoHackHostView
                     players={players as CryptoHackPlayer[]}
                     events={gameEvents}
@@ -268,7 +268,7 @@ export default function HostLobbyPage() {
             </>
         }
         return <>
-            <SoundController className="fixed top-4 right-4" />
+            <SoundController className="fixed bottom-6 left-6 z-[60]" />
             <GoldQuestHostView
                 players={players as GoldQuestPlayer[]}
                 events={gameEvents}
@@ -359,7 +359,7 @@ export default function HostLobbyPage() {
                 {/* Player Grid */}
                 <div className="w-full max-w-5xl">
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        {players.map((player) => (
+                        {Array.from(new Map(players.map(p => [p.id, p])).values()).map((player) => (
                             <Card key={player.id} className="bg-slate-800 border-none p-4 flex items-center justify-center animate-in scale-0 duration-300 fill-mode-both">
                                 <span className="font-bold text-lg text-white truncate">{player.name}</span>
                             </Card>

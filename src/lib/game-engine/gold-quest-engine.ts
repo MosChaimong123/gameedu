@@ -143,12 +143,41 @@ export class GoldQuestEngine extends AbstractGameEngine {
         socket.emit("answer-result", { correct: isCorrect });
     }
 
+    // Track seen questions per player: Name -> Set<questionId>
+    // Changed from socket.id to Name to persist across refreshes/reconnects
+    private seenQuestions = new Map<string, Set<string>>();
+
     private handleRequestQuestion(socket: Socket) {
         if (!this.questions || this.questions.length === 0) return;
 
-        // Random question
-        // In future: Track seen questions per player
-        const q = this.questions[Math.floor(Math.random() * this.questions.length)];
+        const player = this.getPlayer(socket.id);
+        const key = player ? player.name : socket.id;
+
+        // Initialize set if not exists
+        if (!this.seenQuestions.has(key)) {
+            this.seenQuestions.set(key, new Set());
+        }
+
+        const seen = this.seenQuestions.get(key)!;
+
+        // Filter available questions
+        const available = this.questions.filter(q => !seen.has(q.id));
+
+        let q: any;
+
+        if (available.length > 0) {
+            // Pick a random available question
+            q = available[Math.floor(Math.random() * available.length)];
+        } else {
+            // All questions seen! Reset tracking loop.
+            console.log(`[Quest] Player ${key} has seen all questions. Resetting loop.`);
+            seen.clear();
+            // Pick random from FULL list
+            q = this.questions[Math.floor(Math.random() * this.questions.length)];
+        }
+
+        // Mark as seen
+        seen.add(q.id);
 
         socket.emit("next-question", {
             id: q.id,

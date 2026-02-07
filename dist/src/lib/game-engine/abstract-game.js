@@ -48,7 +48,8 @@ class AbstractGameEngine {
         this.startTime = Date.now();
         this.io.to(this.pin).emit("game-started", {
             startTime: this.startTime,
-            settings: this.settings
+            settings: this.settings,
+            gameMode: this.gameMode
         });
     }
     endGame() {

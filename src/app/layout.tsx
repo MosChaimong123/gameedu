@@ -5,6 +5,7 @@ import { SocketProvider } from "@/components/providers/socket-provider";
 import { LanguageProvider } from "@/components/providers/language-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { SoundProvider } from "@/hooks/use-sound";
+import { Toaster } from "@/components/ui/toaster";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,6 +37,7 @@ export default function RootLayout({
             <SocketProvider>
               <SoundProvider>
                 {children}
+                <Toaster />
               </SoundProvider>
             </SocketProvider>
           </LanguageProvider>

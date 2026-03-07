@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
-import { Plus, Play, Gamepad2, Search, Library, ShoppingBag, Joystick, BarChart, Settings, Calendar } from "lucide-react"
+import { Plus, Play, Gamepad2, Search, Library, ShoppingBag, Joystick, BarChart, Settings, Calendar, Users } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 
 export function QuickActions({ role }: { role?: string }) {
@@ -224,6 +224,27 @@ export function QuickActions({ role }: { role?: string }) {
                         <h3 className="text-lg font-bold">{t("viewReports") || "Reports"}</h3>
                         <p className="text-xs text-emerald-100 opacity-90 hidden md:block">
                             Check progress
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Classrooms */}
+            <div
+                className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 p-6 text-white shadow-md transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer"
+                onClick={() => router.push("/dashboard/classrooms")}
+            >
+                <div className="absolute right-[-20px] top-[-20px] opacity-20 transition-transform group-hover:scale-110">
+                    <Users className="h-24 w-24" />
+                </div>
+                <div className="relative z-10 flex flex-col items-start gap-4">
+                    <div className="rounded-full bg-white/20 p-3 backdrop-blur-sm">
+                        <Users className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold">{t("classrooms") || "Classrooms"}</h3>
+                        <p className="text-xs text-pink-100 opacity-90 hidden md:block">
+                            Manage students
                         </p>
                     </div>
                 </div>

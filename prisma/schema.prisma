@@ -27,6 +27,7 @@ model User {
   sessions      Session[]
   questionSets  QuestionSet[]
   history       GameHistory[]
+  classrooms    Classroom[]
 }
 
 model Account {
@@ -117,4 +118,53 @@ model GameHistory {
   players   Json
   
   host      User     @relation(fields: [hostId], references: [id])
+}
+
+// Classroom System Models
+
+model Classroom {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  grade       String?
+  image       String?
+  teacherId   String    @db.ObjectId
+  teacher     User      @relation(fields: [teacherId], references: [id])
+  students    Student[]
+  skills      Skill[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Student {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  avatar      String?        // Monster Seed/ID
+  classId     String         @db.ObjectId
+  classroom   Classroom      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  loginCode   String         @unique @default(cuid()) // Unique code for student portal login
+  points      Int            @default(0)
+  attendance  String         @default("PRESENT") // PRESENT, ABSENT, LATE, LEFT_EARLY
+  history     PointHistory[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model Skill {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  weight      Int       // +1, -1
+  icon        String    // Icon identifier
+  type        String    // POSITIVE, NEEDS_WORK
+  classId     String    @db.ObjectId
+  classroom   Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+}
+
+model PointHistory {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId   String   @db.ObjectId
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  skillId     String?  // Optional snapshot
+  reason      String   // Snapshot of skill name
+  value       Int
+  timestamp   DateTime @default(now())
 }

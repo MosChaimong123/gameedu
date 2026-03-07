@@ -228,6 +228,25 @@ app.prepare().then(async () => {
             }
         });
 
+        // --- Classroom System Events ---
+        socket.on("join-classroom", (classId) => {
+            if (classId) {
+                socket.join(`classroom-${classId}`);
+                console.log(`Socket ${socket.id} joined classroom-${classId}`);
+            }
+        });
+
+        socket.on("leave-classroom", (classId) => {
+            if (classId) {
+                socket.leave(`classroom-${classId}`);
+            }
+        });
+
+        socket.on("classroom-update", ({ classId, type, data }) => {
+            // Broadcast to everyone in the classroom room EXCEPT the sender
+            socket.to(`classroom-${classId}`).emit("classroom-event", { type, data });
+        });
+
     });
 
 

@@ -6,7 +6,7 @@ import { translations, Language } from "@/lib/translations"
 type LanguageContextType = {
     language: Language
     setLanguage: (lang: Language) => void
-    t: (key: keyof typeof translations["en"], params?: Record<string, string | number>) => string
+    t: (key: string, params?: Record<string, string | number>) => string
     toggleLanguage: () => void
 }
 
@@ -33,7 +33,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
         handleSetLanguage(newLang)
     }
 
-    const t = (key: keyof typeof translations["en"], params?: Record<string, string | number>) => {
+    const t = (key: string, params?: Record<string, string | number>) => {
         let text = (translations[language] as any)[key] || key
         if (params) {
             Object.entries(params).forEach(([paramKey, value]) => {

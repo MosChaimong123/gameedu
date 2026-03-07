@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Key, Printer } from "lucide-react";
 import { Student } from "@prisma/client";
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/components/providers/language-provider";
 
 export function StudentLoginsDialog({ students, classId }: { students: any[], classId: string }) {
+    const { t } = useLanguage();
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
@@ -22,39 +24,50 @@ export function StudentLoginsDialog({ students, classId }: { students: any[], cl
     return (
         <Dialog>
             <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="hidden print:hidden md:flex">
-                    <Key className="w-4 h-4 mr-2" />
-                    Logins
+                <Button variant="secondary" className="h-9 bg-transparent text-white border-0 font-medium shadow-none transition-colors whitespace-nowrap hidden print:hidden md:flex" size="sm">
+                    <Key className="w-4 h-4 md:mr-1.5" />
+                    <span className="hidden xl:inline">{t("studentLogins")}</span>
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader className="print:hidden">
-                    <DialogTitle>Student Access Codes</DialogTitle>
-                    <DialogDescription>
-                        Give these unique 6-character codes to your students so they can log into their portals. You can print this page for easy distribution.
-                    </DialogDescription>
-                </DialogHeader>
+            <DialogContent className="max-w-[95vw] sm:max-w-[85vw] lg:max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+                <div className="p-6 pb-4 border-b border-slate-100 print:hidden shrink-0">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl md:text-2xl">{t("studentAccessCodes")}</DialogTitle>
+                        <DialogDescription className="text-sm md:text-base mt-1.5 leading-relaxed">
+                            {t("accessCodesDesc")}
+                        </DialogDescription>
+                    </DialogHeader>
+                </div>
                 
-                {/* Printable Area - In a real app we'd use a separate hidden print stylesheet, but this works for demonstration */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4 print-area">
-                    {students.map((student) => (
-                        <div key={student.id} className="border border-slate-200 p-4 rounded-xl flex flex-col items-center justify-center text-center bg-white shadow-sm">
-                            <h3 className="font-bold text-lg text-slate-800 mb-2 truncate w-full">{student.name}</h3>
-                            <div className="bg-slate-50 p-3 rounded-lg w-full mb-3 border border-slate-100">
-                                <span className="text-xs font-semibold text-slate-400 block mb-1 uppercase tracking-wider">Access Code</span>
-                                <span className="font-mono text-2xl tracking-widest font-bold text-indigo-600">
-                                    {student.loginCode || 'N/A'}
-                                </span>
+                {/* Printable Area */}
+                <div className="overflow-y-auto p-4 md:p-6 flex-1 bg-slate-50/50">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 print-area w-full mx-auto">
+                        {students.map((student) => (
+                            <div key={student.id} className="border border-slate-200 p-5 md:p-6 rounded-2xl flex flex-col items-center justify-center text-center bg-white shadow-sm relative overflow-hidden group hover:border-indigo-300 transition-colors">
+                                {/* Decorative top border */}
+                                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-70 group-hover:opacity-100 transition-opacity"></div>
+                                
+                                <h3 className="font-bold text-lg md:text-xl text-slate-800 mb-4 w-full px-2 truncate">{student.name}</h3>
+                                
+                                <div className="bg-indigo-50/50 py-4 px-2 shrink-0 rounded-xl w-full mb-4 border border-indigo-100 flex flex-col items-center justify-center min-h-[100px] overflow-hidden">
+                                    <span className="text-[11px] md:text-xs font-bold text-indigo-500 block mb-2 uppercase whitespace-nowrap">{t("accessCode")}</span>
+                                    <span className="font-mono text-2xl tracking-[0.2em] font-black text-indigo-700 select-all w-full text-center">
+                                        {student.loginCode || 'N/A'}
+                                    </span>
+                                </div>
+                                
+                                <div className="text-[10px] md:text-xs text-slate-500 bg-slate-50 px-3 py-2 rounded-full border border-slate-100 w-full truncate font-medium">
+                                    {t("joinAt", { url: "http://localhost:3000/student" })}
+                                </div>
                             </div>
-                            <p className="text-[10px] text-slate-400">Join at: http://localhost:3000/student</p>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
 
-                <div className="mt-6 flex justify-end print:hidden">
-                    <Button onClick={handlePrint} className="flex items-center gap-2">
+                <div className="p-4 md:p-6 border-t border-slate-100 bg-white print:hidden shrink-0 flex justify-end">
+                    <Button onClick={handlePrint} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm rounded-xl">
                         <Printer className="w-4 h-4" />
-                        Print Cards
+                        {t("printCards")}
                     </Button>
                 </div>
             </DialogContent>

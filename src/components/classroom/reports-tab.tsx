@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDistanceToNow } from "date-fns";
+import { useLanguage } from "@/components/providers/language-provider";
 import { Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -20,7 +21,12 @@ interface ReportData {
     studentStats: any[];
 }
 
-export function ReportsTab({ classId }: { classId: string }) {
+interface ReportsTabProps {
+    classId: string;
+}
+
+export function ReportsTab({ classId }: ReportsTabProps) {
+    const { t } = useLanguage();
     const [data, setData] = useState<ReportData | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -74,36 +80,39 @@ export function ReportsTab({ classId }: { classId: string }) {
         );
     }
 
-    if (!data) return <div className="p-8 text-center text-red-500">Failed to load reports.</div>;
+    if (!data) return <div className="p-8 text-center text-red-500">{t("failedToLoadReports") || "Failed to load reports."}</div>;
 
-    const totalPoints = data.summary.reduce((acc, curr) => acc + curr.value, 0);
+    const totalPoints = data.summary.reduce((acc: any, curr: any) => acc + curr.value, 0);
 
     return (
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4">
             <div className="flex justify-end">
                 <Button onClick={handleExportCSV} variant="outline" size="sm" className="flex items-center gap-2">
                     <Download className="w-4 h-4" />
-                    Export CSV
+                    {t("exportCSV")}
                 </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Chart Area */}
                 <Card className="md:col-span-1 shadow-sm">
                 <CardHeader>
-                    <CardTitle>Class Overview</CardTitle>
-                    <CardDescription>Positive vs Needs Work</CardDescription>
+                    <CardTitle>{t("classOverview")}</CardTitle>
+                    <CardDescription>{t("positiveVsNeedsWork")}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {totalPoints === 0 ? (
                         <div className="h-[250px] flex items-center justify-center text-slate-400">
-                            No data yet
+                            {t("noDataYet")}
                         </div>
                     ) : (
                         <div className="h-[250px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
-                                        data={data.summary}
+                                        data={data.summary.map((item: any) => ({
+                                            ...item,
+                                            name: item.name === "Positive" ? t("positive") : item.name === "Needs Work" ? t("needsWork") : item.name
+                                        }))}
                                         cx="50%"
                                         cy="50%"
                                         innerRadius={60}
@@ -127,15 +136,15 @@ export function ReportsTab({ classId }: { classId: string }) {
             {/* Activity Feed */}
             <Card className="md:col-span-2 shadow-sm">
                 <CardHeader>
-                    <CardTitle>Recent Activity</CardTitle>
-                    <CardDescription>Latest points awarded in this class</CardDescription>
+                    <CardTitle>{t("recentActivity")}</CardTitle>
+                    <CardDescription>{t("latestPointsDesc")}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-4 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
                         {data.recentHistory.length === 0 ? (
-                            <p className="text-slate-500 text-center py-8">No activity recorded yet.</p>
+                            <p className="text-slate-500 text-center py-8">{t("noActivityRecordedYet") || "No activity recorded yet."}</p>
                         ) : (
-                            data.recentHistory.map((record) => (
+                            data.recentHistory.map((record: any) => (
                                 <div key={record.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
                                     <div className="flex flex-col">
                                         <span className="font-semibold text-slate-800">{record.studentName}</span>
@@ -159,22 +168,22 @@ export function ReportsTab({ classId }: { classId: string }) {
             {/* Individual Student Reports */}
             <Card className="md:col-span-3 shadow-sm mt-4">
                 <CardHeader>
-                    <CardTitle>Individual Student Reports</CardTitle>
-                    <CardDescription>Overview of each student's performance</CardDescription>
+                    <CardTitle>{t("individualStudentReports")}</CardTitle>
+                    <CardDescription>{t("studentPerformanceDesc")}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left text-slate-500 divide-y divide-slate-200">
                             <thead className="bg-slate-50 text-slate-700 uppercase">
                                 <tr>
-                                    <th className="px-6 py-3 rounded-tl-lg">Student Name</th>
-                                    <th className="px-6 py-3 text-center">Positive</th>
-                                    <th className="px-6 py-3 text-center">Needs Work</th>
-                                    <th className="px-6 py-3 text-center rounded-tr-lg">Attendance</th>
+                                    <th className="px-6 py-3 rounded-tl-lg">{t("studentName")}</th>
+                                    <th className="px-6 py-3 text-center">{t("positive")}</th>
+                                    <th className="px-6 py-3 text-center">{t("needsWork")}</th>
+                                    <th className="px-6 py-3 text-center rounded-tr-lg">{t("attendance")}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {data.studentStats.map((student) => (
+                                {data.studentStats.map((student: any) => (
                                     <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
                                         <td className="px-6 py-4 font-medium text-slate-900">{student.name}</td>
                                         <td className="px-6 py-4 text-center font-bold text-green-600">
@@ -189,7 +198,7 @@ export function ReportsTab({ classId }: { classId: string }) {
                                                 student.attendance === 'LATE' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
                                                 'bg-red-100 text-red-700 border-red-200'
                                             }`}>
-                                                {student.attendance}
+                                                {student.attendance === 'PRESENT' ? t("present") : student.attendance === 'LATE' ? t("late") : student.attendance === 'ABSENT' ? t("absent") : student.attendance === 'LEFT_EARLY' ? t("leftEarly") : student.attendance}
                                             </span>
                                         </td>
                                     </tr>

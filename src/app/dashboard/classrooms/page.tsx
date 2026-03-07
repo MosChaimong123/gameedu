@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ClassroomCard } from "@/components/classroom/classroom-card";
+import { ClassroomDashboardHeader } from "@/components/classroom/classroom-dashboard-header";
 import { CreateClassroomDialog } from "./create-classroom-dialog";
 import { Users } from "lucide-react";
 
@@ -25,13 +26,7 @@ export default async function MyClassroomsPage() {
 
     return (
         <div className="space-y-8 p-8">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">My Classrooms</h1>
-                    <p className="text-slate-500 mt-2">Manage your classes and students.</p>
-                </div>
-                <CreateClassroomDialog />
-            </div>
+            <ClassroomDashboardHeader />
 
             {classrooms.length === 0 ? (
                 <div className="text-center py-20 bg-slate-50 rounded-lg border border-dashed border-slate-300">

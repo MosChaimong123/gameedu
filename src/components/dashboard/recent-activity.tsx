@@ -58,9 +58,9 @@ export function RecentActivity() {
                     <div className="bg-slate-100 p-3 rounded-full mb-3">
                         <BookOpen className="w-6 h-6 text-slate-400" />
                     </div>
-                    <p className="text-slate-500 font-medium">No recent activity</p>
+                    <p className="text-slate-500 font-medium">{t("noRecentActivity")}</p>
                     <Link href="/create-set" className="text-sm font-bold text-purple-600 hover:underline mt-1">
-                        Create your first set
+                        {t("createFirstSet")}
                     </Link>
                 </CardContent>
             </Card>
@@ -70,9 +70,9 @@ export function RecentActivity() {
     return (
         <Card className="border-none shadow-none bg-transparent">
             <CardHeader className="px-0 pt-0 pb-4 flex flex-row items-center justify-between">
-                <CardTitle className="text-lg font-bold text-slate-800">Recently Updated</CardTitle>
+                <CardTitle className="text-lg font-bold text-slate-800">{t("recentlyUpdated")}</CardTitle>
                 <Link href="/dashboard/my-sets" className="text-sm font-bold text-purple-600 flex items-center hover:underline">
-                    View All <ChevronRight className="w-4 h-4" />
+                    {t("viewAll")} <ChevronRight className="w-4 h-4" />
                 </Link>
             </CardHeader>
             <CardContent className="px-0 space-y-3">

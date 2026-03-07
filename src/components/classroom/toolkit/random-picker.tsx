@@ -6,14 +6,17 @@ import { Button } from "@/components/ui/button";
 import { X, Shuffle, Trophy } from "lucide-react";
 import { StudentAvatar } from "../student-avatar";
 import useSound from "use-sound";
+import { useLanguage } from "@/components/providers/language-provider";
 
 interface RandomPickerProps {
     students: Student[];
     onClose: () => void;
     onSelect?: (student: Student) => void;
+    levelConfig?: any;
 }
 
-export function RandomPicker({ students, onClose, onSelect }: RandomPickerProps) {
+export function RandomPicker({ students, onClose, onSelect, levelConfig }: RandomPickerProps) {
+    const { t } = useLanguage();
     const [running, setRunning] = useState(false);
     const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
     const [winner, setWinner] = useState<Student | null>(null);
@@ -63,7 +66,7 @@ export function RandomPicker({ students, onClose, onSelect }: RandomPickerProps)
                 </button>
 
                 <h2 className="text-3xl font-bold bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent mb-8">
-                    Random Student
+                    {t("randomPicker")}
                 </h2>
 
                 <div className="w-64 h-64 mb-8 flex items-center justify-center relative">
@@ -74,6 +77,7 @@ export function RandomPicker({ students, onClose, onSelect }: RandomPickerProps)
                                 name={currentStudent.name}
                                 avatarSeed={currentStudent.avatar || currentStudent.id}
                                 points={currentStudent.points} // Visual only
+                                levelConfig={levelConfig}
                                 className="w-full h-full pointer-events-none"
                             />
                             {winner && (
@@ -97,10 +101,10 @@ export function RandomPicker({ students, onClose, onSelect }: RandomPickerProps)
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <Button size="lg" onClick={pickRandom} className="w-full">
-                                Pick Again
+                                {t("pickAnother")}
                             </Button>
                             <Button size="lg" variant="outline" onClick={onClose} className="w-full">
-                                Close
+                                {t("close")}
                             </Button>
                         </div>
                     </div>
@@ -111,7 +115,7 @@ export function RandomPicker({ students, onClose, onSelect }: RandomPickerProps)
                         disabled={running}
                         className="w-full h-16 text-xl rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-lg"
                     >
-                        {running ? "Spinning..." : "Pick Random Student"}
+                        {running ? "Spinning..." : t("randomPicker")}
                     </Button>
                 )}
             </div>

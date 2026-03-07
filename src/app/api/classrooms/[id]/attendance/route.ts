@@ -33,16 +33,24 @@ export async function POST(
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
-        // Transactional update (or Promise.all)
-        // Prisma doesn't support bulk update with different values easily in one query
-        // so we use Promise.all
-        await Promise.all(
-            updates.map((update: { studentId: string; status: string }) =>
+        const now = new Date();
+
+        // Transactional update using Prisma transaction array
+        await db.$transaction(
+            updates.flatMap((update: { studentId: string; status: string }) => [
                 db.student.update({
                     where: { id: update.studentId },
                     data: { attendance: update.status }
+                }),
+                db.attendanceRecord.create({
+                    data: {
+                        studentId: update.studentId,
+                        classId: id,
+                        status: update.status,
+                        date: now
+                    }
                 })
-            )
+            ])
         );
 
         return NextResponse.json({ success: true });

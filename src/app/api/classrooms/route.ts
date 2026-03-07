@@ -53,6 +53,15 @@ export async function POST(req: Request) {
                 grade,
                 image,
                 teacherId: session.user.id as string,
+                levelConfig: {
+                    'ชาวบ้าน (Villager)': 0,
+                    'ทหารฝึกหัด (Militia)': 10,
+                    'ผู้พิทักษ์ (Defender)': 20,
+                    'อัศวิน (Knight)': 40,
+                    'กัปตัน (Captain)': 60,
+                    'ฮีโร่ (Hero)': 80,
+                    'ตำนาน (Legend)': 100,
+                },
                 // Add default skills
                 skills: {
                     create: [

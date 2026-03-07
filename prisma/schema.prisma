@@ -123,30 +123,40 @@ model GameHistory {
 // Classroom System Models
 
 model Classroom {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
   name        String
   grade       String?
   image       String?
-  teacherId   String    @db.ObjectId
-  teacher     User      @relation(fields: [teacherId], references: [id])
+  theme       String?      @default("from-blue-400 to-cyan-500")
+  emoji       String?      @default("🛡️")
+  levelConfig Json?        // Stores rank names and min scores
+  teacherId   String       @db.ObjectId
+  teacher     User         @relation(fields: [teacherId], references: [id])
   students    Student[]
   skills      Skill[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  assignments Assignment[]
+  studentGroups StudentGroup[]
+  attendanceRecords AttendanceRecord[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }
 
 model Student {
-  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  id          String                 @id @default(auto()) @map("_id") @db.ObjectId
   name        String
-  avatar      String?        // Monster Seed/ID
-  classId     String         @db.ObjectId
-  classroom   Classroom      @relation(fields: [classId], references: [id], onDelete: Cascade)
-  loginCode   String         @unique @default(cuid()) // Unique code for student portal login
-  points      Int            @default(0)
-  attendance  String         @default("PRESENT") // PRESENT, ABSENT, LATE, LEFT_EARLY
+  nickname    String?                // ชื่อเล่น
+  avatar      String?                // Monster Seed/ID
+  order       Int                    @default(0) // เลขที่ / position
+  classId     String                 @db.ObjectId
+  classroom   Classroom              @relation(fields: [classId], references: [id], onDelete: Cascade)
+  loginCode   String                 @unique @default(cuid()) // Unique code for student portal login
+  points      Int                    @default(0)
+  attendance  String                 @default("PRESENT") // PRESENT, ABSENT, LATE, LEFT_EARLY
   history     PointHistory[]
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  submissions AssignmentSubmission[]
+  attendanceRecords AttendanceRecord[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
 }
 
 model Skill {
@@ -159,6 +169,16 @@ model Skill {
   classroom   Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
 }
 
+model StudentGroup {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  classId    String    @db.ObjectId
+  classroom  Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  studentIds String[]  // Array of Student IDs in the group
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
 model PointHistory {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   studentId   String   @db.ObjectId
@@ -167,4 +187,45 @@ model PointHistory {
   reason      String   // Snapshot of skill name
   value       Int
   timestamp   DateTime @default(now())
+}
+
+model Assignment {
+  id          String                 @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  type        String                 @default("score") // score, checklist, quiz
+  maxScore    Int                    @default(10)
+  passScore   Int?
+  checklists  String[]
+  quizData    Json?                  // store quiz questions if type=quiz
+  visible     Boolean                @default(true)
+  order       Int                    @default(0)
+  classId     String                 @db.ObjectId
+  classroom   Classroom              @relation(fields: [classId], references: [id], onDelete: Cascade)
+  submissions AssignmentSubmission[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+}
+
+model AssignmentSubmission {
+  id             String     @id @default(auto()) @map("_id") @db.ObjectId
+  studentId      String     @db.ObjectId
+  assignmentId   String     @db.ObjectId
+  score          Int
+  cheatingLogs   String[]
+  submittedAt    DateTime   @default(now())
+  
+  student        Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignment     Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, assignmentId])
+}
+
+model AttendanceRecord {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  studentId   String    @db.ObjectId
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId     String    @db.ObjectId
+  classroom   Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  status      String    // PRESENT, ABSENT, LATE, LEFT_EARLY
+  date        DateTime  @default(now())
 }

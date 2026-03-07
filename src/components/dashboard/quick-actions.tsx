@@ -25,9 +25,9 @@ export function QuickActions({ role }: { role?: string }) {
                             <Gamepad2 className="h-6 w-6" />
                         </div>
                         <div>
-                            <h3 className="text-xl font-bold">{t("joinGame") || "Join Game"}</h3>
+                            <h3 className="text-xl font-bold">{t("joinGame")}</h3>
                             <p className="text-xs md:text-sm text-indigo-100 opacity-90">
-                                Enter code to play
+                                {t("enterCode")}
                             </p>
                         </div>
                     </div>
@@ -49,7 +49,7 @@ export function QuickActions({ role }: { role?: string }) {
                         <div>
                             <h3 className="text-lg font-bold">{t("discover")}</h3>
                             <p className="text-xs text-teal-100 opacity-90 hidden md:block">
-                                Find public games
+                                {t("findPublicGames")}
                             </p>
                         </div>
                     </div>
@@ -70,32 +70,12 @@ export function QuickActions({ role }: { role?: string }) {
                         <div>
                             <h3 className="text-lg font-bold">{t("market")}</h3>
                             <p className="text-xs text-amber-100 opacity-90 hidden md:block">
-                                Buy items
+                                {t("buyItems")}
                             </p>
                         </div>
                     </div>
                 </div>
 
-                {/* Blooks */}
-                <div
-                    className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-rose-400 to-pink-600 p-6 text-white shadow-md transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer"
-                    onClick={() => router.push("/dashboard/blooks")}
-                >
-                    <div className="absolute right-[-20px] top-[-20px] opacity-20 transition-transform group-hover:scale-110">
-                        <Joystick className="h-24 w-24" />
-                    </div>
-                    <div className="relative z-10 flex flex-col items-start gap-4">
-                        <div className="rounded-full bg-white/20 p-3 backdrop-blur-sm">
-                            <Joystick className="h-6 w-6" />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold">{t("blooks")}</h3>
-                            <p className="text-xs text-rose-100 opacity-90 hidden md:block">
-                                Collection
-                            </p>
-                        </div>
-                    </div>
-                </div>
 
                 {/* History */}
                 <div
@@ -112,7 +92,7 @@ export function QuickActions({ role }: { role?: string }) {
                         <div>
                             <h3 className="text-lg font-bold">{t("history")}</h3>
                             <p className="text-xs text-violet-100 opacity-90 hidden md:block">
-                                Past games
+                                {t("pastGames")}
                             </p>
                         </div>
                     </div>
@@ -133,7 +113,7 @@ export function QuickActions({ role }: { role?: string }) {
                         <div>
                             <h3 className="text-lg font-bold">{t("settings")}</h3>
                             <p className="text-xs text-slate-100 opacity-90 hidden md:block">
-                                Preferences
+                                {t("preferences")}
                             </p>
                         </div>
                     </div>
@@ -158,13 +138,15 @@ export function QuickActions({ role }: { role?: string }) {
                         <Plus className="h-6 w-6" />
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold">{t("createSet") || "Create Set"}</h3>
+                        <h3 className="text-xl font-bold">{t("createSet")}</h3>
                         <p className="text-xs text-purple-100 opacity-90 hidden md:block">
-                            New question set
+                            {t("newQuestionSet")}
                         </p>
                     </div>
                 </div>
             </div>
+
+
 
             {/* Host Game */}
             <div
@@ -179,9 +161,9 @@ export function QuickActions({ role }: { role?: string }) {
                         <Play className="h-6 w-6" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold">{t("host") || "Host Game"}</h3>
+                        <h3 className="text-lg font-bold">{t("host")}</h3>
                         <p className="text-xs text-orange-100 opacity-90 hidden md:block">
-                            Live session
+                            {t("liveSession")}
                         </p>
                     </div>
                 </div>
@@ -200,9 +182,9 @@ export function QuickActions({ role }: { role?: string }) {
                         <Calendar className="h-6 w-6" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold">{t("assignHomework") || "Homework"}</h3>
+                        <h3 className="text-lg font-bold">{t("assignHomework")}</h3>
                         <p className="text-xs text-blue-100 opacity-90 hidden md:block">
-                            Assign tasks
+                            {t("assignTasks")}
                         </p>
                     </div>
                 </div>
@@ -221,9 +203,9 @@ export function QuickActions({ role }: { role?: string }) {
                         <BarChart className="h-6 w-6" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold">{t("viewReports") || "Reports"}</h3>
+                        <h3 className="text-lg font-bold">{t("viewReports")}</h3>
                         <p className="text-xs text-emerald-100 opacity-90 hidden md:block">
-                            Check progress
+                            {t("checkProgress")}
                         </p>
                     </div>
                 </div>
@@ -242,9 +224,9 @@ export function QuickActions({ role }: { role?: string }) {
                         <Users className="h-6 w-6" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold">{t("classrooms") || "Classrooms"}</h3>
+                        <h3 className="text-lg font-bold">{t("activeClasses")}</h3>
                         <p className="text-xs text-pink-100 opacity-90 hidden md:block">
-                            Manage students
+                            {t("manageStudents")}
                         </p>
                     </div>
                 </div>
@@ -265,32 +247,12 @@ export function QuickActions({ role }: { role?: string }) {
                     <div>
                         <h3 className="text-lg font-bold">{t("mySets")}</h3>
                         <p className="text-xs text-blue-100 opacity-90 hidden md:block">
-                            Manage your library
+                            {t("manageLibrary")}
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* Discover */}
-            <div
-                className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-teal-400 to-emerald-500 p-6 text-white shadow-md transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer"
-                onClick={() => router.push("/dashboard/discover")}
-            >
-                <div className="absolute right-[-20px] top-[-20px] opacity-20 transition-transform group-hover:scale-110">
-                    <Search className="h-24 w-24" />
-                </div>
-                <div className="relative z-10 flex flex-col items-start gap-4">
-                    <div className="rounded-full bg-white/20 p-3 backdrop-blur-sm">
-                        <Search className="h-6 w-6" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-bold">{t("discover")}</h3>
-                        <p className="text-xs text-teal-100 opacity-90 hidden md:block">
-                            Find public content
-                        </p>
-                    </div>
-                </div>
-            </div>
 
             {/* Market */}
             <div
@@ -307,32 +269,12 @@ export function QuickActions({ role }: { role?: string }) {
                     <div>
                         <h3 className="text-lg font-bold">{t("market")}</h3>
                         <p className="text-xs text-amber-100 opacity-90 hidden md:block">
-                            Buy items
+                            {t("buyItems")}
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* Blooks */}
-            <div
-                className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-rose-400 to-pink-600 p-6 text-white shadow-md transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer"
-                onClick={() => router.push("/dashboard/blooks")}
-            >
-                <div className="absolute right-[-20px] top-[-20px] opacity-20 transition-transform group-hover:scale-110">
-                    <Joystick className="h-24 w-24" />
-                </div>
-                <div className="relative z-10 flex flex-col items-start gap-4">
-                    <div className="rounded-full bg-white/20 p-3 backdrop-blur-sm">
-                        <Joystick className="h-6 w-6" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-bold">{t("blooks")}</h3>
-                        <p className="text-xs text-rose-100 opacity-90 hidden md:block">
-                            Collection
-                        </p>
-                    </div>
-                </div>
-            </div>
 
             {/* Settings */}
             <div
@@ -349,7 +291,7 @@ export function QuickActions({ role }: { role?: string }) {
                     <div>
                         <h3 className="text-lg font-bold">{t("settings")}</h3>
                         <p className="text-xs text-slate-100 opacity-90 hidden md:block">
-                            Preferences
+                            {t("preferences")}
                         </p>
                     </div>
                 </div>

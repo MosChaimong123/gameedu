@@ -21,9 +21,17 @@ export async function GET(
             },
             include: {
                 students: {
-                    orderBy: { name: 'asc' }
+                    orderBy: { name: 'asc' },
+                    include: {
+                        submissions: true
+                    }
                 },
-                skills: true
+                skills: true,
+                assignments: {
+                    orderBy: {
+                        order: 'asc'
+                    }
+                }
             }
         });
 
@@ -60,6 +68,37 @@ export async function DELETE(
         return NextResponse.json(classroom);
     } catch (error) {
         console.error("[CLASSROOM_DELETE]", error);
+        return new NextResponse("Internal Error", { status: 500 });
+    }
+}
+
+export async function PATCH(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const { id } = await params;
+    const session = await auth();
+
+    if (!session || !session.user || !session.user.id) {
+        return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    try {
+        const body = await req.json();
+        
+        const classroom = await db.classroom.update({
+            where: {
+                id,
+                teacherId: session.user.id as string
+            },
+            data: {
+                ...body
+            }
+        });
+
+        return NextResponse.json(classroom);
+    } catch (error) {
+        console.error("[CLASSROOM_PATCH]", error);
         return new NextResponse("Internal Error", { status: 500 });
     }
 }

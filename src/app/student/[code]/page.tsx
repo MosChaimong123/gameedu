@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getStudentRank } from "@/lib/classroom-utils";
 
 export default async function StudentDashboardPage(
     props: { params: Promise<{ code: string }> }
@@ -15,7 +16,7 @@ export default async function StudentDashboardPage(
         where: { loginCode: code.toUpperCase() },
         include: {
             classroom: {
-                select: { name: true, image: true, teacher: { select: { name: true } } }
+                select: { name: true, image: true, levelConfig: true, teacher: { select: { name: true } } }
             },
             history: {
                 orderBy: { timestamp: 'desc' },
@@ -73,6 +74,11 @@ export default async function StudentDashboardPage(
                                 </div>
                             </div>
                             <CardContent className="p-6 text-center space-y-2 relative">
+                                <div className="mb-2">
+                                    <span className="text-xs uppercase font-bold text-orange-600 bg-orange-100 px-3 py-1 rounded-full border border-orange-200 shadow-sm">
+                                        {getStudentRank(student.points, classroom.levelConfig)}
+                                    </span>
+                                </div>
                                 <h1 className="text-2xl font-black text-slate-800">{student.name}</h1>
                                 <div className="inline-flex items-center gap-2 mt-2">
                                     <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Total Points</span>

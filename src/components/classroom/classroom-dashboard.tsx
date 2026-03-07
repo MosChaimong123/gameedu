@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Classroom, Student, Skill } from "@prisma/client";
+import { Classroom, Student, Skill, Assignment, AssignmentSubmission } from "@prisma/client";
 import { StudentAvatar } from "./student-avatar";
 import { AddStudentDialog } from "./add-student-dialog";
 import { StudentLoginsDialog } from "./student-logins-dialog";
@@ -9,34 +9,57 @@ import { PointMenu } from "./point-menu";
 import { TimerWidget } from "./toolkit/timer-widget";
 import { RandomPicker } from "./toolkit/random-picker";
 import { GroupMaker } from "./toolkit/group-maker";
+import { ClassroomTable } from "./classroom-table";
+import { ClassroomSettingsDialog } from "./classroom-settings-dialog";
+import { AddAssignmentDialog } from "./add-assignment-dialog";
+import { StudentManagerDialog } from "./student-manager-dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Users, Timer, Shuffle, Settings } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Users, Timer, Shuffle, Settings, LayoutGrid, TableProperties, Plus, UserCog } from "lucide-react";
+import { useLanguage } from "@/components/providers/language-provider";
 import { useToast } from "@/components/ui/use-toast";
 import { useSocket } from "@/components/providers/socket-provider";
 import useSound from "use-sound";
 
 interface ClassroomDashboardProps {
     classroom: Classroom & {
-        students: Student[];
+        students: (Student & { submissions: AssignmentSubmission[] })[];
         skills: Skill[];
+        assignments: Assignment[];
     };
 }
 
 export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDashboardProps) {
+    const { t } = useLanguage();
     const [classroom, setClassroom] = useState(initialClassroom);
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
     // Attendance State
     const [isAttendanceMode, setIsAttendanceMode] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
 
+    // Multi-Select State
+    const [isSelectMultiple, setIsSelectMultiple] = useState(false);
+    const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+
     // Toolkit State
     const [showTimer, setShowTimer] = useState(false);
     const [showRandomPicker, setShowRandomPicker] = useState(false);
     const [showGroupMaker, setShowGroupMaker] = useState(false);
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
+    const [showAddAssignment, setShowAddAssignment] = useState(false);
+    const [showStudentManager, setShowStudentManager] = useState(false);
 
     const { toast } = useToast();
     const { socket, isConnected } = useSocket();
@@ -88,6 +111,12 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                 )
             }));
             setHasChanges(true);
+        } else if (isSelectMultiple) {
+            setSelectedStudentIds(prev => 
+                prev.includes(student.id) 
+                    ? prev.filter(id => id !== student.id)
+                    : [...prev, student.id]
+            );
         } else {
             setSelectedStudent(student);
             setMenuOpen(true);
@@ -120,18 +149,53 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
         }
     };
 
+    const refreshData = async () => {
+        try {
+            const res = await fetch(`/api/classrooms/${classroom.id}`);
+            if (res.ok) {
+                const data = await res.json();
+                setClassroom(data);
+            }
+        } catch (error) {
+            console.error("Failed to refresh data", error);
+        }
+    };
+
+    const handleResetPoints = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch(`/api/classrooms/${classroom.id}/points/reset`, {
+                method: "POST"
+            });
+
+            if (!res.ok) throw new Error("Failed to reset points");
+
+            // Optimistic fast update
+            setClassroom(prev => ({
+                ...prev,
+                students: prev.students.map(s => ({ ...s, points: 0 }))
+            }));
+            
+            toast({ title: "Success", description: "All points have been reset to 0." });
+        } catch (error) {
+            toast({ title: t("error") || "Error", description: "Failed to reset points.", variant: "destructive" });
+        } finally {
+            setLoading(false);
+            setShowResetConfirm(false);
+        }
+    };
+
     const handleAwardPoint = async (skillId: string, weight: number) => {
-        if (!selectedStudent) return;
+        if (!selectedStudent && selectedStudentIds.length === 0) return;
         setLoading(true);
 
-        const oldPoints = selectedStudent.points;
-        const newPoints = oldPoints + weight;
+        const targetStudentIds = isSelectMultiple ? selectedStudentIds : (selectedStudent ? [selectedStudent.id] : []);
 
         // Optimistic Update
         setClassroom(prev => ({
             ...prev,
             students: prev.students.map(s =>
-                s.id === selectedStudent.id ? { ...s, points: newPoints } : s
+                targetStudentIds.includes(s.id) ? { ...s, points: s.points + weight } : s
             )
         }));
 
@@ -140,34 +204,59 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
         else playThud();
 
         try {
-            const res = await fetch(`/api/classrooms/${classroom.id}/points`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    studentId: selectedStudent.id,
-                    skillId,
-                    weight
-                })
-            });
+            if (isSelectMultiple) {
+                const res = await fetch(`/api/classrooms/${classroom.id}/points/batch`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        studentIds: targetStudentIds,
+                        skillId,
+                        weight
+                    })
+                });
 
-            if (!res.ok) throw new Error("Failed to award point");
+                if (!res.ok) throw new Error("Failed to award points in batch");
 
-            socket?.emit("classroom-update", {
-                classId: classroom.id,
-                type: "POINT_UPDATE",
-                data: {
-                    studentId: selectedStudent.id,
-                    points: newPoints,
-                    skillId
-                }
-            });
+                targetStudentIds.forEach(id => {
+                    const student = classroom.students.find(s => s.id === id);
+                    if (student) {
+                         socket?.emit("classroom-update", {
+                            classId: classroom.id,
+                            type: "POINT_UPDATE",
+                            data: { studentId: id, points: student.points + weight, skillId }
+                        });
+                    }
+                });
+            } else {
+                const res = await fetch(`/api/classrooms/${classroom.id}/points`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        studentId: selectedStudent?.id,
+                        skillId,
+                        weight
+                    })
+                });
+
+                if (!res.ok) throw new Error("Failed to award point");
+
+                socket?.emit("classroom-update", {
+                    classId: classroom.id,
+                    type: "POINT_UPDATE",
+                    data: {
+                        studentId: selectedStudent?.id,
+                        points: (selectedStudent?.points || 0) + weight,
+                        skillId
+                    }
+                });
+            }
 
         } catch (error) {
             // Revert
             setClassroom(prev => ({
                 ...prev,
                 students: prev.students.map(s =>
-                    s.id === selectedStudent.id ? { ...s, points: oldPoints } : s
+                    targetStudentIds.includes(s.id) ? { ...s, points: s.points - weight } : s
                 )
             }));
             toast({
@@ -177,53 +266,137 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
             });
         } finally {
             setLoading(false);
-            setSelectedStudent(null);
+            if (!isSelectMultiple) {
+                setSelectedStudent(null);
+            } else {
+                setIsSelectMultiple(false);
+                setSelectedStudentIds([]);
+            }
         }
+    };
+
+    const handleTablePointUpdate = (studentId: string, diff: number) => {
+        setClassroom(prev => ({
+            ...prev,
+            students: prev.students.map(s =>
+                s.id === studentId ? { ...s, points: s.points + diff } : s
+            )
+        }));
     };
 
     return (
         <div className="flex flex-col h-full space-y-6 relative">
             {/* Toolbar */}
             {!isAttendanceMode && (
-                <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200 animate-in slide-in-from-top-2">
-                    <div className="flex items-center gap-4">
-                        <div className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                            {classroom.image && <span className="text-3xl">{classroom.image}</span>}
-                            {classroom.name}
-                        </div>
-                        <Separator orientation="vertical" className="h-8" />
-                        <div className="flex items-center gap-1 text-slate-500">
-                            <Users className="w-4 h-4" />
-                            <span>{classroom.students.length} Students</span>
-                        </div>
-                        <div className={`w-3 h-3 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`} title={isConnected ? "Connected" : "Disconnected"} />
-                    </div>
+                <div className={`rounded-2xl shadow-xl border border-white/20 animate-in slide-in-from-top-2 text-white bg-gradient-to-r ${classroom.theme || 'from-indigo-500 to-purple-600'} overflow-hidden`}>
+                    <div className="flex flex-wrap xl:flex-nowrap items-stretch gap-0 divide-x divide-white/20">
 
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setShowTimer(true)}>
-                            <Timer className="w-4 h-4 mr-2" />
-                            Timer
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => setShowRandomPicker(true)}>
-                            <Shuffle className="w-4 h-4 mr-2" />
-                            Random
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => setShowGroupMaker(true)}>
-                            <Users className="w-4 h-4 mr-2" />
-                            Groups
-                        </Button>
-                        <Button variant="outline" size="sm">
-                            <Settings className="w-4 h-4 mr-2" />
-                            Settings
-                        </Button>
-                        <AddStudentDialog
-                            classId={classroom.id}
-                            onStudentAdded={() => window.location.reload()}
-                        />
-                        <StudentLoginsDialog 
-                            students={classroom.students} 
-                            classId={classroom.id} 
-                        />
+                        {/* ══ GROUP 1: Class Info ══ */}
+                        <div className="flex items-center gap-4 px-5 py-4 min-w-[260px] bg-black/10">
+                            <span className="text-3xl bg-white/20 p-2.5 rounded-xl border border-white/30 backdrop-blur-sm shadow-inner shrink-0">
+                                {classroom.emoji || classroom.image || "🛡️"}
+                            </span>
+                            <div>
+                                <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">ห้องเรียน</p>
+                                <p className="text-xl font-bold leading-tight drop-shadow-sm">{classroom.name}</p>
+                                <div className="flex items-center gap-1.5 mt-1">
+                                    <Users className="w-3.5 h-3.5 text-white/70" />
+                                    <span className="text-sm text-white/80 font-medium">{classroom.students.length} คน</span>
+                                    <div className={`w-2 h-2 rounded-full ml-1 ${isConnected ? "bg-green-400" : "bg-red-400"}`} title={isConnected ? "Connected" : "Disconnected"} />
+                                </div>
+                            </div>
+                            {/* View toggle inline with class info */}
+                            <div className="flex bg-white/15 p-1 rounded-xl ml-auto xl:ml-4 shadow-inner gap-1">
+                                <Button
+                                    size="sm"
+                                    className={`h-8 px-3 rounded-lg text-sm font-bold transition-all ${viewMode === "grid" ? "bg-white text-indigo-700 shadow-md" : "text-white/80 hover:bg-white/20"}`}
+                                    onClick={() => { setViewMode("grid"); setIsAttendanceMode(false); setIsSelectMultiple(false); setSelectedStudentIds([]); }}
+                                >
+                                    <LayoutGrid className="w-4 h-4 md:mr-1" />
+                                    <span className="hidden md:inline">{t("grid")}</span>
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    className={`h-8 px-3 rounded-lg text-sm font-bold transition-all ${viewMode === "table" ? "bg-white text-indigo-700 shadow-md" : "text-white/80 hover:bg-white/20"}`}
+                                    onClick={() => { setViewMode("table"); setIsAttendanceMode(false); setIsSelectMultiple(false); setSelectedStudentIds([]); }}
+                                >
+                                    <TableProperties className="w-4 h-4 md:mr-1" />
+                                    <span className="hidden md:inline">{t("table")}</span>
+                                </Button>
+                                {viewMode === "table" && (
+                                    <Button
+                                        size="sm"
+                                        className="h-8 px-3 rounded-lg text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-white shadow-md"
+                                        onClick={() => setShowAddAssignment(true)}
+                                    >
+                                        <Plus className="w-4 h-4 mr-1" />
+                                        <span className="hidden md:inline">{t("newTask")}</span>
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* ══ GROUP 2: Toolkit ══ */}
+                        <div className="flex flex-col justify-center px-5 py-3 bg-black/5">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-2">🛠 เครื่องมือ</p>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="h-9 bg-white/15 hover:bg-white/25 text-white border-0 font-semibold shadow backdrop-blur-sm"
+                                    onClick={() => setShowTimer(true)}
+                                >
+                                    <Timer className="w-4 h-4 mr-1.5 text-orange-300" />
+                                    {t("timer")}
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="h-9 bg-white/15 hover:bg-white/25 text-white border-0 font-semibold shadow backdrop-blur-sm"
+                                    onClick={() => setShowRandomPicker(true)}
+                                >
+                                    <Shuffle className="w-4 h-4 mr-1.5 text-green-300" />
+                                    {t("random")}
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="h-9 bg-white/15 hover:bg-white/25 text-white border-0 font-semibold shadow backdrop-blur-sm"
+                                    onClick={() => setShowGroupMaker(true)}
+                                >
+                                    <Users className="w-4 h-4 mr-1.5 text-blue-300" />
+                                    {t("groups")}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* ══ GROUP 3: Student Management ══ */}
+                        <div className="flex flex-col justify-center px-5 py-3 flex-1 bg-black/10">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-2">👤 จัดการนักเรียน</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <ClassroomSettingsDialog classroom={classroom} />
+                                <AddStudentDialog
+                                    classId={classroom.id}
+                                    onStudentAdded={refreshData}
+                                />
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="h-9 bg-white/15 hover:bg-white/25 text-white border-0 font-semibold shadow backdrop-blur-sm"
+                                    onClick={() => setShowStudentManager(true)}
+                                >
+                                    <UserCog className="w-4 h-4 mr-1.5 text-indigo-300" />
+                                    จัดการนักเรียน
+                                </Button>
+                                <div className="bg-white/15 hover:bg-white/25 rounded-lg transition-colors shadow backdrop-blur-sm">
+                                    <StudentLoginsDialog
+                                        students={classroom.students}
+                                        classId={classroom.id}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             )}
@@ -233,46 +406,102 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                 <div className="bg-indigo-600 text-white p-4 rounded-xl shadow-md flex items-center justify-between animate-in slide-in-from-top-2">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <Users className="w-6 h-6" />
-                        Attendance Mode
+                        {t("attendanceMode")}
                     </h2>
-                    <p className="text-indigo-100 text-sm">Tap students to mark Absent, Late, or Left Early</p>
+                    <p className="text-indigo-100 text-sm">{t("attendanceDesc")}</p>
                 </div>
             )}
 
             {/* Grid Area */}
-            <div className={`flex-1 bg-slate-50/50 p-6 rounded-xl border border-dashed border-slate-200 min-h-[500px] transition-all ${isAttendanceMode ? "border-indigo-300 bg-indigo-50/30" : ""}`}>
-                {classroom.students.length === 0 ? (
+            {viewMode === "grid" ? (
+                <div className={`flex-1 bg-slate-50/50 p-6 rounded-xl border border-dashed border-slate-200 min-h-[500px] transition-all overflow-y-auto ${isAttendanceMode ? "border-indigo-300 bg-indigo-50/30" : ""}`}>
+                    {classroom.students.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-slate-400">
                         <Users className="w-16 h-16 mb-4 opacity-20" />
-                        <h3 className="text-xl font-medium text-slate-600">This class is empty</h3>
-                        <p className="mb-6">Add students to start awarding points!</p>
-                        <AddStudentDialog classId={classroom.id} onStudentAdded={() => window.location.reload()} />
+                        <h3 className="text-xl font-medium text-slate-600">{t("emptyClassTitle")}</h3>
+                        <p className="mb-6">{t("emptyClassDesc")}</p>
+                        <AddStudentDialog classId={classroom.id} onStudentAdded={refreshData} />
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                         {classroom.students.map((student) => (
                             <StudentAvatar
                                 key={student.id}
-                                id={student.id}
-                                name={student.name}
+                                {...student}
                                 avatarSeed={student.avatar || student.id}
-                                points={student.points}
-                                attendance={student.attendance || "PRESENT"}
                                 onClick={() => handleStudentClick(student)}
+                                attendance={student.attendance || "PRESENT"}
+                                levelConfig={classroom.levelConfig}
+                                isSelected={selectedStudentIds.includes(student.id)}
+                                academicPoints={
+                                    student.submissions?.reduce((sum, sub) => sum + sub.score, 0) || 0
+                                }
+                                behaviorPoints={
+                                    student.points - (student.submissions?.reduce((sum, sub) => sum + sub.score, 0) || 0)
+                                }
                                 className={isAttendanceMode ? "hover:scale-100" : ""}
                             />
                         ))}
                     </div>
                 )}
-            </div>
+                </div>
+            ) : (
+                <div className="flex-1 min-h-[500px] w-full animate-in slide-in-from-bottom-2">
+                    <ClassroomTable 
+                        classId={classroom.id}
+                        students={classroom.students}
+                        assignments={classroom.assignments}
+                        levelConfig={classroom.levelConfig}
+                        onUpdatePoints={handleTablePointUpdate}
+                    />
+                </div>
+            )}
 
             <PointMenu
                 open={menuOpen}
                 onOpenChange={setMenuOpen}
-                studentName={selectedStudent?.name || ""}
+                studentName={isSelectMultiple ? t("selectedCount", { count: selectedStudentIds.length }) : (selectedStudent?.name || "")}
                 skills={classroom.skills}
                 onSelectSkill={handleAwardPoint}
                 loading={loading}
+                classId={classroom.id}
+                onSkillsChanged={refreshData}
+            />
+
+            {/* Confirmation Dialogs */}
+            <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>{t("resetPoints")}</DialogTitle>
+                        <DialogDescription className="py-3 text-base text-slate-600">
+                            {t("resetPointsConfirm") || "Are you sure you want to reset all student points to 0? This cannot be undone."}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="flex sm:justify-end gap-2 mt-4">
+                        <Button variant="outline" onClick={() => setShowResetConfirm(false)} disabled={loading}>
+                            {t("cancel")}
+                        </Button>
+                        <Button variant="destructive" onClick={handleResetPoints} disabled={loading} className="bg-red-600 hover:bg-red-700 shadow-sm">
+                            {t("resetPoints")}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <AddAssignmentDialog 
+                classId={classroom.id}
+                open={showAddAssignment}
+                onOpenChange={setShowAddAssignment}
+                onAdded={refreshData}
+                assignments={classroom.assignments}
+            />
+
+            <StudentManagerDialog
+                classId={classroom.id}
+                open={showStudentManager}
+                onOpenChange={setShowStudentManager}
+                onChanged={refreshData}
+                students={classroom.students}
             />
 
             {/* Widgets */}
@@ -280,47 +509,82 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
             {showRandomPicker && (
                 <RandomPicker
                     students={classroom.students}
+                    levelConfig={classroom.levelConfig}
                     onClose={() => setShowRandomPicker(false)}
                 />
             )}
-            {showGroupMaker && <GroupMaker students={classroom.students} onClose={() => setShowGroupMaker(false)} />}
+            {showGroupMaker && <GroupMaker students={classroom.students} skills={classroom.skills} levelConfig={classroom.levelConfig} onClose={() => setShowGroupMaker(false)} />}
 
             {/* Bottom Action Bar */}
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white px-6 py-3 rounded-full shadow-lg border border-slate-200 flex items-center gap-4 transition-all">
-                {isAttendanceMode ? (
-                    <>
-                        <Button
-                            variant="destructive"
-                            onClick={() => {
-                                setIsAttendanceMode(false);
-                                setClassroom(initialClassroom); // Reset changes
-                            }}
-                        >
-                            Cancel
-                        </Button>
-                        <div className="text-slate-400 text-sm font-medium">
-                            {hasChanges ? "Unsaved Changes" : "Ready"}
-                        </div>
-                        <Button
-                            className="bg-green-600 hover:bg-green-700 text-white"
-                            onClick={saveAttendance}
-                            disabled={loading}
-                        >
-                            Save Attendance
-                        </Button>
-                    </>
-                ) : (
-                    <>
-                        <Button variant="ghost" size="sm" onClick={() => setIsAttendanceMode(true)}>
-                            Attendance
-                        </Button>
-                        <Separator orientation="vertical" className="h-4" />
-                        <Button variant="ghost" size="sm">Select Multiple</Button>
-                        <Separator orientation="vertical" className="h-4" />
-                        <Button variant="ghost" size="sm">Reset Points</Button>
-                    </>
-                )}
-            </div>
+            {viewMode !== "table" && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white px-6 py-3 rounded-full shadow-lg border border-slate-200 flex items-center gap-4 transition-all">
+                    {isAttendanceMode ? (
+                        <>
+                            <Button
+                                variant="destructive"
+                                onClick={() => {
+                                    setIsAttendanceMode(false);
+                                    setClassroom(initialClassroom); // Reset changes
+                                }}
+                            >
+                                {t("cancel")}
+                            </Button>
+                            <div className="text-slate-400 text-sm font-medium">
+                                {hasChanges ? t("unsavedChanges") || "Unsaved Changes" : t("ready") || "Ready"}
+                            </div>
+                            <Button
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                                onClick={saveAttendance}
+                                disabled={loading}
+                            >
+                                {t("saveAttendance")}
+                            </Button>
+                        </>
+                    ) : isSelectMultiple ? (
+                        <>
+                            <Button
+                                variant="destructive"
+                                onClick={() => {
+                                    setIsSelectMultiple(false);
+                                    setSelectedStudentIds([]);
+                                }}
+                            >
+                                {t("cancel")}
+                            </Button>
+                            <div className="text-slate-400 text-sm font-medium">
+                                {t("selectedCount", { count: selectedStudentIds.length })}
+                            </div>
+                            <Button
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
+                                onClick={() => {
+                                    if (selectedStudentIds.length === 0) {
+                                        toast({ title: t("error") || "Error", description: "Select students first", variant: "destructive" });
+                                        return;
+                                    }
+                                    setMenuOpen(true);
+                                }}
+                                disabled={loading || selectedStudentIds.length === 0}
+                            >
+                                {t("giveFeedback")}
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button variant="ghost" size="sm" onClick={() => setIsAttendanceMode(true)}>
+                                {t("attendanceTitle")}
+                            </Button>
+                            <Separator orientation="vertical" className="h-4" />
+                            <Button variant="ghost" size="sm" onClick={() => setIsSelectMultiple(true)}>
+                                {t("selectMultiple")}
+                            </Button>
+                            <Separator orientation="vertical" className="h-4" />
+                            <Button variant="ghost" size="sm" onClick={() => setShowResetConfirm(true)} disabled={loading}>
+                                {t("resetPoints")}
+                            </Button>
+                        </>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

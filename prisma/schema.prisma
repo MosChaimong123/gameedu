@@ -28,6 +28,7 @@ model User {
   questionSets  QuestionSet[]
   history       GameHistory[]
   classrooms    Classroom[]
+  notifications Notification[]
 }
 
 model Account {
@@ -77,6 +78,8 @@ model QuestionSet {
   
   creatorId   String   @db.ObjectId
   creator     User     @relation(fields: [creatorId], references: [id])
+  
+  assignments Assignment[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -155,6 +158,7 @@ model Student {
   history     PointHistory[]
   submissions AssignmentSubmission[]
   attendanceRecords AttendanceRecord[]
+  notifications Notification[]
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
 }
@@ -192,11 +196,17 @@ model PointHistory {
 model Assignment {
   id          String                 @id @default(auto()) @map("_id") @db.ObjectId
   name        String
+  description String?
   type        String                 @default("score") // score, checklist, quiz
   maxScore    Int                    @default(10)
   passScore   Int?
+  deadline    DateTime?
+  
+  setId       String?                @db.ObjectId
+  questionSet QuestionSet?           @relation(fields: [setId], references: [id])
+  
   checklists  String[]
-  quizData    Json?                  // store quiz questions if type=quiz
+  quizData    Json?                  // snapshot of quiz questions if type=quiz
   visible     Boolean                @default(true)
   order       Int                    @default(0)
   classId     String                 @db.ObjectId
@@ -228,4 +238,19 @@ model AttendanceRecord {
   classroom   Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
   status      String    // PRESENT, ABSENT, LATE, LEFT_EARLY
   date        DateTime  @default(now())
+}
+
+model Notification {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String?  @db.ObjectId // For teachers
+  studentId   String?  @db.ObjectId // For students
+  title       String
+  message     String
+  type        String   @default("INFO") // INFO, SUCCESS, WARNING, ERROR, ASSIGNMENT, POINT
+  isRead      Boolean  @default(false)
+  link        String?  
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  student     Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }

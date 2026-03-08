@@ -6,8 +6,7 @@ import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent } from "@/components/ui/card"
-import { User, GraduationCap, ChevronRight, CheckCircle2, Loader2, ArrowLeft } from "lucide-react"
+import { User, GraduationCap, ChevronRight, CheckCircle2, Loader2, ArrowLeft, Eye, EyeOff, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
     Select,
@@ -21,10 +20,11 @@ type Role = "STUDENT" | "TEACHER"
 
 export default function SignupWizard() {
     const router = useRouter()
-    const [step, setStep] = useState<1 | 2 | 3>(1) // 1: Role, 2: Age (Student), 3: Form
+    const [step, setStep] = useState<1 | 2 | 3>(1)
     const [role, setRole] = useState<Role | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
+    const [showPassword, setShowPassword] = useState(false)
 
     // Date of Birth State
     const [dob, setDob] = useState({
@@ -311,24 +311,42 @@ export default function SignupWizard() {
 
                     <div className="space-y-2">
                         <Label htmlFor="password">รหัสผ่าน</Label>
-                        <Input
-                            id="password"
-                            type="password"
-                            required
-                            minLength={6}
-                            value={formData.password}
-                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        />
+                        <div className="relative">
+                            <Input
+                                id="password"
+                                type={showPassword ? "text" : "password"}
+                                placeholder="อย่างน้อย 6 ตัวอักษร"
+                                required
+                                minLength={6}
+                                value={formData.password}
+                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                className="pr-10"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(p => !p)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                            >
+                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                        </div>
                     </div>
 
+                    {/* Error banner */}
                     {error && (
-                        <div className="p-3 rounded-lg bg-red-50 text-red-500 text-sm font-medium">
-                            {error}
+                        <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+                            <AlertCircle className="w-4 h-4 shrink-0" />
+                            <span>{error}</span>
                         </div>
                     )}
 
-                    <Button className="w-full h-12 text-lg bg-purple-600 hover:bg-purple-700" type="submit" disabled={isLoading}>
-                        {isLoading ? <Loader2 className="animate-spin w-5 h-5" /> : "สมัครสมาชิก"}
+                    <Button
+                        className="w-full h-11 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold shadow-md"
+                        type="submit"
+                        disabled={isLoading}
+                    >
+                        {isLoading ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : null}
+                        สมัครสมาชิก
                     </Button>
 
                     <div className="relative my-4">
@@ -340,9 +358,15 @@ export default function SignupWizard() {
                         </div>
                     </div>
 
-                    <Button variant="outline" type="button" disabled={isLoading} onClick={handleGoogleLogin} className="w-full h-12">
-                        <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-                            <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
+                    <Button
+                        variant="outline"
+                        type="button"
+                        disabled={isLoading}
+                        onClick={handleGoogleLogin}
+                        className="w-full h-11 rounded-xl border-2 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 font-semibold gap-3"
+                    >
+                        <svg className="h-5 w-5" viewBox="0 0 488 512" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="#4285F4" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"/>
                         </svg>
                         สมัครด้วย Google
                     </Button>

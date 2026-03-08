@@ -1,12 +1,16 @@
 
+import { loadEnvConfig } from "@next/env";
+loadEnvConfig(process.cwd()); // โหลด .env.local ก่อน import อื่นใดทั้งหมด
+
 import { createServer } from "node:http";
 import next from "next";
 import { Server } from "socket.io";
 import { gameManager } from "./src/lib/game-engine/manager";
 import { db } from "./src/lib/db"; // Use Singleton
 
+
 const dev = process.env.NODE_ENV !== "production";
-const hostname = "localhost";
+const hostname = dev ? "localhost" : "0.0.0.0";
 const port = parseInt(process.env.PORT || "3000", 10);
 const app = next({ dev, hostname, port });
 const handler = app.getRequestHandler();

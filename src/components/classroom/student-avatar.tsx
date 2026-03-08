@@ -13,13 +13,14 @@ interface StudentAvatarProps {
     behaviorPoints?: number;
     academicPoints?: number;
     onClick?: () => void;
+    onContextMenu?: (e: React.MouseEvent) => void;
     className?: string;
     attendance?: string; // PRESENT, ABSENT, LATE, LEFT_EARLY
     levelConfig?: any;
     isSelected?: boolean;
 }
 
-import { Check, Star, BookOpen } from "lucide-react";
+import { Check, Star, BookOpen, History } from "lucide-react";
 
 export function StudentAvatar({
     id,
@@ -29,6 +30,7 @@ export function StudentAvatar({
     behaviorPoints = 0,
     academicPoints = 0,
     onClick,
+    onContextMenu,
     className,
     attendance = "PRESENT",
     levelConfig,
@@ -46,12 +48,13 @@ export function StudentAvatar({
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className={cn(
-                "flex flex-col items-center justify-center p-4 cursor-pointer relative transition-all rounded-3xl",
+                "flex flex-col items-center justify-center p-4 cursor-pointer relative transition-all rounded-3xl group",
                 isAbsent && "opacity-50 grayscale",
                 isSelected && "bg-indigo-50/80 ring-2 ring-indigo-500 shadow-md",
                 className
             )}
             onClick={onClick}
+            onContextMenu={onContextMenu}
         >
             {/* Point Bubbles (Hide if absent?) */}
             {!isAbsent && !isSelected && (
@@ -65,6 +68,17 @@ export function StudentAvatar({
                         {academicPoints}
                     </div>
                 </div>
+            )}
+
+            {/* History hover button */}
+            {onContextMenu && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); onContextMenu(e as any); }}
+                    className="absolute bottom-[52px] left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-indigo-600 text-white rounded-full p-1 shadow-lg border-2 border-white z-20 hover:bg-indigo-700"
+                    title="ดูประวัติคะแนน"
+                >
+                    <History className="w-3 h-3" />
+                </button>
             )}
 
             {/* Selected Checkmark */}

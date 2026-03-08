@@ -13,6 +13,7 @@ import { ClassroomTable } from "./classroom-table";
 import { ClassroomSettingsDialog } from "./classroom-settings-dialog";
 import { AddAssignmentDialog } from "./add-assignment-dialog";
 import { StudentManagerDialog } from "./student-manager-dialog";
+import { StudentHistoryModal } from "./student-history-modal";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -23,10 +24,11 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, Timer, Shuffle, Settings, LayoutGrid, TableProperties, Plus, UserCog } from "lucide-react";
+import { Users, Timer, Shuffle, Settings, LayoutGrid, TableProperties, Plus, UserCog, History } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useToast } from "@/components/ui/use-toast";
 import { useSocket } from "@/components/providers/socket-provider";
+import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
 import useSound from "use-sound";
 
 interface ClassroomDashboardProps {
@@ -60,6 +62,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [showAddAssignment, setShowAddAssignment] = useState(false);
     const [showStudentManager, setShowStudentManager] = useState(false);
+    const [historyStudentId, setHistoryStudentId] = useState<string | null>(null);
 
     const { toast } = useToast();
     const { socket, isConnected } = useSocket();
@@ -288,14 +291,21 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
         <div className="flex flex-col h-full space-y-6 relative">
             {/* Toolbar */}
             {!isAttendanceMode && (
-                <div className={`rounded-2xl shadow-xl border border-white/20 animate-in slide-in-from-top-2 text-white bg-gradient-to-r ${classroom.theme || 'from-indigo-500 to-purple-600'} overflow-hidden`}>
+                <div 
+                    className={`rounded-2xl shadow-xl border border-white/20 animate-in slide-in-from-top-2 text-white bg-gradient-to-r overflow-hidden ${getThemeBgClass(classroom.theme)}`}
+                    style={getThemeBgStyle(classroom.theme)}
+                >
                     <div className="flex flex-wrap xl:flex-nowrap items-stretch gap-0 divide-x divide-white/20">
 
                         {/* ══ GROUP 1: Class Info ══ */}
                         <div className="flex items-center gap-4 px-5 py-4 min-w-[260px] bg-black/10">
-                            <span className="text-3xl bg-white/20 p-2.5 rounded-xl border border-white/30 backdrop-blur-sm shadow-inner shrink-0">
-                                {classroom.emoji || classroom.image || "🛡️"}
-                            </span>
+                            <div className="w-16 h-16 bg-white/20 p-2 md:p-2.5 rounded-xl border border-white/30 backdrop-blur-sm shadow-inner shrink-0 flex items-center justify-center text-3xl overflow-hidden">
+                                {classroom.emoji?.startsWith('data:image') || classroom.emoji?.startsWith('http') ? (
+                                    <img src={classroom.emoji} alt="Class Icon" className="w-full h-full object-cover" />
+                                ) : (
+                                    <span>{classroom.emoji || classroom.image || "🛡️"}</span>
+                                )}
+                            </div>
                             <div>
                                 <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">ห้องเรียน</p>
                                 <p className="text-xl font-bold leading-tight drop-shadow-sm">{classroom.name}</p>
@@ -377,6 +387,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                                 <ClassroomSettingsDialog classroom={classroom} />
                                 <AddStudentDialog
                                     classId={classroom.id}
+                                    theme={classroom.theme || ''}
                                     onStudentAdded={refreshData}
                                 />
                                 <Button
@@ -392,6 +403,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                                     <StudentLoginsDialog
                                         students={classroom.students}
                                         classId={classroom.id}
+                                        theme={classroom.theme || ''}
                                     />
                                 </div>
                             </div>
@@ -420,7 +432,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                         <Users className="w-16 h-16 mb-4 opacity-20" />
                         <h3 className="text-xl font-medium text-slate-600">{t("emptyClassTitle")}</h3>
                         <p className="mb-6">{t("emptyClassDesc")}</p>
-                        <AddStudentDialog classId={classroom.id} onStudentAdded={refreshData} />
+                        <AddStudentDialog classId={classroom.id} theme={classroom.theme || ''} onStudentAdded={refreshData} />
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
@@ -430,6 +442,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                                 {...student}
                                 avatarSeed={student.avatar || student.id}
                                 onClick={() => handleStudentClick(student)}
+                                onContextMenu={(e) => { e.preventDefault(); setHistoryStudentId(student.id); }}
                                 attendance={student.attendance || "PRESENT"}
                                 levelConfig={classroom.levelConfig}
                                 isSelected={selectedStudentIds.includes(student.id)}
@@ -498,6 +511,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
 
             <StudentManagerDialog
                 classId={classroom.id}
+                theme={classroom.theme || ''}
                 open={showStudentManager}
                 onOpenChange={setShowStudentManager}
                 onChanged={refreshData}
@@ -509,11 +523,20 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
             {showRandomPicker && (
                 <RandomPicker
                     students={classroom.students}
+                    theme={classroom.theme || ''}
                     levelConfig={classroom.levelConfig}
                     onClose={() => setShowRandomPicker(false)}
                 />
             )}
-            {showGroupMaker && <GroupMaker students={classroom.students} skills={classroom.skills} levelConfig={classroom.levelConfig} onClose={() => setShowGroupMaker(false)} />}
+            {showGroupMaker && <GroupMaker students={classroom.students} skills={classroom.skills} theme={classroom.theme || ''} levelConfig={classroom.levelConfig} onClose={() => setShowGroupMaker(false)} />}
+
+            <StudentHistoryModal
+                classId={classroom.id}
+                studentId={historyStudentId}
+                open={!!historyStudentId}
+                onOpenChange={(o) => !o && setHistoryStudentId(null)}
+                theme={classroom.theme || ''}
+            />
 
             {/* Bottom Action Bar */}
             {viewMode !== "table" && (

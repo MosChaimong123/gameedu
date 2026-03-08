@@ -1,91 +1,68 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
 export async function POST(
     req: Request,
-    { params }: { params: Promise<{ id: string, assignmentId: string }> }
+    { params }: { params: Promise<{ id: string; assignmentId: string }> }
 ) {
-    const session = await auth();
-    const resolvedParams = await params;
-
-    if (!session || !session.user || !session.user.id) {
-        return new NextResponse("Unauthorized", { status: 401 });
-    }
+    const { id, assignmentId } = await params;
 
     try {
-        const body = await req.json();
-        const { studentId, score } = body;
+        const { studentCode, answers } = await req.json() as { studentCode: string; answers: number[] };
 
-        if (!studentId || score === undefined) {
-            return new NextResponse("Missing data", { status: 400 });
+        if (!studentCode || !Array.isArray(answers)) {
+            return new NextResponse("Bad Request", { status: 400 });
         }
 
-        // Verify Teacher
-        const classroom = await db.classroom.findUnique({
-            where: { id: resolvedParams.id },
-            select: { teacherId: true }
+        // Look up student by loginCode in this classroom
+        const student = await db.student.findFirst({
+            where: { loginCode: studentCode.toUpperCase(), classId: id },
+            select: { id: true }
         });
+        if (!student) return new NextResponse("Student Not Found", { status: 404 });
 
-        if (!classroom || classroom.teacherId !== session.user.id) {
-            return new NextResponse("Unauthorized", { status: 401 });
+        // Fetch the assignment
+        const assignment = await db.assignment.findUnique({
+            where: { id: assignmentId, classId: id },
+            select: { type: true, quizData: true, maxScore: true }
+        });
+        if (!assignment || assignment.type !== "quiz" || !assignment.quizData) {
+            return new NextResponse("Not a quiz assignment", { status: 400 });
         }
 
-        // Get Original
-        const originalSubmission = await db.assignmentSubmission.findUnique({
-            where: {
-                studentId_assignmentId: {
-                    studentId,
-                    assignmentId: resolvedParams.assignmentId
-                }
+        // Check for existing submission (no retakes)
+        const existing = await db.assignmentSubmission.findUnique({
+            where: { studentId_assignmentId: { studentId: student.id, assignmentId } }
+        });
+        if (existing) {
+            return NextResponse.json({ alreadySubmitted: true, score: existing.score }, { status: 200 });
+        }
+
+        // Grade the quiz
+        const quizData = assignment.quizData as { questions: { correctAnswer: number }[] };
+        const questions = quizData.questions ?? [];
+        let correct = 0;
+        for (let i = 0; i < questions.length; i++) {
+            if (answers[i] === questions[i].correctAnswer) correct++;
+        }
+        const score = questions.length > 0
+            ? Math.round((correct / questions.length) * assignment.maxScore)
+            : 0;
+
+        // Save submission
+        const submission = await db.assignmentSubmission.create({
+            data: {
+                studentId: student.id,
+                assignmentId,
+                score,
+                cheatingLogs: []
             }
         });
 
-        const originalScore = originalSubmission?.score || 0;
-        const diff = score - originalScore;
+        return NextResponse.json({ score, correct, total: questions.length, submissionId: submission.id });
 
-        // Upsert Submission
-        const submission = await db.assignmentSubmission.upsert({
-            where: {
-                studentId_assignmentId: {
-                    studentId,
-                    assignmentId: resolvedParams.assignmentId
-                }
-            },
-            update: {
-                score,
-                submittedAt: new Date()
-            },
-            create: {
-                studentId,
-                assignmentId: resolvedParams.assignmentId,
-                score,
-            }
-        });
-
-        // Update Total Points on Student
-        if (diff !== 0) {
-            await db.student.update({
-                where: { id: studentId },
-                data: {
-                    points: { increment: diff }
-                }
-            });
-
-            // Also create a point history record for reference
-            const assignment = await db.assignment.findUnique({ where: { id: resolvedParams.assignmentId }});
-            await db.pointHistory.create({
-                data: {
-                    studentId,
-                    reason: `Assignment: ${assignment?.name || 'Task'}`,
-                    value: diff
-                }
-            });
-        }
-
-        return NextResponse.json(submission);
     } catch (error) {
-        console.error("[ASSIGNMENTS_SUBMIT_POST]", error);
+        console.error("[QUIZ_SUBMIT]", error);
         return new NextResponse("Internal Error", { status: 500 });
     }
 }

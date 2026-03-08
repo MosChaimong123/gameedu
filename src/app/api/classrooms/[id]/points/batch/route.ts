@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { sendNotification } from "@/lib/notifications";
 
 export async function POST(
     req: Request,
@@ -60,6 +61,18 @@ export async function POST(
                             }
                         }
                     }
+                })
+            )
+        );
+
+        // Notify all students in parallel
+        await Promise.all(
+            studentIds.map((studentId) => 
+                sendNotification({
+                    studentId,
+                    title: skill.weight > 0 ? "ทั้งชั้นเรียนได้รับคะแนน!" : "ทั้งชั้นเรียนโดนหักคะแนน!",
+                    message: `ทุกคนได้รับ ${skill.weight} คะแนน ในทักษะ: ${skill.name}`,
+                    type: "POINT",
                 })
             )
         );

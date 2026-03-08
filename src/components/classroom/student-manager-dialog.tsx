@@ -16,11 +16,13 @@ import {
     SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy, arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
 
 type StudentWithSubmissions = Student & { submissions: { score: number }[] };
 
 interface StudentManagerDialogProps {
     classId: string;
+    theme: string;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onChanged: () => void;
@@ -45,37 +47,37 @@ function SortableStudentRow({
         <div
             ref={setNodeRef}
             style={style}
-            className="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all group"
+            className="flex items-center gap-3 bg-white px-4 py-3 rounded-xl shadow-sm border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all group"
         >
             <div {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 touch-none shrink-0">
                 <GripVertical className="w-5 h-5" />
             </div>
             {/* Number badge */}
-            <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-sm font-bold text-slate-500 shrink-0">
+            <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-sm font-bold text-indigo-500 shrink-0">
                 {index + 1}
             </div>
             {/* Avatar */}
-            <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border-2 border-slate-200 shrink-0">
+            <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden border-2 border-slate-200 shrink-0">
                 <img src={`https://api.dicebear.com/7.x/bottts/svg?seed=${student.avatar || student.id}`} className="w-full h-full" alt="" />
             </div>
             {/* Name & Nickname */}
             <div className="flex-1 min-w-0">
-                <p className="font-bold text-slate-800 text-base truncate">{student.name}</p>
+                <p className="font-bold text-slate-800 text-base leading-tight">{student.name}</p>
                 {student.nickname && (
-                    <p className="text-xs text-slate-400 italic truncate">ชื่อเล่น: {student.nickname}</p>
+                    <p className="text-sm text-slate-400 mt-0.5">ชื่อเล่น: <span className="font-medium text-slate-500">{student.nickname}</span></p>
                 )}
             </div>
             {/* Points */}
-            <div className="text-right shrink-0 hidden sm:block">
-                <p className="text-xs text-slate-400">คะแนน</p>
-                <p className="font-bold text-indigo-600">{student.points}</p>
+            <div className="text-right shrink-0">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wide">คะแนน</p>
+                <p className="font-bold text-indigo-600 text-base">{student.points}</p>
             </div>
             {/* Actions */}
-            <div className="flex items-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity shrink-0">
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-amber-600 hover:bg-amber-50" onClick={() => onEdit(student)}>
+            <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity shrink-0">
+                <Button variant="ghost" size="icon" className="h-9 w-9 hover:text-amber-600 hover:bg-amber-50" onClick={() => onEdit(student)}>
                     <Edit className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-red-600 hover:bg-red-50" onClick={() => onDelete(student.id)}>
+                <Button variant="ghost" size="icon" className="h-9 w-9 hover:text-red-600 hover:bg-red-50" onClick={() => onDelete(student.id)}>
                     <Trash2 className="w-4 h-4" />
                 </Button>
             </div>
@@ -84,7 +86,7 @@ function SortableStudentRow({
 }
 
 // --- Main Dialog ---
-export function StudentManagerDialog({ classId, open, onOpenChange, onChanged, students: initialStudents }: StudentManagerDialogProps) {
+export function StudentManagerDialog({ classId, theme, open, onOpenChange, onChanged, students: initialStudents }: StudentManagerDialogProps) {
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -172,25 +174,31 @@ export function StudentManagerDialog({ classId, open, onOpenChange, onChanged, s
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[1100px] w-[96vw] h-[90vh] flex flex-col p-0 overflow-hidden bg-[#F4F6FB] gap-0 border-0 shadow-2xl rounded-2xl">
-                {/* Header */}
-                <DialogHeader className="px-6 py-4 flex flex-row items-center bg-white border-b shrink-0">
-                    <DialogTitle className="text-xl font-bold flex items-center gap-3 text-slate-800">
-                        <UserCog className="w-6 h-6 text-indigo-600" />
+            <DialogContent className="sm:max-w-[1400px] w-[98vw] h-[96vh] flex flex-col p-0 overflow-hidden bg-[#F4F6FB] gap-0 border-0 shadow-2xl rounded-2xl">
+                {/* Header — themed gradient */}
+                <DialogHeader 
+                    className={`px-7 py-5 flex flex-row items-center shrink-0 ${getThemeBgClass(theme)}`}
+                    style={getThemeBgStyle(theme)}
+                >
+                    <DialogTitle className="text-2xl font-bold flex items-center gap-3 text-white">
+                        <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center border border-white/30 shadow-inner">
+                            <UserCog className="w-5 h-5" />
+                        </div>
                         จัดการนักเรียน
+                        <span className="ml-2 bg-white/20 text-white text-sm font-semibold px-3 py-1 rounded-full">{localStudents.length} คน</span>
                     </DialogTitle>
                 </DialogHeader>
 
                 <div className="flex flex-1 overflow-hidden min-h-0">
                     {/* ===== LEFT: Student List ===== */}
                     <div className="flex-1 overflow-y-auto p-6">
-                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-full overflow-hidden">
-                            <div className="p-4 border-b flex justify-between items-center shrink-0">
-                                <div className="font-bold text-slate-600 flex items-center gap-2">
-                                    <Users className="w-4 h-4" /> นักเรียนทั้งหมด ({localStudents.length} คน)
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-full overflow-hidden">
+                            <div className="px-5 py-4 border-b flex justify-between items-center shrink-0 bg-slate-50">
+                                <div className="font-bold text-slate-700 flex items-center gap-2 text-base">
+                                    <Users className="w-5 h-5 text-indigo-400" /> รายชื่อนักเรียน
                                 </div>
-                                <span className="text-xs text-slate-400 flex items-center gap-1">
-                                    <GripVertical className="w-3 h-3" /> ลากเพื่อเรียงลำดับ (เลขที่)
+                                <span className="text-xs text-slate-400 flex items-center gap-1 bg-slate-100 px-3 py-1 rounded-full">
+                                    <GripVertical className="w-3 h-3" /> ลากเพื่อเรียงลำดับ
                                 </span>
                             </div>
                             <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-[#F8F9FE]">
@@ -218,16 +226,19 @@ export function StudentManagerDialog({ classId, open, onOpenChange, onChanged, s
                     </div>
 
                     {/* ===== RIGHT: Edit Form ===== */}
-                    <div className="w-[340px] bg-white border-l border-slate-200 flex flex-col shrink-0">
+                    <div className="w-[420px] bg-white border-l border-slate-200 flex flex-col shrink-0">
                         {editStudent ? (
                             <div className="flex flex-col h-full">
                                 {/* Edit Header */}
                                 <div className="p-5 border-b">
-                                    <div className="bg-amber-600 text-white rounded-xl p-4 flex items-center gap-3 shadow">
-                                        <Edit className="w-5 h-5 text-yellow-200 shrink-0" />
+                                    <div 
+                                        className={`text-white rounded-xl p-4 flex items-center gap-3 shadow ${getThemeBgClass(theme)}`}
+                                        style={getThemeBgStyle(theme)}
+                                    >
+                                        <Edit className="w-5 h-5 text-white/80 shrink-0" />
                                         <div className="min-w-0">
-                                            <p className="font-bold text-base">แก้ไขข้อมูลนักเรียน</p>
-                                            <p className="text-amber-200 text-xs truncate">{editStudent.name}</p>
+                                            <p className="font-bold text-base text-white">แก้ไขข้อมูลนักเรียน</p>
+                                            <p className="text-white/80 text-xs truncate">{editStudent.name}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -275,11 +286,12 @@ export function StudentManagerDialog({ classId, open, onOpenChange, onChanged, s
                                 </div>
 
                                 {/* Edit footer */}
-                                <div className="p-5 border-t bg-slate-50 space-y-2">
+                                <div className="p-5 border-t bg-slate-50 space-y-3">
                                     <Button
                                         onClick={handleSaveEdit}
                                         disabled={loading || !editName.trim()}
-                                        className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-white font-bold text-base rounded-xl shadow-md"
+                                        className={`w-full h-12 text-white font-bold text-base rounded-xl shadow-md transition-opacity hover:opacity-90 ${getThemeBgClass(theme)}`}
+                                        style={getThemeBgStyle(theme)}
                                     >
                                         <Save className="w-5 h-5 mr-2" /> บันทึก
                                     </Button>

@@ -3,13 +3,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const env_1 = require("@next/env");
+(0, env_1.loadEnvConfig)(process.cwd()); // โหลด .env.local ก่อน import อื่นใดทั้งหมด
 const node_http_1 = require("node:http");
 const next_1 = __importDefault(require("next"));
 const socket_io_1 = require("socket.io");
 const manager_1 = require("./src/lib/game-engine/manager");
 const db_1 = require("./src/lib/db"); // Use Singleton
 const dev = process.env.NODE_ENV !== "production";
-const hostname = "localhost";
+const hostname = dev ? "localhost" : "0.0.0.0";
 const port = parseInt(process.env.PORT || "3000", 10);
 const app = (0, next_1.default)({ dev, hostname, port });
 const handler = app.getRequestHandler();

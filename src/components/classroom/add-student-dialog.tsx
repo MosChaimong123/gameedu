@@ -8,15 +8,17 @@ import { Input } from "@/components/ui/input";
 import { UserPlus, Plus, Trash2, Users, CheckCircle2, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
+import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
 
 interface StudentEntry { name: string; nickname: string; }
 
 interface AddStudentDialogProps {
     classId: string;
+    theme: string;
     onStudentAdded?: () => void;
 }
 
-export function AddStudentDialog({ classId, onStudentAdded }: AddStudentDialogProps) {
+export function AddStudentDialog({ classId, theme, onStudentAdded }: AddStudentDialogProps) {
     const { t } = useLanguage();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -85,15 +87,18 @@ export function AddStudentDialog({ classId, onStudentAdded }: AddStudentDialogPr
 
             <DialogContent className="sm:max-w-[680px] w-[95vw] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl shadow-2xl border-0">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-5 text-white shrink-0">
+                <div 
+                    className={`px-6 py-5 text-white shrink-0 ${getThemeBgClass(theme)}`}
+                    style={getThemeBgStyle(theme)}
+                >
                     <DialogHeader>
                         <DialogTitle className="text-2xl font-bold flex items-center gap-3 text-white">
-                            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center border border-white/30">
+                            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center border border-white/30 shadow-inner">
                                 <UserPlus className="w-5 h-5" />
                             </div>
                             เพิ่มนักเรียนใหม่
                         </DialogTitle>
-                        <p className="text-indigo-200 text-sm mt-1">กรอกชื่อ-นามสกุล และชื่อเล่น (ไม่บังคับ) สามารถวางหลายบรรทัดได้</p>
+                        <p className="text-white/80 text-sm mt-1">กรอกชื่อ-นามสกุล และชื่อเล่น (ไม่บังคับ) สามารถวางหลายบรรทัดได้</p>
                     </DialogHeader>
                 </div>
 
@@ -165,7 +170,8 @@ export function AddStudentDialog({ classId, onStudentAdded }: AddStudentDialogPr
                         <Button
                             onClick={onSubmit}
                             disabled={loading || validRows.length === 0}
-                            className="h-11 px-8 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-base shadow-md rounded-xl"
+                            className={`h-11 px-8 bg-gradient-to-r hover:opacity-90 text-white font-bold text-base shadow-md rounded-xl transition-opacity ${getThemeBgClass(theme)}`}
+                            style={getThemeBgStyle(theme)}
                         >
                             {loading ? (
                                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> กำลังเพิ่ม...</>

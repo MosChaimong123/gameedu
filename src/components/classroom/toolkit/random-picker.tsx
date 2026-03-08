@@ -7,15 +7,17 @@ import { X, Shuffle, Trophy } from "lucide-react";
 import { StudentAvatar } from "../student-avatar";
 import useSound from "use-sound";
 import { useLanguage } from "@/components/providers/language-provider";
+import { getThemeTextClass, getThemeBgStyle } from "@/lib/classroom-utils";
 
 interface RandomPickerProps {
     students: Student[];
+    theme: string;
     onClose: () => void;
     onSelect?: (student: Student) => void;
     levelConfig?: any;
 }
 
-export function RandomPicker({ students, onClose, onSelect, levelConfig }: RandomPickerProps) {
+export function RandomPicker({ students, theme, onClose, onSelect, levelConfig }: RandomPickerProps) {
     const { t } = useLanguage();
     const [running, setRunning] = useState(false);
     const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
@@ -65,9 +67,19 @@ export function RandomPicker({ students, onClose, onSelect, levelConfig }: Rando
                     <X className="w-6 h-6" />
                 </button>
 
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent mb-8">
+                <h2 
+                    className={`text-3xl font-bold bg-gradient-to-r bg-clip-text text-transparent mb-8 ${getThemeTextClass(theme)}`}
+                    style={theme?.startsWith('custom:') ? { ...getThemeBgStyle(theme), WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } : {}}
+                >
                     {t("randomPicker")}
                 </h2>
+
+                {/* Trophy shown above avatar when winner is found */}
+                {winner && (
+                    <div className="animate-bounce mb-2">
+                        <Trophy className="w-14 h-14 text-yellow-500 drop-shadow-lg" />
+                    </div>
+                )}
 
                 <div className="w-64 h-64 mb-8 flex items-center justify-center relative">
                     {currentStudent ? (
@@ -76,15 +88,10 @@ export function RandomPicker({ students, onClose, onSelect, levelConfig }: Rando
                                 id={currentStudent.id}
                                 name={currentStudent.name}
                                 avatarSeed={currentStudent.avatar || currentStudent.id}
-                                points={currentStudent.points} // Visual only
+                                points={currentStudent.points}
                                 levelConfig={levelConfig}
                                 className="w-full h-full pointer-events-none"
                             />
-                            {winner && (
-                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 animate-bounce">
-                                    <Trophy className="w-12 h-12 text-yellow-500 drop-shadow-lg" />
-                                </div>
-                            )}
                         </div>
                     ) : (
                         <div className="w-48 h-48 rounded-full bg-slate-100 flex items-center justify-center text-slate-300">
@@ -113,7 +120,7 @@ export function RandomPicker({ students, onClose, onSelect, levelConfig }: Rando
                         size="lg"
                         onClick={pickRandom}
                         disabled={running}
-                        className="w-full h-16 text-xl rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-lg"
+                        className={`w-full h-16 text-xl rounded-xl bg-gradient-to-r ${theme || 'from-indigo-500 to-purple-600'} hover:opacity-90 transition-opacity text-white border-0 shadow-lg`}
                     >
                         {running ? "Spinning..." : t("randomPicker")}
                     </Button>

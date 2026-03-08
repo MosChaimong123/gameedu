@@ -2,71 +2,203 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Trophy, Star, Gamepad2, Layers } from "lucide-react"
+import { Trophy, Star, Gamepad2, Layers, School, Building2 } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
+import { useSession } from "next-auth/react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Edit2, Loader2 } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import { useRouter } from "next/navigation"
 
-// Mock Data for now
+// Stat fallbacks
 const USER_STATS = {
-    level: 5,
-    currentXp: 750,
-    nextLevelXp: 1000,
-    totalGames: 12,
-    totalSets: 3,
-    tokens: 450
+    level: 1,
+    currentXp: 120,
+    nextLevelXp: 500,
+    totalGames: 0,
+    totalSets: 0,
 }
 
 export function ProfileCard({ role }: { role?: string }) {
+    const { data: session, update } = useSession()
     const { t } = useLanguage()
+    const { toast } = useToast()
+    const router = useRouter()
     const isStudent = role === "STUDENT"
+
+    const [open, setOpen] = useState(false)
+    const [loading, setLoading] = useState(false)
+    const [name, setName] = useState("")
+    const [school, setSchool] = useState("")
+
+    useEffect(() => {
+        if (session?.user) {
+            setName(session.user.name || "")
+            // @ts-ignore
+            setSchool(session.user.school || "")
+        }
+    }, [session])
+
+    const handleSave = async () => {
+        if (!name.trim()) return
+        setLoading(true)
+        try {
+            const res = await fetch("/api/user/profile", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, school })
+            })
+
+            if (res.ok) {
+                await update() // Refresh NextAuth session
+                toast({ title: t("profileUpdated") || "Success", description: "Your profile has been updated." })
+                setOpen(false)
+                router.refresh()
+            } else {
+                throw new Error("Failed")
+            }
+        } catch (error) {
+            toast({ title: t("error") || "Error", variant: "destructive", description: "Failed to update profile." })
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const userName = session?.user?.name || "Player"
+    const userEmail = session?.user?.email || ""
+    // @ts-ignore
+    const userSchool = session?.user?.school || t("noSchoolSet") || "ไม่ระบุโรงเรียน"
+    const userImage = session?.user?.image || ""
 
     // Calculate progress percentage
     const progress = (USER_STATS.currentXp / USER_STATS.nextLevelXp) * 100
 
     return (
-        <Card className="border-2 border-slate-100 shadow-md overflow-hidden">
-            <div className={`h-24 bg-gradient-to-r ${isStudent ? "from-pink-500 to-rose-500" : "from-violet-500 to-fuchsia-500"} relative`}>
-                <div className="absolute -bottom-10 left-6 h-20 w-20 rounded-full border-4 border-white bg-slate-200 shadow-md flex items-center justify-center overflow-hidden">
-                    {/* Placeholder Avatar */}
-                    <img
-                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=Felix`}
-                        alt="Avatar"
-                        className="h-full w-full object-cover"
-                    />
+        <Card className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden group">
+            {/* Header / Banner */}
+            <div className={`h-32 bg-gradient-to-br ${isStudent ? "from-pink-500 via-rose-500 to-orange-400" : "from-indigo-600 via-purple-600 to-fuchsia-500"} relative`}>
+                <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity">
+                    <Trophy className="w-20 h-20 text-white transform rotate-12" />
+                </div>
+                
+                <div className="absolute -bottom-12 left-8 h-24 w-24 rounded-[2rem] border-4 border-white bg-white shadow-2xl overflow-hidden ring-4 ring-slate-50/50">
+                    <Avatar className="h-full w-full rounded-none">
+                        <AvatarImage src={userImage} />
+                        <AvatarFallback className="bg-slate-100 text-slate-400 text-2xl font-black">
+                            {userName[0]}
+                        </AvatarFallback>
+                    </Avatar>
                 </div>
             </div>
 
-            <CardHeader className="pt-12 pb-2">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-800">{isStudent ? "Student Player" : "Teacher"}</h2>
-                        <p className={`text-sm font-semibold ${isStudent ? "text-pink-600" : "text-violet-600"} flex items-center gap-1`}>
-                            <Star className="w-3 h-3 fill-current" /> Level {USER_STATS.level}
-                        </p>
+            <CardHeader className="pt-16 pb-4 px-8">
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">{userName}</h2>
+                        <div className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white ${isStudent ? "bg-pink-500" : "bg-indigo-600"}`}>
+                            {isStudent ? "Student" : "Teacher"}
+                        </div>
+                        {!isStudent && (
+                            <Dialog open={open} onOpenChange={setOpen}>
+                                <DialogTrigger asChild>
+                                    <button className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-300 hover:text-indigo-600 transition-all ml-1">
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[425px] rounded-[2rem] border-0 shadow-2xl">
+                                    <DialogHeader>
+                                        <DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                                            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
+                                                <Edit2 className="w-5 h-5 text-indigo-600" />
+                                            </div>
+                                            แก้ไขโปรไฟล์ครู
+                                        </DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-4 py-4">
+                                        <div className="space-y-2">
+                                            <Label className="font-bold text-slate-600">ชื่อครู (Display Name)</Label>
+                                            <Input 
+                                                value={name} 
+                                                onChange={(e) => setName(e.target.value)}
+                                                className="rounded-xl h-12 focus-visible:ring-indigo-500 border-slate-200"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="font-bold text-slate-600">ชื่อโรงเรียน (School Name)</Label>
+                                            <Input 
+                                                value={school} 
+                                                onChange={(e) => setSchool(e.target.value)}
+                                                placeholder="ชื่อโรงเรียนของคุณ"
+                                                className="rounded-xl h-12 focus-visible:ring-indigo-500 border-slate-200"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-end gap-3 pt-2">
+                                        <Button variant="ghost" onClick={() => setOpen(false)} className="rounded-xl">ยกเลิก</Button>
+                                        <Button 
+                                            onClick={handleSave} 
+                                            disabled={loading}
+                                            className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11 px-8 min-w-[120px]"
+                                        >
+                                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "บันทึก"}
+                                        </Button>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
+                        )}
+                    </div>
+                    <p className="text-sm text-slate-400 font-medium">{userEmail}</p>
+                    
+                    {!isStudent && (
+                         <div className="flex items-center gap-1.5 mt-2 bg-slate-50 border border-slate-100 rounded-xl px-3 py-1.5 w-fit">
+                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="text-xs font-bold text-slate-600">
+                                {userSchool}
+                            </span>
+                        </div>
+                    )}
+
+                    <div className={`flex items-center gap-1.5 mt-1 font-black ${isStudent ? "text-rose-500" : "text-indigo-600"}`}>
+                        <Star className="w-4 h-4 fill-current" />
+                        <span className="text-sm">Lv. {USER_STATS.level} Master</span>
                     </div>
                 </div>
             </CardHeader>
 
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 px-8 pb-8">
                 {/* XP Bar */}
-                <div className="space-y-1">
-                    <div className="flex justify-between text-xs font-bold text-slate-500">
-                        <span>XP</span>
+                <div className="space-y-2">
+                    <div className="flex justify-between text-[11px] font-black uppercase tracking-wider text-slate-400">
+                        <span>XP Progress</span>
                         <span>{USER_STATS.currentXp} / {USER_STATS.nextLevelXp}</span>
                     </div>
-                    <Progress value={progress} className="h-2 bg-slate-100" indicatorClassName={`bg-gradient-to-r ${isStudent ? "from-pink-500 to-rose-500" : "from-violet-500 to-fuchsia-500"}`} />
+                    <Progress 
+                        value={progress} 
+                        className="h-2.5 bg-slate-100 rounded-full overflow-hidden" 
+                        indicatorClassName={`bg-gradient-to-r ${isStudent ? "from-pink-500 to-orange-400" : "from-indigo-600 to-fuchsia-500"}`} 
+                    />
                 </div>
 
                 {/* Grid Stats */}
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
-                        <Layers className="w-5 h-5 text-indigo-500 mb-1" />
-                        <span className="text-lg font-bold text-slate-700">{USER_STATS.totalSets}</span>
-                        <span className="text-xs text-slate-400 font-medium">{t("createdSets") || "Sets Created"}</span>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 transition-all hover:bg-white hover:shadow-md hover:border-slate-200">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center mb-2">
+                             <Layers className="w-4 h-4 text-indigo-500" />
+                        </div>
+                        <div className="text-xl font-black text-slate-800">{USER_STATS.totalSets}</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{t("createdSets") || "Sets Created"}</div>
                     </div>
-                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
-                        <Gamepad2 className="w-5 h-5 text-orange-500 mb-1" />
-                        <span className="text-lg font-bold text-slate-700">{USER_STATS.totalGames}</span>
-                        <span className="text-xs text-slate-400 font-medium">{isStudent ? (t("gamesPlayed") || "Games Played") : (t("gamesHosted") || "Games Hosted")}</span>
+                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 transition-all hover:bg-white hover:shadow-md hover:border-slate-200">
+                        <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center mb-2">
+                             <Gamepad2 className="w-4 h-4 text-orange-500" />
+                        </div>
+                        <div className="text-xl font-black text-slate-800">{USER_STATS.totalGames}</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{isStudent ? (t("gamesPlayed") || "Games Played") : (t("gamesHosted") || "Games Hosted")}</div>
                     </div>
                 </div>
             </CardContent>

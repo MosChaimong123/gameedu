@@ -18,6 +18,7 @@ import { useState, useEffect } from "react"
 
 import { LanguageToggle } from "@/components/language-toggle"
 import { useLanguage } from "@/components/providers/language-provider"
+import { NotificationTray } from "@/components/dashboard/notification-tray"
 
 export function Topbar() {
     const { data: session } = useSession()
@@ -74,6 +75,8 @@ export function Topbar() {
                     <Sparkles className="w-4 h-4 mr-2" />
                     {t("upgradeToPlus")}
                 </Button>
+
+                <NotificationTray />
 
                 <LanguageToggle />
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { sendNotification } from "@/lib/notifications";
 
 export async function POST(
     req: Request,
@@ -57,7 +58,14 @@ export async function POST(
             }
         });
 
-        // TODO: Emit Socket Event here (will be added in Phase 9.3 step)
+        // Send Notification to Student
+        await sendNotification({
+            studentId,
+            title: skill.weight > 0 ? "ได้รับคะแนน!" : "โดนหักคะแนน!",
+            message: `คุณได้รับ ${skill.weight} คะแนน ในทักษะ: ${skill.name}`,
+            type: "POINT",
+            link: `/student/${updatedStudent.loginCode}`
+        });
 
         return NextResponse.json(updatedStudent);
 

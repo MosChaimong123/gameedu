@@ -10,6 +10,27 @@ export type RankEntry = {
     color?: string;   // hex or tailwind color token
 };
 
+/** Helpers for custom classroom themes */
+export function getThemeBgClass(theme?: string | null): string {
+    if (!theme) return "from-indigo-500 to-purple-600";
+    if (theme.startsWith("custom:")) return "";
+    return theme;
+}
+
+export function getThemeBgStyle(theme?: string | null): { backgroundImage?: string } {
+    if (!theme || !theme.startsWith("custom:")) return {};
+    const parts = theme.replace("custom:", "").split(",");
+    const color1 = parts[0] || "#6366f1";
+    const color2 = parts[1] || "#a855f7";
+    return { backgroundImage: `linear-gradient(to right, ${color1}, ${color2})` };
+}
+
+export function getThemeTextClass(theme?: string | null): string {
+    if (!theme) return "from-indigo-500 to-purple-600";
+    if (theme.startsWith("custom:")) return "";
+    return theme;
+}
+
 export const DEFAULT_RANK_ENTRIES: RankEntry[] = [
     { name: 'ชาวบ้าน',     minScore: 0,   icon: '🧑',  color: '#94a3b8' },
     { name: 'ทหารฝึกหัด', minScore: 10,  icon: '⚔️',  color: '#22c55e' },

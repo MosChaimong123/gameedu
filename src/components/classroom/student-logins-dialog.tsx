@@ -6,8 +6,9 @@ import { Key, Printer } from "lucide-react";
 import { Student } from "@prisma/client";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/providers/language-provider";
+import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
 
-export function StudentLoginsDialog({ students, classId }: { students: any[], classId: string }) {
+export function StudentLoginsDialog({ students, classId, theme }: { students: any[], classId: string, theme?: string }) {
     const { t } = useLanguage();
     const [isMounted, setIsMounted] = useState(false);
 
@@ -45,13 +46,16 @@ export function StudentLoginsDialog({ students, classId }: { students: any[], cl
                         {students.map((student) => (
                             <div key={student.id} className="border border-slate-200 p-5 md:p-6 rounded-2xl flex flex-col items-center justify-center text-center bg-white shadow-sm relative overflow-hidden group hover:border-indigo-300 transition-colors">
                                 {/* Decorative top border */}
-                                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-70 group-hover:opacity-100 transition-opacity"></div>
+                                <div 
+                                    className={`absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r ${getThemeBgClass(theme)} opacity-70 group-hover:opacity-100 transition-opacity`}
+                                    style={getThemeBgStyle(theme)}
+                                ></div>
                                 
                                 <h3 className="font-bold text-lg md:text-xl text-slate-800 mb-4 w-full px-2 truncate">{student.name}</h3>
                                 
-                                <div className="bg-indigo-50/50 py-4 px-2 shrink-0 rounded-xl w-full mb-4 border border-indigo-100 flex flex-col items-center justify-center min-h-[100px] overflow-hidden">
-                                    <span className="text-[11px] md:text-xs font-bold text-indigo-500 block mb-2 uppercase whitespace-nowrap">{t("accessCode")}</span>
-                                    <span className="font-mono text-2xl tracking-[0.2em] font-black text-indigo-700 select-all w-full text-center">
+                                <div className="bg-slate-50 py-4 px-2 shrink-0 rounded-xl w-full mb-4 border border-slate-100 flex flex-col items-center justify-center min-h-[100px] overflow-hidden">
+                                    <span className={`text-[11px] md:text-xs font-bold block mb-2 uppercase whitespace-nowrap bg-gradient-to-r ${theme || 'from-indigo-500 to-purple-500'} bg-clip-text text-transparent`}>{t("accessCode")}</span>
+                                    <span className={`font-mono text-2xl tracking-[0.2em] font-black select-all w-full text-center bg-gradient-to-r ${theme || 'from-indigo-500 to-purple-500'} bg-clip-text text-transparent`}>
                                         {student.loginCode || 'N/A'}
                                     </span>
                                 </div>
@@ -65,7 +69,7 @@ export function StudentLoginsDialog({ students, classId }: { students: any[], cl
                 </div>
 
                 <div className="p-4 md:p-6 border-t border-slate-100 bg-white print:hidden shrink-0 flex justify-end">
-                    <Button onClick={handlePrint} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm rounded-xl">
+                    <Button onClick={handlePrint} className={`flex items-center gap-2 bg-gradient-to-r ${theme || 'from-indigo-600 to-indigo-600'} text-white shadow-sm rounded-xl hover:opacity-90 transition-opacity border-0`}>
                         <Printer className="w-4 h-4" />
                         {t("printCards")}
                     </Button>

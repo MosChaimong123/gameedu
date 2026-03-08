@@ -48,6 +48,8 @@ export default async function MyClassroomsPage() {
                             name={c.name}
                             grade={c.grade}
                             studentCount={c._count.students}
+                            emoji={c.emoji}
+                            theme={c.theme}
                             image={c.image || undefined}
                         />
                     ))}

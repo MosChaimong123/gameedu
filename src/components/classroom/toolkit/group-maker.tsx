@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/components/providers/language-provider";
 import { cn } from "@/lib/utils";
+import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
 
 // Map icon strings to Lucide components
 const iconMap: Record<string, any> = {
@@ -28,11 +29,12 @@ const iconMap: Record<string, any> = {
 interface GroupMakerProps {
     students: Student[];
     skills: Skill[];
+    theme: string;
     onClose: () => void;
     levelConfig?: any;
 }
 
-export function GroupMaker({ students, skills, onClose, levelConfig }: GroupMakerProps) {
+export function GroupMaker({ students, skills, theme, onClose, levelConfig }: GroupMakerProps) {
     const { t } = useLanguage();
     const [groupCount, setGroupCount] = useState(4);
     const [groups, setGroups] = useState<Student[][]>([]);
@@ -344,7 +346,12 @@ export function GroupMaker({ students, skills, onClose, levelConfig }: GroupMake
                     </div>
 
                     <div className="flex gap-2">
-                        <Button onClick={createGroups} size="lg" className="px-8 w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm">
+                        <Button 
+                            onClick={createGroups} 
+                            size="lg" 
+                            className={`px-8 w-full md:w-auto text-white rounded-xl shadow-sm transition-opacity hover:opacity-90 ${getThemeBgClass(theme)} border-0`}
+                            style={getThemeBgStyle(theme)}
+                        >
                             {groups.length > 0 ? <><RefreshCw className="w-4 h-4 mr-2" /> Reshuffle</> : t("createGroups")}
                         </Button>
                     </div>
@@ -431,10 +438,11 @@ export function GroupMaker({ students, skills, onClose, levelConfig }: GroupMake
                             disabled={isSaving || hasSaved || !groupSetName.trim()}
                             variant={hasSaved ? "secondary" : "default"}
                             size="lg" 
-                            className={`px-8 w-full md:w-auto rounded-xl shadow-md h-[42px] transition-all
+                            className={`px-8 w-full md:w-auto rounded-xl shadow-md h-[42px] transition-all border-0
                                 ${hasSaved 
                                     ? 'bg-emerald-50 text-emerald-600 border-emerald-200 cursor-not-allowed border' 
-                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
+                                    : `text-white hover:opacity-90 ${getThemeBgClass(theme)}`}`}
+                            style={hasSaved ? {} : getThemeBgStyle(theme)}
                         >
                             {isSaving ? "Saving..." : hasSaved ? t("groupSavedSuccess") : t("saveGroups")}
                         </Button>

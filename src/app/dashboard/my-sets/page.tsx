@@ -21,7 +21,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Plus, BookOpen, Clock, Loader2, MoreVertical, Search, Trash2, ArrowLeft, Image as ImageIcon } from "lucide-react"
+import { Plus, BookOpen, Clock, Loader2, MoreVertical, Search, Trash2, ArrowLeft, Image as ImageIcon, ClipboardList } from "lucide-react"
+import { AssignmentCreateModal } from "@/components/dashboard/assignment-create-modal"
 
 type QuestionSet = {
     id: string
@@ -41,6 +42,8 @@ export default function MySetsPage() {
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
     const [setToDelete, setSetToDelete] = useState<string | null>(null)
+    const [assignSetId, setAssignSetId] = useState<string | null>(null)
+    const [assignSetTitle, setAssignSetTitle] = useState("")
     const { t } = useLanguage()
 
     useEffect(() => {
@@ -177,11 +180,22 @@ export default function MySetsPage() {
 
                             <CardFooter className="p-4 pt-0 mt-auto">
                                 <div className="flex w-full items-center gap-2">
-                                    <Link href={`/host/${set.id}`} className="flex-[2]">
-                                        <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-sm transition-all hover:-translate-y-0.5" size="sm">
+                                    <Link href={`/host/${set.id}`} className="flex-[1.5]">
+                                        <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm transition-all hover:-translate-y-0.5" size="sm">
                                             {t("host")}
                                         </Button>
                                     </Link>
+                                    <Button
+                                        onClick={() => {
+                                            setAssignSetId(set.id);
+                                            setAssignSetTitle(set.title);
+                                        }}
+                                        className="flex-[1.5] bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-sm transition-all hover:-translate-y-0.5"
+                                        size="sm"
+                                    >
+                                        <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
+                                        Assign
+                                    </Button>
                                     <Link href={`/dashboard/edit-set/${set.id}`} className="flex-[1.5]">
                                         <Button variant="outline" className="w-full border-2 border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-600 font-bold transition-all" size="sm">
                                             {t("edit")}
@@ -223,6 +237,13 @@ export default function MySetsPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <AssignmentCreateModal
+                open={!!assignSetId}
+                onOpenChange={(open) => !open && setAssignSetId(null)}
+                setId={assignSetId || ""}
+                setTitle={assignSetTitle}
+            />
         </div>
     )
 }

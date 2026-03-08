@@ -1,140 +1,224 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
-import Image from "next/image";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { getStudentRank } from "@/lib/classroom-utils";
+import { getStudentRank, getThemeBgStyle } from "@/lib/classroom-utils";
+import { CheckCircle, Clock, BookOpen, Star, History, PlayCircle } from "lucide-react";
+import Link from "next/link";
+import { StudentAvatarSection } from "@/components/student/student-avatar-section";
+import { NotificationTray } from "@/components/dashboard/notification-tray";
 
 export default async function StudentDashboardPage(
     props: { params: Promise<{ code: string }> }
 ) {
-    const params = await props.params;
-    const { code } = params;
+    const { code } = await props.params;
 
     const student = await db.student.findUnique({
         where: { loginCode: code.toUpperCase() },
         include: {
             classroom: {
-                select: { name: true, image: true, levelConfig: true, teacher: { select: { name: true } } }
+                select: {
+                    id: true,
+                    name: true,
+                    image: true,
+                    emoji: true,
+                    theme: true,
+                    levelConfig: true,
+                    teacher: { select: { name: true } },
+                    assignments: {
+                        where: { visible: true },
+                        orderBy: { order: 'asc' },
+                        select: { id: true, name: true, description: true, type: true, maxScore: true, passScore: true, deadline: true }
+                    }
+                }
             },
-            history: {
-                orderBy: { timestamp: 'desc' },
-                take: 20
-            }
+            history: { orderBy: { timestamp: 'desc' }, take: 30 },
+            submissions: { select: { assignmentId: true, score: true, submittedAt: true } }
         }
     });
 
-    if (!student) {
-        return notFound();
-    }
+    if (!student) return notFound();
 
-    const { classroom, history } = student;
-    const isPositiveBalance = student.points >= 0;
+    // Cast to any to bypass Prisma's temporary linting issues after schema changes
+    const sObj = student as any;
+    const classroom = sObj.classroom;
+    const history = sObj.history;
+    const submissions = sObj.submissions;
+    
+    const submissionMap = new Map(submissions.map((s: any) => [s.assignmentId, s]));
+    const rank = getStudentRank(student.points, classroom.levelConfig);
+
+    const theme = classroom.theme || "from-indigo-500 to-purple-600";
+    const isCustomTheme = theme.startsWith("custom:");
+    const themeStyle = isCustomTheme ? getThemeBgStyle(theme) : {};
+    const themeClass = isCustomTheme ? "" : `bg-gradient-to-br ${theme}`;
+
+    const classIcon = classroom.emoji;
+    const isImageIcon = classIcon?.startsWith('data:image') || classIcon?.startsWith('http');
+
+    const totalPositive = history.filter((h: any) => h.value > 0).reduce((s: number, h: any) => s + h.value, 0);
+    const totalNegative = Math.abs(history.filter((h: any) => h.value < 0).reduce((s: number, h: any) => s + h.value, 0));
 
     return (
-        <div className="min-h-screen bg-slate-50 overflow-hidden relative selection:bg-indigo-100 selection:text-indigo-900">
-            {/* Background pattern */}
-            <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.03]">
-                <div className="absolute inset-0 bg-[url('/patterns/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" />
-            </div>
+        <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden relative">
+            <div className="max-w-5xl mx-auto px-4 py-8 relative z-10">
 
-            <div className="max-w-4xl mx-auto px-4 py-8 relative z-10">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8 animate-in slide-in-from-top-4">
+                {/* ===== Header: Classroom Info ===== */}
+                <div
+                    className={`rounded-3xl shadow-xl border border-white/20 text-white p-6 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in slide-in-from-top-4 ${themeClass}`}
+                    style={themeStyle}
+                >
                     <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center text-3xl shadow-inner">
-                            {classroom.image || "🏫"}
+                        <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center border border-white/30 shadow-inner overflow-hidden text-3xl shrink-0">
+                            {isImageIcon
+                                ? <img src={classIcon!} alt="icon" className="w-full h-full object-cover" />
+                                : <span>{classIcon || classroom.image || "🏫"}</span>
+                            }
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-slate-800">{classroom.name}</h2>
-                            <p className="text-slate-500 text-sm">Teacher: {classroom.teacher.name || "N/A"}</p>
+                            <p className="text-white/70 text-xs uppercase tracking-wider font-semibold">ห้องเรียน</p>
+                            <h2 className="text-2xl font-black text-white leading-tight">{classroom.name}</h2>
+                            <p className="text-white/70 text-sm mt-0.5">ครู: {classroom.teacher.name || "N/A"}</p>
                         </div>
                     </div>
-                    <Badge variant="outline" className="px-4 py-1.5 text-sm bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        Student Portal
-                    </Badge>
+                    <div className="flex items-center gap-3 bg-white/20 backdrop-blur-sm rounded-2xl px-3 py-2 border border-white/30">
+                        <NotificationTray studentCode={code} />
+                        <div className="w-px h-8 bg-white/20" />
+                        <div className="text-center pr-2">
+                            <p className="text-white/70 text-[10px] uppercase tracking-wide">สถานะ</p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                                <span className="text-white text-xs font-semibold">ออนไลน์</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-8">
-                    {/* Character Card */}
-                    <div className="md:col-span-1 space-y-6">
-                        <Card className="shadow-md border-0 bg-white overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-                            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-8 flex justify-center items-center relative">
-                                <div className="absolute top-0 left-0 w-full h-full opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent" />
-                                <div className="w-32 h-32 rounded-full border-4 border-white/20 shadow-xl overflow-hidden bg-white/10 backdrop-blur-sm flex justify-center items-center relative z-10">
-                                    <Image
-                                        src={`https://api.dicebear.com/7.x/bottts/svg?seed=${student.avatar || student.id}&backgroundColor=transparent`}
-                                        alt="Monster Avatar"
-                                        width={100}
-                                        height={100}
-                                        className="drop-shadow-lg transform transition-transform hover:scale-110 duration-300"
-                                    />
-                                </div>
-                            </div>
-                            <CardContent className="p-6 text-center space-y-2 relative">
-                                <div className="mb-2">
-                                    <span className="text-xs uppercase font-bold text-orange-600 bg-orange-100 px-3 py-1 rounded-full border border-orange-200 shadow-sm">
-                                        {getStudentRank(student.points, classroom.levelConfig)}
-                                    </span>
-                                </div>
-                                <h1 className="text-2xl font-black text-slate-800">{student.name}</h1>
-                                <div className="inline-flex items-center gap-2 mt-2">
-                                    <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Total Points</span>
-                                    <div className={`px-4 py-1.5 rounded-full text-lg font-bold shadow-sm border ${
-                                        isPositiveBalance ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'
-                                    }`}>
-                                        {student.points}
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                <div className="grid md:grid-cols-3 gap-6">
+
+                    {/* ===== Left: Character Card (Client island with avatar picker) ===== */}
+                    <div className="md:col-span-1">
+                        <StudentAvatarSection
+                            studentId={student.id}
+                            classId={classroom.id}
+                            loginCode={student.loginCode}
+                            initialAvatar={student.avatar || student.id}
+                            name={student.name}
+                            nickname={student.nickname}
+                            points={student.points}
+                            rank={rank}
+                            totalPositive={totalPositive}
+                            totalNegative={totalNegative}
+                            themeClass={themeClass}
+                            themeStyle={themeStyle}
+                        />
                     </div>
 
-                    {/* History */}
-                    <div className="md:col-span-2">
-                        <Card className="shadow-sm border-slate-200 h-full animate-in fade-in slide-in-from-bottom-8">
-                            <CardHeader className="border-b border-slate-100 bg-slate-50/50">
-                                <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
-                                    Recent Activity
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                {history.length === 0 ? (
-                                    <div className="p-12 text-center text-slate-400">
-                                        <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                                            <svg className="w-8 h-8 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                                            </svg>
-                                        </div>
-                                        <p>No points recorded yet.</p>
-                                        <p className="text-sm mt-1">Check back later when you earn points!</p>
-                                    </div>
-                                ) : (
-                                    <ul className="divide-y divide-slate-100">
-                                        {history.map((record) => (
-                                            <li key={record.id} className="p-4 hover:bg-slate-50/80 transition-colors flex justify-between items-center group">
-                                                <div className="flex flex-col">
-                                                    <span className="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">
-                                                        {record.reason}
-                                                    </span>
-                                                    <span className="text-xs font-medium text-slate-400">
-                                                        {formatDistanceToNow(new Date(record.timestamp), { addSuffix: true })}
-                                                    </span>
+                    {/* ===== Right: Assignments + Point History ===== */}
+                    <div className="md:col-span-2 space-y-4">
+
+                        {/* Assignments */}
+                        {classroom.assignments.length > 0 && (
+                            <div className="bg-white rounded-3xl shadow-md border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-6">
+                                <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                                    <BookOpen className="w-5 h-5 text-blue-500" />
+                                    <h2 className="font-bold text-slate-800 text-base">งานที่ได้รับ</h2>
+                                    <span className="ml-auto text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{classroom.assignments.length} งาน</span>
+                                </div>
+                                <div className="divide-y divide-slate-50">
+                                    {classroom.assignments.map((assignment: any) => {
+                                        const submission = submissionMap.get(assignment.id) as any;
+                                        const isDone = !!submission;
+                                        const passed = isDone && assignment.passScore != null ? submission!.score >= assignment.passScore : isDone;
+                                        const isQuiz = assignment.type === "quiz";
+
+                                        return (
+                                            <div key={assignment.id} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 transition-colors">
+                                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDone ? 'bg-green-100' : isQuiz ? 'bg-indigo-100' : 'bg-slate-100'}`}>
+                                                    {isDone ? (
+                                                        <CheckCircle className="w-5 h-5 text-green-600" />
+                                                    ) : isQuiz ? (
+                                                        <PlayCircle className="w-5 h-5 text-indigo-500" />
+                                                    ) : (
+                                                        <Clock className="w-5 h-5 text-slate-400" />
+                                                    )}
                                                 </div>
-                                                <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold shadow-sm ${
-                                                    record.value > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                                }`}>
-                                                    {record.value > 0 ? '+' : ''}{record.value}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className={`font-semibold text-sm ${isDone ? 'text-slate-500' : 'text-slate-800'}`}>{assignment.name}</p>
+                                                    {assignment.description && !isDone && (
+                                                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-1 italic">{assignment.description}</p>
+                                                    )}
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <p className="text-[10px] sm:text-xs text-slate-400 font-medium">
+                                                            {isQuiz ? '📝 แบบทดสอบ' : assignment.type === 'score' ? '📊 ให้คะแนน' : '✅ เช็คลิสต์'} · เต็ม {assignment.maxScore}
+                                                        </p>
+                                                        {assignment.deadline && !isDone && (
+                                                            <div className={`flex items-center gap-1 text-[10px] sm:text-xs px-1.5 py-0.5 rounded-md ${
+                                                                new Date(assignment.deadline) < new Date() 
+                                                                    ? 'bg-red-50 text-red-500 font-bold' 
+                                                                    : 'bg-orange-50 text-orange-500'
+                                                            }`}>
+                                                                <Clock className="w-3 h-3" />
+                                                                {new Date(assignment.deadline).toLocaleDateString()}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </CardContent>
-                        </Card>
+
+                                                {isDone ? (
+                                                    <div className="text-right shrink-0">
+                                                        <p className={`font-black text-lg ${passed ? 'text-green-600' : 'text-orange-500'}`}>{submission!.score}</p>
+                                                        <p className="text-[10px] text-slate-400">/ {assignment.maxScore}</p>
+                                                    </div>
+                                                ) : isQuiz ? (
+                                                    <Link
+                                                        href={`/student/${code}/quiz/${assignment.id}`}
+                                                        className={`text-xs font-bold px-3 py-1.5 rounded-xl text-white shrink-0 flex items-center gap-1 hover:opacity-90 transition-opacity ${themeClass}`}
+                                                        style={themeStyle}
+                                                    >
+                                                        <PlayCircle className="w-3 h-3" /> ทำแบบทดสอบ
+                                                    </Link>
+                                                ) : (
+                                                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">รอส่ง</span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Point History */}
+                        <div className="bg-white rounded-3xl shadow-md border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-8">
+                            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                                <History className="w-5 h-5 text-indigo-500" />
+                                <h2 className="font-bold text-slate-800 text-base">ประวัติคะแนน</h2>
+                            </div>
+                            {history.length === 0 ? (
+                                <div className="p-12 text-center text-slate-400">
+                                    <Star className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                    <p>ยังไม่มีการบันทึกคะแนน</p>
+                                    <p className="text-sm mt-1">คะแนนจะแสดงเมื่อครูให้หรือหักคะแนน</p>
+                                </div>
+                            ) : (
+                                <ul className="divide-y divide-slate-50">
+                                    {history.map((record: any) => (
+                                        <li key={record.id} className="px-5 py-3 hover:bg-slate-50 transition-colors flex justify-between items-center gap-4">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-slate-800 text-sm leading-tight">{record.reason}</p>
+                                                <p className="text-xs text-slate-400 mt-0.5">
+                                                    {formatDistanceToNow(new Date(record.timestamp), { addSuffix: true })}
+                                                </p>
+                                            </div>
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-base shadow-sm border shrink-0 ${
+                                                record.value > 0 ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+                                            }`}>
+                                                {record.value > 0 ? '+' : ''}{record.value}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

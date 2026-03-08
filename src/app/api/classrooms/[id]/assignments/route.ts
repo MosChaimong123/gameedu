@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { sendNotification } from "@/lib/notifications";
 
 export async function POST(
     req: Request,
@@ -15,7 +16,7 @@ export async function POST(
 
     try {
         const body = await req.json();
-        const { name, maxScore, type, checklists, passScore } = body;
+        const { name, description, maxScore, type, checklists, passScore, deadline, setId } = body;
 
         if (!name) {
             return new NextResponse("Name is required", { status: 400 });
@@ -23,24 +24,57 @@ export async function POST(
 
         const classroom = await db.classroom.findUnique({
             where: { id: resolvedParams.id },
-            include: { assignments: true }
+            include: { 
+                assignments: { select: { id: true } },
+                students: { select: { id: true, loginCode: true } }
+            }
         });
 
         if (!classroom || classroom.teacherId !== session.user.id) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
+        let quizData = body.quizData || null;
+
+        // If a Question Set is linked, we snapshot its questions for stability
+        if (setId && type === "quiz") {
+            const questionSet = await db.questionSet.findUnique({
+                where: { id: setId },
+                select: { questions: true }
+            });
+            if (questionSet) {
+                quizData = { questions: questionSet.questions };
+            }
+        }
+
         const assignment = await db.assignment.create({
             data: {
                 classId: classroom.id,
                 name,
+                description,
                 maxScore: maxScore || 10,
                 type: type || "score",
                 checklists: checklists || [],
                 passScore: passScore ?? null,
+                deadline: deadline ? new Date(deadline) : null,
+                setId: setId || null,
+                quizData,
                 order: classroom.assignments.length
-            }
+            } as any
         });
+
+        // Notify all students
+        await Promise.all(
+            classroom.students.map(student => 
+                sendNotification({
+                    studentId: student.id,
+                    title: "มีงานใหม่!",
+                    message: `คุณได้รับงานใหม่: ${name}`,
+                    type: "ASSIGNMENT",
+                    link: `/student/${student.loginCode}`
+                })
+            )
+        );
 
         return NextResponse.json(assignment);
     } catch (error) {

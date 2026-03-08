@@ -10,14 +10,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     adapter: PrismaAdapter(db),
     session: { strategy: "jwt" },
     providers: [
-        ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-            ? [
-                  Google({
-                      clientId: process.env.GOOGLE_CLIENT_ID,
-                      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-                  }),
-              ]
-            : []),
+        Google({
+            clientId: process.env.GOOGLE_CLIENT_ID!,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        }),
         Credentials({
             credentials: {
                 email: { label: "Email", type: "email" },
@@ -54,6 +50,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     email: user.email,
                     image: user.image,
                     role: user.role,
+                    school: user.school,
                 }
             },
         }),
@@ -64,6 +61,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 token.id = user.id
                 // @ts-ignore
                 token.role = user.role
+                // @ts-ignore
+                token.school = user.school
             }
             return token
         },
@@ -72,6 +71,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 session.user.id = token.id as string
                 // @ts-ignore
                 session.user.role = token.role as string
+                // @ts-ignore
+                session.user.school = token.school as string
             }
             return session
         }

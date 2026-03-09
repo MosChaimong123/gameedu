@@ -176,7 +176,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
             // Optimistic fast update
             setClassroom(prev => ({
                 ...prev,
-                students: prev.students.map(s => ({ ...s, points: 0 }))
+                students: prev.students.map(s => ({ ...s, points: 0, submissions: [] }))
             }));
             
             toast({ title: "Success", description: "All points have been reset to 0." });
@@ -340,7 +340,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                                         onClick={() => setShowAddAssignment(true)}
                                     >
                                         <Plus className="w-4 h-4 mr-1" />
-                                        <span className="hidden md:inline">{t("newTask")}</span>
+                                        <span className="hidden md:inline">จัดการภารกิจ</span>
                                     </Button>
                                 )}
                             </div>
@@ -450,7 +450,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                                     student.submissions?.reduce((sum, sub) => sum + sub.score, 0) || 0
                                 }
                                 behaviorPoints={
-                                    student.points - (student.submissions?.reduce((sum, sub) => sum + sub.score, 0) || 0)
+                                    student.points
                                 }
                                 className={isAttendanceMode ? "hover:scale-100" : ""}
                             />
@@ -599,10 +599,6 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                             <Separator orientation="vertical" className="h-4" />
                             <Button variant="ghost" size="sm" onClick={() => setIsSelectMultiple(true)}>
                                 {t("selectMultiple")}
-                            </Button>
-                            <Separator orientation="vertical" className="h-4" />
-                            <Button variant="ghost" size="sm" onClick={() => setShowResetConfirm(true)} disabled={loading}>
-                                {t("resetPoints")}
                             </Button>
                         </>
                     )}

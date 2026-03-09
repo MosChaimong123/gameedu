@@ -8,6 +8,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 20
       - key: DATABASE_URL
         sync: false
       - key: NEXTAUTH_SECRET
@@ -15,6 +17,10 @@ services:
       - key: AUTH_SECRET
         sync: false
       - key: NEXTAUTH_URL
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: ADMIN_SECRET
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false

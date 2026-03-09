@@ -1,16 +1,20 @@
+import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
-import { getStudentRank, getThemeBgStyle } from "@/lib/classroom-utils";
+import { getThemeBgClass, getThemeBgStyle, getRankEntry } from "@/lib/classroom-utils";
 import { CheckCircle, Clock, BookOpen, Star, History, PlayCircle } from "lucide-react";
 import Link from "next/link";
 import { StudentAvatarSection } from "@/components/student/student-avatar-section";
 import { NotificationTray } from "@/components/dashboard/notification-tray";
+import { SyncAccountButton } from "@/components/student/sync-account-button";
 
 export default async function StudentDashboardPage(
     props: { params: Promise<{ code: string }> }
 ) {
     const { code } = await props.params;
+    const session = await auth();
+    const currentUserId = session?.user?.id;
 
     const student = await db.student.findUnique({
         where: { loginCode: code.toUpperCase() },
@@ -25,9 +29,8 @@ export default async function StudentDashboardPage(
                     levelConfig: true,
                     teacher: { select: { name: true } },
                     assignments: {
-                        where: { visible: true },
                         orderBy: { order: 'asc' },
-                        select: { id: true, name: true, description: true, type: true, maxScore: true, passScore: true, deadline: true }
+                        select: { id: true, name: true, description: true, type: true, maxScore: true, passScore: true, deadline: true, checklists: true, visible: true }
                     }
                 }
             },
@@ -44,8 +47,29 @@ export default async function StudentDashboardPage(
     const history = sObj.history;
     const submissions = sObj.submissions;
     
+    // Helper: calculate total score from bitmask and checklist items with points
+    const calculateChecklistScore = (bitmask: number, checklistItems: any[]) => {
+        if (!Array.isArray(checklistItems)) return 0;
+        return checklistItems.reduce((sum, item, i) => {
+            const isChecked = (bitmask & (1 << i)) !== 0;
+            const points = typeof item === 'object' ? (item.points || 0) : 1;
+            return isChecked ? sum + points : sum;
+        }, 0);
+    };
+
     const submissionMap = new Map(submissions.map((s: any) => [s.assignmentId, s]));
-    const rank = getStudentRank(student.points, classroom.levelConfig);
+    const academicTotal = sObj.classroom.assignments.reduce((sum: number, assignment: any) => {
+        const submission = submissionMap.get(assignment.id) as any;
+        if (!submission) return sum;
+        if (assignment.type === 'checklist') {
+            return sum + calculateChecklistScore(submission.score, assignment.checklists);
+        }
+        return sum + submission.score;
+    }, 0);
+    const totalPoints = student.points + academicTotal;
+    
+    // Rank is now calculated ONLY from academic points
+    const rankEntry = getRankEntry(academicTotal, classroom.levelConfig);
 
     const theme = classroom.theme || "from-indigo-500 to-purple-600";
     const isCustomTheme = theme.startsWith("custom:");
@@ -80,7 +104,12 @@ export default async function StudentDashboardPage(
                             <p className="text-white/70 text-sm mt-0.5">ครู: {classroom.teacher.name || "N/A"}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3 bg-white/20 backdrop-blur-sm rounded-2xl px-3 py-2 border border-white/30">
+                    <div className="flex flex-wrap items-center gap-3 bg-white/20 backdrop-blur-sm rounded-2xl px-3 py-2 border border-white/30">
+                        {/* Sync Button if eligible */}
+                        {currentUserId && !student.userId && (
+                            <SyncAccountButton loginCode={code} />
+                        )}
+                        
                         <NotificationTray studentCode={code} />
                         <div className="w-px h-8 bg-white/20" />
                         <div className="text-center pr-2">
@@ -104,8 +133,9 @@ export default async function StudentDashboardPage(
                             initialAvatar={student.avatar || student.id}
                             name={student.name}
                             nickname={student.nickname}
-                            points={student.points}
-                            rank={rank}
+                            points={academicTotal}
+                            behaviorPoints={student.points}
+                            rankEntry={rankEntry}
                             totalPositive={totalPositive}
                             totalNegative={totalNegative}
                             themeClass={themeClass}
@@ -125,7 +155,7 @@ export default async function StudentDashboardPage(
                                     <span className="ml-auto text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{classroom.assignments.length} งาน</span>
                                 </div>
                                 <div className="divide-y divide-slate-50">
-                                    {classroom.assignments.map((assignment: any) => {
+                                    {classroom.assignments.filter((a: any) => a.visible).map((assignment: any) => {
                                         const submission = submissionMap.get(assignment.id) as any;
                                         const isDone = !!submission;
                                         const passed = isDone && assignment.passScore != null ? submission!.score >= assignment.passScore : isDone;
@@ -147,38 +177,78 @@ export default async function StudentDashboardPage(
                                                     {assignment.description && !isDone && (
                                                         <p className="text-xs text-slate-500 mt-0.5 line-clamp-1 italic">{assignment.description}</p>
                                                     )}
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <p className="text-[10px] sm:text-xs text-slate-400 font-medium">
-                                                            {isQuiz ? '📝 แบบทดสอบ' : assignment.type === 'score' ? '📊 ให้คะแนน' : '✅ เช็คลิสต์'} · เต็ม {assignment.maxScore}
-                                                        </p>
-                                                        {assignment.deadline && !isDone && (
-                                                            <div className={`flex items-center gap-1 text-[10px] sm:text-xs px-1.5 py-0.5 rounded-md ${
-                                                                new Date(assignment.deadline) < new Date() 
-                                                                    ? 'bg-red-50 text-red-500 font-bold' 
-                                                                    : 'bg-orange-50 text-orange-500'
-                                                            }`}>
-                                                                <Clock className="w-3 h-3" />
-                                                                {new Date(assignment.deadline).toLocaleDateString()}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
+                                                     <div className="flex items-center gap-2 mt-1">
+                                                         <p className="text-[10px] sm:text-xs text-slate-400 font-medium">
+                                                             {isQuiz ? '📝 แบบทดสอบ' : assignment.type === 'score' ? '📊 ให้คะแนน' : '✅ เช็คลิสต์'} 
+                                                             {assignment.maxScore > 0 && ` · เต็ม ${assignment.maxScore}`}
+                                                         </p>
+                                                    {assignment.deadline && !isDone && (
+                                                             <div className={`flex items-center gap-1 text-[10px] sm:text-xs px-1.5 py-0.5 rounded-md ${
+                                                                 new Date(assignment.deadline) < new Date() 
+                                                                     ? 'bg-red-50 text-red-500 font-bold' 
+                                                                     : 'bg-orange-50 text-orange-500'
+                                                             }`}>
+                                                                 <Clock className="w-3 h-3" />
+                                                                 {new Date(assignment.deadline).toLocaleDateString()}
+                                                             </div>
+                                                         )}
+                                                     </div>
+
+                                                     {/* Checklist Items Display */}
+                                                     {assignment.type === 'checklist' && Array.isArray(assignment.checklists) && (
+                                                         <div className="mt-2 space-y-1 pl-1">
+                                                             {(assignment.checklists as any[]).map((item, i) => {
+                                                                 const bitmask = submission?.score ?? 0;
+                                                                 const itemChecked = (bitmask & (1 << i)) !== 0;
+                                                                 const itemText = typeof item === 'object' ? item.text : item;
+                                                                 const itemPoints = typeof item === 'object' ? item.points : 0;
+                                                                 
+                                                                 return (
+                                                                     <div key={i} className="flex items-center gap-2 text-[10px] sm:text-xs">
+                                                                         <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${
+                                                                             itemChecked 
+                                                                                 ? 'bg-emerald-500 border-emerald-600 text-white' 
+                                                                                 : 'bg-white border-slate-200 text-transparent'
+                                                                         }`}>
+                                                                             <CheckCircle className="w-2.5 h-2.5" />
+                                                                         </div>
+                                                                         <span className={`${itemChecked ? 'text-slate-500 line-through' : 'text-slate-600 font-medium'}`}>
+                                                                             {itemText}
+                                                                             {itemPoints > 0 && <span className="ml-1 text-[#10b981] font-bold">({itemPoints})</span>}
+                                                                         </span>
+                                                                     </div>
+                                                                 );
+                                                             })}
+                                                         </div>
+                                                     )}
+                                                 </div>
 
                                                 {isDone ? (
-                                                    <div className="text-right shrink-0">
-                                                        <p className={`font-black text-lg ${passed ? 'text-green-600' : 'text-orange-500'}`}>{submission!.score}</p>
-                                                        <p className="text-[10px] text-slate-400">/ {assignment.maxScore}</p>
+                                                    <div className="flex items-center gap-4 shrink-0">
+                                                        <div className="text-right">
+                                                            <p className={`font-black text-lg leading-tight ${passed ? 'text-green-600' : 'text-red-500'}`}>
+                                                                {assignment.type === 'checklist' 
+                                                                    ? calculateChecklistScore(submission.score, assignment.checklists)
+                                                                    : submission.score
+                                                                } <span className="text-xs font-bold text-slate-400">คะแนน</span>
+                                                            </p>
+                                                            <div className="flex items-center justify-end gap-1 mt-0.5">
+                                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                                                                    {passed ? 'ผ่าน' : 'ยังไม่ผ่าน'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 ) : isQuiz ? (
                                                     <Link
                                                         href={`/student/${code}/quiz/${assignment.id}`}
-                                                        className={`text-xs font-bold px-3 py-1.5 rounded-xl text-white shrink-0 flex items-center gap-1 hover:opacity-90 transition-opacity ${themeClass}`}
+                                                        className={`text-xs font-bold px-4 py-2 rounded-xl text-white shrink-0 flex items-center gap-1 hover:opacity-90 transition-opacity shadow-sm ${themeClass}`}
                                                         style={themeStyle}
                                                     >
-                                                        <PlayCircle className="w-3 h-3" /> ทำแบบทดสอบ
+                                                        <PlayCircle className="w-3.5 h-3.5" /> เริ่มทำ
                                                     </Link>
                                                 ) : (
-                                                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">รอส่ง</span>
+                                                    <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">รอคะแนน</span>
                                                 )}
                                             </div>
                                         );

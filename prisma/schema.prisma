@@ -18,7 +18,7 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
-  role          String    @default("USER")
+  role          String    @default("TEACHER")
   school        String?
   tokens        Int       @default(0)
   createdAt     DateTime  @default(now())
@@ -28,6 +28,7 @@ model User {
   questionSets  QuestionSet[]
   history       GameHistory[]
   classrooms    Classroom[]
+  students      Student[]
   notifications Notification[]
 }
 
@@ -152,6 +153,8 @@ model Student {
   order       Int                    @default(0) // เลขที่ / position
   classId     String                 @db.ObjectId
   classroom   Classroom              @relation(fields: [classId], references: [id], onDelete: Cascade)
+  userId      String?                @db.ObjectId // Optional link to a Gmail/credentials User account
+  user        User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
   loginCode   String                 @unique @default(cuid()) // Unique code for student portal login
   points      Int                    @default(0)
   attendance  String                 @default("PRESENT") // PRESENT, ABSENT, LATE, LEFT_EARLY
@@ -205,7 +208,7 @@ model Assignment {
   setId       String?                @db.ObjectId
   questionSet QuestionSet?           @relation(fields: [setId], references: [id])
   
-  checklists  String[]
+  checklists  Json?
   quizData    Json?                  // snapshot of quiz questions if type=quiz
   visible     Boolean                @default(true)
   order       Int                    @default(0)

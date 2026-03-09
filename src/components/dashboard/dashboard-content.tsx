@@ -9,6 +9,9 @@ import { RecentSets } from "@/components/dashboard/recent-sets"
 import { StudentProgress } from "@/components/dashboard/student-progress"
 import { NewsFeed } from "@/components/dashboard/news-feed"
 import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { ShieldCheck } from "lucide-react"
+import Link from "next/link"
 import { useLanguage } from "@/components/providers/language-provider"
 
 export function DashboardContent({ role }: { role: string }) {
@@ -29,7 +32,25 @@ export function DashboardContent({ role }: { role: string }) {
                             {t("manageClassesDesc")}
                         </p>
                     </div>
-                    {/* Date/Term indicator could go here */}
+                    {role === "ADMIN" && (
+                        <Card className="bg-red-50 border-red-200 overflow-hidden shrink-0">
+                            <CardContent className="p-3 flex items-center gap-3">
+                                <div className="w-8 h-8 bg-red-100 text-red-600 rounded-lg flex items-center justify-center">
+                                    <ShieldCheck className="w-4 h-4" />
+                                </div>
+                                <div className="hidden sm:block">
+                                    <p className="text-xs font-bold text-red-800">Admin Mode</p>
+                                    <p className="text-[10px] text-red-600">You are logged as Administrator</p>
+                                </div>
+                                <button 
+                                    onClick={() => window.location.href = "/admin"}
+                                    className="bg-red-600 hover:bg-red-700 text-white rounded-lg h-9 px-4 text-xs font-bold flex items-center justify-center shadow-md active:scale-95 transition-all cursor-pointer whitespace-nowrap z-[100] relative"
+                                >
+                                    Switch to Admin
+                                </button>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
 
                 {/* Stats Overview */}

@@ -162,7 +162,7 @@ export function AddAssignmentDialog({
     const [type, setType] = useState<"score" | "checklist" | "quiz">("score");
     const [maxScore, setMaxScore] = useState(10);
     const [passScore, setPassScore] = useState("");
-    const [checklists, setChecklists] = useState<string[]>([""]);
+    const [checklists, setChecklists] = useState<{ text: string, points: number }[]>([{ text: "", points: 1 }]);
 
     const resetForm = () => {
         setEditId(null);
@@ -170,7 +170,7 @@ export function AddAssignmentDialog({
         setType("score");
         setMaxScore(10);
         setPassScore("");
-        setChecklists([""]);
+        setChecklists([{ text: "", points: 1 }]);
     };
 
     const startEdit = (a: Assignment) => {
@@ -179,15 +179,26 @@ export function AddAssignmentDialog({
         setType(a.type as "score" | "checklist" | "quiz");
         setMaxScore(a.maxScore);
         setPassScore(a.passScore?.toString() ?? "");
-        setChecklists(a.checklists.length > 0 ? a.checklists : [""]);
+        
+        // Handle both old String[] and new Json structure
+        const rawChecklists = a.checklists as any;
+        if (Array.isArray(rawChecklists)) {
+            if (rawChecklists.length > 0 && typeof rawChecklists[0] === 'object') {
+                setChecklists(rawChecklists);
+            } else {
+                setChecklists(rawChecklists.map(text => ({ text, points: 1 })));
+            }
+        } else {
+            setChecklists([{ text: "", points: 1 }]);
+        }
     };
 
-    const handleAddChecklist = () => setChecklists([...checklists, ""]);
+    const handleAddChecklist = () => setChecklists([...checklists, { text: "", points: 1 }]);
     const handleRemoveChecklist = (index: number) =>
         setChecklists(checklists.filter((_, i) => i !== index));
-    const handleChecklistChange = (index: number, value: string) => {
+    const handleChecklistChange = (index: number, field: 'text' | 'points', value: string | number) => {
         const next = [...checklists];
-        next[index] = value;
+        next[index] = { ...next[index], [field]: value };
         setChecklists(next);
     };
 
@@ -197,18 +208,22 @@ export function AddAssignmentDialog({
             toast({ title: "Error", description: "Name is required", variant: "destructive" });
             return;
         }
-        const validChecklists = checklists.filter((c) => c.trim().length > 0);
+        const validChecklists = checklists.filter((c) => c.text.trim().length > 0);
         if (type === "checklist" && validChecklists.length === 0) {
             toast({ title: "Error", description: "At least one checklist item is required", variant: "destructive" });
             return;
         }
+
+        const calculatedMaxScore = type === "checklist" 
+            ? validChecklists.reduce((sum, item) => sum + (item.points || 0), 0)
+            : maxScore;
 
         setLoading(true);
         try {
             const payload = {
                 name,
                 type,
-                maxScore: type === "score" ? maxScore : validChecklists.length,
+                maxScore: calculatedMaxScore,
                 passScore: passScore ? parseInt(passScore) : null,
                 checklists: type === "checklist" ? validChecklists : [],
             };
@@ -488,11 +503,22 @@ export function AddAssignmentDialog({
                                                         {index + 1}
                                                     </div>
                                                     <Input
-                                                        placeholder="รายการ..."
-                                                        value={item}
-                                                        onChange={(e) => handleChecklistChange(index, e.target.value)}
+                                                        placeholder="ชื่อรายการ..."
+                                                        value={item.text}
+                                                        onChange={(e) => handleChecklistChange(index, 'text', e.target.value)}
                                                         className="flex-1 h-10 focus-visible:ring-emerald-500 border-slate-200"
                                                     />
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            placeholder="คะแนน"
+                                                            value={item.points}
+                                                            onChange={(e) => handleChecklistChange(index, 'points', parseInt(e.target.value) || 0)}
+                                                            className="w-16 h-10 text-center font-bold text-emerald-600 border-emerald-100 bg-emerald-50/30"
+                                                        />
+                                                        <span className="text-[10px] text-slate-400 font-bold hidden sm:inline">แต้ม</span>
+                                                    </div>
                                                     <Button
                                                         type="button"
                                                         variant="ghost"
@@ -505,6 +531,12 @@ export function AddAssignmentDialog({
                                                     </Button>
                                                 </div>
                                             ))}
+                                        </div>
+                                        <div className="pt-2 border-t mt-2 flex justify-between items-center text-xs">
+                                            <span className="text-slate-500 font-medium">คะแนนเต็มรวม:</span>
+                                            <span className="font-black text-emerald-600 text-lg">
+                                                {checklists.reduce((sum, item) => sum + (item.points || 0), 0)}
+                                            </span>
                                         </div>
                                         <Button
                                             type="button"

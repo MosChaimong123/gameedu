@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { getStudentRank } from "@/lib/classroom-utils";
+import { getRankEntry } from "@/lib/classroom-utils";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Check } from "lucide-react";
 
@@ -58,7 +58,7 @@ export function ClassroomTable({ classId, students, assignments, levelConfig, on
         if (currentScore === originalScore) return;
 
         try {
-            const res = await fetch(`/api/classrooms/${classId}/assignments/${assignmentId}/submit`, {
+            const res = await fetch(`/api/classrooms/${classId}/assignments/${assignmentId}/manual-scores`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ studentId, score: currentScore })
@@ -107,7 +107,7 @@ export function ClassroomTable({ classId, students, assignments, levelConfig, on
         const originalScore = currentScore;
 
         try {
-            const res = await fetch(`/api/classrooms/${classId}/assignments/${assignment.id}/submit`, {
+            const res = await fetch(`/api/classrooms/${classId}/assignments/${assignment.id}/manual-scores`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ studentId, score: newScore })
@@ -126,6 +126,17 @@ export function ClassroomTable({ classId, students, assignments, levelConfig, on
         }
     };
 
+    // Helper: calculate total score from bitmask and checklist items with points
+    const calculateChecklistScore = (bitmask: number, checklistItems: any[]) => {
+        if (!Array.isArray(checklistItems)) return 0;
+        return checklistItems.reduce((sum, item, i) => {
+            const isChecked = (bitmask & (1 << i)) !== 0;
+            // Support both old string array and new object array
+            const points = typeof item === 'object' ? (item.points || 0) : 1;
+            return isChecked ? sum + points : sum;
+        }, 0);
+    };
+
     // Helper: count how many boxes are checked
     const countChecked = (bitmask: number, total: number) => {
         let count = 0;
@@ -133,6 +144,17 @@ export function ClassroomTable({ classId, students, assignments, levelConfig, on
             if ((bitmask & (1 << i)) !== 0) count++;
         }
         return count;
+    };
+
+    // Helper: calculate total academic points for a student from the reactive scores state
+    const calculateTotalAcademicPoints = (studentId: string) => {
+        return assignments.reduce((sum, a) => {
+            const score = scores[studentId]?.[a.id] ?? 0;
+            if (a.type === 'checklist') {
+                return sum + calculateChecklistScore(score, a.checklists as any[]);
+            }
+            return sum + score;
+        }, 0);
     };
 
     return (
@@ -146,14 +168,13 @@ export function ClassroomTable({ classId, students, assignments, levelConfig, on
                             <TableHead className="text-center w-[100px] border-r">{t("totalRank")}</TableHead>
                             <TableHead className="text-center w-[100px] border-r bg-emerald-50 text-emerald-700">พฤติกรรม</TableHead>
                             <TableHead className="text-center w-[100px] border-r bg-blue-50 text-blue-700">คะแนนเก็บ</TableHead>
-                            <TableHead className="text-center w-[100px] border-r bg-indigo-50 text-indigo-700">{t("totalPoints")}</TableHead>
                             {assignments.map(a => (
                                 <TableHead key={a.id} className={`text-center border-r ${a.type === 'checklist' ? 'min-w-[160px]' : 'min-w-[100px]'}`}>
                                     <div className="flex flex-col items-center gap-0.5">
                                         <span className="font-bold text-slate-800">{a.name}</span>
                                         {a.type === 'checklist' ? (
                                             <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold">
-                                                เช็คลิสต์ {a.checklists.length} ข้อ
+                                                {a.maxScore} คะแนน ({Array.isArray(a.checklists) ? a.checklists.length : 0} ข้อ)
                                             </span>
                                         ) : (
                                             <span className="text-[10px] text-slate-400">{t("maxScore", { score: a.maxScore })}</span>
@@ -182,18 +203,29 @@ export function ClassroomTable({ classId, students, assignments, levelConfig, on
                                     </div>
                                 </TableCell>
                                 <TableCell className="text-center border-r">
-                                    <span className="text-[10px] uppercase font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full whitespace-nowrap">
-                                        {getStudentRank(student.submissions?.reduce((sum, sub) => sum + sub.score, 0) || 0, levelConfig)}
-                                    </span>
+                                    {(() => {
+                                        const rank = getRankEntry(calculateTotalAcademicPoints(student.id), levelConfig);
+                                        return (
+                                            <div className="flex flex-col items-center gap-1">
+                                                <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                                                    {(rank.icon?.startsWith('data:image') || rank.icon?.startsWith('http')) ? (
+                                                        <img src={rank.icon} alt={rank.name} className="w-full h-full object-contain" />
+                                                    ) : (
+                                                        <span className="text-xl">{rank.icon ?? "⭐"}</span>
+                                                    )}
+                                                </div>
+                                                <span className="text-[10px] uppercase font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                                    {rank.name}
+                                                </span>
+                                            </div>
+                                        );
+                                    })()}
                                 </TableCell>
                                 <TableCell className="text-center font-bold text-emerald-600 border-r bg-emerald-50/30">
-                                    {student.points - (student.submissions?.reduce((sum, sub) => sum + sub.score, 0) || 0)}
+                                    {student.points}
                                 </TableCell>
                                 <TableCell className="text-center font-bold text-blue-600 border-r bg-blue-50/30">
-                                    {student.submissions?.reduce((sum, sub) => sum + sub.score, 0) || 0}
-                                </TableCell>
-                                <TableCell className="text-center font-bold text-indigo-700 border-r bg-indigo-50/50">
-                                    {student.submissions?.reduce((sum, sub) => sum + sub.score, 0) || 0}
+                                    {calculateTotalAcademicPoints(student.id)}
                                 </TableCell>
                                 {assignments.map(a => (
                                     <TableCell key={a.id} className="text-center p-1 border-r">
@@ -215,22 +247,23 @@ export function ClassroomTable({ classId, students, assignments, levelConfig, on
                                             <div className="flex flex-col items-center gap-1.5 py-1 px-2">
                                                 {/* Summary badge */}
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                                    countChecked(scores[student.id]?.[a.id] ?? 0, a.checklists.length) === a.checklists.length
+                                                    calculateChecklistScore(scores[student.id]?.[a.id] ?? 0, a.checklists as any[]) === a.maxScore
                                                         ? 'bg-emerald-100 text-emerald-700'
                                                         : 'bg-slate-100 text-slate-500'
                                                 }`}>
-                                                    {countChecked(scores[student.id]?.[a.id] ?? 0, a.checklists.length)}/{a.checklists.length}
+                                                    {calculateChecklistScore(scores[student.id]?.[a.id] ?? 0, a.checklists as any[])} / {a.maxScore} คะแนน
                                                 </span>
                                                 {/* Checkbox grid */}
                                                 <div className="flex flex-wrap gap-1 justify-center max-w-[140px]">
-                                                    {a.checklists.map((item, i) => {
+                                                    {(a.checklists as any[]).map((item, i) => {
                                                         const bitmask = scores[student.id]?.[a.id] ?? 0;
                                                         const isChecked = (bitmask & (1 << i)) !== 0;
                                                         const saving = savingChecklist === `${student.id}-${a.id}`;
+                                                        const itemText = typeof item === 'object' ? item.text : item;
                                                         return (
                                                             <button
                                                                 key={i}
-                                                                title={item}
+                                                                title={itemText}
                                                                 disabled={saving}
                                                                 onClick={() => handleChecklistToggle(student.id, a, i)}
                                                                 className={`w-7 h-7 rounded-md border-2 flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 ${

@@ -42,8 +42,13 @@ export async function POST(
         }
 
         // 2. Perform the transaction with direct IDs
-        const [deletedActivities, resetStudents] = await db.$transaction([
+        const [deletedActivities, deletedSubmissions, resetStudents] = await db.$transaction([
             db.pointHistory.deleteMany({
+                where: {
+                    studentId: { in: studentIds }
+                }
+            }),
+            db.assignmentSubmission.deleteMany({
                 where: {
                     studentId: { in: studentIds }
                 }

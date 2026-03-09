@@ -2,11 +2,19 @@
 
 import { useState, useRef } from "react";
 import { Classroom } from "@prisma/client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogFooter,
+    DialogDescription
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Crown, Plus, Trash2, GripVertical, Palette, School, Upload, ArrowRight } from "lucide-react";
+import { Settings, Crown, Plus, Trash2, GripVertical, Palette, School, Upload, ArrowRight, RefreshCw, AlertTriangle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
 import { parseLevelConfigToEntries, DEFAULT_RANK_ENTRIES, type RankEntry } from "@/lib/classroom-utils";
@@ -51,6 +59,7 @@ export function ClassroomSettingsDialog({ classroom }: ClassroomSettingsDialogPr
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [tab, setTab] = useState<"general" | "ranks">("general");
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
     const { toast } = useToast();
 
     const [name, setName] = useState(classroom.name);
@@ -138,6 +147,23 @@ export function ClassroomSettingsDialog({ classroom }: ClassroomSettingsDialogPr
     const getBgClass = () => {
         if (isCustomTheme) return "";
         return `bg-gradient-to-r ${theme}`;
+    };
+
+    const handleResetPoints = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch(`/api/classrooms/${classroom.id}/points/reset`, {
+                method: "POST"
+            });
+            if (!res.ok) throw new Error("Failed");
+            toast({ title: t("success") || "Success", description: "All points have been reset to 0." });
+            window.location.reload();
+        } catch {
+            toast({ title: t("error"), variant: "destructive", description: "Could not reset points." });
+        } finally {
+            setLoading(false);
+            setShowResetConfirm(false);
+        }
     };
 
     return (
@@ -379,6 +405,30 @@ export function ClassroomSettingsDialog({ classroom }: ClassroomSettingsDialogPr
                                     </div>
                                 )}
                             </div>
+
+                            {/* Reset Points Section */}
+                            <div className="pt-6 border-t mt-8">
+                                <div className="bg-red-50 border border-red-100 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+                                    <div className="flex items-center gap-4 text-center md:text-left">
+                                        <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center text-red-600 shrink-0">
+                                            <AlertTriangle className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-red-900">รีเซ็ตคะแนนทั้งหมดในห้องเรียน</h4>
+                                            <p className="text-red-700/70 text-sm">การดำเนินการนี้จะล้างคะแนนพฤติกรรม คะแนนเก็บ และประวัติคะแนนทั้งหมดของนักเรียนทุกคน</p>
+                                        </div>
+                                    </div>
+                                    <Button 
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setShowResetConfirm(true)}
+                                        className="border-red-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 font-bold px-6 h-11 transition-all shrink-0 shadow-sm"
+                                    >
+                                        <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                                        {t("resetPoints")}
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -408,20 +458,50 @@ export function ClassroomSettingsDialog({ classroom }: ClassroomSettingsDialogPr
                                         >
                                             <GripVertical className="w-4 h-4 text-slate-300 shrink-0" />
 
-                                            <input
-                                                type="text"
-                                                value={rank.icon ?? "⭐"}
-                                                onChange={(e) => handleRankChange(i, "icon", e.target.value)}
-                                                className="w-10 h-10 text-center text-2xl bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400"
-                                                maxLength={2}
-                                            />
+                                            <div className="relative group cursor-pointer" onClick={() => {
+                                                const input = document.createElement('input');
+                                                input.type = 'file';
+                                                input.accept = 'image/*';
+                                                input.onchange = (e) => {
+                                                    const file = (e.target as HTMLInputElement).files?.[0];
+                                                    if (file) {
+                                                        const reader = new FileReader();
+                                                        reader.onloadend = () => handleRankChange(i, "icon", reader.result as string);
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                };
+                                                input.click();
+                                            }}>
+                                                <div className="w-10 h-10 flex items-center justify-center bg-slate-50 border border-slate-200 rounded-lg overflow-hidden group-hover:border-indigo-400 transition-colors">
+                                                    {(rank.icon?.startsWith('data:image') || rank.icon?.startsWith('http')) ? (
+                                                        <img src={rank.icon} alt={rank.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <span className="text-2xl">{rank.icon ?? "⭐"}</span>
+                                                    )}
+                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Upload className="w-4 h-4 text-white" />
+                                                    </div>
+                                                </div>
+                                            </div>
 
-                                            <Input
-                                                value={rank.name}
-                                                onChange={(e) => handleRankChange(i, "name", e.target.value)}
-                                                placeholder="ชื่อยศ"
-                                                className="h-9 font-semibold focus-visible:ring-amber-400 border-slate-200"
-                                            />
+                                            <div className="flex flex-col gap-1">
+                                                <Input
+                                                    value={rank.name}
+                                                    onChange={(e) => handleRankChange(i, "name", e.target.value)}
+                                                    placeholder="ชื่อยศ"
+                                                    className="h-9 font-semibold focus-visible:ring-amber-400 border-slate-200"
+                                                />
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[9px] text-slate-400 font-bold uppercase">ไอคอน:</span>
+                                                    <input
+                                                        type="text"
+                                                        value={(rank.icon?.startsWith('data:image') || rank.icon?.startsWith('http')) ? "🖼️" : (rank.icon ?? "")}
+                                                        onChange={(e) => handleRankChange(i, "icon", e.target.value)}
+                                                        className="text-[10px] bg-transparent border-0 underline focus:ring-0 w-full"
+                                                        placeholder="พิมพ์อิโมจิ..."
+                                                    />
+                                                </div>
+                                            </div>
 
                                             <Input
                                                 type="number"
@@ -517,6 +597,38 @@ export function ClassroomSettingsDialog({ classroom }: ClassroomSettingsDialogPr
                         </Button>
                     </div>
                 </div>
+
+                {/* Reset Confirmation Dialog */}
+                <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+                    <DialogContent className="sm:max-w-[425px] overflow-hidden rounded-2xl border-0 shadow-2xl p-0">
+                        <div className="bg-red-600 p-6 text-white shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center border border-white/30 shadow-inner">
+                                    <AlertTriangle className="w-5 h-5" />
+                                </div>
+                                <h2 className="text-xl font-bold">{t("resetPoints")}</h2>
+                            </div>
+                        </div>
+                        <div className="p-6">
+                            <p className="text-slate-600 leading-relaxed">
+                                {t("resetPointsConfirm") || "คุณแน่ใจว่าต้องการรีเซ็ตคะแนนทั้งหมดเป็น 0? การดำเนินการนี้ไม่สามารถเรียกคืนได้ และจะล้างข้อมูลคะแนนเก็บทั้งหมดด้วย"}
+                            </p>
+                        </div>
+                        <DialogFooter className="flex sm:justify-end gap-3 p-6 bg-slate-50 border-t">
+                            <Button variant="outline" onClick={() => setShowResetConfirm(false)} className="px-6 h-11" disabled={loading}>
+                                {t("cancel")}
+                            </Button>
+                            <Button 
+                                variant="destructive" 
+                                onClick={handleResetPoints} 
+                                disabled={loading}
+                                className="bg-red-600 hover:bg-red-700 text-white font-bold px-8 h-11 shadow-md border-0"
+                            >
+                                {loading ? "กำลังรีเซ็ต..." : t("resetPoints")}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </DialogContent>
         </Dialog>
     );

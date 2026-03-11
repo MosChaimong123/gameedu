@@ -440,11 +440,12 @@ export function ClassroomSettingsDialog({ classroom }: ClassroomSettingsDialogPr
                             </div>
 
                             {/* Column labels */}
-                            <div className="grid grid-cols-[auto_48px_1fr_90px_1fr_auto] items-center gap-3 px-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                            <div className="grid grid-cols-[auto_48px_1fr_90px_90px_1fr_auto] items-center gap-3 px-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                                 <span></span>
                                 <span className="text-center">ไอคอน</span>
                                 <span>ชื่อยศ</span>
                                 <span className="text-center">คะแนนขั้นต่ำ</span>
+                                <span className="text-center">เหรียญ/นาที</span>
                                 <span className="text-center">สีกรอบ</span>
                                 <span></span>
                             </div>
@@ -453,7 +454,7 @@ export function ClassroomSettingsDialog({ classroom }: ClassroomSettingsDialogPr
                                 {ranks.map((rank, i) => (
                                     <div key={i} className="relative">
                                         <div
-                                            className="grid grid-cols-[auto_48px_1fr_90px_1fr_auto] items-center gap-3 bg-white rounded-xl px-3 py-2.5 shadow-sm border-2 transition-colors"
+                                            className="grid grid-cols-[auto_48px_1fr_90px_90px_1fr_auto] items-center gap-3 bg-white rounded-xl px-3 py-2.5 shadow-sm border-2 transition-colors"
                                             style={{ borderColor: rank.color || "#e2e8f0" }}
                                         >
                                             <GripVertical className="w-4 h-4 text-slate-300 shrink-0" />
@@ -509,6 +510,14 @@ export function ClassroomSettingsDialog({ classroom }: ClassroomSettingsDialogPr
                                                 value={rank.minScore}
                                                 onChange={(e) => handleRankChange(i, "minScore", parseInt(e.target.value) || 0)}
                                                 className="h-9 text-center font-bold focus-visible:ring-amber-400 border-amber-200 bg-amber-50 text-amber-700"
+                                            />
+
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                value={rank.goldRate ?? 0}
+                                                onChange={(e) => handleRankChange(i, "goldRate", parseInt(e.target.value) || 0)}
+                                                className="h-9 text-center font-bold focus-visible:ring-yellow-400 border-yellow-200 bg-yellow-50 text-yellow-700"
                                             />
 
                                             <div className="flex items-center gap-2">

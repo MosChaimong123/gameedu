@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
+import { IdleEngine } from "@/lib/game/idle-engine";
 
 export async function POST(
     req: Request,
@@ -54,7 +55,14 @@ export async function POST(
             }
         });
 
-        return NextResponse.json(submission);
+        // Apply World Boss Damage
+        const damage = 10 + score; // Base 10 + score as bonus
+        const updatedBoss = await IdleEngine.applyBossDamage(id, damage);
+
+        return NextResponse.json({ 
+            ...submission,
+            updatedBoss
+        });
 
     } catch (error) {
         console.error("[MANUAL_SCORE_POST]", error);

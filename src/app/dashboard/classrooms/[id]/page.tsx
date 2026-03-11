@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { ReportsTab } from "@/components/classroom/reports-tab";
 import { AttendanceHistoryTab } from "@/components/classroom/attendance-history-tab";
 import { TranslatedTabsTriggers } from "@/components/classroom/translated-tabs-triggers";
+import { ClassBoard } from "@/components/board/ClassBoard";
 
 interface ClassroomPageProps {
     params: Promise<{
@@ -46,11 +47,9 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
     return (
         <div className="h-[calc(100vh-80px)] p-6 overflow-hidden flex flex-col">
             <Tabs defaultValue="classroom" className="w-full flex-1 flex flex-col min-h-0">
-                <div className="flex items-center justify-between mb-4">
-                    <TabsList>
-                        <TranslatedTabsTriggers />
-                    </TabsList>
-                </div>
+                <TabsList className="mb-4">
+                    <TranslatedTabsTriggers />
+                </TabsList>
 
                 <TabsContent value="classroom" className="flex-1 mt-0 h-full">
                     {/* Height calculation to fit within dashboard layout without double scrollbars */}
@@ -63,6 +62,10 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
 
                 <TabsContent value="reports" className="flex-1 mt-0 h-full overflow-y-auto">
                     <ReportsTab classId={classroom.id} />
+                </TabsContent>
+
+                <TabsContent value="board" className="flex-1 mt-0 h-full overflow-y-auto p-4 bg-slate-50/50">
+                    <ClassBoard classId={classroom.id} userId={session.user.id} isTeacher={true} />
                 </TabsContent>
             </Tabs>
         </div>

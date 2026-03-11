@@ -8,6 +8,7 @@ export type RankEntry = {
     minScore: number;
     icon?: string;    // emoji
     color?: string;   // hex or tailwind color token
+    goldRate?: number; // Gold per minute
 };
 
 /** Helpers for custom classroom themes */
@@ -32,13 +33,13 @@ export function getThemeTextClass(theme?: string | null): string {
 }
 
 export const DEFAULT_RANK_ENTRIES: RankEntry[] = [
-    { name: 'ชาวบ้าน',     minScore: 0,   icon: '🧑',  color: '#94a3b8' },
-    { name: 'ทหารฝึกหัด', minScore: 10,  icon: '⚔️',  color: '#22c55e' },
-    { name: 'ผู้พิทักษ์', minScore: 20,  icon: '🛡️',  color: '#3b82f6' },
-    { name: 'อัศวิน',     minScore: 40,  icon: '🗡️',  color: '#8b5cf6' },
-    { name: 'กัปตัน',     minScore: 60,  icon: '⚓',  color: '#f59e0b' },
-    { name: 'ฮีโร่',      minScore: 80,  icon: '🦸',  color: '#ef4444' },
-    { name: 'ตำนาน',      minScore: 100, icon: '👑',  color: '#f97316' },
+    { name: 'ชาวบ้าน',     minScore: 0,   icon: '🧑',  color: '#94a3b8', goldRate: 5 },
+    { name: 'ทหารฝึกหัด', minScore: 10,  icon: '⚔️',  color: '#22c55e', goldRate: 10 },
+    { name: 'ผู้พิทักษ์', minScore: 20,  icon: '🛡️',  color: '#3b82f6', goldRate: 15 },
+    { name: 'อัศวิน',     minScore: 40,  icon: '🗡️',  color: '#8b5cf6', goldRate: 20 },
+    { name: 'กัปตัน',     minScore: 60,  icon: '⚓',  color: '#f59e0b', goldRate: 25 },
+    { name: 'ฮีโร่',      minScore: 80,  icon: '🦸',  color: '#ef4444', goldRate: 30 },
+    { name: 'ตำนาน',      minScore: 100, icon: '👑',  color: '#f97316', goldRate: 50 },
 ];
 
 export const DEFAULT_LEVEL_CONFIG: LevelConfig = {

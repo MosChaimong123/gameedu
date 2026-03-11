@@ -245,7 +245,8 @@ export const translations = {
         weightPlaceholder: "Points",
         selectedCount: "{count} Selected",
         giveFeedback: "Give Feedback",
-        resetPointsConfirm: "Are you sure you want to reset all student points to 0? This cannot be undone."
+        resetPointsConfirm: "Are you sure you want to reset all student points to 0? This cannot be undone.",
+        ideaBoard: "Idea Board"
     },
     th: {
         dashboard: "แผงควบคุม",
@@ -488,6 +489,7 @@ export const translations = {
         weightPlaceholder: "คะแนน",
         selectedCount: "เลือก {count} คน",
         giveFeedback: "ให้คะแนน",
-        resetPointsConfirm: "คุณแน่ใจหรือไม่ที่จะรีเซ็ตคะแนนนักเรียนทุกคนเป็น 0? การกระทำนี้ไม่สามารถย้อนกลับได้"
+        resetPointsConfirm: "คุณแน่ใจหรือไม่ที่จะรีเซ็ตคะแนนนักเรียนทุกคนเป็น 0? การกระทำนี้ไม่สามารถย้อนกลับได้",
+        ideaBoard: "กระดานไอเดีย"
     }
 }

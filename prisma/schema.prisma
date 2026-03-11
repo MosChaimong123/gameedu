@@ -30,6 +30,10 @@ model User {
   classrooms    Classroom[]
   students      Student[]
   notifications Notification[]
+  boardPosts    BoardPost[]
+  boardComments BoardComment[]
+  boardReactions BoardReaction[]
+  boardPollVotes BoardPollVote[]
 }
 
 model Account {
@@ -141,8 +145,10 @@ model Classroom {
   assignments Assignment[]
   studentGroups StudentGroup[]
   attendanceRecords AttendanceRecord[]
+  boards      Board[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  gamifiedSettings Json?    // Shared game state (Boss HP, classroom buffs, etc.)
 }
 
 model Student {
@@ -162,8 +168,14 @@ model Student {
   submissions AssignmentSubmission[]
   attendanceRecords AttendanceRecord[]
   notifications Notification[]
+  boardPosts    BoardPost[]
+  boardComments BoardComment[]
+  boardReactions BoardReaction[]
+  boardPollVotes BoardPollVote[]
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
+  gameStats   Json?                  // { gold: 0, level: 1, inventory: [], ... }
+  lastSyncTime DateTime?             @default(now()) // For idle calculation
 }
 
 model Skill {
@@ -256,4 +268,96 @@ model Notification {
 
   user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   student     Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Board {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  classId     String      @db.ObjectId
+  classroom   Classroom   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  posts       BoardPost[]
+  settings    Json?       // For bg color, permissions, etc.
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model BoardPost {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  type        String         @default("text") // "text", "link", "file", "youtube", "poll", "album"
+  title       String?
+  content     String
+  image       String?        // Main image or thumbnail
+  color       String?        // e.g. "pink", "blue", "green"
+  
+  // Type specific fields
+  linkUrl     String?
+  fileUrl     String?
+  fileName    String?
+  videoUrl    String?
+  videoName   String?
+  youtubeId   String?
+  pollQuestion String?
+  pollOptions Json?         // Array of { text: string, id: string }
+  pollClosed  Boolean        @default(false)
+  albumImages Json?         // Array of image URLs
+  
+  boardId     String         @db.ObjectId
+  board       Board          @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  
+  // Author can be a Student or a Teacher (User)
+  authorStudentId String?    @db.ObjectId
+  authorStudent   Student?   @relation(fields: [authorStudentId], references: [id], onDelete: SetNull)
+  authorUserId    String?    @db.ObjectId
+  authorUser      User?      @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  
+  comments    BoardComment[]
+  reactions   BoardReaction[]
+  pollVotes   BoardPollVote[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model BoardPollVote {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  optionId    String    // The ID of the option voted for
+  postId      String    @db.ObjectId
+  post        BoardPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  authorStudentId String?    @db.ObjectId
+  authorStudent   Student?   @relation(fields: [authorStudentId], references: [id], onDelete: SetNull)
+  authorUserId    String?    @db.ObjectId
+  authorUser      User?      @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime  @default(now())
+  
+  @@unique([postId, authorStudentId, authorUserId])
+}
+
+model BoardComment {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  content     String
+  postId      String    @db.ObjectId
+  post        BoardPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  authorStudentId String?    @db.ObjectId
+  authorStudent   Student?   @relation(fields: [authorStudentId], references: [id], onDelete: SetNull)
+  authorUserId    String?    @db.ObjectId
+  authorUser      User?      @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime  @default(now())
+}
+
+model BoardReaction {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  type        String    // e.g. "HEART", "STAR", "LIKE"
+  postId      String    @db.ObjectId
+  post        BoardPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  authorStudentId String?    @db.ObjectId
+  authorStudent   Student?   @relation(fields: [authorStudentId], references: [id], onDelete: SetNull)
+  authorUserId    String?    @db.ObjectId
+  authorUser      User?      @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@unique([postId, authorStudentId, authorUserId, type])
 }

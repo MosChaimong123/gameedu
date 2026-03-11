@@ -14,6 +14,7 @@ import { ClassroomSettingsDialog } from "./classroom-settings-dialog";
 import { AddAssignmentDialog } from "./add-assignment-dialog";
 import { StudentManagerDialog } from "./student-manager-dialog";
 import { StudentHistoryModal } from "./student-history-modal";
+import { SummonBossDialog } from "./summon-boss-dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -88,6 +89,15 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                     students: prev.students.map(s =>
                         s.id === studentId ? { ...s, points } : s
                     )
+                }));
+            } else if (payload.type === "BOSS_UPDATE") {
+                const { boss } = payload.data;
+                setClassroom(prev => ({
+                    ...prev,
+                    gamifiedSettings: {
+                        ...(prev.gamifiedSettings as any || {}),
+                        boss
+                    }
                 }));
             }
         };
@@ -406,6 +416,18 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                                         theme={classroom.theme || ''}
                                     />
                                 </div>
+                                <SummonBossDialog 
+                                    classId={classroom.id}
+                                    currentBoss={(classroom.gamifiedSettings as any)?.boss}
+                                    onBossSummoned={(boss) => setClassroom(prev => ({
+                                        ...prev,
+                                        gamifiedSettings: { ...((prev.gamifiedSettings as any) || {}), boss }
+                                    }))}
+                                    onBossDismissed={() => setClassroom(prev => ({
+                                        ...prev,
+                                        gamifiedSettings: { ...((prev.gamifiedSettings as any) || {}), boss: null }
+                                    }))}
+                                />
                             </div>
                         </div>
 

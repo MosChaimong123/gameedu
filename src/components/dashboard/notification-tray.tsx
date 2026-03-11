@@ -109,8 +109,8 @@ export function NotificationTray({ studentCode }: NotificationTrayProps) {
                     )}
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 md:w-96 p-0 bg-white border-slate-200 shadow-2xl rounded-2xl overflow-hidden" align="end">
-                <div className="flex items-center justify-between px-4 py-3 bg-slate-50/80 border-b">
+            <PopoverContent className="w-80 md:w-96 p-0 bg-white/80 backdrop-blur-2xl border-white shadow-2xl rounded-[2rem] overflow-hidden" align="end">
+                <div className="flex items-center justify-between px-6 py-4 bg-slate-50/50 border-b border-slate-100/50">
                     <div>
                         <h3 className="font-bold text-slate-800 text-sm">การแจ้งเตือน</h3>
                         <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">{unreadCount} รายการใหม่</p>

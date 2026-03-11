@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, XCircle, ChevronRight, Trophy, RotateCcw, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useSocket } from "@/components/providers/socket-provider";
 
 interface QuizQuestion {
     id: string;
@@ -27,6 +28,7 @@ interface QuizClientProps {
 
 export function QuizClient({ assignment, questions, classId, studentCode, themeClass, themeStyle }: QuizClientProps) {
     const router = useRouter();
+    const { socket } = useSocket();
     const [currentQ, setCurrentQ] = useState(0);
     const [answers, setAnswers] = useState<number[]>(new Array(questions.length).fill(-1));
     const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -67,6 +69,16 @@ export function QuizClient({ assignment, questions, classId, studentCode, themeC
                 body: JSON.stringify({ studentCode, answers })
             });
             const data = await res.json();
+            
+            // Emit World Boss update if damage was dealt
+            if (data.updatedBoss) {
+                socket?.emit("classroom-update", {
+                    classId,
+                    type: "BOSS_UPDATE",
+                    data: { boss: data.updatedBoss }
+                });
+            }
+
             setResult({
                 score: data.score,
                 correct: data.correct ?? answers.filter((a, i) => a === questions[i]?.correctAnswer).length,

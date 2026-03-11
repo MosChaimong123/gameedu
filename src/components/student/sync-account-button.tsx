@@ -47,9 +47,9 @@ export function SyncAccountButton({ loginCode, className }: SyncAccountButtonPro
             onClick={handleSync}
             disabled={isLoading}
             variant="outline"
-            className={`bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm rounded-2xl h-10 px-4 font-bold flex items-center gap-2 transition-all ${className}`}
+            className={`cursor-pointer bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-md rounded-2xl h-10 px-5 font-black text-xs flex items-center gap-2.5 transition-all active:scale-95 shadow-lg shadow-black/10 group ${className}`}
         >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />}
             {isLoading ? "กำลังเชื่อมโยง..." : "เชื่อมโยงกับบัญชีของฉัน"}
         </Button>
     );

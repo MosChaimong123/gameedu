@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { IdleEngine } from "@/lib/game/idle-engine";
 
 export async function POST(
     req: Request,
@@ -59,7 +60,17 @@ export async function POST(
             }
         });
 
-        return NextResponse.json({ score, correct, total: questions.length, submissionId: submission.id });
+        // Apply World Boss Damage
+        const damage = 10 + score; // Base 10 + score as bonus
+        const updatedBoss = await IdleEngine.applyBossDamage(id, damage);
+
+        return NextResponse.json({ 
+            score, 
+            correct, 
+            total: questions.length, 
+            submissionId: submission.id,
+            updatedBoss
+        });
 
     } catch (error) {
         console.error("[QUIZ_SUBMIT]", error);

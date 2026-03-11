@@ -7,9 +7,10 @@ export function TranslatedTabsTriggers() {
     const { t } = useLanguage();
     return (
         <>
-            <TabsTrigger value="classroom">{t("classroomOverview") || "Classroom"}</TabsTrigger>
-            <TabsTrigger value="attendance">{t("attendanceHistory") || "Attendance"}</TabsTrigger>
-            <TabsTrigger value="reports">{t("reports") || "Reports"}</TabsTrigger>
+            <TabsTrigger value="classroom" suppressHydrationWarning>{t("classroomOverview") || "Classroom"}</TabsTrigger>
+            <TabsTrigger value="attendance" suppressHydrationWarning>{t("attendanceHistory") || "Attendance"}</TabsTrigger>
+            <TabsTrigger value="board" suppressHydrationWarning>{t("ideaBoard") || "Idea Board"}</TabsTrigger>
+            <TabsTrigger value="reports" suppressHydrationWarning>{t("reports") || "Reports"}</TabsTrigger>
         </>
     );
 }

@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { getRankEntry } from "@/lib/classroom-utils";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Check } from "lucide-react";
+import { useSocket } from "@/components/providers/socket-provider";
 
 type StudentWithSubmissions = Student & { submissions: AssignmentSubmission[] };
 
@@ -21,8 +22,9 @@ interface ClassroomTableProps {
 
 export function ClassroomTable({ classId, students, assignments, levelConfig, onUpdatePoints }: ClassroomTableProps) {
     const { t } = useLanguage();
-    const initialScores: Record<string, Record<string, number>> = {};
+    const { socket } = useSocket();
     const sortedStudents = [...students].sort((a, b) => a.order - b.order);
+    const initialScores: Record<string, any> = {};
     sortedStudents.forEach(s => {
         initialScores[s.id] = {};
         s.submissions.forEach(sub => {
@@ -65,7 +67,16 @@ export function ClassroomTable({ classId, students, assignments, levelConfig, on
             });
 
             if (!res.ok) throw new Error("Failed");
-            // Note: Do NOT call onUpdatePoints here.
+            const data = await res.json();
+
+            // Emit World Boss update
+            if (data.updatedBoss) {
+                socket?.emit("classroom-update", {
+                    classId,
+                    type: "BOSS_UPDATE",
+                    data: { boss: data.updatedBoss }
+                });
+            }
             // student.points tracks behavior (skill) points only.
             // Academic scores are stored in submissions, computed separately.
         } catch (e) {
@@ -114,7 +125,16 @@ export function ClassroomTable({ classId, students, assignments, levelConfig, on
             });
 
             if (!res.ok) throw new Error();
-            // Note: Do NOT call onUpdatePoints — student.points is for behavior only.
+            const data = await res.json();
+
+            // Emit World Boss update
+            if (data.updatedBoss) {
+                socket?.emit("classroom-update", {
+                    classId,
+                    type: "BOSS_UPDATE",
+                    data: { boss: data.updatedBoss }
+                });
+            }
         } catch {
             toast({ title: "เกิดข้อผิดพลาด", variant: "destructive" });
             setScores(prev => ({

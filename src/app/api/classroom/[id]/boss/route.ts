@@ -10,7 +10,7 @@ export async function POST(
     const { id: classroomId } = await params;
     const session = await auth();
     const body = await req.json();
-    const { bossName, maxHp, deadline, image } = body;
+    const { bossName, maxHp, rewardGold, deadline, image } = body;
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -36,6 +36,7 @@ export async function POST(
             name: bossName || "มังกรแห่งความเกียจคร้าน",
             maxHp: maxHp || 1000,
             currentHp: maxHp || 1000,
+            rewardGold: rewardGold || 500,
             image: image || "/assets/monsters/lethargy_dragon.png",
             deadline: deadline || null,
             createdAt: new Date().toISOString(),

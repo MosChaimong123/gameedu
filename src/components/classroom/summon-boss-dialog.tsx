@@ -36,6 +36,7 @@ export function SummonBossDialog({
     const [loading, setLoading] = useState(false);
     const [bossName, setBossName] = useState(currentBoss?.name || "มังกรแห่งความเกียจคร้าน");
     const [maxHp, setMaxHp] = useState(currentBoss?.maxHp || 1000);
+    const [rewardGold, setRewardGold] = useState(currentBoss?.rewardGold || 500);
     const { toast } = useToast();
 
     const handleSummon = async () => {
@@ -47,6 +48,7 @@ export function SummonBossDialog({
                 body: JSON.stringify({
                     bossName,
                     maxHp,
+                    rewardGold,
                     image: "/assets/monsters/lethargy_dragon.png"
                 })
             });
@@ -118,8 +120,8 @@ export function SummonBossDialog({
                     {currentBoss ? "จัดการบอส" : "อัญเชิญบอส"}
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-rose-500" />
+            <DialogContent className="sm:max-w-2xl w-[95vw] max-h-[90vh] flex flex-col p-6 rounded-3xl shadow-2xl border-0 overflow-hidden bg-[#F8FAFC]">
+        {/* Header */}      <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-rose-500" />
                 
                 <DialogHeader className="pt-4">
                     <DialogTitle className="text-2xl font-black flex items-center gap-2">
@@ -167,6 +169,19 @@ export function SummonBossDialog({
                                 />
                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                                     แนะนำ: {maxHp} HP (คำนวณจากจำนวนนักเรียน)
+                                </p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="reward" className="font-bold">รางวัล (Gold & Points)</Label>
+                                <Input 
+                                    id="reward" 
+                                    type="number" 
+                                    value={rewardGold} 
+                                    onChange={(e) => setRewardGold(parseInt(e.target.value))}
+                                    className="font-medium text-amber-600 focus-visible:ring-amber-500"
+                                />
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                    บันทึกเป็นคะแนนพฤติกรรม (Positive) และทอง
                                 </p>
                             </div>
                         </div>

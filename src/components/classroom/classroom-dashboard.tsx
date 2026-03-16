@@ -15,6 +15,8 @@ import { AddAssignmentDialog } from "./add-assignment-dialog";
 import { StudentManagerDialog } from "./student-manager-dialog";
 import { StudentHistoryModal } from "./student-history-modal";
 import { SummonBossDialog } from "./summon-boss-dialog";
+import { CustomAchievementManagerButton } from "./CustomAchievementManagerButton";
+import { EventManagerButton } from "./EventManagerButton";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -301,15 +303,14 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
         <div className="flex flex-col h-full space-y-6 relative">
             {/* Toolbar */}
             {!isAttendanceMode && (
-                <div 
-                    className={`rounded-2xl shadow-xl border border-white/20 animate-in slide-in-from-top-2 text-white bg-gradient-to-r overflow-hidden ${getThemeBgClass(classroom.theme)}`}
-                    style={getThemeBgStyle(classroom.theme)}
-                >
-                    <div className="flex flex-wrap xl:flex-nowrap items-stretch gap-0 divide-x divide-white/20">
+                <div className="bg-slate-800/90 backdrop-blur-md rounded-2xl shadow-lg border border-slate-700/50 overflow-hidden mb-6 flex flex-col md:flex-row">
+                    
+                    {/* SCROLLABLE WRAPPER FOR MOBILE */}
+                    <div className="flex w-full overflow-x-auto overflow-y-hidden scrollbar-hide divide-x divide-slate-700/50 flex-nowrap">
 
                         {/* ══ GROUP 1: Class Info ══ */}
-                        <div className="flex items-center gap-4 px-5 py-4 min-w-[260px] bg-black/10">
-                            <div className="w-16 h-16 bg-white/20 p-2 md:p-2.5 rounded-xl border border-white/30 backdrop-blur-sm shadow-inner shrink-0 flex items-center justify-center text-3xl overflow-hidden">
+                        <div className="flex items-center gap-4 px-5 py-4 min-w-max bg-black/10 shrink-0">
+                            <div className="w-14 h-14 bg-white/20 p-2 md:p-2.5 rounded-xl border border-white/30 backdrop-blur-sm shadow-inner shrink-0 flex items-center justify-center text-2xl overflow-hidden">
                                 {classroom.emoji?.startsWith('data:image') || classroom.emoji?.startsWith('http') ? (
                                     <img src={classroom.emoji} alt="Class Icon" className="w-full h-full object-cover" />
                                 ) : (
@@ -326,7 +327,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                                 </div>
                             </div>
                             {/* View toggle inline with class info */}
-                            <div className="flex bg-white/15 p-1 rounded-xl ml-auto xl:ml-4 shadow-inner gap-1">
+                            <div className="flex bg-white/15 p-1 rounded-xl mx-2 xl:mx-4 shadow-inner gap-1 shrink-0">
                                 <Button
                                     size="sm"
                                     className={`h-8 px-3 rounded-lg text-sm font-bold transition-all ${viewMode === "grid" ? "bg-white text-indigo-700 shadow-md" : "text-white/80 hover:bg-white/20"}`}
@@ -357,7 +358,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                         </div>
 
                         {/* ══ GROUP 2: Toolkit ══ */}
-                        <div className="flex flex-col justify-center px-5 py-3 bg-black/5">
+                        <div className="flex flex-col justify-center px-5 py-3 bg-black/5 shrink-0 min-w-max">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-2">🛠 เครื่องมือ</p>
                             <div className="flex items-center gap-2">
                                 <Button
@@ -391,9 +392,9 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                         </div>
 
                         {/* ══ GROUP 3: Student Management ══ */}
-                        <div className="flex flex-col justify-center px-5 py-3 flex-1 bg-black/10">
+                        <div className="flex flex-col justify-center px-5 py-3 bg-black/10 shrink-0 min-w-max">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-2">👤 จัดการนักเรียน</p>
-                            <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-2">
                                 <ClassroomSettingsDialog classroom={classroom} />
                                 <AddStudentDialog
                                     classId={classroom.id}
@@ -428,10 +429,15 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                                         gamifiedSettings: { ...((prev.gamifiedSettings as any) || {}), boss: null }
                                     }))}
                                 />
+                                <CustomAchievementManagerButton
+                                    classId={classroom.id}
+                                    students={classroom.students.map(s => ({ id: s.id, name: s.name }))}
+                                />
+                                <EventManagerButton classId={classroom.id} />
                             </div>
                         </div>
 
-                    </div>
+                    </div>{/* End Scrollable Wrapper */}
                 </div>
             )}
 

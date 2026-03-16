@@ -30,6 +30,10 @@ export default async function StudentDashboardPage(
                     }
                 }
             },
+            items: {
+                where: { isEquipped: true },
+                include: { item: true }
+            },
             history: { orderBy: { timestamp: 'desc' }, take: 30 },
             submissions: { select: { assignmentId: true, score: true, submittedAt: true } }
         }

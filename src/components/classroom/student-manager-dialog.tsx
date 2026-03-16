@@ -174,7 +174,7 @@ export function StudentManagerDialog({ classId, theme, open, onOpenChange, onCha
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[1400px] w-[98vw] h-[96vh] flex flex-col p-0 overflow-hidden bg-[#F4F6FB] gap-0 border-0 shadow-2xl rounded-2xl">
+            <DialogContent className="sm:max-w-[700px] w-[95vw] overflow-y-auto max-h-[90vh] flex flex-col p-0 bg-[#F4F6FB] gap-0 border-0 shadow-2xl rounded-2xl">
                 {/* Header — themed gradient */}
                 <DialogHeader 
                     className={`px-7 py-5 flex flex-row items-center shrink-0 ${getThemeBgClass(theme)}`}

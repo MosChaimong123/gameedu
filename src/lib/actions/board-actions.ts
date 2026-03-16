@@ -150,15 +150,18 @@ export async function voteBoardPoll(data: {
 }) {
     const post = await db.boardPost.findUnique({
         where: { id: data.postId },
-        select: { pollClosed: true }
+        select: { pollClosed: true, poll: { select: { id: true } } }
     });
 
     if (post?.pollClosed) throw new Error("โพลนี้ถูกปิดการโหวตแล้ว");
+    if (!post?.poll) throw new Error("ไม่พบโพลสำหรับโพสต์นี้");
+
+    const pollId = post.poll.id;
 
     // Check if already voted
     const existing = await db.boardPollVote.findFirst({
         where: {
-            postId: data.postId,
+            pollId,
             authorStudentId: data.authorStudentId,
             authorUserId: data.authorUserId
         }
@@ -172,7 +175,15 @@ export async function voteBoardPoll(data: {
         });
     }
 
-    return await db.boardPollVote.create({ data });
+    return await db.boardPollVote.create({
+        data: {
+            optionId: data.optionId,
+            poll: { connect: { id: pollId } },
+            post: { connect: { id: data.postId } },
+            authorStudent: data.authorStudentId ? { connect: { id: data.authorStudentId } } : undefined,
+            authorUser: data.authorUserId ? { connect: { id: data.authorUserId } } : undefined,
+        }
+    });
 }
 
 export async function togglePollStatus(postId: string, userId: string) {

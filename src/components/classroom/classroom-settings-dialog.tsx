@@ -609,7 +609,7 @@ export function ClassroomSettingsDialog({ classroom }: ClassroomSettingsDialogPr
 
                 {/* Reset Confirmation Dialog */}
                 <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
-                    <DialogContent className="sm:max-w-[425px] overflow-hidden rounded-2xl border-0 shadow-2xl p-0">
+                    <DialogContent className="sm:max-w-[425px] w-[95vw] overflow-y-auto max-h-[90vh] overflow-hidden rounded-2xl border-0 shadow-2xl p-0">
                         <div className="bg-red-600 p-6 text-white shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center border border-white/30 shadow-inner">

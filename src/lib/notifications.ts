@@ -37,8 +37,8 @@ export async function sendNotification({
                 message,
                 type,
                 link,
-                userId,
-                studentId,
+                user: userId ? { connect: { id: userId } } : undefined,
+                student: studentId ? { connect: { id: studentId } } : undefined,
             }
         });
 

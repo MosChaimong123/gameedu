@@ -11,10 +11,10 @@ export function QuickActions({ role }: { role?: string }) {
 
     if (role === "STUDENT") {
         return (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {/* Join Game */}
                 <div
-                    className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 p-6 text-white shadow-md transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer col-span-2 md:col-span-1"
+                    className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 p-6 text-white shadow-md transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer"
                     onClick={() => router.push("/play")}
                 >
                     <div className="absolute right-[-20px] top-[-20px] opacity-20 transition-transform group-hover:scale-110">
@@ -124,10 +124,10 @@ export function QuickActions({ role }: { role?: string }) {
 
     // Default / Teacher View
     return (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {/* Create Set */}
             <div
-                className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 p-6 text-white shadow-md transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer col-span-2 md:col-span-1"
+                className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 p-6 text-white shadow-md transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer"
                 onClick={() => router.push("/dashboard/create-set")}
             >
                 <div className="absolute right-[-20px] top-[-20px] opacity-20 transition-transform group-hover:scale-110">

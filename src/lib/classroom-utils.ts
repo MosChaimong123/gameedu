@@ -26,6 +26,13 @@ export function getThemeBgStyle(theme?: string | null): { backgroundImage?: stri
     return { backgroundImage: `linear-gradient(to right, ${color1}, ${color2})` };
 }
 
+export function getClassroomTheme(theme?: string | null) {
+    return {
+        themeClass: getThemeBgClass(theme),
+        themeStyle: getThemeBgStyle(theme)
+    };
+}
+
 export function getThemeTextClass(theme?: string | null): string {
     if (!theme) return "from-indigo-500 to-purple-600";
     if (theme.startsWith("custom:")) return "";

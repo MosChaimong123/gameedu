@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { IdleEngine } from "@/lib/game/idle-engine";
+import { checkAndGrantAchievements } from "@/lib/game/achievement-engine";
 
 export async function POST(
   req: NextRequest,
@@ -15,9 +16,14 @@ export async function POST(
     const student = await db.student.findUnique({
       where: { loginCode: code.toUpperCase() },
       include: {
+        items: {
+          where: { isEquipped: true },
+          include: { item: true }
+        },
         classroom: {
           select: {
             levelConfig: true,
+            gamifiedSettings: true,
             assignments: {
               where: { visible: true },
               select: { id: true, type: true, checklists: true }
@@ -52,15 +58,21 @@ export async function POST(
         return sum + score;
     }, 0);
 
-    // 3. Server-side validation (Anti-Cheat)
-    // IMPORTANT: Use academicTotal instead of student.points for rank-based rates
+    // 3. Get currently active events
+    const settings = (student.classroom?.gamifiedSettings as any) || {};
+    const events = (settings.events || []) as any[];
+    const now = new Date();
+    const activeEvents = events.filter(e => new Date(e.startAt) <= now && new Date(e.endAt) >= now);
+
+    // 4. Server-side validation (Anti-Cheat)
     const serverCalc = IdleEngine.calculateCurrentResources({
         ...student,
         points: academicTotal 
-    });
+    }, activeEvents);
     
-    // Allow a small margin for network latency/client-side ticking (e.g., 5% or fixed amount)
-    const maxAllowedGold = serverCalc.stats.gold + 10; 
+    // Allow a margin for network latency/clock drift (1% of total or 100 gold, whichever is larger)
+    const margin = Math.max(100, serverCalc.stats.gold * 0.01);
+    const maxAllowedGold = serverCalc.stats.gold + margin; 
     
     if (clientGold > maxAllowedGold) {
       console.warn(`[Anti-Cheat] Potential gold manipulation detected for student ${student.id}. Client: ${clientGold}, Max Allowed: ${maxAllowedGold}`);
@@ -68,7 +80,7 @@ export async function POST(
 
     const verifiedGold = Math.min(clientGold, maxAllowedGold);
 
-    // 3. Update the database atomically
+    // 5. Update the database atomically
     const updatedStudent = await db.student.update({
       where: { id: student.id },
       data: {
@@ -80,10 +92,19 @@ export async function POST(
       },
     });
 
+    // 6. Check for new achievements (Background or inline)
+    const newlyUnlocked = await checkAndGrantAchievements(student.id);
+
     return NextResponse.json({
       success: true,
       gold: verifiedGold,
       lastSyncTime: updatedStudent.lastSyncTime,
+      newlyUnlocked: newlyUnlocked.map(a => ({
+        id: a.id,
+        name: a.name,
+        icon: a.icon,
+        goldReward: a.goldReward
+      }))
     });
   } catch (error) {
     console.error("Error syncing student resources:", error);

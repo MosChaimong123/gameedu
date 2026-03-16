@@ -340,7 +340,7 @@ export function AddAssignmentDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[1280px] w-[96vw] h-[92vh] flex flex-col p-0 overflow-hidden bg-[#F4F6FB] gap-0 border-0 shadow-2xl rounded-2xl">
+            <DialogContent className="sm:max-w-[425px] w-[95vw] overflow-y-auto max-h-[90vh] rounded-2xl">
                 {/* Header */}
                 <DialogHeader className="px-6 py-4 flex flex-row items-center justify-between bg-white border-b sticky top-0 z-10 shrink-0">
                     <DialogTitle className="text-2xl font-bold flex items-center gap-3 text-[#7B462C]">

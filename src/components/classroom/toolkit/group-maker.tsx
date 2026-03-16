@@ -624,7 +624,7 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig }: Gr
                             <div className="grid grid-cols-2 gap-3 pb-6">
                                 {skills.map(skill => {
                                     const isPositive = skill.type === "POSITIVE";
-                                    const Icon = iconMap[skill.icon] || (isPositive ? iconMap["default"] : AlertCircle);
+                                    const Icon = (skill.icon && iconMap[skill.icon as keyof typeof iconMap]) || (isPositive ? iconMap["default"] : AlertCircle);
                                     
                                     return (
                                         <Button

@@ -103,7 +103,7 @@ export function PointMenu({
     };
 
     const renderSkillButton = (skill: Skill, isPositive: boolean) => {
-        const Icon = iconMap[skill.icon] || (isPositive ? iconMap["default"] : AlertCircle);
+        const Icon = (skill.icon && iconMap[skill.icon as keyof typeof iconMap]) || (isPositive ? iconMap["default"] : AlertCircle);
         return (
             <div key={skill.id} className="relative group">
                 {isEditing && (
@@ -178,7 +178,7 @@ export function PointMenu({
             if (!val) setIsEditing(false); // Reset edit mode on close
             onOpenChange(val);
         }}>
-            <DialogContent className="sm:max-w-[600px] overflow-visible">
+            <DialogContent className="max-w-[800px] w-[95vw] p-0 overflow-hidden bg-slate-50 border-0 shadow-2xl rounded-3xl h-[90vh] flex flex-col">
                 <DialogHeader className="relative">
                     <Button 
                         variant="ghost" 

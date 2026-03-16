@@ -34,17 +34,20 @@ export function NotificationTray({ studentCode }: NotificationTrayProps) {
         : `/api/notifications`
 
     const fetchNotifications = useCallback(async () => {
-        try {
-            const res = await fetch(fetchUrl)
-            if (res.ok) {
-                const data = await res.json()
-                setNotifications(data)
-            }
-        } catch (error) {
-            console.error("Failed to fetch notifications", error)
-        } finally {
-            setLoading(false)
-        }
+    try {
+      const res = await fetch(fetchUrl)
+      if (!res.ok) {
+        const text = await res.text();
+        console.error(`Failed to fetch notifications from ${fetchUrl} with status ${res.status}: ${text}`);
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      }
+      const data = await res.json()
+      setNotifications(data)
+    } catch (error) {
+      console.error(`Failed to fetch notifications from ${fetchUrl}:`, error)
+    } finally {
+      setLoading(false)
+    }
     }, [fetchUrl])
 
     useEffect(() => {

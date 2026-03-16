@@ -21,6 +21,18 @@ export async function POST(
             return new NextResponse("Missing data", { status: 400 });
         }
 
+        // Fetch student items for damage calculation
+        const student = await db.student.findUnique({
+            where: { id: studentId },
+            select: {
+                points: true,
+                items: {
+                    where: { isEquipped: true },
+                    include: { item: true }
+                }
+            }
+        });
+
         // Verify Class Ownership & Assignment Existence
         const assignment = await db.assignment.findUnique({
             where: {
@@ -55,9 +67,12 @@ export async function POST(
             }
         });
 
-        // Apply World Boss Damage
-        const damage = 10 + score; // Base 10 + score as bonus
-        const updatedBoss = await IdleEngine.applyBossDamage(id, damage);
+        // Apply World Boss Damage using the new ATK-based calculation
+        const totalAtkDamage = IdleEngine.calculateBossDamage(student?.points || 0, student?.items || []);
+        const scoreMultiplier = assignment.maxScore > 0 ? (score / assignment.maxScore) : 0;
+        const finalDamage = Math.max(1, Math.round(totalAtkDamage * scoreMultiplier));
+        
+        const updatedBoss = await IdleEngine.applyBossDamage(id, finalDamage);
 
         return NextResponse.json({ 
             ...submission,

@@ -23,7 +23,7 @@ export function DashboardContent({ role }: { role: string }) {
         return (
             <div className="max-w-[1600px] mx-auto space-y-8 p-6 md:p-8">
                 {/* Header */}
-                <div className="flex items-end justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                     <div>
                         <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
                             {t("classroomOverview")}
@@ -96,33 +96,6 @@ export function DashboardContent({ role }: { role: string }) {
                     <p className="text-indigo-100 text-lg md:text-xl font-medium leading-relaxed opacity-90">
                         {t("studentHeroDesc")}
                     </p>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Main Content (Left Column) */}
-                <div className="lg:col-span-8 flex flex-col gap-8">
-                    {/* Quick Actions */}
-                    <section>
-                        <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            🚀 {t("quickActions")}
-                        </h2>
-                        <QuickActions role={role} />
-                    </section>
-
-                    {/* Recent Content */}
-                    <section>
-                        <RecentActivity />
-                    </section>
-
-                    {/* News / Updates */}
-                    <NewsFeed />
-                </div>
-
-                {/* Sidebar (Right Column) */}
-                <div className="lg:col-span-4 flex flex-col gap-6">
-                    <ProfileCard role={role} />
-                    <QuestList role={role} />
                 </div>
             </div>
         </div>

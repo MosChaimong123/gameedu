@@ -30,16 +30,13 @@ export function StudentLoginsDialog({ students, classId, theme }: { students: an
                     <span className="hidden xl:inline">{t("studentLogins")}</span>
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-[95vw] sm:max-w-[85vw] lg:max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0">
-                <div className="p-6 pb-4 border-b border-slate-100 print:hidden shrink-0">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl md:text-2xl">{t("studentAccessCodes")}</DialogTitle>
-                        <DialogDescription className="text-sm md:text-base mt-1.5 leading-relaxed">
-                            {t("accessCodesDesc")}
-                        </DialogDescription>
-                    </DialogHeader>
-                </div>
-                
+            <DialogContent className="sm:max-w-2xl w-[95vw] h-[90vh] flex flex-col p-6 rounded-3xl shadow-2xl border-0 overflow-hidden bg-[#F8FAFC]">
+                <DialogHeader className="shrink-0 mb-4 border-b border-slate-100 pb-4 print:hidden">
+                    <DialogTitle className="text-xl md:text-2xl">{t("studentAccessCodes")}</DialogTitle>
+                    <DialogDescription className="text-sm md:text-base mt-1.5 leading-relaxed">
+                        {t("accessCodesDesc")}
+                    </DialogDescription>
+                </DialogHeader>
                 {/* Printable Area */}
                 <div className="overflow-y-auto p-4 md:p-6 flex-1 bg-slate-50/50">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 print-area w-full mx-auto">

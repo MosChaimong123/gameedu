@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,42 +10,43 @@ datasource db {
 model User {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
   name          String?
-  email         String    @unique
-  username      String?   @unique
+  email         String?   @unique
   emailVerified DateTime?
   image         String?
   password      String?
-  role          String    @default("TEACHER")
-  school        String?
-  tokens        Int       @default(0)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role          String    @default("USER") // "USER", "ADMIN", "TEACHER"
   accounts      Account[]
   sessions      Session[]
-  questionSets  QuestionSet[]
-  history       GameHistory[]
   classrooms    Classroom[]
-  students      Student[]
-  notifications Notification[]
+  studentProfiles Student[]
+  gameHistories GameHistory[]
+  
+  username      String?   @unique
+  school        String?
+  createdAt     DateTime  @default(now())
+
+  // Back-relations for Board functionality
   boardPosts    BoardPost[]
   boardComments BoardComment[]
   boardReactions BoardReaction[]
   boardPollVotes BoardPollVote[]
+  notifications Notification[]
+  questionSets  QuestionSet[]
 }
 
 model Account {
-  id                 String  @id @default(auto()) @map("_id") @db.ObjectId
-  userId             String  @db.ObjectId
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?
-  access_token       String?
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?
-  session_state      String?
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -72,41 +70,14 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model QuestionSet {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  title       String
-  description String?
-  coverImage  String?
-  isPublic    Boolean  @default(false)
-  
-  questions   Question[]
-  
-  creatorId   String   @db.ObjectId
-  creator     User     @relation(fields: [creatorId], references: [id])
-  
-  assignments Assignment[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-type Question {
-  id            String   @default(uuid())
-  question      String
-  image         String?
-  timeLimit     Int      @default(20) // Seconds
-  options       String[]
-  optionTypes   String[] // "TEXT" | "IMAGE" | "MATH"
-  questionType  String   @default("MULTIPLE_CHOICE") // "MULTIPLE_CHOICE" | "TYPING_ANSWER"
-  correctAnswer Int
-}
+// Gamification Models
 
 model ActiveGame {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   pin       String   @unique
-  gameMode  String   // "GOLD_QUEST", etc.
-  hostId    String
-  settings  Json
+  gameMode  String   // e.g. "GOLD_QUEST", "CRYPTO_HACK"
+  hostId    String   @db.ObjectId
+  settings  Json     // Serialized game settings
   players   Json     // Serialized array of players
   questions Json     // Serialized questions
   startTime DateTime?
@@ -146,9 +117,9 @@ model Classroom {
   studentGroups StudentGroup[]
   attendanceRecords AttendanceRecord[]
   boards      Board[]
+  gamifiedSettings Json?   // Stores shop items, world boss status, etc.
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-  gamifiedSettings Json?    // Shared game state (Boss HP, classroom buffs, etc.)
 }
 
 model Student {
@@ -172,102 +143,112 @@ model Student {
   boardComments BoardComment[]
   boardReactions BoardReaction[]
   boardPollVotes BoardPollVote[]
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
-  gameStats   Json?                  // { gold: 0, level: 1, inventory: [], ... }
-  lastSyncTime DateTime?             @default(now()) // For idle calculation
+  items         StudentItem[]
+  achievements  StudentAchievement[]
+  questProgress Json?                  // { lastQuestDate: "", completedQuests: [] }
+  challengesSent     StudentBattle[]   @relation("Challenger")
+  challengesReceived StudentBattle[]   @relation("Defender")
+  gameStats     Json?                  // RPG stats: { gold, xp, level, inventory... }
+  lastSyncTime  DateTime?              // For idle calculations
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+}
+
+model PointHistory {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId String   @db.ObjectId
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  value     Int
+  reason    String
+  skillId   String?  @db.ObjectId
+  timestamp DateTime @default(now())
 }
 
 model Skill {
   id          String    @id @default(auto()) @map("_id") @db.ObjectId
   name        String
-  weight      Int       // +1, -1
-  icon        String    // Icon identifier
-  type        String    // POSITIVE, NEEDS_WORK
+  description String?
+  icon        String?
+  type        String    @default("POSITIVE") // POSITIVE, NEEDS_WORK
+  weight      Int       @default(1)
   classId     String    @db.ObjectId
   classroom   Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
 }
 
-model StudentGroup {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  name       String
-  classId    String    @db.ObjectId
-  classroom  Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
-  studentIds String[]  // Array of Student IDs in the group
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-}
-
-model PointHistory {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  studentId   String   @db.ObjectId
-  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  skillId     String?  // Optional snapshot
-  reason      String   // Snapshot of skill name
-  value       Int
-  timestamp   DateTime @default(now())
-}
-
 model Assignment {
-  id          String                 @id @default(auto()) @map("_id") @db.ObjectId
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
   name        String
   description String?
-  type        String                 @default("score") // score, checklist, quiz
-  maxScore    Int                    @default(10)
+  visible     Boolean  @default(true)
+  type        String   @default("standard") // "standard", "checklist", "quiz"
+  checklists  Json?    // Array of { id, text, points }
+  quizData    Json?    // { questions: [] }
+  maxScore    Int      @default(100)
   passScore   Int?
   deadline    DateTime?
+  order       Int      @default(0)
   
-  setId       String?                @db.ObjectId
-  questionSet QuestionSet?           @relation(fields: [setId], references: [id])
+  classId     String   @db.ObjectId
+  classroom   Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
   
-  checklists  Json?
-  quizData    Json?                  // snapshot of quiz questions if type=quiz
-  visible     Boolean                @default(true)
-  order       Int                    @default(0)
-  classId     String                 @db.ObjectId
-  classroom   Classroom              @relation(fields: [classId], references: [id], onDelete: Cascade)
+  quizSetId   String?  @db.ObjectId
+  quizSet     QuestionSet? @relation(fields: [quizSetId], references: [id], onDelete: SetNull)
+  
   submissions AssignmentSubmission[]
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model AssignmentSubmission {
-  id             String     @id @default(auto()) @map("_id") @db.ObjectId
-  studentId      String     @db.ObjectId
-  assignmentId   String     @db.ObjectId
-  score          Int
-  cheatingLogs   String[]
-  submittedAt    DateTime   @default(now())
-  
-  student        Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  assignment     Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  assignmentId String     @db.ObjectId
+  studentId    String     @db.ObjectId
+  score        Int        @default(0)
+  content      String?    // Optional text/link submission
+  cheatingLogs Json?      // Log of browser tab switches etc
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student      Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  submittedAt  DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   @@unique([studentId, assignmentId])
 }
 
+model StudentGroup {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  classId   String   @db.ObjectId
+  classroom Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  studentIds String[] @db.ObjectId
+  createdAt DateTime @default(now())
+}
+
 model AttendanceRecord {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  studentId   String    @db.ObjectId
-  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  classId     String    @db.ObjectId
-  classroom   Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
-  status      String    // PRESENT, ABSENT, LATE, LEFT_EARLY
-  date        DateTime  @default(now())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  date      DateTime
+  classId   String   @db.ObjectId
+  studentId String   @db.ObjectId
+  status    String   // PRESENT, ABSENT, LATE, LEFT_EARLY
+  classroom Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([date, studentId])
 }
 
 model Notification {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String?  @db.ObjectId // For teachers
-  studentId   String?  @db.ObjectId // For students
-  title       String
-  message     String
-  type        String   @default("INFO") // INFO, SUCCESS, WARNING, ERROR, ASSIGNMENT, POINT
-  isRead      Boolean  @default(false)
-  link        String?  
-  createdAt   DateTime @default(now())
-
-  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  student     Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId String?  @db.ObjectId
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  userId    String?  @db.ObjectId
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("INFO") // INFO, SUCCESS, WARNING, DANGER
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
 }
 
 model Board {
@@ -277,61 +258,69 @@ model Board {
   classId     String      @db.ObjectId
   classroom   Classroom   @relation(fields: [classId], references: [id], onDelete: Cascade)
   posts       BoardPost[]
-  settings    Json?       // For bg color, permissions, etc.
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
 
 model BoardPost {
   id          String         @id @default(auto()) @map("_id") @db.ObjectId
-  type        String         @default("text") // "text", "link", "file", "youtube", "poll", "album"
-  title       String?
   content     String
-  image       String?        // Main image or thumbnail
-  color       String?        // e.g. "pink", "blue", "green"
-  
-  // Type specific fields
-  linkUrl     String?
-  fileUrl     String?
-  fileName    String?
-  videoUrl    String?
-  videoName   String?
-  youtubeId   String?
-  pollQuestion String?
-  pollOptions Json?         // Array of { text: string, id: string }
-  pollClosed  Boolean        @default(false)
-  albumImages Json?         // Array of image URLs
-  
+  images      String[]       // Array of URLs
   boardId     String         @db.ObjectId
   board       Board          @relation(fields: [boardId], references: [id], onDelete: Cascade)
   
-  // Author can be a Student or a Teacher (User)
   authorStudentId String?    @db.ObjectId
   authorStudent   Student?   @relation(fields: [authorStudentId], references: [id], onDelete: SetNull)
   authorUserId    String?    @db.ObjectId
   authorUser      User?      @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
   
+  // Additional media fields for varied post types
+  type            String?    
+  title           String?    
+  image           String?    
+  color           String?    
+  linkUrl         String?    
+  fileUrl         String?    
+  fileName        String?    
+  videoUrl        String?    
+  videoName       String?    
+  youtubeId       String?    
+  
   comments    BoardComment[]
   reactions   BoardReaction[]
+  poll        BoardPoll?
   pollVotes   BoardPollVote[]
+  pollClosed  Boolean        @default(false)
+  
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 }
 
+model BoardPoll {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  question    String
+  options     Json           // Array of { id, text }
+  postId      String         @unique @db.ObjectId
+  post        BoardPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  votes       BoardPollVote[]
+}
+
 model BoardPollVote {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  optionId    String    // The ID of the option voted for
-  postId      String    @db.ObjectId
-  post        BoardPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  id              String      @id @default(auto()) @map("_id") @db.ObjectId
+  optionId        String
+  pollId          String      @db.ObjectId
+  poll            BoardPoll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
   
-  authorStudentId String?    @db.ObjectId
-  authorStudent   Student?   @relation(fields: [authorStudentId], references: [id], onDelete: SetNull)
-  authorUserId    String?    @db.ObjectId
-  authorUser      User?      @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  postId          String?     @db.ObjectId
+  post            BoardPost?  @relation(fields: [postId], references: [id], onDelete: Cascade)
   
-  createdAt   DateTime  @default(now())
+  authorStudentId String?     @db.ObjectId
+  authorStudent   Student?    @relation(fields: [authorStudentId], references: [id], onDelete: SetNull)
+  authorUserId    String?     @db.ObjectId
+  authorUser      User?       @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
   
-  @@unique([postId, authorStudentId, authorUserId])
+
+  @@unique([pollId, authorStudentId, authorUserId])
 }
 
 model BoardComment {
@@ -360,4 +349,91 @@ model BoardReaction {
   authorUser      User?      @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
 
   @@unique([postId, authorStudentId, authorUserId, type])
+}
+
+model Item {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  price       Int      @default(0)
+  type        String   // "WEAPON" | "ARMOR" | "HELMET" | "GLOVES" | "BOOTS" | "NECKLACE" | "RING"
+  image       String?
+  
+  // RPG Stats
+  baseHp      Int?     @default(0)
+  baseAtk     Int?     @default(0)
+  baseDef     Int?     @default(0)
+  
+  // Special Multipliers (0.05 = 5%, 1.0 = 100%)
+  goldMultiplier      Float?   @default(0)
+  bossDamageMultiplier Float?   @default(0)
+  
+  students    StudentItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model StudentItem {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId   String   @db.ObjectId
+  itemId      String   @db.ObjectId
+  quantity    Int      @default(1)
+  isEquipped  Boolean  @default(false)
+  enhancementLevel Int   @default(0)
+  
+  // Instance stats (Calculated based on base stats + enhancement)
+  hp          Int      @default(0)
+  atk         Int      @default(0)
+  def         Int      @default(0)
+  
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([studentId, itemId])
+}
+
+
+
+model StudentAchievement {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId      String   @db.ObjectId
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  achievementId  String   // e.g. "BOSS_SLAYER", "FIRST_ITEM"
+  goldRewarded   Int      @default(0)
+  unlockedAt     DateTime @default(now())
+
+  @@unique([studentId, achievementId])
+}
+
+model StudentBattle {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  challengerId    String   @db.ObjectId
+  defenderId      String   @db.ObjectId
+  challenger      Student  @relation("Challenger", fields: [challengerId], references: [id], onDelete: Cascade)
+  defender        Student  @relation("Defender", fields: [defenderId], references: [id], onDelete: Cascade)
+  status          String   @default("PENDING") // PENDING, ACCEPTED, DECLINED, COMPLETED
+  classId         String?  @db.ObjectId
+  betAmount       Int      @default(0)
+  challengerRoll  Int?
+  defenderRoll    Int?
+  winnerId        String?  @db.ObjectId
+  resolvedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model QuestionSet {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  isPublic    Boolean  @default(false)
+  coverImage  String?
+  creatorId   String   @db.ObjectId
+  creator     User     @relation(fields: [creatorId], references: [id])
+  questions   Json     // Array of questions
+  assignments Assignment[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

@@ -18,7 +18,14 @@ export async function POST(
         // Look up student by loginCode in this classroom
         const student = await db.student.findFirst({
             where: { loginCode: studentCode.toUpperCase(), classId: id },
-            select: { id: true }
+            select: { 
+                id: true,
+                points: true,
+                items: {
+                    where: { isEquipped: true },
+                    include: { item: true }
+                }
+            }
         });
         if (!student) return new NextResponse("Student Not Found", { status: 404 });
 
@@ -60,9 +67,13 @@ export async function POST(
             }
         });
 
-        // Apply World Boss Damage
-        const damage = 10 + score; // Base 10 + score as bonus
-        const updatedBoss = await IdleEngine.applyBossDamage(id, damage);
+        // Apply World Boss Damage using the new ATK-based calculation
+        // Formula: (Total ATK) * (Item Boss Damage Multiplier) * (Score scaling)
+        const totalAtkDamage = IdleEngine.calculateBossDamage(student.points, student.items);
+        const scoreMultiplier = questions.length > 0 ? (correct / questions.length) : 0;
+        const finalDamage = Math.max(1, Math.round(totalAtkDamage * scoreMultiplier));
+        
+        const updatedBoss = await IdleEngine.applyBossDamage(id, finalDamage);
 
         return NextResponse.json({ 
             score, 

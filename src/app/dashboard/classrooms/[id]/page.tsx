@@ -3,7 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { ClassroomDashboard } from "@/components/classroom/classroom-dashboard";
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
-import { ReportsTab } from "@/components/classroom/reports-tab";
+import { AnalyticsDashboard } from "@/components/classroom/AnalyticsDashboard";
 import { AttendanceHistoryTab } from "@/components/classroom/attendance-history-tab";
 import { TranslatedTabsTriggers } from "@/components/classroom/translated-tabs-triggers";
 import { ClassBoard } from "@/components/board/ClassBoard";
@@ -61,7 +61,7 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
                 </TabsContent>
 
                 <TabsContent value="reports" className="flex-1 mt-0 h-full overflow-y-auto">
-                    <ReportsTab classId={classroom.id} />
+                    <AnalyticsDashboard classId={classroom.id} />
                 </TabsContent>
 
                 <TabsContent value="board" className="flex-1 mt-0 h-full overflow-y-auto p-4 bg-slate-50/50">

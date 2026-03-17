@@ -3,109 +3,117 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding items...');
+  console.log('--- 🛡️ Reseeding Items System ---');
+
+  // 1. Wipe existing items (Optional, but recommended for overhaul)
+  console.log('Cleaning up existing items...');
+  await prisma.item.deleteMany({});
 
   const items = [
+    // --- WEAPONS (Boss Damage focus) ---
     {
       name: 'ดาบไม้ฝึกหัด',
-      description: 'เพิ่มพลังโจมตีบอส 5%',
-      price: 1000,
+      description: 'อาวุธระดับเริ่มต้น เพิ่มความเสียหายบอสเล็กน้อย',
+      price: 150,
       type: 'WEAPON',
-      effectType: 'BOSS_DMG',
-      effectValue: 0.05,
+      baseAtk: 5,
+      bossDamageMultiplier: 0.05,
       image: '⚔️',
     },
     {
       name: 'ดาบเหล็กกล้า',
-      description: 'เพิ่มพลังโจมตีบอส 15%',
-      price: 5000,
+      description: 'ดาบที่ตีจากเหล็กชั้นดี เพิ่มพลังโจมตีและโบนัสบอส',
+      price: 1200,
       type: 'WEAPON',
-      effectType: 'BOSS_DMG',
-      effectValue: 0.15,
+      baseAtk: 25,
+      bossDamageMultiplier: 0.15,
       image: '🗡️',
     },
     {
-      name: 'โล่ไม้เก่า',
-      description: 'เพิ่มอัตราผลิตเหรียญ 5%',
-      price: 800,
+      name: 'เอ็กซ์คาลิเบอร์ (จำลอง)',
+      description: 'ดาบศักดิ์สิทธิ์รันตีความแรง พลังโจมตีบอสสูงมาก',
+      price: 8500,
+      type: 'WEAPON',
+      baseAtk: 100,
+      bossDamageMultiplier: 0.50,
+      image: '✨',
+    },
+
+    // --- ARMOR (HP & Gold Boost) ---
+    {
+      name: 'ชุดนักผจญภัย',
+      description: 'เสื้อผ้าที่ทนทานขึ้นมาหน่อย เพิ่ม HP และทองเล็กน้อย',
+      price: 200,
       type: 'ARMOR',
-      effectType: 'GOLD_BOOST',
-      effectValue: 0.05,
-      image: '🛡️',
+      baseHp: 50,
+      goldMultiplier: 0.05,
+      image: '👕',
     },
     {
-      name: 'เกราะอัศวิน',
-      description: 'เพิ่มอัตราผลิตเหรียญ 15%',
-      price: 4500,
+      name: 'เกราะเหล็กอัศวิน',
+      description: 'ชุดเกราะเต็มยศเพื่อการป้องกันและโบนัสทองที่มั่นคง',
+      price: 2500,
       type: 'ARMOR',
-      effectType: 'GOLD_BOOST',
-      effectValue: 0.15,
+      baseHp: 300,
+      baseDef: 20,
+      goldMultiplier: 0.15,
       image: '🛡️',
     },
+
+    // --- HELMETS ---
+    {
+        name: 'หมวกเหล็ก',
+        description: 'การป้องกันส่วนหัวขั้นพื้นฐาน',
+        price: 500,
+        type: 'HELMET',
+        baseDef: 10,
+        baseHp: 20,
+        image: '🪖',
+    },
+
+    // --- ACCESSORIES (High Multipliers) ---
     {
         name: 'แหวนแห่งโชคลาภ',
-        description: 'เพิ่มอัตราผลิตเหรียญ 25%',
-        price: 15000,
+        description: 'แหวนทองคำประดับอัญมณีสีแดง เพิ่มทองที่ได้รับอย่างมาก',
+        price: 3500,
         type: 'RING',
-        effectType: 'GOLD_BOOST',
-        effectValue: 0.25,
+        goldMultiplier: 0.25,
         image: '💍',
     },
     {
-        name: 'หมวกนักรบฝึกหัด',
-        description: 'เพิ่มพลังโจมตีบอส 3%',
-        price: 500,
-        type: 'HELMET',
-        effectType: 'BOSS_DMG',
-        effectValue: 0.03,
-        image: '🪖',
-    },
-    {
-        name: 'รองเท้าบูทหนัง',
-        description: 'เพิ่มอัตราผลิตเหรียญ 3%',
-        price: 500,
-        type: 'BOOTS',
-        effectType: 'GOLD_BOOST',
-        effectValue: 0.03,
-        image: '🥾',
-    },
-    {
-        name: 'ถุงมือผ้าฝ้าย',
-        description: 'เพิ่มพลังโจมตีบอส 2%',
-        price: 300,
-        type: 'GLOVES',
-        effectType: 'BOSS_DMG',
-        effectValue: 0.02,
-        image: '🧤',
-    },
-    {
-        name: 'สร้อยคอคริสตัล',
-        description: 'เพิ่มอัตราผลิตเหรียญ 10%',
-        price: 2500,
+        name: 'สร้อยคอศักดิ์สิทธิ์',
+        description: 'สร้อยที่รวมพลังแห่งสวรรค์ เพิ่มทั้งทองและความเสียหายบอส',
+        price: 6000,
         type: 'NECKLACE',
-        effectType: 'GOLD_BOOST',
-        effectValue: 0.10,
+        goldMultiplier: 0.20,
+        bossDamageMultiplier: 0.20,
         image: '📿',
+    },
+    {
+        name: 'ถุงมือทองคำ',
+        description: 'ถุงมือที่หยิบจับอะไรก็เป็นเงินเป็นทอง',
+        price: 5000,
+        type: 'GLOVES',
+        goldMultiplier: 0.30,
+        image: '🧤',
     }
   ];
 
+  console.log(`Inserting ${items.length} updated items...`);
+  
   for (const item of items) {
-    await prisma.item.upsert({
-      where: { id: 'dummy-id-to-force-create' }, // In MongoDB, we use name or other unique field
-      update: {},
-      create: item,
-    }).catch(async (e) => {
-        // Fallback if upsert fails on ID
-        await prisma.item.create({ data: item });
+    const created = await prisma.item.create({
+      data: item
     });
+    console.log(`✅ Created: ${created.name} (${created.id})`);
   }
 
-  console.log('Seeding complete!');
+  console.log('--- Seeding complete! ---');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('❌ Seeding failed:', e);
     process.exit(1);
   })
   .finally(async () => {

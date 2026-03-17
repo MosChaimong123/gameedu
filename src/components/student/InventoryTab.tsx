@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sword, Shield, Package, Check, X, Info, Zap, HardHat, Footprints, Hand, Gem } from "lucide-react";
+import { Sword, Shield, Package, Check, X, Info, Zap, HardHat, Footprints, Hand, Gem, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { useToast } from "@/components/ui/use-toast";
@@ -26,6 +26,11 @@ interface StudentItem {
     baseHp: number;
     baseAtk: number;
     baseDef: number;
+    baseSpd: number;
+    baseCrit: number;
+    baseLuck: number;
+    baseMag: number;
+    baseMp: number;
     image: string;
   };
 }
@@ -35,7 +40,7 @@ interface InventoryTabProps {
   gold: number;
   points: number;
   onUpdate: () => void;
-  onUpdateStudent?: (updated: any) => void;
+  onUpdateStudent?: (updated: Record<string, any>) => void;
 }
 
 export function InventoryTab({ studentId, gold, points, onUpdate, onUpdateStudent }: InventoryTabProps) {
@@ -43,10 +48,11 @@ export function InventoryTab({ studentId, gold, points, onUpdate, onUpdateStuden
   const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [enhancingId, setEnhancingId] = useState<string | null>(null);
+  const [sellingId, setSellingId] = useState<string | null>(null);
   const [selectedItemForEnhance, setSelectedItemForEnhance] = useState<StudentItem | null>(null);
   const { toast } = useToast();
 
-  const loadInventory = async () => {
+  const loadInventory = useCallback(async () => {
     try {
       const res = await fetch(`/api/student/inventory?studentId=${studentId}`);
       if (!res.ok) {
@@ -61,7 +67,7 @@ export function InventoryTab({ studentId, gold, points, onUpdate, onUpdateStuden
     } finally {
       setLoading(false);
     }
-  };
+  }, [studentId]);
 
   useEffect(() => {
     loadInventory();
@@ -138,6 +144,50 @@ export function InventoryTab({ studentId, gold, points, onUpdate, onUpdateStuden
     }
   };
 
+  const handleSellItem = async (si: StudentItem) => {
+    const sellPrice = Math.floor(si.item.price * 0.5 * (1 + si.enhancementLevel * 0.1));
+    if (!confirm(`ต้องการขาย ${si.item.name} ในราคา ${sellPrice.toLocaleString()} ทอง ใช่หรือไม่?`)) return;
+
+    setSellingId(si.id);
+    try {
+        const res = await fetch("/api/student/inventory/sell", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ studentItemId: si.id }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            toast({
+                title: "ขายสำเร็จ! 💰",
+                description: `ได้รับ ${data.receivedGold.toLocaleString()} ทอง`,
+            });
+            
+            if (onUpdateStudent) {
+                onUpdateStudent({
+                    gameStats: { gold: data.newGold }
+                });
+            }
+            
+            loadInventory();
+            onUpdate();
+        } else {
+            toast({
+                title: "ขายไม่สำเร็จ",
+                description: data.error,
+                variant: "destructive",
+            });
+        }
+    } catch (err) {
+        toast({
+            title: "เกิดข้อผิดพลาด",
+            variant: "destructive",
+        });
+    } finally {
+        setSellingId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4 p-4">
@@ -170,6 +220,18 @@ export function InventoryTab({ studentId, gold, points, onUpdate, onUpdateStuden
   const totalBonusDef = equippedItems.reduce((sum, si) => {
       const levelBonus = 1 + (si.enhancementLevel || 0) * 0.1;
       return sum + (si.item.baseDef || 0) * levelBonus;
+  }, 0);
+  const totalBonusSpd = equippedItems.reduce((sum, si) => {
+      const levelBonus = 1 + (si.enhancementLevel || 0) * 0.1;
+      return sum + (si.item.baseSpd || 0) * levelBonus;
+  }, 0);
+  const totalBonusCrit = equippedItems.reduce((sum, si) => {
+      const levelBonus = 1 + (si.enhancementLevel || 0) * 0.1;
+      return sum + (si.item.baseCrit || 0) * levelBonus;
+  }, 0);
+  const totalBonusLuck = equippedItems.reduce((sum, si) => {
+      const levelBonus = 1 + (si.enhancementLevel || 0) * 0.1;
+      return sum + (si.item.baseLuck || 0) * levelBonus;
   }, 0);
 
   const SLOTS = [
@@ -207,6 +269,18 @@ export function InventoryTab({ studentId, gold, points, onUpdate, onUpdateStuden
                     <div className="bg-white/60 p-3 rounded-2xl border border-white shadow-sm">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Defense</p>
                         <p className="text-xl font-black text-indigo-600">+{Math.floor(totalBonusDef)}</p>
+                    </div>
+                    <div className="bg-white/60 p-3 rounded-2xl border border-white shadow-sm">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Speed</p>
+                        <p className="text-xl font-black text-emerald-600">+{Math.floor(totalBonusSpd)}</p>
+                    </div>
+                    <div className="bg-white/60 p-3 rounded-2xl border border-white shadow-sm">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Crit Rate</p>
+                        <p className="text-xl font-black text-orange-600">+{Math.round(totalBonusCrit * 100)}%</p>
+                    </div>
+                    <div className="bg-white/60 p-3 rounded-2xl border border-white shadow-sm">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Luck</p>
+                        <p className="text-xl font-black text-yellow-600">+{Math.round(totalBonusLuck * 100)}%</p>
                     </div>
                     <div className="bg-white/60 p-3 rounded-2xl border border-white shadow-sm">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Gold Boost</p>
@@ -343,6 +417,24 @@ export function InventoryTab({ studentId, gold, points, onUpdate, onUpdateStuden
                                 <span className="font-black">+{Math.round(si.item.bossDamageMultiplier * (1 + si.enhancementLevel * 0.1) * 100)}%</span>
                             </div>
                         )}
+                        {si.item.baseSpd > 0 && (
+                            <div className="flex justify-between items-center text-emerald-600">
+                                <span>⚡ SPD</span>
+                                <span className="font-black">+{Math.floor(si.item.baseSpd * (1 + si.enhancementLevel * 0.1))}</span>
+                            </div>
+                        )}
+                        {si.item.baseCrit > 0 && (
+                            <div className="flex justify-between items-center text-orange-600">
+                                <span>🎯 CRT</span>
+                                <span className="font-black">+{Math.round(si.item.baseCrit * (1 + si.enhancementLevel * 0.1) * 100)}%</span>
+                            </div>
+                        )}
+                        {si.item.baseLuck > 0 && (
+                            <div className="flex justify-between items-center text-yellow-600">
+                                <span>🍀 LUK</span>
+                                <span className="font-black">+{Math.round(si.item.baseLuck * (1 + si.enhancementLevel * 0.1) * 100)}%</span>
+                            </div>
+                        )}
                     </div>
                     {si.enhancementLevel > 0 && (
                         <div className="mt-1 pt-1 border-t border-slate-100 flex justify-between items-center text-[8px] text-indigo-500 uppercase tracking-tighter">
@@ -352,10 +444,10 @@ export function InventoryTab({ studentId, gold, points, onUpdate, onUpdateStuden
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 w-full">
-                      <Button
+                  <div className="grid grid-cols-2 gap-2 w-full mb-2">
+                       <Button
                         onClick={() => handleToggleEquip(si.id, si.isEquipped)}
-                        disabled={togglingId === si.id || enhancingId === si.id}
+                        disabled={togglingId === si.id || enhancingId === si.id || sellingId === si.id}
                         variant="outline"
                         className={`h-9 rounded-xl font-black text-[10px] transition-all ${
                           si.isEquipped
@@ -367,13 +459,23 @@ export function InventoryTab({ studentId, gold, points, onUpdate, onUpdateStuden
                       </Button>
                       <Button
                         onClick={() => setSelectedItemForEnhance(si)}
-                        disabled={enhancingId === si.id || togglingId === si.id}
+                        disabled={enhancingId === si.id || togglingId === si.id || sellingId === si.id}
                         className="h-9 rounded-xl font-black text-[10px] bg-amber-500 hover:bg-amber-600 text-white shadow-sm flex items-center gap-1"
                       >
                         <Sword className="w-3 h-3" />
                         ตีบวก
                       </Button>
                   </div>
+
+                  <Button
+                    onClick={() => handleSellItem(si)}
+                    disabled={sellingId === si.id || enhancingId === si.id || togglingId === si.id}
+                    variant="ghost"
+                    className="w-full h-8 rounded-xl font-black text-[9px] text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all flex items-center justify-center gap-1"
+                  >
+                    <Coins className="w-3 h-3" />
+                    ขาย ({Math.floor(si.item.price * 0.5 * (1 + si.enhancementLevel * 0.1)).toLocaleString()} ทอง)
+                  </Button>
                 </div>
               </GlassCard>
             </motion.div>

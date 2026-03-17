@@ -223,6 +223,9 @@ export function StudentDashboardClient({
                             levelConfig={classroom.levelConfig}
                             gameStats={student.gameStats}
                             items={student.items || []}
+                            stamina={student.stamina}
+                            maxStamina={student.maxStamina}
+                            mana={student.mana}
                             lastSyncTime={student.lastSyncTime}
                             onUpdateStudent={(updated: any) => {
                                 setStudent((prev: any) => ({ 
@@ -247,7 +250,26 @@ export function StudentDashboardClient({
                                 }));
                             }}
                         />
-                        <WorldBossBar boss={(classroom.gamifiedSettings as any)?.boss} />
+                        <WorldBossBar 
+                            boss={(classroom.gamifiedSettings as any)?.boss} 
+                            classId={classroom.id}
+                            studentId={student.id}
+                            stamina={student.stamina}
+                            onAttackSuccess={(data) => {
+                                // Update Boss HP and Student Stamina
+                                setClassroom((prev: any) => ({
+                                    ...prev,
+                                    gamifiedSettings: {
+                                        ...prev.gamifiedSettings,
+                                        boss: data.boss
+                                    }
+                                }));
+                                setStudent((prev: any) => ({
+                                    ...prev,
+                                    stamina: data.staminaLeft
+                                }));
+                            }}
+                        />
 
                         <Tabs 
                             defaultValue="assignments" 

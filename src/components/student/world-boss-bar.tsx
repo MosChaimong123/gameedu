@@ -14,10 +14,49 @@ interface WorldBossBarProps {
         image: string;
         deadline?: string;
     };
+    studentId?: string;
+    stamina?: number;
+    classId?: string;
+    onAttackSuccess?: (data: any) => void;
 }
 
-export function WorldBossBar({ boss }: WorldBossBarProps) {
+import { useState } from "react";
+import { Zap, Target } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+
+export function WorldBossBar({ boss, studentId, stamina = 0, classId, onAttackSuccess }: WorldBossBarProps) {
+    const [isAttacking, setIsAttacking] = useState(false);
+    const { toast } = useToast();
+
     if (!boss || !boss.active) return null;
+
+    const handleAttack = async () => {
+        if (!classId || stamina <= 0 || isAttacking) return;
+
+        setIsAttacking(true);
+        try {
+            const res = await fetch(`/api/classrooms/${classId}/boss/attack`, { method: 'POST' });
+            const data = await res.json();
+
+            if (data.success) {
+                toast({
+                    title: data.isCrit ? "⚡ CRITICAL HIT!" : "⚔️ Attack Successful!",
+                    description: `คุณทำความเสียหาย ${data.damage.toLocaleString()} HP! ${data.isCrit ? "(x2 Damage)" : ""}`,
+                });
+                if (onAttackSuccess) onAttackSuccess(data);
+            } else {
+                toast({
+                    title: "ไม่สามารถโจมตีได้",
+                    description: data.error === "Insufficient stamina" ? "Stamina ของคุณหมดแล้ว!" : (data.error || "เกิดข้อผิดพลาดในการโจมตี"),
+                    variant: "destructive"
+                });
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsAttacking(false);
+        }
+    };
 
     const hpPercentage = (boss.currentHp / boss.maxHp) * 100;
     const isLowHp = hpPercentage < 20;
@@ -142,7 +181,7 @@ export function WorldBossBar({ boss }: WorldBossBarProps) {
                             </div>
                         </div>
 
-                        {/* Call to Action */}
+                        {/* Call to Action & Attack Button */}
                         <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center">
@@ -153,10 +192,43 @@ export function WorldBossBar({ boss }: WorldBossBarProps) {
                                     <p className="text-[10px] font-medium text-slate-500 italic">Gold, XP & Class Badge</p>
                                 </div>
                             </div>
-                            <div className="bg-indigo-600/5 px-4 py-2 rounded-xl border border-indigo-200/50">
-                                <p className="text-[10px] font-black text-indigo-700 uppercase tracking-wider">
-                                    ส่งการบ้านเพื่อโจมตี! <span className="text-xs ml-1">⚔️</span>
-                                </p>
+                            
+                            <div className="flex items-center gap-3">
+                                <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-colors ${stamina > 0 ? 'bg-amber-50 border-amber-200' : 'bg-slate-100 border-slate-200 opacity-60'}`}>
+                                    <Zap className={`w-3.5 h-3.5 ${stamina > 0 ? 'text-amber-500 fill-amber-500' : 'text-slate-400'}`} />
+                                    <span className={`text-xs font-black ${stamina > 0 ? 'text-amber-700' : 'text-slate-400'}`}>{stamina} Energy</span>
+                                </div>
+
+                                <motion.button
+                                    whileHover={stamina > 0 && !isAttacking ? { scale: 1.05 } : {}}
+                                    whileTap={stamina > 0 && !isAttacking ? { scale: 0.95 } : {}}
+                                    onClick={handleAttack}
+                                    disabled={stamina <= 0 || isAttacking}
+                                    className={`relative px-6 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg ${
+                                        stamina > 0 && !isAttacking
+                                            ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-rose-200 border-2 border-rose-400/50' 
+                                            : 'bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300'
+                                    }`}
+                                >
+                                    {isAttacking ? (
+                                        <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
+                                            <Target className="w-5 h-5" />
+                                        </motion.div>
+                                    ) : (
+                                        <Sword className="w-5 h-5" />
+                                    )}
+                                    <span>โจมตีบอส</span>
+                                    
+                                    {isAttacking && (
+                                        <motion.div 
+                                            layoutId="attack-ripple"
+                                            className="absolute inset-0 bg-white/20 rounded-xl"
+                                            initial={{ opacity: 0, scale: 0.8 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            transition={{ duration: 0.5, repeat: Infinity }}
+                                        />
+                                    )}
+                                </motion.button>
                             </div>
                         </div>
                     </div>

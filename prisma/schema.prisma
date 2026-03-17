@@ -149,6 +149,10 @@ model Student {
   challengesSent     StudentBattle[]   @relation("Challenger")
   challengesReceived StudentBattle[]   @relation("Defender")
   gameStats     Json?                  // RPG stats: { gold, xp, level, inventory... }
+  stamina       Int                    @default(3) // Default 3 energy
+  maxStamina    Int                    @default(3)
+  mana          Int                    @default(50)
+  lastStaminaRefill DateTime?           @default(now())
   lastSyncTime  DateTime?              // For idle calculations
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
@@ -367,6 +371,13 @@ model Item {
   // Special Multipliers (0.05 = 5%, 1.0 = 100%)
   goldMultiplier      Float?   @default(0)
   bossDamageMultiplier Float?   @default(0)
+
+  // Advanced Stats
+  baseSpd     Int?      @default(0) // Speed / Agility
+  baseCrit    Float?    @default(0) // Critical Rate (0 - 1.0)
+  baseLuck    Float?    @default(0) // Luck (0 - 1.0)
+  baseMag     Int?      @default(0) // Magic Power
+  baseMp      Int?      @default(0) // Max Mana
   
   students    StudentItem[]
   createdAt   DateTime @default(now())

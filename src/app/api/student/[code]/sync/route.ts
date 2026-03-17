@@ -47,7 +47,7 @@ export async function POST(
         if (score === undefined) return sum;
 
         if (assignment.type === 'checklist') {
-            const checklistItems = assignment.checklists as any[];
+            const checklistItems = (assignment.checklists || []) as Record<string, any>[];
             if (!Array.isArray(checklistItems)) return sum;
             return sum + checklistItems.reduce((cSum, item, i) => {
                 const isChecked = (score & (1 << i)) !== 0;
@@ -59,9 +59,22 @@ export async function POST(
     }, 0);
 
     // 3. Get currently active events
-    const settings = (student.classroom?.gamifiedSettings as any) || {};
-    const events = (settings.events || []) as any[];
+    const settings = (student.classroom?.gamifiedSettings as Record<string, any>) || {};
+    const events = (settings.events || []) as Record<string, any>[];
     const now = new Date();
+
+    // 4. Daily Refill Logic (Stamina & Mana)
+    // Defensive: handle nulls for existing records
+    let stamina = student.stamina ?? 3;
+    let mana = student.mana ?? 50;
+    const lastRefill = student.lastStaminaRefill ? new Date(student.lastStaminaRefill) : new Date(0);
+    const isNewDay = now.toDateString() !== lastRefill.toDateString();
+
+    if (isNewDay) {
+        stamina = student.maxStamina; // Reset to daily max
+        mana = Math.min(100, mana + 20); // Regain 20 mana per day (or define max)
+    }
+
     const activeEvents = events.filter(e => new Date(e.startAt) <= now && new Date(e.endAt) >= now);
 
     // 4. Server-side validation (Anti-Cheat)
@@ -85,10 +98,13 @@ export async function POST(
       where: { id: student.id },
       data: {
         gameStats: {
-          ...(student.gameStats as any || {}),
+          ...(student.gameStats as Record<string, any> || {}),
           gold: verifiedGold,
         },
-        lastSyncTime: new Date(),
+        stamina,
+        mana,
+        lastStaminaRefill: isNewDay ? now : (student.lastStaminaRefill || now),
+        lastSyncTime: now,
       },
     });
 
@@ -98,6 +114,9 @@ export async function POST(
     return NextResponse.json({
       success: true,
       gold: verifiedGold,
+      stamina: updatedStudent.stamina,
+      maxStamina: updatedStudent.maxStamina,
+      mana: updatedStudent.mana,
       lastSyncTime: updatedStudent.lastSyncTime,
       newlyUnlocked: newlyUnlocked.map(a => ({
         id: a.id,

@@ -28,6 +28,9 @@ interface StudentAvatarSectionProps {
     levelConfig?: any;
     gameStats?: any;
     items?: any[];
+    stamina?: number;
+    maxStamina?: number;
+    mana?: number;
     lastSyncTime?: any;
     onUpdateStudent?: (data: any) => void;
 }
@@ -37,7 +40,9 @@ export function StudentAvatarSection({
     name, nickname, points, behaviorPoints, rankEntry,
     totalPositive, totalNegative,
     themeClass, themeStyle, levelConfig,
-    gameStats, items = [], lastSyncTime,
+    gameStats, items = [],
+    stamina = 3, maxStamina = 3, mana = 50,
+    lastSyncTime,
     onUpdateStudent
 }: StudentAvatarSectionProps) {
     const [avatar, setAvatar] = useState(initialAvatar);
@@ -81,6 +86,9 @@ export function StudentAvatarSection({
                 if (onUpdateStudent) {
                     onUpdateStudent({
                         gameStats: { ...gameStats, gold: data.gold },
+                        stamina: data.stamina,
+                        maxStamina: data.maxStamina,
+                        mana: data.mana,
                         lastSyncTime: data.lastSyncTime
                     });
                 }
@@ -144,7 +152,8 @@ export function StudentAvatarSection({
     }, []); 
 
     const rankProgress = getNextRankProgress(points, levelConfig);
-    const charStats = IdleEngine.calculateCharacterStats(points, items);
+    const stats = gameStats as any;
+    const charStats = IdleEngine.calculateCharacterStats(points, items, stats?.level || 1);
 
     return (
         <>
@@ -188,6 +197,41 @@ export function StudentAvatarSection({
                             <span className="text-[10px] font-black text-slate-800 tracking-tighter uppercase whitespace-nowrap">LVL {points > 0 ? Math.floor(points / 10) + 1 : 1} STUDENT</span>
                         </div>
                     </motion.div>
+
+                    {/* Stamina & Mana Bars */}
+                    <div className="w-full space-y-3 z-20">
+                        <div className="space-y-1">
+                            <div className="flex justify-between items-center px-1">
+                                <span className="text-[9px] font-black text-white/70 uppercase tracking-widest flex items-center gap-1">
+                                    <Zap className="w-2.5 h-2.5 text-amber-300 fill-amber-300" /> Stamina
+                                </span>
+                                <span className="text-[9px] font-black text-white">{stamina} / {maxStamina}</span>
+                            </div>
+                            <div className="h-2 w-full bg-black/20 rounded-full overflow-hidden border border-white/10 p-0.5">
+                                <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${(stamina / maxStamina) * 100}%` }}
+                                    className="h-full bg-gradient-to-r from-amber-300 to-orange-500 rounded-full"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <div className="flex justify-between items-center px-1">
+                                <span className="text-[9px] font-black text-white/70 uppercase tracking-widest flex items-center gap-1">
+                                    <Star className="w-2.5 h-2.5 text-indigo-300 fill-indigo-300" /> Mana
+                                </span>
+                                <span className="text-[9px] font-black text-white">{mana} / 100</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden border border-white/50 p-0.5">
+                                <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${(mana / 100) * 100}%` }}
+                                    className="h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full"
+                                />
+                            </div>
+                        </div>
+                    </div>
 
                     <div className="flex flex-col items-center gap-1">
                         <div className="w-0.5 h-6 bg-white/30 rounded-full" />
@@ -243,43 +287,16 @@ export function StudentAvatarSection({
                                 </p>
                             )}
                         </div>
+                            {/* Character Stats (The "Character Sheet" feel) */}
+                    <div className="grid grid-cols-3 gap-2">
+                        <StatBox icon={<Heart className="w-3 h-3 text-rose-600 fill-rose-600" />} label="HP" value={charStats.hp} color="rose" />
+                        <StatBox icon={<Sword className="w-3 h-3 text-amber-600 fill-amber-600" />} label="ATK" value={charStats.atk} color="amber" />
+                        <StatBox icon={<Shield className="w-3 h-3 text-indigo-600 fill-indigo-600" />} label="DEF" value={charStats.def} color="indigo" />
+                        <StatBox icon={<Zap className="w-3 h-3 text-emerald-600" />} label="SPD" value={charStats.spd} color="emerald" />
+                        <StatBox icon={<span className="text-[10px] font-black text-orange-600">%</span>} label="CRT" value={`${(charStats.crit * 100).toFixed(0)}%`} color="orange" />
+                        <StatBox icon={<Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />} label="LUK" value={`${(charStats.luck * 100).toFixed(0)}%`} color="yellow" />
                     </div>
-
-                    {/* Character Stats (The "Character Sheet" feel) */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <motion.div 
-                            whileHover={{ y: -5 }}
-                            className="bg-rose-50/50 rounded-2xl p-3 border border-rose-100 flex flex-col items-center gap-1 group transition-colors hover:bg-white hover:border-rose-300 shadow-sm"
-                        >
-                            <div className="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-                                <Heart className="w-4 h-4 text-rose-600 fill-rose-600" />
-                            </div>
-                            <span className="text-[9px] uppercase font-black tracking-widest text-slate-400">Health</span>
-                            <span className="text-lg font-black text-rose-600">{charStats.hp}</span>
-                        </motion.div>
-
-                        <motion.div 
-                            whileHover={{ y: -5 }}
-                            className="bg-amber-50/50 rounded-2xl p-3 border border-amber-100 flex flex-col items-center gap-1 group transition-colors hover:bg-white hover:border-amber-300 shadow-sm"
-                        >
-                            <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-                                <Sword className="w-4 h-4 text-amber-600 fill-amber-600" />
-                            </div>
-                            <span className="text-[9px] uppercase font-black tracking-widest text-slate-400">Attack</span>
-                            <span className="text-lg font-black text-amber-600">{charStats.atk}</span>
-                        </motion.div>
-
-                        <motion.div 
-                            whileHover={{ y: -5 }}
-                            className="bg-indigo-50/50 rounded-2xl p-3 border border-indigo-100 flex flex-col items-center gap-1 group transition-colors hover:bg-white hover:border-indigo-300 shadow-sm"
-                        >
-                            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-                                <Shield className="w-4 h-4 text-indigo-600 fill-indigo-600" />
-                            </div>
-                            <span className="text-[9px] uppercase font-black tracking-widest text-slate-400">Defense</span>
-                            <span className="text-lg font-black text-indigo-600">{charStats.def}</span>
-                        </motion.div>
-                    </div>
+             </div>
 
                     <div className="flex items-center justify-between px-2">
                         <div className="flex items-center gap-2">
@@ -380,5 +397,27 @@ export function StudentAvatarSection({
                 onSaved={setAvatar}
             />
         </>
+    );
+}
+
+function StatBox({ icon, label, value, color }: { icon: any, label: string, value: any, color: string }) {
+    const colors: any = {
+        rose: "bg-rose-50/50 border-rose-100 text-rose-600 hover:border-rose-300",
+        amber: "bg-amber-50/50 border-amber-100 text-amber-600 hover:border-amber-300",
+        indigo: "bg-indigo-50/50 border-indigo-100 text-indigo-600 hover:border-indigo-300",
+        emerald: "bg-emerald-50/50 border-emerald-100 text-emerald-600 hover:border-emerald-300",
+        orange: "bg-orange-50/50 border-orange-100 text-orange-600 hover:border-orange-300",
+        yellow: "bg-yellow-50/50 border-yellow-100 text-yellow-600 hover:border-yellow-300"
+    };
+
+    return (
+        <motion.div 
+            whileHover={{ y: -3, scale: 1.02 }}
+            className={`${colors[color]} rounded-xl p-2 border flex flex-col items-center gap-0.5 group transition-all hover:bg-white shadow-sm`}
+        >
+            <div className="opacity-70 group-hover:scale-110 transition-transform">{icon}</div>
+            <span className="text-[7px] uppercase font-black tracking-tighter text-slate-400 leading-none">{label}</span>
+            <span className="text-sm font-black tracking-tighter leading-none">{value}</span>
+        </motion.div>
     );
 }

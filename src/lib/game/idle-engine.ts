@@ -9,6 +9,11 @@ export interface CharacterStats {
   hp: number;
   atk: number;
   def: number;
+  spd: number;
+  crit: number; // Ratio 0 - 1.0 (e.g. 0.05 is 5%)
+  luck: number; // Ratio 0 - 1.0
+  mag: number;
+  maxMp: number;
 }
 
 /**
@@ -45,7 +50,7 @@ export class IdleEngine {
    * @param activeEvents Optional array of active events for multipliers
    * @returns The updated game stats and the amount of gold earned
    */
-  static calculateCurrentResources(student: any, activeEvents: any[] = []) {
+  static calculateCurrentResources(student: Record<string, any>, activeEvents: any[] = []) {
     const now = new Date();
     const lastSync = student.lastSyncTime ? new Date(student.lastSyncTime) : now;
     const stats = (student.gameStats as unknown as GameStats) || this.getDefaultStats();
@@ -75,35 +80,59 @@ export class IdleEngine {
   }
 
   /**
-   * Calculates total character stats (HP, ATK, DEF) based on behavior points and items.
+   * Calculates total character stats based on behavior points, items, and level.
    */
-  static calculateCharacterStats(points: number, equippedItems: any[] = []): CharacterStats {
+  static calculateCharacterStats(points: number, equippedItems: any[] = [], level: number = 1): CharacterStats {
     // 1. Base Stats from Points (Behavior)
     // Every 10 points = 1 ATK, 1 DEF, 10 HP
     const baseAtk = 10 + Math.floor(points / 10);
     const baseDef = 5 + Math.floor(points / 20);
     const baseHp = 100 + Math.floor(points / 1);
+    
+    // Advanced Base Stats (Starting fixed values)
+    const baseSpd = 10; 
+    const baseCrit = 0.05; // 5% base
+    const baseLuck = 0.01; // 1% base
+    const baseMag = 5;
+    const baseMaxMp = 50 + (level * 5); // MP grows with level
 
     let totalAtk = baseAtk;
     let totalDef = baseDef;
     let totalHp = baseHp;
+    let totalSpd = baseSpd;
+    let totalCrit = baseCrit;
+    let totalLuck = baseLuck;
+    let totalMag = baseMag;
+    let totalMaxMp = baseMaxMp;
 
     // 2. Bonus from Equipment
     if (Array.isArray(equippedItems)) {
         equippedItems.forEach(si => {
             const levelBonus = 1 + (si.enhancementLevel || 0) * 0.1;
             
-            // Add Flat Stats from Item Template
+            // Core Stats
             totalAtk += (si.item?.baseAtk || 0) * levelBonus;
             totalDef += (si.item?.baseDef || 0) * levelBonus;
             totalHp += (si.item?.baseHp || 0) * levelBonus;
+
+            // Advanced Stats from Item Template
+            totalSpd += (si.item?.baseSpd || 0) * levelBonus;
+            totalCrit += (si.item?.baseCrit || 0) * levelBonus;
+            totalLuck += (si.item?.baseLuck || 0) * levelBonus;
+            totalMag += (si.item?.baseMag || 0) * levelBonus;
+            totalMaxMp += (si.item?.baseMp || 0) * levelBonus;
         });
     }
 
     return {
       atk: Math.floor(totalAtk),
       def: Math.floor(totalDef),
-      hp: Math.floor(totalHp)
+      hp: Math.floor(totalHp),
+      spd: Math.floor(totalSpd),
+      crit: Number(totalCrit.toFixed(2)),
+      luck: Number(totalLuck.toFixed(2)),
+      mag: Math.floor(totalMag),
+      maxMp: Math.floor(totalMaxMp)
     };
   }
 
@@ -113,7 +142,11 @@ export class IdleEngine {
    * Multipliers are calculated from behavior points, equipped items, and ACTIVE EVENTS.
    */
   static calculateGoldRate(points: number, stats: GameStats, levelConfig?: any, equippedItems: any[] = [], activeEvents: any[] = []): number {
-    // 1. Calculate Multipliers from Equipment
+    // 1. Level-based Passive Income (New)
+    // Each level adds 0.05 gold/sec base passive income
+    const levelIncome = (stats.level || 1) * 0.05;
+
+    // 2. Calculate Multipliers from Equipment
     let goldMultiplier = 1;
     if (Array.isArray(equippedItems)) {
         equippedItems.forEach(si => {
@@ -124,37 +157,36 @@ export class IdleEngine {
         });
     }
 
-    // 2. Apply multipliers from Active Events
+    // 3. Apply multipliers from Active Events
     if (Array.isArray(activeEvents)) {
         activeEvents.forEach(event => {
             if (event.type === 'GOLD_BOOST' && event.multiplier > 1) {
-                // Gold Boost events multiply the total rate (stacking multiplicatively or additively?)
-                // Standard RPG practice: Event multipliers are usually applied to the final rate.
                 goldMultiplier *= event.multiplier;
             }
         });
     }
 
-    // 3. Try to get rate from Specific Rank Configuration (Gold per Minute)
+    // 4. Try to get rate from Specific Rank Configuration (Gold per Minute)
+    let finalBaseRate = this.BASE_GOLD_RATE;
     const rankEntry = getRankEntry(points, levelConfig);
     if (rankEntry && typeof rankEntry.goldRate === 'number') {
-      const basePerSecond = rankEntry.goldRate / 60;
-      return basePerSecond * goldMultiplier;
+      finalBaseRate = rankEntry.goldRate / 60;
+    } else {
+      // Legacy/Fallback Logic
+      const rankMultiplier = 1 + Math.floor(points / 100) * 0.1;
+      finalBaseRate = this.BASE_GOLD_RATE * rankMultiplier;
     }
 
-    // 4. Legacy/Fallback Logic: Base Rate * Rank Multiplier * Equipment/Event Bonus
-    // Every 100 points = +0.1 to multiplier
-    const rankMultiplier = 1 + Math.floor(points / 100) * 0.1;
-
-    return this.BASE_GOLD_RATE * rankMultiplier * goldMultiplier;
+    // Formula: (Rank Rate + Level Passive) * Multipliers
+    return (finalBaseRate + levelIncome) * goldMultiplier;
   }
 
   /**
-   * Calculates the damage multiplier for World Boss battles based on equipped items.
-   * New: Incorporates the ATK stat.
+   * Calculates the damage multiplier for World Boss battles based on equipped items and stats.
+   * Includes Critical Hit logic.
    */
-  static calculateBossDamage(points: number, equippedItems: any[] = []): number {
-    const stats = this.calculateCharacterStats(points, equippedItems);
+  static calculateBossDamage(points: number, equippedItems: any[] = [], level: number = 1) {
+    const stats = this.calculateCharacterStats(points, equippedItems, level);
     let itemMultiplier = 1;
     
     if (Array.isArray(equippedItems)) {
@@ -166,54 +198,132 @@ export class IdleEngine {
         });
     }
     
-    // Formula: (Total ATK) * (Boss Damage Multiplier)
-    return Math.floor(stats.atk * itemMultiplier);
+    const baseDamage = Math.floor(stats.atk * itemMultiplier);
+    
+    // Critical Hit Logic
+    const isCrit = Math.random() < stats.crit;
+    const finalDamage = isCrit ? Math.floor(baseDamage * 2) : baseDamage;
+
+    return {
+        damage: finalDamage,
+        isCrit,
+        stats // Returning full stats for reference in UI
+    };
   }
 
   /**
    * Applies damage to the world boss in a classroom.
+   * Now requires studentId to handle stamina consumption.
+   * @param options.damageOverride Optional fixed damage (e.g. from assignment)
+   * @param options.consumeStamina Whether to consume stamina (default: true)
    */
-  static async applyBossDamage(classId: string, damage: number) {
+  static async applyBossDamage(
+    classId: string, 
+    studentId: string, 
+    options: { damageOverride?: number; consumeStamina?: boolean } = { consumeStamina: true }
+  ) {
     try {
-      // 1. Fetch current boss status
-      const classroom = await db.classroom.findUnique({
-        where: { id: classId },
-        select: { gamifiedSettings: true }
-      });
+      // 1. Fetch current boss status and student stamina
+      const [classroom, student] = await Promise.all([
+        db.classroom.findUnique({
+            where: { id: classId },
+            select: { gamifiedSettings: true }
+        }),
+        db.student.findUnique({
+            where: { id: studentId },
+            select: { points: true, items: { include: { item: true }, where: { isEquipped: true } }, stamina: true, gameStats: true }
+        })
+      ]);
 
-      const settings = classroom?.gamifiedSettings as any;
+      const settings = (classroom?.gamifiedSettings as Record<string, any>) || {};
       if (!settings?.boss?.active || settings.boss.currentHp <= 0) {
-        return null;
+        return { error: "No active boss" };
       }
 
-      // 2. Atomic HP update (simulated via update)
+      const consumeStamina = options.consumeStamina ?? true;
+      if (consumeStamina && (!student || student.stamina <= 0)) {
+        return { error: "Insufficient stamina" };
+      }
+
+      // 2. Calculate Damage
+      let damage = 0;
+      let isCrit = false;
+
+      if (typeof options.damageOverride === 'number') {
+        damage = options.damageOverride;
+      } else {
+        const stats = student?.gameStats as Record<string, any>;
+        const battleResult = this.calculateBossDamage(student?.points || 0, student?.items || [], stats?.level || 1);
+        damage = battleResult.damage;
+        isCrit = battleResult.isCrit;
+      }
+
+      // 3. Atomic Updates
       const newHp = Math.max(0, settings.boss.currentHp - damage);
       const isDefeated = settings.boss.currentHp > 0 && newHp <= 0;
       
-      const updatedClassroom = await db.classroom.update({
-        where: { id: classId },
-        data: {
-          gamifiedSettings: {
-            ...settings,
-            boss: {
-              ...settings.boss,
-              currentHp: newHp,
-              active: newHp > 0 // Deactivate if HP is 0
+      const [updatedClassroom, updatedStudent] = await db.$transaction([
+        db.classroom.update({
+            where: { id: classId },
+            data: {
+              gamifiedSettings: {
+                ...settings,
+                boss: {
+                  ...settings.boss,
+                  currentHp: newHp,
+                  active: newHp > 0
+                }
+              }
             }
-          }
-        }
-      });
+        }),
+        // Only update student if we consume stamina
+        ...(consumeStamina ? [
+          db.student.update({
+              where: { id: studentId },
+              data: {
+                  stamina: { decrement: 1 }
+              }
+          })
+        ] : [])
+      ]);
 
-      // 3. Distribute Rewards if defeated
+      // 4. Distribute Rewards if defeated
       if (isDefeated) {
         await this.distributeBossRewards(classId, settings.boss);
       }
 
-      return (updatedClassroom.gamifiedSettings as any).boss;
-    } catch (error) {
-      console.error("Error applying boss damage:", error);
-      return null;
+      return {
+        boss: (updatedClassroom.gamifiedSettings as Record<string, any>).boss,
+        damage,
+        isCrit,
+        staminaLeft: updatedStudent?.stamina ?? student?.stamina ?? 0
+      };
+    } catch (error: any) {
+      console.error("[IdleEngine] Error applying boss damage:", error);
+      // Log more details about the error if possible
+      if (error.code) console.error("Error Code:", error.code);
+      if (error.meta) console.error("Error Meta:", error.meta);
+      return { error: `Internal error: ${error.message || "Unknown"}` };
     }
+  }
+
+  /**
+   * Helper to refill stamina based on points (e.g. teacher gives +10 points = +1 stamina if max not reached)
+   */
+  static async handleStaminaRefill(studentId: string, pointIncrease: number) {
+    if (pointIncrease < 10) return; // Only "Significant" good deeds refill stamina
+    
+    // Simple logic: +1 stamina for every 10 points added manually
+    const refillAmount = Math.floor(pointIncrease / 10);
+    
+    await db.student.update({
+        where: { id: studentId },
+        data: {
+            stamina: {
+                increment: refillAmount
+            }
+        }
+      }).catch(() => {});
   }
 
   /**
@@ -242,7 +352,7 @@ export class IdleEngine {
           where: { id: student.id },
           data: {
             points: { increment: rewardGold }, // Add to Behavior Points too
-            gameStats: updatedStats as any,
+            gameStats: updatedStats as unknown as Record<string, any>,
             history: {
               create: {
                 reason: `🚀 รางวัลพิชิต ${bossName}!`,

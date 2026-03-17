@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingBag, Star, Info, Sword, Shield, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,11 @@ interface Item {
   baseHp: number;
   baseAtk: number;
   baseDef: number;
+  baseSpd: number;
+  baseCrit: number;
+  baseLuck: number;
+  baseMag: number;
+  baseMp: number;
   image: string;
 }
 
@@ -33,8 +38,9 @@ export function ShopTab({ studentId, currentGold, onPurchaseSuccess }: ShopTabPr
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetch("/api/shop")
+  const loadShop = useCallback(() => {
+    setLoading(true);
+    fetch(`/api/shop?studentId=${studentId}`)
       .then(async (res) => {
         if (!res.ok) {
             const text = await res.text();
@@ -50,7 +56,11 @@ export function ShopTab({ studentId, currentGold, onPurchaseSuccess }: ShopTabPr
         console.error("Shop Fetch Error:", err);
         setLoading(false);
       });
-  }, []);
+  }, [studentId]);
+
+  useEffect(() => {
+    loadShop();
+  }, [studentId]);
 
   const handleBuy = async (item: Item) => {
     if (currentGold < item.price) {
@@ -83,6 +93,7 @@ export function ShopTab({ studentId, currentGold, onPurchaseSuccess }: ShopTabPr
           description: `ได้รับ ${item.name} เรียบร้อยแล้ว`,
         });
         onPurchaseSuccess(data.gold);
+        loadShop(); // Refresh shop items to remove bought item
       } else {
         throw new Error(data.error);
       }
@@ -165,13 +176,28 @@ export function ShopTab({ studentId, currentGold, onPurchaseSuccess }: ShopTabPr
                       </div>
                       <div className="flex flex-wrap justify-center gap-2">
                         {item.goldMultiplier > 0 && (
-                          <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">💰 +{(item.goldMultiplier * 100)}%</span>
+                          <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100 font-black">💰 +{(item.goldMultiplier * 100).toFixed(0)}%</span>
                         )}
                         {item.bossDamageMultiplier > 0 && (
-                          <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-100">🔥 +{(item.bossDamageMultiplier * 100)}%</span>
+                          <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-100 font-black">🔥 +{(item.bossDamageMultiplier * 100).toFixed(0)}%</span>
+                        )}
+                        {item.baseSpd > 0 && (
+                          <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 font-black">⚡ +{item.baseSpd} SPD</span>
+                        )}
+                        {item.baseCrit > 0 && (
+                          <span className="text-orange-600 bg-orange-50 px-2 py-0.5 rounded-lg border border-orange-100 font-black">🎯 +{(item.baseCrit * 100).toFixed(0)}% CRT</span>
+                        )}
+                        {item.baseLuck > 0 && (
+                          <span className="text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-lg border border-yellow-100 font-black">🍀 +{(item.baseLuck * 100).toFixed(0)}% LUK</span>
+                        )}
+                        {item.baseMag > 0 && (
+                          <span className="text-purple-600 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-100 font-black">🪄 +{item.baseMag} MAG</span>
+                        )}
+                        {item.baseMp > 0 && (
+                          <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 font-black">✨ +{item.baseMp} MP</span>
                         )}
                       </div>
-                      {item.goldMultiplier === 0 && item.bossDamageMultiplier === 0 && item.baseHp === 0 && item.baseAtk === 0 && item.baseDef === 0 && (
+                      {item.goldMultiplier === 0 && item.bossDamageMultiplier === 0 && item.baseHp === 0 && item.baseAtk === 0 && item.baseDef === 0 && item.baseSpd === 0 && item.baseCrit === 0 && item.baseLuck === 0 && (
                         <span className="text-slate-400 italic">No Special Effects</span>
                       )}
                     </div>

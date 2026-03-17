@@ -2,12 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
 
-// GET /api/shop - List all items
-export async function GET() {
+// GET /api/shop - List items (filtered if studentId provided)
+export async function GET(req: NextRequest) {
   try {
-    const items = await db.item.findMany({
+    const studentId = req.nextUrl.searchParams.get("studentId");
+    
+    let items = await db.item.findMany({
       orderBy: { price: "asc" }
     });
+
+    // If studentId provided, filter out items they already own
+    if (studentId) {
+      const ownedItems = await db.studentItem.findMany({
+        where: { studentId },
+        select: { itemId: true }
+      });
+      const ownedIds = new Set(ownedItems.map(oi => oi.itemId));
+      items = items.filter(item => !ownedIds.has(item.id));
+    }
+
     return NextResponse.json(items);
   } catch (error) {
     console.error("Error fetching shop items:", error);
@@ -30,47 +43,46 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Get Item and Student
-    const [item, student] = await Promise.all([
+    const [item, student, existingItem] = await Promise.all([
       db.item.findUnique({ where: { id: itemId } }),
-      db.student.findUnique({ where: { id: studentId } })
+      db.student.findUnique({ where: { id: studentId } }),
+      db.studentItem.findFirst({
+        where: { studentId, itemId }
+      })
     ]);
 
     if (!item || !student) {
       return NextResponse.json({ error: "Item or Student not found" }, { status: 404 });
     }
 
-    // 2. Check if student has enough gold
-    const currentStats = (student.gameStats as any) || { gold: 0 };
-    if (currentStats.gold < item.price) {
-      return NextResponse.json({ error: "Not enough gold" }, { status: 400 });
+    // 2. Prevent duplicate purchase
+    if (existingItem) {
+        return NextResponse.json({ error: "คุณมีไอเทมชิ้นนี้อยู่แล้ว" }, { status: 400 });
     }
 
-    // 3. Perform Transaction
-    // Deduct gold and add item to StudentItem
+    // 3. Check if student has enough gold
+    const gameStats = student.gameStats as Record<string, any> || {};
+    const currentGold = Number(gameStats.gold || 0);
+    if (currentGold < item.price) {
+      return NextResponse.json({ error: "ทองไม่พอซื้อไอเทมนี้" }, { status: 400 });
+    }
+
+    // 4. Perform Transaction
     const updatedStudent = await db.$transaction(async (tx) => {
       // Deduct gold
       const studentUpdate = await tx.student.update({
         where: { id: studentId },
         data: {
           gameStats: {
-            ...currentStats,
-            gold: currentStats.gold - item.price
+            ...gameStats,
+            gold: currentGold - item.price
           }
         }
       });
 
-      // Add or update StudentItem (quantity +1)
-      await tx.studentItem.upsert({
-        where: {
-          studentId_itemId: {
-            studentId,
-            itemId
-          }
-        },
-        update: {
-          quantity: { increment: 1 }
-        },
-        create: {
+      // Add StudentItem
+      await tx.studentItem.create({
+        data: {
           studentId,
           itemId,
           quantity: 1,
@@ -83,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      gold: (updatedStudent.gameStats as any).gold
+      gold: (updatedStudent.gameStats as Record<string, any>)?.gold
     });
 
   } catch (error) {

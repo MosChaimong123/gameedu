@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { sendNotification } from "@/lib/notifications";
+import { IdleEngine } from "@/lib/game/idle-engine";
 
 export async function POST(
     req: Request,
@@ -57,6 +58,11 @@ export async function POST(
                 }
             }
         });
+ 
+        // Trigger Stamina Refill if good deed is significant
+        if (skill.weight >= 10) {
+            await IdleEngine.handleStaminaRefill(studentId, skill.weight);
+        }
 
         // Send Notification to Student
         await sendNotification({

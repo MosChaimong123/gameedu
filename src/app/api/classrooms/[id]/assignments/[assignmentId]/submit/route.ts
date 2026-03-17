@@ -68,12 +68,15 @@ export async function POST(
         });
 
         // Apply World Boss Damage using the new ATK-based calculation
-        // Formula: (Total ATK) * (Item Boss Damage Multiplier) * (Score scaling)
-        const totalAtkDamage = IdleEngine.calculateBossDamage(student.points, student.items);
+        // Formula: (Total ATK) * (Score scaling) - No stamina consumption for assignments
+        const battleResult = IdleEngine.calculateBossDamage(student.points, student.items);
         const scoreMultiplier = questions.length > 0 ? (correct / questions.length) : 0;
-        const finalDamage = Math.max(1, Math.round(totalAtkDamage * scoreMultiplier));
+        const finalDamage = Math.max(1, Math.round(battleResult.damage * scoreMultiplier));
         
-        const updatedBoss = await IdleEngine.applyBossDamage(id, finalDamage);
+        const updatedBoss = await IdleEngine.applyBossDamage(id, student.id, { 
+            damageOverride: finalDamage,
+            consumeStamina: false 
+        });
 
         return NextResponse.json({ 
             score, 

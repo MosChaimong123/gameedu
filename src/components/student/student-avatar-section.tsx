@@ -192,9 +192,19 @@ export function StudentAvatarSection({
                             </button>
                         </motion.div>
                         
-                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-white px-3 py-1 rounded-full shadow-lg border border-slate-100 flex items-center gap-1.5 z-30">
-                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-[10px] font-black text-slate-800 tracking-tighter uppercase whitespace-nowrap">LVL {points > 0 ? Math.floor(points / 10) + 1 : 1} STUDENT</span>
+                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-white px-3 py-1 rounded-full shadow-lg border border-slate-100 flex flex-col items-center gap-0.5 z-30 min-w-[100px]">
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                <span className="text-[10px] font-black text-slate-800 tracking-tighter uppercase whitespace-nowrap">LEVEL {gameStats?.level || 1} STUDENT</span>
+                            </div>
+                            {/* XP Progress Mini-bar */}
+                            <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden mt-0.5">
+                                <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${(gameStats?.xp || 0) / IdleEngine.getXpRequirement(gameStats?.level || 1) * 100}%` }}
+                                    className="h-full bg-indigo-500"
+                                />
+                            </div>
                         </div>
                     </motion.div>
 
@@ -221,12 +231,12 @@ export function StudentAvatarSection({
                                 <span className="text-[9px] font-black text-white/70 uppercase tracking-widest flex items-center gap-1">
                                     <Star className="w-2.5 h-2.5 text-indigo-300 fill-indigo-300" /> Mana
                                 </span>
-                                <span className="text-[9px] font-black text-white">{mana} / 100</span>
+                                <span className="text-[9px] font-black text-white">{mana} / {charStats.maxMp}</span>
                             </div>
                             <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden border border-white/50 p-0.5">
                                 <motion.div 
                                     initial={{ width: 0 }}
-                                    animate={{ width: `${(mana / 100) * 100}%` }}
+                                    animate={{ width: `${(mana / charStats.maxMp) * 100}%` }}
                                     className="h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full"
                                 />
                             </div>

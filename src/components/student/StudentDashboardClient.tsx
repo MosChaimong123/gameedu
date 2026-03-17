@@ -18,7 +18,8 @@ import {
     AlertCircle,
     ChevronRight,
     Calendar,
-    Trophy
+    Trophy,
+    Star
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
@@ -32,6 +33,7 @@ import { EventBanner } from "./EventBanner";
 import { ShopTab } from "./ShopTab";
 import { InventoryTab } from "./InventoryTab";
 import { PvPArenaTab } from "./PvPArenaTab";
+import { SkillTab } from "./SkillTab";
 import { WorldBossBar } from "./world-boss-bar";
 import { useSocket } from "@/components/providers/socket-provider";
 import { getClassroomTheme } from "@/lib/classroom-utils";
@@ -312,6 +314,10 @@ export function StudentDashboardClient({
                                         <Swords className="w-4 h-4" />
                                         <span>Arena</span>
                                     </TabsTrigger>
+                                    <TabsTrigger value="skills" className="rounded-xl px-5 py-2.5 flex items-center gap-2.5 data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-md font-black text-slate-500 transition-all">
+                                        <Star className="w-4 h-4" />
+                                        <span>ทักษะ</span>
+                                    </TabsTrigger>
                                 </TabsList>
                             </div>
 
@@ -456,6 +462,21 @@ export function StudentDashboardClient({
 
                             <TabsContent value="pvp" className="mt-0 border-none p-0 outline-hidden">
                                 <PvPArenaTab code={code} gold={(student.gameStats as any)?.gold || 0} />
+                            </TabsContent>
+
+                            <TabsContent value="skills" className="mt-0 border-none p-0 outline-hidden">
+                                <SkillTab 
+                                    studentId={student.id} 
+                                    classId={classroom.id} 
+                                    mana={student.mana || 0} 
+                                    onUpdateStudent={(updated: any) => {
+                                        setStudent((prev: any) => ({ 
+                                            ...prev, 
+                                            ...updated,
+                                            gameStats: updated.gameStats ? { ...prev.gameStats, ...updated.gameStats } : prev.gameStats
+                                        }));
+                                    }} 
+                                />
                             </TabsContent>
                         </Tabs>
                     </div>

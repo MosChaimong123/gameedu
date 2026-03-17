@@ -21,6 +21,7 @@ export async function POST(
             select: { 
                 id: true,
                 points: true,
+                gameStats: true,
                 items: {
                     where: { isEquipped: true },
                     include: { item: true }
@@ -68,7 +69,6 @@ export async function POST(
         });
 
         // Apply World Boss Damage using the new ATK-based calculation
-        // Formula: (Total ATK) * (Score scaling) - No stamina consumption for assignments
         const battleResult = IdleEngine.calculateBossDamage(student.points, student.items);
         const scoreMultiplier = questions.length > 0 ? (correct / questions.length) : 0;
         const finalDamage = Math.max(1, Math.round(battleResult.damage * scoreMultiplier));
@@ -78,12 +78,30 @@ export async function POST(
             consumeStamina: false 
         });
 
+        // Grant XP for submitting (10 XP base + score scaling)
+        const xpGain = 10 + Math.floor(score / 10);
+        const currentGameStats = (student.gameStats as any) || IdleEngine.getDefaultStats();
+        const xpResult = IdleEngine.calculateXpGain(currentGameStats, xpGain);
+
+        await db.student.update({
+            where: { id: student.id },
+            data: {
+                gameStats: {
+                    ...currentGameStats,
+                    level: xpResult.level,
+                    xp: xpResult.xp
+                } as any
+            }
+        });
+
         return NextResponse.json({ 
             score, 
             correct, 
             total: questions.length, 
             submissionId: submission.id,
-            updatedBoss
+            updatedBoss,
+            xpGained: xpGain,
+            leveledUp: xpResult.leveledUp
         });
 
     } catch (error) {

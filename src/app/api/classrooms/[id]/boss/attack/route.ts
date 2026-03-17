@@ -20,7 +20,8 @@ export async function POST(
             where: { 
                 classId: classId,
                 userId: session.user.id
-            }
+            },
+            select: { id: true, gameStats: true }
         });
 
         if (!student) {
@@ -34,12 +35,30 @@ export async function POST(
             return NextResponse.json({ error: result.error }, { status: 400 });
         }
 
+        // 3. Grant XP for attacking (20 XP per hit)
+        const xpGain = 20;
+        const currentStats = (student.gameStats as any) || IdleEngine.getDefaultStats();
+        const xpResult = IdleEngine.calculateXpGain(currentStats, xpGain);
+
+        await db.student.update({
+            where: { id: student.id },
+            data: {
+                gameStats: {
+                    ...currentStats,
+                    level: xpResult.level,
+                    xp: xpResult.xp
+                } as any
+            }
+        });
+
         return NextResponse.json({
             success: true,
             damage: result.damage,
             isCrit: result.isCrit,
             staminaLeft: result.staminaLeft,
-            boss: result.boss
+            boss: result.boss,
+            xpGained: xpGain,
+            leveledUp: xpResult.leveledUp
         });
 
     } catch (error) {

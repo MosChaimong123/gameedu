@@ -1,6 +1,7 @@
 import { Student, PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getRankEntry } from "@/lib/classroom-utils";
+import { SKILLS as SHARED_SKILLS } from "./game-constants";
 
 /**
  * Core Character Stats
@@ -43,6 +44,11 @@ export class IdleEngine {
   // Base rates
   private static readonly BASE_GOLD_RATE = 0.1; // Gold per second at Rank 1
   private static readonly SECONDS_IN_MINUTE = 60;
+
+  /**
+   * Skills definitions
+   */
+  public static readonly SKILLS = SHARED_SKILLS;
 
   /**
    * Calculates the current gold balance of a student based on time passed since last sync.
@@ -367,6 +373,107 @@ export class IdleEngine {
       console.log(`[IdleEngine] Distributed ${rewardGold} gold to ${students.length} students for defeating ${bossName}`);
     } catch (error) {
       console.error("Error distributing boss rewards:", error);
+    }
+  }
+
+  /**
+   * Calculates the XP needed for a specific level.
+   * Exponential growth: 100 * (1.2 ^ (level - 1))
+   */
+  static getXpRequirement(level: number): number {
+    return Math.floor(100 * Math.pow(1.2, level - 1));
+  }
+
+  /**
+   * Adds XP to a student and handles automatic level up.
+   */
+  static calculateXpGain(currentStats: GameStats, xpToAdd: number) {
+    let { level, xp } = currentStats;
+    let earnedXp = xp + xpToAdd;
+    let leveledUp = false;
+
+    while (earnedXp >= this.getXpRequirement(level)) {
+      earnedXp -= this.getXpRequirement(level);
+      level++;
+      leveledUp = true;
+    }
+
+    return { 
+      level, 
+      xp: Math.max(0, earnedXp), 
+      leveledUp 
+    };
+  }
+
+  /**
+   * Processes skill usage: Checks MP, applies effects, and updates DB.
+   */
+  static async useSkill(studentId: string, skillId: string, classId: string) {
+    try {
+      const skill = this.SKILLS.find(s => s.id === skillId);
+      if (!skill) return { error: "Skill not found" };
+
+      // 1. Fetch student data
+      const student = await db.student.findUnique({
+        where: { id: studentId },
+        select: { 
+          points: true, 
+          mana: true, 
+          gameStats: true,
+          items: { where: { isEquipped: true }, include: { item: true } }
+        }
+      });
+
+      if (!student || student.mana < skill.manaCost) {
+        return { error: "มานาไม่เพียงพอ" };
+      }
+
+      const stats = (student.gameStats as unknown as GameStats) || this.getDefaultStats();
+      let resultMessage = "";
+      let bonusUpdates: any = {};
+
+      // 2. Apply Skill Effect
+      if (skill.type === "BOSS_DAMAGE") {
+        const battleRes = this.calculateBossDamage(student.points, student.items, stats.level);
+        const bonusDamage = Math.floor(battleRes.damage * (skill.value || 1.5));
+        
+        const bossResult = await this.applyBossDamage(classId, studentId, { 
+          damageOverride: bonusDamage, 
+          consumeStamina: false // Skills use MP, not Stamina
+        });
+
+        if (bossResult.error) return { error: bossResult.error };
+        resultMessage = `ใช้ ${skill.name} สร้างความเสียหาย ${bonusDamage} ใส่บอส!`;
+      } else if (skill.type === "HEAL") {
+        resultMessage = `ใช้ ${skill.name} ฟื้นฟูพลังชีวิต (ฟีเจอร์นี้จะใช้ได้ในโหมดต่อสู้)`;
+      } else {
+        resultMessage = `ใช้ทักษะ ${skill.name} สำเร็จ!`;
+      }
+
+      // 3. Deduct MP and Update History
+      const updatedStudent = await db.student.update({
+        where: { id: studentId },
+        data: {
+          mana: { decrement: skill.manaCost },
+          history: {
+            create: {
+              reason: `🔮 ใช้ทักษะ: ${skill.name}`,
+              value: 0,
+              timestamp: new Date()
+            }
+          }
+        }
+      });
+
+      return { 
+        success: true, 
+        message: resultMessage,
+        mana: updatedStudent.mana
+      };
+
+    } catch (error) {
+      console.error("[IdleEngine] Skill Error:", error);
+      return { error: "เกิดข้อผิดพลาดในการใช้สกิล" };
     }
   }
 

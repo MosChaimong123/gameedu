@@ -16,7 +16,7 @@ export async function POST(
 
     try {
         const body = await req.json();
-        const { name, description, maxScore, type, checklists, passScore, deadline, setId } = body;
+        const { name, description, maxScore, type, checklists, passScore, deadline, quizSetId } = body;
 
         if (!name) {
             return new NextResponse("Name is required", { status: 400 });
@@ -37,9 +37,9 @@ export async function POST(
         let quizData = body.quizData || null;
 
         // If a Question Set is linked, we snapshot its questions for stability
-        if (setId && type === "quiz") {
+        if (quizSetId && type === "quiz") {
             const questionSet = await db.questionSet.findUnique({
-                where: { id: setId },
+                where: { id: quizSetId },
                 select: { questions: true }
             });
             if (questionSet) {
@@ -57,7 +57,7 @@ export async function POST(
                 checklists: checklists || [],
                 passScore: passScore ?? null,
                 deadline: deadline ? new Date(deadline) : null,
-                setId: setId || null,
+                quizSetId: quizSetId || null,
                 quizData,
                 order: classroom.assignments.length
             } as any

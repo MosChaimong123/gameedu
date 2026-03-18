@@ -340,17 +340,19 @@ export function AddAssignmentDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px] w-[95vw] overflow-y-auto max-h-[90vh] rounded-2xl">
+            <DialogContent className="max-w-[98vw] md:max-w-[900px] lg:max-w-[1100px] w-full p-0 overflow-hidden h-[90vh] flex flex-col rounded-3xl border-white/20 shadow-2xl">
                 {/* Header */}
-                <DialogHeader className="px-6 py-4 flex flex-row items-center justify-between bg-white border-b sticky top-0 z-10 shrink-0">
-                    <DialogTitle className="text-2xl font-bold flex items-center gap-3 text-[#7B462C]">
-                        <Settings2 className="w-6 h-6 rotate-45" />
+                <DialogHeader className="px-8 py-5 flex flex-row items-center justify-between bg-white/80 backdrop-blur-md border-b sticky top-0 z-20 shrink-0">
+                    <DialogTitle className="text-2xl font-black flex items-center gap-3 text-[#7B462C] tracking-tight">
+                        <div className="bg-[#7B462C]/10 p-2 rounded-xl">
+                            <Settings2 className="w-6 h-6 rotate-45 text-[#7B462C]" />
+                        </div>
                         จัดการภารกิจ (ASSIGNMENTS)
                     </DialogTitle>
                 </DialogHeader>
 
                 {/* Main Content */}
-                <div className="flex flex-1 overflow-hidden min-h-0">
+                <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-0 bg-slate-50">
                     {/* Left Column - Assignment List */}
                     <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-slate-300">
                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
@@ -396,7 +398,7 @@ export function AddAssignmentDialog({
                     </div>
 
                     {/* Right Column - Form */}
-                    <div className="w-[360px] lg:w-[400px] bg-white border-l border-slate-200 flex flex-col shrink-0">
+                    <div className="w-full md:w-[360px] lg:w-[400px] bg-white border-t md:border-t-0 md:border-l border-slate-200 flex flex-col shrink-0">
                         <form onSubmit={handleSubmit} className="flex flex-col h-full">
                             <div className="p-6 pb-2 shrink-0">
                                 <div

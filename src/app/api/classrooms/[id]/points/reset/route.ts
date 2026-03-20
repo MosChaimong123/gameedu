@@ -31,7 +31,7 @@ export async function POST(
             select: { id: true }
         });
 
-        const studentIds = students.map(s => s.id);
+        const studentIds = students.map((s: any) => s.id);
 
         if (studentIds.length === 0) {
              return NextResponse.json({ 

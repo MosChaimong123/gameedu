@@ -115,9 +115,9 @@ export async function GET(
     const goldLeaderboard = [...goldPerStudent].sort((a, b) => b.gold - a.gold).slice(0, 10);
 
     // === Student full stats ===
-    const studentStats = classroom.students.map(s => {
-      const pos = s.history.filter(h => h.value > 0).reduce((sum, h) => sum + h.value, 0);
-      const neg = Math.abs(s.history.filter(h => h.value < 0).reduce((sum, h) => sum + h.value, 0));
+    const studentStats = classroom.students.map((s: any) => {
+      const pos = s.history.filter((h: any) => h.value > 0).reduce((sum: number, h: any) => sum + h.value, 0);
+      const neg = Math.abs(s.history.filter((h: any) => h.value < 0).reduce((sum: number, h: any) => sum + h.value, 0));
       const att = s.attendance || "PRESENT";
       return {
         id: s.id,
@@ -148,7 +148,7 @@ export async function GET(
         { name: "สาย", value: attendanceSummary.LATE, fill: "#f59e0b" },
         { name: "ขาดเรียน", value: attendanceSummary.ABSENT, fill: "#ef4444" },
         { name: "ออกก่อน", value: attendanceSummary.LEFT_EARLY, fill: "#f97316" },
-      ].filter(e => e.value > 0),
+      ].filter((e: any) => e.value > 0),
       // Game
       gameSummary: {
         totalGold,

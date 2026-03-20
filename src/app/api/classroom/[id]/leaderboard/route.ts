@@ -28,7 +28,7 @@ export async function GET(
     });
 
     const ranked = students
-      .map(s => {
+      .map((s: any) => {
         const stats = IdleEngine.calculateCharacterStats(s.points, s.items);
         return {
           id: s.id,
@@ -43,8 +43,8 @@ export async function GET(
           def: stats.def
         };
       })
-      .sort((a, b) => b.gold - a.gold) // Primary: gold
-      .map((s, idx) => ({ ...s, rank: idx + 1 }));
+      .sort((a: any, b: any) => b.gold - a.gold) // Primary: gold
+      .map((s: any, idx: number) => ({ ...s, rank: idx + 1 }));
 
     return NextResponse.json(ranked);
   } catch (error) {

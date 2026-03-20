@@ -65,7 +65,7 @@ export async function POST(
 
         // Notify all students
         await Promise.all(
-            classroom.students.map(student => 
+            classroom.students.map((student: any) => 
                 sendNotification({
                     studentId: student.id,
                     title: "มีงานใหม่!",
@@ -106,7 +106,7 @@ export async function PATCH(
         const items: { id: string; order: number }[] = await req.json();
 
         await Promise.all(
-            items.map(item =>
+            items.map((item: any) =>
                 db.assignment.update({
                     where: { id: item.id },
                     data: { order: item.order }

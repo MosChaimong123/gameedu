@@ -19,7 +19,7 @@ export async function GET(
 
     const progress = getQuestProgress(student.questProgress);
 
-    const result = DAILY_QUESTS.map(quest => ({
+    const result = DAILY_QUESTS.map((quest: any) => ({
       ...quest,
       completed: progress.completedQuests.includes(quest.id),
     }));

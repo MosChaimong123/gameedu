@@ -41,7 +41,7 @@ export function NewsFeed() {
     return (
         <section className="space-y-4">
             <div className="flex items-center justify-between">
-                <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                <h2 className="text-xl font-black text-foreground flex items-center gap-2">
                     <Newspaper className="w-5 h-5 text-indigo-500" />
                     {t("newsAndUpdates") || "ข่าวสารและอัปเดต"}
                 </h2>
@@ -58,7 +58,7 @@ export function NewsFeed() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.1 }}
                     >
-                        <Card className="border-none shadow-sm hover:shadow-md transition-all cursor-pointer bg-white overflow-hidden group">
+                        <Card className="border-none shadow-sm hover:shadow-md transition-all cursor-pointer bg-card overflow-hidden group">
                             <CardContent className="p-0">
                                 <div className="flex items-center p-4 gap-4">
                                     <div className={
@@ -73,7 +73,7 @@ export function NewsFeed() {
                                             </span>
                                             <span className="text-[10px] text-slate-400 font-bold">{item.date}</span>
                                         </div>
-                                        <h4 className="font-bold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
+                                        <h4 className="font-bold text-foreground truncate group-hover:text-indigo-600 transition-colors">
                                             {item.title}
                                         </h4>
                                         <p className="text-xs text-slate-500 line-clamp-1">

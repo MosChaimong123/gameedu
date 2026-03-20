@@ -11,7 +11,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { LogOut, User, Menu, Settings, Sparkles, Search, ArrowLeft } from "lucide-react"
+import { LogOut, User, Menu, Settings, Sparkles, Search, ArrowLeft, Gamepad2 } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { useState, useEffect } from "react"
@@ -19,6 +19,7 @@ import { useState, useEffect } from "react"
 import { LanguageToggle } from "@/components/language-toggle"
 import { useLanguage } from "@/components/providers/language-provider"
 import { NotificationTray } from "@/components/dashboard/notification-tray"
+import { motion } from "framer-motion"
 
 export function Topbar() {
     const { data: session } = useSession()
@@ -38,22 +39,44 @@ export function Topbar() {
     }
 
     return (
-        <header className="flex h-16 items-center justify-between border-b bg-white px-6">
+        <header className="flex h-16 items-center justify-between border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-50 px-6 transition-colors duration-500">
             <div className="flex items-center gap-4 hidden md:flex lg:w-1/4">
                 {showBackButton && (
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                        onClick={() => router.back()}
+                        className="h-8 w-8 rounded-full text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all active:scale-90"
+                        onClick={() => router.push("/dashboard")}
                         title={t("back") || "Back"}
                     >
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
                 )}
-                <h2 className="text-lg font-semibold text-slate-800 truncate">
-                    {t("welcomeBack")}, {session?.user?.name || t("student")}!
-                </h2>
+                <motion.div 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="flex items-center gap-2 cursor-pointer group"
+                    onClick={() => router.push("/dashboard")}
+                >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 shadow-lg shadow-indigo-200 group-hover:rotate-6 transition-transform">
+                        <Gamepad2 className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="text-2xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+                        GameEdu
+                    </span>
+                    <motion.div
+                        animate={{ 
+                            scale: [1, 1.2, 1],
+                            opacity: [0.5, 1, 0.5] 
+                        }}
+                        transition={{ 
+                            duration: 2, 
+                            repeat: Infinity,
+                            ease: "easeInOut" 
+                        }}
+                        className="h-2 w-2 rounded-full bg-purple-500 shadow-[0_0_10px_purple]"
+                    />
+                </motion.div>
             </div>
 
             {/* Centered Search Bar */}
@@ -63,7 +86,7 @@ export function Topbar() {
                     <Input
                         type="text"
                         placeholder={t("discover") + "..."}
-                        className="w-full pl-10 bg-slate-100/50 border-transparent focus-visible:ring-indigo-500 focus-visible:bg-white rounded-full"
+                        className="w-full pl-10 bg-muted/50 border-transparent focus-visible:ring-indigo-500 focus-visible:bg-background rounded-full transition-all"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -71,19 +94,28 @@ export function Topbar() {
             </div>
 
             <div className="flex items-center space-x-4">
-                <Button className="hidden md:flex bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-sm border-0 h-9">
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    {t("upgradeToPlus")}
-                </Button>
+                {/* @ts-ignore */}
+                {session?.user?.plan === "PLUS" ? (
+                    <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-200"
+                    >
+                        <Sparkles className="w-4 h-4" />
+                        <span className="text-xs font-black uppercase tracking-widest">Plus</span>
+                    </motion.div>
+                ) : (
+                    <Button 
+                        onClick={() => router.push("/dashboard/upgrade")}
+                        className="hidden md:flex bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-sm border-0 h-9 transition-all active:scale-95 shadow-indigo-100"
+                    >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        {t("upgradeToPlus") || "Upgrade to Plus"}
+                    </Button>
+                )}
 
                 <NotificationTray />
 
                 <LanguageToggle />
-
-                <div className="hidden md:flex items-center px-3 py-1 bg-yellow-100 rounded-full border border-yellow-200">
-                    <span className="text-xs font-bold text-yellow-700 mr-1">T</span>
-                    <span className="text-sm font-bold text-yellow-800">0</span>
-                </div>
 
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -96,29 +128,67 @@ export function Topbar() {
                             </Avatar>
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56" align="end" forceMount>
-                        <DropdownMenuLabel className="font-normal">
-                            <div className="flex flex-col space-y-1">
-                                <p className="text-sm font-medium leading-none">{session?.user?.name}</p>
-                                <p className="text-xs leading-none text-muted-foreground">
-                                    {session?.user?.email}
-                                </p>
+                    <DropdownMenuContent className="w-64 p-2 rounded-[1.5rem] bg-popover/90 backdrop-blur-xl border border-border shadow-2xl animate-in fade-in zoom-in-95 duration-200" align="end" forceMount>
+                        <DropdownMenuLabel className="p-4">
+                            <div className="flex flex-col space-y-2">
+                                <div className="flex items-center gap-3">
+                                    <Avatar className="h-10 w-10 border-2 border-indigo-100 shadow-sm">
+                                        <AvatarImage src={session?.user?.image || ""} />
+                                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-black">
+                                            {session?.user?.name?.[0]?.toUpperCase()}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex flex-col min-w-0">
+                                        <p className="text-sm font-black leading-none text-slate-800 truncate">{session?.user?.name}</p>
+                                        <p className="text-[10px] leading-none text-slate-400 mt-1 truncate">
+                                            {session?.user?.email}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 pt-2">
+                                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-[9px] font-black text-indigo-600 border border-indigo-100 uppercase tracking-tighter">
+                                        {/* @ts-ignore */}
+                                        {session?.user?.role || "STUDENT"}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-full bg-amber-50 text-[9px] font-black text-amber-600 border border-amber-100 uppercase tracking-tighter">
+                                        Active
+                                    </span>
+                                </div>
                             </div>
                         </DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>
-                            <User className="mr-2 h-4 w-4" />
-                            <span>{t("profile")}</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                            <Settings className="mr-2 h-4 w-4" /> {/* Ensure Settings is imported from lucide-react */}
-                            <span>{t("settings")}</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => signOut()}>
-                            <LogOut className="mr-2 h-4 w-4" />
-                            <span>{t("logout")}</span>
-                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="bg-slate-100/50 my-1" />
+                        <div className="p-1 space-y-1">
+                            <DropdownMenuItem 
+                                onClick={() => router.push("/dashboard/profile")}
+                                className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all focus:bg-indigo-50 focus:text-indigo-600 group"
+                            >
+                                <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center group-focus:bg-indigo-100 transition-colors">
+                                    <User className="h-4 w-4 text-slate-500 group-focus:text-indigo-600" />
+                                </div>
+                                <span className="text-sm font-bold">{t("profile")}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                                onClick={() => router.push("/dashboard/settings")}
+                                className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all focus:bg-indigo-50 focus:text-indigo-600 group"
+                            >
+                                <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center group-focus:bg-indigo-100 transition-colors">
+                                    <Settings className="h-4 w-4 text-slate-500 group-focus:text-indigo-600" />
+                                </div>
+                                <span className="text-sm font-bold">{t("settings")}</span>
+                            </DropdownMenuItem>
+                        </div>
+                        <DropdownMenuSeparator className="bg-slate-100/50 my-1" />
+                        <div className="p-1">
+                            <DropdownMenuItem 
+                                onClick={() => signOut()}
+                                className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all focus:bg-red-50 focus:text-red-600 group text-red-500"
+                            >
+                                <div className="h-8 w-8 rounded-lg bg-red-50 flex items-center justify-center group-focus:bg-red-100 transition-colors">
+                                    <LogOut className="h-4 w-4 text-red-400 group-focus:text-red-600" />
+                                </div>
+                                <span className="text-sm font-bold">{t("logout")}</span>
+                            </DropdownMenuItem>
+                        </div>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>

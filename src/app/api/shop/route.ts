@@ -17,8 +17,8 @@ export async function GET(req: NextRequest) {
         where: { studentId },
         select: { itemId: true }
       });
-      const ownedIds = new Set(ownedItems.map(oi => oi.itemId));
-      items = items.filter(item => !ownedIds.has(item.id));
+      const ownedIds = new Set(ownedItems.map((oi: any) => oi.itemId));
+      items = items.filter((item: any) => !ownedIds.has(item.id));
     }
 
     return NextResponse.json(items);
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Perform Transaction
-    const updatedStudent = await db.$transaction(async (tx) => {
+    const updatedStudent = await db.$transaction(async (tx: any) => {
       // Deduct gold
       const studentUpdate = await tx.student.update({
         where: { id: studentId },

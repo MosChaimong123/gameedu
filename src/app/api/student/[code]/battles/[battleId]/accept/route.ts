@@ -47,7 +47,7 @@ export async function POST(
     const challengerStats = {
       points: battle.challenger.points,
       gold: challengerGold,
-      items: battle.challenger.items.map(i => ({
+      items: battle.challenger.items.map((i: any) => ({
         goldMultiplier: i.item.goldMultiplier,
         bossDamageMultiplier: i.item.bossDamageMultiplier,
         enhancementLevel: i.enhancementLevel
@@ -56,7 +56,7 @@ export async function POST(
     const defenderStats = {
       points: defender.points,
       gold: defenderGold,
-      items: defender.items.map(i => ({
+      items: defender.items.map((i: any) => ({
         goldMultiplier: i.item.goldMultiplier,
         bossDamageMultiplier: i.item.bossDamageMultiplier,
         enhancementLevel: i.enhancementLevel

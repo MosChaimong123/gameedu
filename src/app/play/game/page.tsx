@@ -185,13 +185,13 @@ export default function PlayerGamePage() {
 
 
         socket.on("game-state-update", (data: { players: (GoldQuestPlayer | CryptoHackPlayer)[] }) => {
-            const others = data.players.filter(p => p.name !== name);
+            const others = data.players.filter((p: any) => p.name !== name);
             setOtherPlayers(others as any[]);
 
             const hackState = (data as any).hackState;
             const passwordOptions = (data as any).passwordOptions;
 
-            const me = data.players.find(p => p.name === name);
+            const me = data.players.find((p: any) => p.name === name);
             const isCrypto = me && 'crypto' in me;
             const newMode = isCrypto ? "CRYPTO_HACK" : "GOLD_QUEST";
 
@@ -382,7 +382,7 @@ export default function PlayerGamePage() {
             stopBGM()
             play("game-over")
 
-            const me = data.players.find(p => p.name === name)
+            const me = data.players.find((p: any) => p.name === name)
             if (me) {
                 const rank = data.players.findIndex(p => p.name === name) + 1;
                 setPlayer(prev => ({ ...prev, gold: me.gold, score: rank }))

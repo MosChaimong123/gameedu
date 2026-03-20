@@ -10,7 +10,6 @@ import { TimerWidget } from "./toolkit/timer-widget";
 import { RandomPicker } from "./toolkit/random-picker";
 import { GroupMaker } from "./toolkit/group-maker";
 import { ClassroomTable } from "./classroom-table";
-import { ClassroomSettingsDialog } from "./classroom-settings-dialog";
 import { AddAssignmentDialog } from "./add-assignment-dialog";
 import { StudentManagerDialog } from "./student-manager-dialog";
 import { StudentHistoryModal } from "./student-history-modal";
@@ -395,7 +394,6 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                         <div className="flex flex-col justify-center px-5 py-3 bg-black/10 shrink-0 min-w-max">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-2">👤 จัดการนักเรียน</p>
                             <div className="flex items-center gap-2">
-                                <ClassroomSettingsDialog classroom={classroom} />
                                 <AddStudentDialog
                                     classId={classroom.id}
                                     theme={classroom.theme || ''}

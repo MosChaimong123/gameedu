@@ -17,9 +17,9 @@ export async function GET(
 
     if (!student) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const unlockedMap = new Map(student.achievements.map((a: any) => [a.achievementId, a]));
+    const unlockedMap = new Map<string, any>(student.achievements.map((a: any) => [a.achievementId, a]));
 
-    const result = ACHIEVEMENTS.map(def => ({
+    const result = ACHIEVEMENTS.map((def: any) => ({
       ...def,
       unlocked: unlockedMap.has(def.id),
       unlockedAt: unlockedMap.get(def.id)?.unlockedAt ?? null,
@@ -52,7 +52,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      newlyUnlocked: newlyUnlocked.map(a => ({
+      newlyUnlocked: newlyUnlocked.map((a: any) => ({
         id: a.id,
         name: a.name,
         icon: a.icon,

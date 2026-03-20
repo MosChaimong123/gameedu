@@ -12,10 +12,13 @@ interface ClassroomPageProps {
     params: Promise<{
         id: string;
     }>;
+    searchParams?: Promise<{ tab?: string }>;
 }
 
 export default async function ClassroomPage(props: ClassroomPageProps) {
     const params = await props.params;
+    const searchParams = await props.searchParams;
+    const defaultTab = searchParams?.tab || "classroom";
     const session = await auth();
     if (!session?.user) return redirect("/");
 
@@ -46,7 +49,7 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
 
     return (
         <div className="h-[calc(100vh-80px)] p-6 overflow-hidden flex flex-col">
-            <Tabs defaultValue="classroom" className="w-full flex-1 flex flex-col min-h-0">
+            <Tabs defaultValue={defaultTab} className="w-full flex-1 flex flex-col min-h-0">
                 <TabsList className="mb-4">
                     <TranslatedTabsTriggers />
                 </TabsList>
@@ -55,7 +58,7 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
                     {/* Height calculation to fit within dashboard layout without double scrollbars */}
                     <ClassroomDashboard classroom={classroom} />
                 </TabsContent>
-                
+
                 <TabsContent value="attendance" className="flex-1 mt-0 h-full overflow-y-auto">
                     <AttendanceHistoryTab classId={classroom.id} />
                 </TabsContent>

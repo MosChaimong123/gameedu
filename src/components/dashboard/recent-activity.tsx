@@ -70,14 +70,14 @@ export function RecentActivity() {
     return (
         <Card className="border-none shadow-none bg-transparent">
             <CardHeader className="px-0 pt-0 pb-4 flex flex-row items-center justify-between">
-                <CardTitle className="text-lg font-bold text-slate-800">{t("recentlyUpdated")}</CardTitle>
+                <CardTitle className="text-lg font-bold text-foreground">{t("recentlyUpdated")}</CardTitle>
                 <Link href="/dashboard/my-sets" className="text-sm font-bold text-purple-600 flex items-center hover:underline">
                     {t("viewAll")} <ChevronRight className="w-4 h-4" />
                 </Link>
             </CardHeader>
             <CardContent className="px-0 space-y-3">
                 {recentSets.map((set) => (
-                    <div key={set.id} className="group flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all hover:border-purple-200">
+                    <div key={set.id} className="group flex items-center gap-4 bg-card p-3 rounded-xl border border-border shadow-sm hover:shadow-md transition-all hover:border-purple-200">
                         {/* Thumbnail */}
                         <div className="h-16 w-24 flex-shrink-0 bg-slate-100 rounded-lg overflow-hidden relative">
                             {set.coverImage ? (
@@ -91,7 +91,7 @@ export function RecentActivity() {
 
                         {/* Info */}
                         <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-slate-800 truncate group-hover:text-purple-700 transition-colors">
+                            <h4 className="font-bold text-foreground truncate group-hover:text-purple-700 transition-colors">
                                 {set.title}
                             </h4>
                             <div className="flex items-center gap-3 mt-1 text-xs text-slate-400 font-medium">

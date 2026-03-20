@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
         })
 
         // Transform for list view (e.g. just player count)
-        const summary = history.map(h => ({
+        const summary = history.map((h: any) => ({
             id: h.id,
             gameMode: h.gameMode,
             startedAt: h.startedAt,

@@ -35,23 +35,34 @@ export const authConfig = {
 
             return true
         },
-        async jwt({ token, user }) {
+        async jwt({ token, user, trigger, session: sessionData }) {
             if (user) {
                 token.id = user.id
                 // @ts-ignore
                 token.role = user.role
                 // @ts-ignore
                 token.school = user.school
+                token.name = user.name
+                token.picture = user.image
             }
+
+            if (trigger === "update" && sessionData) {
+                if (sessionData.name) token.name = sessionData.name
+                if (sessionData.image) token.picture = sessionData.image
+            }
+
             return token
         },
         async session({ session, token }) {
-            if (session.user && token.id) {
-                session.user.id = token.id as string
+            if (token) {
+                if (token.id) session.user.id = token.id as string
                 // @ts-ignore
-                session.user.role = token.role as string
+                if (token.role) session.user.role = token.role as string
                 // @ts-ignore
-                session.user.school = token.school as string
+                if (token.school) session.user.school = token.school as string
+                
+                session.user.name = token.name
+                session.user.image = token.picture as string
             }
             return session
         }

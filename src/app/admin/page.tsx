@@ -72,7 +72,7 @@ export default async function AdminDashboardPage() {
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    {stats.map(stat => (
+                    {stats.map((stat: any) => (
                         <div key={stat.label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 hover:shadow-md transition-shadow">
                             <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center mb-3`}>
                                 <stat.icon className={`w-5 h-5 ${stat.text}`} />
@@ -103,7 +103,7 @@ export default async function AdminDashboardPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                                {recentUsers.map(user => (
+                                {recentUsers.map((user: any) => (
                                     <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-3">
                                             <div className="flex items-center gap-3">
@@ -139,7 +139,7 @@ export default async function AdminDashboardPage() {
                         { label: "จัดการผู้ใช้ทั้งหมด", desc: "ดู/แก้ไข/ลบบัญชีผู้ใช้", icon: Users, href: "/admin/users", color: "text-purple-600", bg: "bg-purple-50 hover:bg-purple-100 border-purple-100" },
                         { label: "ชุดคำถามทั้งหมด", desc: "ดูและลบเนื้อหาที่ไม่เหมาะสม", icon: BookOpen, href: "/admin/sets", color: "text-orange-600", bg: "bg-orange-50 hover:bg-orange-100 border-orange-100" },
                         { label: "หน้าแรกครู", desc: "กลับไปยังหน้าจัดการชั้นเรียน", icon: ShieldCheck, href: "/dashboard", color: "text-slate-600", bg: "bg-slate-50 hover:bg-slate-100 border-slate-200" },
-                    ].map(link => (
+                    ].map((link: any) => (
                         <Link key={link.label} href={link.href}
                             className={`${link.bg} border rounded-2xl p-5 flex items-center gap-4 transition-colors group`}
                         >

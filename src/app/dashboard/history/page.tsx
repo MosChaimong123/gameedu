@@ -38,7 +38,7 @@ export default async function HistoryPage() {
                 </div>
             ) : (
                 <div className="grid gap-4">
-                    {history.map((game) => (
+                    {history.map((game: any) => (
                         <Link key={game.id} href={`/dashboard/history/${game.id}`}>
                             <Card className="hover:shadow-md transition-shadow cursor-pointer group border-slate-200">
                                 <CardContent className="p-6 flex items-center justify-between">

@@ -183,7 +183,7 @@ export default function SignupWizard() {
                                         <SelectValue placeholder="วัน" />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[200px]">
-                                        {days.map((d) => (
+                                        {days.map((d: any) => (
                                             <SelectItem key={d} value={d.toString()}>
                                                 {d}
                                             </SelectItem>
@@ -221,7 +221,7 @@ export default function SignupWizard() {
                                         <SelectValue placeholder="ปี" />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[200px]">
-                                        {years.map((y) => (
+                                        {years.map((y: any) => (
                                             <SelectItem key={y} value={y.toString()}>
                                                 {y + 543}
                                             </SelectItem>

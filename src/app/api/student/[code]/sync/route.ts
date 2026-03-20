@@ -41,8 +41,8 @@ export async function POST(
     }
 
     // 2. Calculate actual academic points (Academic Total) for rank-based gold rate
-    const submissionMap = new Map(student.submissions.map(s => [s.assignmentId, s.score]));
-    const academicTotal = (student.classroom?.assignments || []).reduce((sum, assignment) => {
+    const submissionMap = new Map<string, number>(student.submissions.map((s: any) => [s.assignmentId, s.score || 0]));
+    const academicTotal = (student.classroom?.assignments || []).reduce((sum: number, assignment: any) => {
         const score = submissionMap.get(assignment.id);
         if (score === undefined) return sum;
 
@@ -50,12 +50,12 @@ export async function POST(
             const checklistItems = (assignment.checklists || []) as Record<string, any>[];
             if (!Array.isArray(checklistItems)) return sum;
             return sum + checklistItems.reduce((cSum, item, i) => {
-                const isChecked = (score & (1 << i)) !== 0;
+                const isChecked = ((score || 0) & (1 << i)) !== 0;
                 const points = typeof item === 'object' ? (item.points || 0) : 1;
                 return isChecked ? cSum + points : cSum;
             }, 0);
         }
-        return sum + score;
+        return sum + (score as number || 0);
     }, 0);
 
     // 3. Get currently active events
@@ -75,7 +75,7 @@ export async function POST(
         mana = Math.min(100, mana + 20); // Regain 20 mana per day (or define max)
     }
 
-    const activeEvents = events.filter(e => new Date(e.startAt) <= now && new Date(e.endAt) >= now);
+    const activeEvents = events.filter((e: any) => new Date(e.startAt) <= now && new Date(e.endAt) >= now);
 
     // 4. Server-side validation (Anti-Cheat)
     const serverCalc = IdleEngine.calculateCurrentResources({
@@ -118,7 +118,7 @@ export async function POST(
       maxStamina: updatedStudent.maxStamina,
       mana: updatedStudent.mana,
       lastSyncTime: updatedStudent.lastSyncTime,
-      newlyUnlocked: newlyUnlocked.map(a => ({
+      newlyUnlocked: newlyUnlocked.map((a: any) => ({
         id: a.id,
         name: a.name,
         icon: a.icon,

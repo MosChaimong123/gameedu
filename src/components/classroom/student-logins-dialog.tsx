@@ -58,7 +58,7 @@ export function StudentLoginsDialog({ students, classId, theme }: { students: an
                                 </div>
                                 
                                 <div className="text-[10px] md:text-xs text-slate-500 bg-slate-50 px-3 py-2 rounded-full border border-slate-100 w-full truncate font-medium">
-                                    {t("joinAt", { url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/student` })}
+                                    {t("joinAt", { url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/student` })}
                                 </div>
                             </div>
                         ))}

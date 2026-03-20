@@ -46,7 +46,7 @@ export async function POST(
 
         // Apply Points to all students in a transaction
         await db.$transaction(
-            studentIds.map((studentId) => 
+            studentIds.map((studentId: any) => 
                 db.student.update({
                     where: { 
                         id: studentId,
@@ -69,13 +69,13 @@ export async function POST(
         // Trigger Stamina Refill for everyone if good deed is significant
         if (skill.weight >= 10) {
             await Promise.all(
-                studentIds.map(sid => IdleEngine.handleStaminaRefill(sid, skill.weight))
+                studentIds.map((sid: any) => IdleEngine.handleStaminaRefill(sid, skill.weight))
             );
         }
 
         // Notify all students in parallel
         await Promise.all(
-            studentIds.map((studentId) => 
+            studentIds.map((studentId: any) => 
                 sendNotification({
                     studentId,
                     title: skill.weight > 0 ? "ทั้งชั้นเรียนได้รับคะแนน!" : "ทั้งชั้นเรียนโดนหักคะแนน!",

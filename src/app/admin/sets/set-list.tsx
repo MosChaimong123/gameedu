@@ -33,7 +33,7 @@ export function SetList({ initialSets }: { initialSets: any[] }) {
     const [isDeleting, setIsDeleting] = React.useState<string | null>(null);
     const { toast } = useToast();
 
-    const filteredSets = sets.filter(set => 
+    const filteredSets = sets.filter((set: any) => 
         set.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
         set.creator.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         set.creator.email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -47,7 +47,7 @@ export function SetList({ initialSets }: { initialSets: any[] }) {
         setIsDeleting(null);
 
         if (result.success) {
-            setSets(prev => prev.filter(s => s.id !== setId));
+            setSets(prev => prev.filter((s: any) => s.id !== setId));
             toast({ title: "ลบชุดคำถามแล้ว", description: "ลบชุดคำถามสำเร็จ" });
         } else {
             toast({ title: "เกิดข้อผิดพลาด", description: result.error, variant: "destructive" });
@@ -67,7 +67,7 @@ export function SetList({ initialSets }: { initialSets: any[] }) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredSets.map(set => (
+                {filteredSets.map((set: any) => (
                     <div key={set.id} className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 hover:shadow-md transition-shadow group">
                         <div className="flex justify-between items-start">
                             <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center">

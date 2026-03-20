@@ -38,7 +38,7 @@ export default async function ReportsPage() {
                 </div>
             ) : (
                 <div className="grid gap-4">
-                    {history.map((game) => {
+                    {history.map((game: any) => { // ใส่ : any เข้าไป
                         const players = (game.players as any[]) || [];
                         const playerCount = players.length;
 

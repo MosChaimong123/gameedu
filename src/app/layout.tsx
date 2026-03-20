@@ -22,6 +22,8 @@ export const metadata: Metadata = {
   description: "Educational Game Platform",
 };
 
+
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,14 +35,14 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          <LanguageProvider>
-            <SocketProvider>
-              <SoundProvider>
-                {children}
-                <Toaster />
-              </SoundProvider>
-            </SocketProvider>
-          </LanguageProvider>
+            <LanguageProvider>
+              <SocketProvider>
+                <SoundProvider>
+                  {children}
+                  <Toaster />
+                </SoundProvider>
+              </SocketProvider>
+            </LanguageProvider>
         </AuthProvider>
       </body>
     </html>

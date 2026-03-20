@@ -114,12 +114,17 @@ export const translations = {
         buyItems: "Buy items",
         assignHomework: "Assign Homework",
         assignTasks: "Assign tasks",
+        gamePlay: "Game Play",
         viewReports: "View Reports",
         checkProgress: "Check progress",
         manageLibrary: "Manage your library",
         findPublicContent: "Find public content",
         collection: "Collection",
         preferences: "Preferences",
+        omrScanner: "OMR Scanner",
+        scanAnswers: "Scan answer sheets with your camera",
+        omrTemplates: "OMR Templates",
+        printAnswerSheets: "Create printable OMR sheets",
 
         // Teacher Dashboard
         activeClasses: "Active Classes",
@@ -246,7 +251,15 @@ export const translations = {
         selectedCount: "{count} Selected",
         giveFeedback: "Give Feedback",
         resetPointsConfirm: "Are you sure you want to reset all student points to 0? This cannot be undone.",
-        ideaBoard: "Idea Board"
+        ideaBoard: "Idea Board",
+        createFolder: "Create Folder",
+        enterFolderName: "Please enter a name for your new folder",
+        folderName: "Folder Name",
+        deleteFolderWarning: "Are you sure you want to delete this folder? All sets inside will be moved to the main library.",
+        items: "items",
+        moveToFolder: "Move to Folder",
+        moveToMain: "Move to Main Library",
+        selectFolder: "Select Folder"
     },
     th: {
         dashboard: "แผงควบคุม",
@@ -358,12 +371,17 @@ export const translations = {
         buyItems: "ซื้อไอเทม",
         assignHomework: "มอบหมายการบ้าน",
         assignTasks: "มอบหมายงาน",
+        gamePlay: "เริ่มเล่นเกม",
         viewReports: "ดูรายงานผล",
         checkProgress: "ตรวจสอบความคืบหน้า",
         manageLibrary: "จัดการคลังของคุณ",
         findPublicContent: "ค้นหาเนื้อหาสาธารณะ",
         collection: "ของสะสม",
         preferences: "การตั้งค่า",
+        omrScanner: "ตรวจข้อสอบ OMR",
+        scanAnswers: "สแกนกระดาษคำตอบด้วยกล้อง",
+        omrTemplates: "พิมพ์กระดาษคำตอบ",
+        printAnswerSheets: "สร้างและพิมพ์กระดาษคำตอบ OMR",
 
         // Teacher Dashboard
         activeClasses: "ชั้นเรียนที่ใช้งานอยู่",
@@ -490,6 +508,14 @@ export const translations = {
         selectedCount: "เลือก {count} คน",
         giveFeedback: "ให้คะแนน",
         resetPointsConfirm: "คุณแน่ใจหรือไม่ที่จะรีเซ็ตคะแนนนักเรียนทุกคนเป็น 0? การกระทำนี้ไม่สามารถย้อนกลับได้",
-        ideaBoard: "กระดานไอเดีย"
+        ideaBoard: "กระดานไอเดีย",
+        createFolder: "สร้างโฟลเดอร์",
+        enterFolderName: "กรุณาระบุชื่อโฟลเดอร์ใหม่",
+        folderName: "ชื่อโฟลเดอร์",
+        deleteFolderWarning: "คุณแน่ใจหรือไม่ว่าต้องการลบโฟลเดอร์นี้? ชุดคำถามทั้งหมดจะถูกย้ายออกมาด้านนอก",
+        items: "รายการ",
+        moveToFolder: "ย้ายไปที่โฟลเดอร์",
+        moveToMain: "ย้ายมาที่ห้องสมุดหลัก",
+        selectFolder: "เลือกโฟลเดอร์"
     }
 }

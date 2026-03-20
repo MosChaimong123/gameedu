@@ -66,7 +66,7 @@ export async function PATCH(
         const items: { id: string; order: number }[] = await req.json();
 
         await Promise.all(
-            items.map(item =>
+            items.map((item: any) =>
                 db.student.update({ where: { id: item.id }, data: { order: item.order } })
             )
         );

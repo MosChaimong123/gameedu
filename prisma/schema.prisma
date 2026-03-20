@@ -32,6 +32,17 @@ model User {
   boardPollVotes BoardPollVote[]
   notifications Notification[]
   questionSets  QuestionSet[]
+  folders       Folder[]
+  omrQuizzes    OMRQuiz[]   @relation("TeacherOMRQuizzes")
+
+  // User Preferences & Settings
+  settings      Json?     @default("{\"theme\":\"light\",\"sfxEnabled\":true,\"bgmEnabled\":true,\"language\":\"th\"}")
+
+  // Subscription System
+  plan          String?   @default("FREE")    // "FREE", "PLUS", "PRO"
+  planStatus    String?   @default("INACTIVE") // "ACTIVE", "EXPIRED", "INACTIVE"
+  planExpiry    DateTime?
+  customerId    String?   // Stripe/Payment Provider Customer ID
 }
 
 model Account {
@@ -117,6 +128,7 @@ model Classroom {
   studentGroups StudentGroup[]
   attendanceRecords AttendanceRecord[]
   boards      Board[]
+  omrQuizzes  OMRQuiz[]
   gamifiedSettings Json?   // Stores shop items, world boss status, etc.
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -139,6 +151,7 @@ model Student {
   submissions AssignmentSubmission[]
   attendanceRecords AttendanceRecord[]
   notifications Notification[]
+  omrResults    OMRResult[]
   boardPosts    BoardPost[]
   boardComments BoardComment[]
   boardReactions BoardReaction[]
@@ -443,8 +456,61 @@ model QuestionSet {
   coverImage  String?
   creatorId   String   @db.ObjectId
   creator     User     @relation(fields: [creatorId], references: [id])
+  folderId    String?  @db.ObjectId
+  folder      Folder?  @relation(fields: [folderId], references: [id])
   questions   Json     // Array of questions
   assignments Assignment[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model Folder {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  
+  creatorId   String   @db.ObjectId
+  creator     User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  
+  parentFolderId String? @db.ObjectId
+  // Note: Nested folders can be added later if needed by self-referencing
+  
+  questionSets QuestionSet[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model OMRQuiz {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  questionCount Int    @default(20)
+  answerKey   Json     // Map of question numbers to correct answers { "1": "A", "2": "B" ... }
+  
+  classId     String?  @db.ObjectId
+  classroom   Classroom? @relation(fields: [classId], references: [id])
+  
+  teacherId   String   @db.ObjectId
+  teacher     User     @relation("TeacherOMRQuizzes", fields: [teacherId], references: [id])
+  
+  results     OMRResult[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model OMRResult {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  quizId      String   @db.ObjectId
+  quiz        OMRQuiz  @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  
+  studentId   String?  @db.ObjectId
+  student     Student? @relation(fields: [studentId], references: [id])
+  
+  studentName String?  // Fallback for anonymous scanning
+  score       Int
+  total       Int
+  answers     Json     // The student's detected answers
+  
+  scannedAt   DateTime @default(now())
 }

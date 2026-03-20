@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Loader2, Plus, Save, Clock, Globe, Lock, PenSquare, FileText, Library, Image as ImageIcon } from "lucide-react"
+import { Loader2, Plus, Save, Clock, Globe, Lock, PenSquare, FileText, Library, Image as ImageIcon, Sparkles } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { SettingsDialog } from "@/components/set-editor/settings-dialog"
 import { QuestionList } from "@/components/set-editor/question-list"
 import { EditorDialog } from "@/components/set-editor/editor-dialog"
 import { ImportSpreadsheetDialog } from "@/components/set-editor/import-spreadsheet-dialog"
+import { AIGeneratorDialog } from "@/components/set-editor/ai-generator-dialog"
 
 // Types matching Prisma Schema
 // TODO: Move to a shared types file
@@ -46,7 +47,7 @@ export default function EditSetPage() {
     const [activeQuestion, setActiveQuestion] = useState<Question | null>(null)
     const [isQuestionDialogOpen, setIsQuestionDialogOpen] = useState(false)
     const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false)
-
+    const [isAIDialogOpen, setIsAIDialogOpen] = useState(false)
     const [isSpreadsheetOpen, setIsSpreadsheetOpen] = useState(false)
 
     const searchParams = useSearchParams()
@@ -135,7 +136,7 @@ export default function EditSetPage() {
         if (!set) return
 
         // Map imported questions to ensure they conform to our Question type
-        const newQuestions: Question[] = importedQuestions.map(q => ({
+        const newQuestions: Question[] = importedQuestions.map((q: any) => ({
             id: crypto.randomUUID(),
             question: q.question,
             image: null,
@@ -149,12 +150,8 @@ export default function EditSetPage() {
             // Default to TEXT for imported options for now
             optionTypes: ["TEXT", "TEXT", "TEXT", "TEXT"],
             questionType: q.questionType || "MULTIPLE_CHOICE",
-            // The importer puts the correct answer at index 0 in the 'answers' array if matched by column
-            // But our ImportDialog actually puts the correct answer in options[0] because of how we mapped it.
-            // Let's verify ImportLogic:
-            // "options": [row["Correct Answer"], row["Option 2"]...]
-            // So index 0 is always correct answer based on that implementation.
-            correctAnswer: 0
+            // Preserve correct answer if provided (e.g. from AI), otherwise default to 0 (for spreadsheet)
+            correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : 0
         }))
 
         setSet(prev => prev ? ({
@@ -166,7 +163,7 @@ export default function EditSetPage() {
     const deleteQuestion = (qId: string) => {
         if (!set) return
         if (!confirm(t("deleteConfirm"))) return
-        const updatedQuestions = set.questions.filter(q => q.id !== qId)
+        const updatedQuestions = set.questions.filter((q: any) => q.id !== qId)
         setSet({ ...set, questions: updatedQuestions })
     }
 
@@ -230,21 +227,28 @@ export default function EditSetPage() {
                     </Button>
 
                     {/* Import/Add Options Grid */}
-                    {/* Import/Add Options Grid */}
-                    <div className="grid grid-cols-2 gap-3 pt-6 border-t">
+                    <div className="grid grid-cols-2 gap-3 pt-6 border-t font-black">
                         <Button
-                            className="h-24 flex flex-col items-center justify-center bg-purple-600 hover:bg-purple-700 p-0 shadow-sm"
+                            className="h-24 flex flex-col items-center justify-center bg-purple-600 hover:bg-purple-700 p-0 shadow-lg shadow-purple-100 border-0 transition-all hover:scale-[1.02] active:scale-95 text-white"
                             onClick={addNewQuestion}
                         >
                             <Plus className="w-8 h-8 mb-1" />
-                            <span className="text-xs font-bold">{t("addQuestion")}</span>
+                            <span className="text-xs">{t("addQuestion")}</span>
                         </Button>
                         <Button
-                            className="h-24 flex flex-col items-center justify-center bg-emerald-600 hover:bg-emerald-700 p-0 shadow-sm"
+                            className="h-24 flex flex-col items-center justify-center bg-gradient-to-br from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 p-0 shadow-lg shadow-indigo-100 border-0 transition-all hover:scale-[1.02] active:scale-95 text-white"
+                            onClick={() => setIsAIDialogOpen(true)}
+                        >
+                            <Sparkles className="w-8 h-8 mb-1" />
+                            <span className="text-xs">สร้างด้วย AI ✨</span>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="h-14 col-span-2 flex items-center justify-center border-2 border-slate-200 hover:border-emerald-500 hover:text-emerald-600 font-bold mt-2"
                             onClick={() => setIsSpreadsheetOpen(true)}
                         >
-                            <FileText className="w-8 h-8 mb-1" />
-                            <span className="text-xs font-bold w-full px-1 text-center truncate">{t("spreadsheetImport")}</span>
+                            <FileText className="w-5 h-5 mr-2" />
+                            <span className="text-sm">{t("spreadsheetImport")}</span>
                         </Button>
                     </div>
                 </div>
@@ -292,6 +296,12 @@ export default function EditSetPage() {
             <ImportSpreadsheetDialog
                 open={isSpreadsheetOpen}
                 onOpenChange={setIsSpreadsheetOpen}
+                onImport={handleImportQuestions}
+            />
+
+            <AIGeneratorDialog
+                open={isAIDialogOpen}
+                onOpenChange={setIsAIDialogOpen}
                 onImport={handleImportQuestions}
             />
         </div>

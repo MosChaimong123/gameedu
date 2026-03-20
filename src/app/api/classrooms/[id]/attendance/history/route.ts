@@ -63,7 +63,7 @@ export async function GET(
         });
 
         // Group by date
-        const groupedRecords = records.reduce((acc: any, record) => {
+        const groupedRecords = records.reduce((acc: any, record: any) => {
             const dateStr = record.date.toISOString().split('T')[0];
             if (!acc[dateStr]) {
                 acc[dateStr] = [];

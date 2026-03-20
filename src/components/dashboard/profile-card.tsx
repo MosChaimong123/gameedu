@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Trophy, Star, Gamepad2, Layers, School, Building2 } from "lucide-react"
+import { Trophy, Star, Gamepad2, Layers, School, Building2, Library, Sparkles } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { useSession } from "next-auth/react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -79,14 +79,14 @@ export function ProfileCard({ role }: { role?: string }) {
     const progress = (USER_STATS.currentXp / USER_STATS.nextLevelXp) * 100
 
     return (
-        <Card className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden group">
+        <Card className="border-none shadow-xl bg-card rounded-[2rem] overflow-hidden group">
             {/* Header / Banner */}
             <div className={`h-32 bg-gradient-to-br ${isStudent ? "from-pink-500 via-rose-500 to-orange-400" : "from-indigo-600 via-purple-600 to-fuchsia-500"} relative`}>
                 <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity">
                     <Trophy className="w-20 h-20 text-white transform rotate-12" />
                 </div>
                 
-                <div className="absolute -bottom-12 left-8 h-24 w-24 rounded-[2rem] border-4 border-white bg-white shadow-2xl overflow-hidden ring-4 ring-slate-50/50">
+                <div className="absolute -bottom-12 left-8 h-24 w-24 rounded-[2rem] border-4 border-card bg-card shadow-2xl overflow-hidden ring-4 ring-muted/50">
                     <Avatar className="h-full w-full rounded-none">
                         <AvatarImage src={userImage} />
                         <AvatarFallback className="bg-slate-100 text-slate-400 text-2xl font-black">
@@ -99,7 +99,7 @@ export function ProfileCard({ role }: { role?: string }) {
             <CardHeader className="pt-16 pb-4 px-8">
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
-                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">{userName}</h2>
+                        <h2 className="text-2xl font-black text-foreground tracking-tight">{userName}</h2>
                         <div className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white ${isStudent ? "bg-pink-500" : "bg-indigo-600"}`}>
                             {isStudent ? "Student" : "Teacher"}
                         </div>
@@ -112,7 +112,7 @@ export function ProfileCard({ role }: { role?: string }) {
                                 </DialogTrigger>
                                 <DialogContent className="sm:max-w-[425px] rounded-[2rem] border-0 shadow-2xl">
                                     <DialogHeader>
-                                        <DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                                        <DialogTitle className="text-2xl font-black text-foreground flex items-center gap-2">
                                             <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
                                                 <Edit2 className="w-5 h-5 text-indigo-600" />
                                             </div>
@@ -186,19 +186,19 @@ export function ProfileCard({ role }: { role?: string }) {
 
                 {/* Grid Stats */}
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 transition-all hover:bg-white hover:shadow-md hover:border-slate-200">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center mb-2">
-                             <Layers className="w-4 h-4 text-indigo-500" />
+                    <div className="bg-muted/50 p-4 rounded-2xl border border-border transition-all hover:bg-card hover:shadow-md">
+                        <div className="flex items-center gap-2 text-indigo-500 mb-1">
+                            <Library className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">{t("myQuestionSets")}</span>
                         </div>
-                        <div className="text-xl font-black text-slate-800">{USER_STATS.totalSets}</div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{t("createdSets") || "Sets Created"}</div>
+                        <div className="text-xl font-black text-foreground">{USER_STATS.totalSets}</div>
                     </div>
-                    <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 transition-all hover:bg-white hover:shadow-md hover:border-slate-200">
-                        <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center mb-2">
-                             <Gamepad2 className="w-4 h-4 text-orange-500" />
+                    <div className="bg-muted/50 p-4 rounded-2xl border border-border transition-all hover:bg-card hover:shadow-md">
+                        <div className="flex items-center gap-2 text-emerald-500 mb-1">
+                            <Gamepad2 className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">{t("totalGamesPlayed")}</span>
                         </div>
-                        <div className="text-xl font-black text-slate-800">{USER_STATS.totalGames}</div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{isStudent ? (t("gamesPlayed") || "Games Played") : (t("gamesHosted") || "Games Hosted")}</div>
+                        <div className="text-xl font-black text-foreground">{USER_STATS.totalGames}</div>
                     </div>
                 </div>
             </CardContent>

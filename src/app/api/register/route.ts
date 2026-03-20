@@ -52,7 +52,7 @@ export async function POST(req: Request) {
         console.error(`[REGISTER_ERROR] Step: ${step}`, error)
 
         if (error instanceof z.ZodError) {
-            const errors = error.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join(', ')
+            const errors = error.issues.map((issue: any) => `${issue.path.join('.')}: ${issue.message}`).join(', ')
             return new NextResponse(`Invalid data: ${errors}`, { status: 400 })
         }
 

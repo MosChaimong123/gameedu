@@ -41,16 +41,11 @@ export default async function MyClassroomsPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {classrooms.map((c) => (
+                    {classrooms.map((c: any) => (
                         <ClassroomCard
                             key={c.id}
-                            id={c.id}
-                            name={c.name}
-                            grade={c.grade}
+                            classroom={c as any}
                             studentCount={c._count.students}
-                            emoji={c.emoji}
-                            theme={c.theme}
-                            image={c.image || undefined}
                         />
                     ))}
                 </div>

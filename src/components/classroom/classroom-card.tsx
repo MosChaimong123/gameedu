@@ -1,25 +1,42 @@
 "use client";
 
+import { useState } from "react";
 import { Users, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { Classroom } from "@prisma/client";
 import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
+import { ClassroomManagementButton } from "./classroom-management-button";
+import { ClassroomDuplicateButton } from "./classroom-duplicate-button";
+import { ClassroomSettingsDialog } from "./classroom-settings-dialog";
 
 interface ClassroomCardProps {
-    id: string;
-    name: string;
-    grade: string | null;
-    studentCount: number;
-    emoji?: string | null;
-    theme?: string | null;
-    image?: string | null;
+    classroom: Classroom & { _count?: { students: number } };
+    studentCount?: number;
 }
 
-export function ClassroomCard({ id, name, grade, studentCount, emoji, theme, image }: ClassroomCardProps) {
+export function ClassroomCard({ classroom, studentCount }: ClassroomCardProps) {
+    const { id, name, grade, emoji, theme, image } = classroom;
+    const count = studentCount ?? classroom._count?.students ?? 0;
     const icon = emoji || image || "🛡️";
 
     return (
-        <Link href={`/dashboard/classrooms/${id}`} className="group block">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-pointer">
+        <div className="group relative">
+            {/* Action Buttons */}
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+                <ClassroomSettingsDialog classroom={classroom} />
+                <ClassroomDuplicateButton
+                    classId={id}
+                    name={name}
+                />
+                <ClassroomManagementButton
+                    classId={id}
+                    name={name}
+                    theme={theme}
+                />
+            </div>
+
+            <Link href={`/dashboard/classrooms/${id}`} className="block">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-pointer">
 
                 {/* Colour banner */}
                 <div 
@@ -38,10 +55,10 @@ export function ClassroomCard({ id, name, grade, studentCount, emoji, theme, ima
                         </div>
                     )}
 
-                    {/* Student count badge top-right */}
-                    <div className="absolute top-3 right-3 bg-black/20 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
+                    {/* Student count badge top-left */}
+                    <div className="absolute top-3 left-3 bg-black/20 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
                         <Users className="w-3 h-3" />
-                        {studentCount}
+                        {count}
                     </div>
                 </div>
 
@@ -71,7 +88,8 @@ export function ClassroomCard({ id, name, grade, studentCount, emoji, theme, ima
                         เปิดห้องเรียน <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </div>
                 </div>
-            </div>
-        </Link>
+                </div>
+            </Link>
+        </div>
     );
 }

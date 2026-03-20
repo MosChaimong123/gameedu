@@ -109,9 +109,9 @@ export async function GET(
         return NextResponse.json({
             summary,
             recentHistory: recentHistory.slice(0, 100),
-            studentStats: classroom.students.map(s => {
-                const pos = s.history.filter(h => h.value > 0).reduce((sum, h) => sum + h.value, 0);
-                const neg = Math.abs(s.history.filter(h => h.value < 0).reduce((sum, h) => sum + h.value, 0));
+            studentStats: classroom.students.map((s: any) => {
+                const pos = s.history.filter((h: any) => h.value > 0).reduce((sum: number, h: any) => sum + h.value, 0);
+                const neg = Math.abs(s.history.filter((h: any) => h.value < 0).reduce((sum: number, h: any) => sum + h.value, 0));
                 const att = s.attendance || 'PRESENT';
                 if (att in attendanceSummary) attendanceSummary[att as keyof typeof attendanceSummary]++;
                 return {
@@ -129,7 +129,7 @@ export async function GET(
                 { name: 'สาย', value: attendanceSummary.LATE, fill: '#f59e0b' },
                 { name: 'ขาดเรียน', value: attendanceSummary.ABSENT, fill: '#ef4444' },
                 { name: 'ออกก่อน', value: attendanceSummary.LEFT_EARLY, fill: '#f97316' },
-            ].filter(e => e.value > 0),
+            ].filter((e: any) => e.value > 0),
             growthData,
             skillDistribution
         });

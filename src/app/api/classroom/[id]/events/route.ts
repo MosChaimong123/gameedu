@@ -32,7 +32,7 @@ export async function GET(
     const now = new Date();
     
     // Mark which events are currently active
-    const withActive = events.map(e => ({
+    const withActive = events.map((e: any) => ({
       ...e,
       active: new Date(e.startAt) <= now && new Date(e.endAt) >= now
     }));

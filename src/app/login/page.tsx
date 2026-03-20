@@ -32,7 +32,7 @@ export default function LoginPage() {
                         { icon: "🏆", text: "ระบบคะแนนและยศ" },
                         { icon: "📊", text: "รายงานผลแบบ real-time" },
                         { icon: "🎮", text: "เกมการเรียนรู้ที่สนุก" },
-                    ].map(item => (
+                    ].map((item: any) => (
                         <div key={item.text} className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-3 border border-white/20">
                             <span className="text-2xl">{item.icon}</span>
                             <span className="text-white font-semibold">{item.text}</span>

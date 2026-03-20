@@ -47,7 +47,7 @@ export async function PATCH(
 
         const { id } = await params
         const body = await req.json()
-        const { title, description, questions, isPublic, coverImage } = body
+        const { title, description, questions, isPublic, coverImage, folderId } = body
 
         // Check ownership
         const existingSet = await db.questionSet.findUnique({
@@ -71,6 +71,7 @@ export async function PATCH(
                 questions,
                 isPublic,
                 coverImage,
+                folderId,
             },
         })
 

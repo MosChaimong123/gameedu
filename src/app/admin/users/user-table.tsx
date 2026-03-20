@@ -38,7 +38,7 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
     const [isPending, setIsPending] = React.useState<string | null>(null);
     const { toast } = useToast();
 
-    const filteredUsers = users.filter(user => 
+    const filteredUsers = users.filter((user: any) => 
         (user.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
          user.email?.toLowerCase().includes(searchTerm.toLowerCase()))
     );
@@ -49,7 +49,7 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
         setIsPending(null);
         
         if (result.success) {
-            setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+            setUsers(prev => prev.map((u: any) => u.id === userId ? { ...u, role: newRole } : u));
             toast({ title: "บทบาทถูกเปลี่ยนแล้ว", description: `เปลี่ยนเป็น ${newRole} สำเร็จ` });
         } else {
             toast({ title: "เกิดข้อผิดพลาด", description: result.error, variant: "destructive" });
@@ -64,7 +64,7 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
         setIsPending(null);
 
         if (result.success) {
-            setUsers(prev => prev.filter(u => u.id !== userId));
+            setUsers(prev => prev.filter((u: any) => u.id !== userId));
             toast({ title: "ลบผู้ใช้แล้ว", description: "ลบผู้ใช้สำเร็จ" });
         } else {
             toast({ title: "เกิดข้อผิดพลาด", description: result.error, variant: "destructive" });
@@ -105,7 +105,7 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filteredUsers.map(user => (
+                            {filteredUsers.map((user: any) => (
                                 <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">

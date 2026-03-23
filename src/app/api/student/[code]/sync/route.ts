@@ -93,17 +93,28 @@ export async function POST(
 
     const verifiedGold = Math.min(clientGold, maxAllowedGold);
 
-    // 5. Update the database atomically
+    // 5. XP and Level-Up Sync
+    const currentStats = IdleEngine.parseGameStats(student.gameStats);
+    console.log(`[SYNC_DEBUG] Student:${student.code}, Level:${currentStats.level}, XP:${currentStats.xp}`);
+    const xpSync = IdleEngine.calculateXpGain(currentStats, 0);
+    
+    if (xpSync.leveledUp) {
+      console.log(`[SYNC_DEBUG] LEVEL UP DETECTED for ${student.code}: ${currentStats.level} -> ${xpSync.level}`);
+    }
+
+    // 6. Update the database atomically
     const updatedStudent = await db.student.update({
       where: { id: student.id },
       data: {
-        gameStats: {
-          ...(student.gameStats as Record<string, any> || {}),
-          gold: verifiedGold,
-        },
         stamina,
         mana,
-        lastStaminaRefill: isNewDay ? now : (student.lastStaminaRefill || now),
+        lastStaminaRefill: isNewDay ? now : student.lastStaminaRefill,
+        gameStats: {
+          ...currentStats,
+          gold: verifiedGold,
+          level: xpSync.level,
+          xp: xpSync.xp
+        } as any,
         lastSyncTime: now,
       },
     });

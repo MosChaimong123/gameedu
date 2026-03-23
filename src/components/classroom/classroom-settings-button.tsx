@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Classroom } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
-import { ClassroomBasicSettingsDialog } from "./classroom-basic-settings-dialog";
+import { ClassroomSettingsDialog } from "./classroom-settings-dialog";
 
 interface ClassroomSettingsButtonProps {
   classroom: Classroom;
@@ -29,7 +29,7 @@ export function ClassroomSettingsButton({
         <Settings className="w-4 h-4 text-blue-600" />
       </Button>
       
-      <ClassroomBasicSettingsDialog
+      <ClassroomSettingsDialog
         classroom={classroom}
         open={dialogOpen}
         onOpenChange={setDialogOpen}

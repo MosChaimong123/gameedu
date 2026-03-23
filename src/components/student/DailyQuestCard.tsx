@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle, Circle, Clock, Coins } from "lucide-react";
+import { CheckCircle, Circle, Clock, Coins, RefreshCw } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -24,11 +24,23 @@ interface DailyQuestCardProps {
 export function DailyQuestCard({ code, onGoldEarned }: DailyQuestCardProps) {
   const [quests, setQuests] = useState<DailyQuest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [claiming, setClaiming] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Time until midnight reset
   const [timeLeft, setTimeLeft] = useState("");
+
+  const refetchQuests = async () => {
+    setIsRefreshing(true);
+    try {
+      const r = await fetch(`/api/student/${code}/daily-quests`);
+      const data = await r.json();
+      setQuests(data.quests || []);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     fetch(`/api/student/${code}/daily-quests`)
@@ -113,9 +125,20 @@ export function DailyQuestCard({ code, onGoldEarned }: DailyQuestCardProps) {
           </h3>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Daily Quests — {completedCount}/{quests.length} สำเร็จ</p>
         </div>
-        <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl shrink-0">
-          <Clock className="w-3.5 h-3.5 text-slate-500" />
-          <span className="text-xs font-black text-slate-600 tabular-nums">{timeLeft}</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => refetchQuests()}
+            disabled={isRefreshing}
+            className="h-7 w-7 p-0 text-slate-500 hover:text-slate-700"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+          </Button>
+          <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl">
+            <Clock className="w-3.5 h-3.5 text-slate-500" />
+            <span className="text-xs font-black text-slate-600 tabular-nums">{timeLeft}</span>
+          </div>
         </div>
       </div>
 

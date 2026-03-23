@@ -9,10 +9,15 @@
         "target": "es2019",
         "moduleResolution": "node",
         "skipLibCheck": true,
-        "esModuleInterop": true, // Important for node imports
-        "noEmit": false
+        "esModuleInterop": true,
+        "noEmit": false,
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["./src/*"]
+        }
     },
     "include": [
-        "server.ts"
+        "server.ts",
+        "src/**/*.ts"
     ]
 }

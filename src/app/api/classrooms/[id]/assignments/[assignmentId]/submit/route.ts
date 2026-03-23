@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { IdleEngine } from "@/lib/game/idle-engine";
+import {
+  getNewlyUnlockedSkills,
+  resolveEffectiveJobKey,
+} from "@/lib/game/job-system";
 
 export async function POST(
     req: Request,
@@ -18,10 +22,14 @@ export async function POST(
         // Look up student by loginCode in this classroom
         const student = await db.student.findFirst({
             where: { loginCode: studentCode.toUpperCase(), classId: id },
-            select: { 
+            select: {
                 id: true,
                 points: true,
                 gameStats: true,
+                jobClass: true,
+                jobTier: true,
+                advanceClass: true,
+                jobSkills: true,
                 items: {
                     where: { isEquipped: true },
                     include: { item: true }
@@ -83,6 +91,26 @@ export async function POST(
         const currentGameStats = (student.gameStats as any) || IdleEngine.getDefaultStats();
         const xpResult = IdleEngine.calculateXpGain(currentGameStats, xpGain);
 
+        // Check for newly unlocked skills on level-up (Req 11.6)
+        let updatedJobSkills: string[] | undefined;
+        if (xpResult.leveledUp && student.jobClass) {
+            const currentSkillIds = (student.jobSkills as string[]) ?? [];
+            const eff = resolveEffectiveJobKey({
+                jobClass: student.jobClass,
+                jobTier: student.jobTier,
+                advanceClass: student.advanceClass,
+            });
+            const newSkills = getNewlyUnlockedSkills(
+                eff,
+                currentGameStats.level,
+                xpResult.level,
+                currentSkillIds
+            );
+            if (newSkills.length > 0) {
+                updatedJobSkills = [...currentSkillIds, ...newSkills];
+            }
+        }
+
         await db.student.update({
             where: { id: student.id },
             data: {
@@ -90,7 +118,8 @@ export async function POST(
                     ...currentGameStats,
                     level: xpResult.level,
                     xp: xpResult.xp
-                } as any
+                } as any,
+                ...(updatedJobSkills ? { jobSkills: updatedJobSkills } : {})
             }
         });
 

@@ -10,7 +10,7 @@ export function TranslatedTabsTriggers() {
             <TabsTrigger value="classroom" suppressHydrationWarning>{t("classroomOverview") || "Classroom"}</TabsTrigger>
             <TabsTrigger value="attendance" suppressHydrationWarning>{t("attendanceHistory") || "Attendance"}</TabsTrigger>
             <TabsTrigger value="board" suppressHydrationWarning>{t("ideaBoard") || "Idea Board"}</TabsTrigger>
-            <TabsTrigger value="reports" suppressHydrationWarning>{t("reports") || "Reports"}</TabsTrigger>
+            <TabsTrigger value="analytics" suppressHydrationWarning>{t("analytics") || "Analytics"}</TabsTrigger>
         </>
     );
 }

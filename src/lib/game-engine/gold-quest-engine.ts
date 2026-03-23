@@ -133,6 +133,11 @@ export class GoldQuestEngine extends AbstractGameEngine {
 
         const player = this.getPlayer(socket.id);
         if (player) {
+            // Initialize responses if not exists
+            if (!player.responses) player.responses = {};
+            // Record the response (using questionId as key for robustness)
+            player.responses[questionId] = isCorrect;
+
             if (isCorrect) {
                 player.correctAnswers = (player.correctAnswers || 0) + 1;
             } else {

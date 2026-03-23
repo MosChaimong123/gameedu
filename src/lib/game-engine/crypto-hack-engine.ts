@@ -204,6 +204,11 @@ export class CryptoHackEngine extends AbstractGameEngine {
         if (!question) return;
 
         const isCorrect = question.correctAnswer === answerIndex;
+        
+        // Initialize responses if not exists
+        if (!player.responses) player.responses = {};
+        // Record the response (using questionId as key for robustness)
+        player.responses[questionId] = isCorrect;
 
         if (isCorrect) {
             player.correctAnswers = (player.correctAnswers || 0) + 1;

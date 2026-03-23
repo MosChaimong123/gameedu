@@ -45,7 +45,7 @@ export function CustomAchievementManager({ classId, students }: CustomAchievemen
   const [selectedStudentId, setSelectedStudentId] = useState("");
 
   const loadAchievements = async () => {
-    const res = await fetch(`/api/classroom/${classId}/custom-achievements`);
+    const res = await fetch(`/api/classrooms/${classId}/custom-achievements`);
     const data = await res.json();
     setAchievements(Array.isArray(data) ? data : []);
     setLoading(false);
@@ -57,7 +57,7 @@ export function CustomAchievementManager({ classId, students }: CustomAchievemen
     if (!form.name.trim()) return;
     setCreating(true);
     try {
-      const res = await fetch(`/api/classroom/${classId}/custom-achievements`, {
+      const res = await fetch(`/api/classrooms/${classId}/custom-achievements`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -81,7 +81,7 @@ export function CustomAchievementManager({ classId, students }: CustomAchievemen
 
   const handleDelete = async (achievementId: string) => {
     if (!confirm("ต้องการลบรางวัลนี้หรือไม่?")) return;
-    await fetch(`/api/classroom/${classId}/custom-achievements`, {
+    await fetch(`/api/classrooms/${classId}/custom-achievements`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ achievementId })
@@ -96,7 +96,7 @@ export function CustomAchievementManager({ classId, students }: CustomAchievemen
     }
     setAwardingId(achievementId);
     try {
-      const res = await fetch(`/api/classroom/${classId}/custom-achievements/award`, {
+      const res = await fetch(`/api/classrooms/${classId}/custom-achievements/award`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ achievementId, studentId: selectedStudentId })

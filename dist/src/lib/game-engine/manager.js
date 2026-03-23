@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.gameManager = void 0;
 const gold_quest_engine_1 = require("./gold-quest-engine");
 const crypto_hack_engine_1 = require("./crypto-hack-engine");
+const battle_turn_engine_1 = require("./battle-turn-engine");
 const db_1 = require("../db");
 class GameManager {
     constructor() {
@@ -23,6 +24,9 @@ class GameManager {
         }
         else if (mode === "CRYPTO_HACK") {
             game = new crypto_hack_engine_1.CryptoHackEngine(pin, hostId, setId, settings, questions, io);
+        }
+        else if (mode === "BATTLE_TURN") {
+            game = new battle_turn_engine_1.BattleTurnEngine(pin, hostId, setId, settings, questions, io);
         }
         else {
             // Default fallback
@@ -63,6 +67,7 @@ class GameManager {
             await db_1.db.gameHistory.create({
                 data: {
                     hostId: game.hostId,
+                    setId: game.setId,
                     gameMode: game.gameMode,
                     pin: game.pin,
                     startedAt: new Date(game.startTime),
@@ -124,6 +129,9 @@ class GameManager {
                 let game;
                 if (record.gameMode === "CRYPTO_HACK") {
                     game = new crypto_hack_engine_1.CryptoHackEngine(record.pin, record.hostId, "", record.settings, record.questions, null);
+                }
+                else if (record.gameMode === "BATTLE_TURN") {
+                    game = new battle_turn_engine_1.BattleTurnEngine(record.pin, record.hostId, "", record.settings, record.questions, null);
                 }
                 else {
                     // Default to Gold Quest

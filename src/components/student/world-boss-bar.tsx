@@ -23,9 +23,12 @@ interface WorldBossBarProps {
 import { useState } from "react";
 import { Zap, Target } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useSocket } from "@/components/providers/socket-provider";
 
 export function WorldBossBar({ boss, studentId, stamina = 0, classId, onAttackSuccess }: WorldBossBarProps) {
+    const { socket } = useSocket();
     const [isAttacking, setIsAttacking] = useState(false);
+    const [damageLog, setDamageLog] = useState<{ damage: number; isCrit: boolean; time: Date }[]>([]);
     const { toast } = useToast();
 
     if (!boss || !boss.active) return null;
@@ -39,10 +42,23 @@ export function WorldBossBar({ boss, studentId, stamina = 0, classId, onAttackSu
             const data = await res.json();
 
             if (data.success) {
+                // Emit Socket event to update HP for everyone
+                if (data.boss) {
+                    socket?.emit("classroom-update", {
+                        classId,
+                        type: "BOSS_HP_UPDATE",
+                        currentHp: data.boss.currentHp
+                    });
+                }
+
                 toast({
                     title: data.isCrit ? "⚡ CRITICAL HIT!" : "⚔️ Attack Successful!",
                     description: `คุณทำความเสียหาย ${data.damage.toLocaleString()} HP! ${data.isCrit ? "(x2 Damage)" : ""}`,
                 });
+                setDamageLog(prev => [
+                    { damage: data.damage, isCrit: data.isCrit, time: new Date() },
+                    ...prev,
+                ].slice(0, 5));
                 if (onAttackSuccess) onAttackSuccess(data);
             } else {
                 toast({
@@ -181,6 +197,28 @@ export function WorldBossBar({ boss, studentId, stamina = 0, classId, onAttackSu
                             </div>
                         </div>
 
+                        {/* Damage Log */}
+                        {damageLog.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                                {damageLog.slice(0, 3).map((entry, i) => (
+                                    <div
+                                        key={i}
+                                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black border ${
+                                            entry.isCrit
+                                                ? 'bg-amber-50 border-amber-200 text-amber-700'
+                                                : 'bg-rose-50 border-rose-200 text-rose-700'
+                                        }`}
+                                    >
+                                        <Sword className="w-3 h-3" />
+                                        <span>{entry.isCrit ? '⚡' : '⚔️'} {entry.damage.toLocaleString()}</span>
+                                        <span className="text-[9px] font-medium opacity-60">
+                                            {entry.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
                         {/* Call to Action & Attack Button */}
                         <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
                             <div className="flex items-center gap-3">
@@ -196,7 +234,7 @@ export function WorldBossBar({ boss, studentId, stamina = 0, classId, onAttackSu
                             <div className="flex items-center gap-3">
                                 <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-colors ${stamina > 0 ? 'bg-amber-50 border-amber-200' : 'bg-slate-100 border-slate-200 opacity-60'}`}>
                                     <Zap className={`w-3.5 h-3.5 ${stamina > 0 ? 'text-amber-500 fill-amber-500' : 'text-slate-400'}`} />
-                                    <span className={`text-xs font-black ${stamina > 0 ? 'text-amber-700' : 'text-slate-400'}`}>{stamina} Energy</span>
+                                    <span className={`text-xs font-black ${stamina > 0 ? 'text-amber-700' : 'text-slate-400'}`}>{stamina} Stamina</span>
                                 </div>
 
                                 <motion.button

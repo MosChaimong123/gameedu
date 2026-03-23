@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Trophy, Lock, Star } from "lucide-react";
+import { Trophy, Lock, Star, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/GlassCard";
 
 interface Achievement {
@@ -19,10 +20,13 @@ interface Achievement {
 export function AchievementsTab({ code, classId }: { code: string; classId?: string }) {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [newUnlocks, setNewUnlocks] = useState<Achievement[]>([]);
 
-  useEffect(() => {
-    const init = async () => {
+  const fetchAchievements = async (isRefresh = false) => {
+    if (isRefresh) setIsRefreshing(true);
+    else setLoading(true);
+    try {
       // 1. Trigger check for new system achievements
       await fetch(`/api/student/${code}/achievements`, { method: "POST" });
       // 2. Load all system achievements
@@ -58,9 +62,14 @@ export function AchievementsTab({ code, classId }: { code: string; classId?: str
       }
 
       setAchievements(allAchievements);
-      setLoading(false);
-    };
-    init();
+    } finally {
+      if (isRefresh) setIsRefreshing(false);
+      else setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAchievements();
   }, [code, classId]);
 
   const unlocked = achievements.filter(a => a.unlocked);
@@ -84,9 +93,20 @@ export function AchievementsTab({ code, classId }: { code: string; classId?: str
           <h2 className="text-2xl font-black text-slate-800 tracking-tight">ความสำเร็จ</h2>
           <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Achievements & Badges</p>
         </div>
-        <div className="bg-amber-100/60 border border-amber-200 px-4 py-2 rounded-2xl flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-amber-600" />
-          <span className="font-black text-amber-700">{unlocked.length}/{achievements.length}</span>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => fetchAchievements(true)}
+            disabled={isRefreshing}
+            className="h-7 w-7 p-0 text-slate-500 hover:text-slate-700"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+          </Button>
+          <div className="bg-amber-100/60 border border-amber-200 px-4 py-2 rounded-2xl flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-amber-600" />
+            <span className="font-black text-amber-700">{unlocked.length}/{achievements.length}</span>
+          </div>
         </div>
       </div>
 

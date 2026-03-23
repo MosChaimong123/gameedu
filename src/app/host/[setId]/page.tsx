@@ -10,6 +10,7 @@ import { Users, Copy, Loader2, Play } from "lucide-react"
 import { GameModeSelector } from "@/components/host/game-mode-selector"
 import { GoldQuestSettings } from "@/components/host/settings/gold-quest-settings"
 import { CryptoHackSettings } from "@/components/host/settings/crypto-hack-settings"
+import { BattleTurnSettings } from "@/components/host/settings/battle-turn-settings"
 import { GoldQuestHostView } from "@/components/game/gold-quest/host-view"
 import { CryptoHackHostView } from "@/components/game/crypto-hack/host-view"
 import { GoldQuestPlayer, CryptoHackPlayer, GameSettings } from "@/lib/types/game"
@@ -32,7 +33,7 @@ export default function HostLobbyPage() {
     const [view, setView] = useState<"SELECT_MODE" | "SETTINGS" | "LOBBY" | "PLAYING" | "ENDED">("SELECT_MODE")
     const [gameEvents, setGameEvents] = useState<any[]>([])
     const [gameSettings, setGameSettings] = useState<GameSettings | null>(null)
-    const [selectedMode, setSelectedMode] = useState<"GOLD_QUEST" | "CRYPTO_HACK">("GOLD_QUEST")
+    const [selectedMode, setSelectedMode] = useState<"GOLD_QUEST" | "CRYPTO_HACK" | "BATTLE_TURN">("GOLD_QUEST")
 
     // Timer State
     const [timeLeft, setTimeLeft] = useState(0)
@@ -188,8 +189,10 @@ export default function HostLobbyPage() {
         } else if (modeId === "crypto-hack") {
             setSelectedMode("CRYPTO_HACK");
             setView("SETTINGS");
+        } else if (modeId === "battle-turn") {
+            setSelectedMode("BATTLE_TURN");
+            setView("SETTINGS");
         }
-        // Handle other modes later
     }
 
     const handleHostGame = (settings: GameSettings) => {
@@ -236,6 +239,14 @@ export default function HostLobbyPage() {
                 </>
             )
         }
+        if (selectedMode === "BATTLE_TURN") {
+            return (
+                <>
+                    <SoundController className="fixed top-4 right-4" />
+                    <BattleTurnSettings onHost={handleHostGame} onBack={() => setView("SELECT_MODE")} />
+                </>
+            )
+        }
         return (
             <>
                 <SoundController className="fixed top-4 right-4" />
@@ -266,6 +277,32 @@ export default function HostLobbyPage() {
                     pin={pin || ""}
                 />
             </>
+        }
+        if (selectedMode === "BATTLE_TURN") {
+            return (
+                <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center gap-6 p-8">
+                    <SoundController className="fixed top-6 right-6 z-[60]" />
+                    <h1 className="text-4xl font-black text-red-400">Battle RPG — In Progress</h1>
+                    <p className="text-slate-400 text-lg">PIN: <span className="font-bold text-white">{pin}</span></p>
+                    <p className="text-slate-500">Players are battling at <span className="text-purple-400">/game/battle/{pin}</span></p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-3xl">
+                        {players.map((p: any) => (
+                            <div key={p.id} className="bg-slate-800 rounded-xl p-4 text-center border border-slate-700">
+                                <div className="font-bold text-white truncate">{p.name}</div>
+                                {p.hp !== undefined && (
+                                    <div className="text-sm text-red-400 mt-1">HP: {p.hp}/{p.maxHp}</div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    <button
+                        onClick={handleEndGame}
+                        className="mt-4 bg-red-700 hover:bg-red-800 text-white font-bold px-8 py-4 rounded-xl transition-colors"
+                    >
+                        End Battle
+                    </button>
+                </div>
+            )
         }
         return <>
             <SoundController className="fixed bottom-6 left-6 z-[60]" />

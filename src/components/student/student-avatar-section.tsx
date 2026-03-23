@@ -4,11 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { Star, Camera, Zap, Heart, Shield, Trophy, Sword, Coins } from "lucide-react";
 import { AvatarPickerModal } from "./avatar-picker-modal";
-import { type RankEntry, getNextRankProgress } from "@/lib/classroom-utils";
+import { type RankEntry, getNextRankProgress, formatAmount } from "@/lib/classroom-utils";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { StatProgress } from "./StatProgress";
 import { motion, AnimatePresence } from "framer-motion";
 import { IdleEngine, type GameStats } from "@/lib/game/idle-engine";
+import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/providers/language-provider";
 import { useToast } from "@/components/ui/use-toast";
 
 interface StudentAvatarSectionProps {
@@ -31,6 +33,9 @@ interface StudentAvatarSectionProps {
     stamina?: number;
     maxStamina?: number;
     mana?: number;
+    jobClass?: string | null;
+    jobTier?: string;
+    advanceClass?: string | null;
     lastSyncTime?: any;
     onUpdateStudent?: (data: any) => void;
 }
@@ -42,11 +47,15 @@ export function StudentAvatarSection({
     themeClass, themeStyle, levelConfig,
     gameStats, items = [],
     stamina = 3, maxStamina = 3, mana = 50,
+    jobClass = null,
+    jobTier = "BASE",
+    advanceClass = null,
     lastSyncTime,
     onUpdateStudent
 }: StudentAvatarSectionProps) {
     const [avatar, setAvatar] = useState(initialAvatar);
     const [showPicker, setShowPicker] = useState(false);
+    const { t } = useLanguage();
     const { toast } = useToast();
     
     // Live Gold State
@@ -67,17 +76,14 @@ export function StudentAvatarSection({
                 })
             });
             
-            if (!res.ok) {
-                const text = await res.text();
-                // console.error(`Sync Gold failed for ${loginCode}: HTTP ${res.status} ${text}`);
-            } else {
+            if (res.ok) {
                 const data = await res.json();
                 lastSyncRef.current = new Date(data.lastSyncTime);
                 
                 if (data.newlyUnlocked && data.newlyUnlocked.length > 0) {
                     data.newlyUnlocked.forEach((a: any) => {
                         toast({
-                            title: `🏆 ปลดล็อก Achievement!`,
+                            title: `🏆 Achievements Unlocked!`,
                             description: `${a.icon} ${a.name} (+${a.goldReward} Gold)`,
                             variant: "default",
                         });
@@ -94,7 +100,7 @@ export function StudentAvatarSection({
                 }
             }
         } catch (err) {
-            // console.error(`Network error during gold sync for ${loginCode}:`, err);
+            console.error("Sync error", err);
         }
     };
 
@@ -126,12 +132,10 @@ export function StudentAvatarSection({
         const interval = setInterval(() => {
             const now = Date.now();
             const elapsedSeconds = (now - startTime) / 1000;
-            const fullMinutesPassed = Math.floor(elapsedSeconds / 60);
-            
-            const liveGold = startGold + (fullMinutesPassed * (goldRateRef.current * 60));
+            const liveGold = startGold + (elapsedSeconds * goldRateRef.current);
             setDisplayGold(liveGold);
-            goldValueRef.current = startGold + (elapsedSeconds * goldRateRef.current);
-        }, 1000);
+            goldValueRef.current = liveGold;
+        }, 50); // High frequency for smooth ticking
 
         const syncInterval = setInterval(() => {
             syncGold(goldValueRef.current);
@@ -143,255 +147,282 @@ export function StudentAvatarSection({
         };
     }, [gameStats, lastSyncTime, points, loginCode, items]);
 
-    useEffect(() => {
-        return () => {
-            if (goldValueRef.current > 0) {
-                syncGold(goldValueRef.current);
-            }
-        };
-    }, []); 
-
     const rankProgress = getNextRankProgress(points, levelConfig);
-    const stats = gameStats as any;
-    const charStats = IdleEngine.calculateCharacterStats(points, items, stats?.level || 1);
+    const charStats = IdleEngine.calculateCharacterStats(
+        points,
+        items,
+        (gameStats as any)?.level || 1,
+        jobClass,
+        jobTier,
+        advanceClass
+    );
+
+    const jobBadgeLabel =
+        jobTier !== "BASE" && advanceClass ? advanceClass : jobClass;
 
     return (
-        <>
-            <GlassCard className="h-full" hover={false}>
-                <div className={`pt-12 pb-10 px-6 flex flex-col items-center relative gap-8 ${themeClass}`} style={themeStyle}>
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.2),transparent)]" />
+        <div className="flex flex-col gap-6">
+            <GlassCard className="overflow-hidden border-0 shadow-2xl bg-white/40 backdrop-blur-3xl" hover={false}>
+                {/* Hero Header Section */}
+                <div className="relative pt-12 pb-10 px-6 flex flex-col items-center overflow-hidden">
+                    {/* Dynamic Backgrounds */}
+                    <div className={cn(
+                        "absolute inset-0 transition-all duration-1000 -z-10",
+                        themeClass || "bg-slate-900"
+                    )} style={themeStyle} />
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(255,255,255,0.15),transparent)] -z-10" />
                     
+                    {/* Animated Particles/Glows */}
                     <motion.div 
-                        animate={{ opacity: [0.2, 0.4, 0.2], scale: [1, 1.2, 1] }}
-                        transition={{ duration: 6, repeat: Infinity }}
-                        className="absolute inset-0 bg-white/10 blur-3xl rounded-full"
+                        animate={{ opacity: [0.1, 0.3, 0.1], scale: [1, 1.2, 1] }} 
+                        transition={{ duration: 8, repeat: Infinity }}
+                        className="absolute -top-20 w-[300px] h-[300px] bg-white/5 blur-[80px] rounded-full -z-10"
                     />
-
-                    <motion.div 
-                        initial={{ y: -20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        className="relative z-20 group"
-                    >
+ 
+                    {/* Avatar Container */}
+                    <div className="relative z-20 group">
                         <motion.div 
-                            whileHover={{ scale: 1.1, rotate: 5 }}
-                            className="w-32 h-32 rounded-full border-4 border-white shadow-[0_0_30px_rgba(255,255,255,0.4)] overflow-hidden bg-white relative"
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="relative"
                         >
-                            <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-50" />
-                            <Image
-                                src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatar}&backgroundColor=transparent`}
-                                alt={name}
-                                width={128}
-                                height={128}
-                                className="p-2 relative z-10"
-                            />
-                            <button
-                                onClick={() => setShowPicker(true)}
-                                className="absolute inset-0 bg-indigo-600/60 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                            >
-                                <Camera className="w-10 h-10 text-white" />
-                            </button>
+                                {/* Rotating Aura Ring */}
+                                <motion.div 
+                                    animate={{ rotate: 360 }}
+                                    transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                                    className="absolute -inset-3 border-2 border-dashed rounded-full"
+                                    style={{ borderColor: `${rankEntry.color || "#6366f1"}40` }}
+                                />
+                                
+                                <motion.div 
+                                    whileHover={{ scale: 1.05, rotate: 2 }}
+                                    className="w-36 h-36 rounded-full border-4 border-white/90 shadow-[0_0_40px_rgba(255,255,255,0.25)] overflow-hidden bg-white/95 relative z-10"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-tr from-slate-50 via-white to-blue-50/30" />
+                                    <Image
+                                        src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatar}&backgroundColor=transparent`}
+                                        alt={name}
+                                        width={144}
+                                        height={144}
+                                        className="p-3 relative z-10 drop-shadow-xl"
+                                    />
+                                    <button
+                                        onClick={() => setShowPicker(true)}
+                                        className="absolute inset-0 bg-indigo-600/70 backdrop-blur-[2px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 z-20"
+                                    >
+                                        <Camera className="w-10 h-10 text-white drop-shadow-lg" />
+                                    </button>
+                                </motion.div>
+    
+                                {/* Level Badge - Integrated floating */}
+                                <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-30">
+                                    <motion.div 
+                                        whileHover={{ y: -2, scale: 1.05 }}
+                                        className="bg-white px-6 py-3 rounded-2xl shadow-2xl border border-white/80 backdrop-blur-md flex flex-col items-center gap-1.5 min-w-[180px]"
+                                    >
+                                        <div className="flex items-center gap-2.5 whitespace-nowrap">
+                                            <div 
+                                                className="w-3.5 h-3.5 rounded-full animate-pulse" 
+                                                style={{ 
+                                                    backgroundColor: rankEntry.color || "#10b981",
+                                                    boxShadow: `0 0 12px ${rankEntry.color || "#10b981"}bf`
+                                                }}
+                                            />
+                                            <span className="text-sm font-black text-slate-800 tracking-tight uppercase">
+                                                LV.{gameStats?.level || 1} {rankEntry.name}
+                                                {jobClass && (
+                                                    <span className="ml-2 px-2 py-0.5 bg-yellow-500/10 border border-yellow-500/20 rounded-md text-[10px] text-yellow-700 font-black tracking-widest align-middle">
+                                                        [{jobBadgeLabel}]
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </div>
+                                    <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden mt-0.5 shadow-inner">
+                                        <motion.div 
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${(gameStats?.xp || 0) / IdleEngine.getXpRequirement(gameStats?.level || 1) * 100}%` }}
+                                            className="h-full bg-gradient-to-r from-indigo-500 to-blue-400 rounded-full"
+                                        />
+                                    </div>
+                                </motion.div>
+                            </div>
                         </motion.div>
-                        
-                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-white px-3 py-1 rounded-full shadow-lg border border-slate-100 flex flex-col items-center gap-0.5 z-30 min-w-[100px]">
-                            <div className="flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                <span className="text-[10px] font-black text-slate-800 tracking-tighter uppercase whitespace-nowrap">LEVEL {gameStats?.level || 1} STUDENT</span>
+                    </div>
+ 
+                    {/* Resources Area */}
+                    <div className="w-full mt-12 space-y-4 px-4 relative z-10">
+                        <div className="space-y-2 group/stamina">
+                            <div className="flex items-center gap-2 px-1">
+                                <div className="p-1 bg-amber-400/20 rounded-lg border border-amber-400/30">
+                                    <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                                </div>
+                                <span className="text-[10px] font-black text-white/90 uppercase tracking-widest whitespace-nowrap">Stamina</span>
                             </div>
-                            {/* XP Progress Mini-bar */}
-                            <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden mt-0.5">
+                            <div className="flex justify-center -mb-1">
+                                <span className="text-[11px] font-black text-white tabular-nums whitespace-nowrap drop-shadow-sm">{stamina} <span className="text-white/40">/</span> {maxStamina}</span>
+                            </div>
+                            <div className="h-3 w-full bg-black/40 rounded-3xl overflow-hidden border border-white/10 p-[2px] shadow-inner backdrop-blur-md">
                                 <motion.div 
                                     initial={{ width: 0 }}
-                                    animate={{ width: `${(gameStats?.xp || 0) / IdleEngine.getXpRequirement(gameStats?.level || 1) * 100}%` }}
-                                    className="h-full bg-indigo-500"
-                                />
+                                    animate={{ width: `${Math.min(100, (stamina / maxStamina) * 100)}%` }}
+                                    className="h-full bg-gradient-to-r from-amber-300 via-orange-400 to-amber-200 rounded-3xl relative overflow-hidden"
+                                >
+                                    <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)] animate-shimmer" style={{ backgroundSize: '200% 100%' }} />
+                                </motion.div>
                             </div>
                         </div>
-                    </motion.div>
-
-                    {/* Stamina & Mana Bars */}
-                    <div className="w-full space-y-3 z-20">
-                        <div className="space-y-1">
-                            <div className="flex justify-between items-center px-1">
-                                <span className="text-[9px] font-black text-white/70 uppercase tracking-widest flex items-center gap-1">
-                                    <Zap className="w-2.5 h-2.5 text-amber-300 fill-amber-300" /> Stamina
-                                </span>
-                                <span className="text-[9px] font-black text-white">{stamina} / {maxStamina}</span>
+ 
+                        <div className="space-y-2 group/mana">
+                            <div className="flex items-center gap-2 px-1">
+                                <div className="p-1 bg-indigo-400/20 rounded-lg border border-indigo-400/30">
+                                    <Star className="w-3.5 h-3.5 text-indigo-300 fill-indigo-300" />
+                                </div>
+                                <span className="text-[10px] font-black text-white/90 uppercase tracking-widest whitespace-nowrap">Mana</span>
                             </div>
-                            <div className="h-2 w-full bg-black/20 rounded-full overflow-hidden border border-white/10 p-0.5">
-                                <motion.div 
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${(stamina / maxStamina) * 100}%` }}
-                                    className="h-full bg-gradient-to-r from-amber-300 to-orange-500 rounded-full"
-                                />
+                            <div className="flex justify-center -mb-1">
+                                <span className="text-[11px] font-black text-white tabular-nums whitespace-nowrap drop-shadow-sm">{mana} <span className="text-white/40">/</span> {charStats.maxMp}</span>
                             </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <div className="flex justify-between items-center px-1">
-                                <span className="text-[9px] font-black text-white/70 uppercase tracking-widest flex items-center gap-1">
-                                    <Star className="w-2.5 h-2.5 text-indigo-300 fill-indigo-300" /> Mana
-                                </span>
-                                <span className="text-[9px] font-black text-white">{mana} / {charStats.maxMp}</span>
-                            </div>
-                            <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden border border-white/50 p-0.5">
+                            <div className="h-3 w-full bg-black/40 rounded-3xl overflow-hidden border border-white/10 p-[2px] shadow-inner backdrop-blur-md">
                                 <motion.div 
                                     initial={{ width: 0 }}
                                     animate={{ width: `${(mana / charStats.maxMp) * 100}%` }}
-                                    className="h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full"
-                                />
+                                    className="h-full bg-gradient-to-r from-indigo-400 via-purple-500 to-blue-400 rounded-3xl relative overflow-hidden"
+                                >
+                                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.2),transparent)]" />
+                                </motion.div>
                             </div>
                         </div>
                     </div>
-
-                    <div className="flex flex-col items-center gap-1">
-                        <div className="w-0.5 h-6 bg-white/30 rounded-full" />
-                        <div className="bg-white/20 backdrop-blur-sm border border-white/30 px-3 py-0.5 rounded-full text-[8px] font-black text-white tracking-[0.2em] uppercase">
-                            Equipped Rank
-                        </div>
-                    </div>
-
-                    <div className="relative z-10 w-full flex justify-center">
-                        {rankEntry.icon?.startsWith('data:image') || rankEntry.icon?.startsWith('http') ? (
-                            <motion.div 
-                                initial={{ scale: 0.8, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{ delay: 0.2 }}
-                                whileHover={{ y: -10, scale: 1.05 }}
-                                className="w-48 h-64 rounded-2xl border-4 border-white shadow-2xl overflow-hidden bg-white/10 backdrop-blur-md relative transform transition-all duration-500 cursor-pointer"
-                            >
-                                <img 
-                                    src={rankEntry.icon} 
-                                    alt={rankEntry.name} 
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                            </motion.div>
-                        ) : (
-                            <motion.div 
-                                whileHover={{ scale: 1.1 }}
-                                className="w-32 h-32 rounded-3xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-5xl shadow-xl"
-                            >
-                                {rankEntry.icon || "🏆"}
-                            </motion.div>
-                        )}
-                    </div>
                 </div>
-
-                <div className="p-6 pt-10 space-y-8">
-                    <div className="text-center space-y-2">
-                        <motion.div 
-                            initial={{ y: 20, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ delay: 0.2 }}
-                            className="inline-flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-2 text-sm font-black shadow-inner"
-                            style={{ color: rankEntry.color || "#6366f1" }}
-                        >
-                            <Trophy className="w-4 h-4 fill-current opacity-70" />
-                            {rankEntry.name}
-                        </motion.div>
-                        <div className="mt-4">
-                            <h1 className="text-2xl font-black text-slate-800 tracking-tight">{name}</h1>
+ 
+                {/* Identity & Stats Body */}
+                <div className="p-6 pt-8 space-y-8 bg-gradient-to-b from-white to-slate-50/50 relative">
+                    {/* Floating Identity Tags */}
+                    <div className="flex flex-col items-center gap-6 relative">
+                        <div className="text-center">
+                            <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none mb-3 drop-shadow-sm">{name}</h1>
                             {nickname && (
-                                <p className="text-indigo-400 font-bold text-sm bg-indigo-50 inline-block px-3 py-0.5 rounded-lg mt-1">
-                                    "{nickname}"
-                                </p>
+                                <div className="inline-block relative">
+                                    <span className="px-5 py-1.5 bg-indigo-50 border border-indigo-100 rounded-2xl text-indigo-500 font-black text-lg shadow-sm">
+                                        "{nickname}"
+                                    </span>
+                                </div>
                             )}
                         </div>
-                            {/* Character Stats (The "Character Sheet" feel) */}
-                    <div className="grid grid-cols-3 gap-2">
-                        <StatBox icon={<Heart className="w-3 h-3 text-rose-600 fill-rose-600" />} label="HP" value={charStats.hp} color="rose" />
-                        <StatBox icon={<Sword className="w-3 h-3 text-amber-600 fill-amber-600" />} label="ATK" value={charStats.atk} color="amber" />
-                        <StatBox icon={<Shield className="w-3 h-3 text-indigo-600 fill-indigo-600" />} label="DEF" value={charStats.def} color="indigo" />
-                        <StatBox icon={<Zap className="w-3 h-3 text-emerald-600" />} label="SPD" value={charStats.spd} color="emerald" />
-                        <StatBox icon={<span className="text-[10px] font-black text-orange-600">%</span>} label="CRT" value={`${(charStats.crit * 100).toFixed(0)}%`} color="orange" />
-                        <StatBox icon={<Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />} label="LUK" value={`${(charStats.luck * 100).toFixed(0)}%`} color="yellow" />
-                    </div>
-             </div>
 
-                    <div className="flex items-center justify-between px-2">
-                        <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Behavior:</span>
-                        </div>
-                        <div className="flex gap-4">
-                            <span className="text-[10px] font-bold text-emerald-600">+{totalPositive} Pos</span>
-                            <span className="text-[10px] font-bold text-rose-600">-{Math.abs(totalNegative)} Neg</span>
-                        </div>
                     </div>
 
-                    <div className="relative group/gold">
+                    {/* Gold Balance Premium Card */}
+                    <div className="relative group">
                         <motion.div 
-                            whileHover={{ scale: 1.02, y: -2 }}
-                            className="bg-gradient-to-br from-amber-400 via-orange-400 to-amber-500 rounded-[2rem] p-6 shadow-[0_20px_40px_rgba(251,191,36,0.25)] border-2 border-white/60 relative overflow-hidden"
+                            whileHover={{ y: -5, scale: 1.01 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="bg-gradient-to-br from-[#f59e0b] via-[#fbbf24] to-[#ea580c] rounded-[2.5rem] p-6 shadow-xl border-4 border-white relative overflow-hidden cursor-pointer"
                         >
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
-                            <div className="absolute -left-4 -bottom-4 w-24 h-24 bg-orange-300/30 blur-2xl rounded-full" />
+                            {/* Metallic Texture Overlays */}
+                            <div className="absolute top-0 right-0 w-48 h-48 bg-white/20 blur-[80px] rounded-full -translate-y-1/2 translate-x-1/2 mix-blend-overlay" />
+                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/brushed-alum.png')] opacity-10 mix-blend-overlay" />
                             
                             <div className="flex flex-col gap-4 relative z-10">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2.5">
-                                        <div className="w-12 h-12 bg-white/30 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-[inset_0_2px_4px_rgba(255,255,255,0.4)] border border-white/40">
-                                            <Coins className="w-7 h-7 text-amber-900 drop-shadow-md" />
+                                        <div className="w-12 h-12 bg-white/30 backdrop-blur-xl rounded-2xl flex items-center justify-center shadow-lg border border-white/40">
+                                            <Coins className="w-7 h-7 text-amber-950 drop-shadow-md" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] uppercase font-black text-amber-900/50 tracking-[0.2em] leading-none mb-1">Your Balance</p>
-                                            <h2 className="text-[12px] font-black text-amber-900 tracking-wider">TOTAL GOLD</h2>
+                                            <p className="text-[10px] uppercase font-black text-amber-950/40 tracking-wider leading-none mb-1">Total Wealth</p>
+                                            <div className="flex flex-col gap-1.5">
+                                                <h2 className="text-lg font-black text-amber-950/80 tracking-tighter uppercase whitespace-nowrap">Gold Coins</h2>
+                                                <div className="bg-amber-950/10 px-2 py-1 rounded-lg border border-amber-950/10 flex items-center self-start">
+                                                    <span className="text-[9px] font-black text-amber-950 whitespace-nowrap uppercase">
+                                                        +{formatAmount(goldRateRef.current * 3600)} / ชั่วโมง
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    
-                                    <div className="bg-white/40 backdrop-blur-sm px-3 py-2 rounded-2xl border border-white/30 flex items-center gap-2 shadow-sm">
-                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                                        <span className="text-[11px] font-black text-amber-900 whitespace-nowrap">
-                                            +{(goldRateRef.current * 60).toFixed(0)} / นาที
-                                        </span>
                                     </div>
                                 </div>
 
-                                <div className="w-full h-px bg-white/20" />
+                                <div className="w-full h-px bg-amber-950/10" />
 
                                 <div className="flex items-end justify-center py-1">
-                                    <span className="text-4xl font-black text-amber-950 tracking-tighter tabular-nums drop-shadow-md">
-                                        {Math.floor(displayGold).toLocaleString()}
-                                    </span>
-                                    <span className="text-sm font-black text-amber-900/60 uppercase ml-2 mb-1.5 tracking-widest">GP</span>
+                                    <motion.span 
+                                        key={Math.floor(displayGold)}
+                                        className="text-4xl font-black text-amber-950 tracking-tighter tabular-nums drop-shadow-sm"
+                                    >
+                                        {formatAmount(displayGold)}
+                                    </motion.span>
+                                    <span className="text-base font-black text-amber-950/50 uppercase ml-2 mb-1.5 tracking-widest">GP</span>
                                 </div>
                             </div>
 
-                            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/5">
+                            {/* Live Tick Pulse Bar */}
+                            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/5 overflow-hidden">
                                 <motion.div 
-                                    animate={{ scaleX: [0, 1] }}
-                                    transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
-                                    className="h-full bg-white/40 origin-left"
+                                    animate={{ x: ["-100%", "100%"] }}
+                                    transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                                    className="h-full w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent"
                                 />
                             </div>
                         </motion.div>
-                        
-                        <div className="absolute -inset-1 bg-gradient-to-r from-amber-300 to-orange-400 rounded-[2rem] opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500 -z-10" />
                     </div>
 
-                    <div className="space-y-6 pt-2">
-                        <StatProgress 
-                            label="Rank Progress" 
-                            value={points} 
-                            max={rankProgress.nextRank ? (points + rankProgress.pointsNeeded) : points}
-                            color="bg-gradient-to-r from-indigo-500 to-purple-600"
-                            icon={<Shield className="w-3.5 h-3.5 text-indigo-500" />}
-                        />
-                        
-                        <StatProgress 
-                            label="Behavior Points" 
-                            value={behaviorPoints} 
-                            max={Math.max(100, behaviorPoints)}
-                            color="bg-gradient-to-r from-amber-400 to-orange-500"
-                            icon={<Zap className="w-3.5 h-3.5 text-amber-500" />}
-                        />
+                    {/* Development Stats */}
+                    <div className="space-y-8 pt-4">
+                        <div className="grid grid-cols-1 gap-6">
+                            <div className="space-y-2">
+                                <header className="flex items-center gap-2 px-2">
+                                    <Shield className="w-5 h-5 text-indigo-500" />
+                                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Rank Advancement</span>
+                                </header>
+                                <div className="flex justify-center -mb-1">
+                                    <span className="text-sm font-black text-indigo-600 tabular-nums whitespace-nowrap">
+                                        {points.toLocaleString()} <span className="text-slate-300 font-bold mx-1">/</span> {rankProgress.nextRank ? (points + rankProgress.pointsNeeded).toLocaleString() : points.toLocaleString()}
+                                    </span>
+                                </div>
+                                <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 shadow-inner">
+                                    <motion.div 
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${(points / (rankProgress.nextRank ? (points + rankProgress.pointsNeeded) : points)) * 100}%` }}
+                                        className="h-full bg-gradient-to-r from-indigo-500 via-indigo-400 to-purple-600 rounded-full shadow-[0_2px_10px_rgba(99,102,241,0.2)]"
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <header className="flex items-center gap-2 px-2">
+                                    <Zap className="w-5 h-5 text-amber-500" />
+                                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Behavior Score</span>
+                                </header>
+                                <div className="flex justify-center -mb-1">
+                                    <span className="text-sm font-black text-amber-600 tabular-nums whitespace-nowrap">
+                                        {behaviorPoints.toLocaleString()} <span className="text-slate-300 font-bold ml-1">PTS</span>
+                                    </span>
+                                </div>
+                                <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 shadow-inner">
+                                    <motion.div 
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${Math.min(100, (behaviorPoints / Math.max(100, behaviorPoints)) * 100)}%` }}
+                                        className="h-full bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 rounded-full shadow-[0_2px_10px_rgba(245,158,11,0.2)]"
+                                    />
+                                </div>
+                            </div>
+                        </div>
 
                         {rankProgress.nextRank && (
-                            <div className="bg-indigo-50/50 rounded-xl p-3 border border-indigo-100 text-center animate-pulse">
-                                <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wide">
-                                    อีก <span className="text-sm font-black mx-1">{rankProgress.pointsNeeded}</span> คะแนน เพื่อเป็น <span className="font-black underline mx-1">{rankProgress.nextRank}</span>
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="bg-indigo-50/70 backdrop-blur-sm rounded-[2rem] p-5 border-2 border-dashed border-indigo-100/80 text-center relative overflow-hidden group"
+                            >
+                                <div className="absolute inset-0 bg-white/30 rotate-12 translate-x-full group-hover:translate-x-[-100%] transition-transform duration-1000" />
+                                <p className="text-sm font-bold text-indigo-700 uppercase tracking-wide flex items-center justify-center gap-3">
+                                    {t("needMore") || "อีก"} 
+                                    <span className="text-2xl font-black text-indigo-600 drop-shadow-sm">{rankProgress.pointsNeeded}</span> 
+                                    {t("pointsToNextRank") || "แต้มเพื่อเลื่อนยศเป็น"}
+                                    <span className="font-black text-indigo-600 underline underline-offset-4 decoration-indigo-200/50">{rankProgress.nextRank}</span>
                                 </p>
-                            </div>
+                            </motion.div>
                         )}
                     </div>
                 </div>
@@ -406,28 +437,8 @@ export function StudentAvatarSection({
                 currentAvatar={avatar}
                 onSaved={setAvatar}
             />
-        </>
+        </div>
     );
 }
 
-function StatBox({ icon, label, value, color }: { icon: any, label: string, value: any, color: string }) {
-    const colors: any = {
-        rose: "bg-rose-50/50 border-rose-100 text-rose-600 hover:border-rose-300",
-        amber: "bg-amber-50/50 border-amber-100 text-amber-600 hover:border-amber-300",
-        indigo: "bg-indigo-50/50 border-indigo-100 text-indigo-600 hover:border-indigo-300",
-        emerald: "bg-emerald-50/50 border-emerald-100 text-emerald-600 hover:border-emerald-300",
-        orange: "bg-orange-50/50 border-orange-100 text-orange-600 hover:border-orange-300",
-        yellow: "bg-yellow-50/50 border-yellow-100 text-yellow-600 hover:border-yellow-300"
-    };
 
-    return (
-        <motion.div 
-            whileHover={{ y: -3, scale: 1.02 }}
-            className={`${colors[color]} rounded-xl p-2 border flex flex-col items-center gap-0.5 group transition-all hover:bg-white shadow-sm`}
-        >
-            <div className="opacity-70 group-hover:scale-110 transition-transform">{icon}</div>
-            <span className="text-[7px] uppercase font-black tracking-tighter text-slate-400 leading-none">{label}</span>
-            <span className="text-sm font-black tracking-tighter leading-none">{value}</span>
-        </motion.div>
-    );
-}

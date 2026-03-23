@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Lock, Trophy, Wifi, Coins, Fish, Calculator, Zap } from "lucide-react";
+import { Lock, Trophy, Wifi, Coins, Fish, Calculator, Zap, Swords } from "lucide-react";
 
 type GameMode = {
     id: string;
@@ -37,6 +37,17 @@ const MODES: GameMode[] = [
         bgColor: "bg-green-950",
         players: "2-60",
         time: "10-15 min",
+        active: true
+    },
+    {
+        id: "battle-turn",
+        title: "Battle RPG",
+        description: "Co-op Boss Raid + Solo Farming! Equip gear, pick a job class, and fight monsters with your class. Answer questions to deal damage and earn loot.",
+        icon: <Swords className="w-12 h-12 text-red-100" />,
+        color: "bg-red-900 border-red-400",
+        bgColor: "bg-red-950",
+        players: "1-30",
+        time: "15-30 min",
         active: true
     },
     {

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Trophy, Crown, Medal, Star, Coins, Award } from "lucide-react";
+import { Trophy, Crown, Medal, Star, Coins, Award, RefreshCw } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { Button } from "@/components/ui/button";
 
 interface LeaderEntry {
   id: string;
@@ -24,12 +25,24 @@ type SortKey = "gold" | "points" | "achievementCount" | "atk";
 export function LeaderboardTab({ classId, currentStudentId }: { classId: string; currentStudentId: string }) {
   const [data, setData] = useState<LeaderEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [sortBy, setSortBy] = useState<SortKey>("gold");
 
+  const fetchLeaderboard = async (isRefresh = false) => {
+    if (isRefresh) setIsRefreshing(true);
+    else setLoading(true);
+    try {
+      const r = await fetch(`/api/classroom/${classId}/leaderboard`);
+      const d = await r.json();
+      setData(Array.isArray(d) ? d : []);
+    } finally {
+      if (isRefresh) setIsRefreshing(false);
+      else setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetch(`/api/classroom/${classId}/leaderboard`)
-      .then(r => r.json())
-      .then(d => { setData(Array.isArray(d) ? d : []); setLoading(false); });
+    fetchLeaderboard();
   }, [classId]);
 
   const sorted = [...data].sort((a, b) => b[sortBy] - a[sortBy]).map((s, i) => ({ ...s, rank: i + 1 }));
@@ -64,9 +77,20 @@ export function LeaderboardTab({ classId, currentStudentId }: { classId: string;
           <h2 className="text-2xl font-black text-slate-800 tracking-tight">กระดานอันดับ</h2>
           <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Classroom Leaderboard</p>
         </div>
-        <div className="bg-amber-100/60 border border-amber-200 px-3 py-1.5 rounded-2xl flex items-center gap-1.5">
-          <Trophy className="w-4 h-4 text-amber-600" />
-          <span className="font-black text-amber-700 text-sm">{data.length} คน</span>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => fetchLeaderboard(true)}
+            disabled={isRefreshing}
+            className="h-7 w-7 p-0 text-slate-500 hover:text-slate-700"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+          </Button>
+          <div className="bg-amber-100/60 border border-amber-200 px-3 py-1.5 rounded-2xl flex items-center gap-1.5">
+            <Trophy className="w-4 h-4 text-amber-600" />
+            <span className="font-black text-amber-700 text-sm">{data.length} คน</span>
+          </div>
         </div>
       </div>
 

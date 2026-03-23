@@ -63,7 +63,7 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
                     <AttendanceHistoryTab classId={classroom.id} />
                 </TabsContent>
 
-                <TabsContent value="reports" className="flex-1 mt-0 h-full overflow-y-auto">
+                <TabsContent value="analytics" className="flex-1 mt-0 h-full overflow-y-auto">
                     <AnalyticsDashboard classId={classroom.id} />
                 </TabsContent>
 

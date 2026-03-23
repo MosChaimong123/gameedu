@@ -99,6 +99,7 @@ model ActiveGame {
 model GameHistory {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   hostId    String   @db.ObjectId
+  setId     String?  @db.ObjectId
   gameMode  String
   pin       String?
   startedAt DateTime
@@ -167,6 +168,13 @@ model Student {
   mana          Int                    @default(50)
   lastStaminaRefill DateTime?           @default(now())
   lastSyncTime  DateTime?              // For idle calculations
+  // Job Class System
+  jobClass      String?                // "WARRIOR" | "MAGE" | "RANGER" | "HEALER" | "ROGUE"
+  jobTier       String?                @default("BASE") // "BASE" | "ADVANCE" | "MASTER"
+  advanceClass  String?                // e.g. "KNIGHT", "BERSERKER", "ARCHMAGE" ...
+  jobSkills     Json?                  // string[] of unlocked skill IDs + passive IDs
+  jobSelectedAt DateTime?
+  materials     Material[]
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
 }
@@ -391,6 +399,27 @@ model Item {
   baseLuck    Float?    @default(0) // Luck (0 - 1.0)
   baseMag     Int?      @default(0) // Magic Power
   baseMp      Int?      @default(0) // Max Mana
+
+  // Battle RPG System fields
+  tier        String    @default("COMMON") // "COMMON" | "RARE" | "EPIC" | "LEGENDARY"
+  slot        String?   // "HEAD" | "BODY" | "WEAPON" | "OFFHAND" | "GLOVES" | "BOOTS" | "ACCESSORY"
+  setId       String?   // "DRAGON_SET" | "THUNDER_SET" | "SHADOW_SET" | "LEGENDARY_SET"
+  effects     Json?     // string[] of effect IDs e.g. ["GOLD_FINDER", "LIFESTEAL"]
+  xpMultiplier Float?   @default(0)
+  
+  // Stamina/Consumable Support
+  currency        String    @default("GOLD") // "GOLD" | "POINTS"
+  staminaRestore  Int?      @default(0)
+  manaRestore     Int?      @default(0)
+  hpRestorePercent Float?   @default(0) // 0.3 = +30% maxHp bonus at next battle start
+  isPhoenix       Boolean?  @default(false) // Revive once with 50% HP at next battle
+  buffAtk         Float?    @default(0) // 0.5 = ATK +50% at next battle start
+  buffDef         Float?    @default(0) // 0.8 = DEF +80% at next battle start
+  buffSpd         Float?    @default(0) // 1.0 = SPD +100% at next battle start
+  buffGoldMinutes Int?      @default(0) // Gold ×2 for N minutes (stored as expiry timestamp)
+  buffXpMinutes   Int?      @default(0) // XP ×2 for N minutes
+  isTransmute     Boolean?  @default(false) // Converts 5 COMMON materials → 1 RARE material
+  isLevelUp       Boolean?  @default(false) // Instantly grants +1 level (XP resets to 0)
   
   students    StudentItem[]
   createdAt   DateTime @default(now())
@@ -409,6 +438,11 @@ model StudentItem {
   hp          Int      @default(0)
   atk         Int      @default(0)
   def         Int      @default(0)
+  spd         Int      @default(0)
+  crit        Float    @default(0)
+  luck        Float    @default(0)
+  mag         Int      @default(0)
+  mp          Int      @default(0)
   
   student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
@@ -418,7 +452,15 @@ model StudentItem {
   @@unique([studentId, itemId])
 }
 
+model Material {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId String   @db.ObjectId
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type      String   // One of 12 material types
+  quantity  Int      @default(1)
 
+  @@unique([studentId, type])
+}
 
 model StudentAchievement {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId

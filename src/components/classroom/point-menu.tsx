@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { Heart, Star, Zap, ThumbsUp, Brain, Trophy, AlertCircle, X, Plus, Loader2 } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Input } from "@/components/ui/input";
+import { motion, AnimatePresence } from "framer-motion";
+import { SkillManagementModal } from "./skill-management-modal";
 
 interface PointMenuProps {
     open: boolean;
@@ -47,179 +49,150 @@ export function PointMenu({
     onSkillsChanged
 }: PointMenuProps) {
     const { t } = useLanguage();
-    const [isEditing, setIsEditing] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [newSkill, setNewSkill] = useState({ name: "", weight: "", type: "POSITIVE", icon: "star" });
+    const [isManagementOpen, setIsManagementOpen] = useState(false);
 
     const positiveSkills = skills.filter(s => s.type === "POSITIVE");
     const needsWorkSkills = skills.filter(s => s.type === "NEEDS_WORK");
 
-    const handleDeleteSkill = async (skillId: string, e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (!confirm(t("deleteConfirm") || "Are you sure?")) return;
-        
-        setIsSubmitting(true);
-        try {
-            const res = await fetch(`/api/classrooms/${classId}/skills/${skillId}`, {
-                method: "DELETE"
-            });
-            if (res.ok) {
-                onSkillsChanged?.();
-            }
-        } catch (error) {
-            console.error("Failed to delete skill", error);
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
 
-    const handleAddSkill = async (type: "POSITIVE" | "NEEDS_WORK") => {
-        if (!newSkill.name || !newSkill.weight || isNaN(Number(newSkill.weight))) {
-            alert(t("error") || "Invalid input");
-            return;
-        }
-
-        setIsSubmitting(true);
-        try {
-            const res = await fetch(`/api/classrooms/${classId}/skills`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: newSkill.name,
-                    weight: Number(newSkill.weight) * (type === "NEEDS_WORK" ? -1 : 1),
-                    type,
-                    icon: newSkill.icon
-                })
-            });
-            if (res.ok) {
-                setNewSkill({ name: "", weight: "", type: "POSITIVE", icon: "star" });
-                onSkillsChanged?.();
-            }
-        } catch (error) {
-            console.error("Failed to add skill", error);
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
 
     const renderSkillButton = (skill: Skill, isPositive: boolean) => {
         const Icon = (skill.icon && iconMap[skill.icon as keyof typeof iconMap]) || (isPositive ? iconMap["default"] : AlertCircle);
         return (
-            <div key={skill.id} className="relative group">
-                {isEditing && (
-                    <button
-                        onClick={(e) => handleDeleteSkill(skill.id, e)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-sm z-10 hover:bg-red-600 transition-colors"
-                        disabled={isSubmitting}
-                    >
-                        <X className="w-3 h-3" />
-                    </button>
-                )}
-                <Button
-                    variant="outline"
+            <motion.div 
+                key={skill.id} 
+                className="relative group h-full"
+                whileHover={{ y: -5, scale: 1.02 }}
+                whileTap={{ scale: 0.95 }}
+            >
+                <div
                     className={cn(
-                        "h-auto flex-col gap-2 p-4 transition-all w-full",
+                        "h-full flex flex-col items-center gap-4 px-8 py-7 transition-all w-full cursor-pointer rounded-[3rem] border-2 bg-white shadow-sm relative group-hover:shadow-xl",
                         isPositive 
-                            ? "hover:bg-green-50 hover:border-green-200 hover:text-green-700" 
-                            : "hover:bg-red-50 hover:border-red-200 hover:text-red-700",
-                        isEditing && "opacity-80 pointer-events-none"
+                            ? "hover:border-emerald-400 border-slate-100" 
+                            : "hover:border-rose-400 border-slate-100",
+                        loading && "pointer-events-none opacity-80"
                     )}
                     onClick={() => onSelectSkill(skill.id, skill.weight)}
-                    disabled={loading || isEditing || isSubmitting}
                 >
-                    <div className={cn("p-3 rounded-full", isPositive ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600")}>
-                        <Icon className="w-6 h-6" />
+                    {/* Background decoration */}
+                    <div className={cn(
+                        "absolute -top-4 -right-4 w-16 h-16 rounded-full blur-2xl opacity-0 group-hover:opacity-20 transition-opacity",
+                        isPositive ? "bg-emerald-500" : "bg-rose-500"
+                    )} />
+
+                    <div className={cn(
+                        "p-4 rounded-full shadow-inner relative z-10", 
+                        isPositive ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                    )}>
+                        <Icon className="w-8 h-8 drop-shadow-sm" />
                     </div>
-                    <span className="font-semibold text-sm text-center whitespace-normal leading-tight">
+                    
+                    <span className="font-bold text-[13px] text-slate-700 text-center leading-tight min-h-[40px] flex items-center justify-center px-1">
                         {skill.name}
                     </span>
-                    <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", isPositive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
+
+                    <div className={cn(
+                        "mt-auto text-[14px] font-black px-4 py-1.5 rounded-2xl shadow-md border-b-4 transition-transform group-hover:scale-110", 
+                        isPositive 
+                            ? "bg-emerald-500 text-white border-emerald-700 shadow-emerald-200" 
+                            : "bg-rose-500 text-white border-rose-700 shadow-rose-200"
+                    )}>
                         {isPositive ? `+${skill.weight}` : skill.weight}
-                    </span>
-                </Button>
-            </div>
+                    </div>
+                </div>
+            </motion.div>
         );
     };
 
-    const renderAddForm = (type: "POSITIVE" | "NEEDS_WORK") => {
-        if (!isEditing) return null;
-        return (
-            <div className="col-span-full md:col-span-2 flex flex-col gap-2 p-3 border border-dashed border-slate-300 rounded-lg bg-slate-50">
-                <Input 
-                    placeholder={t("skillNamePlaceholder") || "Skill name"} 
-                    value={newSkill.name} 
-                    onChange={e => setNewSkill({...newSkill, name: e.target.value})} 
-                    className="h-8"
-                />
-                <div className="flex gap-2">
-                    <Input 
-                        placeholder={t("weightPlaceholder") || "Points"} 
-                        type="number" 
-                        value={newSkill.weight} 
-                        onChange={e => setNewSkill({...newSkill, weight: e.target.value})} 
-                        className="h-8 w-20"
-                    />
-                    <Button 
-                        size="sm" 
-                        className="flex-1 h-8 bg-indigo-600 hover:bg-indigo-700" 
-                        onClick={() => handleAddSkill(type)}
-                        disabled={isSubmitting}
-                    >
-                        {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
-                        {t("addSkill")}
-                    </Button>
-                </div>
-            </div>
-        );
-    };
+    const renderAddForm = (type: "POSITIVE" | "NEEDS_WORK") => null;
 
     return (
-        <Dialog open={open} onOpenChange={(val) => {
-            if (!val) setIsEditing(false); // Reset edit mode on close
-            onOpenChange(val);
-        }}>
-            <DialogContent className="max-w-[800px] w-[95vw] p-0 overflow-hidden bg-slate-50 border-0 shadow-2xl rounded-3xl h-[90vh] flex flex-col">
-                <DialogHeader className="relative">
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="absolute right-6 top-0 text-slate-500 hover:text-indigo-600"
-                        onClick={() => setIsEditing(!isEditing)}
-                    >
-                        {isEditing ? t("done") : t("editSkills")}
-                    </Button>
-                    <DialogTitle className="text-center text-xl mt-4">
-                        {t("giveFeedbackTo")} <span className="text-indigo-600">{studentName}</span>
-                    </DialogTitle>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-[95vw] w-[95vw] p-0 overflow-hidden bg-slate-50 border-0 shadow-[0_32px_128px_-16px_rgba(0,0,0,0.4)] rounded-[4rem] h-[95vh] flex flex-col">
+
+                <DialogHeader className="p-12 pb-8 relative z-20 bg-white/70 backdrop-blur-xl border-b-2 border-slate-100 flex-shrink-0">
+                    <div className="flex justify-between items-center">
+                        <DialogTitle className="text-3xl font-black tracking-tighter text-slate-800">
+                            {t("giveFeedbackTo")} <span className="text-indigo-600 bg-indigo-50 px-4 py-1 rounded-2xl ml-2 inline-block border-2 border-indigo-100/50">{studentName}</span>
+                        </DialogTitle>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="rounded-xl border-2 font-black transition-all bg-white text-slate-600 hover:text-indigo-600 py-6 px-6"
+                            onClick={() => setIsManagementOpen(true)}
+                        >
+                            {t("editSkills") || "จัดการทักษะ"}
+                        </Button>
+                    </div>
                 </DialogHeader>
 
-                <Tabs defaultValue="positive" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-4">
-                        <TabsTrigger value="positive">{t("positiveFeedback")}</TabsTrigger>
-                        <TabsTrigger value="needs_work">{t("needsWorkFeedback")}</TabsTrigger>
+                <Tabs defaultValue="positive" className="flex-1 flex flex-col overflow-hidden px-12 pb-12">
+
+                    <TabsList className="grid w-full grid-cols-2 p-2 bg-slate-200/50 rounded-[2.5rem] h-auto mb-6 border-2 border-slate-100/50">
+                        <TabsTrigger 
+                            value="positive" 
+                            className="rounded-[2rem] py-4 data-[state=active]:bg-white data-[state=active]:text-emerald-600 data-[state=active]:shadow-lg data-[state=active]:font-black text-slate-500 font-bold text-lg transition-all"
+                        >
+                            {t("positiveFeedback")}
+                        </TabsTrigger>
+                        <TabsTrigger 
+                            value="needs_work" 
+                            className="rounded-[2rem] py-4 data-[state=active]:bg-white data-[state=active]:text-rose-600 data-[state=active]:shadow-lg data-[state=active]:font-black text-slate-500 font-bold text-lg transition-all"
+                        >
+                            {t("needsWorkFeedback")}
+                        </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="positive" className="grid grid-cols-3 md:grid-cols-4 gap-4 max-h-[400px] overflow-y-auto p-1 custom-scrollbar">
-                        {positiveSkills.map((skill) => renderSkillButton(skill, true))}
-                        {renderAddForm("POSITIVE")}
-                        {!isEditing && positiveSkills.length === 0 && (
-                            <div className="col-span-full text-center py-8 text-slate-400 italic">
-                                {t("noSkillsConfigured")}
-                            </div>
-                        )}
-                    </TabsContent>
+                    <AnimatePresence mode="wait">
+                        <TabsContent value="positive" className="flex-1 overflow-y-auto pr-2 custom-scrollbar focus-visible:outline-none">
+                            <motion.div 
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 p-2"
+                            >
+                                {positiveSkills.map((skill) => renderSkillButton(skill, true))}
+                                {positiveSkills.length === 0 && (
+                                    <div className="col-span-full text-center py-20 bg-white/50 rounded-[3rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center">
+                                        <Star className="w-12 h-12 text-slate-300 mb-4" />
+                                        <p className="text-slate-400 font-bold italic text-lg">
+                                            {t("noSkillsConfigured")}
+                                        </p>
+                                    </div>
+                                )}
+                            </motion.div>
+                        </TabsContent>
 
-                    <TabsContent value="needs_work" className="grid grid-cols-3 md:grid-cols-4 gap-4 max-h-[400px] overflow-y-auto p-1 custom-scrollbar">
-                        {needsWorkSkills.map((skill) => renderSkillButton(skill, false))}
-                        {renderAddForm("NEEDS_WORK")}
-                        {!isEditing && needsWorkSkills.length === 0 && (
-                            <div className="col-span-full text-center py-8 text-slate-400 italic">
-                                {t("noSkillsConfigured")}
-                            </div>
-                        )}
-                    </TabsContent>
+                        <TabsContent value="needs_work" className="flex-1 overflow-y-auto pr-2 custom-scrollbar focus-visible:outline-none">
+                            <motion.div 
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 p-2"
+                            >
+                                {needsWorkSkills.map((skill) => renderSkillButton(skill, false))}
+                                {needsWorkSkills.length === 0 && (
+                                    <div className="col-span-full text-center py-20 bg-white/50 rounded-[3rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center">
+                                        <AlertCircle className="w-12 h-12 text-slate-300 mb-4" />
+                                        <p className="text-slate-400 font-bold italic text-lg">
+                                            {t("noSkillsConfigured")}
+                                        </p>
+                                    </div>
+                                )}
+                            </motion.div>
+                        </TabsContent>
+                    </AnimatePresence>
                 </Tabs>
             </DialogContent>
+            
+            <SkillManagementModal 
+                open={isManagementOpen}
+                onOpenChange={setIsManagementOpen}
+                classId={classId}
+                skills={skills as any}
+                onSkillsChanged={onSkillsChanged}
+            />
         </Dialog>
     );
 }

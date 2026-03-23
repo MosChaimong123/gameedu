@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
-
-/**
- * Success rates for each level (+1 to +9)
- * +1 to +3: 100%
- * +4: 80%
- * +5: 60%
- * +6: 40%
- * +7: 30%
- * +8: 20%
- * +9: 10%
- */
-const SUCCESS_RATES: Record<number, number> = {
-    1: 100, 2: 100, 3: 100,
-    4: 80,  5: 60,  6: 40,
-    7: 30,  8: 20,  9: 10
-};
+import {
+  TIER_MAX,
+  getEnhancementZone,
+  getSuccessRate,
+  calculateEnhancementCost,
+  rollEnhancement,
+} from "@/lib/game/enhancement-system";
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,108 +17,147 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { studentItemId } = body;
+    const { studentItemId, materialType } = body as {
+      studentItemId?: string;
+      materialType?: string;
+    };
 
     if (!studentItemId) {
       return NextResponse.json({ error: "Missing item ID" }, { status: 400 });
     }
 
-    // 1. Fetch StudentItem with Item info
+    // 1. Fetch StudentItem with item + student
     const studentItem = await db.studentItem.findUnique({
       where: { id: studentItemId },
-      include: { 
-          item: true,
-          student: true
-      }
+      include: { item: true, student: true },
     });
 
     if (!studentItem) {
-      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+      return NextResponse.json({ error: "ไม่พบไอเทม" }, { status: 404 });
     }
 
-    const currentLevel = studentItem.enhancementLevel || 0;
-    if (currentLevel >= 9) {
-      return NextResponse.json({ error: "ระดับสูงสุดแล้ว (+9)" }, { status: 400 });
+    const currentLevel = studentItem.enhancementLevel ?? 0;
+    const tier = (studentItem.item as any).tier ?? "COMMON";
+    const tierMax = TIER_MAX[tier] ?? 9;
+
+    // 2. Tier max enforcement
+    if (currentLevel >= tierMax) {
+      return NextResponse.json(
+        { error: `ระดับสูงสุดสำหรับ ${tier} แล้ว (+${tierMax})` },
+        { status: 400 }
+      );
     }
 
-    const nextLevel = currentLevel + 1;
-    const basePrice = studentItem.item.price || 0;
-    
-    // 2. Calculate Costs
-    const goldCost = Math.floor(basePrice * nextLevel * 0.5);
-    const pointCost = nextLevel * 10;
+    // 3. Determine zone and costs
+    const zone = getEnhancementZone(currentLevel);
+    const itemPrice = studentItem.item.price ?? 0;
+    const cost = calculateEnhancementCost(currentLevel, itemPrice, materialType);
 
-    const studentStats = (studentItem.student.gameStats as any) || { gold: 0 };
-    const currentGold = Number(studentStats.gold || 0);
-    const currentPoints = studentItem.student.points || 0;
+    // 4. Validate resources
+    const gameStats = (studentItem.student.gameStats as any) ?? { gold: 0 };
+    const currentGold = Number(gameStats.gold ?? 0);
+    const currentPoints = studentItem.student.points ?? 0;
 
-    // 3. Validate Resources
-    if (currentGold < goldCost) {
-      return NextResponse.json({ error: `ทองไม่เพียงพอ (ต้องการ ${goldCost}, มี ${Math.floor(currentGold)})` }, { status: 400 });
-    }
-    if (currentPoints < pointCost) {
-      return NextResponse.json({ error: `คะแนนพฤติกรรมไม่เพียงพอ (ต้องการ ${pointCost}, มี ${currentPoints})` }, { status: 400 });
+    if (currentGold < cost.gold) {
+      return NextResponse.json(
+        { error: `ทองไม่เพียงพอ (ต้องการ ${cost.gold}, มี ${Math.floor(currentGold)})` },
+        { status: 400 }
+      );
     }
 
-    // 4. Roll for Success
-    const successRate = SUCCESS_RATES[nextLevel] || 0;
-    const roll = Math.random() * 100;
-    const isSuccess = roll <= successRate;
-
-    // 5. Update Database
-    const updatedGold = Math.floor(currentGold - goldCost);
-    const updatedStats = {
-      ...studentStats,
-      gold: updatedGold
-    };
-
-    console.log(`🔨 [ENHANCE] Roll: ${roll.toFixed(2)} vs ${successRate}% for +${nextLevel}`);
-
-    let finalLevel = currentLevel;
-    if (isSuccess) {
-        finalLevel = nextLevel;
-    } else {
-        // Option: In high levels, failure might decrease level.
-        // For now, keep it simple: just lose materials.
+    if (currentPoints < cost.behaviorPoints) {
+      return NextResponse.json(
+        {
+          error: `คะแนนพฤติกรรมไม่เพียงพอ (ต้องการ ${cost.behaviorPoints}, มี ${currentPoints})`,
+        },
+        { status: 400 }
+      );
     }
 
-    const [updatedStudent, updatedItem] = await db.$transaction([
-      // Deduct Points and Update Stats (Always happen)
+    // Danger zone: validate material
+    let materialRecord: { id: string; quantity: number } | null = null;
+    if (zone === "DANGER" && cost.materialQuantity > 0) {
+      if (!materialType) {
+        return NextResponse.json(
+          { error: "ต้องระบุวัสดุสำหรับโซน Danger" },
+          { status: 400 }
+        );
+      }
+      materialRecord = await db.material.findFirst({
+        where: { studentId: studentItem.studentId, type: materialType },
+      });
+      if (!materialRecord || materialRecord.quantity < cost.materialQuantity) {
+        return NextResponse.json(
+          {
+            error: `วัสดุไม่เพียงพอ (ต้องการ ${cost.materialQuantity} ${materialType})`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 5. Roll outcome
+    const result = rollEnhancement(currentLevel);
+    const successRate = getSuccessRate(currentLevel);
+
+    // 6. Build updated gold
+    const updatedGold = Math.floor(currentGold - cost.gold);
+    const updatedStats = { ...gameStats, gold: updatedGold };
+
+    console.log(
+      `🔨 [ENHANCE] Zone: ${zone} | Roll result: ${result.success ? "SUCCESS" : "FAIL"} | ${currentLevel} → ${result.newLevel}`
+    );
+
+    // 7. DB transaction
+    const txOps: any[] = [
+      // Deduct gold + BP, add history
       db.student.update({
         where: { id: studentItem.studentId },
         data: {
-          points: { decrement: pointCost },
+          points: { decrement: cost.behaviorPoints },
           gameStats: updatedStats as any,
           history: {
             create: {
-              reason: isSuccess 
-                ? `🔨 ตีบวก ${studentItem.item.name} สำเร็จ! (+${finalLevel})`
-                : `🔨 ตีบวก ${studentItem.item.name} ไม่สำเร็จ (ต้องการ +${nextLevel})`,
-              value: -pointCost,
-              timestamp: new Date()
-            }
-          }
-        }
+              reason: result.success
+                ? `🔨 ตีบวก ${studentItem.item.name} สำเร็จ! (+${result.newLevel})`
+                : `🔨 ตีบวก ${studentItem.item.name} ไม่สำเร็จ (${zone === "DANGER" ? `ลดเหลือ +${result.newLevel}` : "ไม่เปลี่ยนแปลง"})`,
+              value: -cost.behaviorPoints,
+              timestamp: new Date(),
+            },
+          },
+        },
       }),
-      // Increase Level ONLY IF success
+      // Update enhancement level
       db.studentItem.update({
         where: { id: studentItemId },
-        data: {
-          enhancementLevel: finalLevel
-        }
-      })
-    ]);
+        data: { enhancementLevel: result.newLevel },
+      }),
+    ];
+
+    // Danger: deduct material regardless of outcome
+    if (zone === "DANGER" && materialRecord && cost.materialQuantity > 0) {
+      txOps.push(
+        db.material.update({
+          where: { id: materialRecord.id },
+          data: { quantity: { decrement: cost.materialQuantity } },
+        })
+      );
+    }
+
+    const txResults = await db.$transaction(txOps);
+    const updatedItem = txResults[1] as { enhancementLevel: number };
 
     return NextResponse.json({
-      success: isSuccess,
+      success: result.success,
       newLevel: updatedItem.enhancementLevel,
-      goldSpent: goldCost,
-      pointsSpent: pointCost,
+      zone,
+      goldSpent: cost.gold,
+      pointsSpent: cost.behaviorPoints,
+      materialSpent: zone === "DANGER" ? cost.materialQuantity : 0,
       newGold: updatedGold,
-      newPoints: currentPoints - pointCost,
-      successRate
+      newPoints: currentPoints - cost.behaviorPoints,
+      successRate,
     });
-
   } catch (error) {
     console.error("Enhancement error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

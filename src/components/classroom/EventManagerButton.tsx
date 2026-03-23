@@ -46,7 +46,7 @@ export function EventManagerButton({ classId }: { classId: string }) {
   });
 
   const loadEvents = async () => {
-    const res = await fetch(`/api/classroom/${classId}/events`);
+    const res = await fetch(`/api/classrooms/${classId}/events`);
     const data = await res.json();
     setEvents(Array.isArray(data) ? data : []);
   };
@@ -62,7 +62,7 @@ export function EventManagerButton({ classId }: { classId: string }) {
     if (!form.title.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/classroom/${classId}/events`, {
+      const res = await fetch(`/api/classrooms/${classId}/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -84,7 +84,7 @@ export function EventManagerButton({ classId }: { classId: string }) {
 
   const handleDelete = async (eventId: string) => {
     if (!confirm("ลบ Event นี้หรือไม่?")) return;
-    await fetch(`/api/classroom/${classId}/events`, {
+    await fetch(`/api/classrooms/${classId}/events`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ eventId })

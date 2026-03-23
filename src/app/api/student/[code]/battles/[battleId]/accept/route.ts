@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resolveBattle } from "@/lib/game/battle-engine";
+import {
+  getPvpMatchupBaseClass,
+  resolveEffectiveJobKey,
+} from "@/lib/game/job-system";
 
 // POST /api/student/[code]/battles/[battleId]/accept
 export async function POST(
@@ -14,8 +18,13 @@ export async function POST(
     const defender = await db.student.findUnique({
       where: { loginCode: code.toUpperCase() },
       select: {
-        id: true, gameStats: true, points: true,
-        items: { where: { isEquipped: true }, include: { item: true } }
+        id: true,
+        gameStats: true,
+        points: true,
+        jobClass: true,
+        jobTier: true,
+        advanceClass: true,
+        items: { where: { isEquipped: true }, include: { item: true } },
       }
     });
     if (!defender) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -26,8 +35,14 @@ export async function POST(
       include: {
         challenger: {
           select: {
-            id: true, name: true, gameStats: true, points: true,
-            items: { where: { isEquipped: true }, include: { item: true } }
+            id: true,
+            name: true,
+            gameStats: true,
+            points: true,
+            jobClass: true,
+            jobTier: true,
+            advanceClass: true,
+            items: { where: { isEquipped: true }, include: { item: true } },
           }
         }
       }
@@ -64,9 +79,23 @@ export async function POST(
     };
 
     // Resolve battle
+    const challengerEff = resolveEffectiveJobKey({
+      jobClass: battle.challenger.jobClass,
+      jobTier: battle.challenger.jobTier,
+      advanceClass: battle.challenger.advanceClass,
+    });
+    const defenderEff = resolveEffectiveJobKey({
+      jobClass: defender.jobClass,
+      jobTier: defender.jobTier,
+      advanceClass: defender.advanceClass,
+    });
     const { challengerRoll, defenderRoll, winnerId } = resolveBattle(
-      battle.challengerId, challengerStats,
-      defender.id, defenderStats
+      battle.challengerId,
+      challengerStats,
+      defender.id,
+      defenderStats,
+      getPvpMatchupBaseClass(challengerEff),
+      getPvpMatchupBaseClass(defenderEff)
     );
 
     const loserId = winnerId === battle.challengerId ? defender.id : battle.challengerId;

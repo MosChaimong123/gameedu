@@ -7,7 +7,6 @@ import { Classroom } from "@prisma/client";
 import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
 import { ClassroomManagementButton } from "./classroom-management-button";
 import { ClassroomDuplicateButton } from "./classroom-duplicate-button";
-import { ClassroomSettingsDialog } from "./classroom-settings-dialog";
 
 interface ClassroomCardProps {
     classroom: Classroom & { _count?: { students: number } };
@@ -23,7 +22,6 @@ export function ClassroomCard({ classroom, studentCount }: ClassroomCardProps) {
         <div className="group relative">
             {/* Action Buttons */}
             <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-                <ClassroomSettingsDialog classroom={classroom} />
                 <ClassroomDuplicateButton
                     classId={id}
                     name={name}

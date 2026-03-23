@@ -9,7 +9,7 @@ export async function GET() {
     }
 
     try {
-        const sets = await prisma.questionSet.findMany({
+        const sets = await db.questionSet.findMany({
             where: {
                 creatorId: session.user.id
             },

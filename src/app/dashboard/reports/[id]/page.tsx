@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { redirect } from "next/navigation";
+import { AnalysisDashboard } from "@/components/dashboard/reports/analysis-dashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,18 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
 
     const game = await db.gameHistory.findUnique({
         where: { id: params.id },
+    });
+    
+    // Fetch associated set for questions metadata
+    const questionSet = game?.setId ? await db.set.findUnique({
+        where: { id: game.setId },
+        include: { questions: true }
+    }) : null;
+
+    // Fetch full host history for growth trends
+    const fullHistory = await db.gameHistory.findMany({
+        where: { hostId: session.user.id },
+        orderBy: { endedAt: "asc" } // Oldest to newest for charts
     });
 
     if (!game) {
@@ -54,8 +67,16 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
         : 0;
 
     return (
-        <div className="p-8 max-w-6xl mx-auto space-y-8">
-            <div className="flex items-center gap-4">
+        <div className="p-8 max-w-6xl mx-auto space-y-8 print:p-0 print:m-0 print:max-w-none">
+            <style dangerouslySetInnerHTML={{ __html: `
+                @media print {
+                    .no-print, button, nav, aside { display: none !important; }
+                    .print-break-inside-avoid { break-inside: avoid; }
+                    body { background: white !important; }
+                    .card { border: 1px solid #e2e8f0 !important; box-shadow: none !important; }
+                }
+            `}} />
+            <div className="flex items-center gap-4 no-print">
                 <Link href="/dashboard/reports">
                     <Button variant="ghost" size="icon">
                         <ArrowLeft className="w-5 h-5" />
@@ -71,6 +92,13 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
                         </span>
                     </div>
                 </div>
+                <Button 
+                    variant="outline" 
+                    className="gap-2 border-purple-200 text-purple-700 hover:bg-purple-50"
+                    onClick={() => window.print()}
+                >
+                    <BarChart3 className="w-4 h-4" /> Export PDF
+                </Button>
             </div>
 
             {/* Highlights */}
@@ -126,6 +154,22 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
                     </CardContent>
                 </Card>
             </div>
+            
+            {/* Advanced Insights */}
+            {/*
+            - [x] Advanced Analysis Dashboard 📊
+            - [x] Design Advanced Analysis implementation plan (Antigravity)
+            - [x] Implement Class Heatmap visualization (UI/UX & Motion Designer)
+            - [x] Implement Personal Growth trajectory charts (Database Specialist + UI/UX)
+            - [x] Create PDF Exporting utility (QA & Debugging Specialist)
+            - [x] Verify data accuracy and report styling (Antigravity)
+            */}
+            <AnalysisDashboard 
+                game={game} 
+                players={players} 
+                questionSet={questionSet}
+                fullHistory={fullHistory}
+            />
 
             {/* Leaderboard Table */}
             <Card>

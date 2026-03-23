@@ -2,13 +2,12 @@ export type LevelConfig = {
     [key: string]: number;
 };
 
-// New rich rank format stored in levelConfig JSON
 export type RankEntry = {
     name: string;
     minScore: number;
     icon?: string;    // emoji
     color?: string;   // hex or tailwind color token
-    goldRate?: number; // Gold per minute
+    goldRate?: number; // Gold per hour
 };
 
 /** Helpers for custom classroom themes */
@@ -40,23 +39,21 @@ export function getThemeTextClass(theme?: string | null): string {
 }
 
 export const DEFAULT_RANK_ENTRIES: RankEntry[] = [
-    { name: 'ชาวบ้าน',     minScore: 0,   icon: '🧑',  color: '#94a3b8', goldRate: 5 },
-    { name: 'ทหารฝึกหัด', minScore: 10,  icon: '⚔️',  color: '#22c55e', goldRate: 10 },
-    { name: 'ผู้พิทักษ์', minScore: 20,  icon: '🛡️',  color: '#3b82f6', goldRate: 15 },
-    { name: 'อัศวิน',     minScore: 40,  icon: '🗡️',  color: '#8b5cf6', goldRate: 20 },
-    { name: 'กัปตัน',     minScore: 60,  icon: '⚓',  color: '#f59e0b', goldRate: 25 },
-    { name: 'ฮีโร่',      minScore: 80,  icon: '🦸',  color: '#ef4444', goldRate: 30 },
-    { name: 'ตำนาน',      minScore: 100, icon: '👑',  color: '#f97316', goldRate: 50 },
+    { name: 'Common',    minScore: 5,   icon: '⚪',  color: '#94a3b8', goldRate: 1 },
+    { name: 'Uncommon',  minScore: 10,  icon: '🟢',  color: '#22c55e', goldRate: 5 },
+    { name: 'Rare',      minScore: 15,  icon: '🔵',  color: '#3b82f6', goldRate: 10 },
+    { name: 'Epic',      minScore: 20,  icon: '🟣',  color: '#a855f7', goldRate: 20 },
+    { name: 'Legendary', minScore: 30,  icon: '🟠',  color: '#f97316', goldRate: 80 },
+    { name: 'Mythic',    minScore: 40,  icon: '🔴',  color: '#ef4444', goldRate: 50 },
 ];
 
 export const DEFAULT_LEVEL_CONFIG: LevelConfig = {
-    'ชาวบ้าน': 0,
-    'ทหารฝึกหัด': 10,
-    'ผู้พิทักษ์': 20,
-    'อัศวิน': 40,
-    'กัปตัน': 60,
-    'ฮีโร่': 80,
-    'ตำนาน': 100,
+    'Common': 5,
+    'Uncommon': 10,
+    'Rare': 15,
+    'Epic': 20,
+    'Legendary': 30,
+    'Mythic': 40,
 };
 
 /** Parse levelConfig from DB — supports both old object format and new array format */
@@ -68,7 +65,15 @@ export function parseLevelConfigToEntries(raw: any): RankEntry[] {
     }
     // Old object format: { [name]: minScore }
     return Object.entries(raw)
-        .map(([name, minScore]) => ({ name, minScore: minScore as number }))
+        .map(([name, minScore]) => {
+            const def = DEFAULT_RANK_ENTRIES.find(r => r.name === name);
+            return {
+                ...def,
+                name,
+                minScore: minScore as number,
+                goldRate: (def?.goldRate ?? 0)
+            } as RankEntry;
+        })
         .sort((a, b) => a.minScore - b.minScore);
 }
 
@@ -121,4 +126,14 @@ export function getNextRankProgress(totalPoints: number, levelConfig?: any) {
         progress,
         pointsNeeded: nextRank.minScore - totalPoints
     };
+}
+
+/** Format large numbers with abbreviations (K, M, G, T) */
+export function formatAmount(num: number): string {
+    const absNum = Math.abs(num);
+    if (absNum >= 1e12) return (num / 1e12).toFixed(1) + 'T';
+    if (absNum >= 1e9)  return (num / 1e9).toFixed(1) + 'G';
+    if (absNum >= 1e6)  return (num / 1e6).toFixed(1) + 'M';
+    if (absNum >= 1e3)  return (num / 1e3).toFixed(1) + 'K';
+    return Math.floor(num).toLocaleString();
 }

@@ -42,7 +42,7 @@ export function SummonBossDialog({
     const handleSummon = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/classroom/${classId}/boss`, {
+            const res = await fetch(`/api/classrooms/${classId}/boss`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -57,11 +57,11 @@ export function SummonBossDialog({
             
             const data = await res.json();
             
-            // Emit Socket event
+            // Emit Socket event to students
             socket?.emit("classroom-update", {
                 classId,
-                type: "BOSS_UPDATE",
-                data: { boss: data.boss }
+                type: "BOSS_SUMMONED",
+                boss: data.boss
             });
 
             onBossSummoned(data.boss);
@@ -81,17 +81,16 @@ export function SummonBossDialog({
     const handleDismiss = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/classroom/${classId}/boss`, {
+            const res = await fetch(`/api/classrooms/${classId}/boss`, {
                 method: "DELETE"
             });
 
             if (!res.ok) throw new Error("Dismiss failed");
             
-            // Emit Socket event
+            // Emit Socket event to students
             socket?.emit("classroom-update", {
                 classId,
-                type: "BOSS_UPDATE",
-                data: { boss: null }
+                type: "BOSS_DEFEATED"
             });
 
             onBossDismissed();

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { IdleEngine } from "@/lib/game/idle-engine";
+import {
+  getNewlyUnlockedSkills,
+  resolveEffectiveJobKey,
+} from "@/lib/game/job-system";
 
 export async function POST(
     req: NextRequest,
@@ -21,7 +25,14 @@ export async function POST(
                 classId: classId,
                 userId: session.user.id
             },
-            select: { id: true, gameStats: true }
+            select: {
+                id: true,
+                gameStats: true,
+                jobClass: true,
+                jobTier: true,
+                advanceClass: true,
+                jobSkills: true,
+            }
         });
 
         if (!student) {
@@ -40,6 +51,26 @@ export async function POST(
         const currentStats = (student.gameStats as any) || IdleEngine.getDefaultStats();
         const xpResult = IdleEngine.calculateXpGain(currentStats, xpGain);
 
+        // Check for newly unlocked skills on level-up (Req 11.6)
+        let updatedJobSkills: string[] | undefined;
+        if (xpResult.leveledUp && student.jobClass) {
+            const currentSkillIds = (student.jobSkills as string[]) ?? [];
+            const eff = resolveEffectiveJobKey({
+                jobClass: student.jobClass,
+                jobTier: student.jobTier,
+                advanceClass: student.advanceClass,
+            });
+            const newSkills = getNewlyUnlockedSkills(
+                eff,
+                currentStats.level,
+                xpResult.level,
+                currentSkillIds
+            );
+            if (newSkills.length > 0) {
+                updatedJobSkills = [...currentSkillIds, ...newSkills];
+            }
+        }
+
         await db.student.update({
             where: { id: student.id },
             data: {
@@ -47,7 +78,8 @@ export async function POST(
                     ...currentStats,
                     level: xpResult.level,
                     xp: xpResult.xp
-                } as any
+                } as any,
+                ...(updatedJobSkills ? { jobSkills: updatedJobSkills } : {})
             }
         });
 

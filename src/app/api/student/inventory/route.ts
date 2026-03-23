@@ -16,7 +16,9 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" }
     });
 
-    return NextResponse.json(inventory);
+    // Filter out dangling references (item deleted after seeding)
+    const valid = inventory.filter((si: any) => si.item != null);
+    return NextResponse.json(valid);
   } catch (error) {
     console.error("Error fetching inventory:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

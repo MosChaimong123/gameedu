@@ -3,6 +3,7 @@
 import { AbstractGameEngine } from "./abstract-game";
 import { GoldQuestEngine } from "./gold-quest-engine";
 import { CryptoHackEngine } from "./crypto-hack-engine";
+import { BattleTurnEngine } from "./battle-turn-engine";
 import { db } from "../db";
 
 class GameManager {
@@ -24,7 +25,7 @@ class GameManager {
     }
 
     public createGame(
-        mode: "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK",
+        mode: "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "BATTLE_TURN",
         pin: string,
         hostId: string,
         setId: string,
@@ -38,6 +39,8 @@ class GameManager {
             game = new GoldQuestEngine(pin, hostId, setId, settings, questions, io);
         } else if (mode === "CRYPTO_HACK") {
             game = new CryptoHackEngine(pin, hostId, setId, settings, questions, io);
+        } else if (mode === "BATTLE_TURN") {
+            game = new BattleTurnEngine(pin, hostId, setId, settings, questions, io);
         } else {
             // Default fallback
             game = new GoldQuestEngine(pin, hostId, setId, settings, questions, io);
@@ -84,6 +87,7 @@ class GameManager {
             await db.gameHistory.create({
                 data: {
                     hostId: game.hostId,
+                    setId: game.setId,
                     gameMode: game.gameMode,
                     pin: game.pin,
                     startedAt: new Date(game.startTime),
@@ -148,6 +152,15 @@ class GameManager {
 
                 if (record.gameMode === "CRYPTO_HACK") {
                     game = new CryptoHackEngine(
+                        record.pin,
+                        record.hostId,
+                        "",
+                        record.settings as any,
+                        record.questions as any[],
+                        null as any
+                    );
+                } else if (record.gameMode === "BATTLE_TURN") {
+                    game = new BattleTurnEngine(
                         record.pin,
                         record.hostId,
                         "",

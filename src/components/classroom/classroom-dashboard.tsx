@@ -16,6 +16,8 @@ import { StudentHistoryModal } from "./student-history-modal";
 import { SummonBossDialog } from "./summon-boss-dialog";
 import { CustomAchievementManagerButton } from "./CustomAchievementManagerButton";
 import { EventManagerButton } from "./EventManagerButton";
+import { ClassroomSettingsDialog } from "./classroom-settings-dialog";
+import { ClassroomRankSettingsDialog } from "./classroom-rank-settings-dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -26,7 +28,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, Timer, Shuffle, Settings, LayoutGrid, TableProperties, Plus, UserCog, History } from "lucide-react";
+import { Users, Timer, Shuffle, Settings, LayoutGrid, TableProperties, Plus, UserCog, ClipboardCheck, CheckSquare } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useToast } from "@/components/ui/use-toast";
 import { useSocket } from "@/components/providers/socket-provider";
@@ -64,6 +66,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [showAddAssignment, setShowAddAssignment] = useState(false);
     const [showStudentManager, setShowStudentManager] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
     const [historyStudentId, setHistoryStudentId] = useState<string | null>(null);
 
     const { toast } = useToast();
@@ -302,13 +305,11 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
         <div className="flex flex-col h-full space-y-6 relative">
             {/* Toolbar */}
             {!isAttendanceMode && (
-                <div className="bg-slate-800/90 backdrop-blur-md rounded-2xl shadow-lg border border-slate-700/50 overflow-hidden mb-6 flex flex-col md:flex-row">
+                <div className="bg-slate-800/90 backdrop-blur-md rounded-2xl shadow-lg border border-slate-700/50 overflow-hidden mb-6 flex flex-col">
                     
-                    {/* SCROLLABLE WRAPPER FOR MOBILE */}
-                    <div className="flex w-full overflow-x-auto overflow-y-hidden scrollbar-hide divide-x divide-slate-700/50 flex-nowrap">
-
-                        {/* ══ GROUP 1: Class Info ══ */}
-                        <div className="flex items-center gap-4 px-5 py-4 min-w-max bg-black/10 shrink-0">
+                    {/* Top Row: Class Info & View Toggles */}
+                    <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 bg-black/20 border-b border-slate-700/50">
+                        <div className="flex items-center gap-4">
                             <div className="w-14 h-14 bg-white/20 p-2 md:p-2.5 rounded-xl border border-white/30 backdrop-blur-sm shadow-inner shrink-0 flex items-center justify-center text-2xl overflow-hidden">
                                 {classroom.emoji?.startsWith('data:image') || classroom.emoji?.startsWith('http') ? (
                                     <img src={classroom.emoji} alt="Class Icon" className="w-full h-full object-cover" />
@@ -318,48 +319,53 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                             </div>
                             <div>
                                 <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">ห้องเรียน</p>
-                                <p className="text-xl font-bold leading-tight drop-shadow-sm">{classroom.name}</p>
+                                <p className="text-xl font-bold leading-tight text-white drop-shadow-sm">{classroom.name}</p>
                                 <div className="flex items-center gap-1.5 mt-1">
                                     <Users className="w-3.5 h-3.5 text-white/70" />
                                     <span className="text-sm text-white/80 font-medium">{classroom.students.length} คน</span>
                                     <div className={`w-2 h-2 rounded-full ml-1 ${isConnected ? "bg-green-400" : "bg-red-400"}`} title={isConnected ? "Connected" : "Disconnected"} />
                                 </div>
                             </div>
-                            {/* View toggle inline with class info */}
-                            <div className="flex bg-white/15 p-1 rounded-xl mx-2 xl:mx-4 shadow-inner gap-1 shrink-0">
-                                <Button
-                                    size="sm"
-                                    className={`h-8 px-3 rounded-lg text-sm font-bold transition-all ${viewMode === "grid" ? "bg-white text-indigo-700 shadow-md" : "text-white/80 hover:bg-white/20"}`}
-                                    onClick={() => { setViewMode("grid"); setIsAttendanceMode(false); setIsSelectMultiple(false); setSelectedStudentIds([]); }}
-                                >
-                                    <LayoutGrid className="w-4 h-4 md:mr-1" />
-                                    <span className="hidden md:inline">{t("grid")}</span>
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    className={`h-8 px-3 rounded-lg text-sm font-bold transition-all ${viewMode === "table" ? "bg-white text-indigo-700 shadow-md" : "text-white/80 hover:bg-white/20"}`}
-                                    onClick={() => { setViewMode("table"); setIsAttendanceMode(false); setIsSelectMultiple(false); setSelectedStudentIds([]); }}
-                                >
-                                    <TableProperties className="w-4 h-4 md:mr-1" />
-                                    <span className="hidden md:inline">{t("table")}</span>
-                                </Button>
-                                {viewMode === "table" && (
-                                    <Button
-                                        size="sm"
-                                        className="h-8 px-3 rounded-lg text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-white shadow-md"
-                                        onClick={() => setShowAddAssignment(true)}
-                                    >
-                                        <Plus className="w-4 h-4 mr-1" />
-                                        <span className="hidden md:inline">จัดการภารกิจ</span>
-                                    </Button>
-                                )}
-                            </div>
                         </div>
 
+                        {/* View toggle directly in top row */}
+                        <div className="flex items-center bg-white/10 p-1 rounded-xl shadow-inner gap-1 shrink-0">
+                            <Button
+                                size="sm"
+                                className={`h-9 px-4 rounded-lg text-sm font-bold transition-all ${viewMode === "grid" ? "bg-white text-indigo-700 shadow-md" : "text-white/80 hover:bg-white/20"}`}
+                                onClick={() => { setViewMode("grid"); setIsAttendanceMode(false); setIsSelectMultiple(false); setSelectedStudentIds([]); }}
+                            >
+                                <LayoutGrid className="w-4 h-4 md:mr-2" />
+                                <span className="hidden md:inline">{t("grid")}</span>
+                            </Button>
+                            <Button
+                                size="sm"
+                                className={`h-9 px-4 rounded-lg text-sm font-bold transition-all ${viewMode === "table" ? "bg-white text-indigo-700 shadow-md" : "text-white/80 hover:bg-white/20"}`}
+                                onClick={() => { setViewMode("table"); setIsAttendanceMode(false); setIsSelectMultiple(false); setSelectedStudentIds([]); }}
+                            >
+                                <TableProperties className="w-4 h-4 md:mr-2" />
+                                <span className="hidden md:inline">{t("table")}</span>
+                            </Button>
+                            {viewMode === "table" && (
+                                <Button
+                                    size="sm"
+                                    className="h-9 px-4 rounded-lg text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-white shadow-md ml-1"
+                                    onClick={() => setShowAddAssignment(true)}
+                                >
+                                    <Plus className="w-4 h-4 md:mr-2" />
+                                    <span className="hidden md:inline">จัดการภารกิจ</span>
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Bottom Wrap: Toolkits */}
+                    <div className="flex flex-wrap w-full bg-black/5">
+                        
                         {/* ══ GROUP 2: Toolkit ══ */}
-                        <div className="flex flex-col justify-center px-5 py-3 bg-black/5 shrink-0 min-w-max">
+                        <div className="flex flex-col justify-center px-5 py-4 border-r border-b border-slate-700/50 flex-grow sm:flex-grow-0">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-2">🛠 เครื่องมือ</p>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 <Button
                                     variant="secondary"
                                     size="sm"
@@ -391,9 +397,9 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                         </div>
 
                         {/* ══ GROUP 3: Student Management ══ */}
-                        <div className="flex flex-col justify-center px-5 py-3 bg-black/10 shrink-0 min-w-max">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-2">👤 จัดการนักเรียน</p>
-                            <div className="flex items-center gap-2">
+                        <div className="flex flex-col justify-center px-5 py-4 border-r border-b border-slate-700/50 flex-grow sm:flex-grow-0">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-2">👤 นักเรียน</p>
+                            <div className="flex flex-wrap items-center gap-2">
                                 <AddStudentDialog
                                     classId={classroom.id}
                                     theme={classroom.theme || ''}
@@ -415,6 +421,13 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                                         theme={classroom.theme || ''}
                                     />
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* ══ GROUP 4: Gamification ══ */}
+                        <div className="flex flex-col justify-center px-5 py-4 border-r border-b border-slate-700/50 flex-grow sm:flex-grow-0">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-2">🎮 Gamification</p>
+                            <div className="flex flex-wrap items-center gap-2">
                                 <SummonBossDialog 
                                     classId={classroom.id}
                                     currentBoss={(classroom.gamifiedSettings as any)?.boss}
@@ -427,6 +440,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                                         gamifiedSettings: { ...((prev.gamifiedSettings as any) || {}), boss: null }
                                     }))}
                                 />
+                                <ClassroomRankSettingsDialog classroom={classroom} />
                                 <CustomAchievementManagerButton
                                     classId={classroom.id}
                                     students={classroom.students.map(s => ({ id: s.id, name: s.name }))}
@@ -435,18 +449,135 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                             </div>
                         </div>
 
-                    </div>{/* End Scrollable Wrapper */}
+                        {/* ══ GROUP 5: Actions ══ */}
+                        <div className="flex flex-col justify-center px-5 py-4 border-b border-slate-700/50 flex-grow sm:flex-grow-0">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-2">⚙️ Actions</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="h-9 bg-white/15 hover:bg-white/25 text-white border-0 font-semibold shadow backdrop-blur-sm"
+                                    onClick={() => {
+                                        setIsAttendanceMode(true);
+                                        setViewMode("grid");
+                                    }}
+                                >
+                                    <ClipboardCheck className="w-4 h-4 mr-1.5 text-emerald-300" />
+                                    เช็คชื่อ
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className={`h-9 border-0 font-semibold shadow backdrop-blur-sm ${isSelectMultiple ? "bg-indigo-500 text-white hover:bg-indigo-400" : "bg-white/15 hover:bg-white/25 text-white"}`}
+                                    onClick={() => setIsSelectMultiple(v => !v)}
+                                >
+                                    <CheckSquare className="w-4 h-4 mr-1.5" />
+                                    เลือกหลายคน {isSelectMultiple && `(${selectedStudentIds.length})`}
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="h-9 bg-white/15 hover:bg-white/25 text-white border-0 font-semibold shadow backdrop-blur-sm"
+                                    onClick={() => setShowSettings(true)}
+                                >
+                                    <Settings className="w-4 h-4 mr-1.5 text-slate-300" />
+                                    ตั้งค่า
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 
             {/* Attendance Header */}
             {isAttendanceMode && (
-                <div className="bg-indigo-600 text-white p-4 rounded-xl shadow-md flex items-center justify-between animate-in slide-in-from-top-2">
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                        <Users className="w-6 h-6" />
-                        {t("attendanceMode")}
-                    </h2>
-                    <p className="text-indigo-100 text-sm">{t("attendanceDesc")}</p>
+                <div className="bg-indigo-600 text-white p-4 rounded-xl shadow-md flex items-center justify-between animate-in slide-in-from-top-2 mb-6">
+                    <div className="flex items-center gap-4">
+                        <div className="p-2 bg-white/20 rounded-lg">
+                            <Users className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-bold italic tracking-tight uppercase">
+                                {t("attendanceMode")}
+                            </h2>
+                            <p className="text-white/70 text-xs font-medium">
+                                {t("attendanceDesc")}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <div className="hidden md:block px-3 py-1 bg-white/10 rounded-full text-xs font-bold border border-white/10">
+                            {hasChanges ? t("unsavedChanges") || "📝 มีการเปลี่ยนแปลง" : t("ready") || "✨ พร้อมบันทึก"}
+                        </div>
+                        <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                            onClick={() => {
+                                setIsAttendanceMode(false);
+                                setClassroom(classroom); // Initial version had a reset here, but we'll follow logic 
+                                refreshData(); // Better refresh
+                            }} 
+                        >
+                            {t("cancel")}
+                        </Button>
+                        <Button 
+                            size="sm"
+                            className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-900/40 border-0 font-black px-6"
+                            onClick={saveAttendance}
+                            disabled={loading}
+                        >
+                            {t("saveAttendance")}
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* Selection Header */}
+            {isSelectMultiple && !isAttendanceMode && (
+                <div className="bg-slate-800 text-white p-4 rounded-xl shadow-md flex items-center justify-between animate-in slide-in-from-top-2 mb-6 border-b-4 border-indigo-500">
+                    <div className="flex items-center gap-4">
+                        <div className="p-2 bg-indigo-500 rounded-lg shadow-lg">
+                            <CheckSquare className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-black italic tracking-tight uppercase text-indigo-100">
+                                {t("selectionMode") || "โหมดเลือกนักเรียน"}
+                            </h2>
+                            <p className="text-indigo-200/60 text-xs font-medium">
+                                {t("selectedCount", { count: selectedStudentIds.length })}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="bg-white/5 hover:bg-white/10 text-slate-300"
+                            onClick={() => {
+                                setIsSelectMultiple(false);
+                                setSelectedStudentIds([]);
+                            }} 
+                        >
+                            {t("cancel")}
+                        </Button>
+                        <Button 
+                            size="sm"
+                            className="bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg shadow-indigo-900/40 border-0 font-black px-6"
+                            onClick={() => {
+                                if (selectedStudentIds.length === 0) {
+                                    toast({ title: t("error") || "Error", description: "Select students first", variant: "destructive" });
+                                    return;
+                                }
+                                setMenuOpen(true);
+                            }}
+                            disabled={loading || selectedStudentIds.length === 0}
+                        >
+                            {t("giveFeedback") || "ให้แต้ม/สกิล"}
+                        </Button>
+                    </div>
                 </div>
             )}
 
@@ -492,6 +623,8 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                         assignments={classroom.assignments}
                         levelConfig={classroom.levelConfig}
                         onUpdatePoints={handleTablePointUpdate}
+                        isAttendanceMode={isAttendanceMode}
+                        onStudentClick={handleStudentClick as any}
                     />
                 </div>
             )}
@@ -564,72 +697,12 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                 theme={classroom.theme || ''}
             />
 
-            {/* Bottom Action Bar */}
-            {viewMode !== "table" && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white px-6 py-3 rounded-full shadow-lg border border-slate-200 flex items-center gap-4 transition-all">
-                    {isAttendanceMode ? (
-                        <>
-                            <Button
-                                variant="destructive"
-                                onClick={() => {
-                                    setIsAttendanceMode(false);
-                                    setClassroom(initialClassroom); // Reset changes
-                                }}
-                            >
-                                {t("cancel")}
-                            </Button>
-                            <div className="text-slate-400 text-sm font-medium">
-                                {hasChanges ? t("unsavedChanges") || "Unsaved Changes" : t("ready") || "Ready"}
-                            </div>
-                            <Button
-                                className="bg-green-600 hover:bg-green-700 text-white"
-                                onClick={saveAttendance}
-                                disabled={loading}
-                            >
-                                {t("saveAttendance")}
-                            </Button>
-                        </>
-                    ) : isSelectMultiple ? (
-                        <>
-                            <Button
-                                variant="destructive"
-                                onClick={() => {
-                                    setIsSelectMultiple(false);
-                                    setSelectedStudentIds([]);
-                                }}
-                            >
-                                {t("cancel")}
-                            </Button>
-                            <div className="text-slate-400 text-sm font-medium">
-                                {t("selectedCount", { count: selectedStudentIds.length })}
-                            </div>
-                            <Button
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
-                                onClick={() => {
-                                    if (selectedStudentIds.length === 0) {
-                                        toast({ title: t("error") || "Error", description: "Select students first", variant: "destructive" });
-                                        return;
-                                    }
-                                    setMenuOpen(true);
-                                }}
-                                disabled={loading || selectedStudentIds.length === 0}
-                            >
-                                {t("giveFeedback")}
-                            </Button>
-                        </>
-                    ) : (
-                        <>
-                            <Button variant="ghost" size="sm" onClick={() => setIsAttendanceMode(true)}>
-                                {t("attendanceTitle")}
-                            </Button>
-                            <Separator orientation="vertical" className="h-4" />
-                            <Button variant="ghost" size="sm" onClick={() => setIsSelectMultiple(true)}>
-                                {t("selectMultiple")}
-                            </Button>
-                        </>
-                    )}
-                </div>
-            )}
+            <ClassroomSettingsDialog
+                classroom={classroom}
+                open={showSettings}
+                onOpenChange={setShowSettings}
+            />
+
         </div>
     );
 }

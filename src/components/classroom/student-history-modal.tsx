@@ -7,6 +7,7 @@ import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip } from "recharts";
 import { isToday, isYesterday, startOfDay, format } from "date-fns";
 import { useLanguage } from "@/components/providers/language-provider";
+import { cn } from "@/lib/utils";
 
 interface PointRecord {
     id: string;
@@ -117,19 +118,19 @@ export function StudentHistoryModal({
 
                     {/* Stat pills & Sparkline */}
                     {data && (
-                        <div className="flex flex-col gap-4 mt-3">
-                            <div className="flex gap-2">
-                                <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2 flex-1 text-center">
-                                    <p className="text-white/70 text-[10px] uppercase tracking-wider font-bold">รวม</p>
-                                    <p className="text-white font-black text-xl">{data.points}</p>
+                        <div className="flex flex-col gap-5 mt-4">
+                            <div className="flex gap-4">
+                                <div className="bg-white rounded-2xl p-3 flex-1 flex flex-col items-center border-2 border-white/50 shadow-xl">
+                                    <p className="text-slate-500 text-[10px] uppercase font-black mb-1">Total</p>
+                                    <p className="text-slate-900 font-black text-2xl tracking-tighter">{data.points}</p>
                                 </div>
-                                <div className="bg-green-500/30 backdrop-blur-sm rounded-xl px-4 py-2 flex-1 text-center">
-                                    <p className="text-white/70 text-[10px] uppercase tracking-wider font-bold">ได้รับ</p>
-                                    <p className="text-green-200 font-black text-xl">+{totalPositive}</p>
+                                <div className="bg-emerald-50 rounded-2xl p-3 flex-1 flex flex-col items-center border-2 border-emerald-200 shadow-xl">
+                                    <p className="text-emerald-600 text-[10px] uppercase font-black mb-1">Earned</p>
+                                    <p className="text-emerald-700 font-black text-2xl tracking-tighter">+{totalPositive}</p>
                                 </div>
-                                <div className="bg-red-500/30 backdrop-blur-sm rounded-xl px-4 py-2 flex-1 text-center">
-                                    <p className="text-white/70 text-[10px] uppercase tracking-wider font-bold">หักออก</p>
-                                    <p className="text-red-200 font-black text-xl">-{totalNegative}</p>
+                                <div className="bg-rose-50 rounded-2xl p-3 flex-1 flex flex-col items-center border-2 border-rose-200 shadow-xl">
+                                    <p className="text-rose-600 text-[10px] uppercase font-black mb-1">Deducted</p>
+                                    <p className="text-rose-700 font-black text-2xl tracking-tighter">-{totalNegative}</p>
                                 </div>
                             </div>
                             
@@ -192,30 +193,35 @@ export function StudentHistoryModal({
                                             return (
                                                 <div key={record.id} className="flex gap-4 items-start animate-in fade-in slide-in-from-left-2" style={{ animationDelay: `${index * 50}ms` }}>
                                                     {/* NodeIcon */}
-                                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black shadow-lg shrink-0 relative z-10 ${isPositive ? 'bg-gradient-to-br from-green-400 to-emerald-600' : 'bg-gradient-to-br from-rose-400 to-red-600'}`}>
-                                                        {isPositive ? <TrendingUp className="w-6 h-6" /> : <TrendingDown className="w-6 h-6" />}
+                                                    <div className={`w-14 h-14 rounded-[1.25rem] flex items-center justify-center text-white font-black shadow-xl shrink-0 relative z-10 border-4 border-white ${isPositive ? 'bg-gradient-to-br from-emerald-400 to-teal-600' : 'bg-gradient-to-br from-rose-400 to-red-600 shadow-rose-200'}`}>
+                                                        {isPositive ? <TrendingUp className="w-7 h-7" /> : <TrendingDown className="w-7 h-7" />}
                                                     </div>
 
-                                                    {/* Content Card */}
-                                                    <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 hover:shadow-xl hover:border-indigo-100 transition-all cursor-default group overflow-hidden relative">
-                                                        <div className={`absolute top-0 left-0 w-1 h-full ${isPositive ? 'bg-green-500' : 'bg-red-500'}`} />
-                                                        <div className="flex justify-between items-start gap-3">
+                                                     {/* Content Card */}
+                                                    <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-5 hover:shadow-2xl hover:-translate-y-1 hover:border-indigo-200 transition-all cursor-default group overflow-hidden relative">
+                                                        <div className={`absolute top-0 left-0 w-1.5 h-full ${isPositive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                                        <div className="flex justify-between items-center gap-4">
                                                             <div className="flex-1 min-w-0">
-                                                                <p className="font-black text-slate-800 text-base leading-tight group-hover:text-indigo-600 transition-colors">
+                                                                <p className="font-bold text-slate-800 text-lg leading-tight tracking-tight group-hover:text-indigo-600 transition-colors">
                                                                     {record.reason}
                                                                 </p>
-                                                                <div className="flex items-center gap-3 mt-2">
-                                                                    <p className="text-xs text-slate-400 font-bold flex items-center gap-1">
-                                                                        <Clock className="w-3 h-3" />
-                                                                        {format(new Date(record.timestamp), "HH:mm")}
-                                                                    </p>
-                                                                    <div className="w-1 h-1 rounded-full bg-slate-300" />
-                                                                    <p className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-black uppercase tracking-tight">
+                                                                <div className="flex items-center gap-3 mt-3">
+                                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-lg border border-slate-200">
+                                                                        <Clock className="w-3.5 h-3.5 text-slate-500" />
+                                                                        <span className="text-xs text-slate-600 font-bold">{format(new Date(record.timestamp), "HH:mm")}</span>
+                                                                    </div>
+                                                                    <div className={cn(
+                                                                        "text-[10px] px-3 py-1 rounded-lg font-black uppercase tracking-wider border-2 shadow-sm",
+                                                                        isPositive ? "bg-emerald-100 border-emerald-200 text-emerald-700" : "bg-rose-100 border-rose-200 text-rose-700"
+                                                                    )}>
                                                                         {isPositive ? 'Reward' : 'Infraction'}
-                                                                    </p>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                            <div className={`text-xl font-black px-4 py-2 rounded-xl shrink-0 ${isPositive ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}`}>
+                                                            <div className={cn(
+                                                                "text-2xl font-black px-5 py-2.5 rounded-[1.25rem] shrink-0 shadow-lg border-b-4",
+                                                                isPositive ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-rose-700 bg-rose-50 border-rose-200 shadow-rose-100"
+                                                            )}>
                                                                 {isPositive ? '+' : ''}{record.value}
                                                             </div>
                                                         </div>

@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { getRankEntry } from "@/lib/classroom-utils";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useSocket } from "@/components/providers/socket-provider";
 
 type StudentWithSubmissions = Student & { submissions: AssignmentSubmission[] };
@@ -18,9 +19,19 @@ interface ClassroomTableProps {
     assignments: Assignment[];
     levelConfig: any;
     onUpdatePoints: (studentId: string, diff: number) => void;
+    isAttendanceMode?: boolean;
+    onStudentClick?: (student: Student) => void;
 }
 
-export function ClassroomTable({ classId, students, assignments, levelConfig, onUpdatePoints }: ClassroomTableProps) {
+export function ClassroomTable({ 
+    classId, 
+    students, 
+    assignments, 
+    levelConfig, 
+    onUpdatePoints,
+    isAttendanceMode = false,
+    onStudentClick
+}: ClassroomTableProps) {
     const { t } = useLanguage();
     const { socket } = useSocket();
     const sortedStudents = [...students].sort((a, b) => a.order - b.order);
@@ -211,15 +222,46 @@ export function ClassroomTable({ classId, students, assignments, levelConfig, on
                                 <TableCell className="font-bold text-indigo-600 text-center border-r bg-indigo-50/30">
                                     {(student.order ?? index) + 1}
                                 </TableCell>
-                                <TableCell className="border-r">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shrink-0">
+                                <TableCell 
+                                    className={cn(
+                                        "border-r transition-colors",
+                                        isAttendanceMode && "cursor-pointer hover:bg-indigo-50 active:bg-indigo-100"
+                                    )}
+                                    onClick={() => isAttendanceMode && onStudentClick?.(student as any)}
+                                >
+                                    <div className="flex items-center gap-2 relative">
+                                        <div className={cn(
+                                            "w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shrink-0 relative",
+                                            student.attendance === "ABSENT" && "opacity-50 grayscale",
+                                            student.attendance === "LATE" && "border-2 border-yellow-400",
+                                            student.attendance === "LEFT_EARLY" && "border-2 border-orange-400"
+                                        )}>
                                             <img src={`https://api.dicebear.com/7.x/bottts/svg?seed=${student.avatar || student.id}`} className="w-full h-full" />
+                                            {student.attendance === "ABSENT" && <div className="absolute inset-0 bg-red-500/10" />}
                                         </div>
-                                        <span className="font-semibold text-slate-700 truncate">{student.name}</span>
-                                        {(student as any).nickname && (
-                                            <span className="text-xs text-slate-400 italic truncate">({(student as any).nickname})</span>
-                                        )}
+                                        <div className="flex flex-col min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className={cn(
+                                                    "font-semibold text-slate-700 truncate",
+                                                    student.attendance === "ABSENT" && "text-slate-400 line-through decoration-red-400/50"
+                                                )}>
+                                                    {student.name}
+                                                </span>
+                                                {isAttendanceMode && student.attendance !== "PRESENT" && (
+                                                    <span className={cn(
+                                                        "text-[9px] font-black px-1.5 py-0.5 rounded-md text-white uppercase tracking-tighter",
+                                                        student.attendance === "ABSENT" && "bg-red-500",
+                                                        student.attendance === "LATE" && "bg-yellow-500",
+                                                        student.attendance === "LEFT_EARLY" && "bg-orange-500"
+                                                    )}>
+                                                        {student.attendance === "ABSENT" ? t("absent") : student.attendance === "LATE" ? t("late") : t("leftEarly")}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {(student as any).nickname && (
+                                                <span className="text-[10px] text-slate-400 italic truncate font-medium">({(student as any).nickname})</span>
+                                            )}
+                                        </div>
                                     </div>
                                 </TableCell>
                                 <TableCell className="text-center border-r">

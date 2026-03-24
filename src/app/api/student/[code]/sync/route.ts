@@ -2,6 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { IdleEngine } from "@/lib/game/idle-engine";
 import { checkAndGrantAchievements } from "@/lib/game/achievement-engine";
+import { toPrismaJson } from "@/lib/game/game-stats";
+
+type SubmissionLite = {
+  assignmentId: string;
+  score: number;
+};
+
+type ChecklistLite = {
+  points?: number | null;
+};
+
+type AssignmentLite = {
+  id: string;
+  type: string;
+  checklists: unknown;
+};
+
+type EventLite = {
+  type?: string | null;
+  startAt?: string | Date | null;
+  endAt?: string | Date | null;
+  multiplier?: number | null;
+};
 
 export async function POST(
   req: NextRequest,
@@ -41,17 +64,19 @@ export async function POST(
     }
 
     // 2. Calculate actual academic points (Academic Total) for rank-based gold rate
-    const submissionMap = new Map<string, number>(student.submissions.map((s: any) => [s.assignmentId, s.score || 0]));
-    const academicTotal = (student.classroom?.assignments || []).reduce((sum: number, assignment: any) => {
+    const submissionMap = new Map<string, number>(
+      student.submissions.map((s: SubmissionLite) => [s.assignmentId, s.score || 0])
+    );
+    const academicTotal = (student.classroom?.assignments || []).reduce((sum: number, assignment: AssignmentLite) => {
         const score = submissionMap.get(assignment.id);
         if (score === undefined) return sum;
 
         if (assignment.type === 'checklist') {
-            const checklistItems = (assignment.checklists || []) as Record<string, any>[];
+            const checklistItems = (assignment.checklists || []) as ChecklistLite[];
             if (!Array.isArray(checklistItems)) return sum;
             return sum + checklistItems.reduce((cSum, item, i) => {
                 const isChecked = ((score || 0) & (1 << i)) !== 0;
-                const points = typeof item === 'object' ? (item.points || 0) : 1;
+                const points = typeof item === "object" && item ? (item.points || 0) : 1;
                 return isChecked ? cSum + points : cSum;
             }, 0);
         }
@@ -59,8 +84,11 @@ export async function POST(
     }, 0);
 
     // 3. Get currently active events
-    const settings = (student.classroom?.gamifiedSettings as Record<string, any>) || {};
-    const events = (settings.events || []) as Record<string, any>[];
+    const settings =
+      student.classroom?.gamifiedSettings && typeof student.classroom.gamifiedSettings === "object"
+        ? (student.classroom.gamifiedSettings as { events?: EventLite[] })
+        : {};
+    const events = settings.events || [];
     const now = new Date();
 
     // 4. Daily Refill Logic (Stamina & Mana)
@@ -75,7 +103,7 @@ export async function POST(
         mana = Math.min(100, mana + 20); // Regain 20 mana per day (or define max)
     }
 
-    const activeEvents = events.filter((e: any) => new Date(e.startAt) <= now && new Date(e.endAt) >= now);
+    const activeEvents = events.filter((e) => new Date(e.startAt || 0) <= now && new Date(e.endAt || 0) >= now);
 
     // 4. Server-side validation (Anti-Cheat)
     const serverCalc = IdleEngine.calculateCurrentResources({
@@ -95,11 +123,11 @@ export async function POST(
 
     // 5. XP and Level-Up Sync
     const currentStats = IdleEngine.parseGameStats(student.gameStats);
-    console.log(`[SYNC_DEBUG] Student:${student.code}, Level:${currentStats.level}, XP:${currentStats.xp}`);
+    console.log(`[SYNC_DEBUG] Student:${student.loginCode}, Level:${currentStats.level}, XP:${currentStats.xp}`);
     const xpSync = IdleEngine.calculateXpGain(currentStats, 0);
     
     if (xpSync.leveledUp) {
-      console.log(`[SYNC_DEBUG] LEVEL UP DETECTED for ${student.code}: ${currentStats.level} -> ${xpSync.level}`);
+      console.log(`[SYNC_DEBUG] LEVEL UP DETECTED for ${student.loginCode}: ${currentStats.level} -> ${xpSync.level}`);
     }
 
     // 6. Update the database atomically
@@ -109,12 +137,12 @@ export async function POST(
         stamina,
         mana,
         lastStaminaRefill: isNewDay ? now : student.lastStaminaRefill,
-        gameStats: {
+        gameStats: toPrismaJson({
           ...currentStats,
           gold: verifiedGold,
           level: xpSync.level,
           xp: xpSync.xp
-        } as any,
+        }),
         lastSyncTime: now,
       },
     });
@@ -129,7 +157,7 @@ export async function POST(
       maxStamina: updatedStudent.maxStamina,
       mana: updatedStudent.mana,
       lastSyncTime: updatedStudent.lastSyncTime,
-      newlyUnlocked: newlyUnlocked.map((a: any) => ({
+      newlyUnlocked: newlyUnlocked.map((a) => ({
         id: a.id,
         name: a.name,
         icon: a.icon,

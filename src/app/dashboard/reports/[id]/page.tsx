@@ -21,10 +21,11 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
     });
     
     // Fetch associated set for questions metadata
-    const questionSet = game?.setId ? await db.set.findUnique({
-        where: { id: game.setId },
-        include: { questions: true }
-    }) : null;
+    const questionSet = game?.setId
+        ? await db.questionSet.findUnique({
+              where: { id: game.setId },
+          })
+        : null;
 
     // Fetch full host history for growth trends
     const fullHistory = await db.gameHistory.findMany({

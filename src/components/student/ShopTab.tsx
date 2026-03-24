@@ -304,8 +304,16 @@ export function ShopTab({
     }
   };
 
-  const currencyLabel = (item: Item) => (item.currency === "GEMS" ? "เพชร" : "ทอง");
-  const currencyAmount = (item: Item) => (item.currency === "GEMS" ? gems : gold);
+  const currencyLabel = (item: Item) => {
+    if (item.currency === "GEMS") return "เพชร";
+    if (item.currency === "POINTS") return "แต้ม";
+    return "ทอง";
+  };
+  const currencyAmount = (item: Item) => {
+    if (item.currency === "GEMS") return gems;
+    if (item.currency === "POINTS") return points;
+    return gold;
+  };
   const handleBuyAmount = (item: Item) => item.type === "CONSUMABLE" ? quantity[item.id] || 1 : 1;
 
   return (
@@ -338,16 +346,6 @@ export function ShopTab({
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Gold</p>
                 <p className="text-lg font-black text-orange-600">{gold.toLocaleString()}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 rounded-2xl border border-indigo-200 bg-white/88 px-4 py-3 shadow-[0_16px_35px_-28px_rgba(79,70,229,0.7)]">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-lg">
-                <Star className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Gems</p>
-                <p className="text-lg font-black text-indigo-600">{gems.toLocaleString()}</p>
               </div>
             </div>
 
@@ -529,10 +527,25 @@ export function ShopTab({
                       onClick={() => setQuantity((c) => ({ ...c, [item.id]: Math.max(1, (c[item.id] || 1) - 1) }))}
                       className="h-8 w-8 rounded-xl border border-slate-200 bg-white font-bold text-slate-700 hover:border-slate-300 transition text-sm"
                     >−</button>
-                    <span className="min-w-[40px] text-center font-bold text-slate-900 text-sm">{amount}</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={9999}
+                      value={amount}
+                      onChange={(event) => {
+                        const raw = Number(event.target.value);
+                        if (Number.isNaN(raw)) {
+                          setQuantity((c) => ({ ...c, [item.id]: 1 }));
+                          return;
+                        }
+                        const clamped = Math.min(9999, Math.max(1, Math.floor(raw)));
+                        setQuantity((c) => ({ ...c, [item.id]: clamped }));
+                      }}
+                      className="h-8 w-14 rounded-xl border border-slate-200 bg-white text-center font-bold text-slate-900 text-sm outline-none focus:border-amber-400"
+                    />
                     <button
                       type="button"
-                      onClick={() => setQuantity((c) => ({ ...c, [item.id]: Math.min(99, (c[item.id] || 1) + 1) }))}
+                      onClick={() => setQuantity((c) => ({ ...c, [item.id]: Math.min(9999, (c[item.id] || 1) + 1) }))}
                       className="h-8 w-8 rounded-xl border border-slate-200 bg-white font-bold text-slate-700 hover:border-slate-300 transition text-sm"
                     >+</button>
                   </div>
@@ -541,9 +554,13 @@ export function ShopTab({
                 {/* Bottom row: price + buy */}
                 <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-white/80 border border-slate-100 px-3 py-2">
                   <div className="flex items-center gap-1.5">
-                    {item.currency === "GEMS"
-                      ? <Star className="h-4 w-4 text-violet-500" />
-                      : <Coins className="h-4 w-4 text-amber-500" />}
+                    {item.currency === "GEMS" ? (
+                      <Star className="h-4 w-4 text-violet-500" />
+                    ) : item.currency === "POINTS" ? (
+                      <Sparkles className="h-4 w-4 text-indigo-500" />
+                    ) : (
+                      <Coins className="h-4 w-4 text-amber-500" />
+                    )}
                     <span className="font-black text-slate-900 text-sm">{totalPrice.toLocaleString()}</span>
                     <span className="text-xs text-slate-400">{currencyLabel(item)}</span>
                   </div>
@@ -556,7 +573,9 @@ export function ShopTab({
                         ? "bg-slate-200 text-slate-400"
                         : item.currency === "GEMS"
                           ? "bg-violet-500 hover:bg-violet-600 text-white"
-                          : "bg-amber-500 hover:bg-amber-600 text-white"
+                          : item.currency === "POINTS"
+                            ? "bg-indigo-500 hover:bg-indigo-600 text-white"
+                            : "bg-amber-500 hover:bg-amber-600 text-white"
                     }`}
                   >
                     {buyingId === item.id ? "..." : insufficient ? "เงินไม่พอ" : "ซื้อเลย"}
@@ -627,12 +646,37 @@ export function ShopTab({
                   ))}
                 </div>
 
-                {selectedItem.setId && (
-                  <div className="rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-500">Set Bonus</p>
-                    <p className="mt-2 text-base font-bold text-amber-900">
-                      {SET_DISPLAY_TH[selectedItem.setId]?.stats ?? selectedItem.setId}
-                    </p>
+                {selectedItem.setId && (() => {
+                  const setInfo = SET_DISPLAY_TH[selectedItem.setId!];
+                  return (
+                    <div className="rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{setInfo?.icon ?? "🎁"}</span>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">ชุดไอเทม · Set Bonus</p>
+                      </div>
+                      <p className="mt-1 text-sm font-bold text-amber-900">
+                        {setInfo?.desc ?? selectedItem.setId}
+                      </p>
+                      <p className="mt-2 text-xs leading-relaxed text-amber-700">
+                        {setInfo?.stats ?? "—"}
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                {Array.isArray(selectedItem.effects) && selectedItem.effects.length > 0 && (
+                  <div className="rounded-[24px] border border-indigo-100 bg-indigo-50 px-5 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-500">Special Effects</p>
+                    <ul className="mt-2 space-y-1">
+                      {(selectedItem.effects as string[]).map((eff) => {
+                        const info = EFFECT_DISPLAY_TH[eff];
+                        return (
+                          <li key={eff} className="text-xs text-indigo-800">
+                            <span className="font-bold">{info?.stats ?? eff}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </div>
                 )}
 

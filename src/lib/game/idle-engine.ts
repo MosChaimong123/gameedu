@@ -1,6 +1,6 @@
 import { Prisma, Student, PrismaClient } from "@prisma/client";
-import { db } from "@/lib/db";
-import { getRankEntry } from "@/lib/classroom-utils";
+import { db } from "../db";
+import { getRankEntry } from "../classroom-utils";
 import { SKILLS } from "./game-constants";
 import { spawnSoloMonster, rollFarmingLoot, SoloMonster } from "./farming-system";
 import {

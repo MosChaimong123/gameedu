@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { db } from "../db";
 import { parseGameStats, toPrismaJson } from "./game-stats";
 
 export interface AchievementDef {

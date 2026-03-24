@@ -5,7 +5,7 @@
  *
  * Requirements: 15
  */
-import { db } from "@/lib/db";
+import { db } from "../db";
 import { Prisma } from "@prisma/client";
 import { IdleEngine, GameStats } from "./idle-engine";
 import { BattlePlayer, FinalReward } from "../types/game";

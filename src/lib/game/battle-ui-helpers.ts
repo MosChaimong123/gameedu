@@ -1,4 +1,4 @@
-import type { BattlePlayer, SoloMonster } from "@/lib/types/game";
+import type { BattlePlayer, SoloMonster } from "../types/game";
 
 type SoloFarmingStateLike = {
   wave: number;

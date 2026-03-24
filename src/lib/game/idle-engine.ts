@@ -13,6 +13,12 @@ import {
   type Skill,
 } from "./job-system";
 import { toPrismaJson } from "./game-stats";
+import {
+  getEffectiveSkillAtRank,
+  getSkillRank,
+  normalizeSkillTreeState,
+  type SkillTreeProgress,
+} from "./skill-tree";
 
 /**
  * Core Character Stats
@@ -44,6 +50,17 @@ export interface GameStats {
   multipliers: {
     gold: number;
     xp: number;
+  };
+  skillPointsAvailable?: number;
+  skillPointsSpent?: number;
+  skillTreeProgress?: SkillTreeProgress;
+  lastRespecAt?: string;
+  pendingHpBonus?: number;
+  phoenixCharges?: number;
+  pendingBattleBuff?: {
+    atk?: number;
+    def?: number;
+    spd?: number;
   };
   farming?: {
     currentWave: number;
@@ -236,10 +253,23 @@ export class IdleEngine {
     }
 
     // Merge with defaults to ensure level and xp exist
-    return {
+    const merged = {
       ...defaults,
       ...stats
     } as GameStats;
+    const skillState = normalizeSkillTreeState(
+      {
+        skillPointsAvailable: merged.skillPointsAvailable,
+        skillPointsSpent: merged.skillPointsSpent,
+        skillTreeProgress: merged.skillTreeProgress,
+        lastRespecAt: merged.lastRespecAt,
+      },
+      merged.level ?? 1
+    );
+    return {
+      ...merged,
+      ...skillState,
+    };
   }
 
   static calculateCurrentResources(
@@ -677,9 +707,7 @@ export class IdleEngine {
   static async useSkill(studentId: string, skillId: string, classId: string) {
     try {
         const { buildGlobalSkillMap } = require("./job-system");
-        const skill = (buildGlobalSkillMap() as Record<string, Skill | undefined>)[skillId];
-
-        if (!skill) return { error: "Skill not found" };
+        const baseSkill = (buildGlobalSkillMap() as Record<string, Skill | undefined>)[skillId];
 
         // 1. Fetch student data
         const student = await db.student.findUnique({
@@ -694,6 +722,11 @@ export class IdleEngine {
         }) as SkillUserStudent | null;
 
         if (!student) return { error: "Student not found" };
+        const stats = this.parseGameStats(student.gameStats);
+        const rank = getSkillRank(stats.skillTreeProgress ?? {}, skillId);
+        const skill = baseSkill ? getEffectiveSkillAtRank(baseSkill, rank) : undefined;
+
+        if (!skill) return { error: "Skill not found" };
 
         // 2. Check Resource Requirement (AP vs MP)
         const isAP = skill.costType === "AP";
@@ -704,7 +737,6 @@ export class IdleEngine {
             return { error: `${resourceName} ไม่เพียงพอ` };
         }
 
-        const stats = this.parseGameStats(student.gameStats);
         let resultMessage = "";
 
         // 3. Apply Skill Effect
@@ -1006,8 +1038,7 @@ export class IdleEngine {
   static async useSkillOnMonster(studentId: string, skillId: string) {
     try {
         const { buildGlobalSkillMap } = require("./job-system");
-        const skill = (buildGlobalSkillMap() as Record<string, Skill | undefined>)[skillId];
-        if (!skill) return { error: "ไม่พบทักษะ" };
+        const baseSkill = (buildGlobalSkillMap() as Record<string, Skill | undefined>)[skillId];
 
         const student = await db.student.findUnique({
             where: { id: studentId },
@@ -1015,11 +1046,13 @@ export class IdleEngine {
         }) as CombatStudent | null;
         if (!student) return { error: "Student not found" };
 
+        const stats = this.parseGameStats(student.gameStats);
+        const rank = getSkillRank(stats.skillTreeProgress ?? {}, skillId);
+        const skill = baseSkill ? getEffectiveSkillAtRank(baseSkill, rank) : undefined;
+        if (!skill) return { error: "ไม่พบทักษะ" };
         const isAP = skill.costType === "AP";
         const currentResource = isAP ? student.stamina : student.mana;
         if (currentResource < skill.cost) return { error: "พลังงานไม่เพียงพอ" };
-
-        const stats = this.parseGameStats(student.gameStats);
         const farming = this.getFarmingState(student);
         const monster = { ...farming.monster }; // mutable copy
 
@@ -1407,7 +1440,10 @@ export class IdleEngine {
       multipliers: {
         gold: 1,
         xp: 1
-      }
+      },
+      skillPointsAvailable: 0,
+      skillPointsSpent: 0,
+      skillTreeProgress: {},
     };
   }
 }

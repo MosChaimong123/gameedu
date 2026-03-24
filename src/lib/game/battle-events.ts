@@ -27,6 +27,9 @@ export type BattleAnimationEvent = {
   tone?: "neutral" | "success" | "danger" | "skill" | "warning";
 };
 
+// Socket payload emitted by server. Client will add id/timestamp locally.
+export type BattleRuntimeEventPayload = Omit<BattleAnimationEvent, "id" | "timestamp">;
+
 export function createBattleEvent(
   event: Omit<BattleAnimationEvent, "id" | "timestamp">
 ): BattleAnimationEvent {

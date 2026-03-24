@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import type { GameStats } from "./idle-engine";
+import { normalizeSkillTreeState } from "./skill-tree";
 
 export function getDefaultGameStats(): GameStats {
   return {
@@ -12,6 +13,9 @@ export function getDefaultGameStats(): GameStats {
       gold: 1,
       xp: 1,
     },
+    skillPointsAvailable: 0,
+    skillPointsSpent: 0,
+    skillTreeProgress: {},
   };
 }
 
@@ -23,14 +27,38 @@ export function parseGameStats(gameStats: unknown): GameStats {
   if (typeof gameStats === "string") {
     try {
       const parsed = JSON.parse(gameStats);
-      return { ...defaults, ...parsed } as GameStats;
+      const merged = { ...defaults, ...parsed } as GameStats;
+      return {
+        ...merged,
+        ...normalizeSkillTreeState(
+          {
+            skillPointsAvailable: merged.skillPointsAvailable,
+            skillPointsSpent: merged.skillPointsSpent,
+            skillTreeProgress: merged.skillTreeProgress,
+            lastRespecAt: merged.lastRespecAt,
+          },
+          merged.level ?? 1
+        ),
+      };
     } catch {
       return defaults;
     }
   }
 
   if (typeof gameStats === "object") {
-    return { ...defaults, ...(gameStats as Record<string, unknown>) } as GameStats;
+    const merged = { ...defaults, ...(gameStats as Record<string, unknown>) } as GameStats;
+    return {
+      ...merged,
+      ...normalizeSkillTreeState(
+        {
+          skillPointsAvailable: merged.skillPointsAvailable,
+          skillPointsSpent: merged.skillPointsSpent,
+          skillTreeProgress: merged.skillTreeProgress,
+          lastRespecAt: merged.lastRespecAt,
+        },
+        merged.level ?? 1
+      ),
+    };
   }
 
   return defaults;

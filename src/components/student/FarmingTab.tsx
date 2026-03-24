@@ -281,30 +281,30 @@ export function FarmingTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-2xl bg-slate-900 text-white p-4">
+      <div className="flex items-center justify-between rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-emerald-50/40 to-white p-5 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="text-3xl">{classIcon}</div>
           <div>
-            <div className="font-black">{RPG_COPY.farming.wave(currentWave)}</div>
-            <div className="text-xs text-slate-300 uppercase">{monster.name}</div>
+            <div className="font-black text-slate-800">{RPG_COPY.farming.wave(currentWave)}</div>
+            <div className="text-xs text-slate-500 uppercase font-semibold">{monster.name}</div>
           </div>
         </div>
-        <Button size="sm" onClick={() => setIsAuto((v) => !v)} className={isAuto ? "bg-amber-500 hover:bg-amber-400" : ""}>
+        <Button size="sm" onClick={() => setIsAuto((v) => !v)} className={isAuto ? "bg-amber-500 hover:bg-amber-400" : "bg-slate-800 hover:bg-slate-900 text-white"}>
           <Zap className="w-3 h-3 mr-1" />
           {isAuto ? "AUTO: ON" : "AUTO: OFF"}
         </Button>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
-        <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 text-white">
+        <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-indigo-50/30 p-5 text-slate-800 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <div className="text-xs uppercase tracking-widest text-slate-400">Enemy HP</div>
-              <div className="text-sm font-bold">{monster.hp.toLocaleString()} / {monster.maxHp.toLocaleString()}</div>
+              <div className="text-xs uppercase tracking-widest text-slate-500">Enemy HP</div>
+              <div className="text-sm font-bold text-slate-800">{monster.hp.toLocaleString()} / {monster.maxHp.toLocaleString()}</div>
             </div>
-            <div className="text-xs text-slate-400">ATK {monster.atk}</div>
+            <div className="text-xs text-slate-500">ATK {monster.atk}</div>
           </div>
-          <div className="mb-3 h-3 overflow-hidden rounded-full bg-slate-700">
+          <div className="mb-3 h-3 overflow-hidden rounded-full bg-slate-200">
             <div className="h-full bg-gradient-to-r from-red-600 to-orange-400 transition-all duration-300" style={{ width: `${monsterHpPct}%` }} />
           </div>
           {/* Monster status effects (debuffs applied to enemy) */}
@@ -345,7 +345,7 @@ export function FarmingTab({
                   exit={{ opacity: 0 }}
                   className="absolute top-6 text-center"
                 >
-                  <div className="text-3xl font-black text-white">-{damagePopup.damage.toLocaleString()}</div>
+                  <div className="text-3xl font-black text-rose-600">-{damagePopup.damage.toLocaleString()}</div>
                   {damagePopup.isCrit && <div className="text-xs font-black text-yellow-300">CRIT!</div>}
                 </motion.div>
               )}
@@ -515,23 +515,23 @@ export function FarmingTab({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-700/60 bg-slate-900/90 p-4 space-y-3">
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 space-y-3 shadow-sm">
         <div className="flex items-center justify-between">
-          <div className="text-[10px] font-black uppercase tracking-widest text-white/40">{RPG_COPY.farming.skills}</div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">{RPG_COPY.farming.skills}</div>
           {/* Active Effects Bar */}
           {(() => {
             const ae = farming?.activeEffects as Record<string, { turnsLeft: number; damagePerTurn?: number; reduction?: number; multiplier?: number; bonus?: number; amplify?: number }> | undefined;
             if (!ae || Object.keys(ae).length === 0) return null;
             const badges: { label: string; color: string; icon: string }[] = [];
-            if (ae.poison)    badges.push({ icon: "☠️", label: `Poison ×${ae.poison.turnsLeft}`,      color: "bg-purple-900/80 text-purple-300 border-purple-700/60" });
-            if (ae.atkBuff)   badges.push({ icon: "⚔️", label: `ATK↑ ×${ae.atkBuff.turnsLeft}`,      color: "bg-amber-900/80 text-amber-300 border-amber-700/60" });
-            if (ae.defBuff)   badges.push({ icon: "🛡️", label: `DEF↑ ×${ae.defBuff.turnsLeft}`,      color: "bg-indigo-900/80 text-indigo-300 border-indigo-700/60" });
-            if (ae.atkDebuff) badges.push({ icon: "💢", label: `ATK↓ ×${ae.atkDebuff.turnsLeft}`,    color: "bg-rose-900/80 text-rose-300 border-rose-700/60" });
-            if (ae.critBuff)  badges.push({ icon: "🎯", label: `CRIT↑ ×${ae.critBuff.turnsLeft}`,    color: "bg-yellow-900/80 text-yellow-300 border-yellow-700/60" });
-            if (ae.defBreak)  badges.push({ icon: "💥", label: `ArmorBreak ×${ae.defBreak.turnsLeft}`, color: "bg-orange-900/80 text-orange-300 border-orange-700/60" });
-            if (ae.slow)      badges.push({ icon: "🐢", label: `Slow ×${ae.slow.turnsLeft}`,           color: "bg-teal-900/80 text-teal-300 border-teal-700/60" });
-            if (ae.stun)      badges.push({ icon: "⚡", label: `Stun ×${ae.stun.turnsLeft}`,           color: "bg-yellow-900/80 text-yellow-200 border-yellow-600/60" });
-            if (ae.regen)     badges.push({ icon: "💚", label: `Regen ×${ae.regen.turnsLeft}`,         color: "bg-green-900/80 text-green-300 border-green-700/60" });
+            if (ae.poison)    badges.push({ icon: "☠️", label: `Poison ×${ae.poison.turnsLeft}`,      color: "bg-purple-100 text-purple-700 border-purple-300" });
+            if (ae.atkBuff)   badges.push({ icon: "⚔️", label: `ATK↑ ×${ae.atkBuff.turnsLeft}`,      color: "bg-amber-100 text-amber-700 border-amber-300" });
+            if (ae.defBuff)   badges.push({ icon: "🛡️", label: `DEF↑ ×${ae.defBuff.turnsLeft}`,      color: "bg-indigo-100 text-indigo-700 border-indigo-300" });
+            if (ae.atkDebuff) badges.push({ icon: "💢", label: `ATK↓ ×${ae.atkDebuff.turnsLeft}`,    color: "bg-rose-100 text-rose-700 border-rose-300" });
+            if (ae.critBuff)  badges.push({ icon: "🎯", label: `CRIT↑ ×${ae.critBuff.turnsLeft}`,    color: "bg-yellow-100 text-yellow-700 border-yellow-300" });
+            if (ae.defBreak)  badges.push({ icon: "💥", label: `ArmorBreak ×${ae.defBreak.turnsLeft}`, color: "bg-orange-100 text-orange-700 border-orange-300" });
+            if (ae.slow)      badges.push({ icon: "🐢", label: `Slow ×${ae.slow.turnsLeft}`,           color: "bg-teal-100 text-teal-700 border-teal-300" });
+            if (ae.stun)      badges.push({ icon: "⚡", label: `Stun ×${ae.stun.turnsLeft}`,           color: "bg-yellow-100 text-yellow-700 border-yellow-300" });
+            if (ae.regen)     badges.push({ icon: "💚", label: `Regen ×${ae.regen.turnsLeft}`,         color: "bg-green-100 text-green-700 border-green-300" });
             if (badges.length === 0) return null;
             return (
               <div className="flex flex-wrap gap-1">
@@ -575,17 +575,17 @@ export function FarmingTab({
                   key={skill.id}
                   onClick={() => handleUseSkill(skill.id)}
                   disabled={!canUse || isAttacking || onCooldown}
-                  className={`relative overflow-hidden rounded-xl border p-2 text-center text-white transition-all ${
+                  className={`relative overflow-hidden rounded-xl border p-2 text-center text-slate-800 transition-all ${
                     onCooldown
-                      ? "border-slate-600 bg-slate-900 opacity-70"
-                      : "border-slate-700 bg-slate-800 hover:border-slate-500 disabled:opacity-40"
+                      ? "border-slate-300 bg-slate-100 opacity-70"
+                      : "border-slate-200 bg-slate-50 hover:border-slate-300 disabled:opacity-40"
                   }`}
                 >
                   {/* Cooldown overlay */}
                   {onCooldown && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl bg-slate-900/80 z-10">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl bg-slate-800/70 z-10">
                       <span className="text-2xl font-black text-white leading-none">{cooldown}</span>
-                      <span className="text-[8px] font-bold text-slate-400 leading-none mt-0.5">เทิร์น</span>
+                      <span className="text-[8px] font-bold text-slate-200 leading-none mt-0.5">เทิร์น</span>
                     </div>
                   )}
                   {skill.icon ? (
@@ -594,7 +594,7 @@ export function FarmingTab({
                     <div className="text-lg">{classIcon}</div>
                   )}
                   <div className="truncate text-[10px] font-black leading-tight">{skill.name}</div>
-                  <div className="text-[9px] text-slate-400 mt-0.5">{skill.cost}{isAP ? " ST" : " MP"}</div>
+                  <div className="text-[9px] text-slate-500 mt-0.5">{skill.cost}{isAP ? " ST" : " MP"}</div>
                   {em && (
                     <div className={`mt-1 px-1.5 py-0.5 rounded-md text-[8px] font-black leading-none ${em.color}`}>
                       {em.label}
@@ -607,12 +607,12 @@ export function FarmingTab({
         )}
       </div>
 
-      <div className="flex items-start gap-3 rounded-xl border border-emerald-700/30 bg-emerald-950/60 p-3">
-        <Trophy className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
-        <p className="text-[11px] font-medium leading-relaxed text-emerald-300/80">
+      <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3">
+        <Trophy className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
+        <p className="text-[11px] font-medium leading-relaxed text-emerald-700">
           ฟาร์มมอนสเตอร์เพื่อรับ <span className="font-black text-amber-300">Gold</span>,{" "}
-          <span className="font-black text-emerald-300">XP</span> และ{" "}
-          <span className="font-black text-purple-300">Materials</span> ถ้าแพ้จะถอยกลับ 10% ของด่านปัจจุบัน
+          <span className="font-black text-emerald-600">XP</span> และ{" "}
+          <span className="font-black text-purple-600">Materials</span> ถ้าแพ้จะถอยกลับ 10% ของด่านปัจจุบัน
         </p>
       </div>
     </div>

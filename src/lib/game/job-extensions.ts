@@ -125,48 +125,48 @@ export const JOB_CLASS_EXTENSIONS: Record<string, JobClassExtension> = {
   ], { mag: 0.08, mp: 0.06 }),
   DRUID: d("HEALER", [
     skill("druid_thorn", "Thorn Volley", "2.5× MAG nature — applies poison for 3 turns.", 20, 2.5, 28, { damageBase: "MAG", effect: "POISON", icon: "/assets/skills/druid_thorn.png" }),
-    skill("druid_wrath", "Wrath of Grove", "3.0× MAG — weakens enemy ATK 30% for 2 turns.", 25, 3.0, 28, { damageBase: "MAG", effect: "DEBUFF_ATK" }),
+    skill("druid_wrath", "Wrath of Grove", "3.0× MAG — weakens enemy ATK 30% for 2 turns.", 25, 3.0, 28, { damageBase: "MAG", effect: "DEBUFF_ATK", icon: "/assets/skills/druid_wrath.png" }),
   ], { mag: 0.07, hp: 0.06 }),
   ARCHBISHOP: d("SAINT", [
-    skill("archbishop_judgment", "Judgment Ray", "3.2× MAG holy light.", 50, 3.2, 28, { damageBase: "MAG" }),
-    skill("archbishop_sanctify", "Sanctify", "3.7× MAG — heals 25% MAG per turn for 4 turns.", 55, 3.7, 40, { damageBase: "MAG", effect: "REGEN" }),
+    skill("archbishop_judgment", "Judgment Ray", "3.2× MAG holy light.", 50, 3.2, 28, { damageBase: "MAG", icon: "/assets/skills/archbishop_judgment.png" }),
+    skill("archbishop_sanctify", "Sanctify", "3.7× MAG — heals 25% MAG per turn for 4 turns.", 55, 3.7, 40, { damageBase: "MAG", effect: "REGEN", icon: "/assets/skills/archbishop_sanctify.png" }),
   ], { mag: 0.1, mp: 0.1 }),
   "DIVINE HERALD": d("SAINT", [
-    skill("divine_herald_trumpet", "Herald Trumpet", "3.3× MAG — increases ATK 40% for 3 turns.", 50, 3.3, 28, { damageBase: "MAG", effect: "BUFF_ATK" }),
-    skill("divine_herald_miracle", "Miracle Wave", "3.8× MAG — heals 25% MAG per turn for 4 turns.", 55, 3.8, 42, { damageBase: "MAG", effect: "REGEN" }),
+    skill("divine_herald_trumpet", "Herald Trumpet", "3.3× MAG — increases ATK 40% for 3 turns.", 50, 3.3, 28, { damageBase: "MAG", effect: "BUFF_ATK", icon: "/assets/skills/divine_herald_trumpet.png" }),
+    skill("divine_herald_miracle", "Miracle Wave", "3.8× MAG — heals 25% MAG per turn for 4 turns.", 55, 3.8, 42, { damageBase: "MAG", effect: "REGEN", icon: "/assets/skills/divine_herald_miracle.png" }),
   ], { mag: 0.11, hp: 0.05 }),
   "ELDER DRUID": d("DRUID", [
-    skill("elder_druid_entangle", "World Entangle", "3.2× MAG — entangles enemy, 35% chance to skip attack for 2 turns.", 50, 3.2, 28, { damageBase: "MAG", effect: "SLOW" }),
-    skill("elder_druid_rebirth", "Verdant Rebirth", "3.6× MAG — heals 25% MAG per turn for 4 turns.", 55, 3.6, 38, { damageBase: "MAG", effect: "REGEN" }),
+    skill("elder_druid_entangle", "World Entangle", "3.2× MAG — entangles enemy, 35% chance to skip attack for 2 turns.", 50, 3.2, 28, { damageBase: "MAG", effect: "SLOW", icon: "/assets/skills/elder_druid_entangle.png" }),
+    skill("elder_druid_rebirth", "Verdant Rebirth", "3.6× MAG — heals 25% MAG per turn for 4 turns.", 55, 3.6, 38, { damageBase: "MAG", effect: "REGEN", icon: "/assets/skills/elder_druid_rebirth.png" }),
   ], { mag: 0.1, hp: 0.08 }),
   "NATURE WARDEN": d("DRUID", [
-    skill("nature_warden_bark", "Ironbark Wrath", "3.1× MAG — fortify self, reduces damage 50% for 2 turns.", 50, 3.1, 28, { damageBase: "MAG", effect: "BUFF_DEF" }),
-    skill("nature_warden_quake", "Earthquake Chant", "3.7× MAG earthquake — weakens enemy ATK 30% for 2 turns.", 55, 3.7, 40, { damageBase: "MAG", effect: "DEBUFF_ATK" }),
+    skill("nature_warden_bark", "Ironbark Wrath", "3.1× MAG — fortify self, reduces damage 50% for 2 turns.", 50, 3.1, 28, { damageBase: "MAG", effect: "BUFF_DEF", icon: "/assets/skills/nature_warden_bark.png" }),
+    skill("nature_warden_quake", "Earthquake Chant", "3.7× MAG earthquake — weakens enemy ATK 30% for 2 turns.", 55, 3.7, 40, { damageBase: "MAG", effect: "DEBUFF_ATK", icon: "/assets/skills/nature_warden_quake.png" }),
   ], { def: 0.08, mag: 0.09 }),
 
   // ─── ROGUE branch ──────────────────────────────────────────────────────────
   ASSASSIN: d("ROGUE", [
-    skill("assassin_viper", "Viper Strike", "4.8× ATK (2.4× + CRIT) — applies poison for 3 turns.", 20, 2.4, 28, { isCrit: true, effect: "POISON" }),
-    skill("assassin_mark", "Death Mark II", "3.0× ATK — marks enemy, enemy takes +50% damage for 3 turns.", 25, 3.0, 28, { effect: "DEF_BREAK" }),
+    skill("assassin_viper", "Viper Strike", "4.8× ATK (2.4× + CRIT) — applies poison for 3 turns.", 20, 2.4, 28, { isCrit: true, effect: "POISON", icon: "/assets/skills/assassin_viper.png" }),
+    skill("assassin_mark", "Death Mark II", "3.0× ATK — marks enemy, enemy takes +50% damage for 3 turns.", 25, 3.0, 28, { effect: "DEF_BREAK", icon: "/assets/skills/assassin_mark.png" }),
   ], { crit: 0.1, spd: 0.06 }),
   DUELIST: d("ROGUE", [
-    skill("duelist_riposte", "Riposte", "2.6× ATK counter.", 20, 2.6),
-    skill("duelist_bladestorm", "Bladestorm", "3.1× ATK flurry.", 25, 3.1),
+    skill("duelist_riposte", "Riposte", "2.6× ATK counter.", 20, 2.6, 28, { icon: "/assets/skills/duelist_riposte.png" }),
+    skill("duelist_bladestorm", "Bladestorm", "3.1× ATK flurry.", 25, 3.1, 28, { icon: "/assets/skills/duelist_bladestorm.png" }),
   ], { atk: 0.07, spd: 0.07 }),
   "SHADOW LORD": d("ASSASSIN", [
-    skill("shadow_lord_umbral", "Umbral Crown", "4.4× ATK (2.2× + CRIT).", 50, 2.2, 28, { isCrit: true }),
-    skill("shadow_lord_dominate", "Dominate Shadow", "5.2× ATK (2.6× + CRIT).", 55, 2.6, 38, { isCrit: true }),
+    skill("shadow_lord_umbral", "Umbral Crown", "4.4× ATK (2.2× + CRIT).", 50, 2.2, 28, { isCrit: true, icon: "/assets/skills/shadow_lord_umbral.png" }),
+    skill("shadow_lord_dominate", "Dominate Shadow", "5.2× ATK (2.6× + CRIT).", 55, 2.6, 38, { isCrit: true, icon: "/assets/skills/shadow_lord_dominate.png" }),
   ], { crit: 0.12, spd: 0.08 }),
   PHANTOM: d("ASSASSIN", [
-    skill("phantom_phase", "Phase Assault", "4.4× ATK (2.2× + CRIT).", 50, 2.2, 28, { isCrit: true }),
-    skill("phantom_afterimage", "Afterimage Kill", "5.0× ATK (2.5× + CRIT).", 55, 2.5, 40, { isCrit: true }),
+    skill("phantom_phase", "Phase Assault", "4.4× ATK (2.2× + CRIT).", 50, 2.2, 28, { isCrit: true, icon: "/assets/skills/phantom_phase.png" }),
+    skill("phantom_afterimage", "Afterimage Kill", "5.0× ATK (2.5× + CRIT).", 55, 2.5, 40, { isCrit: true, icon: "/assets/skills/phantom_afterimage.png" }),
   ], { spd: 0.12, crit: 0.1 }),
   "BLADE MASTER": d("DUELIST", [
-    skill("blade_master_thousand", "Thousand Cuts", "3.3× ATK.", 50, 3.3),
-    skill("blade_master_final", "Final Form", "3.8× ATK.", 55, 3.8, 38),
+    skill("blade_master_thousand", "Thousand Cuts", "3.3× ATK.", 50, 3.3, 28, { icon: "/assets/skills/blade_master_thousand.png" }),
+    skill("blade_master_final", "Final Form", "3.8× ATK.", 55, 3.8, 38, { icon: "/assets/skills/blade_master_final.png" }),
   ], { atk: 0.1, spd: 0.06 }),
   "SWORD SAINT": d("DUELIST", [
-    skill("sword_saint_iaijutsu", "Iaijutsu", "4.6× ATK (2.3× + CRIT).", 50, 2.3, 28, { isCrit: true }),
-    skill("sword_saint_moon", "Moonlit Slash", "5.6× ATK (2.8× + CRIT).", 55, 2.8, 42, { isCrit: true }),
+    skill("sword_saint_iaijutsu", "Iaijutsu", "4.6× ATK (2.3× + CRIT).", 50, 2.3, 28, { isCrit: true, icon: "/assets/skills/sword_saint_iaijutsu.png" }),
+    skill("sword_saint_moon", "Moonlit Slash", "5.6× ATK (2.8× + CRIT).", 55, 2.8, 42, { isCrit: true, icon: "/assets/skills/sword_saint_moon.png" }),
   ], { atk: 0.08, crit: 0.14 }),
 };

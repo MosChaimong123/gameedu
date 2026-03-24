@@ -76,21 +76,24 @@ export async function POST(req: NextRequest) {
     }
 
     // Danger zone: validate material
-    let materialRecord: { id: string; quantity: number } | null = null;
+    let materialRecord: { id: string; quantity: number; type: string } | null = null;
     if (zone === "DANGER" && cost.materialQuantity > 0) {
-      if (!materialType) {
-        return NextResponse.json(
-          { error: "ต้องระบุวัสดุสำหรับโซน Danger" },
-          { status: 400 }
-        );
-      }
-      materialRecord = await db.material.findFirst({
-        where: { studentId: studentItem.studentId, type: materialType },
-      });
+      // Backward compatibility: if client doesn't send materialType, auto-pick any available material.
+      materialRecord = materialType
+        ? await db.material.findFirst({
+            where: { studentId: studentItem.studentId, type: materialType },
+          })
+        : await db.material.findFirst({
+            where: {
+              studentId: studentItem.studentId,
+              quantity: { gte: cost.materialQuantity },
+            },
+            orderBy: { quantity: "desc" },
+          });
       if (!materialRecord || materialRecord.quantity < cost.materialQuantity) {
         return NextResponse.json(
           {
-            error: `วัสดุไม่เพียงพอ (ต้องการ ${cost.materialQuantity} ${materialType})`,
+            error: `วัสดุไม่เพียงพอ (ต้องการ ${cost.materialQuantity} ชิ้น)`,
           },
           { status: 400 }
         );

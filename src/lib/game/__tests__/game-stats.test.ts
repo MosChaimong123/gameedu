@@ -21,6 +21,9 @@ describe("game-stats helpers", () => {
       inventory: [],
       equipment: {},
       multipliers: { gold: 2, xp: 3 },
+      skillPointsAvailable: 3,
+      skillPointsSpent: 0,
+      skillTreeProgress: {},
     });
   });
 
@@ -32,6 +35,9 @@ describe("game-stats helpers", () => {
       inventory: [],
       equipment: {},
       multipliers: { gold: 1, xp: 1 },
+      skillPointsAvailable: 2,
+      skillPointsSpent: 0,
+      skillTreeProgress: {},
     });
   });
 

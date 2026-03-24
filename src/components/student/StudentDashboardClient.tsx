@@ -51,6 +51,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
 import { th } from "date-fns/locale";
+import { AccessibilityControlPanel } from "@/components/accessibility/AccessibilityControlPanel";
 
 interface StudentDashboardClientProps {
     student: any;
@@ -273,6 +274,15 @@ export function StudentDashboardClient({
                     </div>
                 </motion.div>
 
+                <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05 }}
+                    className="mb-8"
+                >
+                    <AccessibilityControlPanel />
+                </motion.div>
+
                 <div className="grid md:grid-cols-4 gap-8">
 
                     {/* ===== Left: Character Sidebar ===== */}
@@ -324,27 +334,6 @@ export function StudentDashboardClient({
                                 }));
                             }}
                         />
-                        <WorldBossBar
-                            boss={(classroom.gamifiedSettings as any)?.boss}
-                            classId={classroom.id}
-                            studentId={student.id}
-                            stamina={student.stamina}
-                            onAttackSuccess={(data) => {
-                                // Update Boss HP and Student Stamina
-                                setClassroom((prev: any) => ({
-                                    ...prev,
-                                    gamifiedSettings: {
-                                        ...prev.gamifiedSettings,
-                                        boss: data.boss
-                                    }
-                                }));
-                                setStudent((prev: any) => ({
-                                    ...prev,
-                                    stamina: data.staminaLeft
-                                }));
-                            }}
-                        />
-
                         <Tabs
                             value={activeTab}
                             onValueChange={(value) => {
@@ -390,33 +379,34 @@ export function StudentDashboardClient({
 
                             <div className="w-full mb-6">
                                 {viewMode === "academic" ? (
-                                    <TabsList className="bg-white/50 backdrop-blur-md p-1 rounded-2xl border border-white/60 shadow-sm w-full flex justify-center gap-1">
+                                    <TabsList className="w-full rounded-3xl border border-slate-200 bg-white p-1.5 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.45)] grid grid-cols-3 gap-1.5">
                                         {[
                                             { value: "assignments", icon: <LayoutDashboard className="w-4 h-4" />, label: "ภารกิจ", color: "data-[state=active]:text-indigo-600 data-[state=active]:bg-indigo-50 data-[state=active]:border-indigo-200" },
                                             { value: "board", icon: <MessageSquare className="w-4 h-4" />, label: "ไอเดีย", color: "data-[state=active]:text-purple-600 data-[state=active]:bg-purple-50 data-[state=active]:border-purple-200" },
                                             { value: "history", icon: <Trophy className="w-4 h-4" />, label: "ประวัติ", color: "data-[state=active]:text-amber-600 data-[state=active]:bg-amber-50 data-[state=active]:border-amber-200" },
                                         ].map(({ value, icon, label, color }) => (
                                             <TabsTrigger key={value} value={value}
-                                                className={`flex-1 rounded-xl px-4 py-2.5 flex items-center justify-center gap-2 font-black text-slate-400 text-sm border border-transparent transition-all duration-200 data-[state=active]:shadow-sm ${color}`}>
+                                                className={`h-12 rounded-2xl px-4 py-2.5 flex items-center justify-center gap-2 font-black text-slate-500 text-sm border border-transparent transition-all duration-200 data-[state=active]:shadow-sm ${color}`}>
                                                 {icon}<span>{label}</span>
                                             </TabsTrigger>
                                         ))}
                                     </TabsList>
                                 ) : (
-                                    <TabsList className="bg-white border border-slate-200 shadow-sm w-full grid grid-cols-7 p-0.5 rounded-2xl gap-0">
+                                    <TabsList className="w-full rounded-3xl border border-slate-200 bg-white p-1.5 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.45)] grid grid-cols-8 gap-1">
                                         {[
+                                            { value: "boss",         icon: <Shield className="w-4 h-4" />,      label: "บอสห้อง",  active: "data-[state=active]:bg-rose-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
+                                            { value: "farming",      icon: <Flame className="w-4 h-4" />,       label: "ฟาร์ม",    active: "data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
                                             { value: "shop",         icon: <ShoppingBag className="w-4 h-4" />, label: "ร้านค้า",  active: "data-[state=active]:bg-amber-500  data-[state=active]:text-white data-[state=active]:shadow-md" },
                                             { value: "inventory",    icon: <Package className="w-4 h-4" />,     label: "คลัง",     active: "data-[state=active]:bg-blue-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
                                             { value: "skills",       icon: <Star className="w-4 h-4" />,        label: "ทักษะ",    active: "data-[state=active]:bg-violet-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
-                                            { value: "farming",      icon: <Flame className="w-4 h-4" />,       label: "ฟาร์ม",    active: "data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
-                                            { value: "leaderboard",  icon: <BarChart3 className="w-4 h-4" />,   label: "อันดับ",   active: "data-[state=active]:bg-cyan-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
+                                            { value: "pvp",          icon: <Swords className="w-4 h-4" />,      label: "PvP",      active: "data-[state=active]:bg-rose-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
                                             { value: "achievements", icon: <Award className="w-4 h-4" />,       label: "รางวัล",   active: "data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
-                                            { value: "pvp",          icon: <Swords className="w-4 h-4" />,      label: "Arena",    active: "data-[state=active]:bg-rose-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
+                                            { value: "leaderboard",  icon: <BarChart3 className="w-4 h-4" />,   label: "อันดับ",   active: "data-[state=active]:bg-cyan-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
                                         ].map(({ value, icon, label, active }) => (
                                             <TabsTrigger key={value} value={value}
-                                                className={`rounded-xl py-1.5 px-0 w-full flex flex-col items-center gap-1 text-slate-500 font-semibold transition-all duration-150 overflow-hidden ${active}`}>
+                                                className={`h-12 rounded-2xl px-1 w-full flex flex-col items-center justify-center gap-0.5 text-slate-600 font-semibold transition-all duration-150 overflow-hidden ${active}`}>
                                                 {icon}
-                                                <span className="text-[9px] font-bold leading-none w-full text-center truncate px-0.5">{label}</span>
+                                                <span className="text-[10px] font-bold leading-none w-full text-center truncate px-0.5">{label}</span>
                                             </TabsTrigger>
                                         ))}
                                     </TabsList>
@@ -640,6 +630,56 @@ export function StudentDashboardClient({
                                         }));
                                     }}
                                 />
+                            </TabsContent>
+
+                            <TabsContent value="boss" className="mt-0 border-none p-0 outline-hidden">
+                                <div className="space-y-4">
+                                    <div className="rounded-3xl border border-rose-100 bg-gradient-to-br from-rose-50 via-white to-indigo-50 p-5 shadow-sm">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500">
+                                                    Classroom Boss
+                                                </p>
+                                                <h3 className="mt-1 text-xl font-black text-slate-800">สู้บอสประจำห้อง</h3>
+                                                <p className="mt-1 text-sm font-medium text-slate-500">
+                                                    รวมระบบโจมตีบอสไว้ในเมนูเดียว ดูสถานะบอสและเข้าร่วมโจมตีได้ทันที
+                                                </p>
+                                            </div>
+                                            <div className="rounded-2xl border border-rose-200 bg-white px-3 py-2 text-xs font-black text-rose-600">
+                                                Team Raid
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {(classroom.gamifiedSettings as any)?.boss?.active ? (
+                                        <WorldBossBar
+                                            boss={(classroom.gamifiedSettings as any)?.boss}
+                                            classId={classroom.id}
+                                            studentId={student.id}
+                                            stamina={student.stamina}
+                                            onAttackSuccess={(data) => {
+                                                setClassroom((prev: any) => ({
+                                                    ...prev,
+                                                    gamifiedSettings: {
+                                                        ...prev.gamifiedSettings,
+                                                        boss: data.boss
+                                                    }
+                                                }));
+                                                setStudent((prev: any) => ({
+                                                    ...prev,
+                                                    stamina: data.staminaLeft
+                                                }));
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="rounded-3xl border border-dashed border-slate-300 bg-white/70 p-10 text-center">
+                                            <p className="text-sm font-black text-slate-600">ยังไม่มีบอสในห้องเรียนตอนนี้</p>
+                                            <p className="mt-1 text-xs font-medium text-slate-400">
+                                                เมื่อครูหรือระบบเรียกบอสขึ้นมา คุณสามารถกลับมาโจมตีได้จากเมนูนี้
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                             </TabsContent>
 
                             <TabsContent value="achievements" className="mt-0 border-none p-0 outline-hidden">

@@ -8,7 +8,12 @@
  */
 import { describe, it, expect } from "vitest";
 import * as fc from "fast-check";
-import { scaleMonsterHp, scaleMonsterAtk } from "../../../lib/game-engine/battle-turn-engine";
+import {
+  scaleMonsterHp,
+  scaleMonsterAtk,
+  computeBossDamageAgainstPlayer,
+  computeDarkPactDrain,
+} from "../../../lib/game-engine/battle-turn-engine";
 import { BossState, BattlePlayer, SoloMonster } from "../../types/game";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -393,5 +398,76 @@ describe("Special Item Effects", () => {
     it("interval without Time Warp players stays at default 15000ms", () => {
       expect(computeInterval(0)).toBe(BASE_INTERVAL);
     });
+  });
+});
+
+describe("Extended Battle Effects Runtime", () => {
+  it("Tough Skin reduces incoming boss damage by 10%", () => {
+    const noSkin = computeBossDamageAgainstPlayer({
+      bossAtk: 100,
+      playerDef: 20,
+      playerHp: 100,
+      playerMaxHp: 100,
+      hasToughSkin: false,
+      hasTitanWill: false,
+    });
+    const withSkin = computeBossDamageAgainstPlayer({
+      bossAtk: 100,
+      playerDef: 20,
+      playerHp: 100,
+      playerMaxHp: 100,
+      hasToughSkin: true,
+      hasTitanWill: false,
+    });
+    expect(withSkin).toBe(70);
+    expect(noSkin).toBe(80);
+  });
+
+  it("Titan Will boosts defense when HP below 30%", () => {
+    const normalHp = computeBossDamageAgainstPlayer({
+      bossAtk: 120,
+      playerDef: 40,
+      playerHp: 80,
+      playerMaxHp: 100,
+      hasToughSkin: false,
+      hasTitanWill: true,
+    });
+    const lowHp = computeBossDamageAgainstPlayer({
+      bossAtk: 120,
+      playerDef: 40,
+      playerHp: 20,
+      playerMaxHp: 100,
+      hasToughSkin: false,
+      hasTitanWill: true,
+    });
+    expect(lowHp).toBeLessThan(normalHp);
+  });
+
+  it("Dark Pact drain is always at least 1 and equals 5% max HP floor", () => {
+    expect(computeDarkPactDrain(100)).toBe(5);
+    expect(computeDarkPactDrain(19)).toBe(1);
+    expect(computeDarkPactDrain(1)).toBe(1);
+  });
+
+  it("damage never goes below 1 after defensive effects", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 500 }),
+        fc.integer({ min: 1, max: 1000 }),
+        fc.integer({ min: 1, max: 1000 }),
+        (bossAtk, playerDef, maxHp) => {
+          const damage = computeBossDamageAgainstPlayer({
+            bossAtk,
+            playerDef,
+            playerHp: Math.floor(maxHp * 0.2),
+            playerMaxHp: maxHp,
+            hasToughSkin: true,
+            hasTitanWill: true,
+          });
+          expect(damage).toBeGreaterThanOrEqual(1);
+        }
+      ),
+      { numRuns: 300 }
+    );
   });
 });

@@ -1,3 +1,4 @@
+import type { BattleRuntimeEventPayload } from "@/lib/game/battle-events";
 export type GameStatus = "LOBBY" | "PLAYING" | "ENDED";
 
 export type BasePlayer = {
@@ -182,6 +183,7 @@ export interface BattlePlayer extends BasePlayer {
     jobClass: string | null;
     jobTier: string;
     skills: string[];
+    skillTreeProgress?: Record<string, number>;
     isDefending: boolean;
     // Solo farming
     wave: number;
@@ -194,6 +196,21 @@ export interface BattlePlayer extends BasePlayer {
     hasImmortal: boolean;
     hasManaFlow: boolean;
     hasTimeWarp: boolean;
+    hasToughSkin: boolean;
+    hasTitanWill: boolean;
+    hasHolyFury: boolean;
+    hasArcaneSurge: boolean;
+    hasDarkPact: boolean;
+    hasHawkEye: boolean;
+    hasShadowVeil: boolean;
+    hasGodBlessing: boolean;
+    hasLuckyStrike: boolean;
+    chainLightningOnCrit: boolean;
+    dodgeChance: number;
+    shadowVeilCritBuff: boolean;
+    goldMultiplier: number;
+    xpMultiplier: number;
+    bossDamageMultiplier: number;
     earnedGold: number;
     earnedXp: number;
     itemDrops: string[];
@@ -250,7 +267,7 @@ export type ServerEvents = {
     "hack-result": { success: boolean; reward?: number };
     "player-hacked": { hacker: string; amount: number }; // Victim notification
     // Battle Turn
-    "battle-event": { type: "DAMAGE" | "HEAL" | "EFFECT"; sourceId: string; targetId: string; value?: number; effect?: string };
+    "battle-event": BattleRuntimeEventPayload;
     "turn-start": { round: number; players: BattlePlayer[]; monsters: BattleMonster[] };
     "phase-change": { phase: "ACTION_PHASE" | "BATTLE_PHASE" | "RESULT_PHASE" };
 };

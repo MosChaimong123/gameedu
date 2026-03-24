@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SocketProvider } from "@/components/providers/socket-provider";
 import { LanguageProvider } from "@/components/providers/language-provider";
+import { AccessibilityProvider } from "@/components/providers/accessibility-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { SoundProvider } from "@/hooks/use-sound";
 import { Toaster } from "@/components/ui/toaster";
@@ -35,14 +36,16 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-            <LanguageProvider>
-              <SocketProvider>
-                <SoundProvider>
-                  {children}
-                  <Toaster />
-                </SoundProvider>
-              </SocketProvider>
-            </LanguageProvider>
+            <AccessibilityProvider>
+              <LanguageProvider>
+                <SocketProvider>
+                  <SoundProvider>
+                    {children}
+                    <Toaster />
+                  </SoundProvider>
+                </SocketProvider>
+              </LanguageProvider>
+            </AccessibilityProvider>
         </AuthProvider>
       </body>
     </html>

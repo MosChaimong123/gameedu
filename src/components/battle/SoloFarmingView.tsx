@@ -31,6 +31,7 @@ interface SoloFarmingViewProps {
   feedback: { correct: boolean } | null;
   attackFeed: string[];
   battleEvents: BattleAnimationEvent[];
+  reducedMotion?: boolean;
   onAnswer: (index: number) => void;
   onSkill: (skillId: string) => void;
 }
@@ -42,6 +43,7 @@ export function SoloFarmingView({
   feedback,
   attackFeed,
   battleEvents,
+  reducedMotion = false,
   onAnswer,
   onSkill,
 }: SoloFarmingViewProps) {
@@ -59,6 +61,7 @@ export function SoloFarmingView({
     events: battleEvents,
     playerId: myPlayer.id,
     enemyId: "solo-monster",
+    reducedMotion,
   });
 
   return (
@@ -89,9 +92,9 @@ export function SoloFarmingView({
           </div>
         </div>
 
-        <BattleStage variant="farming" shakeKey={animation.shakeKey} banner={animation.banner}>
-          <BattleEffectsLayer activeFx={animation.activeFx} />
-          <DamagePopupLayer popups={animation.popups} />
+        <BattleStage variant="farming" shakeKey={animation.shakeKey} banner={animation.banner} reducedMotion={reducedMotion}>
+          <BattleEffectsLayer activeFx={animation.activeFx} reducedMotion={reducedMotion} />
+          <DamagePopupLayer popups={animation.popups} reducedMotion={reducedMotion} />
 
           <div className="grid min-h-[460px] items-center gap-5 px-4 py-6 lg:grid-cols-[280px_minmax(0,1fr)_280px] lg:px-8">
             <BattleCharacter
@@ -102,6 +105,7 @@ export function SoloFarmingView({
               side="left"
               pose={animation.playerPose}
               statusEffects={animation.playerStatuses}
+              reducedMotion={reducedMotion}
               variant="player"
               accent="emerald"
             />
@@ -122,6 +126,7 @@ export function SoloFarmingView({
                 feedback={feedback}
                 onAnswer={onAnswer}
                 accent="farming"
+                reducedMotion={reducedMotion}
               />
             </div>
 
@@ -132,6 +137,7 @@ export function SoloFarmingView({
               side="right"
               pose={animation.enemyPose}
               statusEffects={animation.enemyStatuses}
+              reducedMotion={reducedMotion}
               variant="enemy"
               accent="amber"
             />

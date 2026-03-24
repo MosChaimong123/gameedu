@@ -11,14 +11,11 @@ export const EFFECT_ITEM_BONUSES: Record<
     critAdd?: number;
   }
 > = {
-  GOLD_FINDER: { goldMultiplier: 0.15 },
+  GOLD_FINDER:   { goldMultiplier: 0.15 },
   QUICK_LEARNER: { xpMultiplier: 0.1 },
-  LUCKY_STRIKE: { critAdd: 0.05 }, // applied only if luck > 0.5 in engine
-  GODS_BLESSING: {
-    goldMultiplier: 0.1,
-    xpMultiplier: 0.1,
-    bossDamageMultiplier: 0.1,
-  },
+  LUCKY_STRIKE:  { critAdd: 0.05 },
+  HUNTER_MARK:   { bossDamageMultiplier: 0.15 },
+  GODS_BLESSING: { goldMultiplier: 0.1, xpMultiplier: 0.1, bossDamageMultiplier: 0.1 },
 };
 
 /** Thai display lines — must match effect-bonuses-config + flags-only effects. */
@@ -59,23 +56,77 @@ export const EFFECT_DISPLAY_TH: Record<string, { desc: string; stats: string }> 
     desc: "ลดช่วงโจมตีของบอสในโหมด battle turn",
     stats: "⏳ Time Warp — เร่งจังหวะรอบ (ตามเอนจิน)",
   },
+  // New archetype effects
+  TITAN_WILL: {
+    desc: "เมื่อ HP เหลือต่ำกว่า 30% จะเพิ่ม DEF ×1.5 ชั่วคราว",
+    stats: "🪨 Titan Will — HP < 30% → DEF ×1.5",
+  },
+  HOLY_FURY: {
+    desc: "เมื่อ HP เหลือต่ำกว่า 30% จะเพิ่ม ATK ×1.4 ชั่วคราว",
+    stats: "🔥 Holy Fury — HP < 30% → ATK ×1.4",
+  },
+  ARCANE_SURGE: {
+    desc: "เมื่อใช้สกิลเวทมนตร์ ดาเมจเพิ่มขึ้น 10%",
+    stats: "🔮 Arcane Surge — MAG skill dmg +10%",
+  },
+  DARK_PACT: {
+    desc: "เพิ่มดาเมจ +20% แต่ทุกครั้งที่โจมตีจะเสีย HP 5% ของค่าสูงสุด",
+    stats: "💀 Dark Pact — Damage +20%, หลังโจมตี: HP -5%",
+  },
+  HAWK_EYE: {
+    desc: "เพิ่มดาเมจจากการโจมตีคริติคอล 30%",
+    stats: "🦅 Hawk Eye — CRT damage ×1.3",
+  },
+  HUNTER_MARK: {
+    desc: "เพิ่มดาเมจต่อบอส 15%",
+    stats: "🎯 Hunter Mark — Boss DMG +15%",
+  },
+  SHADOW_VEIL: {
+    desc: "มีโอกาสหลบการโจมตี 15% และการโจมตีครั้งถัดไปแรงขึ้น 20% หลังหลบสำเร็จ",
+    stats: "👻 Shadow Veil — Dodge 15%, หลังหลบ: Next hit ×1.2",
+  },
+  BLADE_DANCE: {
+    desc: "ทุก 10 SPD เพิ่ม CRT 1%",
+    stats: "💃 Blade Dance — ทุก 10 SPD → CRT +1%",
+  },
 };
 
-export const SET_DISPLAY_TH: Record<string, { desc: string; stats: string }> = {
-  DRAGON_SET: {
-    desc: "เซ็ตมังกร — โบนัสตามจำนวนชิ้นที่สวม",
-    stats: "2 ชิ้น: ATK/DEF ×1.15 | 4 ชิ้น: Boss damage +30%, HP +500",
+export const SET_DISPLAY_TH: Record<string, { desc: string; stats: string; icon: string }> = {
+  // New archetype sets
+  TITAN_SET: {
+    icon: "🛡️",
+    desc: "ชุดไทแทน (นักรบ/แทงค์) — ครบ 5 ชิ้น",
+    stats: "3 ชิ้น: DEF ×1.12, HP ×1.08 | 5 ชิ้น: ATK ×1.10 + เปิด IMMORTAL passive",
   },
-  THUNDER_SET: {
-    desc: "เซ็ตสายฟ้า — โบนัสตามจำนวนชิ้นที่สวม",
-    stats: "2 ชิ้น: SPD ×1.2, CRT +8% | 4 ชิ้น: Chain lightning on crit",
+  ARCANE_SET: {
+    icon: "🔮",
+    desc: "ชุดอาร์เคน (นักเวทย์/นักบำบัด) — ครบ 5 ชิ้น",
+    stats: "3 ชิ้น: MAG ×1.15, MP ×1.12 | 5 ชิ้น: CRT +6% + เปิด MANA_FLOW passive",
+  },
+  HUNT_SET: {
+    icon: "🏹",
+    desc: "ชุดนักล่า (นักธนู/สไนเปอร์) — ครบ 5 ชิ้น",
+    stats: "3 ชิ้น: CRT +6%, SPD ×1.10 | 5 ชิ้น: ATK ×1.15, LUK ×1.10 + LUCKY_STRIKE",
   },
   SHADOW_SET: {
-    desc: "เซ็ตเงา — โบนัสตามจำนวนชิ้นที่สวม",
-    stats: "2 ชิ้น: LUK ×1.1, ทอง +20% | 4 ชิ้น: หลบ 15%, Steal gold +50%",
+    icon: "🌑",
+    desc: "ชุดเงามืด (โจร/นักสังหาร) — ครบ 5 ชิ้น",
+    stats: "3 ชิ้น: CRT +8%, LUK ×1.12 | 5 ชิ้น: SPD ×1.15, หลบ 12% + LIFESTEAL",
   },
   LEGENDARY_SET: {
-    desc: "เซ็ตตำนาน — ต้องครบ 7 ชิ้นถึงจะได้โบนัสชุด",
+    icon: "⭐",
+    desc: "ชุดตำนาน (ทุกอาชีพ) — ต้องครบ 7 ชิ้น",
     stats: "7 ชิ้น: สเตตส์หลัก ×1.25, XP +50%, Chosen One",
+  },
+  // Legacy sets (items no longer in shop but kept for display)
+  DRAGON_SET: {
+    icon: "🐉",
+    desc: "ชุดมังกร — โบนัสตามจำนวนชิ้น",
+    stats: "2 ชิ้น: ATK/DEF ×1.15 | 4 ชิ้น: Boss +30%, HP +25%",
+  },
+  THUNDER_SET: {
+    icon: "⚡",
+    desc: "ชุดสายฟ้า — โบนัสตามจำนวนชิ้น",
+    stats: "2 ชิ้น: SPD ×1.2, CRT +8% | 4 ชิ้น: Chain lightning on crit",
   },
 };

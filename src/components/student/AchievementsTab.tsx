@@ -88,7 +88,7 @@ export function AchievementsTab({ code, classId }: { code: string; classId?: str
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between px-2">
+      <div className="flex items-center justify-between rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-amber-50/40 to-white p-5 shadow-sm">
         <div>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight">ความสำเร็จ</h2>
           <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Achievements & Badges</p>

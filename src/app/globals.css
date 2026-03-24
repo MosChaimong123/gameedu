@@ -102,7 +102,48 @@
     @apply border-border outline-ring/50;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
+  }
+
+  html[data-reduced-motion="true"] {
+    scroll-behavior: auto;
+  }
+
+  html[data-reduced-motion="true"] *,
+  html[data-reduced-motion="true"] *::before,
+  html[data-reduced-motion="true"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  html[data-reduced-motion="true"] .animate-pulse,
+  html[data-reduced-motion="true"] .animate-bounce,
+  html[data-reduced-motion="true"] .animate-spin,
+  html[data-reduced-motion="true"] .animate-ping {
+    animation: none !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html:not([data-reduced-motion="false"]) {
+      scroll-behavior: auto;
+    }
+
+    html:not([data-reduced-motion="false"]) *,
+    html:not([data-reduced-motion="false"]) *::before,
+    html:not([data-reduced-motion="false"]) *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      transition-delay: 0ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

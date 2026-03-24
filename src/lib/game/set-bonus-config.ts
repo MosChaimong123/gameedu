@@ -4,75 +4,107 @@
  */
 
 export const SET_IDS = {
-  DRAGON: "DRAGON_SET",
-  THUNDER: "THUNDER_SET",
-  SHADOW: "SHADOW_SET",
+  // Legacy sets (kept for backward compat — no new items use these)
+  DRAGON:    "DRAGON_SET",
+  THUNDER:   "THUNDER_SET",
+  // New archetype sets
+  TITAN:     "TITAN_SET",
+  ARCANE:    "ARCANE_SET",
+  HUNT:      "HUNT_SET",
+  SHADOW:    "SHADOW_SET",
+  // Endgame
   LEGENDARY: "LEGENDARY_SET",
 } as const;
 
-/** Dragon: 2pc ATK/DEF, 4pc boss + HP */
-export const SET_DRAGON_TIER1_PIECES = 2;
-export const SET_DRAGON_ATK_DEF_MULT = 1.15;
-export const SET_DRAGON_TIER2_PIECES = 4;
-export const SET_DRAGON_BOSS_BONUS = 0.3;
-/** HP bonus is multiplicative (+25%) so it scales with level instead of being trivial at high levels. */
-export const SET_DRAGON_HP_MULT = 0.25;
+// ─── TITAN SET (Warrior/Tank) ──────────────────────────────────────────────
+/** TITAN: WEAPON + BODY + HEAD + OFFHAND + GLOVES (5 EPIC pieces) */
+export const SET_TITAN_TIER1_PIECES  = 3;
+export const SET_TITAN_DEF_MULT      = 1.12;
+export const SET_TITAN_HP_MULT       = 1.08;
+export const SET_TITAN_TIER2_PIECES  = 5;
+export const SET_TITAN_ATK_MULT      = 1.10;
 
-/** Thunder: 2pc SPD + crit, 4pc chain lightning flag */
+// ─── ARCANE SET (Mage/Healer) ──────────────────────────────────────────────
+/** ARCANE: WEAPON + BODY + HEAD + OFFHAND + GLOVES (5 EPIC pieces) */
+export const SET_ARCANE_TIER1_PIECES = 3;
+export const SET_ARCANE_MAG_MULT     = 1.15;
+export const SET_ARCANE_MP_MULT      = 1.12;
+export const SET_ARCANE_TIER2_PIECES = 5;
+export const SET_ARCANE_CRIT_ADD     = 0.06;
+
+// ─── HUNT SET (Ranger/Sniper/Beastmaster) ─────────────────────────────────
+/** HUNT: WEAPON + BODY + HEAD + OFFHAND + GLOVES (5 EPIC pieces) */
+export const SET_HUNT_TIER1_PIECES   = 3;
+export const SET_HUNT_CRIT_ADD       = 0.06;
+export const SET_HUNT_SPD_MULT       = 1.10;
+export const SET_HUNT_TIER2_PIECES   = 5;
+export const SET_HUNT_ATK_MULT       = 1.15;
+export const SET_HUNT_LUCK_MULT      = 1.10;
+
+// ─── SHADOW SET (Rogue/Assassin) ──────────────────────────────────────────
+/** SHADOW: WEAPON + BODY + HEAD + BOOTS + ACCESSORY (5 EPIC pieces) */
+export const SET_SHADOW_TIER1_PIECES = 3;
+export const SET_SHADOW_CRIT_ADD     = 0.08;
+export const SET_SHADOW_LUCK_MULT    = 1.12;
+export const SET_SHADOW_TIER2_PIECES = 5;
+export const SET_SHADOW_SPD_MULT     = 1.15;
+export const SET_SHADOW_DODGE        = 0.12;
+
+// ─── LEGENDARY SET (Endgame All-Class) ────────────────────────────────────
+export const SET_LEGENDARY_FULL_PIECES    = 7;
+export const SET_LEGENDARY_ALL_STAT_MULT  = 1.25;
+export const SET_LEGENDARY_XP_BONUS       = 0.5;
+
+// ─── Legacy set constants (Dragon/Thunder) ────────────────────────────────
+export const SET_DRAGON_TIER1_PIECES  = 2;
+export const SET_DRAGON_ATK_DEF_MULT  = 1.15;
+export const SET_DRAGON_TIER2_PIECES  = 4;
+export const SET_DRAGON_BOSS_BONUS    = 0.3;
+export const SET_DRAGON_HP_MULT       = 0.25;
+
 export const SET_THUNDER_TIER1_PIECES = 2;
-export const SET_THUNDER_SPD_MULT = 1.2;
-export const SET_THUNDER_CRIT_ADD = 0.08;
+export const SET_THUNDER_SPD_MULT     = 1.2;
+export const SET_THUNDER_CRIT_ADD     = 0.08;
 export const SET_THUNDER_TIER2_PIECES = 4;
 
-/** Shadow: 2pc luck + gold mult, 4pc dodge + steal */
-export const SET_SHADOW_TIER1_PIECES = 2;
-export const SET_SHADOW_LUCK_MULT = 1.1;
-export const SET_SHADOW_GOLD_BONUS = 0.2;
-export const SET_SHADOW_TIER2_PIECES = 4;
-export const SET_SHADOW_DODGE = 0.15;
-export const SET_SHADOW_STEAL_GOLD = 0.5;
+export const SET_SHADOW_GOLD_BONUS    = 0.2;
+export const SET_SHADOW_STEAL_GOLD    = 0.5;
 
-/** Legendary: full 7pc only */
-export const SET_LEGENDARY_FULL_PIECES = 7;
-export const SET_LEGENDARY_ALL_STAT_MULT = 1.25;
-export const SET_LEGENDARY_XP_BONUS = 0.5;
+// ─── UI milestone definitions ─────────────────────────────────────────────
 
-/** Milestones per setId for UI (Thai copy matches engine). */
 export interface SetMilestoneUi {
   at: number;
   labelTh: string;
 }
 
 export const SET_MILESTONES_UI: Record<string, SetMilestoneUi[]> = {
-  [SET_IDS.DRAGON]: [
-    { at: SET_DRAGON_TIER1_PIECES, labelTh: "ATK/DEF ×1.15" },
-    {
-      at: SET_DRAGON_TIER2_PIECES,
-      labelTh: `Boss damage +${Math.round(SET_DRAGON_BOSS_BONUS * 100)}%, HP +${Math.round(SET_DRAGON_HP_MULT * 100)}%`,
-    },
+  [SET_IDS.TITAN]: [
+    { at: SET_TITAN_TIER1_PIECES,  labelTh: `DEF ×${SET_TITAN_DEF_MULT}, HP ×${SET_TITAN_HP_MULT}` },
+    { at: SET_TITAN_TIER2_PIECES,  labelTh: `ATK ×${SET_TITAN_ATK_MULT}, เปิด IMMORTAL passive` },
   ],
-  [SET_IDS.THUNDER]: [
-    {
-      at: SET_THUNDER_TIER1_PIECES,
-      labelTh: `SPD ×${SET_THUNDER_SPD_MULT}, CRT +${Math.round(SET_THUNDER_CRIT_ADD * 100)}%`,
-    },
-    { at: SET_THUNDER_TIER2_PIECES, labelTh: "สายฟ้าโจมตีติดคริ (chain lightning)" },
+  [SET_IDS.ARCANE]: [
+    { at: SET_ARCANE_TIER1_PIECES, labelTh: `MAG ×${SET_ARCANE_MAG_MULT}, MP ×${SET_ARCANE_MP_MULT}` },
+    { at: SET_ARCANE_TIER2_PIECES, labelTh: `CRIT +${Math.round(SET_ARCANE_CRIT_ADD * 100)}%, เปิด MANA_FLOW passive` },
+  ],
+  [SET_IDS.HUNT]: [
+    { at: SET_HUNT_TIER1_PIECES,   labelTh: `CRIT +${Math.round(SET_HUNT_CRIT_ADD * 100)}%, SPD ×${SET_HUNT_SPD_MULT}` },
+    { at: SET_HUNT_TIER2_PIECES,   labelTh: `ATK ×${SET_HUNT_ATK_MULT}, LUK ×${SET_HUNT_LUCK_MULT}, เปิด LUCKY_STRIKE passive` },
   ],
   [SET_IDS.SHADOW]: [
-    {
-      at: SET_SHADOW_TIER1_PIECES,
-      labelTh: `LUK ×${SET_SHADOW_LUCK_MULT}, ทอง +${Math.round(SET_SHADOW_GOLD_BONUS * 100)}%`,
-    },
-    {
-      at: SET_SHADOW_TIER2_PIECES,
-      labelTh: `หลบ ${Math.round(SET_SHADOW_DODGE * 100)}%, Steal gold +${Math.round(SET_SHADOW_STEAL_GOLD * 100)}%`,
-    },
+    { at: SET_SHADOW_TIER1_PIECES, labelTh: `CRIT +${Math.round(SET_SHADOW_CRIT_ADD * 100)}%, LUK ×${SET_SHADOW_LUCK_MULT}` },
+    { at: SET_SHADOW_TIER2_PIECES, labelTh: `SPD ×${SET_SHADOW_SPD_MULT}, หลบ ${Math.round(SET_SHADOW_DODGE * 100)}%` },
   ],
   [SET_IDS.LEGENDARY]: [
-    {
-      at: SET_LEGENDARY_FULL_PIECES,
-      labelTh: `สเตตส์หลัก ×${SET_LEGENDARY_ALL_STAT_MULT}, XP +${Math.round(SET_LEGENDARY_XP_BONUS * 100)}%`,
-    },
+    { at: SET_LEGENDARY_FULL_PIECES, labelTh: `สเตตส์หลัก ×${SET_LEGENDARY_ALL_STAT_MULT}, XP +${Math.round(SET_LEGENDARY_XP_BONUS * 100)}%` },
+  ],
+  // Legacy
+  [SET_IDS.DRAGON]: [
+    { at: SET_DRAGON_TIER1_PIECES, labelTh: "ATK/DEF ×1.15" },
+    { at: SET_DRAGON_TIER2_PIECES, labelTh: `Boss damage +${Math.round(SET_DRAGON_BOSS_BONUS * 100)}%, HP +${Math.round(SET_DRAGON_HP_MULT * 100)}%` },
+  ],
+  [SET_IDS.THUNDER]: [
+    { at: SET_THUNDER_TIER1_PIECES, labelTh: `SPD ×${SET_THUNDER_SPD_MULT}, CRT +${Math.round(SET_THUNDER_CRIT_ADD * 100)}%` },
+    { at: SET_THUNDER_TIER2_PIECES, labelTh: "สายฟ้าโจมตีติดคริ (chain lightning)" },
   ],
 };
 

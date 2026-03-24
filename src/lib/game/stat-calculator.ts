@@ -16,16 +16,33 @@ import {
   SET_LEGENDARY_ALL_STAT_MULT,
   SET_LEGENDARY_FULL_PIECES,
   SET_LEGENDARY_XP_BONUS,
-  SET_SHADOW_DODGE,
-  SET_SHADOW_GOLD_BONUS,
-  SET_SHADOW_LUCK_MULT,
-  SET_SHADOW_STEAL_GOLD,
-  SET_SHADOW_TIER1_PIECES,
-  SET_SHADOW_TIER2_PIECES,
   SET_THUNDER_CRIT_ADD,
   SET_THUNDER_SPD_MULT,
   SET_THUNDER_TIER1_PIECES,
   SET_THUNDER_TIER2_PIECES,
+  // New archetype sets
+  SET_TITAN_TIER1_PIECES,
+  SET_TITAN_DEF_MULT,
+  SET_TITAN_HP_MULT,
+  SET_TITAN_TIER2_PIECES,
+  SET_TITAN_ATK_MULT,
+  SET_ARCANE_TIER1_PIECES,
+  SET_ARCANE_MAG_MULT,
+  SET_ARCANE_MP_MULT,
+  SET_ARCANE_TIER2_PIECES,
+  SET_ARCANE_CRIT_ADD,
+  SET_HUNT_TIER1_PIECES,
+  SET_HUNT_CRIT_ADD,
+  SET_HUNT_SPD_MULT,
+  SET_HUNT_TIER2_PIECES,
+  SET_HUNT_ATK_MULT,
+  SET_HUNT_LUCK_MULT,
+  SET_SHADOW_CRIT_ADD,
+  SET_SHADOW_SPD_MULT,
+  SET_SHADOW_LUCK_MULT,
+  SET_SHADOW_TIER1_PIECES,
+  SET_SHADOW_TIER2_PIECES,
+  SET_SHADOW_DODGE,
 } from "./set-bonus-config";
 
 /**
@@ -47,6 +64,13 @@ export interface ExtendedStats extends CharacterStats {
   hasToughSkin: boolean;
   hasLuckyStrike: boolean;
   hasGodBlessing: boolean;
+  // New archetype effect flags
+  hasTitanWill: boolean;    // HP < 30% → DEF ×1.50
+  hasHolyFury: boolean;     // HP < 30% → ATK ×1.40
+  hasArcaneSurge: boolean;  // MAG skill → +10% damage
+  hasDarkPact: boolean;     // +20% DMG, -5% HP/turn
+  hasHawkEye: boolean;      // CRIT damage ×1.30
+  hasShadowVeil: boolean;   // Dodge 0.15 on-dodge CRIT ×1.20
 }
 
 type EquippedItemData = {
@@ -79,18 +103,26 @@ export { SET_IDS } from "./set-bonus-config";
 
 export const EFFECT_IDS = {
   // RARE
-  GOLD_FINDER:   "GOLD_FINDER",
-  QUICK_LEARNER: "QUICK_LEARNER",
-  TOUGH_SKIN:    "TOUGH_SKIN",
+  GOLD_FINDER:    "GOLD_FINDER",
+  QUICK_LEARNER:  "QUICK_LEARNER",
+  TOUGH_SKIN:     "TOUGH_SKIN",
   // EPIC
-  LIFESTEAL:     "LIFESTEAL",
-  MANA_FLOW:     "MANA_FLOW",
-  LUCKY_STRIKE:  "LUCKY_STRIKE",
-  // LEGENDARY
-  IMMORTAL:      "IMMORTAL",
-  /** Must match prisma seed / item.effects string */
-  GODS_BLESSING: "GODS_BLESSING",
-  TIME_WARP:     "TIME_WARP",
+  LIFESTEAL:      "LIFESTEAL",
+  MANA_FLOW:      "MANA_FLOW",
+  LUCKY_STRIKE:   "LUCKY_STRIKE",
+  // LEGENDARY — existing
+  IMMORTAL:       "IMMORTAL",
+  GODS_BLESSING:  "GODS_BLESSING",
+  TIME_WARP:      "TIME_WARP",
+  // LEGENDARY — new archetype effects
+  TITAN_WILL:     "TITAN_WILL",    // HP < 30% → DEF ×1.50
+  HOLY_FURY:      "HOLY_FURY",     // HP < 30% → ATK ×1.40
+  ARCANE_SURGE:   "ARCANE_SURGE",  // MAG skill → +10% damage
+  DARK_PACT:      "DARK_PACT",     // +20% damage but -5% HP/turn
+  HAWK_EYE:       "HAWK_EYE",      // CRIT damage ×1.30
+  HUNTER_MARK:    "HUNTER_MARK",   // Boss DMG +0.15
+  SHADOW_VEIL:    "SHADOW_VEIL",   // Dodge 0.15, on Dodge: CRIT ×1.20
+  BLADE_DANCE:    "BLADE_DANCE",   // SPD/10 = CRIT +1% per 10 SPD
 } as const;
 
 /** Deterministic ordering for equipped rows (stable even when template ids repeat). */
@@ -236,28 +268,65 @@ export class StatCalculator {
       result.chainLightningOnCrit = true;
     }
 
-    // Shadow Set
-    const shadow = setCounts[SET_IDS.SHADOW] ?? 0;
-    if (shadow >= SET_SHADOW_TIER1_PIECES) {
-      result.luck = Number((result.luck * SET_SHADOW_LUCK_MULT).toFixed(3));
-      result.goldMultiplier += SET_SHADOW_GOLD_BONUS;
+    // ── New Archetype Sets ────────────────────────────────────────────────
+
+    // Titan Set (Warrior)
+    const titan = setCounts[SET_IDS.TITAN] ?? 0;
+    if (titan >= SET_TITAN_TIER1_PIECES) {
+      result.def = Math.floor(result.def * SET_TITAN_DEF_MULT);
+      result.hp  = Math.floor(result.hp  * SET_TITAN_HP_MULT);
     }
-    if (shadow >= SET_SHADOW_TIER2_PIECES) {
-      result.dodgeChance = SET_SHADOW_DODGE;
-      result.stealGoldBonus = SET_SHADOW_STEAL_GOLD;
+    if (titan >= SET_TITAN_TIER2_PIECES) {
+      result.atk       = Math.floor(result.atk * SET_TITAN_ATK_MULT);
+      result.hasImmortal = true;
+    }
+
+    // Arcane Set (Mage/Healer)
+    const arcane = setCounts[SET_IDS.ARCANE] ?? 0;
+    if (arcane >= SET_ARCANE_TIER1_PIECES) {
+      result.mag    = Math.floor(result.mag    * SET_ARCANE_MAG_MULT);
+      result.maxMp  = Math.floor(result.maxMp  * SET_ARCANE_MP_MULT);
+    }
+    if (arcane >= SET_ARCANE_TIER2_PIECES) {
+      result.crit      = Number((result.crit + SET_ARCANE_CRIT_ADD).toFixed(3));
+      result.hasManaFlow = true;
+    }
+
+    // Hunt Set (Ranger/Sniper/Beastmaster)
+    const hunt = setCounts[SET_IDS.HUNT] ?? 0;
+    if (hunt >= SET_HUNT_TIER1_PIECES) {
+      result.crit = Number((result.crit + SET_HUNT_CRIT_ADD).toFixed(3));
+      result.spd  = Math.floor(result.spd * SET_HUNT_SPD_MULT);
+    }
+    if (hunt >= SET_HUNT_TIER2_PIECES) {
+      result.atk  = Math.floor(result.atk * SET_HUNT_ATK_MULT);
+      result.luck = Number((result.luck * SET_HUNT_LUCK_MULT).toFixed(3));
+      result.hasLuckyStrike = true;
+    }
+
+    // Shadow Set (Rogue/Assassin)
+    const shadowNew = setCounts[SET_IDS.SHADOW] ?? 0;
+    if (shadowNew >= SET_SHADOW_TIER1_PIECES) {
+      result.crit = Number((result.crit + SET_SHADOW_CRIT_ADD).toFixed(3));
+      result.luck = Number((result.luck * SET_SHADOW_LUCK_MULT).toFixed(3));
+    }
+    if (shadowNew >= SET_SHADOW_TIER2_PIECES) {
+      result.spd        = Math.floor(result.spd * SET_SHADOW_SPD_MULT);
+      result.dodgeChance = Math.max(result.dodgeChance, SET_SHADOW_DODGE);
+      result.hasLifesteal = true;
     }
 
     // Legendary Set (7-piece full)
     const legendary = setCounts[SET_IDS.LEGENDARY] ?? 0;
     if (legendary >= SET_LEGENDARY_FULL_PIECES) {
-      result.hp = Math.floor(result.hp * SET_LEGENDARY_ALL_STAT_MULT);
-      result.atk = Math.floor(result.atk * SET_LEGENDARY_ALL_STAT_MULT);
-      result.def = Math.floor(result.def * SET_LEGENDARY_ALL_STAT_MULT);
-      result.spd = Math.floor(result.spd * SET_LEGENDARY_ALL_STAT_MULT);
-      result.mag = Math.floor(result.mag * SET_LEGENDARY_ALL_STAT_MULT);
+      result.hp    = Math.floor(result.hp    * SET_LEGENDARY_ALL_STAT_MULT);
+      result.atk   = Math.floor(result.atk   * SET_LEGENDARY_ALL_STAT_MULT);
+      result.def   = Math.floor(result.def   * SET_LEGENDARY_ALL_STAT_MULT);
+      result.spd   = Math.floor(result.spd   * SET_LEGENDARY_ALL_STAT_MULT);
+      result.mag   = Math.floor(result.mag   * SET_LEGENDARY_ALL_STAT_MULT);
       result.maxMp = Math.floor(result.maxMp * SET_LEGENDARY_ALL_STAT_MULT);
-      result.crit = Number((result.crit * SET_LEGENDARY_ALL_STAT_MULT).toFixed(3));
-      result.luck = Number((result.luck * SET_LEGENDARY_ALL_STAT_MULT).toFixed(3));
+      result.crit  = Number((result.crit * SET_LEGENDARY_ALL_STAT_MULT).toFixed(3));
+      result.luck  = Number((result.luck * SET_LEGENDARY_ALL_STAT_MULT).toFixed(3));
       result.xpMultiplier += SET_LEGENDARY_XP_BONUS;
       result.chosenOneTitle = true;
     }
@@ -284,7 +353,7 @@ export class StatCalculator {
       result.hasLuckyStrike = true;
     }
 
-    // LEGENDARY effects
+    // LEGENDARY effects — existing
     if (effects.has(EFFECT_IDS.IMMORTAL))       result.hasImmortal     = true;
     if (effects.has(EFFECT_IDS.TIME_WARP))      result.hasTimeWarp     = true;
     if (effects.has(EFFECT_IDS.GODS_BLESSING)) {
@@ -292,6 +361,24 @@ export class StatCalculator {
       result.goldMultiplier += 0.1;
       result.xpMultiplier += 0.1;
       result.bossDamageMultiplier += 0.1;
+    }
+
+    // LEGENDARY effects — new archetype
+    if (effects.has(EFFECT_IDS.TITAN_WILL))     result.hasTitanWill    = true;
+    if (effects.has(EFFECT_IDS.HOLY_FURY))      result.hasHolyFury     = true;
+    if (effects.has(EFFECT_IDS.ARCANE_SURGE))   result.hasArcaneSurge  = true;
+    if (effects.has(EFFECT_IDS.DARK_PACT))      result.hasDarkPact     = true;
+    if (effects.has(EFFECT_IDS.HAWK_EYE))       result.hasHawkEye      = true;
+    if (effects.has(EFFECT_IDS.HUNTER_MARK)) {
+      result.bossDamageMultiplier += 0.15;
+    }
+    if (effects.has(EFFECT_IDS.SHADOW_VEIL)) {
+      result.dodgeChance = Math.max(result.dodgeChance, 0.15);
+      result.hasShadowVeil = true;
+    }
+    if (effects.has(EFFECT_IDS.BLADE_DANCE)) {
+      // SPD every 10 = CRIT +1%
+      result.crit = Number((result.crit + Math.floor(result.spd / 10) * 0.01).toFixed(3));
     }
 
     return result;
@@ -316,6 +403,12 @@ export class StatCalculator {
       hasToughSkin:         false,
       hasLuckyStrike:       false,
       hasGodBlessing:       false,
+      hasTitanWill:         false,
+      hasHolyFury:          false,
+      hasArcaneSurge:       false,
+      hasDarkPact:          false,
+      hasHawkEye:           false,
+      hasShadowVeil:        false,
     };
   }
 

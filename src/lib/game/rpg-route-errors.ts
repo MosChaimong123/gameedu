@@ -7,6 +7,8 @@ export const RPG_ROUTE_ERROR = {
   insufficientPoints: "INSUFFICIENT_POINTS",
   itemNotFound: "ITEM_NOT_FOUND",
   insufficientQuantity: "INSUFFICIENT_QUANTITY",
+  skillNotFound: "SKILL_NOT_FOUND",
+  skillUpgradeBlocked: "SKILL_UPGRADE_BLOCKED",
 } as const;
 
 export type RpgRouteErrorCode =
@@ -60,4 +62,21 @@ export function toInventoryUseErrorResponse(error: unknown) {
   }
 
   return null;
+}
+
+export function toSkillTreeErrorResponse(error: unknown) {
+  if (!isRpgRouteError(error)) return null;
+
+  switch (error.code) {
+    case RPG_ROUTE_ERROR.studentNotFound:
+      return NextResponse.json({ error: "Student not found" }, { status: 404 });
+    case RPG_ROUTE_ERROR.insufficientGold:
+      return NextResponse.json({ error: RPG_COPY.shop.insufficientGold }, { status: 400 });
+    case RPG_ROUTE_ERROR.skillNotFound:
+      return NextResponse.json({ error: "Skill not found" }, { status: 404 });
+    case RPG_ROUTE_ERROR.skillUpgradeBlocked:
+      return NextResponse.json({ error: error.message || "Skill upgrade blocked" }, { status: 400 });
+    default:
+      return null;
+  }
 }

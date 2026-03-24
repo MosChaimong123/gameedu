@@ -529,6 +529,20 @@ export function InventoryTab({
 
   return (
     <div className="space-y-5 pb-6">
+      <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-blue-50/40 to-white p-5 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Inventory Hub</p>
+            <h3 className="mt-1 text-xl font-black text-slate-800">คลังอุปกรณ์และพลังเสริม</h3>
+            <p className="mt-1 text-sm font-medium text-slate-500">
+              จัดการอุปกรณ์ สเตตัส และเอฟเฟกต์ให้พร้อมสำหรับการต่อสู้และการฟาร์ม
+            </p>
+          </div>
+          <div className="rounded-2xl border border-blue-200 bg-white px-3 py-2 text-xs font-black text-blue-600">
+            Build & Equip
+          </div>
+        </div>
+      </div>
       {/* ===== Equipment Dashboard ===== */}
       <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
@@ -845,7 +859,7 @@ export function InventoryTab({
           onClose={() => setSelectedItemForEnhance(null)}
           item={(() => {
             const currentItem = items.find(i => i.id === selectedItemForEnhance.id) || selectedItemForEnhance;
-            return { id: currentItem.id, name: currentItem.item.name, image: currentItem.item.image, price: currentItem.item.price, enhancementLevel: currentItem.enhancementLevel, goldMultiplier: currentItem.item.goldMultiplier, bossDamageMultiplier: currentItem.item.bossDamageMultiplier };
+            return { id: currentItem.id, name: currentItem.item.name, image: currentItem.item.image, price: currentItem.item.price, tier: currentItem.item.tier, enhancementLevel: currentItem.enhancementLevel, goldMultiplier: currentItem.item.goldMultiplier, bossDamageMultiplier: currentItem.item.bossDamageMultiplier };
           })()}
           currentGold={gold}
           currentPoints={points}

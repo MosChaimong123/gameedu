@@ -24,10 +24,19 @@ export interface Skill {
   unlockLevel: number;
   effect?: string;
   damageMultiplier?: number; // Damage dealt = baseStat * damageMultiplier
+  healMultiplier?: number;   // Healing amount = MAG * healMultiplier
   isCrit?: boolean;          // If true, guaranteed critical hit
   damageBase?: "ATK" | "MAG"; // Which stat to use for damage; defaults to "ATK"
   icon?: string;             // Optional custom image icon path
   cooldown?: number;         // Turns before skill can be used again (0 or undefined = no cooldown)
+  maxRank?: number;
+  requiredLevel?: number;
+  prerequisite?: string[];
+  rankScales?: {
+    damageMultiplierPerRank?: number;
+    costPerRank?: number;
+    healMultiplierPerRank?: number;
+  };
 }
 
 export interface Passive {
@@ -390,6 +399,7 @@ const HEALER_SKILLS: Skill[] = [
     costType: "MP",
     unlockLevel: 5,
     effect: "HEAL",
+    icon: "/assets/skills/healer_cure.png",
   },
   {
     id: "healer_barrier",
@@ -419,6 +429,7 @@ const HEALER_SKILLS: Skill[] = [
     costType: "MP",
     unlockLevel: 16,
     effect: "HEAL",
+    icon: "/assets/skills/healer_holy_light.png",
   },
   {
     id: "healer_resurrection",
@@ -428,6 +439,7 @@ const HEALER_SKILLS: Skill[] = [
     costType: "MP",
     unlockLevel: 20,
     effect: "HEAL",
+    icon: "/assets/skills/healer_resurrection.png",
   },
   {
     id: "healer_divine_intervention",
@@ -437,6 +449,7 @@ const HEALER_SKILLS: Skill[] = [
     costType: "MP",
     unlockLevel: 25,
     effect: "HEAL",
+    icon: "/assets/skills/healer_divine_intervention.png",
   },
 ];
 
@@ -467,12 +480,13 @@ const ROGUE_SKILLS: Skill[] = [
   {
     id: "rogue_backstab",
     name: "Backstab",
-    description: "Strike from the shadows for 2× ATK damage.",
+    description: "Strike from the shadows, dealing 2.0× ATK damage.",
     cost: 10,
-    costType: "MP",
+    costType: "AP",
     unlockLevel: 5,
     effect: "DAMAGE",
     damageMultiplier: 2.0,
+    icon: "/assets/skills/rogue_backstab.png",
   },
   {
     id: "rogue_dodge",
@@ -483,6 +497,7 @@ const ROGUE_SKILLS: Skill[] = [
     unlockLevel: 8,
     effect: "BUFF_DEF",
     damageMultiplier: 0.5,
+    icon: "/assets/skills/rogue_dodge.png",
   },
   {
     id: "rogue_poison_blade",
@@ -493,6 +508,7 @@ const ROGUE_SKILLS: Skill[] = [
     unlockLevel: 12,
     effect: "POISON",
     damageMultiplier: 1.8,
+    icon: "/assets/skills/rogue_poison_blade.png",
   },
   {
     id: "rogue_shadow_step",
@@ -503,6 +519,7 @@ const ROGUE_SKILLS: Skill[] = [
     unlockLevel: 16,
     effect: "DAMAGE",
     damageMultiplier: 2.5,
+    icon: "/assets/skills/rogue_shadow_step.png",
   },
   {
     id: "rogue_execution",
@@ -513,6 +530,7 @@ const ROGUE_SKILLS: Skill[] = [
     unlockLevel: 20,
     effect: "EXECUTE",
     damageMultiplier: 3.0,
+    icon: "/assets/skills/rogue_execution.png",
   },
   {
     id: "rogue_death_mark",
@@ -523,6 +541,7 @@ const ROGUE_SKILLS: Skill[] = [
     unlockLevel: 25,
     effect: "DEF_BREAK",
     damageMultiplier: 2.0,
+    icon: "/assets/skills/rogue_death_mark.png",
   },
 ];
 
@@ -620,9 +639,23 @@ function mergeJobDefinitions(
   return {
     skills: Array.from(skillMap.values()).sort(
       (a, b) => a.unlockLevel - b.unlockLevel
-    ),
+    ).map(ensureSkillTreeMeta),
     passives: Array.from(passiveMap.values()),
     statMultipliers,
+  };
+}
+
+function ensureSkillTreeMeta(skill: Skill): Skill {
+  return {
+    ...skill,
+    maxRank: skill.maxRank ?? 3,
+    requiredLevel: skill.requiredLevel ?? skill.unlockLevel,
+    prerequisite: Array.isArray(skill.prerequisite) ? skill.prerequisite : [],
+    rankScales: {
+      damageMultiplierPerRank: skill.rankScales?.damageMultiplierPerRank ?? 0.12,
+      costPerRank: skill.rankScales?.costPerRank ?? 0,
+      healMultiplierPerRank: skill.rankScales?.healMultiplierPerRank ?? 0.1,
+    },
   };
 }
 
@@ -635,8 +668,12 @@ export function getMergedClassDef(effectiveKey: string): JobClassDefinition {
   if (cached) return cached;
 
   if (!k || k === "NOVICE") {
-    mergedDefCache.set("NOVICE", JOB_CLASSES.NOVICE);
-    return JOB_CLASSES.NOVICE;
+    const novice = {
+      ...JOB_CLASSES.NOVICE,
+      skills: JOB_CLASSES.NOVICE.skills.map(ensureSkillTreeMeta),
+    };
+    mergedDefCache.set("NOVICE", novice);
+    return novice;
   }
 
   const ext = JOB_CLASS_EXTENSIONS[k];
@@ -649,8 +686,12 @@ export function getMergedClassDef(effectiveKey: string): JobClassDefinition {
 
   const baseOnly = JOB_CLASSES[k];
   if (baseOnly) {
-    mergedDefCache.set(k, baseOnly);
-    return baseOnly;
+    const normalizedBase = {
+      ...baseOnly,
+      skills: baseOnly.skills.map(ensureSkillTreeMeta),
+    };
+    mergedDefCache.set(k, normalizedBase);
+    return normalizedBase;
   }
 
   mergedDefCache.set(k, JOB_CLASSES.NOVICE);

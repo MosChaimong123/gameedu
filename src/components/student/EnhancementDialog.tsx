@@ -2,6 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  TIER_MAX,
+  getEnhancementZone,
+  getSuccessRate,
+  calculateEnhancementCost,
+} from "@/lib/game/enhancement-system";
 import { 
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
 } from "@/components/ui/dialog";
@@ -20,6 +26,7 @@ interface EnhancementDialogProps {
     name: string;
     image: string;
     price: number;
+    tier?: string;
     enhancementLevel: number;
     goldMultiplier: number;
     bossDamageMultiplier: number;
@@ -28,12 +35,6 @@ interface EnhancementDialogProps {
   currentPoints: number;
   onEnhance: () => Promise<{ success: boolean; newLevel: number }>;
 }
-
-const SUCCESS_RATES: Record<number, number> = {
-    1: 100, 2: 100, 3: 100,
-    4: 80,  5: 60,  6: 40,
-    7: 30,  8: 20,  9: 10
-};
 
 export function EnhancementDialog({
   isOpen,
@@ -46,18 +47,21 @@ export function EnhancementDialog({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ success: boolean; level: number } | null>(null);
   
+  const tierMax = TIER_MAX[item.tier ?? "COMMON"] ?? 9;
+
   // Auto Mode States
   const [autoMode, setAutoMode] = useState(false);
-  const [targetLevel, setTargetLevel] = useState(9);
+  const [targetLevel, setTargetLevel] = useState(() => tierMax);
   const [isAutoRunning, setIsAutoRunning] = useState(false);
   const stopAutoRef = useRef(false);
 
-  const isMaxLevel = item.enhancementLevel >= 9;
+  const isMaxLevel = item.enhancementLevel >= tierMax;
+  const zone = getEnhancementZone(item.enhancementLevel);
   const nextLevel = item.enhancementLevel + 1;
-  const successRate = SUCCESS_RATES[nextLevel] || 0;
-  
-  const goldCost = Math.floor(item.price * nextLevel * 0.5);
-  const pointCost = nextLevel * 10;
+  const successRate = Math.round(getSuccessRate(item.enhancementLevel));
+  const cost = calculateEnhancementCost(item.enhancementLevel, item.price);
+  const goldCost = cost.gold;
+  const pointCost = cost.behaviorPoints;
 
   const hasGold = currentGold >= goldCost;
   const hasPoints = currentPoints >= pointCost;
@@ -117,7 +121,7 @@ export function EnhancementDialog({
         
         // Re-check affordability (This is tricky since props only update on next render)
         // For now, let the API handle the rejection if resources run out.
-        if (currentLvl >= 9) break;
+        if (currentLvl >= tierMax) break;
     }
     
     setIsAutoRunning(false);
@@ -169,7 +173,7 @@ export function EnhancementDialog({
                     <div className="w-24 h-24 bg-amber-500/10 rounded-3xl flex items-center justify-center text-6xl border-2 border-amber-500/30 shadow-[0_0_30px_rgba(251,191,36,0.2)]">
                         {item.image}
                     </div>
-                    <h3 className="text-xl font-black text-amber-400">ระดับสูงสุดแล้ว! (+9)</h3>
+                    <h3 className="text-xl font-black text-amber-400">ระดับสูงสุดแล้ว! (+{tierMax})</h3>
                     <p className="text-slate-400 text-sm font-bold">ไอเทมนี้ทรงพลังถึงขีดสุดแล้ว</p>
                     <Button onClick={onClose} className="mt-4 bg-slate-800 text-white rounded-xl px-12 font-black">ปิดหน้าต่าง</Button>
                 </div>
@@ -201,8 +205,8 @@ export function EnhancementDialog({
                             <span>เป้าหมายการตีบวก</span>
                             <span className="text-amber-400">+{targetLevel}</span>
                         </div>
-                        <div className="flex gap-1.5 justify-between">
-                            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(lvl => (
+                        <div className="flex gap-1.5 flex-wrap justify-between">
+                            {Array.from({ length: tierMax }, (_, i) => i + 1).map(lvl => (
                                 <button
                                     key={lvl}
                                     onClick={() => !isAutoRunning && setTargetLevel(lvl)}
@@ -297,7 +301,7 @@ export function EnhancementDialog({
                         <span>ทรัพยากรที่ต้องการ</span>
                         <span>(ต่อครั้ง)</span>
                      </div>
-                     <div className="grid grid-cols-2 gap-2">
+                     <div className={`grid gap-2 ${pointCost > 0 ? "grid-cols-2" : "grid-cols-1"}`}>
                          <div className="bg-white/5 rounded-2xl p-3 border border-white/5 text-left">
                             <div className="flex items-center gap-2 mb-1">
                                 <Coins className="w-3 h-3 text-amber-400" />
@@ -307,16 +311,23 @@ export function EnhancementDialog({
                                 {goldCost.toLocaleString()}
                             </p>
                          </div>
-                         <div className="bg-white/5 rounded-2xl p-3 border border-white/5 text-left">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Star className="w-3 h-3 text-indigo-400" />
-                                <span className="text-[9px] font-black text-slate-400 uppercase">Points</span>
-                            </div>
-                            <p className={`text-sm font-black ${hasPoints ? 'text-white' : 'text-rose-500'}`}>
-                                {pointCost}
-                            </p>
-                         </div>
+                         {pointCost > 0 && (
+                           <div className="bg-white/5 rounded-2xl p-3 border border-white/5 text-left">
+                              <div className="flex items-center gap-2 mb-1">
+                                  <Star className="w-3 h-3 text-indigo-400" />
+                                  <span className="text-[9px] font-black text-slate-400 uppercase">Points</span>
+                              </div>
+                              <p className={`text-sm font-black ${hasPoints ? 'text-white' : 'text-rose-500'}`}>
+                                  {pointCost}
+                              </p>
+                           </div>
+                         )}
                      </div>
+                     {zone === "DANGER" && (
+                       <p className="text-[10px] font-bold text-amber-300/90 px-1">
+                         โซนเสี่ยงสูง: ใช้วัสดุ 1 ชิ้นต่อครั้ง (ระบบจะเลือกวัสดุที่มีให้อัตโนมัติ)
+                       </p>
+                     )}
                   </div>
 
                   <DialogFooter className="w-full gap-2">

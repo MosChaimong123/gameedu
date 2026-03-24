@@ -173,7 +173,7 @@ export function PvPArenaTab({ code, gold }: { code: string; gold: number }) {
       </AnimatePresence>
 
       {/* ====== Header ====== */}
-      <div className="flex items-center justify-between px-1">
+      <div className="flex items-center justify-between rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-rose-50/40 to-white p-5 shadow-sm">
         <div>
           <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
             <Sword className="w-6 h-6 text-rose-500" /> PvP Arena
@@ -187,7 +187,7 @@ export function PvPArenaTab({ code, gold }: { code: string; gold: number }) {
       </div>
 
       {/* ====== Mechanic Info ====== */}
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 text-xs text-indigo-700 font-bold space-y-1">
+      <div className="p-4 rounded-3xl bg-white border border-slate-200 text-xs text-slate-600 font-bold space-y-1 shadow-sm">
         <p>⚔️ <span className="font-black">วิธีดวล:</span> แต้มพฤติกรรม + Gold + ไอเทม = พลัง → โยนลูกเต๋า → ชนะได้ Gold เดิมพัน!</p>
         <p>🎲 <span className="font-black">สูตร:</span> พลัง (70%) + ดวง (30%) — ต่อให้พลังสูง ยังมีลุ้นอยู่เสมอ</p>
       </div>

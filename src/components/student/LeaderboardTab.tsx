@@ -72,7 +72,7 @@ export function LeaderboardTab({ classId, currentStudentId }: { classId: string;
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between px-2">
+      <div className="flex items-center justify-between rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-cyan-50/40 to-white p-5 shadow-sm">
         <div>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight">กระดานอันดับ</h2>
           <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Classroom Leaderboard</p>
@@ -95,7 +95,7 @@ export function LeaderboardTab({ classId, currentStudentId }: { classId: string;
       </div>
 
       {/* Sort Tabs */}
-      <div className="flex gap-2 p-1 bg-slate-100/60 rounded-2xl w-fit">
+      <div className="flex gap-2 p-1.5 bg-white border border-slate-200 rounded-2xl w-fit shadow-sm">
         {SORT_TABS.map(tab => (
           <button
             key={tab.key}

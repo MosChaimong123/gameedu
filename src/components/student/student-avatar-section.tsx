@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { Star, Camera, Zap, Heart, Shield, Trophy, Sword, Coins } from "lucide-react";
+import { Camera, Zap, Heart, Shield, Trophy, Sword, Coins } from "lucide-react";
 import { AvatarPickerModal } from "./avatar-picker-modal";
 import { type RankEntry, getNextRankProgress, formatAmount } from "@/lib/classroom-utils";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -46,7 +46,6 @@ export function StudentAvatarSection({
     totalPositive, totalNegative,
     themeClass, themeStyle, levelConfig,
     gameStats, items = [],
-    stamina = 3, maxStamina = 3, mana = 50,
     jobClass = null,
     jobTier = "BASE",
     advanceClass = null,
@@ -249,50 +248,6 @@ export function StudentAvatarSection({
                         </motion.div>
                     </div>
  
-                    {/* Resources Area */}
-                    <div className="w-full mt-12 space-y-4 px-4 relative z-10">
-                        <div className="space-y-2 group/stamina">
-                            <div className="flex items-center gap-2 px-1">
-                                <div className="p-1 bg-amber-400/20 rounded-lg border border-amber-400/30">
-                                    <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
-                                </div>
-                                <span className="text-[10px] font-black text-white/90 uppercase tracking-widest whitespace-nowrap">Stamina</span>
-                            </div>
-                            <div className="flex justify-center -mb-1">
-                                <span className="text-[11px] font-black text-white tabular-nums whitespace-nowrap drop-shadow-sm">{stamina} <span className="text-white/40">/</span> {maxStamina}</span>
-                            </div>
-                            <div className="h-3 w-full bg-black/40 rounded-3xl overflow-hidden border border-white/10 p-[2px] shadow-inner backdrop-blur-md">
-                                <motion.div 
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${Math.min(100, (stamina / maxStamina) * 100)}%` }}
-                                    className="h-full bg-gradient-to-r from-amber-300 via-orange-400 to-amber-200 rounded-3xl relative overflow-hidden"
-                                >
-                                    <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)] animate-shimmer" style={{ backgroundSize: '200% 100%' }} />
-                                </motion.div>
-                            </div>
-                        </div>
- 
-                        <div className="space-y-2 group/mana">
-                            <div className="flex items-center gap-2 px-1">
-                                <div className="p-1 bg-indigo-400/20 rounded-lg border border-indigo-400/30">
-                                    <Star className="w-3.5 h-3.5 text-indigo-300 fill-indigo-300" />
-                                </div>
-                                <span className="text-[10px] font-black text-white/90 uppercase tracking-widest whitespace-nowrap">Mana</span>
-                            </div>
-                            <div className="flex justify-center -mb-1">
-                                <span className="text-[11px] font-black text-white tabular-nums whitespace-nowrap drop-shadow-sm">{mana} <span className="text-white/40">/</span> {charStats.maxMp}</span>
-                            </div>
-                            <div className="h-3 w-full bg-black/40 rounded-3xl overflow-hidden border border-white/10 p-[2px] shadow-inner backdrop-blur-md">
-                                <motion.div 
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${(mana / charStats.maxMp) * 100}%` }}
-                                    className="h-full bg-gradient-to-r from-indigo-400 via-purple-500 to-blue-400 rounded-3xl relative overflow-hidden"
-                                >
-                                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.2),transparent)]" />
-                                </motion.div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
  
                 {/* Identity & Stats Body */}

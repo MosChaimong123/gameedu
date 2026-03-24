@@ -27,6 +27,7 @@ interface BossRaidViewProps {
   currentQuestion: { id: string; question: string; options: string[]; image?: string } | null;
   feedback: { correct: boolean } | null;
   battleEvents: BattleAnimationEvent[];
+  reducedMotion?: boolean;
   onAnswer: (index: number) => void;
   onAction: (type: "ATTACK" | "DEFEND" | "SKILL", skillId?: string) => void;
 }
@@ -38,6 +39,7 @@ export function BossRaidView({
   currentQuestion,
   feedback,
   battleEvents,
+  reducedMotion = false,
   onAnswer,
   onAction,
 }: BossRaidViewProps) {
@@ -51,6 +53,7 @@ export function BossRaidView({
     events: battleEvents,
     playerId: myPlayer.id,
     enemyId: "boss",
+    reducedMotion,
   });
 
   return (
@@ -74,9 +77,9 @@ export function BossRaidView({
           </div>
         </div>
 
-        <BattleStage variant="boss" shakeKey={animation.shakeKey} banner={animation.banner}>
-          <BattleEffectsLayer activeFx={animation.activeFx} />
-          <DamagePopupLayer popups={animation.popups} />
+        <BattleStage variant="boss" shakeKey={animation.shakeKey} banner={animation.banner} reducedMotion={reducedMotion}>
+          <BattleEffectsLayer activeFx={animation.activeFx} reducedMotion={reducedMotion} />
+          <DamagePopupLayer popups={animation.popups} reducedMotion={reducedMotion} />
 
           <div className="grid min-h-[460px] items-center gap-5 px-4 py-6 lg:grid-cols-[280px_minmax(0,1fr)_280px] lg:px-8">
             <BattleCharacter
@@ -87,6 +90,7 @@ export function BossRaidView({
               side="left"
               pose={animation.playerPose}
               statusEffects={animation.playerStatuses}
+              reducedMotion={reducedMotion}
               variant="player"
               accent="indigo"
             />
@@ -112,6 +116,7 @@ export function BossRaidView({
                 feedback={feedback}
                 onAnswer={onAnswer}
                 accent="boss"
+                reducedMotion={reducedMotion}
               />
             </div>
 
@@ -122,6 +127,7 @@ export function BossRaidView({
               side="right"
               pose={animation.enemyPose}
               statusEffects={animation.enemyStatuses}
+              reducedMotion={reducedMotion}
               variant="enemy"
               accent="rose"
             />

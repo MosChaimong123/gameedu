@@ -24,6 +24,9 @@ import {
 } from "../game/job-system";
 import { RewardManager } from "../game/reward-manager";
 import { db } from "../db";
+import type { BattleRuntimeEventPayload } from "../game/battle-events";
+import { parseGameStats, toPrismaJson } from "../game/game-stats";
+import { getEffectiveSkillAtRank, getSkillRank } from "../game/skill-tree";
 
 // ─── Boss Config ──────────────────────────────────────────────────────────────
 
@@ -105,6 +108,25 @@ export function scaleMonsterAtk(baseAtk: number, wave: number): number {
   return Math.floor(baseAtk * (1 + wave * 0.10));
 }
 
+export function computeBossDamageAgainstPlayer(params: {
+  bossAtk: number;
+  playerDef: number;
+  playerHp: number;
+  playerMaxHp: number;
+  hasToughSkin: boolean;
+  hasTitanWill: boolean;
+}): number {
+  const defenseMultiplier =
+    params.hasTitanWill && params.playerHp / Math.max(1, params.playerMaxHp) < 0.3 ? 1.5 : 1;
+  const effectiveDef = Math.floor(params.playerDef * defenseMultiplier);
+  const reducedBossAtk = params.hasToughSkin ? Math.floor(params.bossAtk * 0.9) : params.bossAtk;
+  return Math.max(1, reducedBossAtk - effectiveDef);
+}
+
+export function computeDarkPactDrain(maxHp: number): number {
+  return Math.max(1, Math.floor(maxHp * 0.05));
+}
+
 function spawnSoloMonster(level: number, wave: number): SoloMonster {
   // Pick template based on level bracket
   const templateIdx = Math.min(
@@ -132,6 +154,63 @@ export class BattleTurnEngine extends AbstractGameEngine {
   private bossTickInterval: ReturnType<typeof setInterval> | null = null;
   private soloFarmingTimer: ReturnType<typeof setTimeout> | null = null;
   private soloFarmingDurationMs: number;
+
+  private emitBattleEvent(event: BattleRuntimeEventPayload) {
+    this.io.to(this.pin).emit("battle-event", event);
+  }
+
+  private applyOutgoingDamageEffects(
+    player: BattlePlayer,
+    baseDamage: number,
+    opts: { usesMagic?: boolean; targetBoss?: boolean } = {}
+  ) {
+    let damage = baseDamage;
+    let critApplied = false;
+
+    if (player.hasHolyFury && player.hp / Math.max(1, player.maxHp) < 0.3) {
+      damage = Math.floor(damage * 1.4);
+    }
+    if (player.hasDarkPact) {
+      damage = Math.floor(damage * 1.2);
+    }
+    if (opts.usesMagic && player.hasArcaneSurge) {
+      damage = Math.floor(damage * 1.1);
+    }
+    if (opts.targetBoss && player.bossDamageMultiplier > 0) {
+      damage = Math.floor(damage * (1 + player.bossDamageMultiplier));
+    }
+
+    const critChance = Math.max(0, Math.min(1, player.crit ?? 0));
+    if (Math.random() < critChance) {
+      damage = Math.floor(damage * 2);
+      critApplied = true;
+      if (player.hasHawkEye) {
+        damage = Math.floor(damage * 1.3);
+      }
+    }
+
+    if (player.shadowVeilCritBuff) {
+      damage = Math.floor(damage * 1.2);
+      critApplied = true;
+      player.shadowVeilCritBuff = false;
+    }
+
+    return { damage: Math.max(1, damage), critApplied };
+  }
+
+  private applyDarkPactDrain(player: BattlePlayer) {
+    if (!player.hasDarkPact || player.hp <= 0) return;
+    const drain = computeDarkPactDrain(player.maxHp);
+    player.hp = Math.max(1, player.hp - drain);
+    this.emitBattleEvent({
+      type: "DAMAGE_APPLIED",
+      sourceId: player.id,
+      targetId: player.id,
+      amount: drain,
+      label: "Dark Pact",
+      tone: "warning",
+    });
+  }
 
   constructor(
     pin: string,
@@ -204,6 +283,21 @@ export class BattleTurnEngine extends AbstractGameEngine {
       hasImmortal: false,
       hasManaFlow: false,
       hasTimeWarp: false,
+      hasToughSkin: false,
+      hasTitanWill: false,
+      hasHolyFury: false,
+      hasArcaneSurge: false,
+      hasDarkPact: false,
+      hasHawkEye: false,
+      hasShadowVeil: false,
+      hasGodBlessing: false,
+      hasLuckyStrike: false,
+      chainLightningOnCrit: false,
+      dodgeChance: 0,
+      shadowVeilCritBuff: false,
+      goldMultiplier: 0,
+      xpMultiplier: 0,
+      bossDamageMultiplier: 0,
       earnedGold: 0,
       earnedXp: 0,
       itemDrops: [],
@@ -272,7 +366,7 @@ export class BattleTurnEngine extends AbstractGameEngine {
         return;
       }
 
-      const gameStats = (student.gameStats as any) ?? {};
+      const gameStats = parseGameStats(student.gameStats);
       const level = gameStats.level ?? 1;
       const stats = StatCalculator.compute(
         student.points ?? 0,
@@ -301,7 +395,7 @@ export class BattleTurnEngine extends AbstractGameEngine {
         };
         await db.student.update({
           where: { id: player.studentId },
-          data: { gameStats: cleanedStats },
+          data: { gameStats: toPrismaJson(cleanedStats) },
         });
       }
 
@@ -325,6 +419,7 @@ export class BattleTurnEngine extends AbstractGameEngine {
       player.level = level;
       player.jobClass = student.jobClass ?? null;
       player.jobTier = (student.jobTier as string) ?? "BASE";
+      player.skillTreeProgress = gameStats.skillTreeProgress ?? {};
 
       // 8.1–8.4: Populate special effect flags from equipped items
       player.hasLifesteal = stats.hasLifesteal;
@@ -332,6 +427,21 @@ export class BattleTurnEngine extends AbstractGameEngine {
       player.hasImmortal  = stats.hasImmortal || hasPhoenixBuff;
       player.hasManaFlow  = stats.hasManaFlow;
       player.hasTimeWarp  = stats.hasTimeWarp;
+      player.hasToughSkin = stats.hasToughSkin;
+      player.hasTitanWill = stats.hasTitanWill;
+      player.hasHolyFury = stats.hasHolyFury;
+      player.hasArcaneSurge = stats.hasArcaneSurge;
+      player.hasDarkPact = stats.hasDarkPact;
+      player.hasHawkEye = stats.hasHawkEye;
+      player.hasShadowVeil = stats.hasShadowVeil;
+      player.hasGodBlessing = stats.hasGodBlessing;
+      player.hasLuckyStrike = stats.hasLuckyStrike;
+      player.chainLightningOnCrit = stats.chainLightningOnCrit;
+      player.dodgeChance = stats.dodgeChance ?? 0;
+      player.shadowVeilCritBuff = false;
+      player.goldMultiplier = stats.goldMultiplier ?? 0;
+      player.xpMultiplier = stats.xpMultiplier ?? 0;
+      player.bossDamageMultiplier = stats.bossDamageMultiplier ?? 0;
 
       // Load skills from jobSkills JSON
       const rawSkills = student.jobSkills;
@@ -400,7 +510,36 @@ export class BattleTurnEngine extends AbstractGameEngine {
       if (player.isDefending) continue;
       if (player.hp <= 0) continue;
 
-      const damage = Math.max(1, this.boss.atk - player.def);
+      this.emitBattleEvent({
+        type: "ACTION_SKILL_CAST",
+        sourceId: this.boss.id,
+        sourceRole: "enemy",
+        targetId: player.id,
+        label: `${this.boss.name} โจมตี`,
+        fxPreset: "pierce",
+        colorClass: "from-rose-600/80 via-orange-500/40 to-transparent",
+      });
+
+      if (player.hasShadowVeil && Math.random() < Math.max(0, Math.min(1, player.dodgeChance))) {
+        player.shadowVeilCritBuff = true;
+        this.emitBattleEvent({
+          type: "BANNER",
+          sourceId: player.id,
+          targetId: player.id,
+          label: `${player.name} หลบการโจมตีสำเร็จ`,
+          tone: "success",
+        });
+        continue;
+      }
+
+      const damage = computeBossDamageAgainstPlayer({
+        bossAtk: this.boss.atk,
+        playerDef: player.def,
+        playerHp: player.hp,
+        playerMaxHp: player.maxHp,
+        hasToughSkin: player.hasToughSkin,
+        hasTitanWill: player.hasTitanWill,
+      });
       player.hp = Math.max(0, player.hp - damage);
 
       // 8.2 Immortal: if HP would reach 0 and immortal hasn't been used, set to 1
@@ -415,6 +554,13 @@ export class BattleTurnEngine extends AbstractGameEngine {
         damage,
         remainingHp: player.hp,
       });
+      this.emitBattleEvent({
+        type: "DAMAGE_APPLIED",
+        sourceId: this.boss.id,
+        sourceRole: "enemy",
+        targetId: player.id,
+        amount: damage,
+      });
 
       // Handle player death
       if (player.hp <= 0) {
@@ -422,6 +568,11 @@ export class BattleTurnEngine extends AbstractGameEngine {
           // Immortal effect handled in task 8 — for now just mark defeated
         }
       }
+    }
+
+    // DARK_PACT: drain 5% maxHP per boss tick for each player with the effect
+    for (const player of this.players) {
+      if (player.hp > 0) this.applyDarkPactDrain(player);
     }
 
     // Reset all isDefending flags
@@ -460,13 +611,27 @@ export class BattleTurnEngine extends AbstractGameEngine {
         socket.emit("error", { message: "Insufficient Stamina for ATTACK (requires 10 Stamina)." });
         return;
       }
+      this.emitBattleEvent({
+        type: "ACTION_ATTACK",
+        sourceId: player.id,
+        targetId: this.boss.id,
+        label: "โจมตี",
+      });
       player.ap -= 10;
       player.stamina = player.ap;
-      const damage = player.atk; // base damage coefficient 1.0
-      this.applyDamageToBoss(damage, player.id);
+      const { damage, critApplied } = this.applyOutgoingDamageEffects(player, player.atk, { targetBoss: true });
+      this.applyDamageToBoss(damage, player.id, critApplied);
+      this.applyDarkPactDrain(player);
 
     } else if (type === "DEFEND") {
       player.isDefending = true;
+      this.emitBattleEvent({
+        type: "ACTION_DEFEND",
+        sourceId: player.id,
+        targetId: player.id,
+        label: "ตั้งรับ",
+        tone: "neutral",
+      });
       this.statusUpdate();
 
     } else if (type === "SKILL") {
@@ -485,20 +650,42 @@ export class BattleTurnEngine extends AbstractGameEngine {
     }
   }
 
-  private applyDamageToBoss(damage: number, attackerId: string) {
+  private applyDamageToBoss(damage: number, attackerId: string, critApplied = false) {
     if (!this.boss) return;
     this.boss.hp = Math.max(0, this.boss.hp - damage);
+    this.emitBattleEvent({
+      type: "DAMAGE_APPLIED",
+      sourceId: attackerId,
+      targetId: this.boss.id,
+      amount: damage,
+      correct: critApplied,
+    });
+
+    const attacker = this.players.find((p) => p.id === attackerId);
+
+    // CHAIN_LIGHTNING (Thunder Set): on crit, deal 30% extra to boss
+    if (critApplied && attacker?.chainLightningOnCrit && this.boss && this.boss.hp > 0) {
+      const lightningDmg = Math.max(1, Math.floor(damage * 0.3));
+      this.boss.hp = Math.max(0, this.boss.hp - lightningDmg);
+      this.emitBattleEvent({
+        type: "DAMAGE_APPLIED",
+        sourceId: attackerId,
+        targetId: this.boss.id,
+        amount: lightningDmg,
+        label: "Chain Lightning",
+        tone: "skill",
+      });
+    }
 
     // 8.1 Lifesteal: heal attacker by 10% of damage dealt
-    const attacker = this.players.find((p) => p.id === attackerId);
     if (attacker && attacker.hasLifesteal) {
       const healAmount = Math.max(1, Math.floor(damage * 0.1));
       attacker.hp = Math.min(attacker.maxHp, attacker.hp + healAmount);
       this.io.to(attacker.id).emit("battle-event", {
-        type: "HEAL",
+        type: "HEAL_APPLIED",
         sourceId: attackerId,
         targetId: attackerId,
-        value: healAmount,
+        amount: healAmount,
       });
     }
 
@@ -516,7 +703,9 @@ export class BattleTurnEngine extends AbstractGameEngine {
   }
 
   private executeSkillOnBoss(player: BattlePlayer, skillId: string, socket: Socket) {
-    const skill = buildGlobalSkillMap()[skillId];
+    const baseSkill = buildGlobalSkillMap()[skillId];
+    const rank = getSkillRank(player.skillTreeProgress ?? {}, skillId);
+    const skill = baseSkill ? getEffectiveSkillAtRank(baseSkill, rank) : undefined;
 
     if (!skill) {
       socket.emit("error", { message: `Skill definition not found for ${skillId}.` });
@@ -541,21 +730,41 @@ export class BattleTurnEngine extends AbstractGameEngine {
 
     // Execute skill effect against boss
     let damage = 0;
+    this.emitBattleEvent({
+      type: "ACTION_SKILL_CAST",
+      sourceId: player.id,
+      targetId: this.boss?.id,
+      skillId,
+      label: skill.name,
+      tone: "skill",
+    });
     if (skill.effect === "DAMAGE") {
       const baseStat = (skill as any).damageBase === "MAG" ? player.mag : player.atk;
       const multiplier = (skill as any).damageMultiplier ?? (1 + skill.cost / 20);
-      const critMult = (skill as any).isCrit ? 2.0 : 1.0;
-      damage = Math.floor(baseStat * multiplier * critMult);
-      this.applyDamageToBoss(damage, player.id);
+      damage = Math.floor(baseStat * multiplier);
+      const effected = this.applyOutgoingDamageEffects(player, damage, {
+        usesMagic: (skill as any).damageBase === "MAG",
+        targetBoss: true,
+      });
+      this.applyDamageToBoss(effected.damage, player.id, effected.critApplied || Boolean((skill as any).isCrit));
+      this.applyDarkPactDrain(player);
     } else if (skill.effect === "BUFF_DEF") {
       player.isDefending = true;
     } else if (skill.effect === "BUFF_ATK") {
       const buffMult = (skill as any).damageMultiplier ?? 0.5;
       damage = Math.floor(player.atk * buffMult);
-      this.applyDamageToBoss(damage, player.id);
+      const effected = this.applyOutgoingDamageEffects(player, damage, { targetBoss: true });
+      this.applyDamageToBoss(effected.damage, player.id, effected.critApplied);
+      this.applyDarkPactDrain(player);
     } else if (skill.effect === "HEAL") {
       const healAmount = Math.floor(player.mag * 1.5);
       player.hp = Math.min(player.maxHp, player.hp + healAmount);
+      this.emitBattleEvent({
+        type: "HEAL_APPLIED",
+        sourceId: player.id,
+        targetId: player.id,
+        amount: healAmount,
+      });
     }
 
     this.statusUpdate();
@@ -569,18 +778,14 @@ export class BattleTurnEngine extends AbstractGameEngine {
       this.bossTickInterval = null;
     }
 
-    const rewards = this.players.map((p) => ({
-      playerId: p.id,
-      playerName: p.name,
-      gold: 200,
-      xp: 50,
-    }));
-
-    // Queue boss rewards for RESULT phase
-    for (const player of this.players) {
-      player.earnedGold += 200;
-      player.earnedXp += 50;
-    }
+    // Queue boss rewards for RESULT phase (apply goldMultiplier/xpMultiplier per player)
+    const rewards = this.players.map((p) => {
+      const gold = Math.floor(200 * (1 + (p.goldMultiplier ?? 0)));
+      const xp   = Math.floor(50  * (1 + (p.xpMultiplier  ?? 0)));
+      p.earnedGold += gold;
+      p.earnedXp   += xp;
+      return { playerId: p.id, playerName: p.name, gold, xp };
+    });
 
     this.io.to(this.pin).emit("boss-defeated", { rewards });
     this.startSoloFarmingPhase();
@@ -622,8 +827,23 @@ export class BattleTurnEngine extends AbstractGameEngine {
     if (!player.soloMonster) return;
 
     // Auto-deal player.atk damage to soloMonster
-    const damage = player.atk;
+    const effected = this.applyOutgoingDamageEffects(player, player.atk);
+    const damage = effected.damage;
+    this.emitBattleEvent({
+      type: "ACTION_ATTACK",
+      sourceId: player.id,
+      targetId: "solo-monster",
+      label: "โจมตีอัตโนมัติ",
+    });
+    this.emitBattleEvent({
+      type: "DAMAGE_APPLIED",
+      sourceId: player.id,
+      targetId: "solo-monster",
+      amount: damage,
+      correct: effected.critApplied,
+    });
     player.soloMonster.hp = Math.max(0, player.soloMonster.hp - damage);
+    this.applyDarkPactDrain(player);
 
     if (player.soloMonster.hp <= 0) {
       this.handleMonsterDefeated(player);
@@ -644,8 +864,9 @@ export class BattleTurnEngine extends AbstractGameEngine {
   private handleMonsterDefeated(player: BattlePlayer) {
     const wave = player.wave;
     const materials = rollMaterials(wave);
-    const gold = rollGold(wave);
-    const xp = rollXp(wave);
+    // Apply GOLD_FINDER / GODS_BLESSING / QUICK_LEARNER multipliers
+    const gold = Math.floor(rollGold(wave) * (1 + (player.goldMultiplier ?? 0)));
+    const xp   = Math.floor(rollXp(wave)   * (1 + (player.xpMultiplier  ?? 0)));
 
     // Accumulate rewards
     player.earnedGold += gold;
@@ -720,12 +941,23 @@ export class BattleTurnEngine extends AbstractGameEngine {
   private executeSkillOnMonster(player: BattlePlayer, skillId: string, socket: Socket) {
     if (!player.soloMonster) return;
 
-    const skill = buildGlobalSkillMap()[skillId];
+    const baseSkill = buildGlobalSkillMap()[skillId];
+    const rank = getSkillRank(player.skillTreeProgress ?? {}, skillId);
+    const skill = baseSkill ? getEffectiveSkillAtRank(baseSkill, rank) : undefined;
 
     if (!skill) {
       socket.emit("error", { message: `Skill definition not found for ${skillId}.` });
       return;
     }
+
+    this.emitBattleEvent({
+      type: "ACTION_SKILL_CAST",
+      sourceId: player.id,
+      targetId: "solo-monster",
+      skillId,
+      label: skill.name,
+      tone: "skill",
+    });
 
     if (skill.costType === "AP") {
       if (player.ap < skill.cost) {
@@ -745,9 +977,19 @@ export class BattleTurnEngine extends AbstractGameEngine {
     if (skill.effect === "DAMAGE") {
       const baseStat = (skill as any).damageBase === "MAG" ? player.mag : player.atk;
       const multiplier = (skill as any).damageMultiplier ?? (1 + skill.cost / 20);
-      const critMult = (skill as any).isCrit ? 2.0 : 1.0;
-      const damage = Math.floor(baseStat * multiplier * critMult);
-      player.soloMonster.hp = Math.max(0, player.soloMonster.hp - damage);
+      const baseDamage = Math.floor(baseStat * multiplier);
+      const effected = this.applyOutgoingDamageEffects(player, baseDamage, {
+        usesMagic: (skill as any).damageBase === "MAG",
+      });
+      player.soloMonster.hp = Math.max(0, player.soloMonster.hp - effected.damage);
+      this.emitBattleEvent({
+        type: "DAMAGE_APPLIED",
+        sourceId: player.id,
+        targetId: "solo-monster",
+        amount: effected.damage,
+        correct: effected.critApplied,
+      });
+      this.applyDarkPactDrain(player);
 
       if (player.soloMonster.hp <= 0) {
         this.handleMonsterDefeated(player);
@@ -756,6 +998,12 @@ export class BattleTurnEngine extends AbstractGameEngine {
     } else if (skill.effect === "HEAL") {
       const healAmount = Math.floor(player.mag * 1.5);
       player.hp = Math.min(player.maxHp, player.hp + healAmount);
+      this.emitBattleEvent({
+        type: "HEAL_APPLIED",
+        sourceId: player.id,
+        targetId: player.id,
+        amount: healAmount,
+      });
     }
 
     this.io.to(player.id).emit("farming-state", {
@@ -860,6 +1108,13 @@ export class BattleTurnEngine extends AbstractGameEngine {
       // 8.3 Mana Flow: increment mp by 5 on correct answer
       if (player.hasManaFlow) {
         player.mp = Math.min(player.maxMp, player.mp + 5);
+        this.emitBattleEvent({
+          type: "RESOURCE_GAINED",
+          sourceId: player.id,
+          targetId: player.id,
+          amount: 5,
+          resourceType: "MP",
+        });
       }
       socket.emit("answer-result", { correct: true, apGain: 20, staminaGain: 20 });
 

@@ -62,7 +62,7 @@ export async function POST(
     }
 
     // Verify student exists
-    const student = await db.student.findUnique({ where: { code } });
+    const student = await db.student.findUnique({ where: { loginCode: code.toUpperCase() } });
     if (!student) {
       return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }

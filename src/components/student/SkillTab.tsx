@@ -2,12 +2,11 @@
 
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Zap, Star } from "lucide-react";
+import { Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { useToast } from "@/components/ui/use-toast";
 import { useSocket } from "@/components/providers/socket-provider";
-import { SKILLS } from "@/lib/game/game-constants";
 
 interface SkillTabProps {
     studentId: string;
@@ -182,7 +181,7 @@ export function SkillTab({
 
     return (
         <div className="space-y-6">
-            {/* Header / Mana Status */}
+            {/* Header / Resource Status */}
             <div className="flex items-center justify-between bg-indigo-900/40 backdrop-blur-md p-6 rounded-[2rem] border border-white/20">
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-indigo-500/30 rounded-2xl flex items-center justify-center">
@@ -193,11 +192,20 @@ export function SkillTab({
                         <p className="text-xs text-indigo-200">กดใช้ความสามารถพิเศษเพื่อชิงความได้เปรียบ</p>
                     </div>
                 </div>
-                <div className="text-right">
-                    <p className="text-[10px] uppercase font-black text-indigo-300 tracking-widest mb-1">มานาปัจจุบัน</p>
-                    <div className="flex items-end gap-1">
-                        <span className="text-3xl font-black text-white">{mana}</span>
-                        <span className="text-xs font-bold text-indigo-300 mb-1">MP</span>
+                <div className="text-right space-y-2">
+                    <div>
+                        <p className="text-[10px] uppercase font-black text-indigo-300 tracking-widest mb-1">Stamina</p>
+                        <div className="flex items-end justify-end gap-1">
+                            <span className="text-2xl font-black text-white">{stamina}</span>
+                            <span className="text-xs font-bold text-indigo-300 mb-1">SP</span>
+                        </div>
+                    </div>
+                    <div>
+                        <p className="text-[10px] uppercase font-black text-indigo-300 tracking-widest mb-1">Mana</p>
+                        <div className="flex items-end justify-end gap-1">
+                            <span className="text-2xl font-black text-white">{mana}</span>
+                            <span className="text-xs font-bold text-indigo-300 mb-1">MP</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -290,7 +298,7 @@ export function SkillTab({
                                             : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                         }`}
                                 >
-                                    {usingId === skill.id ? "กำลังร่ายเวท..." : (canUse ? "ร่ายทักษะ" : "มานาไม่พอ")}
+                                    {usingId === skill.id ? "กำลังร่ายเวท..." : canUse ? "ร่ายทักษะ" : isAP ? "Stamina ไม่พอ" : "มานาไม่พอ"}
                                 </Button>
                             </GlassCard>
                         </motion.div>
@@ -304,9 +312,9 @@ export function SkillTab({
                     <Zap className="w-4 h-4 text-amber-600" />
                 </div>
                 <div>
-                    <h4 className="text-xs font-black text-amber-900 uppercase">Tip: การฟื้นฟูมานา</h4>
+                    <h4 className="text-xs font-black text-amber-900 uppercase">Tip: การจัดการพลังงาน</h4>
                     <p className="text-[11px] text-amber-800/80 font-medium leading-relaxed">
-                        คุณจะได้รับมานา 20 หน่วยในทุกเช้าเมื่อเข้าสู่ระบบครั้งแรกของวัน! บริหารจัดการ MP ให้ดีในการล้มบอส
+                        สกิลบางสายใช้ Stamina และบางสายใช้ Mana จัดการทั้งสองทรัพยากรให้ดีเพื่อทำดาเมจและคุมจังหวะการสู้บอส
                     </p>
                 </div>
             </div>

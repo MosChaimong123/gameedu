@@ -8,6 +8,7 @@ import {
   calculateEnhancementCost,
   rollEnhancement,
 } from "@/lib/game/enhancement-system";
+import { buildStudentItemStatSnapshot } from "@/lib/game/student-item-stats";
 
 export async function POST(req: NextRequest) {
   try {
@@ -109,6 +110,11 @@ export async function POST(req: NextRequest) {
     );
 
     // 7. DB transaction
+    const updatedSnapshot = buildStudentItemStatSnapshot(
+      studentItem.item,
+      result.newLevel
+    );
+
     const txOps: any[] = [
       // Deduct gold + BP, add history
       db.student.update({
@@ -130,7 +136,10 @@ export async function POST(req: NextRequest) {
       // Update enhancement level
       db.studentItem.update({
         where: { id: studentItemId },
-        data: { enhancementLevel: result.newLevel },
+        data: {
+          enhancementLevel: result.newLevel,
+          ...updatedSnapshot,
+        },
       }),
     ];
 

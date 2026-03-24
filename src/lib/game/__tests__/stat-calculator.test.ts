@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as fc from "fast-check";
 import { StatCalculator } from "../stat-calculator";
+import { getStatMultipliers } from "../job-system";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -119,14 +120,12 @@ describe("Job passives + LUK scaling", () => {
     const level = 15;
     const novice = StatCalculator.compute(0, [], level, null, "BASE");
     const warrior = StatCalculator.compute(0, [], level, "WARRIOR", "BASE");
+    const warriorMultipliers = getStatMultipliers("WARRIOR", "BASE");
+    const warriorBaseAtk = Math.floor((10 + level * 3) * warriorMultipliers.atk);
+    const warriorBaseDef = Math.floor((5 + level * 2) * warriorMultipliers.def);
     expect(warrior.hp).toBeGreaterThan(novice.hp);
-    const warriorDefWithoutPassives = Math.floor(
-      Math.floor(5 + level * 2) * 1.2
-    );
-    expect(warrior.def).toBeGreaterThan(warriorDefWithoutPassives);
-    expect(warrior.atk).toBeGreaterThan(
-      Math.floor(Math.floor(10 + level * 3) * 1.3)
-    );
+    expect(warrior.def).toBeGreaterThan(warriorBaseDef);
+    expect(warrior.atk).toBeGreaterThan(warriorBaseAtk);
   });
 
   it("RANGER scales LUK by job crit multiplier like IdleEngine", () => {

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { parseGameStats, toPrismaJson } from "./game-stats";
 
 export interface DailyQuestDef {
   id: string;
@@ -38,6 +39,11 @@ export interface QuestProgress {
   completedQuests: string[]; // array of quest IDs completed today
 }
 
+type QuestStudent = {
+  gameStats: unknown;
+  questProgress: unknown;
+};
+
 function getTodayDateStr() {
   return new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 }
@@ -46,9 +52,12 @@ function getTodayDateStr() {
  * Returns the current quest progress for today.
  * Resets completed quests if it's a new day.
  */
-export function getQuestProgress(rawProgress: any): QuestProgress {
+export function getQuestProgress(rawProgress: unknown): QuestProgress {
   const today = getTodayDateStr();
-  const progress = rawProgress as QuestProgress | null;
+  const progress =
+    rawProgress && typeof rawProgress === "object"
+      ? (rawProgress as QuestProgress)
+      : null;
 
   if (!progress || progress.lastQuestDate !== today) {
     return { lastQuestDate: today, completedQuests: [] };
@@ -70,7 +79,7 @@ export async function completeQuest(
   const student = await db.student.findUnique({
     where: { id: studentId },
     select: { gameStats: true, questProgress: true }
-  });
+  }) as QuestStudent | null;
 
   if (!student) return { success: false, message: "Student not found" };
 
@@ -86,14 +95,14 @@ export async function completeQuest(
     completedQuests: [...progress.completedQuests, questId],
   };
 
-  const currentStats = (student.gameStats as any) || { gold: 0 };
+  const currentStats = parseGameStats(student.gameStats);
   const newGold = (currentStats.gold || 0) + quest.goldReward;
 
   await db.student.update({
     where: { id: studentId },
     data: {
-      questProgress: updatedProgress as any,
-      gameStats: { ...currentStats, gold: newGold } as any,
+      questProgress: toPrismaJson(updatedProgress),
+      gameStats: toPrismaJson({ ...currentStats, gold: newGold }),
       history: {
         create: {
           reason: `${quest.icon} ภารกิจประจำวัน: ${quest.name}`,

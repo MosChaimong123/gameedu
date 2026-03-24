@@ -8,7 +8,10 @@
     "build": "npm run clean && npx prisma generate && next build && tsc --project tsconfig.server.json",
     "postinstall": "prisma generate",
     "start": "node dist/server.js",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node ./node_modules/vitest/vitest.mjs run --configLoader native --pool threads",
+    "test:watch": "node ./node_modules/vitest/vitest.mjs --configLoader native --pool threads",
+    "test:rpg": "node ./node_modules/vitest/vitest.mjs run --configLoader native --pool threads"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

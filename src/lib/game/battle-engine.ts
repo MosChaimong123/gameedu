@@ -129,12 +129,13 @@ export function applyPvpSkill(
       return { damage, effect: "BACKSTAB" };
     }
     case "rogue_execution": {
-      // Combo: Backstab → Execution on target below 30% HP = 4.5× ATK (3× base × 1.5 combo bonus)
+      // Combo: Backstab -> Execution on target below 30% HP = 7.5x ATK
+      // (3x base skill with an additional 2.5x PvP combo multiplier).
       const isCombo =
         attacker.lastSkillUsed === "rogue_backstab" &&
         defender.hp / defender.maxHp < 0.3;
       const damage = isCombo
-        ? attacker.atk * 3.0 * 1.5
+        ? attacker.atk * 3.0 * 2.5
         : attacker.atk * 3.0;
       return { damage, effect: "EXECUTION" };
     }

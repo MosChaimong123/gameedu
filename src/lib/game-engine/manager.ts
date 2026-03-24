@@ -143,6 +143,11 @@ class GameManager {
     public async recoverGames() {
         console.log("[Persistence] Recovering games...");
         try {
+            // Auto-delete stale games older than 24 hours
+            const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const stale = await db.activeGame.deleteMany({ where: { updatedAt: { lt: cutoff } } });
+            if (stale.count > 0) console.log(`[Persistence] Cleaned up ${stale.count} stale game(s)`);
+
             const activeGames = await db.activeGame.findMany();
 
             for (const record of activeGames) {

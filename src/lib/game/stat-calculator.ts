@@ -49,6 +49,29 @@ export interface ExtendedStats extends CharacterStats {
   hasGodBlessing: boolean;
 }
 
+type EquippedItemData = {
+  id?: string | null;
+  setId?: string | null;
+  effects?: unknown;
+  baseAtk?: number | null;
+  baseDef?: number | null;
+  baseHp?: number | null;
+  baseSpd?: number | null;
+  baseCrit?: number | null;
+  baseLuck?: number | null;
+  baseMag?: number | null;
+  baseMp?: number | null;
+};
+
+export type EquippedItemSource = {
+  id?: string | null;
+  itemId?: string | null;
+  setId?: string | null;
+  effects?: unknown;
+  enhancementLevel?: number | null;
+  item?: EquippedItemData | null;
+};
+
 // Re-export for callers that imported SET_IDS from stat-calculator
 export { SET_IDS } from "./set-bonus-config";
 
@@ -71,7 +94,7 @@ export const EFFECT_IDS = {
 } as const;
 
 /** Deterministic ordering for equipped rows (stable even when template ids repeat). */
-function compareEquippedItems(a: any, b: any): number {
+function compareEquippedItems(a: EquippedItemSource, b: EquippedItemSource): number {
   const idA = String(a.itemId ?? a.id ?? a.item?.id ?? "");
   const idB = String(b.itemId ?? b.id ?? b.item?.id ?? "");
   if (idA !== idB) return idA < idB ? -1 : idA > idB ? 1 : 0;
@@ -113,7 +136,7 @@ export class StatCalculator {
    */
   static compute(
     points: number,
-    equippedItems: any[],
+    equippedItems: EquippedItemSource[],
     level: number,
     jobClass: string | null,
     jobTier: string = "BASE",
@@ -187,7 +210,7 @@ export class StatCalculator {
 
   // ── Step 3: Set Bonuses ────────────────────────────────────────────────────
 
-  static applySetBonuses(stats: ExtendedStats, equippedItems: any[]): ExtendedStats {
+  static applySetBonuses(stats: ExtendedStats, equippedItems: EquippedItemSource[]): ExtendedStats {
     const result = { ...stats };
     const setCounts = this.countSets(equippedItems);
 
@@ -244,7 +267,7 @@ export class StatCalculator {
 
   // ── Step 4: Special Effects ────────────────────────────────────────────────
 
-  static applySpecialEffects(stats: ExtendedStats, equippedItems: any[]): ExtendedStats {
+  static applySpecialEffects(stats: ExtendedStats, equippedItems: EquippedItemSource[]): ExtendedStats {
     const result = { ...stats };
     const effects = this.collectEffects(equippedItems);
 
@@ -296,7 +319,7 @@ export class StatCalculator {
     };
   }
 
-  private static countSets(equippedItems: any[]): Record<string, number> {
+  private static countSets(equippedItems: EquippedItemSource[]): Record<string, number> {
     const counts: Record<string, number> = {};
     for (const si of equippedItems) {
       const setId = si.item?.setId ?? si.setId;
@@ -305,13 +328,25 @@ export class StatCalculator {
     return counts;
   }
 
-  private static collectEffects(equippedItems: any[]): Set<string> {
+  private static collectEffects(equippedItems: EquippedItemSource[]): Set<string> {
     const effects = new Set<string>();
     for (const si of equippedItems) {
-      const itemEffects: string[] = si.item?.effects ?? si.effects ?? [];
+      const itemEffects = this.normalizeEffects(si.item?.effects ?? si.effects);
       for (const e of itemEffects) effects.add(e);
     }
     return effects;
+  }
+
+  private static normalizeEffects(effects: unknown): string[] {
+    if (Array.isArray(effects)) {
+      return effects.filter((effect): effect is string => typeof effect === "string");
+    }
+
+    if (typeof effects === "string") {
+      return [effects];
+    }
+
+    return [];
   }
 
 }

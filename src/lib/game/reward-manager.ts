@@ -9,9 +9,16 @@ import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { IdleEngine, GameStats } from "./idle-engine";
 import { BattlePlayer, FinalReward } from "../types/game";
+import { parseGameStats } from "./game-stats";
+import { buildStudentItemStatSnapshot } from "./student-item-stats";
 
 const MAX_RETRIES = 3;
 const BASE_BACKOFF_MS = 100;
+
+type RewardGameStats = GameStats & {
+  goldBoostExpiry?: number;
+  xpBoostExpiry?: number;
+};
 
 export class RewardManager {
   // Injectable sleep for testing — override to disable backoff in tests
@@ -105,14 +112,12 @@ export class RewardManager {
             throw new Error(`Student ${player.studentId} not found`);
           }
 
-          const currentStats: GameStats =
-            (student.gameStats as unknown as GameStats) ??
-            IdleEngine.getDefaultStats();
+          const currentStats = parseGameStats(student.gameStats) as RewardGameStats;
 
           // 2. Apply time-based economy boosts (Lucky Scroll / Tome of Knowledge)
           const now = Date.now();
-          const goldBoostActive = ((currentStats as any).goldBoostExpiry ?? 0) > now;
-          const xpBoostActive   = ((currentStats as any).xpBoostExpiry   ?? 0) > now;
+          const goldBoostActive = (currentStats.goldBoostExpiry ?? 0) > now;
+          const xpBoostActive = (currentStats.xpBoostExpiry ?? 0) > now;
           const finalGold = goldBoostActive ? Math.floor(player.earnedGold * 2) : player.earnedGold;
           const finalXp   = xpBoostActive   ? Math.floor(player.earnedXp   * 2) : player.earnedXp;
 
@@ -133,15 +138,43 @@ export class RewardManager {
             data: { gameStats: updatedStats as unknown as Prisma.InputJsonValue },
           });
 
-          // 4. Create StudentItem records for each item drop
+          // 4. Merge item drops into inventory to avoid duplicate-key failures
           for (const itemId of player.itemDrops) {
-            await tx.studentItem.create({
-              data: {
+            const item = await tx.item.findUnique({
+              where: { id: itemId },
+              select: {
+                baseHp: true,
+                baseAtk: true,
+                baseDef: true,
+                baseSpd: true,
+                baseCrit: true,
+                baseLuck: true,
+                baseMag: true,
+                baseMp: true,
+              },
+            });
+
+            if (!item) {
+              throw new Error(`Item ${itemId} not found`);
+            }
+
+            await tx.studentItem.upsert({
+              where: {
+                studentId_itemId: {
+                  studentId: player.studentId,
+                  itemId,
+                },
+              },
+              update: {
+                quantity: { increment: 1 },
+              },
+              create: {
                 studentId: player.studentId,
                 itemId,
                 quantity: 1,
                 enhancementLevel: 0,
                 isEquipped: false,
+                ...buildStudentItemStatSnapshot(item, 0),
               },
             });
           }

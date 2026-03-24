@@ -389,55 +389,38 @@ export function StudentDashboardClient({
                             </div>
 
                             <div className="w-full mb-6">
-                                <TabsList className="bg-white/40 backdrop-blur-md p-1.5 rounded-2xl border border-white/50 shadow-sm w-full flex flex-wrap justify-center gap-2">
-                                    {viewMode === "academic" ? (
-                                        <>
-                                            <TabsTrigger value="assignments" className="rounded-xl px-6 py-2.5 flex items-center gap-2.5 data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-md font-black text-slate-500 transition-all flex-1 sm:flex-initial min-w-[120px]">
-                                                <LayoutDashboard className="w-4 h-4" />
-                                                <span>ภารกิจ</span>
+                                {viewMode === "academic" ? (
+                                    <TabsList className="bg-white/50 backdrop-blur-md p-1 rounded-2xl border border-white/60 shadow-sm w-full flex justify-center gap-1">
+                                        {[
+                                            { value: "assignments", icon: <LayoutDashboard className="w-4 h-4" />, label: "ภารกิจ", color: "data-[state=active]:text-indigo-600 data-[state=active]:bg-indigo-50 data-[state=active]:border-indigo-200" },
+                                            { value: "board", icon: <MessageSquare className="w-4 h-4" />, label: "ไอเดีย", color: "data-[state=active]:text-purple-600 data-[state=active]:bg-purple-50 data-[state=active]:border-purple-200" },
+                                            { value: "history", icon: <Trophy className="w-4 h-4" />, label: "ประวัติ", color: "data-[state=active]:text-amber-600 data-[state=active]:bg-amber-50 data-[state=active]:border-amber-200" },
+                                        ].map(({ value, icon, label, color }) => (
+                                            <TabsTrigger key={value} value={value}
+                                                className={`flex-1 rounded-xl px-4 py-2.5 flex items-center justify-center gap-2 font-black text-slate-400 text-sm border border-transparent transition-all duration-200 data-[state=active]:shadow-sm ${color}`}>
+                                                {icon}<span>{label}</span>
                                             </TabsTrigger>
-                                            <TabsTrigger value="board" className="rounded-xl px-6 py-2.5 flex items-center gap-2.5 data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-md font-black text-slate-500 transition-all flex-1 sm:flex-initial min-w-[120px]">
-                                                <MessageSquare className="w-4 h-4" />
-                                                <span>กระดานไอเดีย</span>
+                                        ))}
+                                    </TabsList>
+                                ) : (
+                                    <TabsList className="bg-white border border-slate-200 shadow-sm w-full grid grid-cols-7 p-0.5 rounded-2xl gap-0">
+                                        {[
+                                            { value: "shop",         icon: <ShoppingBag className="w-4 h-4" />, label: "ร้านค้า",  active: "data-[state=active]:bg-amber-500  data-[state=active]:text-white data-[state=active]:shadow-md" },
+                                            { value: "inventory",    icon: <Package className="w-4 h-4" />,     label: "คลัง",     active: "data-[state=active]:bg-blue-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
+                                            { value: "skills",       icon: <Star className="w-4 h-4" />,        label: "ทักษะ",    active: "data-[state=active]:bg-violet-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
+                                            { value: "farming",      icon: <Flame className="w-4 h-4" />,       label: "ฟาร์ม",    active: "data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
+                                            { value: "leaderboard",  icon: <BarChart3 className="w-4 h-4" />,   label: "อันดับ",   active: "data-[state=active]:bg-cyan-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
+                                            { value: "achievements", icon: <Award className="w-4 h-4" />,       label: "รางวัล",   active: "data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
+                                            { value: "pvp",          icon: <Swords className="w-4 h-4" />,      label: "Arena",    active: "data-[state=active]:bg-rose-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
+                                        ].map(({ value, icon, label, active }) => (
+                                            <TabsTrigger key={value} value={value}
+                                                className={`rounded-xl py-1.5 px-0 w-full flex flex-col items-center gap-1 text-slate-500 font-semibold transition-all duration-150 overflow-hidden ${active}`}>
+                                                {icon}
+                                                <span className="text-[9px] font-bold leading-none w-full text-center truncate px-0.5">{label}</span>
                                             </TabsTrigger>
-                                            <TabsTrigger value="history" className="rounded-xl px-6 py-2.5 flex items-center gap-2.5 data-[state=active]:bg-white data-[state=active]:text-amber-600 data-[state=active]:shadow-md font-black text-slate-500 transition-all flex-1 sm:flex-initial min-w-[120px]">
-                                                <Trophy className="w-4 h-4" />
-                                                <span>ประวัติ</span>
-                                            </TabsTrigger>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <TabsTrigger value="shop" className="rounded-xl px-5 py-2.5 flex items-center gap-2.5 data-[state=active]:bg-white data-[state=active]:text-amber-600 data-[state=active]:shadow-md font-black text-slate-500 transition-all flex-1 sm:flex-initial min-w-[120px]">
-                                                <ShoppingBag className="w-4 h-4" />
-                                                <span>ร้านค้า</span>
-                                            </TabsTrigger>
-                                            <TabsTrigger value="inventory" className="rounded-xl px-5 py-2.5 flex items-center gap-2.5 data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-md font-black text-slate-500 transition-all flex-1 sm:flex-initial min-w-[120px]">
-                                                <Package className="w-4 h-4" />
-                                                <span>คลังแสง</span>
-                                            </TabsTrigger>
-                                            <TabsTrigger value="skills" className="rounded-xl px-5 py-2.5 flex items-center gap-2.5 data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-md font-black text-slate-500 transition-all flex-1 sm:flex-initial min-w-[120px]">
-                                                <Star className="w-4 h-4" />
-                                                <span>ทักษะ</span>
-                                            </TabsTrigger>
-                                            <TabsTrigger value="farming" className="rounded-xl px-5 py-2.5 flex items-center gap-2.5 data-[state=active]:bg-white data-[state=active]:text-emerald-600 data-[state=active]:shadow-md font-black text-slate-500 transition-all flex-1 sm:flex-initial min-w-[120px]">
-                                                <Flame className="w-4 h-4" />
-                                                <span>ฟาร์ม</span>
-                                            </TabsTrigger>
-                                            <TabsTrigger value="leaderboard" className="rounded-xl px-5 py-2.5 flex items-center gap-2.5 data-[state=active]:bg-white data-[state=active]:text-emerald-600 data-[state=active]:shadow-md font-black text-slate-500 transition-all flex-1 sm:flex-initial min-w-[120px]">
-                                                <BarChart3 className="w-4 h-4" />
-                                                <span>อันดับ</span>
-                                            </TabsTrigger>
-                                            <TabsTrigger value="achievements" className="rounded-xl px-5 py-2.5 flex items-center gap-2.5 data-[state=active]:bg-white data-[state=active]:text-amber-600 data-[state=active]:shadow-md font-black text-slate-500 transition-all flex-1 sm:flex-initial min-w-[120px]">
-                                                <Award className="w-4 h-4" />
-                                                <span>ความสำเร็จ</span>
-                                            </TabsTrigger>
-                                            <TabsTrigger value="pvp" className="rounded-xl px-5 py-2.5 flex items-center gap-2.5 data-[state=active]:bg-white data-[state=active]:text-rose-600 data-[state=active]:shadow-md font-black text-slate-500 transition-all flex-1 sm:flex-initial min-w-[120px]">
-                                                <Swords className="w-4 h-4" />
-                                                <span>Arena</span>
-                                            </TabsTrigger>
-                                        </>
-                                    )}
-                                </TabsList>
+                                        ))}
+                                    </TabsList>
+                                )}
                             </div>
 
                             <TabsContent value="assignments" className="mt-0 border-none p-0 outline-hidden">

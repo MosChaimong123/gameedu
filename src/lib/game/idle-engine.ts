@@ -1,4 +1,4 @@
-import { Student, PrismaClient } from "@prisma/client";
+import { Prisma, Student, PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getRankEntry } from "@/lib/classroom-utils";
 import { SKILLS } from "./game-constants";
@@ -8,8 +8,11 @@ import {
   getPassivesForClass,
   getStatMultipliers,
   resolveEffectiveJobKey,
+  getNewlyUnlockedSkills,
   type JobTier,
+  type Skill,
 } from "./job-system";
+import { toPrismaJson } from "./game-stats";
 
 /**
  * Core Character Stats
@@ -32,7 +35,7 @@ export interface GameStats {
   gold: number;
   level: number;
   xp: number;
-  inventory: any[];
+  inventory: unknown[];
   equipment: {
     weapon?: string;
     armor?: string;
@@ -48,6 +51,7 @@ export interface GameStats {
     playerHp?: number;
     playerMaxHp?: number;
     playerMaxMp?: number;
+    skillCooldowns?: Record<string, number>; // skillId -> turns remaining
     activeEffects?: {
       poison?: { damagePerTurn: number; turnsLeft: number };
       defBuff?: { reduction: number; turnsLeft: number };
@@ -61,6 +65,139 @@ export interface GameStats {
     };
   };
 }
+
+type LevelConfigLike = {
+  ranks?: unknown[];
+};
+
+type EquippedItemLike = {
+  enhancementLevel?: number | null;
+  item?: {
+    baseAtk?: number | null;
+    baseDef?: number | null;
+    baseHp?: number | null;
+    baseSpd?: number | null;
+    baseCrit?: number | null;
+    baseLuck?: number | null;
+    baseMag?: number | null;
+    baseMp?: number | null;
+    goldMultiplier?: number | null;
+    bossDamageMultiplier?: number | null;
+  } | null;
+};
+
+type ActiveEventLike = {
+  type?: string | null;
+  multiplier?: number | null;
+};
+
+type StudentResourceSource = {
+  lastSyncTime?: string | Date | null;
+  gameStats?: unknown;
+  points: number;
+  classroom?: {
+    levelConfig?: unknown;
+  } | null;
+  items?: EquippedItemLike[] | null;
+};
+
+type BossState = {
+  active: boolean;
+  currentHp: number;
+  rewardGold?: number;
+  name?: string;
+};
+
+type GamifiedSettings = {
+  boss?: BossState;
+};
+
+type BossClassroom = {
+  gamifiedSettings: GamifiedSettings | null;
+};
+
+type BossStudent = {
+  points: number;
+  stamina: number;
+  gameStats: unknown;
+  items: EquippedItemLike[];
+};
+
+type FarmingEffects = NonNullable<NonNullable<GameStats["farming"]>["activeEffects"]>;
+
+// Default cooldown (in turns) for each skill effect type
+const DEFAULT_COOLDOWN_BY_EFFECT: Record<string, number> = {
+    POISON: 3,
+    BUFF_ATK: 5,
+    BUFF_DEF: 3,
+    DEFEND: 3,
+    DEBUFF_ATK: 3,
+    CRIT_BUFF: 4,
+    ARMOR_PIERCE: 3,
+    HEAL: 4,
+    SLOW: 3,
+    STUN: 4,
+    REGEN: 5,
+    LIFESTEAL: 3,
+    EXECUTE: 4,
+    DEF_BREAK: 4,
+    MANA_SURGE: 2,
+};
+
+type StudentJobProgress = {
+  jobClass?: string | null;
+  jobTier?: string | null;
+  advanceClass?: string | null;
+  jobSkills?: string[] | null;
+};
+
+type FarmingStudentSource = StudentJobProgress & {
+  gameStats?: unknown;
+};
+
+type SkillUserStudent = StudentJobProgress & {
+  points: number;
+  mana: number;
+  stamina: number;
+  gameStats: unknown;
+  items: EquippedItemLike[];
+};
+
+type CombatStudent = SkillUserStudent & {
+  jobClass: string | null;
+  jobTier: string | null;
+  advanceClass: string | null;
+  jobSkills?: string[] | null;
+};
+
+type HistoryCreateInput = {
+  reason: string;
+  value: number;
+  timestamp?: Date;
+};
+
+type StudentUpdateData = {
+  stamina?: number | { decrement: number };
+  mana?: number | { decrement: number };
+  gameStats?: Prisma.InputJsonValue;
+  jobSkills?: string[];
+  history?: {
+    create: HistoryCreateInput;
+  };
+};
+
+type BossRewardStudent = {
+  id: string;
+  gameStats: unknown;
+};
+
+type BossRewardUpdateData = {
+  points: { increment: number };
+  gameStats: Prisma.InputJsonValue;
+  history: {
+    create: HistoryCreateInput;
+  };
+};
 
 /**
  * Core RPG Idle Engine
@@ -82,9 +219,9 @@ export class IdleEngine {
    * @param activeEvents Optional array of active events for multipliers
    * @returns The updated game stats and the amount of gold earned
    */
-  static parseGameStats(gameStats: any): GameStats {
+  static parseGameStats(gameStats: unknown): GameStats {
     const defaults = this.getDefaultStats();
-    let stats: any = {};
+    let stats: Partial<GameStats> = {};
 
     if (!gameStats) return defaults;
     
@@ -94,8 +231,8 @@ export class IdleEngine {
       } catch (e) {
         return defaults;
       }
-    } else {
-      stats = gameStats;
+    } else if (typeof gameStats === "object") {
+      stats = gameStats as Partial<GameStats>;
     }
 
     // Merge with defaults to ensure level and xp exist
@@ -105,7 +242,10 @@ export class IdleEngine {
     } as GameStats;
   }
 
-  static calculateCurrentResources(student: Record<string, any>, activeEvents: any[] = []) {
+  static calculateCurrentResources(
+    student: StudentResourceSource,
+    activeEvents: ActiveEventLike[] = []
+  ) {
     const now = new Date();
     const lastSync = student.lastSyncTime ? new Date(student.lastSyncTime) : now;
     const stats = this.parseGameStats(student.gameStats);
@@ -118,7 +258,13 @@ export class IdleEngine {
     }
 
     // Calculate gold rate based on rank, behavior points, equipment and EVENTS
-    const goldRate = this.calculateGoldRate(student.points, stats, student.classroom?.levelConfig, student.items, activeEvents);
+    const goldRate = this.calculateGoldRate(
+      student.points,
+      stats,
+      student.classroom?.levelConfig,
+      student.items ?? [],
+      activeEvents
+    );
     const earnedGold = secondsPassed * goldRate;
 
     const updatedStats: GameStats = {
@@ -142,7 +288,7 @@ export class IdleEngine {
    */
   static computeRawStats(
     points: number,
-    equippedItems: any[] = [],
+    equippedItems: EquippedItemLike[] = [],
     level: number = 1
   ): CharacterStats {
     // Base Stats from Level
@@ -189,7 +335,7 @@ export class IdleEngine {
    */
   static calculateCharacterStats(
     points: number,
-    equippedItems: any[] = [],
+    equippedItems: EquippedItemLike[] = [],
     level: number = 1,
     jobClass: string | null = null,
     jobTier: string = "BASE",
@@ -243,7 +389,13 @@ export class IdleEngine {
    * Logic: Rank-based Rate (if configured) OR (Base Rate * Multipliers)
    * Multipliers are calculated from behavior points, equipped items, and ACTIVE EVENTS.
    */
-  static calculateGoldRate(points: number, stats: GameStats, levelConfig?: any, equippedItems: any[] = [], activeEvents: any[] = []): number {
+  static calculateGoldRate(
+    points: number,
+    stats: GameStats,
+    levelConfig?: unknown,
+    equippedItems: EquippedItemLike[] = [],
+    activeEvents: ActiveEventLike[] = []
+  ): number {
     // 1. Base Rate (Strictly from Classroom Rank Settings)
     const rankEntry = getRankEntry(points, levelConfig);
     
@@ -273,8 +425,8 @@ export class IdleEngine {
     const GOLD_MULTIPLIER_CAP = 10;
     if (Array.isArray(activeEvents)) {
         activeEvents.forEach(event => {
-            if (event.type === 'GOLD_BOOST' && event.multiplier > 1) {
-                totalMultiplier += (event.multiplier - 1);
+            if (event.type === 'GOLD_BOOST' && (event.multiplier ?? 0) > 1) {
+                totalMultiplier += (event.multiplier ?? 1) - 1;
             }
         });
     }
@@ -287,7 +439,11 @@ export class IdleEngine {
    * Calculates the damage multiplier for World Boss battles based on equipped items and stats.
    * Includes Critical Hit logic.
    */
-  static calculateBossDamage(points: number, equippedItems: any[] = [], level: number = 1) {
+  static calculateBossDamage(
+    points: number,
+    equippedItems: EquippedItemLike[] = [],
+    level: number = 1
+  ) {
     const stats = this.calculateCharacterStats(points, equippedItems, level);
     let itemMultiplier = 1;
     
@@ -332,15 +488,15 @@ export class IdleEngine {
         db.classroom.findUnique({
             where: { id: classId },
             select: { gamifiedSettings: true }
-        }),
+        }) as Promise<BossClassroom | null>,
         db.student.findUnique({
             where: { id: studentId },
             select: { points: true, items: { include: { item: true }, where: { isEquipped: true } }, stamina: true, gameStats: true }
-        })
+        }) as Promise<BossStudent | null>
       ]);
 
-      const settings = (classroom?.gamifiedSettings as Record<string, any>) || {};
-      if (!settings?.boss?.active || settings.boss.currentHp <= 0) {
+      const settings = classroom?.gamifiedSettings ?? {};
+      if (!settings.boss?.active || settings.boss.currentHp <= 0) {
         return { error: "No active boss" };
       }
 
@@ -356,7 +512,7 @@ export class IdleEngine {
       if (typeof options.damageOverride === 'number') {
         damage = options.damageOverride;
       } else {
-        const stats = student?.gameStats as Record<string, any>;
+        const stats = this.parseGameStats(student?.gameStats);
         const battleResult = this.calculateBossDamage(student?.points || 0, student?.items || [], stats?.level || 1);
         damage = battleResult.damage;
         isCrit = battleResult.isCrit;
@@ -397,17 +553,18 @@ export class IdleEngine {
       }
 
       return {
-        boss: (updatedClassroom.gamifiedSettings as Record<string, any>).boss,
+        boss: (updatedClassroom.gamifiedSettings as GamifiedSettings).boss,
         damage,
         isCrit,
         staminaLeft: updatedStudent?.stamina ?? student?.stamina ?? 0
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[IdleEngine] Error applying boss damage:", error);
       // Log more details about the error if possible
-      if (error.code) console.error("Error Code:", error.code);
-      if (error.meta) console.error("Error Meta:", error.meta);
-      return { error: `Internal error: ${error.message || "Unknown"}` };
+      if (error && typeof error === "object" && "code" in error) console.error("Error Code:", error.code);
+      if (error && typeof error === "object" && "meta" in error) console.error("Error Meta:", error.meta);
+      const message = error instanceof Error ? error.message : "Unknown";
+      return { error: `Internal error: ${message}` };
     }
   }
 
@@ -433,7 +590,7 @@ export class IdleEngine {
   /**
    * Distributes rewards to all students in a classroom after defeating a boss.
    */
-  private static async distributeBossRewards(classId: string, bossSettings: any) {
+  private static async distributeBossRewards(classId: string, bossSettings: BossState) {
     try {
       const rewardGold = bossSettings.rewardGold || 500;
       const bossName = bossSettings.name || "World Boss";
@@ -442,11 +599,11 @@ export class IdleEngine {
       const students = await db.student.findMany({
         where: { classId },
         select: { id: true, gameStats: true }
-      });
+      }) as BossRewardStudent[];
 
       // 2. Process each student (can't use updateMany easily for JSON fields)
       for (const student of students) {
-        const stats = (student.gameStats as unknown as GameStats) || this.getDefaultStats();
+        const stats = this.parseGameStats(student.gameStats);
         const xpReward = Math.floor(rewardGold * 0.5); // XP is half of Gold for boss
         
         const xpResult = this.calculateXpGain(stats, xpReward);
@@ -457,24 +614,26 @@ export class IdleEngine {
           xp: xpResult.xp
         };
 
-        await db.student.update({
-          where: { id: student.id },
-          data: {
-            points: { increment: rewardGold }, // Add to Behavior Points too
-            gameStats: updatedStats as unknown as Record<string, any>,
-            history: {
-              create: {
-                reason: `🚀 รางวัลพิชิต ${bossName}!`,
-                value: rewardGold,
-                timestamp: new Date()
-              }
+        const updateData: BossRewardUpdateData = {
+          points: { increment: rewardGold },
+          gameStats: toPrismaJson(updatedStats),
+          history: {
+            create: {
+              reason: `🚀 รางวัลพิชิต ${bossName}!`,
+              value: rewardGold,
+              timestamp: new Date()
             }
           }
+        };
+
+        await db.student.update({
+          where: { id: student.id },
+          data: updateData
         });
       }
 
       console.log(`[IdleEngine] Distributed ${rewardGold} gold to ${students.length} students for defeating ${bossName}`);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error distributing boss rewards:", error);
     }
   }
@@ -518,7 +677,7 @@ export class IdleEngine {
   static async useSkill(studentId: string, skillId: string, classId: string) {
     try {
         const { buildGlobalSkillMap } = require("./job-system");
-        const skill: any = buildGlobalSkillMap()[skillId];
+        const skill = (buildGlobalSkillMap() as Record<string, Skill | undefined>)[skillId];
 
         if (!skill) return { error: "Skill not found" };
 
@@ -532,7 +691,7 @@ export class IdleEngine {
                 gameStats: true,
                 items: { where: { isEquipped: true }, include: { item: true } }
             }
-        });
+        }) as SkillUserStudent | null;
 
         if (!student) return { error: "Student not found" };
 
@@ -545,7 +704,7 @@ export class IdleEngine {
             return { error: `${resourceName} ไม่เพียงพอ` };
         }
 
-        const stats = (student.gameStats as unknown as GameStats) || this.getDefaultStats();
+        const stats = this.parseGameStats(student.gameStats);
         let resultMessage = "";
 
         // 3. Apply Skill Effect
@@ -562,7 +721,7 @@ export class IdleEngine {
         resultMessage = `ใช้ ${skill.name} สร้างความเสียหาย ${bonusDamage} ใส่บอส!`;
 
         // 4. Deduct Resource and Update History
-        const updateData: any = {
+        const updateData: StudentUpdateData = {
             history: {
                 create: {
                     reason: `🔮 ใช้ทักษะ: ${skill.name}`,
@@ -600,8 +759,8 @@ export class IdleEngine {
   /**
    * Solo Farming: Get or initialize farming state
    */
-  static getFarmingState(student: any): NonNullable<GameStats['farming']> {
-    const stats = (student.gameStats as unknown as GameStats) || this.getDefaultStats();
+  static getFarmingState(student: FarmingStudentSource): NonNullable<GameStats['farming']> {
+    const stats = this.parseGameStats(student.gameStats);
     
     if (stats.farming) {
         return stats.farming;
@@ -621,7 +780,7 @@ export class IdleEngine {
         const student = await db.student.findUnique({
             where: { id: studentId },
             include: { items: { where: { isEquipped: true }, include: { item: true } } }
-        });
+        }) as CombatStudent | null;
 
         if (!student) return { error: "Student not found" };
 
@@ -642,8 +801,8 @@ export class IdleEngine {
         // 2. Initialize playerHp (first time or after level-up)
         let playerHp = farming.playerHp ?? charStats.hp;
         const playerMaxHp = farming.playerMaxHp ?? charStats.hp;
-        type FarmingEffects = NonNullable<NonNullable<GameStats['farming']>['activeEffects']>;
         let activeEffects: FarmingEffects = { ...(farming.activeEffects ?? {}) };
+        let skillCooldowns: Record<string, number> = { ...(farming.skillCooldowns ?? {}) };
 
         // 3. Read effect values for this turn (before decrement)
         let poisonDamage = 0;
@@ -733,6 +892,13 @@ export class IdleEngine {
             if (activeEffects.regen && activeEffects.regen.turnsLeft > 1)
                 next.regen = { ...activeEffects.regen, turnsLeft: activeEffects.regen.turnsLeft - 1 };
             activeEffects = next;
+
+            // Decrement skill cooldowns
+            const nextCooldowns: Record<string, number> = {};
+            for (const [sid, cd] of Object.entries(skillCooldowns)) {
+                if (cd > 1) nextCooldowns[sid] = cd - 1;
+            }
+            skillCooldowns = nextCooldowns;
         }
 
         // 9. Level-up HP/Mana refill
@@ -758,14 +924,33 @@ export class IdleEngine {
                 ? this.calculateCharacterStats(student.points, student.items, xpResult.level, student.jobClass, student.jobTier || "BASE", student.advanceClass ?? null).maxMp
                 : charStats.maxMp,
             activeEffects: Object.keys(activeEffects).length > 0 ? activeEffects : undefined,
+            skillCooldowns: Object.keys(skillCooldowns).length > 0 ? skillCooldowns : undefined,
         };
 
         const updatedStats: GameStats = { ...stats, farming: updatedFarming };
 
-        const data: any = {
+        // Unlock new skills if leveled up
+        let updatedJobSkills: string[] | undefined;
+        if (xpResult.leveledUp) {
+            const eff = resolveEffectiveJobKey({
+                jobClass: student.jobClass,
+                jobTier: student.jobTier || "BASE",
+                advanceClass: student.advanceClass ?? null,
+            });
+            const currentSkillIds = Array.isArray(student.jobSkills)
+                ? student.jobSkills
+                : [];
+            const newSkills = getNewlyUnlockedSkills(eff, stats.level, xpResult.level, currentSkillIds);
+            if (newSkills.length > 0) {
+                updatedJobSkills = [...currentSkillIds, ...newSkills];
+            }
+        }
+
+        const data: StudentUpdateData = {
             stamina: { decrement: 1 },
             mana: newMana,
-            gameStats: updatedStats as any,
+            gameStats: toPrismaJson(updatedStats),
+            ...(updatedJobSkills ? { jobSkills: updatedJobSkills } : {}),
             history: {
                 create: {
                     reason: isDefeated ? `⚔️ กำจัดมอนสเตอร์ Wave ${farming.currentWave}` : "⚔️ โจมทีมอนสเตอร์",
@@ -795,8 +980,8 @@ export class IdleEngine {
             loot: rewardLoot,
             stamina: finalStudent.stamina,
             farming: updatedFarming,
-            gold: (finalStudent.gameStats as any)?.gold,
-            xp: (finalStudent.gameStats as any)?.xp,
+            gold: this.parseGameStats(finalStudent.gameStats).gold,
+            xp: this.parseGameStats(finalStudent.gameStats).xp,
             leveledUp: xpResult.leveledUp,
             newLevel: xpResult.level,
             mana: finalStudent.mana,
@@ -804,6 +989,7 @@ export class IdleEngine {
             playerHp: finalPlayerHp,
             playerMaxHp: finalPlayerMaxHp,
             activeEffects: updatedFarming.activeEffects,
+            skillCooldowns: updatedFarming.skillCooldowns,
             playerDied,
             deathPenaltyWave,
         };
@@ -820,22 +1006,27 @@ export class IdleEngine {
   static async useSkillOnMonster(studentId: string, skillId: string) {
     try {
         const { buildGlobalSkillMap } = require("./job-system");
-        const skill = buildGlobalSkillMap()[skillId];
+        const skill = (buildGlobalSkillMap() as Record<string, Skill | undefined>)[skillId];
         if (!skill) return { error: "ไม่พบทักษะ" };
 
         const student = await db.student.findUnique({
             where: { id: studentId },
             include: { items: { where: { isEquipped: true }, include: { item: true } } }
-        });
+        }) as CombatStudent | null;
         if (!student) return { error: "Student not found" };
 
         const isAP = skill.costType === "AP";
         const currentResource = isAP ? student.stamina : student.mana;
         if (currentResource < skill.cost) return { error: "พลังงานไม่เพียงพอ" };
 
-        const stats = (student.gameStats as unknown as GameStats) || this.getDefaultStats();
+        const stats = this.parseGameStats(student.gameStats);
         const farming = this.getFarmingState(student);
         const monster = { ...farming.monster }; // mutable copy
+
+        // Check skill cooldown
+        let skillCooldowns: Record<string, number> = { ...(farming.skillCooldowns ?? {}) };
+        const remainingCooldown = skillCooldowns[skillId] ?? 0;
+        if (remainingCooldown > 0) return { error: `สกิลยังไม่พร้อม (${remainingCooldown} เทิร์น)`, cooldownRemaining: remainingCooldown };
 
         const { StatCalculator } = require("./stat-calculator");
         const charStats = StatCalculator.compute(
@@ -846,7 +1037,6 @@ export class IdleEngine {
         // Initialize playerHp
         let playerHp = farming.playerHp ?? charStats.hp;
         const playerMaxHp = farming.playerMaxHp ?? charStats.hp;
-        type FarmingEffects = NonNullable<NonNullable<GameStats['farming']>['activeEffects']>;
         let activeEffects: FarmingEffects = { ...(farming.activeEffects ?? {}) };
 
         // Read active effect values for this turn
@@ -1012,6 +1202,15 @@ export class IdleEngine {
             }
         }
 
+        // Set skill cooldown after use
+        let skillCd = skill.cooldown ?? DEFAULT_COOLDOWN_BY_EFFECT[effect] ?? 0;
+        if (skillCd === 0) {
+            // DAMAGE skills get cooldown based on multiplier strength
+            const mult = skill.damageMultiplier ?? 1.5;
+            skillCd = mult < 1.5 ? 3 : mult < 2.0 ? 4 : mult < 2.5 ? 5 : mult < 3.0 ? 6 : mult < 3.5 ? 7 : 8;
+        }
+        if (skillCd > 0) skillCooldowns[skillId] = skillCd;
+
         // Per-skill XP (3× normal rate)
         const hitXp = Math.max(2, Math.floor(farming.currentWave * 0.5 * 3));
         let xpResult = this.calculateXpGain(stats, hitXp);
@@ -1078,6 +1277,13 @@ export class IdleEngine {
             if (activeEffects.regen && activeEffects.regen.turnsLeft > 1)
                 next.regen = { ...activeEffects.regen, turnsLeft: activeEffects.regen.turnsLeft - 1 };
             activeEffects = next;
+
+            // Decrement skill cooldowns
+            const nextCooldowns: Record<string, number> = {};
+            for (const [sid, cd] of Object.entries(skillCooldowns)) {
+                if (cd > 1) nextCooldowns[sid] = cd - 1;
+            }
+            skillCooldowns = nextCooldowns;
         }
 
         // Resolve mana + level-up refill
@@ -1110,12 +1316,31 @@ export class IdleEngine {
                 ? StatCalculator.compute(student.points, student.items, xpResult.level, student.jobClass, student.jobTier || "BASE", student.advanceClass ?? null).maxMp
                 : charStats.maxMp,
             activeEffects: Object.keys(activeEffects).length > 0 ? activeEffects : undefined,
+            skillCooldowns: Object.keys(skillCooldowns).length > 0 ? skillCooldowns : undefined,
         };
         const updatedStats = { ...stats, farming: updatedFarming };
 
-        const data: any = {
+        // Unlock new skills if leveled up
+        let updatedJobSkillsSkill: string[] | undefined;
+        if (xpResult.leveledUp) {
+            const eff = resolveEffectiveJobKey({
+                jobClass: student.jobClass,
+                jobTier: student.jobTier || "BASE",
+                advanceClass: student.advanceClass ?? null,
+            });
+            const currentSkillIds = Array.isArray(student.jobSkills)
+                ? student.jobSkills
+                : [];
+            const newSkills = getNewlyUnlockedSkills(eff, stats.level, xpResult.level, currentSkillIds);
+            if (newSkills.length > 0) {
+                updatedJobSkillsSkill = [...currentSkillIds, ...newSkills];
+            }
+        }
+
+        const data: StudentUpdateData = {
             mana: finalMana,
-            gameStats: updatedStats as any,
+            gameStats: toPrismaJson(updatedStats),
+            ...(updatedJobSkillsSkill ? { jobSkills: updatedJobSkillsSkill } : {}),
             history: {
                 create: {
                     reason: `🔮 ใช้ทักษะ ${skill.name}${newEffectDescription ? ` — ${newEffectDescription}` : ""}`,
@@ -1147,8 +1372,8 @@ export class IdleEngine {
             newEffectDescription,
             isDefeated,
             loot: rewardLoot,
-            gold: (updatedStudent.gameStats as any)?.gold,
-            xp: (updatedStudent.gameStats as any)?.xp,
+            gold: this.parseGameStats(updatedStudent.gameStats).gold,
+            xp: this.parseGameStats(updatedStudent.gameStats).xp,
             leveledUp: xpResult.leveledUp,
             newLevel: xpResult.level,
             mana: updatedStudent.mana,
@@ -1158,6 +1383,7 @@ export class IdleEngine {
             playerHp: finalPlayerHp,
             playerMaxHp: finalPlayerMaxHp,
             activeEffects: updatedFarming.activeEffects,
+            skillCooldowns: updatedFarming.skillCooldowns,
             playerDied,
             deathPenaltyWave,
         };

@@ -27,6 +27,7 @@ export interface Skill {
   isCrit?: boolean;          // If true, guaranteed critical hit
   damageBase?: "ATK" | "MAG"; // Which stat to use for damage; defaults to "ATK"
   icon?: string;             // Optional custom image icon path
+  cooldown?: number;         // Turns before skill can be used again (0 or undefined = no cooldown)
 }
 
 export interface Passive {
@@ -199,6 +200,7 @@ const MAGE_SKILLS: Skill[] = [
     effect: "DAMAGE",
     damageMultiplier: 1.8,
     damageBase: "MAG",
+    icon: "/assets/skills/mage_fireball.png",
   },
   {
     id: "mage_blizzard",
@@ -210,6 +212,7 @@ const MAGE_SKILLS: Skill[] = [
     effect: "SLOW",
     damageMultiplier: 2.0,
     damageBase: "MAG",
+    icon: "/assets/skills/mage_blizzard.png",
   },
   {
     id: "mage_thunder",
@@ -221,6 +224,7 @@ const MAGE_SKILLS: Skill[] = [
     effect: "STUN",
     damageMultiplier: 2.3,
     damageBase: "MAG",
+    icon: "/assets/skills/mage_thunder.png",
   },
   {
     id: "mage_mana_surge",
@@ -232,6 +236,7 @@ const MAGE_SKILLS: Skill[] = [
     effect: "MANA_SURGE",
     damageMultiplier: 2.7,
     damageBase: "MAG",
+    icon: "/assets/skills/mage_mana_surge.png",
   },
   {
     id: "mage_meteor",
@@ -243,6 +248,7 @@ const MAGE_SKILLS: Skill[] = [
     effect: "DAMAGE",
     damageMultiplier: 3.5,
     damageBase: "MAG",
+    icon: "/assets/skills/mage_meteor.png",
   },
   {
     id: "mage_arcane_nova",
@@ -255,6 +261,7 @@ const MAGE_SKILLS: Skill[] = [
     damageMultiplier: 2.8,
     damageBase: "MAG",
     isCrit: true,
+    icon: "/assets/skills/mage_arcane_nova.png",
   },
 ];
 
@@ -302,6 +309,7 @@ const RANGER_SKILLS: Skill[] = [
     unlockLevel: 8,
     effect: "POISON",
     damageMultiplier: 1.5,
+    icon: "/assets/skills/ranger_poison_arrow.png",
   },
   {
     id: "ranger_wind_shot",
@@ -312,6 +320,7 @@ const RANGER_SKILLS: Skill[] = [
     unlockLevel: 12,
     effect: "DEBUFF_ATK",
     damageMultiplier: 1.5,
+    icon: "/assets/skills/ranger_wind_shot.png",
   },
   {
     id: "ranger_eagle_eye",
@@ -322,6 +331,7 @@ const RANGER_SKILLS: Skill[] = [
     unlockLevel: 16,
     effect: "CRIT_BUFF",
     damageMultiplier: 1.0,
+    icon: "/assets/skills/ranger_eagle_eye.png",
   },
   {
     id: "ranger_barrage",
@@ -332,6 +342,7 @@ const RANGER_SKILLS: Skill[] = [
     unlockLevel: 20,
     effect: "DAMAGE",
     damageMultiplier: 2.6,
+    icon: "/assets/skills/ranger_barrage.png",
   },
   {
     id: "ranger_snipe",
@@ -343,6 +354,7 @@ const RANGER_SKILLS: Skill[] = [
     effect: "DAMAGE",
     damageMultiplier: 2.3,
     isCrit: true,
+    icon: "/assets/skills/ranger_snipe.png",
   },
 ];
 
@@ -387,6 +399,7 @@ const HEALER_SKILLS: Skill[] = [
     costType: "MP",
     unlockLevel: 8,
     effect: "BUFF_DEF",
+    icon: "/assets/skills/healer_barrier.png",
   },
   {
     id: "healer_regenerate",
@@ -396,6 +409,7 @@ const HEALER_SKILLS: Skill[] = [
     costType: "MP",
     unlockLevel: 12,
     effect: "REGEN",
+    icon: "/assets/skills/healer_regenerate.png",
   },
   {
     id: "healer_holy_light",

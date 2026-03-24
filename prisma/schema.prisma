@@ -420,6 +420,8 @@ model Item {
   buffXpMinutes   Int?      @default(0) // XP ×2 for N minutes
   isTransmute     Boolean?  @default(false) // Converts 5 COMMON materials → 1 RARE material
   isLevelUp       Boolean?  @default(false) // Instantly grants +1 level (XP resets to 0)
+  farmingBuffType String?   // Farming active effect: "BUFF_ATK" | "BUFF_DEF" | "CRIT_BUFF" | "REGEN"
+  farmingBuffTurns Int?     @default(3)     // How many turns the farming buff lasts
   
   students    StudentItem[]
   createdAt   DateTime @default(now())

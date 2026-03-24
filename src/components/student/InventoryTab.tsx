@@ -530,17 +530,17 @@ export function InventoryTab({
   return (
     <div className="space-y-5 pb-6">
       {/* ===== Equipment Dashboard ===== */}
-      <div className="bg-slate-950/90 rounded-3xl border border-amber-900/30 overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-800/60">
+      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
 
           {/* Col 1 — Stats */}
           <div className="p-5 space-y-3">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="font-black text-amber-300 text-sm flex items-center gap-2">
-                <Zap className="w-4 h-4 text-amber-400 fill-amber-400" />สเตตัสโบนัสรวม
+              <h3 className="font-black text-slate-700 text-sm flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />สเตตัสโบนัสรวม
               </h3>
               {jobClass && (
-                <span className="text-[9px] font-black text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-800/60 flex items-center gap-1">
+                <span className="text-[9px] font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
                   <Shield className="w-2.5 h-2.5" />{jobTier !== "BASE" && advanceClass ? advanceClass : jobClass}
                 </span>
               )}
@@ -561,9 +561,9 @@ export function InventoryTab({
 
           {/* Col 2 — Equipment Doll */}
           <div className="p-5">
-            <div className="bg-slate-950 rounded-2xl border border-amber-900/25 h-full flex flex-col items-center justify-center relative overflow-hidden min-h-[340px]">
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(180,130,40,0.06),transparent_70%)] pointer-events-none" />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-60 bg-amber-900/8 rounded-[3rem] blur-3xl pointer-events-none" />
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 h-full flex flex-col items-center justify-center relative overflow-hidden min-h-[340px]">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(245,158,11,0.04),transparent_70%)] pointer-events-none" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-60 bg-amber-100/30 rounded-[3rem] blur-3xl pointer-events-none" />
               <div className="grid grid-cols-3 gap-x-8 gap-y-7 relative z-10 w-full max-w-[260px]">
                 {/* Left col */}
                 <div className="flex flex-col gap-7 justify-center">
@@ -574,7 +574,7 @@ export function InventoryTab({
                       <div key={slot.type} className="flex justify-end">
                         <div onClick={() => equipped && setSelectedEquippedItem(equipped)}
                           title={equipped ? equipped.item.name : slot.label}
-                          className={`w-13 h-13 w-[52px] h-[52px] shrink-0 rounded-xl border-2 flex items-center justify-center text-3xl transition-all relative bg-slate-900 ${equipped ? 'border-amber-500/80 shadow-[0_0_12px_rgba(251,191,36,0.2)] cursor-pointer hover:border-amber-400' : 'border-dashed border-slate-700'}`}>
+                          className={`w-13 h-13 w-[52px] h-[52px] shrink-0 rounded-xl border-2 flex items-center justify-center text-3xl transition-all relative bg-white ${equipped ? 'border-amber-500/80 shadow-[0_0_12px_rgba(251,191,36,0.2)] cursor-pointer hover:border-amber-400' : 'border-dashed border-slate-300'}`}>
                           {equipped ? (
                             <div className="relative w-full h-full flex items-center justify-center">{equipped.item.image}
                               {equipped.enhancementLevel > 0 && <div className="absolute -top-1 -left-1 bg-amber-500 text-white text-[8px] font-black px-1 py-0.5 rounded z-20">+{equipped.enhancementLevel}</div>}
@@ -595,7 +595,7 @@ export function InventoryTab({
                       <div key={slot.type} className="flex flex-col items-center gap-1.5">
                         <div onClick={() => equipped && setSelectedEquippedItem(equipped)}
                           title={equipped ? equipped.item.name : slot.label}
-                          className={`w-[52px] h-[52px] shrink-0 rounded-xl border-2 flex items-center justify-center text-3xl transition-all relative bg-slate-900 ${equipped ? 'border-amber-500/80 shadow-[0_0_12px_rgba(251,191,36,0.2)] cursor-pointer hover:border-amber-400' : 'border-dashed border-slate-700'}`}>
+                          className={`w-[52px] h-[52px] shrink-0 rounded-xl border-2 flex items-center justify-center text-3xl transition-all relative bg-white ${equipped ? 'border-amber-500/80 shadow-[0_0_12px_rgba(251,191,36,0.2)] cursor-pointer hover:border-amber-400' : 'border-dashed border-slate-300'}`}>
                           {equipped ? (
                             <div className="relative w-full h-full flex items-center justify-center">{equipped.item.image}
                               {equipped.enhancementLevel > 0 && <div className="absolute -top-1 -left-1 bg-amber-500 text-white text-[8px] font-black px-1 py-0.5 rounded z-20">+{equipped.enhancementLevel}</div>}
@@ -617,7 +617,7 @@ export function InventoryTab({
                       <div key={slot.type} className="flex justify-start">
                         <div onClick={() => equipped && setSelectedEquippedItem(equipped)}
                           title={equipped ? equipped.item.name : slot.label}
-                          className={`w-[52px] h-[52px] shrink-0 rounded-xl border-2 flex items-center justify-center text-3xl transition-all relative bg-slate-900 ${equipped ? 'border-amber-500/80 shadow-[0_0_12px_rgba(251,191,36,0.2)] cursor-pointer hover:border-amber-400' : 'border-dashed border-slate-700'}`}>
+                          className={`w-[52px] h-[52px] shrink-0 rounded-xl border-2 flex items-center justify-center text-3xl transition-all relative bg-white ${equipped ? 'border-amber-500/80 shadow-[0_0_12px_rgba(251,191,36,0.2)] cursor-pointer hover:border-amber-400' : 'border-dashed border-slate-300'}`}>
                           {equipped ? (
                             <div className="relative w-full h-full flex items-center justify-center">{equipped.item.image}
                               {equipped.enhancementLevel > 0 && <div className="absolute -top-1 -right-1 bg-amber-500 text-white text-[8px] font-black px-1 py-0.5 rounded z-20">+{equipped.enhancementLevel}</div>}
@@ -631,21 +631,21 @@ export function InventoryTab({
                 </div>
               </div>
               {equippedItems.length === 0 && (
-                <p className="absolute bottom-4 text-[10px] font-black text-slate-600 tracking-widest uppercase">ยังไม่ได้สวมอุปกรณ์</p>
+                <p className="absolute bottom-4 text-[10px] font-black text-slate-400 tracking-widest uppercase">ยังไม่ได้สวมอุปกรณ์</p>
               )}
             </div>
           </div>
 
           {/* Col 3 — Effects & Sets */}
           <div className="p-5 space-y-3">
-            <h3 className="font-black text-amber-300 text-sm flex items-center gap-2 mb-1">
-              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />พลังแฝงและเซ็ต
+            <h3 className="font-black text-slate-700 text-sm flex items-center gap-2 mb-1">
+              <Star className="w-4 h-4 text-amber-500 fill-amber-500" />พลังแฝงและเซ็ต
             </h3>
             {equippedEffects.length === 0 && Object.keys(setCounts).length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-32 text-center border border-dashed border-slate-700 rounded-2xl">
+              <div className="flex flex-col items-center justify-center h-32 text-center border border-dashed border-slate-200 rounded-2xl bg-slate-50">
                 <span className="text-2xl mb-1">🧩</span>
                 <p className="text-[11px] font-bold text-slate-500">ยังไม่มีพลังแฝง</p>
-                <p className="text-[10px] text-slate-600">สวมอุปกรณ์เพื่อปลดล็อค</p>
+                <p className="text-[10px] text-slate-400">สวมอุปกรณ์เพื่อปลดล็อค</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
@@ -681,16 +681,16 @@ export function InventoryTab({
       </div>
 
       {/* ===== Item Bag ===== */}
-      <div className="bg-slate-900/60 rounded-3xl border border-slate-700/40 overflow-hidden">
+      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
         {/* Header + Tabs */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-800/60 bg-slate-950/50">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 bg-white">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-900/40 border border-amber-700/40 flex items-center justify-center">
-              <Package className="w-5 h-5 text-amber-400" />
+            <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center">
+              <Package className="w-5 h-5 text-amber-500" />
             </div>
             <div>
-              <h2 className="font-black text-white text-base tracking-tight">กระเป๋าสัมภาระ</h2>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{unequippedItems.length} ชิ้น</p>
+              <h2 className="font-black text-slate-800 text-base tracking-tight">กระเป๋าสัมภาระ</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{unequippedItems.length} ชิ้น</p>
             </div>
           </div>
           <div className="flex gap-1.5">
@@ -700,9 +700,9 @@ export function InventoryTab({
               { key: 'consumable', label: 'ของใช้', count: unequippedItems.filter(s => s.item.type === 'CONSUMABLE').length },
             ] as const).map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all flex items-center gap-1.5 ${activeTab === tab.key ? 'bg-amber-500 text-white shadow-[0_0_10px_rgba(251,191,36,0.3)]' : 'bg-slate-800/60 text-slate-400 hover:bg-slate-700/60 hover:text-slate-200'}`}>
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all flex items-center gap-1.5 ${activeTab === tab.key ? 'bg-amber-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
                 {tab.label}
-                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${activeTab === tab.key ? 'bg-amber-600/60 text-amber-100' : 'bg-slate-700 text-slate-500'}`}>{tab.count}</span>
+                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${activeTab === tab.key ? 'bg-amber-600/40 text-white' : 'bg-white text-slate-500'}`}>{tab.count}</span>
               </button>
             ))}
           </div>
@@ -712,7 +712,7 @@ export function InventoryTab({
         <div className="p-4">
           {filteredItems.length === 0 ? (
             <div className="py-16 text-center">
-              <Package className="w-12 h-12 text-slate-700 mx-auto mb-3" />
+              <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <p className="font-bold text-slate-500 text-sm">ไม่มีไอเทมในส่วนนี้</p>
             </div>
           ) : (
@@ -723,31 +723,31 @@ export function InventoryTab({
                 if (isConsumable) {
                   return (
                     <motion.div key={si.id} initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: idx * 0.04 }}>
-                      <div className="relative overflow-hidden rounded-2xl border-2 border-emerald-600/50 bg-emerald-950/25 hover:border-emerald-500/70 flex flex-col transition-all group shadow-[0_0_10px_rgba(16,185,129,0.07)] hover:shadow-[0_0_18px_rgba(16,185,129,0.15)]">
-                        <div className="h-1 w-full bg-gradient-to-r from-emerald-500 to-teal-400" />
-                        <div className="absolute top-2.5 right-2.5 z-10 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow">×{si.quantity}</div>
+                      <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50 hover:border-emerald-300 flex flex-col transition-all group shadow-sm hover:shadow-md">
+                        <div className="h-1 w-full bg-gradient-to-r from-emerald-400 to-teal-400" />
+                        <div className="absolute top-2.5 right-2.5 z-10 bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow">×{si.quantity}</div>
                         <div className="p-3 flex flex-col items-center flex-1">
-                          <div className="w-14 h-14 rounded-xl bg-emerald-900/40 border border-emerald-700/30 flex items-center justify-center text-4xl mb-2 group-hover:scale-105 transition-transform">{si.item.image}</div>
-                          <h3 className="font-black text-white text-[11px] text-center mb-1.5 leading-tight">{si.item.name}</h3>
+                          <div className="w-14 h-14 rounded-xl bg-white border border-emerald-100 flex items-center justify-center text-4xl mb-2 group-hover:scale-105 transition-transform shadow-sm">{si.item.image}</div>
+                          <h3 className="font-black text-slate-800 text-[11px] text-center mb-1.5 leading-tight">{si.item.name}</h3>
                           <div className="flex flex-col gap-0.5 w-full mb-2">
-                            {(si.item.manaRestore ?? 0) > 0 && <span className="text-[9px] font-black bg-blue-900/50 text-blue-300 border border-blue-700/40 px-2 py-0.5 rounded-full text-center">💧 Mana +{si.item.manaRestore}</span>}
-                            {((si.item.hpRestorePercent ?? 0) > 0 || si.item.name?.toLowerCase().includes('hp potion')) && <span className="text-[9px] font-black bg-rose-900/50 text-rose-300 border border-rose-700/40 px-2 py-0.5 rounded-full text-center">❤️ HP +{Math.round((si.item.hpRestorePercent ?? 0) * 100)}%</span>}
-                            {(si.item.staminaRestore ?? 0) > 0 && <span className="text-[9px] font-black bg-indigo-900/50 text-indigo-300 border border-indigo-700/40 px-2 py-0.5 rounded-full text-center">🧪 ST +{si.item.staminaRestore}</span>}
-                            {si.item.isPhoenix && <span className="text-[9px] font-black bg-amber-900/50 text-amber-300 border border-amber-700/40 px-2 py-0.5 rounded-full text-center">🪶 Revive 50%</span>}
-                            {si.item.isTransmute && <span className="text-[9px] font-black bg-stone-900/50 text-stone-400 border border-stone-700/40 px-2 py-0.5 rounded-full text-center">🪨 Transmute</span>}
-                            {(si.item.buffAtk ?? 0) > 0 && <span className="text-[9px] font-black bg-amber-900/50 text-amber-300 border border-amber-700/40 px-2 py-0.5 rounded-full text-center">⚔️ ATK +{Math.round((si.item.buffAtk ?? 0) * 100)}%</span>}
+                            {(si.item.manaRestore ?? 0) > 0 && <span className="text-[9px] font-black bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full text-center">💧 Mana +{si.item.manaRestore}</span>}
+                            {((si.item.hpRestorePercent ?? 0) > 0) && <span className="text-[9px] font-black bg-rose-100 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full text-center">❤️ HP +{Math.round((si.item.hpRestorePercent ?? 0) * 100)}%</span>}
+                            {(si.item.staminaRestore ?? 0) > 0 && <span className="text-[9px] font-black bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full text-center">⚡ ST +{si.item.staminaRestore}</span>}
+                            {si.item.isPhoenix && <span className="text-[9px] font-black bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full text-center">🪶 Revive 50%</span>}
+                            {si.item.isTransmute && <span className="text-[9px] font-black bg-stone-100 text-stone-600 border border-stone-200 px-2 py-0.5 rounded-full text-center">🪨 Transmute</span>}
+                            {(si.item.buffAtk ?? 0) > 0 && <span className="text-[9px] font-black bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full text-center">⚔️ ATK +{Math.round((si.item.buffAtk ?? 0) * 100)}%</span>}
                           </div>
                         </div>
                         <div className="px-3 pb-3 space-y-1.5">
                           <div className="flex items-center justify-center gap-1">
-                            <button onClick={() => { (si as any)._useQty = Math.max(1, ((si as any)._useQty || 1) - 1); setItems([...items]); }} className="w-6 h-6 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 font-black flex items-center justify-center transition-colors">-</button>
+                            <button onClick={() => { (si as any)._useQty = Math.max(1, ((si as any)._useQty || 1) - 1); setItems([...items]); }} className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-600 font-black flex items-center justify-center transition-colors hover:bg-slate-50">-</button>
                             <input type="number" min={1} max={si.quantity} value={(si as any)._useQty || 1}
                               onChange={(e) => { const val = Math.max(1, Math.min(si.quantity, parseInt(e.target.value) || 1)); (si as any)._useQty = val; setItems([...items]); }}
-                              className="w-10 h-6 text-center text-[10px] font-black text-white border border-slate-600 rounded-lg bg-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                            <button onClick={() => { (si as any)._useQty = Math.min(si.quantity, ((si as any)._useQty || 1) + 1); setItems([...items]); }} className="w-6 h-6 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 font-black flex items-center justify-center transition-colors">+</button>
+                              className="w-10 h-6 text-center text-[10px] font-black text-slate-800 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                            <button onClick={() => { (si as any)._useQty = Math.min(si.quantity, ((si as any)._useQty || 1) + 1); setItems([...items]); }} className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-600 font-black flex items-center justify-center transition-colors hover:bg-slate-50">+</button>
                           </div>
                           <button onClick={() => handleUseItem(si, (si as any)._useQty || 1)} disabled={usingId === si.id || si.quantity <= 0}
-                            className="w-full h-8 rounded-xl font-black text-[11px] bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white flex items-center justify-center gap-1 transition-all active:scale-95 shadow">
+                            className="w-full h-8 rounded-xl font-black text-[11px] bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white flex items-center justify-center gap-1 transition-all active:scale-95 shadow-sm">
                             {usingId === si.id ? <span className="animate-pulse text-[10px]">กำลังดื่ม...</span> : <>🧪 ดื่มยา</>}
                           </button>
                         </div>
@@ -759,10 +759,10 @@ export function InventoryTab({
                 // Equipment card
                 const tc = (() => {
                   switch (si.item.tier) {
-                    case 'LEGENDARY': return { border: 'border-amber-500/60', bg: 'bg-amber-950/20', glow: 'shadow-[0_0_18px_rgba(251,191,36,0.1)] hover:shadow-[0_0_24px_rgba(251,191,36,0.22)]', badge: 'bg-amber-900/70 text-amber-300 border-amber-700/50', accent: 'text-amber-400', strip: 'from-amber-400 via-yellow-400 to-orange-400', iconBg: 'bg-amber-950/60 border-amber-800/40' };
-                    case 'EPIC': return { border: 'border-purple-500/55', bg: 'bg-purple-950/20', glow: 'shadow-[0_0_14px_rgba(168,85,247,0.1)] hover:shadow-[0_0_20px_rgba(168,85,247,0.22)]', badge: 'bg-purple-900/70 text-purple-300 border-purple-700/50', accent: 'text-purple-400', strip: 'from-purple-500 to-violet-500', iconBg: 'bg-purple-950/60 border-purple-800/40' };
-                    case 'RARE': return { border: 'border-blue-500/55', bg: 'bg-blue-950/20', glow: 'shadow-[0_0_12px_rgba(59,130,246,0.1)] hover:shadow-[0_0_18px_rgba(59,130,246,0.22)]', badge: 'bg-blue-900/70 text-blue-300 border-blue-700/50', accent: 'text-blue-400', strip: 'from-blue-500 to-indigo-500', iconBg: 'bg-blue-950/60 border-blue-800/40' };
-                    default: return { border: 'border-slate-600/55', bg: 'bg-slate-800/25', glow: '', badge: 'bg-slate-800 text-slate-400 border-slate-600', accent: 'text-slate-400', strip: 'from-slate-500 to-slate-600', iconBg: 'bg-slate-800/70 border-slate-700/40' };
+                    case 'LEGENDARY': return { border: 'border-amber-200', bg: 'bg-amber-50', glow: 'shadow-sm hover:shadow-md', badge: 'bg-amber-100 text-amber-700 border-amber-200', accent: 'text-amber-600', strip: 'from-amber-400 via-yellow-400 to-orange-400', iconBg: 'bg-white border-amber-100' };
+                    case 'EPIC': return { border: 'border-violet-200', bg: 'bg-violet-50', glow: 'shadow-sm hover:shadow-md', badge: 'bg-violet-100 text-violet-700 border-violet-200', accent: 'text-violet-600', strip: 'from-purple-400 to-violet-500', iconBg: 'bg-white border-violet-100' };
+                    case 'RARE': return { border: 'border-sky-200', bg: 'bg-sky-50', glow: 'shadow-sm hover:shadow-md', badge: 'bg-sky-100 text-sky-700 border-sky-200', accent: 'text-sky-600', strip: 'from-blue-400 to-sky-500', iconBg: 'bg-white border-sky-100' };
+                    default: return { border: 'border-slate-200', bg: 'bg-white', glow: 'shadow-sm hover:shadow-md', badge: 'bg-slate-100 text-slate-600 border-slate-200', accent: 'text-slate-600', strip: 'from-slate-400 to-slate-500', iconBg: 'bg-slate-50 border-slate-100' };
                   }
                 })();
                 const enh = 1 + si.enhancementLevel * 0.1;
@@ -786,12 +786,12 @@ export function InventoryTab({
                       )}
                       <div className="p-3 flex flex-col items-center flex-1">
                         <div className={`w-14 h-14 rounded-xl border ${tc.iconBg} flex items-center justify-center text-4xl mb-2 group-hover:scale-105 transition-transform`}>{si.item.image}</div>
-                        <h3 className="font-black text-white text-[11px] text-center mb-1 leading-tight">{si.item.name}</h3>
+                        <h3 className="font-black text-slate-800 text-[11px] text-center mb-1 leading-tight">{si.item.name}</h3>
                         <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${tc.badge} mb-2`}>{si.item.tier} · {si.item.slot || si.item.type}</span>
                         <div className="w-full space-y-0.5 mb-1.5">
                           {keyStats.map(stat => (
                             <div key={stat.label} className="flex justify-between items-center text-[10px]">
-                              <span className="text-slate-500">{stat.icon} {stat.label}</span>
+                              <span className="text-slate-400">{stat.icon} {stat.label}</span>
                               <span className={`font-black ${stat.color}`}>{stat.val}</span>
                             </div>
                           ))}

@@ -166,6 +166,8 @@ export interface BattlePlayer extends BasePlayer {
     maxHp: number;
     ap: number;    // stamina (physical resource consumed by AP-cost skills and farming attacks)
     maxAp: number; // maximum stamina
+    stamina?: number; // compatibility alias for UI/readability
+    maxStamina?: number; // compatibility alias for UI/readability
     mp: number;
     maxMp: number;
     // Combat stats (loaded from StatCalculator in PREP)

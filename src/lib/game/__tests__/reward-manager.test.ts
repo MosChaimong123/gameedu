@@ -16,8 +16,9 @@ vi.mock("@/lib/db", () => {
   const mockTransaction = vi.fn();
   const mockStudentFindUnique = vi.fn();
   const mockStudentUpdate = vi.fn();
-  const mockStudentItemCreate = vi.fn();
+  const mockStudentItemUpsert = vi.fn();
   const mockMaterialUpsert = vi.fn();
+  const mockItemFindUnique = vi.fn();
 
   return {
     db: {
@@ -27,7 +28,10 @@ vi.mock("@/lib/db", () => {
         update: mockStudentUpdate,
       },
       studentItem: {
-        create: mockStudentItemCreate,
+        upsert: mockStudentItemUpsert,
+      },
+      item: {
+        findUnique: mockItemFindUnique,
       },
       material: {
         upsert: mockMaterialUpsert,
@@ -88,6 +92,19 @@ function makePlayer(overrides: Partial<BattlePlayer> = {}): BattlePlayer {
 
 function makeGameStats(level = 5, xp = 0, gold = 200) {
   return { gold, level, xp, inventory: [], equipment: {}, multipliers: { gold: 1, xp: 1 } };
+}
+
+function makeItemStats() {
+  return {
+    baseHp: 10,
+    baseAtk: 5,
+    baseDef: 3,
+    baseSpd: 2,
+    baseCrit: 0.01,
+    baseLuck: 0.01,
+    baseMag: 4,
+    baseMp: 6,
+  };
 }
 
 // ─── P6: Reward Atomicity ─────────────────────────────────────────────────────
@@ -162,7 +179,8 @@ describe("P6 — Reward Atomicity", () => {
             findUnique: vi.fn().mockResolvedValue({ gameStats }),
             update: vi.fn().mockResolvedValue({}),
           },
-          studentItem: { create: vi.fn().mockResolvedValue({}) },
+          studentItem: { upsert: vi.fn().mockResolvedValue({}) },
+          item: { findUnique: vi.fn().mockResolvedValue(makeItemStats()) },
           material: { upsert: vi.fn().mockResolvedValue({}) },
         };
         return fn(tx as unknown as typeof db);
@@ -194,7 +212,8 @@ describe("P6 — Reward Atomicity", () => {
             findUnique: vi.fn().mockResolvedValue({ gameStats }),
             update: vi.fn().mockResolvedValue({}),
           },
-          studentItem: { create: vi.fn().mockResolvedValue({}) },
+          studentItem: { upsert: vi.fn().mockResolvedValue({}) },
+          item: { findUnique: vi.fn().mockResolvedValue(makeItemStats()) },
           material: { upsert: vi.fn().mockResolvedValue({}) },
         };
         return fn(tx as unknown as typeof db);
@@ -225,7 +244,8 @@ describe("P6 — Reward Atomicity", () => {
             findUnique: vi.fn().mockResolvedValue({ gameStats }),
             update: vi.fn().mockResolvedValue({}),
           },
-          studentItem: { create: vi.fn().mockResolvedValue({}) },
+          studentItem: { upsert: vi.fn().mockResolvedValue({}) },
+          item: { findUnique: vi.fn().mockResolvedValue(makeItemStats()) },
           material: { upsert: vi.fn().mockResolvedValue({}) },
         };
         return fn(tx as unknown as typeof db);
@@ -257,7 +277,8 @@ describe("P6 — Reward Atomicity", () => {
                   findUnique: vi.fn().mockResolvedValue({ gameStats }),
                   update: vi.fn().mockResolvedValue({}),
                 },
-                studentItem: { create: vi.fn().mockResolvedValue({}) },
+                studentItem: { upsert: vi.fn().mockResolvedValue({}) },
+                item: { findUnique: vi.fn().mockResolvedValue(makeItemStats()) },
                 material: { upsert: vi.fn().mockResolvedValue({}) },
               };
               return fn(tx as unknown as typeof db);
@@ -273,6 +294,48 @@ describe("P6 — Reward Atomicity", () => {
         }
       ),
       { numRuns: 50 }
+    );
+  });
+
+  it("merges duplicate item drops into existing inventory rows", async () => {
+    const gameStats = makeGameStats(5, 0, 200);
+    const studentItemUpsert = vi.fn().mockResolvedValue({});
+
+    (db.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (fn: (tx: typeof db) => Promise<unknown>) => {
+        const tx = {
+          student: {
+            findUnique: vi.fn().mockResolvedValue({ gameStats }),
+            update: vi.fn().mockResolvedValue({}),
+          },
+          studentItem: { upsert: studentItemUpsert },
+          item: { findUnique: vi.fn().mockResolvedValue(makeItemStats()) },
+          material: { upsert: vi.fn().mockResolvedValue({}) },
+        };
+        return fn(tx as unknown as typeof db);
+      }
+    );
+
+    const player = makePlayer({
+      studentId: "student-dup",
+      itemDrops: ["item-1", "item-1", "item-2"],
+    });
+
+    const results = await RewardManager.persistRewards([player]);
+
+    expect(results[0].error).toBeUndefined();
+    expect(studentItemUpsert).toHaveBeenCalledTimes(3);
+    expect(studentItemUpsert).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: {
+          studentId_itemId: {
+            studentId: "student-dup",
+            itemId: "item-1",
+          },
+        },
+        update: { quantity: { increment: 1 } },
+      })
     );
   });
 });

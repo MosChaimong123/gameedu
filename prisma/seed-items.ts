@@ -578,6 +578,55 @@ const items = [
     price: 400, type: 'CONSUMABLE', tier: 'RARE',
     image: '📚', currency: 'GOLD', buffXpMinutes: 10,
   },
+  // ─── Farming Buff Consumables ───────────────────────────────────────────────
+  {
+    name: 'น้ำยาเสริมแรง',
+    description: '⚔️ เพิ่ม ATK +40% เป็นเวลา 3 เทิร์นในการฟาร์ม',
+    price: 120, type: 'CONSUMABLE', tier: 'COMMON',
+    image: '🧪', currency: 'GOLD', farmingBuffType: 'BUFF_ATK', farmingBuffTurns: 3,
+  },
+  {
+    name: 'ยาเสริมแรงชั้นดี',
+    description: '⚔️ เพิ่ม ATK +40% เป็นเวลา 5 เทิร์นในการฟาร์ม',
+    price: 350, type: 'CONSUMABLE', tier: 'RARE',
+    image: '💢', currency: 'GOLD', farmingBuffType: 'BUFF_ATK', farmingBuffTurns: 5,
+  },
+  {
+    name: 'ยาเกราะป้องกัน',
+    description: '🛡️ ลดดาเมจที่รับ 50% เป็นเวลา 3 เทิร์นในการฟาร์ม',
+    price: 120, type: 'CONSUMABLE', tier: 'COMMON',
+    image: '🛡️', currency: 'GOLD', farmingBuffType: 'BUFF_DEF', farmingBuffTurns: 3,
+  },
+  {
+    name: 'ยาเกราะชั้นยอด',
+    description: '🛡️ ลดดาเมจที่รับ 50% เป็นเวลา 5 เทิร์นในการฟาร์ม',
+    price: 350, type: 'CONSUMABLE', tier: 'RARE',
+    image: '🔰', currency: 'GOLD', farmingBuffType: 'BUFF_DEF', farmingBuffTurns: 5,
+  },
+  {
+    name: 'ยาแห่งโชค',
+    description: '🎯 เพิ่ม CRIT +30% เป็นเวลา 3 เทิร์นในการฟาร์ม',
+    price: 150, type: 'CONSUMABLE', tier: 'COMMON',
+    image: '🍀', currency: 'GOLD', farmingBuffType: 'CRIT_BUFF', farmingBuffTurns: 3,
+  },
+  {
+    name: 'ยาฟื้นฟูพลังงาน',
+    description: '🌿 ฟื้นฟู HP 8% ต่อเทิร์น เป็นเวลา 3 เทิร์นในการฟาร์ม',
+    price: 130, type: 'CONSUMABLE', tier: 'COMMON',
+    image: '🌿', currency: 'GOLD', farmingBuffType: 'REGEN', farmingBuffTurns: 3,
+  },
+  {
+    name: 'ยาฟื้นฟูชั้นสูง',
+    description: '🌿 ฟื้นฟู HP 8% ต่อเทิร์น เป็นเวลา 5 เทิร์นในการฟาร์ม',
+    price: 380, type: 'CONSUMABLE', tier: 'RARE',
+    image: '🍃', currency: 'GOLD', farmingBuffType: 'REGEN', farmingBuffTurns: 5,
+  },
+  {
+    name: 'ยาเทพเจ้านักรบ',
+    description: '⚔️🛡️ ATK +40% และลดดาเมจ 50% เป็นเวลา 4 เทิร์น (เลือก ATK buff)',
+    price: 900, type: 'CONSUMABLE', tier: 'EPIC',
+    image: '⚗️', currency: 'GOLD', farmingBuffType: 'BUFF_ATK', farmingBuffTurns: 4,
+  },
 ];
 
 async function main() {

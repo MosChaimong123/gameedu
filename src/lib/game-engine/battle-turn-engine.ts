@@ -181,6 +181,8 @@ export class BattleTurnEngine extends AbstractGameEngine {
       maxHp: 100,
       ap: 0,
       maxAp: 100,
+      stamina: 0,
+      maxStamina: 100,
       mp: 0,
       maxMp: 50,
       atk: 10,
@@ -310,6 +312,8 @@ export class BattleTurnEngine extends AbstractGameEngine {
         : baseHp;
       player.hp = boostedHp;
       player.maxHp = boostedHp;
+      player.stamina = player.ap;
+      player.maxStamina = player.maxAp;
       player.mp = stats.maxMp;
       player.maxMp = stats.maxMp;
       player.atk = hasBattleBuff ? Math.floor(stats.atk * (1 + (pendingBattleBuff.atk ?? 0))) : stats.atk;
@@ -457,6 +461,7 @@ export class BattleTurnEngine extends AbstractGameEngine {
         return;
       }
       player.ap -= 10;
+      player.stamina = player.ap;
       const damage = player.atk; // base damage coefficient 1.0
       this.applyDamageToBoss(damage, player.id);
 
@@ -525,6 +530,7 @@ export class BattleTurnEngine extends AbstractGameEngine {
         return;
       }
       player.ap -= skill.cost;
+      player.stamina = player.ap;
     } else if (skill.costType === "MP") {
       if (player.mp < skill.cost) {
         socket.emit("error", { message: `Insufficient MP for ${skill.name} (requires ${skill.cost} MP).` });
@@ -587,12 +593,16 @@ export class BattleTurnEngine extends AbstractGameEngine {
     for (const player of this.players) {
       player.wave = 1;
       player.soloMonster = spawnSoloMonster(player.level, player.wave);
-      player.ap = 0; // Reset AP for farming phase
+      player.ap = 0; // Reset stamina for farming phase
+      player.stamina = player.ap;
+      player.maxStamina = player.maxAp;
 
       this.io.to(player.id).emit("farming-state", {
         wave: player.wave,
         monster: player.soloMonster,
         ap: player.ap,
+        stamina: player.ap,
+        maxStamina: player.maxAp,
         mp: player.mp,
       });
     }
@@ -622,6 +632,8 @@ export class BattleTurnEngine extends AbstractGameEngine {
         wave: player.wave,
         monster: player.soloMonster,
         ap: player.ap,
+        stamina: player.ap,
+        maxStamina: player.maxAp,
         mp: player.mp,
       });
     }
@@ -674,6 +686,8 @@ export class BattleTurnEngine extends AbstractGameEngine {
       wave: player.wave,
       monster: player.soloMonster,
       ap: player.ap,
+      stamina: player.ap,
+      maxStamina: player.maxAp,
       mp: player.mp,
     });
   }
@@ -719,6 +733,7 @@ export class BattleTurnEngine extends AbstractGameEngine {
         return;
       }
       player.ap -= skill.cost;
+      player.stamina = player.ap;
     } else if (skill.costType === "MP") {
       if (player.mp < skill.cost) {
         socket.emit("error", { message: `Insufficient MP for ${skill.name}.` });
@@ -747,6 +762,8 @@ export class BattleTurnEngine extends AbstractGameEngine {
       wave: player.wave,
       monster: player.soloMonster,
       ap: player.ap,
+      stamina: player.ap,
+      maxStamina: player.maxAp,
       mp: player.mp,
     });
   }
@@ -836,13 +853,15 @@ export class BattleTurnEngine extends AbstractGameEngine {
 
     if (isCorrect) {
       player.correctAnswers++;
-      // Grant 20 AP, capped at maxAp
+      // Grant 20 stamina, capped at maxAp (legacy field name)
       player.ap = Math.min(player.maxAp, player.ap + 20);
+      player.stamina = player.ap;
+      player.maxStamina = player.maxAp;
       // 8.3 Mana Flow: increment mp by 5 on correct answer
       if (player.hasManaFlow) {
         player.mp = Math.min(player.maxMp, player.mp + 5);
       }
-      socket.emit("answer-result", { correct: true, apGain: 20 });
+      socket.emit("answer-result", { correct: true, apGain: 20, staminaGain: 20 });
 
       // In SOLO_FARMING, auto-deal damage
       if (this.battlePhase === "SOLO_FARMING") {

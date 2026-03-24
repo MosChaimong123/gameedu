@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { IdleEngine } from "@/lib/game/idle-engine";
 import { checkAndGrantAchievements } from "@/lib/game/achievement-engine";
-import { toPrismaJson } from "@/lib/game/game-stats";
 
 type SubmissionLite = {
   assignmentId: string;
@@ -137,12 +136,12 @@ export async function POST(
         stamina,
         mana,
         lastStaminaRefill: isNewDay ? now : student.lastStaminaRefill,
-        gameStats: toPrismaJson({
+        gameStats: {
           ...currentStats,
           gold: verifiedGold,
           level: xpSync.level,
           xp: xpSync.xp
-        }),
+        } as any,
         lastSyncTime: now,
       },
     });

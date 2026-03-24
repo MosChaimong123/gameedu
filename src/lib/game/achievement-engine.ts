@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { parseGameStats, toPrismaJson } from "./game-stats";
 
 export interface AchievementDef {
   id: string;
@@ -17,6 +18,35 @@ export interface StudentStats {
   enhancementsMax: number;  // highest enhancementLevel among items
   historyCount: number;
 }
+
+type AchievementRecord = {
+  achievementId: string;
+};
+
+type ChecklistItem = {
+  points?: number | null;
+};
+
+type SubmissionRecord = {
+  score: number;
+  assignment: {
+    type: string | null;
+    checklists: ChecklistItem[] | null;
+  } | null;
+};
+
+type StudentItemRecord = {
+  enhancementLevel?: number | null;
+};
+
+type AchievementStudent = {
+  points: number;
+  gameStats: unknown;
+  items: StudentItemRecord[];
+  achievements: AchievementRecord[];
+  history: Array<{ id: string }>;
+  submissions: SubmissionRecord[];
+};
 
 /** All achievement definitions (code-side, no DB table needed) */
 export const ACHIEVEMENTS: AchievementDef[] = [
@@ -101,17 +131,17 @@ export async function checkAndGrantAchievements(studentId: string): Promise<Achi
       submissions: { select: { score: true, assignment: { select: { type: true, checklists: true } } } },
       classroom: { select: { assignments: { select: { id: true } } } }
     }
-  });
+  }) as AchievementStudent | null;
 
   if (!student) return [];
 
   // 2. Build stats object
-  const unlockedIds = new Set(student.achievements.map((a: any) => a.achievementId));
+  const unlockedIds = new Set(student.achievements.map((a) => a.achievementId));
   
-  const academicTotal = (student.submissions as any[]).reduce((sum, sub) => {
-    if (sub.assignment?.type === 'checklist') {
-      const items = sub.assignment.checklists as any[] || [];
-      return sum + items.reduce((cs: number, item: any, i: number) => {
+  const academicTotal = student.submissions.reduce((sum, sub) => {
+    if (sub.assignment?.type === "checklist") {
+      const items = sub.assignment.checklists || [];
+      return sum + items.reduce((cs: number, item, i: number) => {
         const checked = (sub.score & (1 << i)) !== 0;
         return checked ? cs + (item.points || 1) : cs;
       }, 0);
@@ -124,7 +154,7 @@ export async function checkAndGrantAchievements(studentId: string): Promise<Achi
     academicTotal,
     bossesDefeated: student.history.length,
     itemsBought: student.items.length,
-    enhancementsMax: student.items.reduce((max: number, item: any) => Math.max(max, item.enhancementLevel || 0), 0),
+    enhancementsMax: student.items.reduce((max: number, item) => Math.max(max, item.enhancementLevel || 0), 0),
     historyCount: student.history.length,
   };
 
@@ -140,7 +170,7 @@ export async function checkAndGrantAchievements(studentId: string): Promise<Achi
 
   // 4. Grant rewards and save to DB
   const totalGold = newlyUnlocked.reduce((sum, a) => sum + a.goldReward, 0);
-  const currentStats = (student.gameStats as any) || { gold: 0 };
+  const currentStats = parseGameStats(student.gameStats);
 
   await db.$transaction([
     // Save achievements
@@ -157,7 +187,7 @@ export async function checkAndGrantAchievements(studentId: string): Promise<Achi
     db.student.update({
       where: { id: studentId },
       data: {
-        gameStats: { ...currentStats, gold: (currentStats.gold || 0) + totalGold } as any,
+        gameStats: toPrismaJson({ ...currentStats, gold: (currentStats.gold || 0) + totalGold }),
         history: {
           create: newlyUnlocked.map(a => ({
             reason: `🏆 ปลดล็อก Achievement: ${a.name}`,

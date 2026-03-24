@@ -10,6 +10,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { buildStudentItemStatSnapshot } from "./student-item-stats";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -216,7 +217,7 @@ export async function craftItem(
 
   const randomItem = items[Math.floor(Math.random() * items.length)];
 
-  // Atomic transaction: deduct material + create StudentItem
+  // Atomic transaction: deduct material + merge crafted item into inventory
   const newQuantity = materialRecord.quantity - required.quantity;
 
   const [, studentItem] = await prisma.$transaction([
@@ -228,20 +229,22 @@ export async function craftItem(
           where: { id: materialRecord.id },
           data: { quantity: newQuantity },
         }),
-    prisma.studentItem.create({
-      data: {
+    prisma.studentItem.upsert({
+      where: {
+        studentId_itemId: {
+          studentId,
+          itemId: randomItem.id,
+        },
+      },
+      update: {
+        quantity: { increment: 1 },
+      },
+      create: {
         studentId,
         itemId: randomItem.id,
         quantity: 1,
         enhancementLevel: 0,
-        hp: randomItem.baseHp ?? 0,
-        atk: randomItem.baseAtk ?? 0,
-        def: randomItem.baseDef ?? 0,
-        spd: randomItem.baseSpd ?? 0,
-        crit: randomItem.baseCrit ?? 0,
-        luck: randomItem.baseLuck ?? 0,
-        mag: randomItem.baseMag ?? 0,
-        mp: randomItem.baseMp ?? 0,
+        ...buildStudentItemStatSnapshot(randomItem, 0),
       },
     }),
   ]);

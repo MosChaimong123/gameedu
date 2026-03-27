@@ -3,6 +3,41 @@
  * Used by SummonBossDialog, boss API route, and idle-engine.
  */
 
+// ─── Boss Action System (Final Fantasy-style) ─────────────────────────────────
+
+export type BossActionType = "PHYSICAL" | "MAGIC" | "AOE_PHYSICAL" | "AOE_MAGIC" | "STATUS";
+export type PlayerStatusType = "POISON" | "BIND" | "BLIND" | "VULNERABLE";
+
+export interface BossAction {
+  id: string;
+  name: string;           // Thai display name
+  icon: string;           // emoji
+  description: string;    // shown in battle log
+  type: BossActionType;
+  target: "RANDOM" | "ALL";
+  baseDamage: number;     // battle-HP damage (0–100 scale); 0 = status only
+  statusEffect?: {
+    type: PlayerStatusType;
+    turns: number;
+  };
+  selfHealPct?: number;   // fraction of boss maxHp to restore
+  phaseUnlock?: 2 | 3 | 4; // only available from this phase onwards
+}
+
+export interface PlayerBattleState {
+  battleHp: number;       // 0–100
+  statusEffects: { type: PlayerStatusType; remainingTurns: number }[];
+}
+
+export interface BattleLogEntry {
+  id: string;
+  type: "PLAYER_ATTACK" | "PLAYER_MAGIC" | "BOSS_ACTION" | "STAGGER" | "PHASE_CHANGE" | "MISS";
+  text: string;
+  damage?: number;
+  isCrit?: boolean;
+  timestamp: number;
+}
+
 // ─── Effect Types ──────────────────────────────────────────────────────────────
 
 export type BossEffectType =
@@ -38,6 +73,7 @@ export interface BossPresetConfig {
   passiveDescription: string;
   passiveDamageMultiplier: number; // permanent incoming damage multiplier (e.g. 0.8 = take 80%)
   skills: [BossSkillConfig, BossSkillConfig, BossSkillConfig];
+  actions: BossAction[];  // FF-style attack rotation
 }
 
 // ─── Difficulty Tiers ─────────────────────────────────────────────────────────
@@ -172,6 +208,12 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
         durationSeconds: null,
       },
     ],
+    actions: [
+      { id: "flame_claw",   name: "กรงเล็บเพลิง",    icon: "🔥", description: "ข่วนด้วยกรงเล็บไฟ",             type: "AOE_PHYSICAL", target: "ALL",    baseDamage: 12 },
+      { id: "magma_ball",   name: "ลูกไฟแมกมา",      icon: "💣", description: "ยิงลูกไฟใส่เป้าหมาย",          type: "MAGIC",        target: "RANDOM", baseDamage: 22, statusEffect: { type: "VULNERABLE", turns: 1 } },
+      { id: "fire_breath",  name: "ลมหายใจเพลิง",    icon: "🌬️", description: "พ่นไฟใส่ทุกคน",                type: "AOE_MAGIC",    target: "ALL",    baseDamage: 18, phaseUnlock: 2 },
+      { id: "inferno_rage", name: "Inferno Rage",     icon: "😡", description: "คลุ้มคลั่งไฟ — ทำให้ตาบอด",   type: "STATUS",       target: "ALL",    baseDamage: 5,  statusEffect: { type: "BLIND", turns: 2 }, phaseUnlock: 3 },
+    ],
   },
 
   // ── 3. Frost King ────────────────────────────────────────────────────────────
@@ -218,6 +260,12 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
         effectValue: 0.70,
         durationSeconds: null,
       },
+    ],
+    actions: [
+      { id: "ice_lance",     name: "หอกน้ำแข็ง",       icon: "🗡️", description: "ปาหอกน้ำแข็งใส่เป้าหมาย",      type: "PHYSICAL",     target: "RANDOM", baseDamage: 20 },
+      { id: "frozen_grasp",  name: "กำมือแช่แข็ง",     icon: "🧊", description: "แช่แข็งเป้าหมาย ล็อคไม่ให้โจมตี", type: "STATUS",       target: "RANDOM", baseDamage: 0,  statusEffect: { type: "BIND", turns: 1 } },
+      { id: "blizzard_aoe",  name: "พายุหิมะ",          icon: "🌨️", description: "พายุหิมะโจมตีทุกคน",           type: "AOE_MAGIC",    target: "ALL",    baseDamage: 15, phaseUnlock: 2 },
+      { id: "frost_bite",    name: "Frost Bite",        icon: "❄️", description: "ทำให้ทุกคนติดพิษน้ำแข็ง",     type: "STATUS",       target: "ALL",    baseDamage: 8,  statusEffect: { type: "POISON", turns: 3 }, phaseUnlock: 3 },
     ],
   },
 
@@ -266,6 +314,12 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
         durationSeconds: null,
       },
     ],
+    actions: [
+      { id: "shadow_claw",    name: "กรงเล็บเงา",       icon: "👁️", description: "โจมตีจากเงามืด",               type: "PHYSICAL",   target: "RANDOM", baseDamage: 22 },
+      { id: "soul_leech",     name: "ดูดวิญญาณ",        icon: "💜", description: "ดูดพลังชีวิต — ทำให้เปราะบาง", type: "AOE_MAGIC",  target: "ALL",    baseDamage: 8,  statusEffect: { type: "VULNERABLE", turns: 2 } },
+      { id: "darkness_veil",  name: "ม่านความมืด",      icon: "🌑", description: "คลุมม่านมืด — ทำให้มองไม่เห็น", type: "STATUS",     target: "ALL",    baseDamage: 0,  statusEffect: { type: "BLIND", turns: 2 }, phaseUnlock: 2 },
+      { id: "death_touch",    name: "สัมผัสมรณะ",       icon: "💀", description: "สัมผัสชีวิต ดาเมจสูง",          type: "MAGIC",      target: "RANDOM", baseDamage: 35, phaseUnlock: 3 },
+    ],
   },
 
   // ── 5. Void Watcher ──────────────────────────────────────────────────────────
@@ -312,6 +366,12 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
         effectValue: 0.90,
         durationSeconds: null,
       },
+    ],
+    actions: [
+      { id: "void_blast",      name: "Void Blast",        icon: "🌀", description: "พลังงานความว่างเปล่า",          type: "MAGIC",      target: "RANDOM", baseDamage: 20 },
+      { id: "reality_warp",    name: "บิดเบือนความจริง",  icon: "🌌", description: "บิดพื้นที่ — ทำให้มองไม่เห็น", type: "AOE_MAGIC",  target: "ALL",    baseDamage: 10, statusEffect: { type: "BLIND", turns: 1 } },
+      { id: "void_drain",      name: "Void Drain",        icon: "💫", description: "ดูดพลังงาน — ฟื้นฟู HP บอส",    type: "AOE_MAGIC",  target: "ALL",    baseDamage: 5,  selfHealPct: 0.03, phaseUnlock: 2 },
+      { id: "dimension_slash", name: "Dimension Slash",   icon: "✂️", description: "ฟันข้ามมิติ ดาเมจสูงมาก",       type: "PHYSICAL",   target: "RANDOM", baseDamage: 38, phaseUnlock: 3 },
     ],
   },
 
@@ -360,6 +420,12 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
         durationSeconds: null,
       },
     ],
+    actions: [
+      { id: "bone_slam",   name: "กระดูกถล่ม",       icon: "🦴", description: "ฝนกระดูกใส่ทุกคน",              type: "AOE_PHYSICAL", target: "ALL",    baseDamage: 10 },
+      { id: "death_curse", name: "คำสาปมรณะ",        icon: "🩸", description: "สาปแช่งเป้าหมาย — ติดพิษ",      type: "STATUS",       target: "RANDOM", baseDamage: 5,  statusEffect: { type: "POISON", turns: 3 } },
+      { id: "death_ray",   name: "Death Ray",         icon: "☠️", description: "รังสีแห่งความตาย",              type: "MAGIC",        target: "RANDOM", baseDamage: 28, phaseUnlock: 2 },
+      { id: "mass_curse",  name: "คำสาปหมู่",         icon: "🌚", description: "สาปทุกคน — เปราะบางถ้วนหน้า",   type: "STATUS",       target: "ALL",    baseDamage: 0,  statusEffect: { type: "VULNERABLE", turns: 2 }, phaseUnlock: 3 },
+    ],
   },
 
   // ── 7. Celestial Guardian ────────────────────────────────────────────────────
@@ -406,6 +472,12 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
         effectValue: 1.20,
         durationSeconds: null,
       },
+    ],
+    actions: [
+      { id: "holy_smite",     name: "Holy Smite",      icon: "⚡", description: "ฟาดด้วยพลังแสง",               type: "MAGIC",       target: "RANDOM", baseDamage: 24 },
+      { id: "celestial_wave", name: "คลื่นสวรรค์",    icon: "✨", description: "คลื่นพลังสวรรค์โจมตีทุกคน",   type: "AOE_MAGIC",   target: "ALL",    baseDamage: 12 },
+      { id: "judgment",       name: "Judgment",        icon: "⚖️", description: "การพิพากษา — ล็อคทุกคน",       type: "STATUS",      target: "ALL",    baseDamage: 0,  statusEffect: { type: "BIND", turns: 1 }, phaseUnlock: 2 },
+      { id: "divine_wrath",   name: "Divine Wrath",    icon: "🌟", description: "พิโรธสวรรค์สูงสุด",            type: "MAGIC",       target: "RANDOM", baseDamage: 42, phaseUnlock: 3 },
     ],
   },
 
@@ -454,6 +526,12 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
         durationSeconds: null,
       },
     ],
+    actions: [
+      { id: "root_slam",     name: "รากทุบพื้น",      icon: "🌿", description: "รากยักษ์กระหน่ำทุกคน",          type: "AOE_PHYSICAL", target: "ALL",    baseDamage: 14 },
+      { id: "vine_bind",     name: "เถาเถาวัลย์",     icon: "🌱", description: "เถาไม้รัดเป้าหมาย — ล็อค",       type: "STATUS",       target: "RANDOM", baseDamage: 5,  statusEffect: { type: "BIND", turns: 1 } },
+      { id: "nature_wrath",  name: "ความพิโรธธรรมชาติ", icon: "🍃", description: "พิษธรรมชาติโจมตีทุกคน",       type: "AOE_MAGIC",    target: "ALL",    baseDamage: 16, statusEffect: { type: "POISON", turns: 2 }, phaseUnlock: 2 },
+      { id: "ancient_slam",  name: "Ancient Slam",    icon: "💥", description: "ทุบพื้นด้วยพลังโบราณ",           type: "PHYSICAL",     target: "RANDOM", baseDamage: 32, phaseUnlock: 3 },
+    ],
   },
 ];
 
@@ -481,6 +559,27 @@ export const DIFFICULTY_MATERIALS: Record<string, { type: string; quantity: numb
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Calculate boss phase (1-4) from current HP percentage */
+export function getBossPhase(currentHp: number, maxHp: number): 1 | 2 | 3 | 4 {
+  const pct = currentHp / maxHp;
+  if (pct > 0.75) return 1;
+  if (pct > 0.50) return 2;
+  if (pct > 0.25) return 3;
+  return 4;
+}
+
+/** Get boss turn interval (attacks received before boss acts) by phase */
+export function getBossTurnInterval(phase: 1 | 2 | 3 | 4): number {
+  if (phase >= 4) return 3;
+  if (phase === 3) return 4;
+  return 5;
+}
+
+/** Get available actions for a given phase */
+export function getActionsForPhase(actions: BossAction[], phase: number): BossAction[] {
+  return actions.filter((a) => !a.phaseUnlock || a.phaseUnlock <= phase);
+}
 
 export function getBossPreset(id: string): BossPresetConfig | undefined {
   return BOSS_PRESETS.find((b) => b.id === id);

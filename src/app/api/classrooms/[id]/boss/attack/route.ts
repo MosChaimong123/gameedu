@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { IdleEngine } from "@/lib/game/idle-engine";
 import { applyJobSkillUnlocksOnLevelUp } from "@/lib/game/job-system";
 import { getElementMultiplier, getJobElement, getElementLabel } from "@/lib/game/element-system";
+import { getBossPreset } from "@/lib/game/boss-config";
+import { getBossRaidTemplate } from "@/lib/game/personal-classroom-boss";
 import { trackQuestEvent } from "@/lib/game/quest-engine";
 
 export async function POST(
@@ -18,19 +20,24 @@ export async function POST(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const body = await req.json().catch(() => ({})) as { limitBreak?: boolean };
+        const body = await req.json().catch(() => ({})) as {
+            limitBreak?: boolean;
+            action?: "magic" | "attack";
+        };
         const isLimitBreak = body.limitBreak === true;
+        const isMagicAction = body.action === "magic";
 
-        // 1. Get student
         const student = await db.student.findFirst({
             where: { classId, userId: session.user.id },
             select: {
                 id: true,
+                name: true,
                 gameStats: true,
                 jobClass: true,
                 jobTier: true,
                 advanceClass: true,
                 jobSkills: true,
+                mana: true,
             }
         });
 
@@ -42,35 +49,40 @@ export async function POST(
         const currentStats = (student.gameStats as any) || IdleEngine.getDefaultStats();
         const currentCharge: number = currentStats.limitBreakCharge ?? 0;
 
-        // Validate Limit Break usage
         if (isLimitBreak && currentCharge < 100) {
             return NextResponse.json({ error: "Limit Break not ready" }, { status: 400 });
         }
 
-        // 2. Get boss element for multiplier
+        const currentMana: number = student.mana ?? 0;
+        if (isMagicAction && currentMana < 20) {
+            return NextResponse.json({ error: "MP ไม่พอ (ต้องการ 20 MP)" }, { status: 400 });
+        }
+
         const classroom = await db.classroom.findUnique({
             where: { id: classId },
             select: { gamifiedSettings: true }
         });
         const settings = (classroom?.gamifiedSettings ?? {}) as Record<string, unknown>;
-        const boss = settings.boss as Record<string, unknown> | undefined;
-        const bossElementKey = (boss?.elementKey as string | undefined) ?? null;
+        const template = getBossRaidTemplate(settings);
+        const preset = template?.bossId ? getBossPreset(template.bossId) : null;
+        const bossElementKey =
+            template?.elementKey ?? preset?.elementKey ?? null;
 
         const elementMultiplier = getElementMultiplier(student.jobClass, bossElementKey);
 
-        // 3. Apply Boss Damage
         const result = await IdleEngine.applyBossDamage(classId, student.id, {
-            consumeStamina: true,
+            consumeStamina: !isMagicAction,
             elementMultiplier,
             isLimitBreak,
             jobClass: student.jobClass,
+            isMagicAttack: isMagicAction,
+            studentName: student.name ?? undefined,
         });
 
         if (result.error) {
             return NextResponse.json({ error: result.error }, { status: 400 });
         }
 
-        // 4. Update limitBreakCharge: reset on use, or increment by chargeGain
         let newCharge: number;
         if (isLimitBreak) {
             newCharge = 0;
@@ -78,7 +90,6 @@ export async function POST(
             newCharge = Math.min(100, currentCharge + (result.limitBreakChargeGain ?? 0));
         }
 
-        // 5. Grant XP for attacking (20 XP per hit)
         const xpGain = 20;
         const xpResult = IdleEngine.calculateXpGain(currentStats, xpGain);
 
@@ -100,11 +111,11 @@ export async function POST(
             data: {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 gameStats: { ...currentStats, level: xpResult.level, xp: xpResult.xp, limitBreakCharge: newCharge } as any,
+                ...(isMagicAction ? { mana: { decrement: 20 } } : {}),
                 ...(updatedJobSkills ? { jobSkills: updatedJobSkills } : {})
             }
         });
 
-        // 6. Track quest event (fire-and-forget)
         void trackQuestEvent(student.id, "BOSS_ATTACK");
 
         return NextResponse.json({
@@ -112,7 +123,9 @@ export async function POST(
             damage: result.damage,
             isCrit: result.isCrit,
             staminaLeft: result.staminaLeft,
+            manaLeft: isMagicAction ? currentMana - 20 : currentMana,
             boss: result.boss,
+            targetInstanceId: result.targetInstanceId,
             xpGained: xpGain,
             leveledUp: xpResult.leveledUp,
             elementMultiplier,
@@ -125,6 +138,15 @@ export async function POST(
             limitBreakCharge: newCharge,
             comboLabel: result.comboLabel ?? "",
             comboMult: result.comboMult ?? 1.0,
+            // FF battle system extras
+            isMiss: result.isMiss ?? false,
+            justStaggered: result.justStaggered ?? false,
+            isStaggered: result.isStaggered ?? false,
+            staggerGauge: result.staggerGauge ?? 0,
+            executedBossAction: result.executedBossAction ?? null,
+            playerBattleState: result.playerBattleState ?? null,
+            battleLog: result.battleLog ?? [],
+            phase: result.phase ?? 1,
         });
 
     } catch (error) {

@@ -14,7 +14,26 @@ import {
   type Skill,
 } from "./job-system";
 import { toPrismaJson } from "./game-stats";
-import { getTriggeredSkills, getBossPreset, type BossSkillConfig } from "./boss-config";
+import {
+  getTriggeredSkills,
+  getBossPreset,
+  getBossPhase,
+  getBossTurnInterval,
+  getActionsForPhase,
+  type BossSkillConfig,
+  type BossAction,
+  type PlayerBattleState,
+  type BattleLogEntry,
+  type PlayerStatusType,
+} from "./boss-config";
+import {
+  getBossRaidTemplate,
+  getPersonalBossFromStats,
+  mergeGameStatsWithPersonalBoss,
+  spawnPersonalBossFromTemplate,
+  type BossRaidTemplate,
+  type PersonalClassroomBoss,
+} from "./personal-classroom-boss";
 import { trackQuestEvent } from "./quest-engine";
 import { getComboMultiplier } from "./element-system";
 import {
@@ -66,6 +85,8 @@ export interface GameStats {
     def?: number;
     spd?: number;
   };
+  /** Per-student classroom boss HP (not shared with classmates) */
+  personalClassroomBoss?: unknown;
   farming?: {
     currentWave: number;
     monster: SoloMonster;
@@ -153,6 +174,7 @@ type BossState = {
 
 type GamifiedSettings = {
   boss?: BossState;
+  bosses?: BossState[];
 };
 
 type BossClassroom = {
@@ -242,6 +264,7 @@ type BossRewardStudent = {
 type BossRewardUpdateData = {
   points: { increment: number };
   gameStats: Prisma.InputJsonValue;
+  stamina?: { decrement: number };
   history: {
     create: HistoryCreateInput;
   };
@@ -574,10 +597,8 @@ export class IdleEngine {
   }
 
   /**
-   * Applies damage to the world boss in a classroom.
-   * Now requires studentId to handle stamina consumption.
-   * @param options.damageOverride Optional fixed damage (e.g. from assignment)
-   * @param options.consumeStamina Whether to consume stamina (default: true)
+   * Applies damage to this student's personal classroom boss (HP stored on student.gameStats).
+   * Classroom only holds a shared template (bossRaidTemplate); each student has their own HP bar.
    */
   static async applyBossDamage(
     classId: string,
@@ -588,33 +609,36 @@ export class IdleEngine {
       elementMultiplier?: number;
       isLimitBreak?: boolean;
       jobClass?: string | null;
+      isMagicAttack?: boolean;
+      studentName?: string;
     } = { consumeStamina: true }
   ) {
     try {
       const consumeStamina = options.consumeStamina ?? true;
-      const MAX_RETRIES = 3;
-      const RETRY_CONFLICT_ERROR = "BOSS_CONFLICT_RETRY";
 
-      // 1. Fetch student once for damage calculation baseline
       const student = await db.student.findUnique({
         where: { id: studentId },
         select: {
           points: true,
           items: { include: { item: true }, where: { isEquipped: true } },
           stamina: true,
-          gameStats: true
-        }
-      }) as BossStudent | null;
+          gameStats: true,
+          classId: true,
+        },
+      }) as (BossStudent & { classId: string }) | null;
 
-      if (consumeStamina && (!student || student.stamina <= 0)) {
+      if (!student || student.classId !== classId) {
+        return { error: "Student not found" };
+      }
+
+      if (consumeStamina && student.stamina <= 0) {
         return { error: "Insufficient stamina" };
       }
 
-      // 2. Calculate Damage once to avoid inconsistent rerolls across retries
       let damage = 0;
       let isCrit = false;
 
-      if (typeof options.damageOverride === 'number') {
+      if (typeof options.damageOverride === "number") {
         damage = options.damageOverride;
       } else {
         const stats = this.parseGameStats(student?.gameStats);
@@ -623,245 +647,419 @@ export class IdleEngine {
         isCrit = battleResult.isCrit;
       }
 
-      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-        try {
-          const txResult = await db.$transaction(async (tx) => {
-            // Always read latest state inside transaction
-            const classroom = await tx.classroom.findUnique({
-              where: { id: classId },
-              select: { gamifiedSettings: true, updatedAt: true }
-            }) as BossClassroom | null;
+      const txResult = await db.$transaction(async (tx) => {
+        const classroom = await tx.classroom.findUnique({
+          where: { id: classId },
+          select: { gamifiedSettings: true },
+        });
 
-            if (!classroom) {
-              return { error: "Classroom not found" } as const;
-            }
-
-            const settings = classroom?.gamifiedSettings ?? {};
-            if (!settings.boss?.active || settings.boss.currentHp <= 0) {
-              return { error: "No active boss" } as const;
-            }
-
-            // Guarded stamina decrement prevents negative stamina under concurrency
-            if (consumeStamina) {
-              const staminaUpdate = await tx.student.updateMany({
-                where: { id: studentId, stamina: { gte: 1 } },
-                data: { stamina: { decrement: 1 } }
-              });
-              if (staminaUpdate.count === 0) {
-                return { error: "Insufficient stamina" } as const;
-              }
-            }
-
-            // Apply passive + element + active damage multipliers from boss config
-            let effectiveDamage = damage;
-            const bossState = settings.boss as BossState;
-            const passive = bossState.passiveDamageMultiplier ?? 1.0;
-            const elemMult = options.elementMultiplier ?? 1.0;
-            effectiveDamage = Math.floor(effectiveDamage * passive * elemMult);
-
-            const activeEffect = bossState.activeEffect;
-            const now = Date.now();
-            const effectActive = activeEffect && (
-              activeEffect.expiresAt === null ||
-              new Date(activeEffect.expiresAt).getTime() > now
-            );
-
-            // ── Limit Break: if isLimitBreak, skip DAMAGE_REDUCTION/CRIT_IMMUNITY and deal ×3 ──
-            if (options.isLimitBreak) {
-              effectiveDamage = Math.floor(damage * passive * elemMult * 3);
-            } else {
-              if (effectActive) {
-                if (activeEffect.type === "DAMAGE_REDUCTION") {
-                  effectiveDamage = Math.floor(effectiveDamage * (1 - activeEffect.effectValue));
-                } else if (activeEffect.type === "DAMAGE_AMPLIFY") {
-                  effectiveDamage = Math.floor(effectiveDamage * (1 + activeEffect.effectValue));
-                } else if (activeEffect.type === "CRIT_IMMUNITY") {
-                  if (isCrit) effectiveDamage = Math.floor(effectiveDamage / 2);
-                }
-                // XP_REDUCTION / GOLD_BOOST / STAMINA_DOUBLE handled at reward time
-              }
-            }
-
-            // ── Party Combo Bonus ────────────────────────────────────────────────────
-            const recentAttacks: { jobClass: string; timestamp: number }[] =
-              (bossState as unknown as Record<string, unknown>).recentAttacks as { jobClass: string; timestamp: number }[] ?? [];
-            const recentWindow = recentAttacks.filter((a) => now - a.timestamp <= 10000);
-            const recentJobClasses = recentWindow.map((a) => a.jobClass).filter(Boolean);
-            const { multiplier: comboMult, label: comboLabel } = getComboMultiplier(
-              options.jobClass,
-              recentJobClasses
-            );
-            if (comboMult > 1.0) {
-              effectiveDamage = Math.floor(effectiveDamage * comboMult);
-            }
-
-            // Push current attack to recentAttacks (trim to last 10)
-            const updatedRecentAttacks = [
-              ...recentWindow,
-              ...(options.jobClass ? [{ jobClass: options.jobClass, timestamp: now }] : []),
-            ].slice(-10);
-
-            // Calculate Limit Break charge gain from boss active effects / elemental weakness
-            let limitBreakChargeGain = 0;
-            if (!options.isLimitBreak) {
-              if (effectActive) {
-                if (activeEffect.type === "DAMAGE_REDUCTION") limitBreakChargeGain = 30;
-                else if (activeEffect.type === "STAMINA_DOUBLE") limitBreakChargeGain = 25;
-                else if (activeEffect.type === "XP_REDUCTION") limitBreakChargeGain = 20;
-                else if (activeEffect.type === "CRIT_IMMUNITY") limitBreakChargeGain = 20;
-              }
-              if ((options.elementMultiplier ?? 1.0) < 1.0) limitBreakChargeGain += 15;
-            }
-
-            effectiveDamage = Math.max(1, effectiveDamage);
-
-            const prevHp = bossState.currentHp;
-            const newHp = Math.max(0, prevHp - effectiveDamage);
-            const isDefeated = prevHp > 0 && newHp <= 0;
-            const alreadyDistributed = Boolean(bossState.rewardDistributedAt);
-
-            // Check which boss skills trigger at this HP crossing
-            const triggeredSkills = bossState.triggeredSkills ?? [];
-            const newlyTriggered: BossSkillConfig[] = bossState.bossId
-              ? getTriggeredSkills(bossState.bossId, bossState.maxHp ?? prevHp, prevHp, newHp, triggeredSkills)
-              : [];
-
-            // Build updated active effect from newest triggered skill (last one wins)
-            let newActiveEffect: BossActiveEffect | null = activeEffect && effectActive ? activeEffect : null;
-            if (newlyTriggered.length > 0) {
-              const latestSkill = newlyTriggered[newlyTriggered.length - 1];
-              if (latestSkill.effectType === "HP_REGEN") {
-                // HP_REGEN: apply immediately inside transaction
-                const regenHp = Math.min(
-                  prevHp + Math.floor((bossState.maxHp ?? prevHp) * latestSkill.effectValue),
-                  bossState.maxHp ?? prevHp
-                );
-                // newHp was already computed; adjust it upward by regen
-                const regenAdjusted = Math.min(regenHp, bossState.maxHp ?? prevHp);
-                // We'll store this intent and apply below
-                newActiveEffect = null; // No ongoing effect for HP_REGEN
-                (newlyTriggered as any)._regenHp = regenAdjusted;
-              } else {
-                const expiresAt = latestSkill.durationSeconds !== null
-                  ? new Date(now + latestSkill.durationSeconds * 1000).toISOString()
-                  : null;
-                newActiveEffect = {
-                  type: latestSkill.effectType,
-                  effectValue: latestSkill.effectValue,
-                  expiresAt,
-                  skillId: latestSkill.id,
-                  skillName: latestSkill.name,
-                  skillIcon: latestSkill.icon,
-                };
-              }
-            }
-
-            const regenHp: number | null = (newlyTriggered as any)._regenHp ?? null;
-            const finalHp = regenHp !== null ? regenHp : newHp;
-
-            // Optimistic concurrency check by updatedAt to avoid lost updates
-            const classroomUpdate = await tx.classroom.updateMany({
-              where: {
-                id: classId,
-                updatedAt: classroom.updatedAt
-              },
-              data: {
-                gamifiedSettings: {
-                  ...settings,
-                  boss: {
-                    ...settings.boss,
-                    currentHp: finalHp,
-                    active: finalHp > 0,
-                    triggeredSkills: [...triggeredSkills, ...newlyTriggered.map((s) => s.id)],
-                    activeEffect: newActiveEffect,
-                    recentAttacks: updatedRecentAttacks,
-                    ...(isDefeated && !alreadyDistributed
-                      ? { rewardDistributedAt: new Date().toISOString() }
-                      : {})
-                  }
-                }
-              }
-            });
-
-            if (classroomUpdate.count === 0) {
-              throw new Error(RETRY_CONFLICT_ERROR);
-            }
-
-            // If this request is responsible for the first defeat distribution,
-            // distribute rewards inside the same transaction to keep it atomic.
-            if (isDefeated && !alreadyDistributed) {
-              await this.distributeBossRewardsTx(tx, classId, {
-                ...settings.boss,
-                rewardDistributedAt: new Date().toISOString()
-              } as BossState);
-            }
-
-            const [updatedClassroom, updatedStudent] = await Promise.all([
-              tx.classroom.findUnique({
-                where: { id: classId },
-                select: { gamifiedSettings: true }
-              }),
-              consumeStamina
-                ? tx.student.findUnique({
-                    where: { id: studentId },
-                    select: { stamina: true }
-                  })
-                : Promise.resolve(null)
-            ]);
-
-            return {
-              boss: (updatedClassroom?.gamifiedSettings as GamifiedSettings)?.boss,
-              staminaLeft: updatedStudent?.stamina ?? student?.stamina ?? 0,
-              isDefeated,
-              triggeredSkills: newlyTriggered,
-              effectiveDamage,
-              comboMult,
-              comboLabel,
-              limitBreakChargeGain,
-            } as const;
-          });
-
-          if ("error" in txResult) {
-            return { error: txResult.error };
-          }
-
-          // After transaction: fire BOSS_KILL quest events for all students in class
-          if (txResult.isDefeated) {
-            void (async () => {
-              try {
-                const allStudents = await db.student.findMany({
-                  where: { classId },
-                  select: { id: true },
-                });
-                await Promise.all(
-                  allStudents.map((s) => trackQuestEvent(s.id, "BOSS_KILL"))
-                );
-              } catch { /* non-critical */ }
-            })();
-          }
-
-          return {
-            boss: txResult.boss,
-            damage: txResult.effectiveDamage,
-            isCrit,
-            staminaLeft: txResult.staminaLeft,
-            triggeredSkills: txResult.triggeredSkills,
-            comboMult: txResult.comboMult,
-            comboLabel: txResult.comboLabel,
-            limitBreakChargeGain: txResult.limitBreakChargeGain,
-          };
-        } catch (error: unknown) {
-          if (error instanceof Error && error.message === RETRY_CONFLICT_ERROR && attempt < MAX_RETRIES - 1) {
-            continue;
-          }
-          throw error;
+        if (!classroom) {
+          return { error: "Classroom not found" } as const;
         }
+
+        const template = getBossRaidTemplate(
+          (classroom.gamifiedSettings ?? {}) as Record<string, unknown>
+        );
+        if (!template) {
+          return { error: "No active boss" } as const;
+        }
+
+        const studentRow = await tx.student.findUnique({
+          where: { id: studentId },
+          select: { id: true, gameStats: true, stamina: true, classId: true },
+        });
+
+        if (!studentRow || studentRow.classId !== classId) {
+          return { error: "Student not found" } as const;
+        }
+
+        if (consumeStamina && (!studentRow.stamina || studentRow.stamina < 1)) {
+          return { error: "Insufficient stamina" } as const;
+        }
+
+        let personal = getPersonalBossFromStats(studentRow.gameStats);
+        if (!personal || personal.templateId !== template.templateId) {
+          personal = spawnPersonalBossFromTemplate(template);
+        }
+
+        if (personal.active === false || Number(personal.currentHp) <= 0) {
+          return { error: "No active boss" } as const;
+        }
+
+        // ── FF: Player battle state ────────────────────────────────────────────
+        const playerBattleState: PlayerBattleState = personal.playerBattleState ?? { battleHp: 100, statusEffects: [] };
+
+        // Decrement status turns (each call = 1 turn)
+        const activeStatuses = playerBattleState.statusEffects
+          .map((e) => ({ ...e, remainingTurns: e.remainingTurns - 1 }))
+          .filter((e) => e.remainingTurns > 0) as PlayerBattleState["statusEffects"];
+
+        // BIND: cannot attack this turn
+        if (activeStatuses.some((e) => e.type === "BIND")) {
+          // Persist decremented statuses and return error
+          const boundPatch: PersonalClassroomBoss = {
+            ...(personal as PersonalClassroomBoss),
+            playerBattleState: { ...playerBattleState, statusEffects: activeStatuses },
+          };
+          await tx.student.update({
+            where: { id: studentId },
+            data: { gameStats: toPrismaJson(mergeGameStatsWithPersonalBoss(studentRow.gameStats, boundPatch)) },
+          });
+          return { error: "ถูกล็อค! ไม่สามารถโจมตีได้ในรอบนี้" } as const;
+        }
+
+        const bossState = { ...(personal as unknown as BossState) };
+
+        let effectiveDamage = damage;
+        const passive = bossState.passiveDamageMultiplier ?? 1.0;
+        const elemMult = options.elementMultiplier ?? 1.0;
+        effectiveDamage = Math.floor(effectiveDamage * passive * elemMult);
+
+        const activeEffect = bossState.activeEffect as BossActiveEffect | null | undefined;
+        const now = Date.now();
+        const effectActive =
+          activeEffect &&
+          (activeEffect.expiresAt === null ||
+            new Date(activeEffect.expiresAt).getTime() > now);
+
+        if (options.isLimitBreak) {
+          effectiveDamage = Math.floor(damage * passive * elemMult * 3);
+        } else {
+          if (effectActive && activeEffect) {
+            if (activeEffect.type === "DAMAGE_REDUCTION") {
+              effectiveDamage = Math.floor(effectiveDamage * (1 - activeEffect.effectValue));
+            } else if (activeEffect.type === "DAMAGE_AMPLIFY") {
+              effectiveDamage = Math.floor(effectiveDamage * (1 + activeEffect.effectValue));
+            } else if (activeEffect.type === "CRIT_IMMUNITY") {
+              if (isCrit) effectiveDamage = Math.floor(effectiveDamage / 2);
+            }
+          }
+        }
+
+        const recentAttacks: { jobClass: string; timestamp: number }[] =
+          ((personal as unknown as Record<string, unknown>).recentAttacks as {
+            jobClass: string;
+            timestamp: number;
+          }[]) ?? [];
+        const recentWindow = recentAttacks.filter((a) => now - a.timestamp <= 10000);
+        const recentJobClasses = recentWindow.map((a) => a.jobClass).filter(Boolean);
+        const { multiplier: comboMult, label: comboLabel } = getComboMultiplier(
+          options.jobClass,
+          recentJobClasses
+        );
+        if (comboMult > 1.0) {
+          effectiveDamage = Math.floor(effectiveDamage * comboMult);
+        }
+
+        const updatedRecentAttacks = [
+          ...recentWindow,
+          ...(options.jobClass ? [{ jobClass: options.jobClass, timestamp: now }] : []),
+        ].slice(-10);
+
+        let limitBreakChargeGain = 0;
+        if (!options.isLimitBreak) {
+          if (effectActive && activeEffect) {
+            if (activeEffect.type === "DAMAGE_REDUCTION") limitBreakChargeGain = 30;
+            else if (activeEffect.type === "STAMINA_DOUBLE") limitBreakChargeGain = 25;
+            else if (activeEffect.type === "XP_REDUCTION") limitBreakChargeGain = 20;
+            else if (activeEffect.type === "CRIT_IMMUNITY") limitBreakChargeGain = 20;
+          }
+          if ((options.elementMultiplier ?? 1.0) < 1.0) limitBreakChargeGain += 15;
+        }
+
+        // ── FF: BLIND miss check ───────────────────────────────────────────────
+        const isBlind = activeStatuses.some((e) => e.type === "BLIND");
+        const isMiss = !options.isLimitBreak && isBlind && Math.random() < 0.5;
+        if (isMiss) effectiveDamage = 0;
+        else effectiveDamage = Math.max(1, effectiveDamage);
+
+        // ── FF: POISON self-damage ─────────────────────────────────────────────
+        const isPoisoned = activeStatuses.some((e) => e.type === "POISON");
+        const poisonDamage = isPoisoned ? 8 : 0;
+        const newPlayerBattleHp = Math.max(0, (playerBattleState.battleHp ?? 100) - poisonDamage);
+
+        const prevHp = bossState.currentHp;
+        const newHp = Math.max(0, prevHp - effectiveDamage);
+        const isDefeated = prevHp > 0 && newHp <= 0;
+        const alreadyDistributed = Boolean(bossState.rewardDistributedAt);
+
+        const triggeredSkills = bossState.triggeredSkills ?? [];
+        const newlyTriggered: BossSkillConfig[] = bossState.bossId
+          ? getTriggeredSkills(
+              bossState.bossId,
+              bossState.maxHp ?? prevHp,
+              prevHp,
+              newHp,
+              triggeredSkills
+            )
+          : [];
+
+        let newActiveEffect: BossActiveEffect | null =
+          activeEffect && effectActive ? activeEffect : null;
+        if (newlyTriggered.length > 0) {
+          const latestSkill = newlyTriggered[newlyTriggered.length - 1];
+          if (latestSkill.effectType === "HP_REGEN") {
+            const regenHp = Math.min(
+              prevHp + Math.floor((bossState.maxHp ?? prevHp) * latestSkill.effectValue),
+              bossState.maxHp ?? prevHp
+            );
+            const regenAdjusted = Math.min(regenHp, bossState.maxHp ?? prevHp);
+            newActiveEffect = null;
+            (newlyTriggered as any)._regenHp = regenAdjusted;
+          } else {
+            const expiresAt =
+              latestSkill.durationSeconds !== null
+                ? new Date(now + latestSkill.durationSeconds * 1000).toISOString()
+                : null;
+            newActiveEffect = {
+              type: latestSkill.effectType,
+              effectValue: latestSkill.effectValue,
+              expiresAt,
+              skillId: latestSkill.id,
+              skillName: latestSkill.name,
+              skillIcon: latestSkill.icon,
+            };
+          }
+        }
+
+        const regenHp: number | null = (newlyTriggered as any)._regenHp ?? null;
+        const finalHp = regenHp !== null ? regenHp : newHp;
+
+        // ── FF: Stagger System ─────────────────────────────────────────────────
+        const prevStagger = personal.staggerGauge ?? 0;
+        const prevIsStaggered = personal.isStaggered ?? false;
+        const staggerExpiry = personal.staggerExpiry ?? null;
+        const staggerActive = prevIsStaggered && staggerExpiry !== null && staggerExpiry > now;
+
+        let newStaggerGauge = prevStagger;
+        let newIsStaggered = staggerActive;
+        let newStaggerExpiry: number | null = staggerActive ? staggerExpiry : null;
+        let justStaggered = false;
+
+        if (!isMiss && !isDefeated) {
+          if (staggerActive) {
+            // During stagger: gauge drains
+            newStaggerGauge = Math.max(0, prevStagger - 15);
+            if (newStaggerGauge === 0) { newIsStaggered = false; newStaggerExpiry = null; }
+          } else {
+            // Fill stagger gauge
+            const staggerGain = options.isMagicAttack ? 18 : (options.elementMultiplier ?? 1) > 1 ? 15 : 10;
+            newStaggerGauge = Math.min(100, prevStagger + staggerGain);
+            if (newStaggerGauge >= 100) {
+              newIsStaggered = true;
+              newStaggerExpiry = now + 30000;
+              newStaggerGauge = 0;
+              justStaggered = true;
+              effectiveDamage = Math.floor(effectiveDamage * 2); // stagger bonus ×2
+            }
+          }
+        }
+
+        // ── FF: Boss Turn System ───────────────────────────────────────────────
+        const bossPreset = personal.bossId ? getBossPreset(personal.bossId) : null;
+        const totalAttacks = (personal.totalAttacksReceived ?? 0) + 1;
+        const phase = getBossPhase(finalHp, personal.maxHp);
+        const turnInterval = getBossTurnInterval(phase);
+        const prevIndex = personal.actionQueueIndex ?? 0;
+
+        let executedBossAction: BossAction | null = null;
+        let updatedPlayerState: PlayerBattleState = {
+          battleHp: newPlayerBattleHp,
+          statusEffects: activeStatuses,
+        };
+        const logEntries: BattleLogEntry[] = [...(personal.battleLog ?? [])];
+
+        // Add player attack to log
+        if (!isMiss) {
+          logEntries.push({
+            id: `${now}-atk`,
+            type: options.isMagicAttack ? "PLAYER_MAGIC" : "PLAYER_ATTACK",
+            text: options.isMagicAttack
+              ? `🔮 ${options.studentName ?? "คุณ"} ใช้ Magic ${effectiveDamage} DMG${isCrit ? " (Crit!)" : ""}${justStaggered ? " 💥 STAGGER!" : ""}`
+              : `⚔️ ${options.studentName ?? "คุณ"} โจมตี ${effectiveDamage} DMG${isCrit ? " (Crit!)" : ""}${justStaggered ? " 💥 STAGGER!" : ""}`,
+            damage: effectiveDamage,
+            isCrit,
+            timestamp: now,
+          });
+        } else {
+          logEntries.push({ id: `${now}-miss`, type: "MISS", text: "💨 พลาด! (Blind)", timestamp: now });
+        }
+
+        // Boss acts every N hits (skip during stagger)
+        let bossHeal = 0;
+        if (!staggerActive && !isDefeated && totalAttacks % turnInterval === 0 && bossPreset?.actions) {
+          const availableActions = getActionsForPhase(bossPreset.actions, phase);
+          if (availableActions.length > 0) {
+            const actionIdx = prevIndex % availableActions.length;
+            executedBossAction = availableActions[actionIdx];
+
+            // Apply boss action effects to player
+            let hitDamage = Math.floor(executedBossAction.baseDamage * (1 + (phase - 1) * 0.2));
+            const isVulnerable = updatedPlayerState.statusEffects.some((e) => e.type === "VULNERABLE");
+            if (isVulnerable) hitDamage = Math.floor(hitDamage * 1.5);
+
+            const newBattleHp = Math.max(0, updatedPlayerState.battleHp - hitDamage);
+            let newEffects = [...updatedPlayerState.statusEffects.filter((e) => e.type !== "VULNERABLE")];
+
+            if (executedBossAction.statusEffect) {
+              newEffects.push({
+                type: executedBossAction.statusEffect.type,
+                remainingTurns: executedBossAction.statusEffect.turns,
+              });
+            }
+
+            // KO → BIND 2 turns
+            if (newBattleHp <= 0) {
+              newEffects = newEffects.filter((e) => e.type !== "BIND");
+              newEffects.push({ type: "BIND", remainingTurns: 2 });
+            }
+
+            // Boss self-heal
+            if (executedBossAction.selfHealPct) {
+              bossHeal = Math.floor(personal.maxHp * executedBossAction.selfHealPct);
+            }
+
+            updatedPlayerState = { battleHp: Math.max(0, newBattleHp), statusEffects: newEffects };
+
+            logEntries.push({
+              id: `${now}-boss`,
+              type: "BOSS_ACTION",
+              text: `${executedBossAction.icon} ${personal.name}: ${executedBossAction.name} — ${executedBossAction.description}${hitDamage > 0 ? ` (−${hitDamage} HP)` : ""}`,
+              damage: hitDamage,
+              timestamp: now,
+            });
+          }
+        }
+
+        // Phase change announcement
+        const prevPhase = getBossPhase(prevHp, personal.maxHp);
+        if (phase > prevPhase) {
+          logEntries.push({
+            id: `${now}-phase`,
+            type: "PHASE_CHANGE",
+            text: `⚠️ Phase ${phase}! ${personal.name} เข้าสู่ช่วงอันตราย!`,
+            timestamp: now,
+          });
+        }
+
+        // Keep only last 15 entries
+        const trimmedLog = logEntries.slice(-15);
+
+        // Apply boss self-heal to finalHp
+        const finalHpWithHeal = Math.min(personal.maxHp, finalHp + bossHeal);
+
+        const mergedPatch: PersonalClassroomBoss = {
+          ...(personal as PersonalClassroomBoss),
+          currentHp: finalHpWithHeal,
+          active: finalHpWithHeal > 0,
+          triggeredSkills: [...triggeredSkills, ...newlyTriggered.map((s) => s.id)],
+          activeEffect: newActiveEffect,
+          recentAttacks: updatedRecentAttacks,
+          staggerGauge: newStaggerGauge,
+          isStaggered: newIsStaggered,
+          staggerExpiry: newStaggerExpiry,
+          totalAttacksReceived: totalAttacks,
+          actionQueueIndex: (prevIndex + (executedBossAction ? 1 : 0)) % Math.max(1, bossPreset?.actions?.length ?? 1),
+          playerBattleState: updatedPlayerState,
+          battleLog: trimmedLog,
+          ...(isDefeated && !alreadyDistributed
+            ? { rewardDistributedAt: new Date().toISOString() }
+            : {}),
+        };
+
+        if (isDefeated && !alreadyDistributed) {
+          await this.distributeBossRewardsTx(
+            tx,
+            classId,
+            mergedPatch as unknown as BossState,
+            studentId,
+            { clearPersonalBoss: true, staminaDecrement: consumeStamina }
+          );
+        } else if (!isDefeated) {
+          await tx.student.update({
+            where: { id: studentId },
+            data: {
+              ...(consumeStamina ? { stamina: { decrement: 1 } } : {}),
+              gameStats: toPrismaJson(
+                mergeGameStatsWithPersonalBoss(studentRow.gameStats, mergedPatch)
+              ),
+            },
+          });
+        } else {
+          await tx.student.update({
+            where: { id: studentId },
+            data: {
+              ...(consumeStamina ? { stamina: { decrement: 1 } } : {}),
+              gameStats: toPrismaJson(
+                mergeGameStatsWithPersonalBoss(studentRow.gameStats, null)
+              ),
+            },
+          });
+        }
+
+        const after = await tx.student.findUnique({
+          where: { id: studentId },
+          select: { stamina: true, gameStats: true },
+        });
+
+        const outBoss = isDefeated
+          ? null
+          : (mergedPatch as unknown as BossState);
+
+        return {
+          boss: outBoss,
+          bosses: [] as BossState[],
+          targetInstanceId: personal.instanceId,
+          staminaLeft: after?.stamina ?? 0,
+          isDefeated,
+          triggeredSkills: newlyTriggered,
+          effectiveDamage,
+          comboMult,
+          comboLabel,
+          limitBreakChargeGain,
+          // FF extras
+          isMiss,
+          justStaggered,
+          isStaggered: newIsStaggered,
+          staggerGauge: newStaggerGauge,
+          executedBossAction,
+          playerBattleState: updatedPlayerState,
+          battleLog: trimmedLog,
+          phase,
+        } as const;
+      });
+
+      if ("error" in txResult) {
+        return { error: txResult.error };
       }
 
-      return { error: "Conflict while attacking boss, please retry" };
+      if (txResult.isDefeated) {
+        void trackQuestEvent(studentId, "BOSS_KILL").catch(() => {});
+      }
+
+      return {
+        boss: txResult.boss,
+        bosses: txResult.bosses,
+        targetInstanceId: txResult.targetInstanceId,
+        damage: txResult.effectiveDamage,
+        isCrit,
+        staminaLeft: txResult.staminaLeft,
+        triggeredSkills: txResult.triggeredSkills,
+        comboMult: txResult.comboMult,
+        comboLabel: txResult.comboLabel,
+        limitBreakChargeGain: txResult.limitBreakChargeGain,
+        // FF extras
+        isMiss: txResult.isMiss,
+        justStaggered: txResult.justStaggered,
+        isStaggered: txResult.isStaggered,
+        staggerGauge: txResult.staggerGauge,
+        executedBossAction: txResult.executedBossAction,
+        playerBattleState: txResult.playerBattleState,
+        battleLog: txResult.battleLog,
+        phase: txResult.phase,
+      };
     } catch (error: unknown) {
       console.error("[IdleEngine] Error applying boss damage:", error);
-      // Log more details about the error if possible
       if (error && typeof error === "object" && "code" in error) console.error("Error Code:", error.code);
       if (error && typeof error === "object" && "meta" in error) console.error("Error Meta:", error.meta);
       const message = error instanceof Error ? error.message : "Unknown";
@@ -889,64 +1087,64 @@ export class IdleEngine {
   }
 
   /**
-   * Distributes rewards to all students in a classroom after defeating a boss.
+   * Distributes boss defeat rewards to a single student (legacy non-transaction helper).
    */
-  private static async distributeBossRewards(classId: string, bossSettings: BossState) {
+  private static async distributeBossRewards(
+    classId: string,
+    bossSettings: BossState,
+    killerStudentId: string
+  ) {
     try {
+      const student = await db.student.findFirst({
+        where: { id: killerStudentId, classId },
+        select: { id: true, gameStats: true },
+      }) as BossRewardStudent | null;
+      if (!student) return;
+
       const rewardGold = bossSettings.rewardGold || 500;
       const bossName = bossSettings.name || "World Boss";
+      const xpReward = Math.floor(rewardGold * 0.5);
 
-      // 1. Get all students in this class
-      const students = await db.student.findMany({
-        where: { classId },
-        select: { id: true, gameStats: true }
-      }) as BossRewardStudent[];
+      const stats = this.parseGameStats(student.gameStats);
+      const xpResult = this.calculateXpGain(stats, xpReward);
+      const updatedStats: GameStats = {
+        ...stats,
+        gold: (stats.gold || 0) + rewardGold,
+        level: xpResult.level,
+        xp: xpResult.xp,
+      };
 
-      // 2. Process each student (can't use updateMany easily for JSON fields)
-      for (const student of students) {
-        const stats = this.parseGameStats(student.gameStats);
-        const xpReward = Math.floor(rewardGold * 0.5); // XP is half of Gold for boss
-        
-        const xpResult = this.calculateXpGain(stats, xpReward);
-        const updatedStats: GameStats = {
-          ...stats,
-          gold: (stats.gold || 0) + rewardGold,
-          level: xpResult.level,
-          xp: xpResult.xp
-        };
+      const updateData: BossRewardUpdateData = {
+        points: { increment: rewardGold },
+        gameStats: toPrismaJson(updatedStats),
+        history: {
+          create: {
+            reason: `🚀 รางวัลพิชิต ${bossName}!`,
+            value: rewardGold,
+            timestamp: new Date(),
+          },
+        },
+      };
 
-        const updateData: BossRewardUpdateData = {
-          points: { increment: rewardGold },
-          gameStats: toPrismaJson(updatedStats),
-          history: {
-            create: {
-              reason: `🚀 รางวัลพิชิต ${bossName}!`,
-              value: rewardGold,
-              timestamp: new Date()
-            }
-          }
-        };
-
-        await db.student.update({
-          where: { id: student.id },
-          data: updateData
-        });
-      }
-
-      console.log(`[IdleEngine] Distributed ${rewardGold} gold to ${students.length} students for defeating ${bossName}`);
+      await db.student.update({
+        where: { id: student.id },
+        data: updateData,
+      });
     } catch (error: unknown) {
       console.error("Error distributing boss rewards:", error);
     }
   }
 
   /**
-   * Atomic version: distribute rewards using the provided transaction client.
+   * Atomic version: distribute rewards to the student who dealt the killing blow.
    * Must be called within the same transaction where classroom boss defeat is committed.
    */
   private static async distributeBossRewardsTx(
     tx: Prisma.TransactionClient,
     classId: string,
-    bossSettings: BossState
+    bossSettings: BossState,
+    killerStudentId: string,
+    opts?: { clearPersonalBoss?: boolean; staminaDecrement?: boolean }
   ) {
     const rewardGold = bossSettings.rewardGold || 500;
     const rewardXp = bossSettings.rewardXp ?? Math.floor(rewardGold * 0.5);
@@ -957,51 +1155,58 @@ export class IdleEngine {
       HARD: "💀ยาก", LEGENDARY: "👑ตำนาน",
     };
 
-    // 1. Get all students in this class
-    const students = (await tx.student.findMany({
-      where: { classId },
+    const student = (await tx.student.findFirst({
+      where: { id: killerStudentId, classId },
       select: { id: true, gameStats: true },
-    })) as BossRewardStudent[];
+    })) as BossRewardStudent | null;
 
-    // 2. Distribute to each student inside the same DB transaction
-    for (const student of students) {
-      const stats = this.parseGameStats(student.gameStats);
-      const xpResult = this.calculateXpGain(stats, rewardXp);
-
-      // Add materials to inventory
-      const materials = bossSettings.rewardMaterials ?? [];
-      const existingMaterials: { type: string; quantity: number }[] = (stats as any).materials ?? [];
-      for (const mat of materials) {
-        const found = existingMaterials.find((m) => m.type === mat.type);
-        if (found) found.quantity += mat.quantity;
-        else existingMaterials.push({ ...mat });
-      }
-
-      const updatedStats: GameStats = {
-        ...stats,
-        gold: (stats.gold || 0) + rewardGold,
-        level: xpResult.level,
-        xp: xpResult.xp,
-        materials: existingMaterials,
-      } as GameStats & { materials: typeof existingMaterials };
-
-      const updateData: BossRewardUpdateData = {
-        points: { increment: rewardGold },
-        gameStats: toPrismaJson(updatedStats),
-        history: {
-          create: {
-            reason: `🏆 [${diffLabel[difficulty]}] พิชิต ${bossName}! +${rewardGold} ทอง +${rewardXp} EXP`,
-            value: rewardGold,
-            timestamp: new Date(),
-          },
-        },
-      };
-
-      await tx.student.update({
-        where: { id: student.id },
-        data: updateData,
-      });
+    if (!student) {
+      console.error("[IdleEngine] Boss reward: killer not in classroom", killerStudentId, classId);
+      return;
     }
+
+    const stats = this.parseGameStats(student.gameStats);
+    if (opts?.clearPersonalBoss) {
+      delete (stats as unknown as Record<string, unknown>).personalClassroomBoss;
+    }
+    const xpResult = this.calculateXpGain(stats, rewardXp);
+
+    const materials = bossSettings.rewardMaterials ?? [];
+    const existingMaterials: { type: string; quantity: number }[] = (stats as any).materials ?? [];
+    for (const mat of materials) {
+      const found = existingMaterials.find((m) => m.type === mat.type);
+      if (found) found.quantity += mat.quantity;
+      else existingMaterials.push({ ...mat });
+    }
+
+    const updatedStats: GameStats = {
+      ...stats,
+      gold: (stats.gold || 0) + rewardGold,
+      level: xpResult.level,
+      xp: xpResult.xp,
+      materials: existingMaterials,
+    } as GameStats & { materials: typeof existingMaterials };
+
+    const updateData: BossRewardUpdateData = {
+      points: { increment: rewardGold },
+      gameStats: toPrismaJson(updatedStats),
+      history: {
+        create: {
+          reason: `🏆 [${diffLabel[difficulty]}] พิชิต ${bossName}! +${rewardGold} ทอง +${rewardXp} EXP`,
+          value: rewardGold,
+          timestamp: new Date(),
+        },
+      },
+    };
+
+    if (opts?.staminaDecrement) {
+      updateData.stamina = { decrement: 1 };
+    }
+
+    await tx.student.update({
+      where: { id: student.id },
+      data: updateData,
+    });
   }
 
   /**
@@ -1111,9 +1316,9 @@ export class IdleEngine {
         const battleRes = this.calculateBossDamage(student.points, student.items, stats.level);
         const bonusDamage = Math.floor(battleRes.damage * (isAP ? 1.5 : 2.0)); // Magic usually deals more raw dmg
         
-        const bossResult = await this.applyBossDamage(classId, studentId, { 
-            damageOverride: bonusDamage, 
-            consumeStamina: false // Already handled manually below via AP/MP
+        const bossResult = await this.applyBossDamage(classId, studentId, {
+            damageOverride: bonusDamage,
+            consumeStamina: false,
         });
 
         if (bossResult.error) return { error: bossResult.error };

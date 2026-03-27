@@ -54,6 +54,7 @@ import { cn } from "@/lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
 import { th } from "date-fns/locale";
 import { AccessibilityControlPanel } from "@/components/accessibility/AccessibilityControlPanel";
+import { getRaidBossForStudentUi } from "@/lib/game/personal-classroom-boss";
 
 interface StudentDashboardClientProps {
     student: any;
@@ -106,6 +107,15 @@ export function StudentDashboardClient({
 
     const gameStats = safeGameStats;
     const [classroom, setClassroom] = useState(initialClassroom);
+
+    const raidBosses = useMemo(() => {
+        const row = getRaidBossForStudentUi(
+            classroom.gamifiedSettings,
+            student.gameStats
+        );
+        if (!row || row.active === false || Number(row.currentHp) <= 0) return [];
+        return [row];
+    }, [classroom.gamifiedSettings, student.gameStats]);
     const [viewMode, setViewMode] = useState<"academic" | "game">("academic");
     const [activeTab, setActiveTab] = useState("assignments");
     const [showJobModal, setShowJobModal] = useState(false);
@@ -130,34 +140,38 @@ export function StudentDashboardClient({
         const handleBossUpdate = (event: any) => {
             const eventData = event?.data || {};
 
-            if (event.type === 'BOSS_HP_UPDATE') {
-                setClassroom((prev: any) => ({
-                    ...prev,
-                    gamifiedSettings: {
-                        ...((prev.gamifiedSettings as any) || {}),
-                        boss: {
-                            ...((prev.gamifiedSettings as any)?.boss || {}),
-                            ...(eventData.boss || {}),
-                            currentHp: eventData.currentHp
-                        }
+            if (event.type === "BOSS_HP_UPDATE" && eventData.studentId === student.id) {
+                setStudent((prev: any) => {
+                    const gs = {
+                        ...(typeof prev.gameStats === "object" && prev.gameStats ? prev.gameStats : {}),
+                    };
+                    if (eventData.personalBoss == null) {
+                        delete gs.personalClassroomBoss;
+                    } else {
+                        gs.personalClassroomBoss = eventData.personalBoss;
                     }
-                }));
-            } else if (event.type === 'BOSS_UPDATE') {
-                if (!eventData.boss) return;
-                setClassroom((prev: any) => ({
-                    ...prev,
-                    gamifiedSettings: { ...((prev.gamifiedSettings as any) || {}), boss: eventData.boss }
-                }));
-            } else if (event.type === 'BOSS_SUMMONED') {
-                setClassroom((prev: any) => ({
-                    ...prev,
-                    gamifiedSettings: { ...((prev.gamifiedSettings as any) || {}), boss: eventData.boss }
-                }));
-            } else if (event.type === 'BOSS_DEFEATED') {
-                setClassroom((prev: any) => ({
-                    ...prev,
-                    gamifiedSettings: { ...((prev.gamifiedSettings as any) || {}), boss: null }
-                }));
+                    return { ...prev, gameStats: gs };
+                });
+                return;
+            }
+
+            if (event.type === "BOSS_SUMMONED") {
+                const tpl = eventData.bossRaidTemplate ?? eventData.template;
+                setClassroom((prev: any) => {
+                    const gs = { ...((prev.gamifiedSettings as Record<string, unknown>) || {}) };
+                    if (tpl && typeof tpl === "object") {
+                        return { ...prev, gamifiedSettings: { ...gs, bossRaidTemplate: tpl } };
+                    }
+                    return prev;
+                });
+            } else if (event.type === "BOSS_DEFEATED") {
+                setClassroom((prev: any) => {
+                    const gs = { ...((prev.gamifiedSettings as Record<string, unknown>) || {}) };
+                    delete gs.bossRaidTemplate;
+                    delete gs.bosses;
+                    delete gs.boss;
+                    return { ...prev, gamifiedSettings: gs };
+                });
             }
         };
 
@@ -167,7 +181,7 @@ export function StudentDashboardClient({
             socket.emit("leave-classroom", classroom.id);
             socket.off("classroom-event", handleBossUpdate);
         };
-    }, [socket, isConnected, classroom.id]);
+    }, [socket, isConnected, classroom.id, student.id]);
 
     // Check for Job Class Eligibility - only auto-show for FIRST base selection
     useEffect(() => {
@@ -662,27 +676,46 @@ export function StudentDashboardClient({
                                         </div>
                                     </div>
 
-                                    {(classroom.gamifiedSettings as any)?.boss?.active ? (
+                                    {raidBosses.length > 0 ? (
                                         <WorldBossBar
-                                            boss={(classroom.gamifiedSettings as any)?.boss}
+                                            bosses={raidBosses as any}
                                             classId={classroom.id}
                                             studentId={student.id}
                                             stamina={student.stamina}
+                                            mana={student.mana ?? 0}
                                             jobClass={student.advanceClass ?? student.jobClass}
                                             limitBreakCharge={(student.gameStats as any)?.limitBreakCharge ?? 0}
                                             onAttackSuccess={(raw) => {
-                                                const data = raw as { boss?: unknown; staminaLeft?: number };
-                                                setClassroom((prev: any) => ({
-                                                    ...prev,
-                                                    gamifiedSettings: {
-                                                        ...prev.gamifiedSettings,
-                                                        boss: data.boss
+                                                const data = raw as {
+                                                    boss?: unknown | null;
+                                                    staminaLeft?: number;
+                                                    manaLeft?: number;
+                                                };
+                                                setStudent((prev: any) => {
+                                                    const gs =
+                                                        prev.gameStats &&
+                                                        typeof prev.gameStats === "object"
+                                                            ? { ...prev.gameStats }
+                                                            : {};
+                                                    if (data.boss == null) {
+                                                        delete (gs as Record<string, unknown>).personalClassroomBoss;
+                                                    } else {
+                                                        (gs as Record<string, unknown>).personalClassroomBoss =
+                                                            data.boss;
                                                     }
-                                                }));
-                                                setStudent((prev: any) => ({
-                                                    ...prev,
-                                                    stamina: data.staminaLeft
-                                                }));
+                                                    return {
+                                                        ...prev,
+                                                        stamina:
+                                                            typeof data.staminaLeft === "number"
+                                                                ? data.staminaLeft
+                                                                : prev.stamina,
+                                                        mana:
+                                                            typeof data.manaLeft === "number"
+                                                                ? data.manaLeft
+                                                                : prev.mana,
+                                                        gameStats: gs,
+                                                    };
+                                                });
                                             }}
                                             onBossDefeated={(rewards) => setBossReward(rewards)}
                                         />

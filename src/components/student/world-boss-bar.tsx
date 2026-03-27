@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Sword, ShieldAlert, Trophy, Users, Zap, Target, Flame } from "lucide-react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sword, ShieldAlert, Trophy, Users, Zap, Target, Flame, WandSparkles, ScrollText } from "lucide-react";
 import Image from "next/image";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { useToast } from "@/components/ui/use-toast";
 import { useSocket } from "@/components/providers/socket-provider";
 import { getBossPreset } from "@/lib/game/boss-config";
 import { getElementMultiplier, getJobElement, getElementLabel, hasComboOpportunity } from "@/lib/game/element-system";
+import type { BossAction, BattleLogEntry, PlayerBattleState } from "@/lib/game/boss-config";
 
 interface ActiveEffect {
     type: string;
@@ -20,6 +21,7 @@ interface ActiveEffect {
 }
 
 interface BossProp {
+    instanceId?: string;
     active: boolean;
     name: string;
     maxHp: number;
@@ -29,6 +31,7 @@ interface BossProp {
     bossId?: string;
     element?: string;
     elementIcon?: string;
+    elementKey?: string;
     difficulty?: string;
     rewardGold?: number;
     rewardXp?: number;
@@ -37,12 +40,19 @@ interface BossProp {
     activeEffect?: ActiveEffect | null;
     passiveDamageMultiplier?: number;
     recentAttacks?: { jobClass: string; timestamp: number }[];
+    // FF fields
+    staggerGauge?: number;
+    isStaggered?: boolean;
+    staggerExpiry?: number | null;
+    playerBattleState?: PlayerBattleState;
+    battleLog?: BattleLogEntry[];
 }
 
 interface WorldBossBarProps {
-    boss: BossProp;
+    bosses: BossProp[];
     studentId?: string;
     stamina?: number;
+    mana?: number;
     classId?: string;
     jobClass?: string | null;
     limitBreakCharge?: number;
@@ -50,13 +60,66 @@ interface WorldBossBarProps {
     onBossDefeated?: (rewards: { bossName: string; rewardGold?: number; rewardXp?: number; rewardMaterials?: { type: string; quantity: number }[] }) => void;
 }
 
-export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId, jobClass, limitBreakCharge = 0, onAttackSuccess, onBossDefeated }: WorldBossBarProps) {
+const STATUS_META: Record<string, { icon: string; label: string; color: string }> = {
+    POISON:     { icon: "🤢", label: "Poison",     color: "bg-green-100 border-green-400 text-green-800" },
+    BIND:       { icon: "⛓️", label: "Bind",       color: "bg-slate-200 border-slate-400 text-slate-700" },
+    BLIND:      { icon: "👁️", label: "Blind",      color: "bg-yellow-100 border-yellow-400 text-yellow-800" },
+    VULNERABLE: { icon: "💢", label: "Vulnerable", color: "bg-red-100 border-red-400 text-red-800" },
+};
+
+const LOG_COLOR: Record<string, string> = {
+    PLAYER_ATTACK: "text-indigo-600",
+    PLAYER_MAGIC:  "text-violet-600",
+    BOSS_ACTION:   "text-rose-600",
+    STAGGER:       "text-amber-600",
+    PHASE_CHANGE:  "text-orange-500 font-black",
+    MISS:          "text-slate-400 italic",
+};
+
+export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana = 0, classId, jobClass, limitBreakCharge = 0, onAttackSuccess, onBossDefeated }: WorldBossBarProps) {
     const { socket } = useSocket();
     const [isAttacking, setIsAttacking] = useState(false);
-    const [damageLog, setDamageLog] = useState<{ damage: number; isCrit: boolean; time: Date; isLimitBreak?: boolean }[]>([]);
     const [currentCharge, setCurrentCharge] = useState(limitBreakCharge);
     const [lastComboLabel, setLastComboLabel] = useState("");
+    const [currentMana, setCurrentMana] = useState(mana);
+    // FF state
+    const [staggerGauge, setStaggerGauge] = useState(0);
+    const [isStaggered, setIsStaggered] = useState(false);
+    const [playerBattleState, setPlayerBattleState] = useState<PlayerBattleState | null>(null);
+    const [battleLog, setBattleLog] = useState<BattleLogEntry[]>([]);
+    const [phase, setPhase] = useState<1 | 2 | 3 | 4>(1);
+    const [showLog, setShowLog] = useState(false);
+    const logRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
+
+    // Sync mana from prop (changes after sync route)
+    useEffect(() => { setCurrentMana(mana); }, [mana]);
+
+    // Auto-scroll log to bottom
+    useEffect(() => {
+        if (showLog && logRef.current) {
+            logRef.current.scrollTop = logRef.current.scrollHeight;
+        }
+    }, [battleLog, showLog]);
+
+    const activeBosses = useMemo(
+        () => bossesProp.filter((b) => b.active !== false && b.currentHp > 0),
+        [bossesProp]
+    );
+
+    const boss = useMemo(() => {
+        if (activeBosses.length === 0) return null;
+        return activeBosses[0];
+    }, [activeBosses]);
+
+    // Sync FF state from boss prop (initial load / socket update)
+    useEffect(() => {
+        if (!boss) return;
+        if (typeof boss.staggerGauge === "number") setStaggerGauge(boss.staggerGauge);
+        if (typeof boss.isStaggered === "boolean") setIsStaggered(boss.isStaggered);
+        if (boss.playerBattleState) setPlayerBattleState(boss.playerBattleState);
+        if (boss.battleLog && boss.battleLog.length > 0) setBattleLog(boss.battleLog);
+    }, [boss?.instanceId]); // only on boss instance change
 
     if (!boss || !boss.active) return null;
 
@@ -64,7 +127,7 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
     const isLowHp = hpPercentage < 20;
 
     const preset = boss.bossId ? getBossPreset(boss.bossId) : null;
-    const bossElementKey = preset?.elementKey ?? boss.bossId ?? null;
+    const bossElementKey = boss.elementKey ?? preset?.elementKey ?? boss.bossId ?? null;
     const elementMult = getElementMultiplier(jobClass, bossElementKey);
     const elementLabel = getElementLabel(elementMult);
     const jobEl = getJobElement(jobClass);
@@ -72,64 +135,94 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
     const triggeredSkills = boss.triggeredSkills ?? [];
     const activeEffect = boss.activeEffect ?? null;
 
-    // Check if active effect has expired
     const effectActive = activeEffect && (
         activeEffect.expiresAt === null || new Date(activeEffect.expiresAt) > new Date()
     );
 
-    // Limit Break state
     const lbCharge = currentCharge;
     const lbReady = lbCharge >= 100;
 
-    // Combo opportunity from recent attacks window
     const recentAttacks = boss.recentAttacks ?? [];
     const recentWindow = recentAttacks.filter((a) => Date.now() - a.timestamp <= 10000);
     const recentJobClasses = recentWindow.map((a) => a.jobClass);
     const comboReady = hasComboOpportunity(jobClass, recentJobClasses);
 
-    const handleAttack = async (isLimitBreak = false) => {
-        if (!classId || stamina <= 0 || isAttacking) return;
+    const isBound = playerBattleState?.statusEffects.some((e) => e.type === "BIND") ?? false;
+    const playerBattleHp = playerBattleState?.battleHp ?? 100;
+    const activeStatuses = playerBattleState?.statusEffects ?? [];
+
+    const handleAttack = async (action: "attack" | "magic" | "limitBreak") => {
+        const isLimitBreak = action === "limitBreak";
+        const isMagic = action === "magic";
+
+        if (!classId || isAttacking) return;
+        if (!isMagic && stamina <= 0) return;
         if (isLimitBreak && lbCharge < 100) return;
+        if (isMagic && currentMana < 20) return;
+        if (isBound) {
+            toast({ title: "⛓️ ถูกล็อค!", description: "ไม่สามารถโจมตีได้ในรอบนี้", variant: "destructive" });
+            return;
+        }
 
         setIsAttacking(true);
+        const targetName = boss.name;
+        const targetRewards = { rewardGold: boss.rewardGold, rewardXp: boss.rewardXp, rewardMaterials: boss.rewardMaterials };
+
         try {
             const res = await fetch(`/api/classrooms/${classId}/boss/attack`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ limitBreak: isLimitBreak }),
+                body: JSON.stringify({
+                    limitBreak: isLimitBreak,
+                    action: isMagic ? "magic" : "attack",
+                }),
             });
             const data = await res.json() as {
                 success: boolean;
                 damage?: number;
                 isCrit?: boolean;
-                boss?: BossProp;
+                boss?: BossProp | null;
+                targetInstanceId?: string;
                 error?: string;
                 triggeredSkill?: { name: string; icon: string; description: string };
                 limitBreakCharge?: number;
                 comboLabel?: string;
                 comboMult?: number;
+                manaLeft?: number;
+                // FF extras
+                isMiss?: boolean;
+                justStaggered?: boolean;
+                isStaggered?: boolean;
+                staggerGauge?: number;
+                executedBossAction?: BossAction | null;
+                playerBattleState?: PlayerBattleState | null;
+                battleLog?: BattleLogEntry[];
+                phase?: 1 | 2 | 3 | 4;
             };
 
             if (data.success) {
-                if (data.boss) {
-                    socket?.emit("classroom-update", {
-                        classId,
-                        type: "BOSS_HP_UPDATE",
-                        data: { currentHp: data.boss.currentHp, boss: data.boss }
-                    });
-                }
+                socket?.emit("classroom-update", {
+                    classId,
+                    type: "BOSS_HP_UPDATE",
+                    data: { studentId, personalBoss: data.boss, instanceId: data.targetInstanceId },
+                });
 
-                // Update LB charge state
-                if (typeof data.limitBreakCharge === "number") {
-                    setCurrentCharge(data.limitBreakCharge);
-                }
+                // Sync FF state
+                if (typeof data.staggerGauge === "number") setStaggerGauge(data.staggerGauge);
+                if (typeof data.isStaggered === "boolean") setIsStaggered(data.isStaggered);
+                if (data.playerBattleState) setPlayerBattleState(data.playerBattleState);
+                if (data.battleLog) setBattleLog(data.battleLog);
+                if (data.phase) setPhase(data.phase);
+                if (typeof data.limitBreakCharge === "number") setCurrentCharge(data.limitBreakCharge);
+                if (typeof data.manaLeft === "number") setCurrentMana(data.manaLeft);
 
-                // Show combo label
+                // Combo label
                 if (data.comboLabel) {
                     setLastComboLabel(data.comboLabel);
                     setTimeout(() => setLastComboLabel(""), 4000);
                 }
 
+                // Toasts
                 if (data.triggeredSkill) {
                     toast({
                         title: `${data.triggeredSkill.icon} ${data.triggeredSkill.name} ถูกเปิดใช้งาน!`,
@@ -138,36 +231,43 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                     });
                 }
 
-                const titlePrefix = isLimitBreak ? "💥 LIMIT BREAK!" : data.isCrit ? "⚡ CRITICAL HIT!" : "⚔️ Attack Successful!";
-                toast({
-                    title: titlePrefix,
-                    description: `คุณทำความเสียหาย ${(data.damage ?? 0).toLocaleString()} HP!${isLimitBreak ? " (×3 Damage)" : data.isCrit ? " (×2 Damage)" : ""}`,
-                    className: isLimitBreak ? "bg-orange-600 text-white" : undefined,
-                });
-                setDamageLog(prev => [
-                    { damage: data.damage ?? 0, isCrit: data.isCrit ?? false, time: new Date(), isLimitBreak },
-                    ...prev,
-                ].slice(0, 5));
+                if (data.justStaggered) {
+                    toast({ title: "💥 STAGGER!", description: `${boss.name} ถูก Stagger! ดาเมจ ×2 เป็นเวลา 30 วินาที`, className: "bg-amber-500 text-white" });
+                }
+
+                if (data.executedBossAction) {
+                    const act = data.executedBossAction;
+                    toast({
+                        title: `${act.icon} ${boss.name}: ${act.name}`,
+                        description: act.description,
+                        variant: "destructive",
+                    });
+                }
+
+                if (data.isMiss) {
+                    toast({ title: "💨 MISS!", description: "การโจมตีพลาด! (Blind)", variant: "destructive" });
+                } else {
+                    const prefix = isLimitBreak ? "💥 LIMIT BREAK!" : isMagic ? "🔮 Magic!" : data.isCrit ? "⚡ CRITICAL!" : "⚔️ โจมตี!";
+                    toast({
+                        title: prefix,
+                        description: `ดาเมจ ${(data.damage ?? 0).toLocaleString()} HP${data.isStaggered ? " [STAGGERED ×2]" : ""}`,
+                        className: isLimitBreak ? "bg-orange-600 text-white" : isMagic ? "bg-violet-600 text-white" : undefined,
+                    });
+                }
+
                 if (onAttackSuccess) onAttackSuccess(data);
 
-                // Boss defeat detection
-                if (data.boss && (data.boss.currentHp ?? 1) <= 0 && onBossDefeated) {
-                    onBossDefeated({
-                        bossName: boss.name,
-                        rewardGold: boss.rewardGold,
-                        rewardXp: boss.rewardXp,
-                        rewardMaterials: boss.rewardMaterials,
-                    });
+                if (data.boss == null && onBossDefeated) {
+                    onBossDefeated({ bossName: targetName, ...targetRewards });
                 }
             } else {
                 toast({
                     title: "ไม่สามารถโจมตีได้",
-                    description: data.error === "Insufficient stamina"
-                        ? "Stamina ของคุณหมดแล้ว!"
-                        : data.error === "Limit Break not ready"
-                            ? "Limit Break ยังไม่พร้อม!"
-                            : (data.error || "เกิดข้อผิดพลาดในการโจมตี"),
-                    variant: "destructive"
+                    description: data.error === "Insufficient stamina" ? "Stamina หมดแล้ว!"
+                        : data.error === "Limit Break not ready" ? "Limit Break ยังไม่พร้อม!"
+                        : data.error === "MP ไม่พอ (ต้องการ 20 MP)" ? "MP ไม่พอ! (ต้องการ 20 MP)"
+                        : (data.error || "เกิดข้อผิดพลาด"),
+                    variant: "destructive",
                 });
             }
         } catch (err) {
@@ -177,16 +277,31 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
         }
     };
 
+    const phaseColors = ["", "text-emerald-600", "text-amber-600", "text-orange-600", "text-rose-600 animate-pulse"];
+    const phaseBg = ["", "bg-emerald-50 border-emerald-200", "bg-amber-50 border-amber-200", "bg-orange-50 border-orange-200", "bg-rose-50 border-rose-200"];
+
     return (
-        <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full mb-8"
-        >
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="w-full mb-8">
             <GlassCard className="overflow-hidden border-2 border-rose-500/20 shadow-[0_20px_40px_rgba(225,29,72,0.15)]" hover={false}>
                 <div className="relative p-6 sm:p-8 flex flex-col gap-6">
-                    {/* Animated Background Pulse */}
                     <div className={`absolute inset-0 transition-colors duration-1000 pointer-events-none ${isLowHp ? "bg-rose-500/10" : "bg-indigo-500/5"}`} />
+
+                    {/* STAGGERED Banner */}
+                    <AnimatePresence>
+                        {isStaggered && (
+                            <motion.div
+                                key="stagger-banner"
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.9 }}
+                                className="relative z-10 flex items-center justify-center gap-3 px-4 py-2.5 rounded-2xl bg-amber-400/90 text-amber-900 border-2 border-amber-300 shadow-lg"
+                            >
+                                <span className="text-xl">💥</span>
+                                <p className="font-black text-sm tracking-widest uppercase">STAGGERED! — ดาเมจ ×2!</p>
+                                <span className="text-xl">💥</span>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
                     {/* Active Effect Banner */}
                     {effectActive && (
@@ -205,7 +320,6 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                                     {activeEffect.type === "XP_REDUCTION" && `EXP ที่ได้รับลดลง ${Math.round(activeEffect.effectValue * 100)}%`}
                                     {activeEffect.type === "GOLD_BOOST" && `Gold ที่ได้รับเพิ่มขึ้น ${Math.round(activeEffect.effectValue * 100)}%`}
                                     {activeEffect.type === "CRIT_IMMUNITY" && "คริติคอลไม่ทำงาน"}
-                                    {activeEffect.type === "HP_REGEN" && "ฟื้นฟู HP แล้ว"}
                                     {activeEffect.expiresAt && ` · หมดอายุ ${new Date(activeEffect.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
                                     {activeEffect.expiresAt === null && " · ถาวรจนกว่าบอสจะตาย"}
                                 </p>
@@ -218,7 +332,7 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
 
                     {/* Main boss row */}
                     <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-10 relative z-10">
-                        {/* Boss Image */}
+                        {/* Boss Image + Phase */}
                         <div className="relative shrink-0 flex flex-col items-center">
                             <div className="absolute inset-0 bg-rose-500/20 blur-3xl rounded-full animate-pulse" />
                             <motion.div
@@ -234,7 +348,11 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                                 />
                             </motion.div>
                             <div className="mt-4 bg-rose-600 text-white text-[10px] sm:text-xs font-black px-4 py-1 rounded-full shadow-lg border-2 border-rose-400/50 uppercase tracking-widest z-20">
-                                World Boss
+                                Personal Boss
+                            </div>
+                            {/* Phase badge */}
+                            <div className={`mt-1 px-3 py-0.5 rounded-full border text-[10px] font-black uppercase z-20 ${phaseBg[phase]}`}>
+                                <span className={phaseColors[phase]}>Phase {phase}</span>
                             </div>
                             {boss.element && (
                                 <div className="mt-1 text-[10px] font-bold text-slate-500 z-20">
@@ -244,7 +362,7 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                         </div>
 
                         {/* Boss Stats */}
-                        <div className="flex-1 w-full space-y-5 relative z-10">
+                        <div className="flex-1 w-full space-y-4 relative z-10">
                             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
                                 <div>
                                     <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight leading-none uppercase italic">
@@ -267,11 +385,7 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                                             </div>
                                         )}
                                         {elementLabel && jobEl !== "NEUTRAL" && (
-                                            <div className={`px-2 py-0.5 rounded-lg border text-[10px] font-black ${
-                                                elementMult > 1
-                                                    ? "bg-green-50 border-green-200 text-green-700"
-                                                    : "bg-red-50 border-red-200 text-red-600"
-                                            }`}>
+                                            <div className={`px-2 py-0.5 rounded-lg border text-[10px] font-black ${elementMult > 1 ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-600"}`}>
                                                 {elementLabel}
                                             </div>
                                         )}
@@ -307,18 +421,14 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                                 </div>
                             </div>
 
-                            {/* HP Bar */}
+                            {/* Boss HP Bar */}
                             <div className="relative group">
                                 <div className="relative w-full h-8 sm:h-10 bg-slate-100 rounded-2xl border-4 border-white shadow-inner overflow-hidden">
                                     <motion.div
                                         initial={{ width: 0 }}
                                         animate={{ width: `${hpPercentage}%` }}
                                         transition={{ duration: 1.5, ease: "easeOut" }}
-                                        className={`h-full relative overflow-hidden ${
-                                            isLowHp
-                                                ? "bg-gradient-to-r from-rose-600 via-rose-500 to-rose-400"
-                                                : "bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500"
-                                        }`}
+                                        className={`h-full relative overflow-hidden ${isLowHp ? "bg-gradient-to-r from-rose-600 via-rose-500 to-rose-400" : "bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500"}`}
                                     >
                                         <motion.div
                                             animate={{ x: ["-100%", "200%"] }}
@@ -326,19 +436,33 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                                             className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
                                         />
                                     </motion.div>
-
-                                    {/* Skill threshold lines */}
                                     {[75, 50, 25].map((pct) => (
-                                        <div
-                                            key={pct}
-                                            className="absolute top-0 bottom-0 w-0.5 bg-white/60"
-                                            style={{ left: `${pct}%` }}
-                                        />
+                                        <div key={pct} className="absolute top-0 bottom-0 w-0.5 bg-white/60" style={{ left: `${pct}%` }} />
                                     ))}
                                 </div>
                                 <div className="absolute -left-3 -top-3 w-10 h-10 bg-white rounded-xl shadow-lg border border-slate-100 flex items-center justify-center -rotate-12 group-hover:rotate-0 transition-transform">
                                     <Sword className="w-6 h-6 text-rose-500" />
                                 </div>
+                            </div>
+
+                            {/* Stagger Gauge */}
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className={`text-sm ${isStaggered ? "animate-bounce" : ""}`}>💥</span>
+                                    <span className={`text-[10px] font-black uppercase ${isStaggered ? "text-amber-600" : "text-slate-500"}`}>
+                                        {isStaggered ? "STAGGERED!" : "Stagger"}
+                                    </span>
+                                </div>
+                                <div className="flex-1 h-3 bg-slate-100 rounded-full border border-slate-200 overflow-hidden relative">
+                                    <motion.div
+                                        animate={{ width: isStaggered ? "100%" : `${Math.min(100, staggerGauge)}%` }}
+                                        transition={{ duration: 0.4, ease: "easeOut" }}
+                                        className={`h-full rounded-full ${isStaggered ? "bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 animate-pulse" : "bg-gradient-to-r from-violet-400 to-purple-500"}`}
+                                    />
+                                </div>
+                                <span className={`text-[10px] font-black tabular-nums shrink-0 ${isStaggered ? "text-amber-600" : "text-slate-500"}`}>
+                                    {isStaggered ? "MAX" : `${Math.min(100, staggerGauge)}/100`}
+                                </span>
                             </div>
 
                             {/* Limit Break Gauge */}
@@ -353,112 +477,167 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                                     <motion.div
                                         animate={{ width: `${Math.min(100, lbCharge)}%` }}
                                         transition={{ duration: 0.4, ease: "easeOut" }}
-                                        className={`h-full rounded-full ${
-                                            lbReady
-                                                ? "bg-gradient-to-r from-orange-400 via-red-500 to-yellow-400 animate-pulse"
-                                                : "bg-gradient-to-r from-orange-300 to-red-400"
-                                        }`}
+                                        className={`h-full rounded-full ${lbReady ? "bg-gradient-to-r from-orange-400 via-red-500 to-yellow-400 animate-pulse" : "bg-gradient-to-r from-orange-300 to-red-400"}`}
                                     />
                                 </div>
                                 <span className={`text-[10px] font-black tabular-nums shrink-0 ${lbReady ? "text-orange-600" : "text-slate-500"}`}>
                                     {Math.min(100, lbCharge)}/100
                                 </span>
                             </div>
-
-                            {/* Damage Log */}
-                            {damageLog.length > 0 && (
-                                <div className="flex flex-wrap gap-2 pt-1">
-                                    {damageLog.slice(0, 3).map((entry, i) => (
-                                        <div
-                                            key={i}
-                                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black border ${
-                                                entry.isLimitBreak
-                                                    ? "bg-orange-50 border-orange-300 text-orange-700"
-                                                    : entry.isCrit
-                                                        ? "bg-amber-50 border-amber-200 text-amber-700"
-                                                        : "bg-rose-50 border-rose-200 text-rose-700"
-                                            }`}
-                                        >
-                                            <Sword className="w-3 h-3" />
-                                            <span>{entry.isLimitBreak ? "💥" : entry.isCrit ? "⚡" : "⚔️"} {entry.damage.toLocaleString()}</span>
-                                            <span className="text-[9px] font-medium opacity-60">
-                                                {entry.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Rewards + Attack */}
-                            <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center">
-                                        <Trophy className="w-4 h-4 text-indigo-600" />
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-black text-slate-800 leading-none">REWARD FOR VICTORY</p>
-                                        <p className="text-[10px] font-medium text-slate-500">
-                                            {boss.rewardGold ? `🪙 ${boss.rewardGold} ` : ""}
-                                            {boss.rewardXp ? `✨ ${boss.rewardXp} XP` : "Gold, XP & Class Badge"}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-3">
-                                    <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-colors ${stamina > 0 ? "bg-amber-50 border-amber-200" : "bg-slate-100 border-slate-200 opacity-60"}`}>
-                                        <Zap className={`w-3.5 h-3.5 ${stamina > 0 ? "text-amber-500 fill-amber-500" : "text-slate-400"}`} />
-                                        <span className={`text-xs font-black ${stamina > 0 ? "text-amber-700" : "text-slate-400"}`}>{stamina} Stamina</span>
-                                    </div>
-
-                                    {/* Limit Break button (shows when ready) */}
-                                    {lbReady && (
-                                        <motion.button
-                                            whileHover={stamina > 0 && !isAttacking ? { scale: 1.05 } : {}}
-                                            whileTap={stamina > 0 && !isAttacking ? { scale: 0.95 } : {}}
-                                            onClick={() => handleAttack(true)}
-                                            disabled={stamina <= 0 || isAttacking}
-                                            className={`relative px-5 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg animate-pulse ${
-                                                stamina > 0 && !isAttacking
-                                                    ? "bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-orange-200 border-2 border-orange-400/50"
-                                                    : "bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300"
-                                            }`}
-                                        >
-                                            {isAttacking ? (
-                                                <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
-                                                    <Target className="w-5 h-5" />
-                                                </motion.div>
-                                            ) : (
-                                                <Flame className="w-5 h-5" />
-                                            )}
-                                            <span>LIMIT BREAK!</span>
-                                        </motion.button>
-                                    )}
-
-                                    {/* Normal attack button */}
-                                    <motion.button
-                                        whileHover={stamina > 0 && !isAttacking ? { scale: 1.05 } : {}}
-                                        whileTap={stamina > 0 && !isAttacking ? { scale: 0.95 } : {}}
-                                        onClick={() => handleAttack(false)}
-                                        disabled={stamina <= 0 || isAttacking}
-                                        className={`relative px-6 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg ${
-                                            stamina > 0 && !isAttacking
-                                                ? "bg-rose-600 text-white hover:bg-rose-700 shadow-rose-200 border-2 border-rose-400/50"
-                                                : "bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300"
-                                        }`}
-                                    >
-                                        {isAttacking ? (
-                                            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
-                                                <Target className="w-5 h-5" />
-                                            </motion.div>
-                                        ) : (
-                                            <Sword className="w-5 h-5" />
-                                        )}
-                                        <span>โจมตีบอส</span>
-                                    </motion.button>
-                                </div>
-                            </div>
                         </div>
                     </div>
+
+                    {/* ── Player Battle State ── */}
+                    <div className="relative z-10 pt-4 border-t border-slate-100">
+                        <p className="text-[10px] uppercase font-black text-slate-400 tracking-wider mb-3">สถานะผู้เล่น</p>
+                        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                            {/* Player HP bar */}
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[10px] font-black text-slate-600 uppercase">Battle HP</span>
+                                    <span className={`text-xs font-black tabular-nums ${playerBattleHp <= 20 ? "text-rose-600 animate-pulse" : playerBattleHp <= 50 ? "text-amber-600" : "text-emerald-600"}`}>
+                                        {playerBattleHp} / 100
+                                    </span>
+                                </div>
+                                <div className="w-full h-4 bg-slate-100 rounded-full border border-slate-200 overflow-hidden">
+                                    <motion.div
+                                        animate={{ width: `${playerBattleHp}%` }}
+                                        transition={{ duration: 0.5, ease: "easeOut" }}
+                                        className={`h-full rounded-full ${playerBattleHp <= 20 ? "bg-gradient-to-r from-rose-500 to-rose-400" : playerBattleHp <= 50 ? "bg-gradient-to-r from-amber-400 to-yellow-400" : "bg-gradient-to-r from-emerald-500 to-green-400"}`}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Status effects */}
+                            {activeStatuses.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {activeStatuses.map((s, i) => {
+                                        const meta = STATUS_META[s.type] ?? { icon: "❓", label: s.type, color: "bg-slate-100 border-slate-300 text-slate-700" };
+                                        return (
+                                            <div key={i} className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-black ${meta.color}`}>
+                                                <span>{meta.icon}</span>
+                                                <span>{meta.label}</span>
+                                                <span className="opacity-70">×{s.remainingTurns}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            {activeStatuses.length === 0 && (
+                                <div className="text-[10px] text-slate-400 font-medium">ไม่มี status effect</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ── Rewards + Action Buttons ── */}
+                    <div className="relative z-10 flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-slate-100">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center">
+                                <Trophy className="w-4 h-4 text-indigo-600" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black text-slate-800 leading-none">REWARD FOR VICTORY</p>
+                                <p className="text-[10px] font-medium text-slate-500">
+                                    {boss.rewardGold ? `🪙 ${boss.rewardGold} ` : ""}
+                                    {boss.rewardXp ? `✨ ${boss.rewardXp} XP` : "Gold, XP & Materials"}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {/* Stamina / Mana indicators */}
+                            <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-colors ${stamina > 0 ? "bg-amber-50 border-amber-200" : "bg-slate-100 border-slate-200 opacity-60"}`}>
+                                <Zap className={`w-3.5 h-3.5 ${stamina > 0 ? "text-amber-500 fill-amber-500" : "text-slate-400"}`} />
+                                <span className={`text-xs font-black ${stamina > 0 ? "text-amber-700" : "text-slate-400"}`}>{stamina} ST</span>
+                            </div>
+                            <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-colors ${currentMana >= 20 ? "bg-violet-50 border-violet-200" : "bg-slate-100 border-slate-200 opacity-60"}`}>
+                                <WandSparkles className={`w-3.5 h-3.5 ${currentMana >= 20 ? "text-violet-500" : "text-slate-400"}`} />
+                                <span className={`text-xs font-black ${currentMana >= 20 ? "text-violet-700" : "text-slate-400"}`}>{currentMana} MP</span>
+                            </div>
+
+                            {/* Battle Log toggle */}
+                            <button
+                                onClick={() => setShowLog((v) => !v)}
+                                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-xs font-black flex items-center gap-1.5 hover:bg-slate-100 transition-colors"
+                            >
+                                <ScrollText className="w-3.5 h-3.5" />
+                                Log
+                            </button>
+
+                            {/* Limit Break button */}
+                            {lbReady && (
+                                <motion.button
+                                    whileHover={stamina > 0 && !isAttacking ? { scale: 1.05 } : {}}
+                                    whileTap={stamina > 0 && !isAttacking ? { scale: 0.95 } : {}}
+                                    onClick={() => handleAttack("limitBreak")}
+                                    disabled={stamina <= 0 || isAttacking || isBound}
+                                    className={`relative px-4 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg animate-pulse ${stamina > 0 && !isAttacking && !isBound ? "bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-orange-200 border-2 border-orange-400/50" : "bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300"}`}
+                                >
+                                    {isAttacking ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}><Target className="w-4 h-4" /></motion.div> : <Flame className="w-4 h-4" />}
+                                    LIMIT BREAK!
+                                </motion.button>
+                            )}
+
+                            {/* Magic button */}
+                            <motion.button
+                                whileHover={currentMana >= 20 && !isAttacking && !isBound ? { scale: 1.05 } : {}}
+                                whileTap={currentMana >= 20 && !isAttacking && !isBound ? { scale: 0.95 } : {}}
+                                onClick={() => handleAttack("magic")}
+                                disabled={currentMana < 20 || isAttacking || isBound}
+                                className={`relative px-4 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg ${currentMana >= 20 && !isAttacking && !isBound ? "bg-violet-600 text-white hover:bg-violet-700 shadow-violet-200 border-2 border-violet-400/50" : "bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300"}`}
+                            >
+                                {isAttacking ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}><Target className="w-4 h-4" /></motion.div> : <WandSparkles className="w-4 h-4" />}
+                                Magic (20 MP)
+                            </motion.button>
+
+                            {/* Normal attack button */}
+                            <motion.button
+                                whileHover={stamina > 0 && !isAttacking && !isBound ? { scale: 1.05 } : {}}
+                                whileTap={stamina > 0 && !isAttacking && !isBound ? { scale: 0.95 } : {}}
+                                onClick={() => handleAttack("attack")}
+                                disabled={stamina <= 0 || isAttacking || isBound}
+                                className={`relative px-5 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg ${stamina > 0 && !isAttacking && !isBound ? "bg-rose-600 text-white hover:bg-rose-700 shadow-rose-200 border-2 border-rose-400/50" : "bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300"}`}
+                            >
+                                {isAttacking ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}><Target className="w-4 h-4" /></motion.div> : <Sword className="w-4 h-4" />}
+                                โจมตี
+                            </motion.button>
+                        </div>
+                    </div>
+
+                    {/* ── Battle Log ── */}
+                    <AnimatePresence>
+                        {showLog && (
+                            <motion.div
+                                key="battle-log"
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="relative z-10 overflow-hidden"
+                            >
+                                <div className="pt-4 border-t border-slate-100">
+                                    <p className="text-[10px] uppercase font-black text-slate-400 tracking-wider mb-2">Battle Log</p>
+                                    <div
+                                        ref={logRef}
+                                        className="h-48 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin scrollbar-thumb-slate-200"
+                                    >
+                                        {battleLog.length === 0 && (
+                                            <p className="text-[11px] text-slate-400 italic text-center pt-4">ยังไม่มี log การต่อสู้</p>
+                                        )}
+                                        {battleLog.map((entry) => (
+                                            <div key={entry.id} className="flex items-start gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-100">
+                                                <span className={`text-[11px] font-bold flex-1 leading-snug ${LOG_COLOR[entry.type] ?? "text-slate-600"}`}>
+                                                    {entry.text}
+                                                </span>
+                                                <span className="text-[9px] text-slate-400 shrink-0 tabular-nums">
+                                                    {new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
                     {/* ── Boss Skills Panel ── */}
                     {skills.length > 0 && (
@@ -472,29 +651,13 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                                     return (
                                         <div
                                             key={sk.id}
-                                            className={`relative flex items-start gap-2.5 p-3 rounded-2xl border transition-all ${
-                                                isActive
-                                                    ? "bg-purple-50 border-purple-300 shadow"
-                                                    : isTriggered
-                                                        ? "bg-slate-100 border-slate-200 opacity-60"
-                                                        : "bg-white border-slate-200"
-                                            }`}
+                                            className={`relative flex items-start gap-2.5 p-3 rounded-2xl border transition-all ${isActive ? "bg-purple-50 border-purple-300 shadow" : isTriggered ? "bg-slate-100 border-slate-200 opacity-60" : "bg-white border-slate-200"}`}
                                         >
                                             <span className="text-xl shrink-0">{sk.icon}</span>
                                             <div className="min-w-0">
                                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                                    <p className={`text-xs font-black leading-none ${isActive ? "text-purple-700" : "text-slate-700"}`}>
-                                                        {sk.name}
-                                                    </p>
-                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                                                        isActive
-                                                            ? "bg-purple-200 text-purple-700 animate-pulse"
-                                                            : isTriggered
-                                                                ? "bg-slate-200 text-slate-500"
-                                                                : hpPercentage <= thresholdPct
-                                                                    ? "bg-rose-100 text-rose-600"
-                                                                    : "bg-slate-100 text-slate-400"
-                                                    }`}>
+                                                    <p className={`text-xs font-black leading-none ${isActive ? "text-purple-700" : "text-slate-700"}`}>{sk.name}</p>
+                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-purple-200 text-purple-700 animate-pulse" : isTriggered ? "bg-slate-200 text-slate-500" : hpPercentage <= thresholdPct ? "bg-rose-100 text-rose-600" : "bg-slate-100 text-slate-400"}`}>
                                                         {isTriggered ? "✓ triggered" : isActive ? "● active" : `HP ≤${thresholdPct}%`}
                                                     </span>
                                                 </div>

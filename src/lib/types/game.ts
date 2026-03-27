@@ -229,6 +229,14 @@ export interface BattlePlayer extends BasePlayer {
     hasGodBlessing: boolean;
     hasLuckyStrike: boolean;
     chainLightningOnCrit: boolean;
+    // New effects
+    hasBerserkerRage: boolean;
+    hasBattleFocus: boolean;
+    hasEchoStrike: boolean;
+    hasDragonBlood: boolean;
+    hasCelestialGrace: boolean;
+    hasVoidWalker: boolean;
+    hasSoulEater: boolean;
     dodgeChance: number;
     shadowVeilCritBuff: boolean;
     goldMultiplier: number;

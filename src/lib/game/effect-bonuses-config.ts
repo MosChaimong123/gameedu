@@ -89,6 +89,39 @@ export const EFFECT_DISPLAY_TH: Record<string, { desc: string; stats: string }> 
     desc: "ทุก 10 SPD เพิ่ม CRT 1%",
     stats: "💃 Blade Dance — ทุก 10 SPD → CRT +1%",
   },
+  // ── New effects ─────────────────────────────────────────────────────────────
+  SWIFT_STRIKE: {
+    desc: "ทุก 10 SPD เพิ่ม ATK 1% (passive)",
+    stats: "⚡ Swift Strike — ทุก 10 SPD → ATK +1%",
+  },
+  BERSERKER_RAGE: {
+    desc: "เมื่อ HP เหลือต่ำกว่า 50% จะเพิ่ม ATK ×1.20 ในการต่อสู้",
+    stats: "😤 Berserker Rage — HP < 50% → ATK ×1.20",
+  },
+  BATTLE_FOCUS: {
+    desc: "เมื่อ HP เหลือต่ำกว่า 50% โอกาสคริติคอลจะเพิ่มเป็น 2 เท่า",
+    stats: "🎯 Battle Focus — HP < 50% → CRIT ×2",
+  },
+  ECHO_STRIKE: {
+    desc: "มีโอกาส 30% ที่การโจมตีจะถูกสะท้อนซ้ำ ทำดาเมจ 50% ของต้นฉบับ",
+    stats: "🌀 Echo Strike — 30% chance: ตีซ้ำ 50% DMG",
+  },
+  DRAGON_BLOOD: {
+    desc: "ฟื้นฟู HP 2% ของค่าสูงสุดทุกครั้งที่บอสโจมตี",
+    stats: "🐉 Dragon Blood — regen 2% maxHP/boss tick",
+  },
+  CELESTIAL_GRACE: {
+    desc: "เพิ่มสเตตส์ทั้งหมด 5% และ EXP ที่ได้รับ 15% (passive)",
+    stats: "✨ Celestial Grace — ทุก stat +5%, EXP +15%",
+  },
+  VOID_WALKER: {
+    desc: "มีโอกาสหลบ 25% และโจมตีตอบโต้ 50% ATK หลังหลบสำเร็จ",
+    stats: "🌌 Void Walker — Dodge 25%, โจมตีตอบ 50% ATK",
+  },
+  SOUL_EATER: {
+    desc: "เมื่อกำจัดมอนสเตอร์ได้ ฟื้นฟู HP 15% ของค่าสูงสุด",
+    stats: "💀 Soul Eater — Kill → regen 15% maxHP",
+  },
 };
 
 export const SET_DISPLAY_TH: Record<string, { desc: string; stats: string; icon: string }> = {

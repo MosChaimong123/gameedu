@@ -71,6 +71,14 @@ export interface ExtendedStats extends CharacterStats {
   hasDarkPact: boolean;     // +20% DMG, -5% HP/turn
   hasHawkEye: boolean;      // CRIT damage ×1.30
   hasShadowVeil: boolean;   // Dodge 0.15 on-dodge CRIT ×1.20
+  // New effects
+  hasBerserkerRage: boolean;  // HP < 50% → ATK ×1.20
+  hasBattleFocus: boolean;    // HP < 50% → CRIT ×2
+  hasEchoStrike: boolean;     // 30% chance second hit 50% DMG
+  hasDragonBlood: boolean;    // regen 2% maxHP per boss tick
+  hasCelestialGrace: boolean; // all stat ×1.05, EXP +15% (also a stat bonus flag)
+  hasVoidWalker: boolean;     // Dodge 25%, counter 50% ATK
+  hasSoulEater: boolean;      // on kill: regen 15% maxHP
 }
 
 type EquippedItemData = {
@@ -123,6 +131,17 @@ export const EFFECT_IDS = {
   HUNTER_MARK:    "HUNTER_MARK",   // Boss DMG +0.15
   SHADOW_VEIL:    "SHADOW_VEIL",   // Dodge 0.15, on Dodge: CRIT ×1.20
   BLADE_DANCE:    "BLADE_DANCE",   // SPD/10 = CRIT +1% per 10 SPD
+  // New RARE effects
+  SWIFT_STRIKE:   "SWIFT_STRIKE",  // SPD/10 = ATK +1% per 10 SPD
+  BERSERKER_RAGE: "BERSERKER_RAGE",// HP < 50% → ATK ×1.20 in battle
+  // New EPIC effects
+  BATTLE_FOCUS:   "BATTLE_FOCUS",  // HP < 50% → CRIT chance ×2
+  ECHO_STRIKE:    "ECHO_STRIKE",   // 30% chance second hit for 50% DMG
+  // New LEGENDARY effects
+  DRAGON_BLOOD:   "DRAGON_BLOOD",  // regen 2% maxHP per boss attack tick
+  CELESTIAL_GRACE:"CELESTIAL_GRACE",// all stats ×1.05, EXP +15%
+  VOID_WALKER:    "VOID_WALKER",   // Dodge 25%, on dodge counter 50% ATK
+  SOUL_EATER:     "SOUL_EATER",    // on monster kill: regen 15% maxHP
 } as const;
 
 /** Deterministic ordering for equipped rows (stable even when template ids repeat). */
@@ -377,9 +396,36 @@ export class StatCalculator {
       result.hasShadowVeil = true;
     }
     if (effects.has(EFFECT_IDS.BLADE_DANCE)) {
-      // SPD every 10 = CRIT +1%
       result.crit = Number((result.crit + Math.floor(result.spd / 10) * 0.01).toFixed(3));
     }
+
+    // ── New RARE effects ──────────────────────────────────────────────────────
+    if (effects.has(EFFECT_IDS.SWIFT_STRIKE)) {
+      // SPD every 10 = ATK +1%
+      result.atk = Math.floor(result.atk * (1 + Math.floor(result.spd / 10) * 0.01));
+    }
+    if (effects.has(EFFECT_IDS.BERSERKER_RAGE))  result.hasBerserkerRage  = true;
+
+    // ── New EPIC effects ──────────────────────────────────────────────────────
+    if (effects.has(EFFECT_IDS.BATTLE_FOCUS))    result.hasBattleFocus    = true;
+    if (effects.has(EFFECT_IDS.ECHO_STRIKE))     result.hasEchoStrike     = true;
+
+    // ── New LEGENDARY effects ─────────────────────────────────────────────────
+    if (effects.has(EFFECT_IDS.DRAGON_BLOOD))    result.hasDragonBlood    = true;
+    if (effects.has(EFFECT_IDS.CELESTIAL_GRACE)) {
+      result.hasCelestialGrace = true;
+      result.hp    = Math.floor(result.hp    * 1.05);
+      result.atk   = Math.floor(result.atk   * 1.05);
+      result.def   = Math.floor(result.def   * 1.05);
+      result.spd   = Math.floor(result.spd   * 1.05);
+      result.mag   = Math.floor(result.mag   * 1.05);
+      result.maxMp = Math.floor(result.maxMp * 1.05);
+      result.crit  = Number((result.crit  * 1.05).toFixed(3));
+      result.luck  = Number((result.luck  * 1.05).toFixed(3));
+      result.xpMultiplier += 0.15;
+    }
+    if (effects.has(EFFECT_IDS.VOID_WALKER))     result.hasVoidWalker     = true;
+    if (effects.has(EFFECT_IDS.SOUL_EATER))      result.hasSoulEater      = true;
 
     return result;
   }
@@ -409,6 +455,13 @@ export class StatCalculator {
       hasDarkPact:          false,
       hasHawkEye:           false,
       hasShadowVeil:        false,
+      hasBerserkerRage:     false,
+      hasBattleFocus:       false,
+      hasEchoStrike:        false,
+      hasDragonBlood:       false,
+      hasCelestialGrace:    false,
+      hasVoidWalker:        false,
+      hasSoulEater:         false,
     };
   }
 

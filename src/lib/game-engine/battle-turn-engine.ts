@@ -172,6 +172,9 @@ export class BattleTurnEngine extends AbstractGameEngine {
     if (player.hasHolyFury && player.hp / Math.max(1, player.maxHp) < 0.3) {
       damage = Math.floor(damage * 1.4);
     }
+    if (player.hasBerserkerRage && player.hp / Math.max(1, player.maxHp) < 0.5) {
+      damage = Math.floor(damage * 1.2);
+    }
     if (player.hasDarkPact) {
       damage = Math.floor(damage * 1.2);
     }
@@ -245,7 +248,9 @@ export class BattleTurnEngine extends AbstractGameEngine {
 
   private getEffectivePlayerCrit(player: BattlePlayer): number {
     const buffCrit = player.statusEffects.some((e) => e.type === "CRIT_BUFF") ? 0.30 : 0;
-    return Math.min(1, (player.crit ?? 0) + buffCrit);
+    const baseCrit = (player.crit ?? 0) + buffCrit;
+    const battleFocusMult = player.hasBattleFocus && player.hp / Math.max(1, player.maxHp) < 0.5 ? 2 : 1;
+    return Math.min(1, baseCrit * battleFocusMult);
   }
 
   private tickFarmingStatusEffects(player: BattlePlayer) {
@@ -365,6 +370,13 @@ export class BattleTurnEngine extends AbstractGameEngine {
       hasGodBlessing: false,
       hasLuckyStrike: false,
       chainLightningOnCrit: false,
+      hasBerserkerRage: false,
+      hasBattleFocus: false,
+      hasEchoStrike: false,
+      hasDragonBlood: false,
+      hasCelestialGrace: false,
+      hasVoidWalker: false,
+      hasSoulEater: false,
       dodgeChance: 0,
       shadowVeilCritBuff: false,
       goldMultiplier: 0,
@@ -510,6 +522,13 @@ export class BattleTurnEngine extends AbstractGameEngine {
       player.hasGodBlessing = stats.hasGodBlessing;
       player.hasLuckyStrike = stats.hasLuckyStrike;
       player.chainLightningOnCrit = stats.chainLightningOnCrit;
+      player.hasBerserkerRage = stats.hasBerserkerRage;
+      player.hasBattleFocus = stats.hasBattleFocus;
+      player.hasEchoStrike = stats.hasEchoStrike;
+      player.hasDragonBlood = stats.hasDragonBlood;
+      player.hasCelestialGrace = stats.hasCelestialGrace;
+      player.hasVoidWalker = stats.hasVoidWalker;
+      player.hasSoulEater = stats.hasSoulEater;
       player.dodgeChance = stats.dodgeChance ?? 0;
       player.shadowVeilCritBuff = false;
       player.goldMultiplier = stats.goldMultiplier ?? 0;
@@ -638,6 +657,35 @@ export class BattleTurnEngine extends AbstractGameEngine {
             continue;
           }
 
+          if (player.hasVoidWalker && Math.random() < 0.25) {
+            this.emitBattleEvent({
+              type: "BANNER",
+              sourceId: player.id,
+              targetId: player.id,
+              label: `${player.name} Void Walker — หลบและโจมตีตอบ!`,
+              tone: "success",
+              fxPreset: "buff",
+            });
+            // Counter attack: 50% ATK to boss
+            if (this.boss && this.boss.hp > 0) {
+              const counterDmg = Math.max(1, Math.floor(player.atk * 0.5));
+              this.boss.hp = Math.max(0, this.boss.hp - counterDmg);
+              this.emitBattleEvent({
+                type: "DAMAGE_APPLIED",
+                sourceId: player.id,
+                targetId: this.boss.id,
+                amount: counterDmg,
+                label: "Void Counter",
+                tone: "skill",
+              });
+              if (this.boss.hp <= 0) {
+                this.handleBossDefeated();
+                return;
+              }
+            }
+            continue;
+          }
+
           let damage = computeBossDamageAgainstPlayer({
             bossAtk: effectiveBossAtk,
             playerDef: player.def,
@@ -672,6 +720,21 @@ export class BattleTurnEngine extends AbstractGameEngine {
             amount: damage,
           });
         }
+      }
+    }
+
+    // DRAGON_BLOOD: regen 2% maxHP per boss attack tick
+    for (const player of this.players) {
+      if (player.hp > 0 && player.hasDragonBlood) {
+        const regenAmt = Math.max(1, Math.floor(player.maxHp * 0.02));
+        player.hp = Math.min(player.maxHp, player.hp + regenAmt);
+        this.emitBattleEvent({
+          type: "HEAL_APPLIED",
+          sourceId: player.id,
+          targetId: player.id,
+          amount: regenAmt,
+          label: "Dragon Blood",
+        });
       }
     }
 
@@ -832,6 +895,20 @@ export class BattleTurnEngine extends AbstractGameEngine {
         sourceId: attackerId,
         targetId: attackerId,
         amount: healAmount,
+      });
+    }
+
+    // ECHO_STRIKE: 30% chance to deal a second hit for 50% of the original damage
+    if (this.boss && this.boss.hp > 0 && attacker?.hasEchoStrike && Math.random() < 0.30) {
+      const echoDmg = Math.max(1, Math.floor(damage * 0.5));
+      this.boss.hp = Math.max(0, this.boss.hp - echoDmg);
+      this.emitBattleEvent({
+        type: "DAMAGE_APPLIED",
+        sourceId: attackerId,
+        targetId: this.boss.id,
+        amount: echoDmg,
+        label: "Echo Strike",
+        tone: "skill",
       });
     }
 
@@ -1047,6 +1124,14 @@ export class BattleTurnEngine extends AbstractGameEngine {
     this.emitBattleEvent({ type: "ACTION_ATTACK", sourceId: player.id, targetId: "solo-monster", label: "โจมตีอัตโนมัติ" });
     this.emitBattleEvent({ type: "DAMAGE_APPLIED", sourceId: player.id, targetId: "solo-monster", amount: damage, correct: effected.critApplied });
     player.soloMonster.hp = Math.max(0, player.soloMonster.hp - damage);
+
+    // ECHO_STRIKE: 30% chance second hit for 50% DMG
+    if (player.soloMonster.hp > 0 && player.hasEchoStrike && Math.random() < 0.30) {
+      const echoDmg = Math.max(1, Math.floor(damage * 0.5));
+      player.soloMonster.hp = Math.max(0, player.soloMonster.hp - echoDmg);
+      this.emitBattleEvent({ type: "DAMAGE_APPLIED", sourceId: player.id, targetId: "solo-monster", amount: echoDmg, label: "Echo Strike", tone: "skill" });
+    }
+
     this.applyDarkPactDrain(player);
 
     // Tick status effects each answer (POISON DoT on monster, REGEN on player)
@@ -1074,6 +1159,19 @@ export class BattleTurnEngine extends AbstractGameEngine {
     // Apply GOLD_FINDER / GODS_BLESSING / QUICK_LEARNER multipliers
     const gold = Math.floor(rollGold(wave) * (1 + (player.goldMultiplier ?? 0)));
     const xp   = Math.floor(rollXp(wave)   * (1 + (player.xpMultiplier  ?? 0)));
+
+    // SOUL_EATER: regen 15% maxHP on kill
+    if (player.hasSoulEater) {
+      const soulHeal = Math.max(1, Math.floor(player.maxHp * 0.15));
+      player.hp = Math.min(player.maxHp, player.hp + soulHeal);
+      this.emitBattleEvent({
+        type: "HEAL_APPLIED",
+        sourceId: player.id,
+        targetId: player.id,
+        amount: soulHeal,
+        label: "Soul Eater",
+      });
+    }
 
     // Accumulate rewards
     player.earnedGold += gold;

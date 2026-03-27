@@ -32,6 +32,21 @@ export const MATERIAL_TYPES = [
 
 export type MaterialType = (typeof MATERIAL_TYPES)[number];
 
+/** Maps tier → list of material types in that tier */
+export const MATERIAL_TIERS: Record<string, MaterialType[]> = {
+  COMMON: ["Stone Fragment", "Wolf Fang", "Iron Ore", "Forest Herb"],
+  RARE: ["Dragon Scale", "Shadow Essence", "Thunder Crystal", "Void Shard"],
+  EPIC: ["Phoenix Feather", "Abyssal Core", "Celestial Dust"],
+  LEGENDARY: ["Ancient Relic"],
+};
+
+/** Pick a random material from the given tier */
+export function getRandomMaterialOfTier(tier: string): MaterialType | null {
+  const list = MATERIAL_TIERS[tier];
+  if (!list || list.length === 0) return null;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
 /** Maps each material type to its crafting tier */
 export const MATERIAL_TIER_MAP: Record<MaterialType, string> = {
   "Stone Fragment": "COMMON",

@@ -11,7 +11,11 @@ export type QuestEvent =
   | "ASSIGNMENT_SUBMIT"
   | "ITEM_CRAFT"
   | "BOSS_KILL"
-  | "PVP_WIN";
+  | "PVP_WIN"
+  | "ITEM_ENHANCE"
+  | "TRANSMUTE"
+  | "SHOP_VISIT"
+  | "INVENTORY_CHECK";
 
 export interface QuestReward {
   gold?: number;
@@ -94,6 +98,46 @@ export const DAILY_QUESTS: QuestDef[] = [
     target: 1,
     reward: { gold: 50 },
   },
+  {
+    id: "DAILY_TRANSMUTE",
+    frequency: "DAILY",
+    name: "นักเล่นแร่แปรธาตุ",
+    description: "Transmute วัสดุ 1 ครั้ง",
+    icon: "🔮",
+    event: "TRANSMUTE",
+    target: 1,
+    reward: { gold: 40 },
+  },
+  {
+    id: "DAILY_ENHANCE",
+    frequency: "DAILY",
+    name: "ช่างตีบวก",
+    description: "ตีบวกไอเทม 1 ครั้ง",
+    icon: "⚒️",
+    event: "ITEM_ENHANCE",
+    target: 1,
+    reward: { gold: 30, materials: [{ type: "Stone Fragment", quantity: 1 }] },
+  },
+  {
+    id: "DAILY_SHOP_VISIT",
+    frequency: "DAILY",
+    name: "แวะตลาด",
+    description: "เปิดแท็บร้านค้าวันนี้",
+    icon: "🛒",
+    event: "SHOP_VISIT",
+    target: 1,
+    reward: { gold: 20 },
+  },
+  {
+    id: "DAILY_INVENTORY_CHECK",
+    frequency: "DAILY",
+    name: "จัดกระเป๋า",
+    description: "เปิดแท็บกระเป๋าวันนี้",
+    icon: "🎒",
+    event: "INVENTORY_CHECK",
+    target: 1,
+    reward: { gold: 15 },
+  },
 ];
 
 export const WEEKLY_QUESTS: QuestDef[] = [
@@ -146,6 +190,26 @@ export const WEEKLY_QUESTS: QuestDef[] = [
     event: "ITEM_CRAFT",
     target: 3,
     reward: { gold: 150, materials: [{ type: "Stone Fragment", quantity: 3 }] },
+  },
+  {
+    id: "WEEKLY_TRANSMUTE_3",
+    frequency: "WEEKLY",
+    name: "ผู้เชี่ยวชาญเล่นแร่แปรธาตุ",
+    description: "Transmute วัสดุ 3 ครั้งในสัปดาห์นี้",
+    icon: "🌀",
+    event: "TRANSMUTE",
+    target: 3,
+    reward: { gold: 200, materials: [{ type: "Dragon Scale", quantity: 1 }] },
+  },
+  {
+    id: "WEEKLY_ENHANCE_5",
+    frequency: "WEEKLY",
+    name: "อาจารย์ช่างตี",
+    description: "ตีบวกไอเทม 5 ครั้งในสัปดาห์นี้",
+    icon: "🔥",
+    event: "ITEM_ENHANCE",
+    target: 5,
+    reward: { gold: 250, materials: [{ type: "Phoenix Feather", quantity: 1 }] },
   },
 ];
 

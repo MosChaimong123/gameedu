@@ -38,6 +38,8 @@ import { PvPArenaTab } from "./PvPArenaTab";
 import { SkillTab } from "./SkillTab";
 import { FarmingTab } from "./FarmingTab";
 import { WorldBossBar } from "./world-boss-bar";
+import { CraftingTab } from "./CraftingTab";
+import { BossRewardModal } from "./BossRewardModal";
 import { useSocket } from "@/components/providers/socket-provider";
 import { getClassroomTheme } from "@/lib/classroom-utils";
 import { IdleEngine } from "@/lib/game/idle-engine";
@@ -107,6 +109,7 @@ export function StudentDashboardClient({
     const [viewMode, setViewMode] = useState<"academic" | "game">("academic");
     const [activeTab, setActiveTab] = useState("assignments");
     const [showJobModal, setShowJobModal] = useState(false);
+    const [bossReward, setBossReward] = useState<{ bossName: string; rewardGold?: number; rewardXp?: number; rewardMaterials?: { type: string; quantity: number }[] } | null>(null);
 
     const handleViewModeChange = (mode: "academic" | "game") => {
         setViewMode(mode);
@@ -404,12 +407,13 @@ export function StudentDashboardClient({
                                         ))}
                                     </TabsList>
                                 ) : (
-                                    <TabsList className="w-full rounded-3xl border border-slate-200 bg-white p-1.5 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.45)] grid grid-cols-8 gap-1">
+                                    <TabsList className="w-full rounded-3xl border border-slate-200 bg-white p-1.5 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.45)] grid grid-cols-9 gap-1">
                                         {[
                                             { value: "boss",         icon: <Shield className="w-4 h-4" />,      label: "บอสห้อง",  active: "data-[state=active]:bg-rose-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
                                             { value: "farming",      icon: <Flame className="w-4 h-4" />,       label: "ฟาร์ม",    active: "data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
                                             { value: "shop",         icon: <ShoppingBag className="w-4 h-4" />, label: "ร้านค้า",  active: "data-[state=active]:bg-amber-500  data-[state=active]:text-white data-[state=active]:shadow-md" },
                                             { value: "inventory",    icon: <Package className="w-4 h-4" />,     label: "คลัง",     active: "data-[state=active]:bg-blue-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
+                                            { value: "crafting",     icon: <span className="text-sm leading-none">🔨</span>,         label: "Craft",    active: "data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
                                             { value: "skills",       icon: <Star className="w-4 h-4" />,        label: "ทักษะ",    active: "data-[state=active]:bg-violet-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
                                             { value: "pvp",          icon: <Swords className="w-4 h-4" />,      label: "PvP",      active: "data-[state=active]:bg-rose-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
                                             { value: "achievements", icon: <Award className="w-4 h-4" />,       label: "รางวัล",   active: "data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
@@ -601,25 +605,20 @@ export function StudentDashboardClient({
                                 />
                             </TabsContent>
 
+                            <TabsContent value="crafting" className="mt-0 border-none p-0 outline-hidden">
+                                <CraftingTab code={code} />
+                            </TabsContent>
+
                             <TabsContent value="skills" className="mt-0 border-none p-0 outline-hidden">
                                 <SkillTab 
                                     studentId={student.id} 
-                                    classId={classroom.id}
-                                    mana={student.mana || 0}
-                                    stamina={student.stamina || 0}
                                     level={gameStats.level || 1}
                                     jobClass={student.jobClass}
                                     jobTier={student.jobTier || "BASE"}
                                     advanceClass={student.advanceClass}
                                     jobSkills={student.jobSkills || []}
                                     onShowJobModal={() => setShowJobModal(true)}
-                                    onUpdateStudent={(updated: any) => {
-                                        setStudent((prev: any) => ({ 
-                                            ...prev, 
-                                            ...updated,
-                                            gameStats: updated.gameStats ? { ...prev.gameStats, ...updated.gameStats } : prev.gameStats
-                                        }));
-                                    }}
+                                    onNavigateToFarming={() => setActiveTab("farming")}
                                 />
                             </TabsContent>
 
@@ -669,6 +668,8 @@ export function StudentDashboardClient({
                                             classId={classroom.id}
                                             studentId={student.id}
                                             stamina={student.stamina}
+                                            jobClass={student.advanceClass ?? student.jobClass}
+                                            limitBreakCharge={(student.gameStats as any)?.limitBreakCharge ?? 0}
                                             onAttackSuccess={(raw) => {
                                                 const data = raw as { boss?: unknown; staminaLeft?: number };
                                                 setClassroom((prev: any) => ({
@@ -683,6 +684,7 @@ export function StudentDashboardClient({
                                                     stamina: data.staminaLeft
                                                 }));
                                             }}
+                                            onBossDefeated={(rewards) => setBossReward(rewards)}
                                         />
                                     ) : (
                                         <div className="rounded-3xl border border-dashed border-slate-300 bg-white/70 p-10 text-center">
@@ -710,6 +712,9 @@ export function StudentDashboardClient({
                     </div>
                 </div>
             </div>
+
+            {/* Boss Reward Modal */}
+            <BossRewardModal reward={bossReward} onClose={() => setBossReward(null)} />
 
             {/* Job Selection Modal */}
             {showJobModal && (

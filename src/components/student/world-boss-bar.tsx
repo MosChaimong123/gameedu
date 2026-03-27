@@ -47,9 +47,10 @@ interface WorldBossBarProps {
     jobClass?: string | null;
     limitBreakCharge?: number;
     onAttackSuccess?: (data: unknown) => void;
+    onBossDefeated?: (rewards: { bossName: string; rewardGold?: number; rewardXp?: number; rewardMaterials?: { type: string; quantity: number }[] }) => void;
 }
 
-export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId, jobClass, limitBreakCharge = 0, onAttackSuccess }: WorldBossBarProps) {
+export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId, jobClass, limitBreakCharge = 0, onAttackSuccess, onBossDefeated }: WorldBossBarProps) {
     const { socket } = useSocket();
     const [isAttacking, setIsAttacking] = useState(false);
     const [damageLog, setDamageLog] = useState<{ damage: number; isCrit: boolean; time: Date; isLimitBreak?: boolean }[]>([]);
@@ -148,6 +149,16 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                     ...prev,
                 ].slice(0, 5));
                 if (onAttackSuccess) onAttackSuccess(data);
+
+                // Boss defeat detection
+                if (data.boss && (data.boss.currentHp ?? 1) <= 0 && onBossDefeated) {
+                    onBossDefeated({
+                        bossName: boss.name,
+                        rewardGold: boss.rewardGold,
+                        rewardXp: boss.rewardXp,
+                        rewardMaterials: boss.rewardMaterials,
+                    });
+                }
             } else {
                 toast({
                     title: "ไม่สามารถโจมตีได้",

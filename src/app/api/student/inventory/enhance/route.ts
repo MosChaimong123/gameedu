@@ -9,6 +9,7 @@ import {
   rollEnhancement,
 } from "@/lib/game/enhancement-system";
 import { buildStudentItemStatSnapshot } from "@/lib/game/student-item-stats";
+import { trackQuestEvent } from "@/lib/game/quest-engine";
 
 export async function POST(req: NextRequest) {
   try {
@@ -158,6 +159,9 @@ export async function POST(req: NextRequest) {
 
     const txResults = await db.$transaction(txOps);
     const updatedItem = txResults[1] as { enhancementLevel: number };
+
+    // Track quest event (fire-and-forget)
+    void trackQuestEvent(studentItem.studentId, "ITEM_ENHANCE");
 
     return NextResponse.json({
       success: result.success,

@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import type { PlayerBattleState, BattleLogEntry } from "./boss-config";
 
 /**
@@ -79,7 +78,7 @@ export function getPersonalBossFromStats(gameStats: unknown): PersonalClassroomB
 export function spawnPersonalBossFromTemplate(t: BossRaidTemplate): PersonalClassroomBoss {
   return {
     ...t,
-    instanceId: randomUUID(),
+    instanceId: globalThis.crypto.randomUUID(),
     active: true,
     currentHp: t.maxHp,
     triggeredSkills: [],

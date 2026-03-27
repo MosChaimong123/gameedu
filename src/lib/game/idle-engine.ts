@@ -858,7 +858,7 @@ export class IdleEngine {
         // ── FF: Boss Turn System ───────────────────────────────────────────────
         const bossPreset = personal.bossId ? getBossPreset(personal.bossId) : null;
         const totalAttacks = (personal.totalAttacksReceived ?? 0) + 1;
-        const phase = getBossPhase(finalHp, personal.maxHp);
+        const phase = getBossPhase(newHp, personal.maxHp);
         const turnInterval = getBossTurnInterval(phase);
         const prevIndex = personal.actionQueueIndex ?? 0;
 
@@ -883,6 +883,15 @@ export class IdleEngine {
           });
         } else {
           logEntries.push({ id: `${now}-miss`, type: "MISS", text: "💨 พลาด! (Blind)", timestamp: now });
+        }
+
+        if (justStaggered) {
+          logEntries.push({
+            id: `${now}-stagger`,
+            type: "STAGGER",
+            text: `💥 STAGGER! ${personal.name} ถูก Stagger — ดาเมจ ×2 เป็นเวลา 30 วินาที`,
+            timestamp: now,
+          });
         }
 
         // Boss acts every N hits (skip during stagger)

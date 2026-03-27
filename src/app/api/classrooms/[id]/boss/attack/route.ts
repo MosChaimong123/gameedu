@@ -106,14 +106,15 @@ export async function POST(
             });
         }
 
-        await db.student.update({
+        const updatedStudent = await db.student.update({
             where: { id: student.id },
             data: {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 gameStats: { ...currentStats, level: xpResult.level, xp: xpResult.xp, limitBreakCharge: newCharge } as any,
                 ...(isMagicAction ? { mana: { decrement: 20 } } : {}),
                 ...(updatedJobSkills ? { jobSkills: updatedJobSkills } : {})
-            }
+            },
+            select: { mana: true },
         });
 
         void trackQuestEvent(student.id, "BOSS_ATTACK");
@@ -123,7 +124,7 @@ export async function POST(
             damage: result.damage,
             isCrit: result.isCrit,
             staminaLeft: result.staminaLeft,
-            manaLeft: isMagicAction ? currentMana - 20 : currentMana,
+            manaLeft: updatedStudent.mana,
             boss: result.boss,
             targetInstanceId: result.targetInstanceId,
             xpGained: xpGain,

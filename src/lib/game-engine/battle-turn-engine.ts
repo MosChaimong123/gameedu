@@ -15,6 +15,8 @@ import {
   MaterialDrop,
   FinalReward,
   GameSettings,
+  StatusEffect,
+  StatusEffectType,
 } from "../types/game";
 import { StatCalculator } from "../game/stat-calculator";
 import {
@@ -136,7 +138,7 @@ function spawnSoloMonster(level: number, wave: number): SoloMonster {
   const template = SOLO_MONSTER_TEMPLATES[templateIdx];
   const hp = scaleMonsterHp(template.baseHp, wave);
   const atk = scaleMonsterAtk(template.baseAtk, wave);
-  return { name: template.name, hp, maxHp: hp, atk, wave };
+  return { name: template.name, hp, maxHp: hp, atk, wave, statusEffects: [] };
 }
 
 // ─── Default SOLO_FARMING timer ───────────────────────────────────────────────
@@ -180,7 +182,7 @@ export class BattleTurnEngine extends AbstractGameEngine {
       damage = Math.floor(damage * (1 + player.bossDamageMultiplier));
     }
 
-    const critChance = Math.max(0, Math.min(1, player.crit ?? 0));
+    const critChance = Math.max(0, Math.min(1, this.getEffectivePlayerCrit(player)));
     if (Math.random() < critChance) {
       damage = Math.floor(damage * 2);
       critApplied = true;
@@ -196,6 +198,76 @@ export class BattleTurnEngine extends AbstractGameEngine {
     }
 
     return { damage: Math.max(1, damage), critApplied };
+  }
+
+  // ── Status Effect Helpers ────────────────────────────────────────────────────
+
+  private applyStatusEffect(
+    target: { statusEffects: StatusEffect[] },
+    effect: StatusEffect
+  ) {
+    const existing = target.statusEffects.find((e) => e.type === effect.type);
+    if (existing) {
+      existing.turnsRemaining = effect.turnsRemaining;
+      if (effect.value !== undefined) existing.value = effect.value;
+    } else {
+      target.statusEffects.push({ ...effect });
+    }
+  }
+
+  private tickStatusEffects(
+    target: { statusEffects: StatusEffect[] },
+    onDamage: (amount: number, label: string) => void,
+    onHeal: (amount: number, label: string) => void
+  ) {
+    target.statusEffects = target.statusEffects.filter((effect) => {
+      if (effect.type === "POISON") onDamage(effect.value ?? 0, "Poison");
+      if (effect.type === "REGEN")  onHeal(effect.value ?? 0, "Regen");
+      effect.turnsRemaining--;
+      return effect.turnsRemaining > 0;
+    });
+  }
+
+  private getIncomingDamageMultiplier(effects: StatusEffect[]): number {
+    let mult = 1.0;
+    for (const e of effects) {
+      if (e.type === "ARMOR_PIERCE") mult += 0.20;
+      if (e.type === "DEF_BREAK")    mult += 0.50;
+    }
+    return mult;
+  }
+
+  private getEffectivePlayerAtk(player: BattlePlayer): number {
+    return player.statusEffects.some((e) => e.type === "BUFF_ATK")
+      ? Math.floor(player.atk * 1.4)
+      : player.atk;
+  }
+
+  private getEffectivePlayerCrit(player: BattlePlayer): number {
+    const buffCrit = player.statusEffects.some((e) => e.type === "CRIT_BUFF") ? 0.30 : 0;
+    return Math.min(1, (player.crit ?? 0) + buffCrit);
+  }
+
+  private tickFarmingStatusEffects(player: BattlePlayer) {
+    if (!player.soloMonster) return;
+    // Monster DoT (POISON)
+    this.tickStatusEffects(
+      player.soloMonster,
+      (dmg) => {
+        player.soloMonster!.hp = Math.max(0, player.soloMonster!.hp - dmg);
+        this.emitBattleEvent({ type: "DAMAGE_APPLIED", sourceId: "poison", targetId: "solo-monster", amount: dmg, label: "Poison", tone: "warning", fxPreset: "poison" });
+      },
+      () => {}
+    );
+    // Player HoT (REGEN)
+    this.tickStatusEffects(
+      player,
+      () => {},
+      (healAmt) => {
+        player.hp = Math.min(player.maxHp, player.hp + healAmt);
+        this.emitBattleEvent({ type: "HEAL_APPLIED", sourceId: player.id, targetId: player.id, amount: healAmt, label: "Regen" });
+      }
+    );
   }
 
   private applyDarkPactDrain(player: BattlePlayer) {
@@ -302,6 +374,7 @@ export class BattleTurnEngine extends AbstractGameEngine {
       earnedXp: 0,
       itemDrops: [],
       materialDrops: [],
+      statusEffects: [],
     };
 
     const existingIdx = this.players.findIndex(
@@ -487,6 +560,7 @@ export class BattleTurnEngine extends AbstractGameEngine {
       atk: BOSS_CONFIG.baseAtk,
       lastAttackTick: Date.now(),
       attackIntervalMs,
+      statusEffects: [],
     };
 
     this.transitionTo("CO_OP_BOSS_RAID");
@@ -505,82 +579,152 @@ export class BattleTurnEngine extends AbstractGameEngine {
 
     this.boss.lastAttackTick = Date.now();
 
-    for (const player of this.players) {
-      if (!player.isConnected) continue;
-      if (player.isDefending) continue;
-      if (player.hp <= 0) continue;
-
+    // ── STUN: boss skips this entire attack tick ─────────────────────────────
+    const stunIdx = this.boss.statusEffects.findIndex((e) => e.type === "STUN");
+    if (stunIdx !== -1) {
+      this.boss.statusEffects.splice(stunIdx, 1);
       this.emitBattleEvent({
-        type: "ACTION_SKILL_CAST",
+        type: "BANNER",
         sourceId: this.boss.id,
-        sourceRole: "enemy",
-        targetId: player.id,
-        label: `${this.boss.name} โจมตี`,
-        fxPreset: "pierce",
-        colorClass: "from-rose-600/80 via-orange-500/40 to-transparent",
+        targetId: this.boss.id,
+        label: `${this.boss.name} ติดสตัน — ข้ามการโจมตี`,
+        tone: "warning",
       });
+    } else {
+      // ── SLOW: 35% chance boss misses entire tick ─────────────────────────
+      const hasSlow = this.boss.statusEffects.some((e) => e.type === "SLOW");
+      const bossSlowed = hasSlow && Math.random() < 0.35;
 
-      if (player.hasShadowVeil && Math.random() < Math.max(0, Math.min(1, player.dodgeChance))) {
-        player.shadowVeilCritBuff = true;
+      if (bossSlowed) {
         this.emitBattleEvent({
           type: "BANNER",
-          sourceId: player.id,
-          targetId: player.id,
-          label: `${player.name} หลบการโจมตีสำเร็จ`,
-          tone: "success",
+          sourceId: this.boss.id,
+          targetId: this.boss.id,
+          label: `${this.boss.name} ติด Slow — พลาดการโจมตี`,
+          tone: "warning",
+          fxPreset: "ice",
         });
-        continue;
-      }
+      } else {
+        // ── DEBUFF_ATK: reduce effective boss ATK by 30% ───────────────────
+        const hasDebuffAtk = this.boss.statusEffects.some((e) => e.type === "DEBUFF_ATK");
+        const effectiveBossAtk = hasDebuffAtk
+          ? Math.floor(this.boss.atk * 0.70)
+          : this.boss.atk;
 
-      const damage = computeBossDamageAgainstPlayer({
-        bossAtk: this.boss.atk,
-        playerDef: player.def,
-        playerHp: player.hp,
-        playerMaxHp: player.maxHp,
-        hasToughSkin: player.hasToughSkin,
-        hasTitanWill: player.hasTitanWill,
-      });
-      player.hp = Math.max(0, player.hp - damage);
+        for (const player of this.players) {
+          if (!player.isConnected) continue;
+          if (player.isDefending) continue;
+          if (player.hp <= 0) continue;
 
-      // 8.2 Immortal: if HP would reach 0 and immortal hasn't been used, set to 1
-      if (player.hp <= 0 && player.hasImmortal && !player.immortalUsed) {
-        player.hp = 1;
-        player.immortalUsed = true;
-      }
+          this.emitBattleEvent({
+            type: "ACTION_SKILL_CAST",
+            sourceId: this.boss.id,
+            sourceRole: "enemy",
+            targetId: player.id,
+            label: `${this.boss.name} โจมตี`,
+            fxPreset: "pierce",
+            colorClass: "from-rose-600/80 via-orange-500/40 to-transparent",
+          });
 
-      // Emit player-damaged to that player's socket
-      this.io.to(player.id).emit("player-damaged", {
-        playerId: player.id,
-        damage,
-        remainingHp: player.hp,
-      });
-      this.emitBattleEvent({
-        type: "DAMAGE_APPLIED",
-        sourceId: this.boss.id,
-        sourceRole: "enemy",
-        targetId: player.id,
-        amount: damage,
-      });
+          if (player.hasShadowVeil && Math.random() < Math.max(0, Math.min(1, player.dodgeChance))) {
+            player.shadowVeilCritBuff = true;
+            this.emitBattleEvent({
+              type: "BANNER",
+              sourceId: player.id,
+              targetId: player.id,
+              label: `${player.name} หลบการโจมตีสำเร็จ`,
+              tone: "success",
+            });
+            continue;
+          }
 
-      // Handle player death
-      if (player.hp <= 0) {
-        if (!player.immortalUsed) {
-          // Immortal effect handled in task 8 — for now just mark defeated
+          let damage = computeBossDamageAgainstPlayer({
+            bossAtk: effectiveBossAtk,
+            playerDef: player.def,
+            playerHp: player.hp,
+            playerMaxHp: player.maxHp,
+            hasToughSkin: player.hasToughSkin,
+            hasTitanWill: player.hasTitanWill,
+          });
+
+          // BUFF_DEF: 50% damage reduction
+          if (player.statusEffects.some((e) => e.type === "BUFF_DEF")) {
+            damage = Math.max(1, Math.floor(damage * 0.5));
+          }
+
+          player.hp = Math.max(0, player.hp - damage);
+
+          if (player.hp <= 0 && player.hasImmortal && !player.immortalUsed) {
+            player.hp = 1;
+            player.immortalUsed = true;
+          }
+
+          this.io.to(player.id).emit("player-damaged", {
+            playerId: player.id,
+            damage,
+            remainingHp: player.hp,
+          });
+          this.emitBattleEvent({
+            type: "DAMAGE_APPLIED",
+            sourceId: this.boss.id,
+            sourceRole: "enemy",
+            targetId: player.id,
+            amount: damage,
+          });
         }
       }
     }
 
-    // DARK_PACT: drain 5% maxHP per boss tick for each player with the effect
+    // ── Tick boss status effects (POISON DoT, decrement all) ────────────────
+    this.tickStatusEffects(
+      this.boss,
+      (dmg) => {
+        if (!this.boss) return;
+        this.boss.hp = Math.max(0, this.boss.hp - dmg);
+        this.emitBattleEvent({
+          type: "DAMAGE_APPLIED",
+          sourceId: "poison",
+          targetId: this.boss.id,
+          amount: dmg,
+          label: "Poison",
+          tone: "warning",
+          fxPreset: "poison",
+        });
+        if (this.boss.hp <= 0) this.handleBossDefeated();
+      },
+      () => {}
+    );
+
+    // ── Tick player status effects (REGEN HoT, decrement all) ───────────────
+    for (const player of this.players) {
+      if (player.hp > 0) {
+        this.tickStatusEffects(
+          player,
+          () => {},
+          (healAmt) => {
+            player.hp = Math.min(player.maxHp, player.hp + healAmt);
+            this.emitBattleEvent({
+              type: "HEAL_APPLIED",
+              sourceId: player.id,
+              targetId: player.id,
+              amount: healAmt,
+              label: "Regen",
+            });
+          }
+        );
+      }
+    }
+
+    // DARK_PACT: drain 5% maxHP per boss tick
     for (const player of this.players) {
       if (player.hp > 0) this.applyDarkPactDrain(player);
     }
 
-    // Reset all isDefending flags
+    // Reset isDefending flags
     for (const player of this.players) {
       player.isDefending = false;
     }
 
-    // Emit boss-damaged to room (tick summary)
     this.io.to(this.pin).emit("boss-damaged", {
       currentHp: this.boss.hp,
       maxHp: this.boss.maxHp,
@@ -619,7 +763,7 @@ export class BattleTurnEngine extends AbstractGameEngine {
       });
       player.ap -= 10;
       player.stamina = player.ap;
-      const { damage, critApplied } = this.applyOutgoingDamageEffects(player, player.atk, { targetBoss: true });
+      const { damage, critApplied } = this.applyOutgoingDamageEffects(player, this.getEffectivePlayerAtk(player), { targetBoss: true });
       this.applyDamageToBoss(damage, player.id, critApplied);
       this.applyDarkPactDrain(player);
 
@@ -650,8 +794,10 @@ export class BattleTurnEngine extends AbstractGameEngine {
     }
   }
 
-  private applyDamageToBoss(damage: number, attackerId: string, critApplied = false) {
+  private applyDamageToBoss(rawDamage: number, attackerId: string, critApplied = false) {
     if (!this.boss) return;
+    const incomingMult = this.getIncomingDamageMultiplier(this.boss.statusEffects);
+    const damage = incomingMult > 1 ? Math.floor(rawDamage * incomingMult) : rawDamage;
     this.boss.hp = Math.max(0, this.boss.hp - damage);
     this.emitBattleEvent({
       type: "DAMAGE_APPLIED",
@@ -728,8 +874,6 @@ export class BattleTurnEngine extends AbstractGameEngine {
       player.mp -= skill.cost;
     }
 
-    // Execute skill effect against boss
-    let damage = 0;
     this.emitBattleEvent({
       type: "ACTION_SKILL_CAST",
       sourceId: player.id,
@@ -738,33 +882,103 @@ export class BattleTurnEngine extends AbstractGameEngine {
       label: skill.name,
       tone: "skill",
     });
-    if (skill.effect === "DAMAGE") {
-      const baseStat = (skill as any).damageBase === "MAG" ? player.mag : player.atk;
-      const multiplier = (skill as any).damageMultiplier ?? (1 + skill.cost / 20);
-      damage = Math.floor(baseStat * multiplier);
-      const effected = this.applyOutgoingDamageEffects(player, damage, {
-        usesMagic: (skill as any).damageBase === "MAG",
+
+    const isMagic = (skill as any).damageBase === "MAG";
+    const mult = (skill as any).damageMultiplier ?? (1 + skill.cost / 20);
+    const effectiveAtk = this.getEffectivePlayerAtk(player);
+    const baseStat = isMagic ? player.mag : effectiveAtk;
+
+    const dealDamage = (base: number) => {
+      const effected = this.applyOutgoingDamageEffects(player, base, {
+        usesMagic: isMagic,
         targetBoss: true,
       });
-      this.applyDamageToBoss(effected.damage, player.id, effected.critApplied || Boolean((skill as any).isCrit));
+      const isCritForced = Boolean((skill as any).isCrit);
+      this.applyDamageToBoss(effected.damage, player.id, effected.critApplied || isCritForced);
       this.applyDarkPactDrain(player);
-    } else if (skill.effect === "BUFF_DEF") {
+    };
+
+    const effect = skill.effect;
+
+    if (effect === "DAMAGE") {
+      dealDamage(Math.floor(baseStat * mult));
+
+    } else if (effect === "SLOW") {
+      dealDamage(Math.floor(baseStat * mult));
+      this.applyStatusEffect(this.boss!, { type: "SLOW", turnsRemaining: 3, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: this.boss?.id, label: "Slow — boss พลาดโจมตี 35%", tone: "warning", fxPreset: "ice" });
+
+    } else if (effect === "STUN") {
+      dealDamage(Math.floor(baseStat * mult));
+      if (Math.random() < 0.5) {
+        this.applyStatusEffect(this.boss!, { type: "STUN", turnsRemaining: 1, sourceId: player.id });
+        this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: this.boss?.id, label: "STUN! Boss ข้ามโจมตีถัดไป", tone: "warning", fxPreset: "thunder" });
+      }
+
+    } else if (effect === "MANA_SURGE") {
+      dealDamage(Math.floor(baseStat * mult));
+      player.mp = Math.min(player.maxMp, player.mp + 10);
+      this.emitBattleEvent({ type: "RESOURCE_GAINED", sourceId: player.id, targetId: player.id, amount: 10, resourceType: "MP" });
+
+    } else if (effect === "ARMOR_PIERCE") {
+      dealDamage(Math.floor(baseStat * mult));
+      this.applyStatusEffect(this.boss!, { type: "ARMOR_PIERCE", turnsRemaining: 3, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: this.boss?.id, label: "Armor Pierced — boss รับดาเมจ +20%", tone: "skill", fxPreset: "pierce" });
+
+    } else if (effect === "POISON") {
+      dealDamage(Math.floor(baseStat * mult));
+      const poisonVal = Math.max(1, Math.floor(baseStat * 0.4));
+      const poisonTurns = Math.random() < 0.5 ? 3 : 4;
+      this.applyStatusEffect(this.boss!, { type: "POISON", turnsRemaining: poisonTurns, value: poisonVal, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: this.boss?.id, label: `Poison ${poisonVal}/tick × ${poisonTurns}`, tone: "warning", fxPreset: "poison" });
+
+    } else if (effect === "DEBUFF_ATK") {
+      dealDamage(Math.floor(baseStat * mult));
+      this.applyStatusEffect(this.boss!, { type: "DEBUFF_ATK", turnsRemaining: 2, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: this.boss?.id, label: "Boss ATK -30% 2 turns", tone: "skill", fxPreset: "debuff" });
+
+    } else if (effect === "CRIT_BUFF") {
+      this.applyStatusEffect(player, { type: "CRIT_BUFF", turnsRemaining: 3, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: player.id, label: "Eagle Eye — CRIT +30% 3 turns", tone: "success", fxPreset: "buff" });
+
+    } else if (effect === "REGEN") {
+      const regenVal = Math.max(1, Math.floor(player.mag * 0.25));
+      this.applyStatusEffect(player, { type: "REGEN", turnsRemaining: 4, value: regenVal, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: player.id, label: `Regen +${regenVal} HP/tick × 4`, tone: "success", fxPreset: "heal" });
+
+    } else if (effect === "DEF_BREAK") {
+      dealDamage(Math.floor(baseStat * mult));
+      this.applyStatusEffect(this.boss!, { type: "DEF_BREAK", turnsRemaining: 3, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: this.boss?.id, label: "DEF BREAK — boss รับดาเมจ +50%", tone: "warning", fxPreset: "pierce" });
+
+    } else if (effect === "EXECUTE") {
+      const hpRatio = this.boss ? this.boss.hp / Math.max(1, this.boss.maxHp) : 1;
+      const execMult = hpRatio < 0.30 ? mult * 1.8 : mult;
+      if (hpRatio < 0.30) {
+        this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: this.boss?.id, label: "EXECUTE! ×1.8 damage", tone: "danger", fxPreset: "execute" });
+      }
+      dealDamage(Math.floor(baseStat * execMult));
+
+    } else if (effect === "BUFF_ATK") {
+      this.applyStatusEffect(player, { type: "BUFF_ATK", turnsRemaining: 3, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: player.id, label: "War Cry — ATK ×1.4 3 turns", tone: "success", fxPreset: "buff" });
+
+    } else if (effect === "BUFF_DEF") {
+      this.applyStatusEffect(player, { type: "BUFF_DEF", turnsRemaining: 2, sourceId: player.id });
       player.isDefending = true;
-    } else if (skill.effect === "BUFF_ATK") {
-      const buffMult = (skill as any).damageMultiplier ?? 0.5;
-      damage = Math.floor(player.atk * buffMult);
-      const effected = this.applyOutgoingDamageEffects(player, damage, { targetBoss: true });
-      this.applyDamageToBoss(effected.damage, player.id, effected.critApplied);
-      this.applyDarkPactDrain(player);
-    } else if (skill.effect === "HEAL") {
-      const healAmount = Math.floor(player.mag * 1.5);
-      player.hp = Math.min(player.maxHp, player.hp + healAmount);
-      this.emitBattleEvent({
-        type: "HEAL_APPLIED",
-        sourceId: player.id,
-        targetId: player.id,
-        amount: healAmount,
-      });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: player.id, label: "Shield Wall — DMG -50% 2 turns", tone: "success", fxPreset: "shield" });
+
+    } else if (effect === "LIFESTEAL") {
+      dealDamage(Math.floor(baseStat * mult));
+
+    } else if (effect === "HEAL") {
+      const healAmt = Math.floor(player.mag * (skill.healMultiplier ?? 1.5));
+      player.hp = Math.min(player.maxHp, player.hp + healAmt);
+      this.emitBattleEvent({ type: "HEAL_APPLIED", sourceId: player.id, targetId: player.id, amount: healAmt });
+
+    } else {
+      // Fallback: treat as DAMAGE if damageMultiplier present
+      if (mult > 0) dealDamage(Math.floor(baseStat * mult));
     }
 
     this.statusUpdate();
@@ -826,24 +1040,17 @@ export class BattleTurnEngine extends AbstractGameEngine {
   private handleCorrectAnswerInFarming(player: BattlePlayer) {
     if (!player.soloMonster) return;
 
-    // Auto-deal player.atk damage to soloMonster
-    const effected = this.applyOutgoingDamageEffects(player, player.atk);
-    const damage = effected.damage;
-    this.emitBattleEvent({
-      type: "ACTION_ATTACK",
-      sourceId: player.id,
-      targetId: "solo-monster",
-      label: "โจมตีอัตโนมัติ",
-    });
-    this.emitBattleEvent({
-      type: "DAMAGE_APPLIED",
-      sourceId: player.id,
-      targetId: "solo-monster",
-      amount: damage,
-      correct: effected.critApplied,
-    });
+    // Auto-deal effective ATK damage to soloMonster
+    const effected = this.applyOutgoingDamageEffects(player, this.getEffectivePlayerAtk(player));
+    const incomingMult = this.getIncomingDamageMultiplier(player.soloMonster.statusEffects);
+    const damage = Math.floor(effected.damage * incomingMult);
+    this.emitBattleEvent({ type: "ACTION_ATTACK", sourceId: player.id, targetId: "solo-monster", label: "โจมตีอัตโนมัติ" });
+    this.emitBattleEvent({ type: "DAMAGE_APPLIED", sourceId: player.id, targetId: "solo-monster", amount: damage, correct: effected.critApplied });
     player.soloMonster.hp = Math.max(0, player.soloMonster.hp - damage);
     this.applyDarkPactDrain(player);
+
+    // Tick status effects each answer (POISON DoT on monster, REGEN on player)
+    this.tickFarmingStatusEffects(player);
 
     if (player.soloMonster.hp <= 0) {
       this.handleMonsterDefeated(player);
@@ -974,36 +1181,103 @@ export class BattleTurnEngine extends AbstractGameEngine {
       player.mp -= skill.cost;
     }
 
-    if (skill.effect === "DAMAGE") {
-      const baseStat = (skill as any).damageBase === "MAG" ? player.mag : player.atk;
-      const multiplier = (skill as any).damageMultiplier ?? (1 + skill.cost / 20);
-      const baseDamage = Math.floor(baseStat * multiplier);
-      const effected = this.applyOutgoingDamageEffects(player, baseDamage, {
-        usesMagic: (skill as any).damageBase === "MAG",
-      });
-      player.soloMonster.hp = Math.max(0, player.soloMonster.hp - effected.damage);
-      this.emitBattleEvent({
-        type: "DAMAGE_APPLIED",
-        sourceId: player.id,
-        targetId: "solo-monster",
-        amount: effected.damage,
-        correct: effected.critApplied,
-      });
-      this.applyDarkPactDrain(player);
+    const isMagic = (skill as any).damageBase === "MAG";
+    const mult = (skill as any).damageMultiplier ?? (1 + skill.cost / 20);
+    const effectiveAtk = this.getEffectivePlayerAtk(player);
+    const baseStat = isMagic ? player.mag : effectiveAtk;
+    const effect = skill.effect;
 
-      if (player.soloMonster.hp <= 0) {
-        this.handleMonsterDefeated(player);
-        return;
+    const dealMonsterDamage = (base: number) => {
+      const effected = this.applyOutgoingDamageEffects(player, base, { usesMagic: isMagic });
+      const incomingMult = this.getIncomingDamageMultiplier(player.soloMonster!.statusEffects);
+      const finalDmg = Math.floor(effected.damage * incomingMult);
+      player.soloMonster!.hp = Math.max(0, player.soloMonster!.hp - finalDmg);
+      this.emitBattleEvent({ type: "DAMAGE_APPLIED", sourceId: player.id, targetId: "solo-monster", amount: finalDmg, correct: effected.critApplied });
+      this.applyDarkPactDrain(player);
+    };
+
+    if (effect === "DAMAGE" || effect === "LIFESTEAL") {
+      dealMonsterDamage(Math.floor(baseStat * mult));
+
+    } else if (effect === "SLOW") {
+      dealMonsterDamage(Math.floor(baseStat * mult));
+      this.applyStatusEffect(player.soloMonster, { type: "SLOW", turnsRemaining: 3, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: "solo-monster", label: "Slow", tone: "warning", fxPreset: "ice" });
+
+    } else if (effect === "STUN") {
+      dealMonsterDamage(Math.floor(baseStat * mult));
+      if (Math.random() < 0.5) {
+        this.applyStatusEffect(player.soloMonster, { type: "STUN", turnsRemaining: 1, sourceId: player.id });
+        this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: "solo-monster", label: "STUN!", tone: "warning", fxPreset: "thunder" });
       }
-    } else if (skill.effect === "HEAL") {
-      const healAmount = Math.floor(player.mag * 1.5);
-      player.hp = Math.min(player.maxHp, player.hp + healAmount);
-      this.emitBattleEvent({
-        type: "HEAL_APPLIED",
-        sourceId: player.id,
-        targetId: player.id,
-        amount: healAmount,
-      });
+
+    } else if (effect === "MANA_SURGE") {
+      dealMonsterDamage(Math.floor(baseStat * mult));
+      player.mp = Math.min(player.maxMp, player.mp + 10);
+      this.emitBattleEvent({ type: "RESOURCE_GAINED", sourceId: player.id, targetId: player.id, amount: 10, resourceType: "MP" });
+
+    } else if (effect === "ARMOR_PIERCE") {
+      dealMonsterDamage(Math.floor(baseStat * mult));
+      this.applyStatusEffect(player.soloMonster, { type: "ARMOR_PIERCE", turnsRemaining: 3, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: "solo-monster", label: "Armor Pierced +20%", tone: "skill", fxPreset: "pierce" });
+
+    } else if (effect === "POISON") {
+      dealMonsterDamage(Math.floor(baseStat * mult));
+      const poisonVal = Math.max(1, Math.floor(baseStat * 0.4));
+      const poisonTurns = Math.random() < 0.5 ? 3 : 4;
+      this.applyStatusEffect(player.soloMonster, { type: "POISON", turnsRemaining: poisonTurns, value: poisonVal, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: "solo-monster", label: `Poison ${poisonVal}/tick`, tone: "warning", fxPreset: "poison" });
+
+    } else if (effect === "DEBUFF_ATK") {
+      dealMonsterDamage(Math.floor(baseStat * mult));
+      this.applyStatusEffect(player.soloMonster, { type: "DEBUFF_ATK", turnsRemaining: 2, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: "solo-monster", label: "Monster ATK -30%", tone: "skill", fxPreset: "debuff" });
+
+    } else if (effect === "CRIT_BUFF") {
+      this.applyStatusEffect(player, { type: "CRIT_BUFF", turnsRemaining: 3, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: player.id, label: "CRIT +30% 3 turns", tone: "success", fxPreset: "buff" });
+
+    } else if (effect === "REGEN") {
+      const regenVal = Math.max(1, Math.floor(player.mag * 0.25));
+      this.applyStatusEffect(player, { type: "REGEN", turnsRemaining: 4, value: regenVal, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: player.id, label: `Regen +${regenVal}/tick`, tone: "success", fxPreset: "heal" });
+
+    } else if (effect === "DEF_BREAK") {
+      dealMonsterDamage(Math.floor(baseStat * mult));
+      this.applyStatusEffect(player.soloMonster, { type: "DEF_BREAK", turnsRemaining: 3, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: "solo-monster", label: "DEF BREAK +50%", tone: "warning", fxPreset: "pierce" });
+
+    } else if (effect === "EXECUTE") {
+      const hpRatio = player.soloMonster.hp / Math.max(1, player.soloMonster.maxHp);
+      const execMult = hpRatio < 0.30 ? mult * 1.8 : mult;
+      if (hpRatio < 0.30) {
+        this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: "solo-monster", label: "EXECUTE! ×1.8", tone: "danger", fxPreset: "execute" });
+      }
+      dealMonsterDamage(Math.floor(baseStat * execMult));
+
+    } else if (effect === "BUFF_ATK") {
+      this.applyStatusEffect(player, { type: "BUFF_ATK", turnsRemaining: 3, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: player.id, label: "ATK ×1.4 3 turns", tone: "success", fxPreset: "buff" });
+
+    } else if (effect === "BUFF_DEF") {
+      this.applyStatusEffect(player, { type: "BUFF_DEF", turnsRemaining: 2, sourceId: player.id });
+      this.emitBattleEvent({ type: "BANNER", sourceId: player.id, targetId: player.id, label: "DMG -50% 2 turns", tone: "success", fxPreset: "shield" });
+
+    } else if (effect === "HEAL") {
+      const healAmt = Math.floor(player.mag * (skill.healMultiplier ?? 1.5));
+      player.hp = Math.min(player.maxHp, player.hp + healAmt);
+      this.emitBattleEvent({ type: "HEAL_APPLIED", sourceId: player.id, targetId: player.id, amount: healAmt });
+
+    } else {
+      if (mult > 0) dealMonsterDamage(Math.floor(baseStat * mult));
+    }
+
+    // Tick status effects after each skill action (POISON DoT, REGEN HoT)
+    this.tickFarmingStatusEffects(player);
+
+    if (player.soloMonster && player.soloMonster.hp <= 0) {
+      this.handleMonsterDefeated(player);
+      return;
     }
 
     this.io.to(player.id).emit("farming-state", {

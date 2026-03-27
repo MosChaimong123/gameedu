@@ -28,6 +28,7 @@ function makeBoss(hp: number, maxHp: number): BossState {
     atk: 80,
     lastAttackTick: Date.now(),
     attackIntervalMs: 15_000,
+    statusEffects: [],
   };
 }
 
@@ -175,6 +176,7 @@ describe("P5 — Wave Isolation", () => {
             maxHp: scaleMonsterHp(baseHp, waveA),
             atk: scaleMonsterAtk(baseAtk, waveA),
             wave: waveA,
+            statusEffects: [],
           };
 
           const monsterB: SoloMonster = {
@@ -183,6 +185,7 @@ describe("P5 — Wave Isolation", () => {
             maxHp: scaleMonsterHp(baseHp, waveB),
             atk: scaleMonsterAtk(baseAtk, waveB),
             wave: waveB,
+            statusEffects: [],
           };
 
           // Mutate A's monster — B's monster must be unaffected

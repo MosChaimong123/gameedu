@@ -88,6 +88,7 @@ function makePlayer(id: string, studentId = "student-1"): BattlePlayer {
     earnedXp: 0,
     itemDrops: [],
     materialDrops: [],
+    statusEffects: [],
   };
 }
 
@@ -100,6 +101,7 @@ function makeBoss(): BossState {
     atk: 80,
     lastAttackTick: Date.now(),
     attackIntervalMs: 15000,
+    statusEffects: [],
   };
 }
 
@@ -168,7 +170,7 @@ describe("Battle interaction sequence", () => {
     const questions = [{ id: "q1", correctAnswer: 1, question: "Q", options: ["A", "B"] }];
     const engine = new BattleTurnEngine("PIN1", "host-1", "set-1", TEST_SETTINGS, questions, io as any);
     const player = makePlayer(socket.id);
-    player.soloMonster = { name: "Slime", hp: 10, maxHp: 10, atk: 5, wave: 1 };
+    player.soloMonster = { name: "Slime", hp: 10, maxHp: 10, atk: 5, wave: 1, statusEffects: [] };
     player.wave = 1;
 
     (engine as any).players = [player];

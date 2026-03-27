@@ -125,6 +125,28 @@ export interface SoloMonster {
     maxHp: number;
     atk: number;
     wave: number;
+    statusEffects: StatusEffect[];
+}
+
+// ─── Status Effects ───────────────────────────────────────────────────────────
+
+export type StatusEffectType =
+    | "SLOW"         // target: 35% chance to skip attack
+    | "STUN"         // target: skip next 1 attack unconditionally
+    | "ARMOR_PIERCE" // target: take +20% more damage for N turns
+    | "POISON"       // target: take `value` damage per action for 3-4 turns
+    | "REGEN"        // player: heal `value` HP per action for 4 turns
+    | "CRIT_BUFF"    // player: CRIT +0.30 for 3 turns
+    | "DEBUFF_ATK"   // target: ATK ×0.70 for 2 turns
+    | "DEF_BREAK"    // target: take +50% more damage for 3 turns
+    | "BUFF_ATK"     // player: ATK ×1.4 for 3 turns
+    | "BUFF_DEF";    // player: take 50% less damage for 2 turns
+
+export interface StatusEffect {
+    type: StatusEffectType;
+    turnsRemaining: number;
+    value?: number;   // damage per tick (POISON), heal per tick (REGEN)
+    sourceId: string;
 }
 
 export interface BossState {
@@ -135,6 +157,7 @@ export interface BossState {
     atk: number;
     lastAttackTick: number;
     attackIntervalMs: number;
+    statusEffects: StatusEffect[];
 }
 
 export interface LootPayload {
@@ -211,6 +234,7 @@ export interface BattlePlayer extends BasePlayer {
     goldMultiplier: number;
     xpMultiplier: number;
     bossDamageMultiplier: number;
+    statusEffects: StatusEffect[];
     earnedGold: number;
     earnedXp: number;
     itemDrops: string[];

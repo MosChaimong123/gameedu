@@ -22,7 +22,7 @@ describe("battle-ui-helpers", () => {
       resolveSoloFarmingResources(
         {
           wave: 2,
-          monster: { name: "Slime", hp: 10, maxHp: 20, atk: 3, wave: 2 },
+          monster: { name: "Slime", hp: 10, maxHp: 20, atk: 3, wave: 2, statusEffects: [] },
           ap: 10,
           stamina: 30,
           maxStamina: 80,

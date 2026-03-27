@@ -101,6 +101,7 @@ function makePlayer(overrides: Partial<BattlePlayer> = {}): BattlePlayer {
     earnedXp: 50,
     itemDrops: [],
     materialDrops: [],
+    statusEffects: [],
     ...overrides,
   };
 }

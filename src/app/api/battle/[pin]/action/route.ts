@@ -45,12 +45,22 @@ export async function POST(
     // Forward into BattleTurnEngine.
     // Note: HTTP has no real socket, so we pass a minimal fake socket
     // with `id` used for player lookup inside the engine.
+    let emittedError: any = null;
     const fakeSocket = {
       id: socketId,
-      emit: () => {},
+      emit: (eventName: string, data: any) => {
+        if (eventName === "error") emittedError = data;
+      },
     } as any;
 
     game.handleEvent("battle-action", { type, skillId, targetId, pin }, fakeSocket);
+    if (emittedError) {
+      return NextResponse.json(
+        { error: emittedError?.message ?? emittedError ?? "Battle action failed" },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("[Battle Action API] POST error:", error);

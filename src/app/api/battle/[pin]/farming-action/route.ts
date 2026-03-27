@@ -43,12 +43,22 @@ export async function POST(
     }
 
     // Forward into BattleTurnEngine with a minimal fake socket.
+    let emittedError: any = null;
     const fakeSocket = {
       id: socketId,
-      emit: () => {},
+      emit: (eventName: string, data: any) => {
+        if (eventName === "error") emittedError = data;
+      },
     } as any;
 
     game.handleEvent("farming-action", { type, skillId, pin }, fakeSocket);
+    if (emittedError) {
+      return NextResponse.json(
+        { error: emittedError?.message ?? emittedError ?? "Farming action failed" },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("[Farming Action API] POST error:", error);

@@ -203,6 +203,10 @@ app.prepare().then(async () => {
         socket.on("request-question", (payload) => forwardToGame("request-question", payload));
         socket.on("submit-answer", (payload) => forwardToGame("submit-answer", payload));
 
+        // Battle Turn (BATTLE_TURN) client actions
+        socket.on("battle-action", (payload) => forwardToGame("battle-action", payload));
+        socket.on("farming-action", (payload) => forwardToGame("farming-action", payload));
+
         // --- Crypto Hack Events (Critical Fix) ---
         socket.on("select-password", (payload) => forwardToGame("select-password", payload));
         socket.on("request-hack-options", (payload) => forwardToGame("request-hack-options", payload));

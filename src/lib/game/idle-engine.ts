@@ -9,10 +9,12 @@ import {
   getStatMultipliers,
   resolveEffectiveJobKey,
   getNewlyUnlockedSkills,
+  getSkillsForLevel,
   type JobTier,
   type Skill,
 } from "./job-system";
 import { toPrismaJson } from "./game-stats";
+import { getTriggeredSkills, getBossPreset, type BossSkillConfig } from "./boss-config";
 import {
   getEffectiveSkillAtRank,
   getSkillRank,
@@ -118,11 +120,28 @@ type StudentResourceSource = {
   items?: EquippedItemLike[] | null;
 };
 
+type BossActiveEffect = {
+  type: string;
+  effectValue: number;
+  expiresAt: string | null; // ISO string, null = permanent
+  skillId: string;
+  skillName: string;
+  skillIcon: string;
+};
+
 type BossState = {
   active: boolean;
   currentHp: number;
+  maxHp?: number;
   rewardGold?: number;
+  rewardXp?: number;
+  rewardMaterials?: { type: string; quantity: number }[];
   name?: string;
+  bossId?: string;
+  difficulty?: string;
+  passiveDamageMultiplier?: number;
+  triggeredSkills?: string[];
+  activeEffect?: BossActiveEffect | null;
   /**
    * Used for idempotency: reward for a single boss defeat should be distributed once.
    * Stored inside classroom.gamifiedSettings.boss (JSON field).
@@ -183,6 +202,10 @@ type SkillUserStudent = StudentJobProgress & {
   mana: number;
   stamina: number;
   gameStats: unknown;
+  jobClass?: string | null;
+  jobTier?: string | null;
+  advanceClass?: string | null;
+  jobSkills?: string[] | null;
   items: EquippedItemLike[];
 };
 
@@ -230,6 +253,11 @@ export class IdleEngine {
   // Base rates
   private static readonly BASE_GOLD_RATE = 0.1; // Gold per second at Rank 1
   private static readonly SECONDS_IN_MINUTE = 60;
+  private static readonly MAX_LEVEL = 60;
+
+  static getMaxLevel(): number {
+    return this.MAX_LEVEL;
+  }
 
   /**
    * Skills definitions
@@ -580,9 +608,76 @@ export class IdleEngine {
               }
             }
 
-            const newHp = Math.max(0, settings.boss.currentHp - damage);
-            const isDefeated = settings.boss.currentHp > 0 && newHp <= 0;
-            const alreadyDistributed = Boolean((settings.boss as BossState | undefined)?.rewardDistributedAt);
+            // Apply passive + active damage multipliers from boss config
+            let effectiveDamage = damage;
+            const bossState = settings.boss as BossState;
+            const passive = bossState.passiveDamageMultiplier ?? 1.0;
+            effectiveDamage = Math.floor(effectiveDamage * passive);
+
+            const activeEffect = bossState.activeEffect;
+            const now = Date.now();
+            const effectActive = activeEffect && (
+              activeEffect.expiresAt === null ||
+              new Date(activeEffect.expiresAt).getTime() > now
+            );
+
+            if (effectActive) {
+              if (activeEffect.type === "DAMAGE_REDUCTION") {
+                effectiveDamage = Math.floor(effectiveDamage * (1 - activeEffect.effectValue));
+              } else if (activeEffect.type === "DAMAGE_AMPLIFY") {
+                effectiveDamage = Math.floor(effectiveDamage * (1 + activeEffect.effectValue));
+              } else if (activeEffect.type === "CRIT_IMMUNITY") {
+                // Override isCrit to false — damage already calculated above so reset the crit bonus
+                // (isCrit was applied before, so undo the ×2 if it was a crit)
+                if (isCrit) effectiveDamage = Math.floor(effectiveDamage / 2);
+              }
+              // XP_REDUCTION / GOLD_BOOST / STAMINA_DOUBLE are handled at reward/attack time
+            }
+            effectiveDamage = Math.max(1, effectiveDamage);
+
+            const prevHp = bossState.currentHp;
+            const newHp = Math.max(0, prevHp - effectiveDamage);
+            const isDefeated = prevHp > 0 && newHp <= 0;
+            const alreadyDistributed = Boolean(bossState.rewardDistributedAt);
+
+            // Check which boss skills trigger at this HP crossing
+            const triggeredSkills = bossState.triggeredSkills ?? [];
+            const newlyTriggered: BossSkillConfig[] = bossState.bossId
+              ? getTriggeredSkills(bossState.bossId, bossState.maxHp ?? prevHp, prevHp, newHp, triggeredSkills)
+              : [];
+
+            // Build updated active effect from newest triggered skill (last one wins)
+            let newActiveEffect: BossActiveEffect | null = activeEffect && effectActive ? activeEffect : null;
+            if (newlyTriggered.length > 0) {
+              const latestSkill = newlyTriggered[newlyTriggered.length - 1];
+              if (latestSkill.effectType === "HP_REGEN") {
+                // HP_REGEN: apply immediately inside transaction
+                const regenHp = Math.min(
+                  prevHp + Math.floor((bossState.maxHp ?? prevHp) * latestSkill.effectValue),
+                  bossState.maxHp ?? prevHp
+                );
+                // newHp was already computed; adjust it upward by regen
+                const regenAdjusted = Math.min(regenHp, bossState.maxHp ?? prevHp);
+                // We'll store this intent and apply below
+                newActiveEffect = null; // No ongoing effect for HP_REGEN
+                (newlyTriggered as any)._regenHp = regenAdjusted;
+              } else {
+                const expiresAt = latestSkill.durationSeconds !== null
+                  ? new Date(now + latestSkill.durationSeconds * 1000).toISOString()
+                  : null;
+                newActiveEffect = {
+                  type: latestSkill.effectType,
+                  effectValue: latestSkill.effectValue,
+                  expiresAt,
+                  skillId: latestSkill.id,
+                  skillName: latestSkill.name,
+                  skillIcon: latestSkill.icon,
+                };
+              }
+            }
+
+            const regenHp: number | null = (newlyTriggered as any)._regenHp ?? null;
+            const finalHp = regenHp !== null ? regenHp : newHp;
 
             // Optimistic concurrency check by updatedAt to avoid lost updates
             const classroomUpdate = await tx.classroom.updateMany({
@@ -595,8 +690,10 @@ export class IdleEngine {
                   ...settings,
                   boss: {
                     ...settings.boss,
-                    currentHp: newHp,
-                    active: newHp > 0,
+                    currentHp: finalHp,
+                    active: finalHp > 0,
+                    triggeredSkills: [...triggeredSkills, ...newlyTriggered.map((s) => s.id)],
+                    activeEffect: newActiveEffect,
                     ...(isDefeated && !alreadyDistributed
                       ? { rewardDistributedAt: new Date().toISOString() }
                       : {})
@@ -634,7 +731,9 @@ export class IdleEngine {
             return {
               boss: (updatedClassroom?.gamifiedSettings as GamifiedSettings)?.boss,
               staminaLeft: updatedStudent?.stamina ?? student?.stamina ?? 0,
-              isDefeated
+              isDefeated,
+              triggeredSkills: newlyTriggered,
+              effectiveDamage,
             } as const;
           });
 
@@ -644,9 +743,10 @@ export class IdleEngine {
 
           return {
             boss: txResult.boss,
-            damage,
+            damage: txResult.effectiveDamage,
             isCrit,
-            staminaLeft: txResult.staminaLeft
+            staminaLeft: txResult.staminaLeft,
+            triggeredSkills: txResult.triggeredSkills,
           };
         } catch (error: unknown) {
           if (error instanceof Error && error.message === RETRY_CONFLICT_ERROR && attempt < MAX_RETRIES - 1) {
@@ -747,7 +847,13 @@ export class IdleEngine {
     bossSettings: BossState
   ) {
     const rewardGold = bossSettings.rewardGold || 500;
+    const rewardXp = bossSettings.rewardXp ?? Math.floor(rewardGold * 0.5);
     const bossName = bossSettings.name || "World Boss";
+    const difficulty = bossSettings.difficulty ?? "EASY";
+    const diffLabel: Record<string, string> = {
+      BEGINNER: "🌱ฝึกหัด", EASY: "⚔️ง่าย", NORMAL: "⚔️⚔️ปกติ",
+      HARD: "💀ยาก", LEGENDARY: "👑ตำนาน",
+    };
 
     // 1. Get all students in this class
     const students = (await tx.student.findMany({
@@ -758,22 +864,31 @@ export class IdleEngine {
     // 2. Distribute to each student inside the same DB transaction
     for (const student of students) {
       const stats = this.parseGameStats(student.gameStats);
-      const xpReward = Math.floor(rewardGold * 0.5); // XP is half of Gold for boss
+      const xpResult = this.calculateXpGain(stats, rewardXp);
 
-      const xpResult = this.calculateXpGain(stats, xpReward);
+      // Add materials to inventory
+      const materials = bossSettings.rewardMaterials ?? [];
+      const existingMaterials: { type: string; quantity: number }[] = (stats as any).materials ?? [];
+      for (const mat of materials) {
+        const found = existingMaterials.find((m) => m.type === mat.type);
+        if (found) found.quantity += mat.quantity;
+        else existingMaterials.push({ ...mat });
+      }
+
       const updatedStats: GameStats = {
         ...stats,
         gold: (stats.gold || 0) + rewardGold,
         level: xpResult.level,
         xp: xpResult.xp,
-      };
+        materials: existingMaterials,
+      } as GameStats & { materials: typeof existingMaterials };
 
       const updateData: BossRewardUpdateData = {
         points: { increment: rewardGold },
         gameStats: toPrismaJson(updatedStats),
         history: {
           create: {
-            reason: `🚀 รางวัลพิชิต ${bossName}!`,
+            reason: `🏆 [${diffLabel[difficulty]}] พิชิต ${bossName}! +${rewardGold} ทอง +${rewardXp} EXP`,
             value: rewardGold,
             timestamp: new Date(),
           },
@@ -792,6 +907,7 @@ export class IdleEngine {
    * Exponential growth: 100 * (1.2 ^ (level - 1))
    */
   static getXpRequirement(level: number): number {
+    if (level >= this.MAX_LEVEL) return Number.POSITIVE_INFINITY;
     return Math.floor(100 * Math.pow(1.2, level - 1));
   }
 
@@ -801,14 +917,26 @@ export class IdleEngine {
   static calculateXpGain(currentStats: GameStats, xpToAdd: number) {
     let { level, xp } = currentStats;
     console.log(`[XP_DEBUG] Start: Lv.${level}, XP:${xp}, Adding:${xpToAdd}`);
+    if (level >= this.MAX_LEVEL) {
+      return {
+        level: this.MAX_LEVEL,
+        xp: 0,
+        leveledUp: false,
+        newMaxMp: this.calculateCharacterStats(0, [], this.MAX_LEVEL).maxMp
+      };
+    }
     let earnedXp = xp + xpToAdd;
     let leveledUp = false;
-    while (earnedXp >= this.getXpRequirement(level)) {
+    while (level < this.MAX_LEVEL && earnedXp >= this.getXpRequirement(level)) {
       const req = this.getXpRequirement(level);
       console.log(`[XP_DEBUG] Leveling Up: ${level} -> ${level + 1}. Required: ${req}, Earned: ${earnedXp}`);
       earnedXp -= req;
       level++;
       leveledUp = true;
+    }
+    if (level >= this.MAX_LEVEL) {
+      level = this.MAX_LEVEL;
+      earnedXp = 0;
     }
     console.log(`[XP_DEBUG] End: Lv.${level}, NewXP:${earnedXp}, LeveledUp:${leveledUp}`);
 
@@ -836,6 +964,10 @@ export class IdleEngine {
                 mana: true, 
                 stamina: true,
                 gameStats: true,
+                jobClass: true,
+                jobTier: true,
+                advanceClass: true,
+                jobSkills: true,
                 items: { where: { isEquipped: true }, include: { item: true } }
             }
         }) as SkillUserStudent | null;
@@ -846,6 +978,20 @@ export class IdleEngine {
         const skill = baseSkill ? getEffectiveSkillAtRank(baseSkill, rank) : undefined;
 
         if (!skill) return { error: "Skill not found" };
+
+        // Security/consistency: allow using only skills already unlocked for this student.
+        const effectiveJobKey = resolveEffectiveJobKey({
+          jobClass: student.jobClass,
+          jobTier: student.jobTier,
+          advanceClass: student.advanceClass,
+        });
+        const unlockedSkillIds = new Set(
+          getSkillsForLevel(effectiveJobKey, stats.level ?? 1).map((s) => s.id)
+        );
+        const persistedSkillIds = new Set(Array.isArray(student.jobSkills) ? student.jobSkills : []);
+        if (!unlockedSkillIds.has(skillId) || !persistedSkillIds.has(skillId)) {
+          return { error: "Skill locked" };
+        }
 
         // 2. Check Resource Requirement (AP vs MP)
         const isAP = skill.costType === "AP";

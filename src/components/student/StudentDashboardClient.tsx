@@ -669,7 +669,8 @@ export function StudentDashboardClient({
                                             classId={classroom.id}
                                             studentId={student.id}
                                             stamina={student.stamina}
-                                            onAttackSuccess={(data) => {
+                                            onAttackSuccess={(raw) => {
+                                                const data = raw as { boss?: unknown; staminaLeft?: number };
                                                 setClassroom((prev: any) => ({
                                                     ...prev,
                                                     gamifiedSettings: {

@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
+import { Prisma } from "@prisma/client";
+import {
+  getBossPreset,
+  getDifficulty,
+  computeBossHp,
+  computeRewardGold,
+  DIFFICULTY_MATERIALS,
+  XP_FROM_GOLD_RATIO,
+} from "@/lib/game/boss-config";
 
 export async function POST(
   req: NextRequest,
@@ -10,13 +19,30 @@ export async function POST(
     const { id: classroomId } = await params;
     const session = await auth();
     const body = await req.json();
-    const { bossName, maxHp, rewardGold, deadline, image } = body;
+
+    const {
+      bossId,
+      difficulty = "EASY",
+      rewardGold,      // optional teacher override
+      rewardGoldMultiplier = 1.0,
+    } = body;
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 1. Verify teacher owns the classroom and read existing gamifiedSettings
+    // Resolve boss preset
+    const bossPreset = getBossPreset(bossId);
+    if (!bossPreset) {
+      return NextResponse.json({ error: `Unknown boss: ${bossId}` }, { status: 400 });
+    }
+
+    const diffConfig = getDifficulty(difficulty);
+    if (!diffConfig) {
+      return NextResponse.json({ error: `Unknown difficulty: ${difficulty}` }, { status: 400 });
+    }
+
+    // 1. Verify teacher owns the classroom
     const classroom = await db.classroom.findUnique({
       where: { id: classroomId },
       select: { gamifiedSettings: true, teacherId: true },
@@ -26,8 +52,12 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // 2. Update classroom with boss settings, preserving existing gamifiedSettings
-    const existing = (classroom.gamifiedSettings as any) || {};
+    const maxHp = computeBossHp(bossId, difficulty);
+    const gold = rewardGold ?? computeRewardGold(difficulty, rewardGoldMultiplier);
+    const xp = Math.round(gold * XP_FROM_GOLD_RATIO);
+    const materials = DIFFICULTY_MATERIALS[difficulty] ?? [];
+
+    const existing = (classroom.gamifiedSettings as Record<string, unknown>) || {};
     const updatedClassroom = await db.classroom.update({
       where: { id: classroomId },
       data: {
@@ -35,13 +65,24 @@ export async function POST(
           ...existing,
           boss: {
             active: true,
-            name: bossName || "มังกรแห่งความเกียจคร้าน",
-            maxHp: maxHp || 1000,
-            currentHp: maxHp || 1000,
-            rewardGold: rewardGold || 500,
-            image: image || "/assets/monsters/lethargy_dragon.png",
-            deadline: deadline || null,
+            bossId,
+            difficulty,
+            name: bossPreset.name,
+            image: bossPreset.image,
+            element: bossPreset.element,
+            elementIcon: bossPreset.elementIcon,
+            maxHp,
+            currentHp: maxHp,
+            rewardGold: gold,
+            rewardXp: xp,
+            rewardMaterials: materials,
+            // Skill tracking
+            triggeredSkills: [] as string[],
+            activeEffect: null,
+            // Passive multiplier from boss preset
+            passiveDamageMultiplier: bossPreset.passiveDamageMultiplier,
             createdAt: new Date().toISOString(),
+            rewardDistributedAt: null,
           },
         },
       },
@@ -49,7 +90,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      boss: (updatedClassroom.gamifiedSettings as any).boss,
+      boss: (updatedClassroom.gamifiedSettings as Record<string, unknown>).boss,
     });
   } catch (error) {
     console.error("Error summoning boss:", error);
@@ -69,7 +110,6 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 1. Verify teacher and read existing gamifiedSettings
     const classroom = await db.classroom.findUnique({
       where: { id: classroomId },
       select: { teacherId: true, gamifiedSettings: true },
@@ -79,14 +119,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // 2. Remove only boss key, preserve events and customAchievements
-    const existing = (classroom.gamifiedSettings as any) || {};
-    const { boss, ...rest } = existing;
+    const existing = (classroom.gamifiedSettings as Record<string, unknown>) || {};
+    const { boss, ...rest } = existing as { boss: unknown; [k: string]: unknown };
+    void boss; // intentionally removed
     await db.classroom.update({
       where: { id: classroomId },
-      data: {
-        gamifiedSettings: rest,
-      },
+      data: { gamifiedSettings: rest as Prisma.InputJsonValue },
     });
 
     return NextResponse.json({ success: true });

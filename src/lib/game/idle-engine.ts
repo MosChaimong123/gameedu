@@ -36,6 +36,7 @@ import {
 } from "./personal-classroom-boss";
 import { trackQuestEvent } from "./quest-engine";
 import { getComboMultiplier } from "./element-system";
+import { StatCalculator } from "./stat-calculator";
 import {
   getEffectiveSkillAtRank,
   getSkillRank,
@@ -187,6 +188,9 @@ type BossStudent = {
   stamina: number;
   gameStats: unknown;
   items: EquippedItemLike[];
+  jobClass: string | null;
+  jobTier: string;
+  advanceClass: string | null;
 };
 
 type FarmingEffects = NonNullable<NonNullable<GameStats["farming"]>["activeEffects"]>;
@@ -564,26 +568,30 @@ export class IdleEngine {
   static calculateBossDamage(
     points: number,
     equippedItems: EquippedItemLike[] = [],
-    level: number = 1
+    level: number = 1,
+    jobClass: string | null = null,
+    jobTier: string = "BASE",
+    advanceClass: string | null = null,
   ) {
-    const stats = this.calculateCharacterStats(points, equippedItems, level);
-    let itemMultiplier = 1;
-    
-    if (Array.isArray(equippedItems)) {
-        equippedItems.forEach(si => {
-            const levelBonus = 1 + (si.enhancementLevel || 0) * 0.1;
-            if (si.item?.bossDamageMultiplier) {
-                itemMultiplier += si.item.bossDamageMultiplier * levelBonus;
-            }
-        });
-    }
-    
+    // Use StatCalculator for full pipeline: job multipliers + set bonuses + special effects
+    const fullStats = StatCalculator.compute(
+      points,
+      equippedItems as Parameters<typeof StatCalculator.compute>[1],
+      level,
+      jobClass,
+      jobTier,
+      advanceClass,
+    );
+
     // Use the higher of ATK or MAG so magic classes (Mage/Healer) are not penalized
-    const effectiveDamage = Math.max(stats.atk, stats.mag);
-    const baseDamage = Math.floor(effectiveDamage * itemMultiplier);
+    const effectiveStat = Math.max(fullStats.atk, fullStats.mag);
+
+    // Item bossDamageMultiplier already included in fullStats.bossDamageMultiplier
+    // Apply: base × (1 + bossDamageMultiplier)
+    const baseDamage = Math.floor(effectiveStat * (1 + fullStats.bossDamageMultiplier));
 
     // Critical Hit Logic
-    const critValue = this.normalizeCritPercent(stats.crit);
+    const critValue = this.normalizeCritPercent(fullStats.crit);
     const isCrit = Math.random() < this.normalizeCritChance(critValue);
     const finalDamage = isCrit
       ? Math.floor(baseDamage * this.getCritDamageMultiplier(critValue))
@@ -592,7 +600,7 @@ export class IdleEngine {
     return {
         damage: finalDamage,
         isCrit,
-        stats // Returning full stats for reference in UI
+        stats: fullStats,
     };
   }
 
@@ -624,6 +632,9 @@ export class IdleEngine {
           stamina: true,
           gameStats: true,
           classId: true,
+          jobClass: true,
+          jobTier: true,
+          advanceClass: true,
         },
       }) as (BossStudent & { classId: string }) | null;
 
@@ -642,7 +653,14 @@ export class IdleEngine {
         damage = options.damageOverride;
       } else {
         const stats = this.parseGameStats(student?.gameStats);
-        const battleResult = this.calculateBossDamage(student?.points || 0, student?.items || [], stats?.level || 1);
+        const battleResult = this.calculateBossDamage(
+          student?.points || 0,
+          student?.items || [],
+          stats?.level || 1,
+          student.jobClass,
+          student.jobTier ?? "BASE",
+          student.advanceClass,
+        );
         damage = battleResult.damage;
         isCrit = battleResult.isCrit;
       }
@@ -1322,7 +1340,14 @@ export class IdleEngine {
 
         // 3. Apply Skill Effect
         // Most skills currently contribute to Boss Damage in this simple engine
-        const battleRes = this.calculateBossDamage(student.points, student.items, stats.level);
+        const battleRes = this.calculateBossDamage(
+          student.points,
+          student.items,
+          stats.level,
+          student.jobClass,
+          student.jobTier ?? "BASE",
+          student.advanceClass,
+        );
         const bonusDamage = Math.floor(battleRes.damage * (isAP ? 1.5 : 2.0)); // Magic usually deals more raw dmg
         
         const bossResult = await this.applyBossDamage(classId, studentId, {

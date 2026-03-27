@@ -5,6 +5,7 @@ import {
   getPvpMatchupBaseClass,
   resolveEffectiveJobKey,
 } from "@/lib/game/job-system";
+import { trackQuestEvent } from "@/lib/game/quest-engine";
 
 // POST /api/student/[code]/battles/[battleId]/accept
 export async function POST(
@@ -117,13 +118,16 @@ export async function POST(
       }
     });
 
-    // Winner gets gold
+    // Winner gets gold + arena points
     const winnerStudent = await db.student.findUnique({ where: { id: winnerId }, select: { gameStats: true } });
     const winnerStats = (winnerStudent?.gameStats as any) || {};
+    const arenaPointsGain = Math.max(5, Math.floor(battle.betAmount / 10)) + 10;
+    const currentArenaPoints: number = winnerStats.arenaPoints ?? 0;
     await db.student.update({
       where: { id: winnerId },
-      data: { gameStats: { ...winnerStats, gold: winnerCurrentGold + battle.betAmount } as any }
+      data: { gameStats: { ...winnerStats, gold: winnerCurrentGold + battle.betAmount, arenaPoints: currentArenaPoints + arenaPointsGain } as any }
     });
+    void trackQuestEvent(winnerId, "PVP_WIN");
 
     // Loser loses gold
     const loserStudent = await db.student.findUnique({ where: { id: loserId }, select: { gameStats: true } });

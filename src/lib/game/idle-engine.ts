@@ -16,6 +16,7 @@ import {
 import { toPrismaJson } from "./game-stats";
 import { getTriggeredSkills, getBossPreset, type BossSkillConfig } from "./boss-config";
 import { trackQuestEvent } from "./quest-engine";
+import { getComboMultiplier } from "./element-system";
 import {
   getEffectiveSkillAtRank,
   getSkillRank,
@@ -251,6 +252,39 @@ type BossRewardUpdateData = {
  * Handles timestamp-based calculations for passive income and progression.
  */
 export class IdleEngine {
+  /**
+   * Normalize crit from mixed formats into percentage (0..500):
+   * - 0..1   => ratio, converted to 0..100%
+   * - 1..5   => legacy ratio (e.g. 4.26 means 426%), converted to %
+   * - >5     => percentage
+   */
+  private static normalizeCritPercent(rawCrit: number): number {
+    if (!Number.isFinite(rawCrit)) return 0;
+    if (rawCrit > 1) {
+      // Backward compatibility: existing character stats often store CRIT as ratio,
+      // e.g. 4.26 = 426%. Treat small values as ratio format.
+      if (rawCrit <= 5) return Math.max(0, Math.min(rawCrit * 100, 500));
+      return Math.max(0, Math.min(rawCrit, 500));
+    }
+    return Math.max(0, Math.min(rawCrit * 100, 500));
+  }
+
+  private static normalizeCritChance(rawCrit: number): number {
+    return Math.min(100, this.normalizeCritPercent(rawCrit)) / 100;
+  }
+
+  /**
+   * Crit damage multiplier:
+   * - Up to 100% crit: x2.0 on crit
+   * - Overflow (>100%) converts to extra crit damage
+   *   e.g. 150% => x2.5, 300% => x4.0, 500% => x6.0
+   */
+  private static getCritDamageMultiplier(rawCrit: number): number {
+    const critPercent = this.normalizeCritPercent(rawCrit);
+    const overflow = Math.max(0, critPercent - 100);
+    return 2 + overflow / 100;
+  }
+
   // Base rates
   private static readonly BASE_GOLD_RATE = 0.1; // Gold per second at Rank 1
   private static readonly SECONDS_IN_MINUTE = 60;
@@ -526,8 +560,11 @@ export class IdleEngine {
     const baseDamage = Math.floor(effectiveDamage * itemMultiplier);
 
     // Critical Hit Logic
-    const isCrit = Math.random() < stats.crit;
-    const finalDamage = isCrit ? Math.floor(baseDamage * 2) : baseDamage;
+    const critValue = this.normalizeCritPercent(stats.crit);
+    const isCrit = Math.random() < this.normalizeCritChance(critValue);
+    const finalDamage = isCrit
+      ? Math.floor(baseDamage * this.getCritDamageMultiplier(critValue))
+      : baseDamage;
 
     return {
         damage: finalDamage,
@@ -545,7 +582,13 @@ export class IdleEngine {
   static async applyBossDamage(
     classId: string,
     studentId: string,
-    options: { damageOverride?: number; consumeStamina?: boolean; elementMultiplier?: number } = { consumeStamina: true }
+    options: {
+      damageOverride?: number;
+      consumeStamina?: boolean;
+      elementMultiplier?: number;
+      isLimitBreak?: boolean;
+      jobClass?: string | null;
+    } = { consumeStamina: true }
   ) {
     try {
       const consumeStamina = options.consumeStamina ?? true;
@@ -623,18 +666,53 @@ export class IdleEngine {
               new Date(activeEffect.expiresAt).getTime() > now
             );
 
-            if (effectActive) {
-              if (activeEffect.type === "DAMAGE_REDUCTION") {
-                effectiveDamage = Math.floor(effectiveDamage * (1 - activeEffect.effectValue));
-              } else if (activeEffect.type === "DAMAGE_AMPLIFY") {
-                effectiveDamage = Math.floor(effectiveDamage * (1 + activeEffect.effectValue));
-              } else if (activeEffect.type === "CRIT_IMMUNITY") {
-                // Override isCrit to false — damage already calculated above so reset the crit bonus
-                // (isCrit was applied before, so undo the ×2 if it was a crit)
-                if (isCrit) effectiveDamage = Math.floor(effectiveDamage / 2);
+            // ── Limit Break: if isLimitBreak, skip DAMAGE_REDUCTION/CRIT_IMMUNITY and deal ×3 ──
+            if (options.isLimitBreak) {
+              effectiveDamage = Math.floor(damage * passive * elemMult * 3);
+            } else {
+              if (effectActive) {
+                if (activeEffect.type === "DAMAGE_REDUCTION") {
+                  effectiveDamage = Math.floor(effectiveDamage * (1 - activeEffect.effectValue));
+                } else if (activeEffect.type === "DAMAGE_AMPLIFY") {
+                  effectiveDamage = Math.floor(effectiveDamage * (1 + activeEffect.effectValue));
+                } else if (activeEffect.type === "CRIT_IMMUNITY") {
+                  if (isCrit) effectiveDamage = Math.floor(effectiveDamage / 2);
+                }
+                // XP_REDUCTION / GOLD_BOOST / STAMINA_DOUBLE handled at reward time
               }
-              // XP_REDUCTION / GOLD_BOOST / STAMINA_DOUBLE are handled at reward/attack time
             }
+
+            // ── Party Combo Bonus ────────────────────────────────────────────────────
+            const recentAttacks: { jobClass: string; timestamp: number }[] =
+              (bossState as unknown as Record<string, unknown>).recentAttacks as { jobClass: string; timestamp: number }[] ?? [];
+            const recentWindow = recentAttacks.filter((a) => now - a.timestamp <= 10000);
+            const recentJobClasses = recentWindow.map((a) => a.jobClass).filter(Boolean);
+            const { multiplier: comboMult, label: comboLabel } = getComboMultiplier(
+              options.jobClass,
+              recentJobClasses
+            );
+            if (comboMult > 1.0) {
+              effectiveDamage = Math.floor(effectiveDamage * comboMult);
+            }
+
+            // Push current attack to recentAttacks (trim to last 10)
+            const updatedRecentAttacks = [
+              ...recentWindow,
+              ...(options.jobClass ? [{ jobClass: options.jobClass, timestamp: now }] : []),
+            ].slice(-10);
+
+            // Calculate Limit Break charge gain from boss active effects / elemental weakness
+            let limitBreakChargeGain = 0;
+            if (!options.isLimitBreak) {
+              if (effectActive) {
+                if (activeEffect.type === "DAMAGE_REDUCTION") limitBreakChargeGain = 30;
+                else if (activeEffect.type === "STAMINA_DOUBLE") limitBreakChargeGain = 25;
+                else if (activeEffect.type === "XP_REDUCTION") limitBreakChargeGain = 20;
+                else if (activeEffect.type === "CRIT_IMMUNITY") limitBreakChargeGain = 20;
+              }
+              if ((options.elementMultiplier ?? 1.0) < 1.0) limitBreakChargeGain += 15;
+            }
+
             effectiveDamage = Math.max(1, effectiveDamage);
 
             const prevHp = bossState.currentHp;
@@ -696,6 +774,7 @@ export class IdleEngine {
                     active: finalHp > 0,
                     triggeredSkills: [...triggeredSkills, ...newlyTriggered.map((s) => s.id)],
                     activeEffect: newActiveEffect,
+                    recentAttacks: updatedRecentAttacks,
                     ...(isDefeated && !alreadyDistributed
                       ? { rewardDistributedAt: new Date().toISOString() }
                       : {})
@@ -736,6 +815,9 @@ export class IdleEngine {
               isDefeated,
               triggeredSkills: newlyTriggered,
               effectiveDamage,
+              comboMult,
+              comboLabel,
+              limitBreakChargeGain,
             } as const;
           });
 
@@ -764,6 +846,9 @@ export class IdleEngine {
             isCrit,
             staminaLeft: txResult.staminaLeft,
             triggeredSkills: txResult.triggeredSkills,
+            comboMult: txResult.comboMult,
+            comboLabel: txResult.comboLabel,
+            limitBreakChargeGain: txResult.limitBreakChargeGain,
           };
         } catch (error: unknown) {
           if (error instanceof Error && error.message === RETRY_CONFLICT_ERROR && attempt < MAX_RETRIES - 1) {
@@ -1137,8 +1222,14 @@ export class IdleEngine {
         }
 
         // 4. Player normal attack (ATK buff + CRIT buff + DEF break included)
-        const isCrit = Math.random() < (charStats.crit + critBonus);
-        const damage = Math.floor(charStats.atk * (isCrit ? 2.0 : 1.0) * atkBuffMulti * (1 + defBreakAmplify));
+        const critValue = this.normalizeCritPercent(charStats.crit + critBonus);
+        const isCrit = Math.random() < this.normalizeCritChance(critValue);
+        const damage = Math.floor(
+          charStats.atk *
+            (isCrit ? this.getCritDamageMultiplier(critValue) : 1.0) *
+            atkBuffMulti *
+            (1 + defBreakAmplify)
+        );
         monster.hp = Math.max(0, monster.hp - damage);
 
         // 5. Per-hit XP
@@ -1388,8 +1479,17 @@ export class IdleEngine {
                 const usesMag = skill.damageBase === "MAG";
                 const base = usesMag ? charStats.mag : charStats.atk;
                 const mult = skill.damageMultiplier ?? (usesMag ? 2.5 : 1.5);
-                isForcedCrit = skill.isCrit === true || (!skill.isCrit && Math.random() < skillCritBonus);
-                skillDamage = Math.floor(base * mult * (isForcedCrit ? 2.0 : 1.0) * atkBuffMulti * (1 + skillDefBreakAmplify));
+                const skillCritValue = this.normalizeCritPercent(skillCritBonus);
+                isForcedCrit =
+                  skill.isCrit === true ||
+                  (!skill.isCrit && Math.random() < this.normalizeCritChance(skillCritValue));
+                skillDamage = Math.floor(
+                  base *
+                    mult *
+                    (isForcedCrit ? this.getCritDamageMultiplier(skillCritValue) : 1.0) *
+                    atkBuffMulti *
+                    (1 + skillDefBreakAmplify)
+                );
                 monster.hp = Math.max(0, monster.hp - skillDamage);
                 break;
             }
@@ -1397,8 +1497,17 @@ export class IdleEngine {
                 const usesMag = skill.damageBase === "MAG";
                 const base = usesMag ? charStats.mag : charStats.atk;
                 const mult = skill.damageMultiplier ?? 1.5;
-                isForcedCrit = skill.isCrit === true || (!skill.isCrit && Math.random() < skillCritBonus);
-                skillDamage = Math.floor(base * mult * (isForcedCrit ? 2.0 : 1.0) * atkBuffMulti * (1 + skillDefBreakAmplify));
+                const skillCritValue = this.normalizeCritPercent(skillCritBonus);
+                isForcedCrit =
+                  skill.isCrit === true ||
+                  (!skill.isCrit && Math.random() < this.normalizeCritChance(skillCritValue));
+                skillDamage = Math.floor(
+                  base *
+                    mult *
+                    (isForcedCrit ? this.getCritDamageMultiplier(skillCritValue) : 1.0) *
+                    atkBuffMulti *
+                    (1 + skillDefBreakAmplify)
+                );
                 monster.hp = Math.max(0, monster.hp - skillDamage);
                 activeEffects.poison = { damagePerTurn: Math.max(1, Math.floor(base * 0.15)), turnsLeft: 3 };
                 newEffectDescription = "☠️ วางยาพิษ 3 เทิร์น";
@@ -1479,8 +1588,17 @@ export class IdleEngine {
                 const usesMag = skill.damageBase === "MAG";
                 const base = usesMag ? charStats.mag : charStats.atk;
                 const mult = skill.damageMultiplier ?? 1.5;
-                isForcedCrit = skill.isCrit === true || (!skill.isCrit && Math.random() < skillCritBonus);
-                skillDamage = Math.floor(base * mult * (isForcedCrit ? 2.0 : 1.0) * atkBuffMulti * (1 + skillDefBreakAmplify));
+                const skillCritValue = this.normalizeCritPercent(skillCritBonus);
+                isForcedCrit =
+                  skill.isCrit === true ||
+                  (!skill.isCrit && Math.random() < this.normalizeCritChance(skillCritValue));
+                skillDamage = Math.floor(
+                  base *
+                    mult *
+                    (isForcedCrit ? this.getCritDamageMultiplier(skillCritValue) : 1.0) *
+                    atkBuffMulti *
+                    (1 + skillDefBreakAmplify)
+                );
                 monster.hp = Math.max(0, monster.hp - skillDamage);
                 healAmount = Math.floor(skillDamage * 0.30);
                 playerHp = Math.min(playerMaxHp, playerHp + healAmount);
@@ -1507,8 +1625,17 @@ export class IdleEngine {
             }
             case "MANA_SURGE": {
                 const mult = skill.damageMultiplier ?? 2.7;
-                isForcedCrit = skill.isCrit === true || (!skill.isCrit && Math.random() < skillCritBonus);
-                skillDamage = Math.floor(charStats.mag * mult * (isForcedCrit ? 2.0 : 1.0) * atkBuffMulti * (1 + skillDefBreakAmplify));
+                const skillCritValue = this.normalizeCritPercent(skillCritBonus);
+                isForcedCrit =
+                  skill.isCrit === true ||
+                  (!skill.isCrit && Math.random() < this.normalizeCritChance(skillCritValue));
+                skillDamage = Math.floor(
+                  charStats.mag *
+                    mult *
+                    (isForcedCrit ? this.getCritDamageMultiplier(skillCritValue) : 1.0) *
+                    atkBuffMulti *
+                    (1 + skillDefBreakAmplify)
+                );
                 monster.hp = Math.max(0, monster.hp - skillDamage);
                 healAmount = 10; // flag: treated as MP restore in finalMana calc below
                 newEffectDescription = "🔮 Mana Surge +10 MP";

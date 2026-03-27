@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Sword, ShieldAlert, Trophy, Users, Zap, Target } from "lucide-react";
+import { Sword, ShieldAlert, Trophy, Users, Zap, Target, Flame } from "lucide-react";
 import Image from "next/image";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { useToast } from "@/components/ui/use-toast";
 import { useSocket } from "@/components/providers/socket-provider";
 import { getBossPreset } from "@/lib/game/boss-config";
-import { getElementMultiplier, getJobElement, getElementLabel } from "@/lib/game/element-system";
+import { getElementMultiplier, getJobElement, getElementLabel, hasComboOpportunity } from "@/lib/game/element-system";
 
 interface ActiveEffect {
     type: string;
@@ -36,6 +36,7 @@ interface BossProp {
     triggeredSkills?: string[];
     activeEffect?: ActiveEffect | null;
     passiveDamageMultiplier?: number;
+    recentAttacks?: { jobClass: string; timestamp: number }[];
 }
 
 interface WorldBossBarProps {
@@ -44,13 +45,16 @@ interface WorldBossBarProps {
     stamina?: number;
     classId?: string;
     jobClass?: string | null;
+    limitBreakCharge?: number;
     onAttackSuccess?: (data: unknown) => void;
 }
 
-export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId, jobClass, onAttackSuccess }: WorldBossBarProps) {
+export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId, jobClass, limitBreakCharge = 0, onAttackSuccess }: WorldBossBarProps) {
     const { socket } = useSocket();
     const [isAttacking, setIsAttacking] = useState(false);
-    const [damageLog, setDamageLog] = useState<{ damage: number; isCrit: boolean; time: Date }[]>([]);
+    const [damageLog, setDamageLog] = useState<{ damage: number; isCrit: boolean; time: Date; isLimitBreak?: boolean }[]>([]);
+    const [currentCharge, setCurrentCharge] = useState(limitBreakCharge);
+    const [lastComboLabel, setLastComboLabel] = useState("");
     const { toast } = useToast();
 
     if (!boss || !boss.active) return null;
@@ -72,12 +76,27 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
         activeEffect.expiresAt === null || new Date(activeEffect.expiresAt) > new Date()
     );
 
-    const handleAttack = async () => {
+    // Limit Break state
+    const lbCharge = currentCharge;
+    const lbReady = lbCharge >= 100;
+
+    // Combo opportunity from recent attacks window
+    const recentAttacks = boss.recentAttacks ?? [];
+    const recentWindow = recentAttacks.filter((a) => Date.now() - a.timestamp <= 10000);
+    const recentJobClasses = recentWindow.map((a) => a.jobClass);
+    const comboReady = hasComboOpportunity(jobClass, recentJobClasses);
+
+    const handleAttack = async (isLimitBreak = false) => {
         if (!classId || stamina <= 0 || isAttacking) return;
+        if (isLimitBreak && lbCharge < 100) return;
 
         setIsAttacking(true);
         try {
-            const res = await fetch(`/api/classrooms/${classId}/boss/attack`, { method: "POST" });
+            const res = await fetch(`/api/classrooms/${classId}/boss/attack`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ limitBreak: isLimitBreak }),
+            });
             const data = await res.json() as {
                 success: boolean;
                 damage?: number;
@@ -85,6 +104,9 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                 boss?: BossProp;
                 error?: string;
                 triggeredSkill?: { name: string; icon: string; description: string };
+                limitBreakCharge?: number;
+                comboLabel?: string;
+                comboMult?: number;
             };
 
             if (data.success) {
@@ -96,6 +118,17 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                     });
                 }
 
+                // Update LB charge state
+                if (typeof data.limitBreakCharge === "number") {
+                    setCurrentCharge(data.limitBreakCharge);
+                }
+
+                // Show combo label
+                if (data.comboLabel) {
+                    setLastComboLabel(data.comboLabel);
+                    setTimeout(() => setLastComboLabel(""), 4000);
+                }
+
                 if (data.triggeredSkill) {
                     toast({
                         title: `${data.triggeredSkill.icon} ${data.triggeredSkill.name} ถูกเปิดใช้งาน!`,
@@ -104,12 +137,14 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                     });
                 }
 
+                const titlePrefix = isLimitBreak ? "💥 LIMIT BREAK!" : data.isCrit ? "⚡ CRITICAL HIT!" : "⚔️ Attack Successful!";
                 toast({
-                    title: data.isCrit ? "⚡ CRITICAL HIT!" : "⚔️ Attack Successful!",
-                    description: `คุณทำความเสียหาย ${(data.damage ?? 0).toLocaleString()} HP! ${data.isCrit ? "(x2 Damage)" : ""}`,
+                    title: titlePrefix,
+                    description: `คุณทำความเสียหาย ${(data.damage ?? 0).toLocaleString()} HP!${isLimitBreak ? " (×3 Damage)" : data.isCrit ? " (×2 Damage)" : ""}`,
+                    className: isLimitBreak ? "bg-orange-600 text-white" : undefined,
                 });
                 setDamageLog(prev => [
-                    { damage: data.damage ?? 0, isCrit: data.isCrit ?? false, time: new Date() },
+                    { damage: data.damage ?? 0, isCrit: data.isCrit ?? false, time: new Date(), isLimitBreak },
                     ...prev,
                 ].slice(0, 5));
                 if (onAttackSuccess) onAttackSuccess(data);
@@ -118,7 +153,9 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                     title: "ไม่สามารถโจมตีได้",
                     description: data.error === "Insufficient stamina"
                         ? "Stamina ของคุณหมดแล้ว!"
-                        : (data.error || "เกิดข้อผิดพลาดในการโจมตี"),
+                        : data.error === "Limit Break not ready"
+                            ? "Limit Break ยังไม่พร้อม!"
+                            : (data.error || "เกิดข้อผิดพลาดในการโจมตี"),
                     variant: "destructive"
                 });
             }
@@ -227,6 +264,25 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                                                 {elementLabel}
                                             </div>
                                         )}
+                                        {comboReady && (
+                                            <motion.div
+                                                animate={{ scale: [1, 1.05, 1] }}
+                                                transition={{ duration: 1.5, repeat: Infinity }}
+                                                className="px-2 py-0.5 rounded-lg border text-[10px] font-black bg-cyan-50 border-cyan-300 text-cyan-700"
+                                            >
+                                                🔗 Combo Ready!
+                                            </motion.div>
+                                        )}
+                                        {lastComboLabel && (
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0 }}
+                                                className="px-2 py-0.5 rounded-lg border text-[10px] font-black bg-cyan-100 border-cyan-400 text-cyan-800"
+                                            >
+                                                {lastComboLabel}
+                                            </motion.div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="text-right">
@@ -242,7 +298,6 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
 
                             {/* HP Bar */}
                             <div className="relative group">
-                                {/* Skill threshold markers */}
                                 <div className="relative w-full h-8 sm:h-10 bg-slate-100 rounded-2xl border-4 border-white shadow-inner overflow-hidden">
                                     <motion.div
                                         initial={{ width: 0 }}
@@ -275,6 +330,30 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                                 </div>
                             </div>
 
+                            {/* Limit Break Gauge */}
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    <Flame className={`w-4 h-4 ${lbReady ? "text-orange-500 fill-orange-500 animate-pulse" : "text-slate-400"}`} />
+                                    <span className={`text-[10px] font-black uppercase ${lbReady ? "text-orange-600" : "text-slate-500"}`}>
+                                        {lbReady ? "LIMIT BREAK!" : "Limit Break"}
+                                    </span>
+                                </div>
+                                <div className="flex-1 h-3 bg-slate-100 rounded-full border border-slate-200 overflow-hidden relative">
+                                    <motion.div
+                                        animate={{ width: `${Math.min(100, lbCharge)}%` }}
+                                        transition={{ duration: 0.4, ease: "easeOut" }}
+                                        className={`h-full rounded-full ${
+                                            lbReady
+                                                ? "bg-gradient-to-r from-orange-400 via-red-500 to-yellow-400 animate-pulse"
+                                                : "bg-gradient-to-r from-orange-300 to-red-400"
+                                        }`}
+                                    />
+                                </div>
+                                <span className={`text-[10px] font-black tabular-nums shrink-0 ${lbReady ? "text-orange-600" : "text-slate-500"}`}>
+                                    {Math.min(100, lbCharge)}/100
+                                </span>
+                            </div>
+
                             {/* Damage Log */}
                             {damageLog.length > 0 && (
                                 <div className="flex flex-wrap gap-2 pt-1">
@@ -282,13 +361,15 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                                         <div
                                             key={i}
                                             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black border ${
-                                                entry.isCrit
-                                                    ? "bg-amber-50 border-amber-200 text-amber-700"
-                                                    : "bg-rose-50 border-rose-200 text-rose-700"
+                                                entry.isLimitBreak
+                                                    ? "bg-orange-50 border-orange-300 text-orange-700"
+                                                    : entry.isCrit
+                                                        ? "bg-amber-50 border-amber-200 text-amber-700"
+                                                        : "bg-rose-50 border-rose-200 text-rose-700"
                                             }`}
                                         >
                                             <Sword className="w-3 h-3" />
-                                            <span>{entry.isCrit ? "⚡" : "⚔️"} {entry.damage.toLocaleString()}</span>
+                                            <span>{entry.isLimitBreak ? "💥" : entry.isCrit ? "⚡" : "⚔️"} {entry.damage.toLocaleString()}</span>
                                             <span className="text-[9px] font-medium opacity-60">
                                                 {entry.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                                             </span>
@@ -318,10 +399,35 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                                         <span className={`text-xs font-black ${stamina > 0 ? "text-amber-700" : "text-slate-400"}`}>{stamina} Stamina</span>
                                     </div>
 
+                                    {/* Limit Break button (shows when ready) */}
+                                    {lbReady && (
+                                        <motion.button
+                                            whileHover={stamina > 0 && !isAttacking ? { scale: 1.05 } : {}}
+                                            whileTap={stamina > 0 && !isAttacking ? { scale: 0.95 } : {}}
+                                            onClick={() => handleAttack(true)}
+                                            disabled={stamina <= 0 || isAttacking}
+                                            className={`relative px-5 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg animate-pulse ${
+                                                stamina > 0 && !isAttacking
+                                                    ? "bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-orange-200 border-2 border-orange-400/50"
+                                                    : "bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300"
+                                            }`}
+                                        >
+                                            {isAttacking ? (
+                                                <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
+                                                    <Target className="w-5 h-5" />
+                                                </motion.div>
+                                            ) : (
+                                                <Flame className="w-5 h-5" />
+                                            )}
+                                            <span>LIMIT BREAK!</span>
+                                        </motion.button>
+                                    )}
+
+                                    {/* Normal attack button */}
                                     <motion.button
                                         whileHover={stamina > 0 && !isAttacking ? { scale: 1.05 } : {}}
                                         whileTap={stamina > 0 && !isAttacking ? { scale: 0.95 } : {}}
-                                        onClick={handleAttack}
+                                        onClick={() => handleAttack(false)}
                                         disabled={stamina <= 0 || isAttacking}
                                         className={`relative px-6 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg ${
                                             stamina > 0 && !isAttacking

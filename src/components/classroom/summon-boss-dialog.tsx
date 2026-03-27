@@ -61,7 +61,7 @@ export function SummonBossDialog({
             socket?.emit("classroom-update", {
                 classId,
                 type: "BOSS_SUMMONED",
-                boss: data.boss
+                data: { boss: data.boss }
             });
 
             onBossSummoned(data.boss);
@@ -90,7 +90,8 @@ export function SummonBossDialog({
             // Emit Socket event to students
             socket?.emit("classroom-update", {
                 classId,
-                type: "BOSS_DEFEATED"
+                type: "BOSS_DEFEATED",
+                data: { boss: null }
             });
 
             onBossDismissed();

@@ -47,7 +47,10 @@ export function WorldBossBar({ boss, studentId, stamina = 0, classId, onAttackSu
                     socket?.emit("classroom-update", {
                         classId,
                         type: "BOSS_HP_UPDATE",
-                        currentHp: data.boss.currentHp
+                        data: {
+                            currentHp: data.boss.currentHp,
+                            boss: data.boss
+                        }
                     });
                 }
 

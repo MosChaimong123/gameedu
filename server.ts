@@ -246,7 +246,18 @@ app.prepare().then(async () => {
             }
         });
 
-        socket.on("classroom-update", ({ classId, type, data }) => {
+        socket.on("classroom-update", (payload) => {
+            const { classId, type } = payload || {};
+            if (!classId || !type) return;
+
+            // Normalize payload for backward compatibility:
+            // preferred shape is { classId, type, data }.
+            const data =
+                payload?.data ??
+                Object.fromEntries(
+                    Object.entries(payload || {}).filter(([key]) => key !== "classId" && key !== "type")
+                );
+
             // Broadcast to everyone in the classroom room EXCEPT the sender
             socket.to(`classroom-${classId}`).emit("classroom-event", { type, data });
         });

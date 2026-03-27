@@ -125,18 +125,30 @@ export function StudentDashboardClient({
         socket.emit("join-classroom", classroom.id);
 
         const handleBossUpdate = (event: any) => {
+            const eventData = event?.data || {};
+
             if (event.type === 'BOSS_HP_UPDATE') {
                 setClassroom((prev: any) => ({
                     ...prev,
                     gamifiedSettings: {
                         ...((prev.gamifiedSettings as any) || {}),
-                        boss: { ...((prev.gamifiedSettings as any)?.boss || {}), currentHp: event.currentHp }
+                        boss: {
+                            ...((prev.gamifiedSettings as any)?.boss || {}),
+                            ...(eventData.boss || {}),
+                            currentHp: eventData.currentHp
+                        }
                     }
+                }));
+            } else if (event.type === 'BOSS_UPDATE') {
+                if (!eventData.boss) return;
+                setClassroom((prev: any) => ({
+                    ...prev,
+                    gamifiedSettings: { ...((prev.gamifiedSettings as any) || {}), boss: eventData.boss }
                 }));
             } else if (event.type === 'BOSS_SUMMONED') {
                 setClassroom((prev: any) => ({
                     ...prev,
-                    gamifiedSettings: { ...((prev.gamifiedSettings as any) || {}), boss: event.boss }
+                    gamifiedSettings: { ...((prev.gamifiedSettings as any) || {}), boss: eventData.boss }
                 }));
             } else if (event.type === 'BOSS_DEFEATED') {
                 setClassroom((prev: any) => ({

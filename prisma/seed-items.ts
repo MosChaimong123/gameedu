@@ -14,23 +14,32 @@ const POINTS = 'POINTS';
 
 // ─── Effects shorthand ──────────────────────────────────────────────────────
 const E = {
-  GOLD_FINDER:   'GOLD_FINDER',
-  QUICK_LEARNER: 'QUICK_LEARNER',
-  TOUGH_SKIN:    'TOUGH_SKIN',
-  LIFESTEAL:     'LIFESTEAL',
-  MANA_FLOW:     'MANA_FLOW',
-  LUCKY_STRIKE:  'LUCKY_STRIKE',
-  IMMORTAL:      'IMMORTAL',
-  GODS_BLESSING: 'GODS_BLESSING',
-  TIME_WARP:     'TIME_WARP',
-  TITAN_WILL:    'TITAN_WILL',
-  HOLY_FURY:     'HOLY_FURY',
-  ARCANE_SURGE:  'ARCANE_SURGE',
-  DARK_PACT:     'DARK_PACT',
-  HAWK_EYE:      'HAWK_EYE',
-  HUNTER_MARK:   'HUNTER_MARK',
-  SHADOW_VEIL:   'SHADOW_VEIL',
-  BLADE_DANCE:   'BLADE_DANCE',
+  GOLD_FINDER:      'GOLD_FINDER',
+  QUICK_LEARNER:    'QUICK_LEARNER',
+  TOUGH_SKIN:       'TOUGH_SKIN',
+  LIFESTEAL:        'LIFESTEAL',
+  MANA_FLOW:        'MANA_FLOW',
+  LUCKY_STRIKE:     'LUCKY_STRIKE',
+  IMMORTAL:         'IMMORTAL',
+  GODS_BLESSING:    'GODS_BLESSING',
+  TIME_WARP:        'TIME_WARP',
+  TITAN_WILL:       'TITAN_WILL',
+  HOLY_FURY:        'HOLY_FURY',
+  ARCANE_SURGE:     'ARCANE_SURGE',
+  DARK_PACT:        'DARK_PACT',
+  HAWK_EYE:         'HAWK_EYE',
+  HUNTER_MARK:      'HUNTER_MARK',
+  SHADOW_VEIL:      'SHADOW_VEIL',
+  BLADE_DANCE:      'BLADE_DANCE',
+  // New effects
+  SWIFT_STRIKE:     'SWIFT_STRIKE',
+  BERSERKER_RAGE:   'BERSERKER_RAGE',
+  BATTLE_FOCUS:     'BATTLE_FOCUS',
+  ECHO_STRIKE:      'ECHO_STRIKE',
+  DRAGON_BLOOD:     'DRAGON_BLOOD',
+  CELESTIAL_GRACE:  'CELESTIAL_GRACE',
+  VOID_WALKER:      'VOID_WALKER',
+  SOUL_EATER:       'SOUL_EATER',
 };
 
 const items = [
@@ -89,25 +98,25 @@ const items = [
     name: "Titan's Greatsword", description: 'ดาบยักษ์ไทแทน พลังทำลายล้างสูงสุด — ชุด TITAN',
     price: 7000, type: 'WEAPON', slot: 'WEAPON', tier: 'EPIC', image: '🩸',
     baseAtk: 105, baseHp: 400, baseDef: 25, baseCrit: 0.06,
-    setId: SET_TITAN, effects: [E.LIFESTEAL],
+    setId: SET_TITAN, effects: [E.LIFESTEAL, E.BERSERKER_RAGE],
   },
   {
     name: 'Arcane Staff', description: 'ไม้เท้าลึกลับ เพิ่มพลังเวทย์ขั้นสูง — ชุด ARCANE',
     price: 7000, type: 'WEAPON', slot: 'WEAPON', tier: 'EPIC', image: '🔮',
     baseMag: 110, baseMp: 180, baseCrit: 0.09, baseSpd: 10,
-    setId: SET_ARCANE, effects: [E.MANA_FLOW],
+    setId: SET_ARCANE, effects: [E.MANA_FLOW, E.ECHO_STRIKE],
   },
   {
     name: 'Eagle Bow', description: 'ธนูนกอินทรี แม่นยำสูง — ชุด HUNT',
     price: 7000, type: 'WEAPON', slot: 'WEAPON', tier: 'EPIC', image: '🦅',
     baseAtk: 90, baseCrit: 0.14, baseSpd: 26, baseLuck: 0.07,
-    setId: SET_HUNT, effects: [E.LUCKY_STRIKE],
+    setId: SET_HUNT, effects: [E.LUCKY_STRIKE, E.SWIFT_STRIKE],
   },
   {
     name: "Assassin's Fang", description: 'เขี้ยวนักสังหาร คมและรวดเร็วร้ายกาจ — ชุด SHADOW',
     price: 7000, type: 'WEAPON', slot: 'WEAPON', tier: 'EPIC', image: '🦷',
     baseAtk: 78, baseCrit: 0.18, baseSpd: 28, baseLuck: 0.10,
-    setId: SET_SHADOW, effects: [E.LIFESTEAL],
+    setId: SET_SHADOW, effects: [E.LIFESTEAL, E.BATTLE_FOCUS],
   },
 
   // ── LEGENDARY Weapons ────────────────────────────────────────────────────
@@ -115,25 +124,25 @@ const items = [
     name: "Warlord's Cleaver", description: 'ขวานแห่งจอมทัพ ฉีกทุกอย่างได้',
     price: 14000, type: 'WEAPON', slot: 'WEAPON', tier: 'LEGENDARY', image: '⚒️',
     baseAtk: 180, baseHp: 700, baseDef: 50, baseCrit: 0.10,
-    effects: [E.IMMORTAL, E.TITAN_WILL],
+    effects: [E.IMMORTAL, E.TITAN_WILL, E.DRAGON_BLOOD],
   },
   {
     name: 'Staff of Eternity', description: 'ไม้เท้าแห่งนิรันดร์ เวทย์มนต์ไม่มีที่สิ้นสุด',
     price: 14000, type: 'WEAPON', slot: 'WEAPON', tier: 'LEGENDARY', image: '✨',
     baseMag: 210, baseMp: 360, baseCrit: 0.17, baseSpd: 18,
-    effects: [E.MANA_FLOW, E.ARCANE_SURGE],
+    effects: [E.MANA_FLOW, E.ARCANE_SURGE, E.CELESTIAL_GRACE],
   },
   {
     name: 'Godslayer Bow', description: 'ธนูสังหารเทพ ไม่มีสิ่งใดรอดพ้น',
     price: 14000, type: 'WEAPON', slot: 'WEAPON', tier: 'LEGENDARY', image: '🔱',
     baseAtk: 160, baseCrit: 0.24, baseSpd: 42, baseLuck: 0.14,
-    effects: [E.LUCKY_STRIKE, E.HAWK_EYE],
+    effects: [E.LUCKY_STRIKE, E.HAWK_EYE, E.SWIFT_STRIKE],
   },
   {
     name: "Death's Edge", description: 'คมแห่งความตาย ทุกเงาเป็นอาวุธ',
     price: 14000, type: 'WEAPON', slot: 'WEAPON', tier: 'LEGENDARY', image: '💀',
     baseAtk: 140, baseCrit: 0.28, baseSpd: 48, baseLuck: 0.22,
-    effects: [E.LIFESTEAL, E.SHADOW_VEIL],
+    effects: [E.LIFESTEAL, E.SHADOW_VEIL, E.SOUL_EATER],
   },
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -203,19 +212,19 @@ const items = [
     name: "Titan's Fortress", description: 'ป้อมไทแทน ป้องกันทุกสิ่ง',
     price: 16000, type: 'BODY', slot: 'BODY', tier: 'LEGENDARY', image: '🏰',
     baseDef: 160, baseHp: 1100, baseAtk: 40, goldMultiplier: 0.22,
-    effects: [E.IMMORTAL, E.TITAN_WILL],
+    effects: [E.IMMORTAL, E.TITAN_WILL, E.BERSERKER_RAGE],
   },
   {
     name: 'Cosmic Shroud', description: 'เสื้อคลุมจักรวาล เวทย์มนต์แห่งดวงดาว',
     price: 16000, type: 'BODY', slot: 'BODY', tier: 'LEGENDARY', image: '🌌',
     baseDef: 60, baseHp: 650, baseMag: 185, baseMp: 320, baseCrit: 0.12,
-    effects: [E.MANA_FLOW, E.ARCANE_SURGE],
+    effects: [E.MANA_FLOW, E.ARCANE_SURGE, E.ECHO_STRIKE],
   },
   {
     name: 'Phantom Cloak', description: 'เสื้อคลุมผี เคลื่อนไหวไม่มีเงา',
     price: 16000, type: 'BODY', slot: 'BODY', tier: 'LEGENDARY', image: '👻',
     baseDef: 105, baseHp: 750, baseSpd: 40, baseCrit: 0.16, baseLuck: 0.14,
-    effects: [E.LIFESTEAL, E.SHADOW_VEIL],
+    effects: [E.LIFESTEAL, E.SHADOW_VEIL, E.VOID_WALKER],
   },
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -599,29 +608,29 @@ const items = [
   {
     name: 'Heart of the Titan', description: 'หัวใจแห่งไทแทน ไม่มีวันพ่ายแพ้',
     price: 16000, type: 'ACCESSORY', slot: 'ACCESSORY', tier: 'LEGENDARY', image: '❤️',
-    baseAtk: 90, baseHp: 500, baseDef: 40, effects: [E.IMMORTAL, E.GODS_BLESSING],
+    baseAtk: 90, baseHp: 500, baseDef: 40, effects: [E.IMMORTAL, E.GODS_BLESSING, E.DRAGON_BLOOD],
   },
   {
     name: 'Eye of Eternity', description: 'นัยน์ตาแห่งนิรันดร์ มองเห็นอดีตและอนาคต',
     price: 16000, type: 'ACCESSORY', slot: 'ACCESSORY', tier: 'LEGENDARY', image: '🔯',
-    baseMag: 130, baseMp: 260, baseCrit: 0.16, effects: [E.IMMORTAL, E.ARCANE_SURGE],
+    baseMag: 130, baseMp: 260, baseCrit: 0.16, effects: [E.IMMORTAL, E.ARCANE_SURGE, E.BATTLE_FOCUS],
   },
   {
     name: 'Ring of the Hunt', description: 'แหวนแห่งการล่า ไม่มีเหยื่อใดหนีรอด',
     price: 16000, type: 'ACCESSORY', slot: 'ACCESSORY', tier: 'LEGENDARY', image: '🦁',
     baseAtk: 75, baseCrit: 0.24, baseSpd: 38, bossDamageMultiplier: 0.15,
-    effects: [E.IMMORTAL, E.HAWK_EYE],
+    effects: [E.IMMORTAL, E.HAWK_EYE, E.ECHO_STRIKE],
   },
   {
     name: 'Phantom Soul', description: 'วิญญาณผี มีทั้งชีวิตและความตาย',
     price: 16000, type: 'ACCESSORY', slot: 'ACCESSORY', tier: 'LEGENDARY', image: '🫀',
-    baseCrit: 0.28, baseLuck: 0.24, baseSpd: 44, effects: [E.IMMORTAL, E.SHADOW_VEIL],
+    baseCrit: 0.28, baseLuck: 0.24, baseSpd: 44, effects: [E.IMMORTAL, E.SHADOW_VEIL, E.SOUL_EATER],
   },
   {
     name: 'Tears of Goddess', description: 'น้ำตาเทพธิดา อำนาจจากสรวงสวรรค์',
     price: 18000, type: 'ACCESSORY', slot: 'ACCESSORY', tier: 'LEGENDARY', image: '💧',
     baseHp: 800, baseMag: 80, baseAtk: 60, goldMultiplier: 0.35, xpMultiplier: 0.20,
-    effects: [E.IMMORTAL, E.GODS_BLESSING, E.TIME_WARP],
+    effects: [E.IMMORTAL, E.GODS_BLESSING, E.TIME_WARP, E.CELESTIAL_GRACE],
   },
 
   // ══════════════════════════════════════════════════════════════════════════

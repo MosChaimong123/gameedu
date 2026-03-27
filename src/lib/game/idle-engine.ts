@@ -123,6 +123,11 @@ type BossState = {
   currentHp: number;
   rewardGold?: number;
   name?: string;
+  /**
+   * Used for idempotency: reward for a single boss defeat should be distributed once.
+   * Stored inside classroom.gamifiedSettings.boss (JSON field).
+   */
+  rewardDistributedAt?: string | null;
 };
 
 type GamifiedSettings = {
@@ -131,6 +136,7 @@ type GamifiedSettings = {
 
 type BossClassroom = {
   gamifiedSettings: GamifiedSettings | null;
+  updatedAt: Date;
 };
 
 type BossStudent = {
@@ -513,29 +519,26 @@ export class IdleEngine {
     options: { damageOverride?: number; consumeStamina?: boolean } = { consumeStamina: true }
   ) {
     try {
-      // 1. Fetch current boss status and student stamina
-      const [classroom, student] = await Promise.all([
-        db.classroom.findUnique({
-            where: { id: classId },
-            select: { gamifiedSettings: true }
-        }) as Promise<BossClassroom | null>,
-        db.student.findUnique({
-            where: { id: studentId },
-            select: { points: true, items: { include: { item: true }, where: { isEquipped: true } }, stamina: true, gameStats: true }
-        }) as Promise<BossStudent | null>
-      ]);
-
-      const settings = classroom?.gamifiedSettings ?? {};
-      if (!settings.boss?.active || settings.boss.currentHp <= 0) {
-        return { error: "No active boss" };
-      }
-
       const consumeStamina = options.consumeStamina ?? true;
+      const MAX_RETRIES = 3;
+      const RETRY_CONFLICT_ERROR = "BOSS_CONFLICT_RETRY";
+
+      // 1. Fetch student once for damage calculation baseline
+      const student = await db.student.findUnique({
+        where: { id: studentId },
+        select: {
+          points: true,
+          items: { include: { item: true }, where: { isEquipped: true } },
+          stamina: true,
+          gameStats: true
+        }
+      }) as BossStudent | null;
+
       if (consumeStamina && (!student || student.stamina <= 0)) {
         return { error: "Insufficient stamina" };
       }
 
-      // 2. Calculate Damage
+      // 2. Calculate Damage once to avoid inconsistent rerolls across retries
       let damage = 0;
       let isCrit = false;
 
@@ -548,46 +551,112 @@ export class IdleEngine {
         isCrit = battleResult.isCrit;
       }
 
-      // 3. Atomic Updates
-      const newHp = Math.max(0, settings.boss.currentHp - damage);
-      const isDefeated = settings.boss.currentHp > 0 && newHp <= 0;
-      
-      const [updatedClassroom, updatedStudent] = await db.$transaction([
-        db.classroom.update({
-            where: { id: classId },
-            data: {
-              gamifiedSettings: {
-                ...settings,
-                boss: {
-                  ...settings.boss,
-                  currentHp: newHp,
-                  active: newHp > 0
-                }
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          const txResult = await db.$transaction(async (tx) => {
+            // Always read latest state inside transaction
+            const classroom = await tx.classroom.findUnique({
+              where: { id: classId },
+              select: { gamifiedSettings: true, updatedAt: true }
+            }) as BossClassroom | null;
+
+            if (!classroom) {
+              return { error: "Classroom not found" } as const;
+            }
+
+            const settings = classroom?.gamifiedSettings ?? {};
+            if (!settings.boss?.active || settings.boss.currentHp <= 0) {
+              return { error: "No active boss" } as const;
+            }
+
+            // Guarded stamina decrement prevents negative stamina under concurrency
+            if (consumeStamina) {
+              const staminaUpdate = await tx.student.updateMany({
+                where: { id: studentId, stamina: { gte: 1 } },
+                data: { stamina: { decrement: 1 } }
+              });
+              if (staminaUpdate.count === 0) {
+                return { error: "Insufficient stamina" } as const;
               }
             }
-        }),
-        // Only update student if we consume stamina
-        ...(consumeStamina ? [
-          db.student.update({
-              where: { id: studentId },
-              data: {
-                  stamina: { decrement: 1 }
-              }
-          })
-        ] : [])
-      ]);
 
-      // 4. Distribute Rewards if defeated
-      if (isDefeated) {
-        await this.distributeBossRewards(classId, settings.boss);
+            const newHp = Math.max(0, settings.boss.currentHp - damage);
+            const isDefeated = settings.boss.currentHp > 0 && newHp <= 0;
+            const alreadyDistributed = Boolean((settings.boss as BossState | undefined)?.rewardDistributedAt);
+
+            // Optimistic concurrency check by updatedAt to avoid lost updates
+            const classroomUpdate = await tx.classroom.updateMany({
+              where: {
+                id: classId,
+                updatedAt: classroom.updatedAt
+              },
+              data: {
+                gamifiedSettings: {
+                  ...settings,
+                  boss: {
+                    ...settings.boss,
+                    currentHp: newHp,
+                    active: newHp > 0,
+                    ...(isDefeated && !alreadyDistributed
+                      ? { rewardDistributedAt: new Date().toISOString() }
+                      : {})
+                  }
+                }
+              }
+            });
+
+            if (classroomUpdate.count === 0) {
+              throw new Error(RETRY_CONFLICT_ERROR);
+            }
+
+            // If this request is responsible for the first defeat distribution,
+            // distribute rewards inside the same transaction to keep it atomic.
+            if (isDefeated && !alreadyDistributed) {
+              await this.distributeBossRewardsTx(tx, classId, {
+                ...settings.boss,
+                rewardDistributedAt: new Date().toISOString()
+              } as BossState);
+            }
+
+            const [updatedClassroom, updatedStudent] = await Promise.all([
+              tx.classroom.findUnique({
+                where: { id: classId },
+                select: { gamifiedSettings: true }
+              }),
+              consumeStamina
+                ? tx.student.findUnique({
+                    where: { id: studentId },
+                    select: { stamina: true }
+                  })
+                : Promise.resolve(null)
+            ]);
+
+            return {
+              boss: (updatedClassroom?.gamifiedSettings as GamifiedSettings)?.boss,
+              staminaLeft: updatedStudent?.stamina ?? student?.stamina ?? 0,
+              isDefeated
+            } as const;
+          });
+
+          if ("error" in txResult) {
+            return { error: txResult.error };
+          }
+
+          return {
+            boss: txResult.boss,
+            damage,
+            isCrit,
+            staminaLeft: txResult.staminaLeft
+          };
+        } catch (error: unknown) {
+          if (error instanceof Error && error.message === RETRY_CONFLICT_ERROR && attempt < MAX_RETRIES - 1) {
+            continue;
+          }
+          throw error;
+        }
       }
 
-      return {
-        boss: (updatedClassroom.gamifiedSettings as GamifiedSettings).boss,
-        damage,
-        isCrit,
-        staminaLeft: updatedStudent?.stamina ?? student?.stamina ?? 0
-      };
+      return { error: "Conflict while attacking boss, please retry" };
     } catch (error: unknown) {
       console.error("[IdleEngine] Error applying boss damage:", error);
       // Log more details about the error if possible
@@ -665,6 +734,56 @@ export class IdleEngine {
       console.log(`[IdleEngine] Distributed ${rewardGold} gold to ${students.length} students for defeating ${bossName}`);
     } catch (error: unknown) {
       console.error("Error distributing boss rewards:", error);
+    }
+  }
+
+  /**
+   * Atomic version: distribute rewards using the provided transaction client.
+   * Must be called within the same transaction where classroom boss defeat is committed.
+   */
+  private static async distributeBossRewardsTx(
+    tx: Prisma.TransactionClient,
+    classId: string,
+    bossSettings: BossState
+  ) {
+    const rewardGold = bossSettings.rewardGold || 500;
+    const bossName = bossSettings.name || "World Boss";
+
+    // 1. Get all students in this class
+    const students = (await tx.student.findMany({
+      where: { classId },
+      select: { id: true, gameStats: true },
+    })) as BossRewardStudent[];
+
+    // 2. Distribute to each student inside the same DB transaction
+    for (const student of students) {
+      const stats = this.parseGameStats(student.gameStats);
+      const xpReward = Math.floor(rewardGold * 0.5); // XP is half of Gold for boss
+
+      const xpResult = this.calculateXpGain(stats, xpReward);
+      const updatedStats: GameStats = {
+        ...stats,
+        gold: (stats.gold || 0) + rewardGold,
+        level: xpResult.level,
+        xp: xpResult.xp,
+      };
+
+      const updateData: BossRewardUpdateData = {
+        points: { increment: rewardGold },
+        gameStats: toPrismaJson(updatedStats),
+        history: {
+          create: {
+            reason: `🚀 รางวัลพิชิต ${bossName}!`,
+            value: rewardGold,
+            timestamp: new Date(),
+          },
+        },
+      };
+
+      await tx.student.update({
+        where: { id: student.id },
+        data: updateData,
+      });
     }
   }
 

@@ -246,7 +246,10 @@ export function SkillTab({
                     socket?.emit("classroom-update", {
                         classId,
                         type: "BOSS_HP_UPDATE",
-                        currentHp: data.boss.currentHp
+                        data: {
+                            currentHp: data.boss.currentHp,
+                            boss: data.boss
+                        }
                     });
                 }
 

@@ -11,6 +11,7 @@ export function TranslatedTabsTriggers() {
             <TabsTrigger value="attendance" suppressHydrationWarning>{t("attendanceHistory") || "Attendance"}</TabsTrigger>
             <TabsTrigger value="board" suppressHydrationWarning>{t("ideaBoard") || "Idea Board"}</TabsTrigger>
             <TabsTrigger value="analytics" suppressHydrationWarning>{t("analytics") || "Analytics"}</TabsTrigger>
+            <TabsTrigger value="game" suppressHydrationWarning>🎮 เกม</TabsTrigger>
         </>
     );
 }

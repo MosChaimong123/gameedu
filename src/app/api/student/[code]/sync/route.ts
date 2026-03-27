@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { IdleEngine } from "@/lib/game/idle-engine";
 import { checkAndGrantAchievements } from "@/lib/game/achievement-engine";
+import { applyJobSkillUnlocksOnLevelUp } from "@/lib/game/job-system";
 
 type SubmissionLite = {
   assignmentId: string;
@@ -129,6 +130,40 @@ export async function POST(
       console.log(`[SYNC_DEBUG] LEVEL UP DETECTED for ${student.loginCode}: ${currentStats.level} -> ${xpSync.level}`);
     }
 
+    const updatedJobSkills =
+      xpSync.leveledUp
+        ? applyJobSkillUnlocksOnLevelUp({
+            jobClass: student.jobClass ?? null,
+            jobTier: student.jobTier ?? null,
+            advanceClass: student.advanceClass ?? null,
+            oldLevel: currentStats.level ?? 1,
+            newLevel: xpSync.level ?? currentStats.level ?? 1,
+            currentJobSkills: Array.isArray(student.jobSkills) ? (student.jobSkills as string[]) : [],
+          })
+        : undefined;
+
+    // 5b. Login Streak Logic
+    const today = now.toISOString().split("T")[0];
+    const lastLoginDate = (currentStats as any).lastLoginDate as string | undefined;
+    const currentStreak = ((currentStats as any).loginStreak as number) ?? 0;
+
+    let newStreak = currentStreak;
+    let streakBonus = 0;
+    let streakBonusMaterial: string | null = null;
+    const isNewLogin = lastLoginDate !== today;
+
+    if (isNewLogin) {
+      const yesterday = new Date(now.getTime() - 86400000).toISOString().split("T")[0];
+      newStreak = lastLoginDate === yesterday ? currentStreak + 1 : 1;
+      if (newStreak === 3)  { streakBonus = 50; }
+      if (newStreak === 7)  { streakBonus = 100; streakBonusMaterial = "Wolf Fang"; }
+      if (newStreak === 14) { streakBonus = 150; streakBonusMaterial = "Dragon Scale"; }
+      if (newStreak === 30) { streakBonus = 300; streakBonusMaterial = "Phoenix Feather"; }
+      else if (newStreak > 30 && newStreak % 7 === 0) { streakBonus = 100; }
+    }
+
+    const streakGold = (verifiedGold) + streakBonus;
+
     // 6. Update the database atomically
     const updatedStudent = await db.student.update({
       where: { id: student.id },
@@ -138,24 +173,39 @@ export async function POST(
         lastStaminaRefill: isNewDay ? now : student.lastStaminaRefill,
         gameStats: {
           ...currentStats,
-          gold: verifiedGold,
+          gold: streakGold,
           level: xpSync.level,
-          xp: xpSync.xp
+          xp: xpSync.xp,
+          loginStreak: newStreak,
+          lastLoginDate: isNewLogin ? today : (lastLoginDate ?? today),
         } as any,
         lastSyncTime: now,
+        ...(updatedJobSkills ? { jobSkills: updatedJobSkills } : {}),
       },
     });
 
-    // 6. Check for new achievements (Background or inline)
+    // Award streak material bonus (fire-and-forget)
+    if (isNewLogin && streakBonusMaterial) {
+      void db.material.upsert({
+        where: { studentId_type: { studentId: student.id, type: streakBonusMaterial } },
+        update: { quantity: { increment: 1 } },
+        create: { studentId: student.id, type: streakBonusMaterial, quantity: 1 },
+      }).catch(() => {});
+    }
+
+    // 7. Check for new achievements (Background or inline)
     const newlyUnlocked = await checkAndGrantAchievements(student.id);
 
     return NextResponse.json({
       success: true,
-      gold: verifiedGold,
+      gold: streakGold,
       stamina: updatedStudent.stamina,
       maxStamina: updatedStudent.maxStamina,
       mana: updatedStudent.mana,
       lastSyncTime: updatedStudent.lastSyncTime,
+      loginStreak: newStreak,
+      streakBonus,
+      streakBonusMaterial,
       newlyUnlocked: newlyUnlocked.map((a) => ({
         id: a.id,
         name: a.name,

@@ -38,6 +38,7 @@ export interface QuestPeriodProgress {
   lastReset: string;
   completed: string[];
   counters: Record<string, number>;
+  pendingNotifications?: string[];
 }
 
 export interface QuestProgress {
@@ -286,6 +287,7 @@ export async function trackQuestEvent(
     if (period.counters[event] >= quest.target) {
       period.completed.push(quest.id);
       newlyCompleted.push(quest.id);
+      period.pendingNotifications = [...(period.pendingNotifications ?? []), quest.id];
       if (quest.reward.gold) totalGold += quest.reward.gold;
       if (quest.reward.xp) totalXp += quest.reward.xp;
       if (quest.reward.materials) materialsToAdd.push(...quest.reward.materials);

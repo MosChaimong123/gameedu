@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle, Circle, Clock, Coins, RefreshCw } from "lucide-react";
+import { CheckCircle, Clock, RefreshCw } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -14,6 +14,13 @@ interface DailyQuest {
   icon: string;
   goldReward: number;
   completed: boolean;
+}
+
+interface PendingNotification {
+  id: string;
+  name: string;
+  icon: string;
+  goldReward: number;
 }
 
 interface DailyQuestCardProps {
@@ -31,12 +38,61 @@ export function DailyQuestCard({ code, onGoldEarned }: DailyQuestCardProps) {
   // Time until midnight reset
   const [timeLeft, setTimeLeft] = useState("");
 
+  const parseQuestPayload = (data: {
+    quests?: DailyQuest[];
+    daily?: DailyQuest[];
+    pendingNotifications?: PendingNotification[];
+  }) => {
+    const pending = data.pendingNotifications ?? [];
+    pending.forEach((n) => {
+      toast({
+        title: `${n.icon} ${n.name} สำเร็จ!`,
+        description: `+${n.goldReward} Gold`,
+        className: "bg-indigo-600 text-white",
+      });
+    });
+    return data.quests ?? data.daily ?? [];
+  };
+
+  const handleClaim = useCallback(async (questId: string) => {
+    setClaiming(questId);
+    try {
+      const res = await fetch(`/api/student/${code}/daily-quests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: "รับรางวัลสำเร็จ! 🎉", description: data.message });
+        setQuests((prev) => prev.map((q) => (q.id === questId ? { ...q, completed: true } : q)));
+        if (onGoldEarned && data.newGold !== undefined) {
+          onGoldEarned(data.newGold);
+        }
+      } else {
+        toast({ title: "ไม่สามารถรับรางวัลได้", description: data.message, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "เกิดข้อผิดพลาด", variant: "destructive" });
+    } finally {
+      setClaiming(null);
+    }
+  }, [code, onGoldEarned, toast]);
+
   const refetchQuests = async () => {
     setIsRefreshing(true);
     try {
       const r = await fetch(`/api/student/${code}/daily-quests`);
       const data = await r.json();
-      setQuests(data.quests || []);
+      if (!r.ok) {
+        toast({
+          title: "โหลดภารกิจไม่สำเร็จ",
+          description: data.error || "ลองใหม่อีกครั้ง",
+          variant: "destructive",
+        });
+        return;
+      }
+      setQuests(parseQuestPayload(data));
     } finally {
       setIsRefreshing(false);
     }
@@ -44,23 +100,38 @@ export function DailyQuestCard({ code, onGoldEarned }: DailyQuestCardProps) {
 
   useEffect(() => {
     fetch(`/api/student/${code}/daily-quests`)
-      .then(r => r.json())
-      .then(data => {
-        setQuests(data.quests || []);
-        setLoading(false);
-      });
-  }, [code]);
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) {
+          toast({
+            title: "โหลดภารกิจไม่สำเร็จ",
+            description: data.error || "ลองรีเฟรชหน้า",
+            variant: "destructive",
+          });
+          setQuests([]);
+          return;
+        }
+        setQuests(parseQuestPayload(data));
+      })
+      .catch(() => {
+        toast({ title: "เครือข่ายผิดพลาด", variant: "destructive" });
+        setQuests([]);
+      })
+      .finally(() => setLoading(false));
+  }, [code, toast]);
 
   useEffect(() => {
-    const handleTrigger = (e: any) => {
-      const { questId } = e.detail;
-      if (questId && !quests.find(q => q.id === questId)?.completed) {
-        handleClaim(questId);
-      }
+    const handleTrigger = (e: Event) => {
+      const detail = (e as CustomEvent<{ questId?: string }>).detail;
+      const questId = detail?.questId;
+      if (!questId || loading || quests.length === 0) return;
+      const q = quests.find((x) => x.id === questId);
+      if (!q || q.completed) return;
+      void handleClaim(questId);
     };
     window.addEventListener("trigger-quest", handleTrigger);
     return () => window.removeEventListener("trigger-quest", handleTrigger);
-  }, [quests, loading]);
+  }, [quests, loading, handleClaim]);
 
   useEffect(() => {
     const tick = () => {
@@ -78,40 +149,15 @@ export function DailyQuestCard({ code, onGoldEarned }: DailyQuestCardProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const handleClaim = async (questId: string) => {
-    setClaiming(questId);
-    try {
-      const res = await fetch(`/api/student/${code}/daily-quests`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questId }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast({ title: "รับรางวัลสำเร็จ! 🎉", description: data.message });
-        setQuests(prev => prev.map(q => q.id === questId ? { ...q, completed: true } : q));
-        if (onGoldEarned && data.newGold !== undefined) {
-          onGoldEarned(data.newGold);
-        }
-      } else {
-        toast({ title: "ไม่สามารถรับรางวัลได้", description: data.message, variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "เกิดข้อผิดพลาด", variant: "destructive" });
-    } finally {
-      setClaiming(null);
-    }
-  };
-
   // Auto-complete DAILY_LOGIN quest on mount
   useEffect(() => {
     if (!loading && quests.length > 0) {
-      const loginQuest = quests.find(q => q.id === "DAILY_LOGIN" && !q.completed);
+      const loginQuest = quests.find((q) => q.id === "DAILY_LOGIN" && !q.completed);
       if (loginQuest) {
-        handleClaim("DAILY_LOGIN");
+        void handleClaim("DAILY_LOGIN");
       }
     }
-  }, [loading]);
+  }, [loading, quests, handleClaim]);
 
   const completedCount = quests.filter(q => q.completed).length;
 
@@ -129,8 +175,10 @@ export function DailyQuestCard({ code, onGoldEarned }: DailyQuestCardProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => refetchQuests()}
+            onClick={() => void refetchQuests()}
             disabled={isRefreshing}
+            title="รีเฟรชภารกิจ"
+            aria-label="รีเฟรชภารกิจประจำวัน"
             className="h-7 w-7 p-0 text-slate-500 hover:text-slate-700"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />

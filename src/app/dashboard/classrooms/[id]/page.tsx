@@ -7,6 +7,7 @@ import { AnalyticsDashboard } from "@/components/classroom/AnalyticsDashboard";
 import { AttendanceHistoryTab } from "@/components/classroom/attendance-history-tab";
 import { TranslatedTabsTriggers } from "@/components/classroom/translated-tabs-triggers";
 import { ClassBoard } from "@/components/board/ClassBoard";
+import { GameOverviewTab } from "@/components/classroom/GameOverviewTab";
 
 interface ClassroomPageProps {
     params: Promise<{
@@ -69,6 +70,10 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
 
                 <TabsContent value="board" className="flex-1 mt-0 h-full overflow-y-auto p-4 bg-slate-50/50">
                     <ClassBoard classId={classroom.id} userId={session.user.id} isTeacher={true} />
+                </TabsContent>
+
+                <TabsContent value="game" className="flex-1 mt-0 h-full overflow-y-auto p-4">
+                    <GameOverviewTab classId={classroom.id} />
                 </TabsContent>
             </Tabs>
         </div>

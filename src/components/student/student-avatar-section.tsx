@@ -56,12 +56,20 @@ export function StudentAvatarSection({
     const [showPicker, setShowPicker] = useState(false);
     const { t } = useLanguage();
     const { toast } = useToast();
+    const currentLevel = gameStats?.level || 1;
+    const maxLevel = IdleEngine.getMaxLevel();
+    const isMaxLevel = currentLevel >= maxLevel;
+    const xpRequirement = IdleEngine.getXpRequirement(currentLevel);
+    const xpPercent = isMaxLevel
+        ? 100
+        : Math.max(0, Math.min(100, ((gameStats?.xp || 0) / xpRequirement) * 100));
     
     // Live Gold State
     const [displayGold, setDisplayGold] = useState<number>(0);
     const goldValueRef = useRef<number>(0);
     const goldRateRef = useRef<number>(0);
     const lastSyncRef = useRef<Date>(lastSyncTime ? new Date(lastSyncTime) : new Date());
+    const [loginStreak, setLoginStreak] = useState<number>((gameStats?.loginStreak as number) ?? 0);
 
     // Sync Gold to Database
     const syncGold = async (currentGold: number) => {
@@ -88,9 +96,20 @@ export function StudentAvatarSection({
                         });
                     });
                 }
+                if (data.loginStreak !== undefined) {
+                    setLoginStreak(data.loginStreak);
+                }
+                if (data.streakBonus > 0) {
+                    const materialNote = data.streakBonusMaterial ? ` + ${data.streakBonusMaterial}` : "";
+                    toast({
+                        title: `🔥 Day ${data.loginStreak} Streak!`,
+                        description: `+${data.streakBonus} Gold${materialNote}`,
+                        className: "bg-orange-500 text-white",
+                    });
+                }
                 if (onUpdateStudent) {
                     onUpdateStudent({
-                        gameStats: { ...gameStats, gold: data.gold },
+                        gameStats: { ...gameStats, gold: data.gold, loginStreak: data.loginStreak },
                         stamina: data.stamina,
                         maxStamina: data.maxStamina,
                         mana: data.mana,
@@ -228,7 +247,7 @@ export function StudentAvatarSection({
                                                 }}
                                             />
                                             <span className="text-sm font-black text-slate-800 tracking-tight uppercase">
-                                                LV.{gameStats?.level || 1} {rankEntry.name}
+                                                LV.{currentLevel} {rankEntry.name}
                                                 {jobClass && (
                                                     <span className="ml-2 px-2 py-0.5 bg-yellow-500/10 border border-yellow-500/20 rounded-md text-[10px] text-yellow-700 font-black tracking-widest align-middle">
                                                         [{jobBadgeLabel}]
@@ -236,11 +255,21 @@ export function StudentAvatarSection({
                                                 )}
                                             </span>
                                         </div>
+                                    <div className="w-full flex items-center justify-center gap-2">
+                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isMaxLevel ? "text-emerald-600" : "text-slate-400"}`}>
+                                            {isMaxLevel ? `MAX LV ${maxLevel}` : "XP Progress"}
+                                        </span>
+                                        {loginStreak >= 2 && (
+                                            <span className="text-[10px] font-black text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full border border-orange-200">
+                                                🔥 {loginStreak}
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden mt-0.5 shadow-inner">
                                         <motion.div 
                                             initial={{ width: 0 }}
-                                            animate={{ width: `${(gameStats?.xp || 0) / IdleEngine.getXpRequirement(gameStats?.level || 1) * 100}%` }}
-                                            className="h-full bg-gradient-to-r from-indigo-500 to-blue-400 rounded-full"
+                                            animate={{ width: `${xpPercent}%` }}
+                                            className={`h-full rounded-full ${isMaxLevel ? "bg-gradient-to-r from-emerald-500 to-teal-400" : "bg-gradient-to-r from-indigo-500 to-blue-400"}`}
                                         />
                                     </div>
                                 </motion.div>

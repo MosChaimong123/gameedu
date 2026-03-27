@@ -3,10 +3,12 @@ import { db } from "@/lib/db";
 import {
   DAILY_QUESTS,
   WEEKLY_QUESTS,
+  ALL_QUESTS,
   getQuestProgress,
   completeQuest,
   trackQuestEvent,
 } from "@/lib/game/quest-engine";
+import { toPrismaJson } from "@/lib/game/game-stats";
 
 // GET /api/student/[code]/daily-quests — Get quests + progress (daily + weekly)
 export async function GET(
@@ -25,19 +27,57 @@ export async function GET(
 
     const progress = getQuestProgress(student.questProgress);
 
+    // Collect and clear pending notifications
+    const pendingIds = [
+      ...(progress.daily.pendingNotifications ?? []),
+      ...(progress.weekly.pendingNotifications ?? []),
+    ];
+    if (pendingIds.length > 0) {
+      progress.daily.pendingNotifications = [];
+      progress.weekly.pendingNotifications = [];
+      await db.student.update({
+        where: { id: student.id },
+        data: { questProgress: toPrismaJson({ daily: progress.daily, weekly: progress.weekly }) },
+      });
+    }
+    const pendingNotifications = pendingIds.map((id) => {
+      const q = ALL_QUESTS.find((x) => x.id === id);
+      if (!q) return null;
+      return { id: q.id, name: q.name, icon: q.icon, goldReward: q.reward.gold ?? 0 };
+    }).filter(Boolean);
+
     const daily = DAILY_QUESTS.map((quest) => ({
-      ...quest,
+      id: quest.id,
+      name: quest.name,
+      description: quest.description,
+      icon: quest.icon,
+      event: quest.event,
+      target: quest.target,
+      goldReward: quest.reward.gold ?? 0,
       completed: progress.daily.completed.includes(quest.id),
       counter: progress.daily.counters[quest.event] ?? 0,
     }));
 
     const weekly = WEEKLY_QUESTS.map((quest) => ({
-      ...quest,
+      id: quest.id,
+      name: quest.name,
+      description: quest.description,
+      icon: quest.icon,
+      event: quest.event,
+      target: quest.target,
+      goldReward: quest.reward.gold ?? 0,
       completed: progress.weekly.completed.includes(quest.id),
       counter: progress.weekly.counters[quest.event] ?? 0,
     }));
 
-    return NextResponse.json({ daily, weekly, progress });
+    // `quests` = daily list for legacy UI (DailyQuestCard)
+    return NextResponse.json({
+      quests: daily,
+      daily,
+      weekly,
+      progress,
+      pendingNotifications,
+    });
   } catch (error) {
     console.error("Error fetching quests:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

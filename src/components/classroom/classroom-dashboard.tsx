@@ -33,6 +33,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { useToast } from "@/components/ui/use-toast";
 import { useSocket } from "@/components/providers/socket-provider";
 import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
+import { normalizeBossesFromGamifiedSettings } from "@/lib/game/classroom-bosses";
 import useSound from "use-sound";
 
 interface ClassroomDashboardProps {
@@ -94,6 +95,24 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                         s.id === studentId ? { ...s, points } : s
                     )
                 }));
+            } else if (payload.type === "BOSS_HP_UPDATE") {
+                const { bosses: evBosses, boss, instanceId, currentHp } = payload.data || {};
+                setClassroom((prev) => {
+                    const gs = { ...(prev.gamifiedSettings as Record<string, unknown>) || {} };
+                    if (Array.isArray(evBosses)) {
+                        return { ...prev, gamifiedSettings: { ...gs, bosses: evBosses } };
+                    }
+                    if (instanceId && boss) {
+                        const list = normalizeBossesFromGamifiedSettings(gs);
+                        const next = list.map((b) =>
+                            b.instanceId === instanceId
+                                ? { ...b, ...boss, currentHp: currentHp ?? (boss as { currentHp?: number }).currentHp }
+                                : b
+                        );
+                        return { ...prev, gamifiedSettings: { ...gs, bosses: next } };
+                    }
+                    return prev;
+                });
             } else if (payload.type === "BOSS_UPDATE") {
                 const { boss } = payload.data;
                 setClassroom(prev => ({
@@ -428,17 +447,18 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                         <div className="flex flex-col justify-center px-5 py-4 border-r border-b border-slate-700/50 flex-grow sm:flex-grow-0">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-2">🎮 Gamification</p>
                             <div className="flex flex-wrap items-center gap-2">
-                                <SummonBossDialog 
+                                <SummonBossDialog
                                     classId={classroom.id}
-                                    currentBoss={(classroom.gamifiedSettings as any)?.boss}
-                                    onBossSummoned={(boss) => setClassroom(prev => ({
-                                        ...prev,
-                                        gamifiedSettings: { ...((prev.gamifiedSettings as any) || {}), boss }
-                                    }))}
-                                    onBossDismissed={() => setClassroom(prev => ({
-                                        ...prev,
-                                        gamifiedSettings: { ...((prev.gamifiedSettings as any) || {}), boss: null }
-                                    }))}
+                                    gamifiedSettings={(classroom.gamifiedSettings as Record<string, unknown>) || {}}
+                                    onBossesUpdated={(bosses) =>
+                                        setClassroom((prev) => ({
+                                            ...prev,
+                                            gamifiedSettings: {
+                                                ...((prev.gamifiedSettings as Record<string, unknown>) || {}),
+                                                bosses,
+                                            } as any,
+                                        }))
+                                    }
                                 />
                                 <ClassroomRankSettingsDialog classroom={classroom} />
                                 <CustomAchievementManagerButton

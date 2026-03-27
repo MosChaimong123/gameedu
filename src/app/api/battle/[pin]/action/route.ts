@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { auth } from "@/auth";
 import { gameManager } from "@/lib/game-engine/manager";
 
@@ -18,7 +17,11 @@ export async function POST(
     }
 
     const { pin } = await params;
-    const { type, skillId, targetId } = await req.json();
+    const { type, skillId, targetId, socketId } = await req.json();
+
+    if (!socketId || typeof socketId !== "string") {
+      return NextResponse.json({ error: "Missing socketId" }, { status: 400 });
+    }
 
     // Validate action type
     if (!["ATTACK", "DEFEND", "SKILL"].includes(type)) {
@@ -34,9 +37,21 @@ export async function POST(
       return NextResponse.json({ error: "Battle not found" }, { status: 404 });
     }
 
-    // Emit battle-action event to the game engine
-    // The game engine will handle the logic
-    return NextResponse.json({ success: true, action: { type, skillId, targetId } });
+    const player = (game as any)?.players?.find((p: any) => p.id === socketId);
+    if (!player) {
+      return NextResponse.json({ error: "Player not found for provided socketId" }, { status: 400 });
+    }
+
+    // Forward into BattleTurnEngine.
+    // Note: HTTP has no real socket, so we pass a minimal fake socket
+    // with `id` used for player lookup inside the engine.
+    const fakeSocket = {
+      id: socketId,
+      emit: () => {},
+    } as any;
+
+    game.handleEvent("battle-action", { type, skillId, targetId, pin }, fakeSocket);
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("[Battle Action API] POST error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

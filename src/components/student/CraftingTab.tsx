@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Hammer, RefreshCw, ArrowUp, Sparkles } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { useToast } from "@/components/ui/use-toast";
-import { CRAFT_REQUIREMENTS, MATERIAL_TIERS } from "@/lib/game/crafting-system";
+import { CRAFT_REQUIREMENTS, MATERIAL_TIERS, MATERIAL_TIER_MAP } from "@/lib/game/crafting-system";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -70,15 +70,16 @@ export function CraftingTab({ code }: CraftingTabProps) {
   const handleCraft = async (materialType: string) => {
     if (craftingMaterial) return;
     setCraftingMaterial(materialType);
+    const targetTier = MATERIAL_TIER_MAP[materialType as keyof typeof MATERIAL_TIER_MAP];
     try {
       const res = await fetch(`/api/student/${code}/craft`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ materialType }),
+        body: JSON.stringify({ materialType, targetTier }),
       });
-      const data = await res.json() as { success?: boolean; itemName?: string; error?: string };
-      if (data.success) {
-        toast({ title: "🔨 Craft สำเร็จ!", description: `ได้รับ: ${data.itemName}`, className: "bg-emerald-600 text-white" });
+      const data = await res.json() as { item?: { item?: { name?: string } }; error?: string };
+      if (data.item) {
+        toast({ title: "🔨 Craft สำเร็จ!", description: `ได้รับ: ${data.item.item?.name ?? "ไอเทม"}`, className: "bg-emerald-600 text-white" });
         void fetchMaterials();
       } else {
         toast({ title: "Craft ไม่สำเร็จ", description: data.error ?? "เกิดข้อผิดพลาด", variant: "destructive" });

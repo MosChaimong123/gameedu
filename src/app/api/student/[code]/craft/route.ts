@@ -7,6 +7,7 @@ import {
   CRAFT_REQUIREMENTS,
   craftItem,
 } from "@/lib/game/crafting-system";
+import { trackQuestEvent } from "@/lib/game/quest-engine";
 
 export async function POST(
   req: NextRequest,
@@ -91,6 +92,8 @@ export async function POST(
       where: { id: result.studentItemId },
       include: { item: true },
     });
+
+    void trackQuestEvent(student.id, "ITEM_CRAFT");
 
     return NextResponse.json({ item: studentItem });
   } catch (error) {

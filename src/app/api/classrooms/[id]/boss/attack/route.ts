@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { IdleEngine } from "@/lib/game/idle-engine";
-import {
-  getNewlyUnlockedSkills,
-  resolveEffectiveJobKey,
-} from "@/lib/game/job-system";
+import { applyJobSkillUnlocksOnLevelUp } from "@/lib/game/job-system";
+import { getElementMultiplier, getJobElement, getElementLabel } from "@/lib/game/element-system";
+import { trackQuestEvent } from "@/lib/game/quest-engine";
 
 export async function POST(
     req: NextRequest,
@@ -19,12 +18,9 @@ export async function POST(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        // 1. Get the student's ID for this classroom
+        // 1. Get student
         const student = await db.student.findFirst({
-            where: { 
-                classId: classId,
-                userId: session.user.id
-            },
+            where: { classId, userId: session.user.id },
             select: {
                 id: true,
                 gameStats: true,
@@ -39,49 +35,57 @@ export async function POST(
             return NextResponse.json({ error: "Student not found" }, { status: 404 });
         }
 
-        // 2. Apply Boss Damage (Consumes Stamina inside)
-        const result = await IdleEngine.applyBossDamage(classId, student.id);
+        // 2. Get boss element for multiplier
+        const classroom = await db.classroom.findUnique({
+            where: { id: classId },
+            select: { gamifiedSettings: true }
+        });
+        const settings = (classroom?.gamifiedSettings ?? {}) as Record<string, unknown>;
+        const boss = settings.boss as Record<string, unknown> | undefined;
+        const bossElementKey = (boss?.elementKey as string | undefined) ?? null;
+
+        const elementMultiplier = getElementMultiplier(student.jobClass, bossElementKey);
+
+        // 3. Apply Boss Damage with element multiplier
+        const result = await IdleEngine.applyBossDamage(classId, student.id, {
+            consumeStamina: true,
+            elementMultiplier,
+        });
 
         if (result.error) {
             return NextResponse.json({ error: result.error }, { status: 400 });
         }
 
-        // 3. Grant XP for attacking (20 XP per hit)
+        // 4. Grant XP for attacking (20 XP per hit)
         const xpGain = 20;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const currentStats = (student.gameStats as any) || IdleEngine.getDefaultStats();
         const xpResult = IdleEngine.calculateXpGain(currentStats, xpGain);
 
-        // Check for newly unlocked skills on level-up (Req 11.6)
         let updatedJobSkills: string[] | undefined;
-        if (xpResult.leveledUp && student.jobClass) {
+        if (xpResult.leveledUp) {
             const currentSkillIds = (student.jobSkills as string[]) ?? [];
-            const eff = resolveEffectiveJobKey({
+            updatedJobSkills = applyJobSkillUnlocksOnLevelUp({
                 jobClass: student.jobClass,
                 jobTier: student.jobTier,
                 advanceClass: student.advanceClass,
+                oldLevel: (currentStats.level as number) ?? 1,
+                newLevel: xpResult.level ?? (currentStats.level as number) ?? 1,
+                currentJobSkills: currentSkillIds,
             });
-            const newSkills = getNewlyUnlockedSkills(
-                eff,
-                currentStats.level,
-                xpResult.level,
-                currentSkillIds
-            );
-            if (newSkills.length > 0) {
-                updatedJobSkills = [...currentSkillIds, ...newSkills];
-            }
         }
 
         await db.student.update({
             where: { id: student.id },
             data: {
-                gameStats: {
-                    ...currentStats,
-                    level: xpResult.level,
-                    xp: xpResult.xp
-                } as any,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                gameStats: { ...currentStats, level: xpResult.level, xp: xpResult.xp } as any,
                 ...(updatedJobSkills ? { jobSkills: updatedJobSkills } : {})
             }
         });
+
+        // 5. Track quest event (fire-and-forget)
+        void trackQuestEvent(student.id, "BOSS_ATTACK");
 
         return NextResponse.json({
             success: true,
@@ -90,7 +94,14 @@ export async function POST(
             staminaLeft: result.staminaLeft,
             boss: result.boss,
             xpGained: xpGain,
-            leveledUp: xpResult.leveledUp
+            leveledUp: xpResult.leveledUp,
+            elementMultiplier,
+            jobElement: getJobElement(student.jobClass),
+            bossElement: bossElementKey,
+            elementLabel: getElementLabel(elementMultiplier),
+            triggeredSkill: result.triggeredSkills?.[0]
+                ? { name: result.triggeredSkills[0] }
+                : undefined,
         });
 
     } catch (error) {

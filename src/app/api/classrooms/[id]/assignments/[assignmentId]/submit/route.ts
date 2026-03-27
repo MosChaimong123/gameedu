@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { IdleEngine } from "@/lib/game/idle-engine";
-import {
-  getNewlyUnlockedSkills,
-  resolveEffectiveJobKey,
-} from "@/lib/game/job-system";
+import { applyJobSkillUnlocksOnLevelUp } from "@/lib/game/job-system";
+import { trackQuestEvent } from "@/lib/game/quest-engine";
 
 export async function POST(
     req: Request,
@@ -93,22 +91,16 @@ export async function POST(
 
         // Check for newly unlocked skills on level-up (Req 11.6)
         let updatedJobSkills: string[] | undefined;
-        if (xpResult.leveledUp && student.jobClass) {
+        if (xpResult.leveledUp) {
             const currentSkillIds = (student.jobSkills as string[]) ?? [];
-            const eff = resolveEffectiveJobKey({
+            updatedJobSkills = applyJobSkillUnlocksOnLevelUp({
                 jobClass: student.jobClass,
                 jobTier: student.jobTier,
                 advanceClass: student.advanceClass,
+                oldLevel: currentGameStats.level ?? 1,
+                newLevel: xpResult.level ?? currentGameStats.level ?? 1,
+                currentJobSkills: currentSkillIds,
             });
-            const newSkills = getNewlyUnlockedSkills(
-                eff,
-                currentGameStats.level,
-                xpResult.level,
-                currentSkillIds
-            );
-            if (newSkills.length > 0) {
-                updatedJobSkills = [...currentSkillIds, ...newSkills];
-            }
         }
 
         await db.student.update({
@@ -123,10 +115,13 @@ export async function POST(
             }
         });
 
-        return NextResponse.json({ 
-            score, 
-            correct, 
-            total: questions.length, 
+        // Track quest event (fire-and-forget)
+        void trackQuestEvent(student.id, "ASSIGNMENT_SUBMIT");
+
+        return NextResponse.json({
+            score,
+            correct,
+            total: questions.length,
             submissionId: submission.id,
             updatedBoss,
             xpGained: xpGain,

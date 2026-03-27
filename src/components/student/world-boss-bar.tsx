@@ -8,6 +8,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { useToast } from "@/components/ui/use-toast";
 import { useSocket } from "@/components/providers/socket-provider";
 import { getBossPreset } from "@/lib/game/boss-config";
+import { getElementMultiplier, getJobElement, getElementLabel } from "@/lib/game/element-system";
 
 interface ActiveEffect {
     type: string;
@@ -42,10 +43,11 @@ interface WorldBossBarProps {
     studentId?: string;
     stamina?: number;
     classId?: string;
+    jobClass?: string | null;
     onAttackSuccess?: (data: unknown) => void;
 }
 
-export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId, onAttackSuccess }: WorldBossBarProps) {
+export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId, jobClass, onAttackSuccess }: WorldBossBarProps) {
     const { socket } = useSocket();
     const [isAttacking, setIsAttacking] = useState(false);
     const [damageLog, setDamageLog] = useState<{ damage: number; isCrit: boolean; time: Date }[]>([]);
@@ -57,6 +59,10 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
     const isLowHp = hpPercentage < 20;
 
     const preset = boss.bossId ? getBossPreset(boss.bossId) : null;
+    const bossElementKey = preset?.elementKey ?? boss.bossId ?? null;
+    const elementMult = getElementMultiplier(jobClass, bossElementKey);
+    const elementLabel = getElementLabel(elementMult);
+    const jobEl = getJobElement(jobClass);
     const skills = preset?.skills ?? [];
     const triggeredSkills = boss.triggeredSkills ?? [];
     const activeEffect = boss.activeEffect ?? null;
@@ -210,6 +216,15 @@ export function WorldBossBar({ boss, studentId: _studentId, stamina = 0, classId
                                         {boss.difficulty && (
                                             <div className="bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-100">
                                                 <span className="text-[10px] font-black text-purple-600 uppercase">{boss.difficulty}</span>
+                                            </div>
+                                        )}
+                                        {elementLabel && jobEl !== "NEUTRAL" && (
+                                            <div className={`px-2 py-0.5 rounded-lg border text-[10px] font-black ${
+                                                elementMult > 1
+                                                    ? "bg-green-50 border-green-200 text-green-700"
+                                                    : "bg-red-50 border-red-200 text-red-600"
+                                            }`}>
+                                                {elementLabel}
                                             </div>
                                         )}
                                     </div>

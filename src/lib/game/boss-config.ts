@@ -31,6 +31,7 @@ export interface BossPresetConfig {
   image: string;
   element: string;        // Thai element label
   elementIcon: string;
+  elementKey: string;     // Machine-readable element for weakness calc (FIRE, ICE, DARK, VOID, DEATH, LIGHT, NATURE, NONE)
   elementColor: string;   // Tailwind color class for accent
   lore: string;           // 1-line Thai lore
   baseHp: number;         // HP at NORMAL difficulty (×1)
@@ -126,59 +127,14 @@ export const DIFFICULTIES: DifficultyConfig[] = [
 // ─── Boss Presets ─────────────────────────────────────────────────────────────
 
 export const BOSS_PRESETS: BossPresetConfig[] = [
-  // ── 1. Lethargy Dragon ──────────────────────────────────────────────────────
-  {
-    id: "lethargy_dragon",
-    name: "มังกรเกียจคร้าน",
-    image: "/assets/monsters/lethargy_dragon.png",
-    element: "สมดุล",
-    elementIcon: "⚖️",
-    elementColor: "text-slate-600",
-    lore: "มังกรโบราณที่หลับใหลมานาน ตื่นขึ้นด้วยความโกรธ",
-    baseHp: 2000,
-    passiveDescription: "ไม่มีความสามารถพิเศษถาวร — เหมาะสำหรับผู้เริ่มต้น",
-    passiveDamageMultiplier: 1.0,
-    skills: [
-      {
-        id: "drowsiness",
-        name: "Drowsiness",
-        icon: "💤",
-        description: "บอสหลับตาเพื่อปกป้องตัวเอง ลดดาเมจที่รับ 30% เป็นเวลา 60 วินาที",
-        triggerHpPct: 0.75,
-        effectType: "DAMAGE_REDUCTION",
-        effectValue: 0.30,
-        durationSeconds: 60,
-      },
-      {
-        id: "slumber_field",
-        name: "Slumber Field",
-        icon: "🌀",
-        description: "คลื่นง่วงนอนทำให้นักเรียนเหนื่อยล้า — การโจมตีแต่ละครั้งต้องใช้ Stamina ×2 เป็นเวลา 45 วินาที",
-        triggerHpPct: 0.50,
-        effectType: "STAMINA_DOUBLE",
-        effectValue: 2,
-        durationSeconds: 45,
-      },
-      {
-        id: "dragon_enrage",
-        name: "Dragon Enrage",
-        icon: "🔥",
-        description: "มังกรโกรธจัด! รับดาเมจเพิ่มขึ้น 60% จนกว่าจะถูกสังหาร",
-        triggerHpPct: 0.25,
-        effectType: "DAMAGE_AMPLIFY",
-        effectValue: 0.60,
-        durationSeconds: null,
-      },
-    ],
-  },
-
-  // ── 2. Inferno Drake ────────────────────────────────────────────────────────
+  // ── 1. Inferno Drake ────────────────────────────────────────────────────────
   {
     id: "inferno_drake",
     name: "มังกรเพลิง",
     image: "/assets/mobs/bosses/inferno_drake.png",
     element: "ไฟ",
     elementIcon: "🔥",
+    elementKey: "FIRE",
     elementColor: "text-orange-600",
     lore: "มังกรแห่งเปลวไฟที่อยู่ในภูเขาไฟ — ทุกลมหายใจคือความร้อนแรง",
     baseHp: 1800,
@@ -225,6 +181,7 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
     image: "/assets/mobs/bosses/frost_king.png",
     element: "น้ำแข็ง",
     elementIcon: "❄️",
+    elementKey: "ICE",
     elementColor: "text-blue-500",
     lore: "ราชาผู้ปกครองดินแดนน้ำแข็ง — HP มหาศาล แต่เย็นชาและโหดร้าย",
     baseHp: 3000,
@@ -271,6 +228,7 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
     image: "/assets/mobs/bosses/shadow_queen.png",
     element: "ความมืด",
     elementIcon: "🌑",
+    elementKey: "DARK",
     elementColor: "text-purple-700",
     lore: "ราชินีแห่งเงามืด — ลดค่าประสบการณ์ของนักเรียนด้วยคำสาป",
     baseHp: 1600,
@@ -317,6 +275,7 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
     image: "/assets/mobs/bosses/void_watcher.png",
     element: "ความว่างเปล่า",
     elementIcon: "🌌",
+    elementKey: "VOID",
     elementColor: "text-indigo-600",
     lore: "ผู้เฝ้าจากมิติอื่น — ดูดซับพลังงานและความเป็นจริง",
     baseHp: 2200,
@@ -363,6 +322,7 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
     image: "/assets/mobs/bosses/necromancer_lord.png",
     element: "ความตาย",
     elementIcon: "💀",
+    elementKey: "DEATH",
     elementColor: "text-gray-700",
     lore: "ลอร์ดผู้ควบคุมวิญญาณ — ฟื้นคืนชีพและคำสาปแช่งนักเรียน",
     baseHp: 2400,
@@ -409,6 +369,7 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
     image: "/assets/mobs/bosses/celestial_guardian.png",
     element: "แสงสวรรค์",
     elementIcon: "✨",
+    elementKey: "LIGHT",
     elementColor: "text-yellow-500",
     lore: "ผู้พิทักษ์จากสรวงสวรรค์ — ป้องกันตัวเองด้วยเกราะศักดิ์สิทธิ์",
     baseHp: 2600,
@@ -455,6 +416,7 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
     image: "/assets/mobs/bosses/ancient_treant.png",
     element: "ธรรมชาติ",
     elementIcon: "🌿",
+    elementKey: "NATURE",
     elementColor: "text-green-600",
     lore: "ต้นไม้อายุนับพันปีที่ตื่นขึ้น — รากฐานที่ลึกและการฟื้นฟูที่ไม่หยุดหย่อน",
     baseHp: 2800,

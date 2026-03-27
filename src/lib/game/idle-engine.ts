@@ -15,6 +15,7 @@ import {
 } from "./job-system";
 import { toPrismaJson } from "./game-stats";
 import { getTriggeredSkills, getBossPreset, type BossSkillConfig } from "./boss-config";
+import { trackQuestEvent } from "./quest-engine";
 import {
   getEffectiveSkillAtRank,
   getSkillRank,
@@ -542,9 +543,9 @@ export class IdleEngine {
    * @param options.consumeStamina Whether to consume stamina (default: true)
    */
   static async applyBossDamage(
-    classId: string, 
-    studentId: string, 
-    options: { damageOverride?: number; consumeStamina?: boolean } = { consumeStamina: true }
+    classId: string,
+    studentId: string,
+    options: { damageOverride?: number; consumeStamina?: boolean; elementMultiplier?: number } = { consumeStamina: true }
   ) {
     try {
       const consumeStamina = options.consumeStamina ?? true;
@@ -608,11 +609,12 @@ export class IdleEngine {
               }
             }
 
-            // Apply passive + active damage multipliers from boss config
+            // Apply passive + element + active damage multipliers from boss config
             let effectiveDamage = damage;
             const bossState = settings.boss as BossState;
             const passive = bossState.passiveDamageMultiplier ?? 1.0;
-            effectiveDamage = Math.floor(effectiveDamage * passive);
+            const elemMult = options.elementMultiplier ?? 1.0;
+            effectiveDamage = Math.floor(effectiveDamage * passive * elemMult);
 
             const activeEffect = bossState.activeEffect;
             const now = Date.now();
@@ -739,6 +741,21 @@ export class IdleEngine {
 
           if ("error" in txResult) {
             return { error: txResult.error };
+          }
+
+          // After transaction: fire BOSS_KILL quest events for all students in class
+          if (txResult.isDefeated) {
+            void (async () => {
+              try {
+                const allStudents = await db.student.findMany({
+                  where: { classId },
+                  select: { id: true },
+                });
+                await Promise.all(
+                  allStudents.map((s) => trackQuestEvent(s.id, "BOSS_KILL"))
+                );
+              } catch { /* non-critical */ }
+            })();
           }
 
           return {
@@ -1267,6 +1284,11 @@ export class IdleEngine {
         }
 
         const finalStudent = await db.student.update({ where: { id: studentId }, data });
+
+        // Track quest event for wave clear (fire-and-forget)
+        if (isDefeated) {
+            void trackQuestEvent(studentId, "FARMING_WAVE");
+        }
 
         return {
             success: true,

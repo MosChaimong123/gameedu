@@ -37,6 +37,10 @@ export interface Skill {
     costPerRank?: number;
     healMultiplierPerRank?: number;
   };
+  /** CTB counter modifier applied after this skill is used.
+   *  SLOW: pushes the boss's counter back (delta is negative).
+   *  HASTE: pulls the player's counter forward (delta is positive). */
+  ctbEffect?: { type: "SLOW" | "HASTE"; delta: number };
 }
 
 export interface Passive {
@@ -222,6 +226,7 @@ const MAGE_SKILLS: Skill[] = [
     damageMultiplier: 2.0,
     damageBase: "MAG",
     icon: "/assets/skills/mage_blizzard.png",
+    ctbEffect: { type: "SLOW", delta: -250 },
   },
   {
     id: "mage_thunder",
@@ -330,6 +335,7 @@ const RANGER_SKILLS: Skill[] = [
     effect: "DEBUFF_ATK",
     damageMultiplier: 1.5,
     icon: "/assets/skills/ranger_wind_shot.png",
+    ctbEffect: { type: "SLOW", delta: -150 },
   },
   {
     id: "ranger_eagle_eye",
@@ -861,7 +867,8 @@ export function applyJobPassiveMultipliers(
   stats: PassiveTargetStats,
   passives: Passive[]
 ): PassiveTargetStats {
-  let { hp, atk, def, spd, mag, maxMp, crit, luck } = stats;
+  let { hp, atk, def, spd, mag, maxMp, crit } = stats;
+  const { luck } = stats;
   for (const p of passives) {
     const m = p.statBonus.multiplier;
     if (!m) continue;

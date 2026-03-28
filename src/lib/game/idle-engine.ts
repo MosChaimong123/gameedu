@@ -30,6 +30,7 @@ import {
   createInitialCTBState,
   advanceToNextTurn,
   predictTimeline,
+  applyCounterModifier,
   type CTBState,
 } from "./ctb-engine";
 import {
@@ -613,6 +614,7 @@ export class IdleEngine {
       skillDamageMultiplier?: number; // skill-specific multiplier (overrides base 1.0×)
       skillForceCrit?: boolean;       // guaranteed crit for skill with isCrit: true
       skillName?: string;             // for battle log display
+      skillCtbEffect?: { type: "SLOW" | "HASTE"; delta: number }; // CTB counter modifier
     } = { consumeStamina: true }
   ) {
     try {
@@ -1052,6 +1054,22 @@ export class IdleEngine {
           finalCTBState = ctbAfterPlayer;
         }
 
+        // ── Skill CTB Effect (Slow / Haste) ───────────────────────────────────
+        const ctbEffect = options.skillCtbEffect;
+        if (ctbEffect) {
+          if (ctbEffect.type === "SLOW") {
+            finalCTBState = {
+              ...finalCTBState,
+              bossCounter: applyCounterModifier(finalCTBState.bossCounter, ctbEffect.delta),
+            };
+          } else if (ctbEffect.type === "HASTE") {
+            finalCTBState = {
+              ...finalCTBState,
+              playerCounter: applyCounterModifier(finalCTBState.playerCounter, ctbEffect.delta),
+            };
+          }
+        }
+
         // Predict upcoming turns for UI "hits until boss acts" display
         const ctbTimeline = predictTimeline(finalCTBState, playerCTBSpeed, bossCTBSpeed, 8);
         let playerTurnsUntilBoss = 0;
@@ -1143,6 +1161,7 @@ export class IdleEngine {
           hitsUntilBossAct: staggerActive ? null : playerTurnsUntilBoss,
           ctbState: finalCTBState,
           ctbTimeline,
+          ctbEffectApplied: ctbEffect ?? null,
         } as const;
       });
 
@@ -1177,6 +1196,7 @@ export class IdleEngine {
         hitsUntilBossAct: txResult.hitsUntilBossAct,
         ctbState: txResult.ctbState,
         ctbTimeline: txResult.ctbTimeline,
+        ctbEffectApplied: txResult.ctbEffectApplied,
       };
     } catch (error: unknown) {
       console.error("[IdleEngine] Error applying boss damage:", error);

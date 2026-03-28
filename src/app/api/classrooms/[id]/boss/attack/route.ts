@@ -63,6 +63,7 @@ export async function POST(
         let skillDamageMultiplier: number | undefined;
         let skillForceCrit: boolean | undefined;
         let skillName: string | undefined;
+        let skillCtbEffect: { type: "SLOW" | "HASTE"; delta: number } | undefined;
         let manaCost = 20; // default magic attack cost
 
         if (skillId) {
@@ -89,6 +90,7 @@ export async function POST(
             skillDamageMultiplier = effectiveSkill.damageMultiplier;
             skillForceCrit = effectiveSkill.isCrit;
             skillName = effectiveSkill.name;
+            skillCtbEffect = effectiveSkill.ctbEffect;
         } else if (isMagicAction && currentMana < manaCost) {
             return NextResponse.json({ error: "MP ไม่พอ (ต้องการ 20 MP)" }, { status: 400 });
         }
@@ -115,6 +117,7 @@ export async function POST(
             skillDamageMultiplier,
             skillForceCrit,
             skillName,
+            skillCtbEffect,
         });
 
         if (result.error) {
@@ -189,6 +192,8 @@ export async function POST(
             hitsUntilBossAct: result.hitsUntilBossAct ?? null,
             // CTB Timeline
             ctbTimeline: result.ctbTimeline ?? [],
+            // CTB Delay Mechanics
+            ctbEffectApplied: result.ctbEffectApplied ?? null,
         });
 
     } catch (error) {

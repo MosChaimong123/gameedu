@@ -284,6 +284,7 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, maxSt
                 phase?: 1 | 2 | 3 | 4;
                 hitsUntilBossAct?: number | null;
                 ctbTimeline?: TurnSlot[];
+                ctbEffectApplied?: { type: "SLOW" | "HASTE"; delta: number } | null;
             };
 
             if (data.success) {
@@ -323,6 +324,16 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, maxSt
                 if (data.ctbTimeline?.length) setCtbTimeline(data.ctbTimeline);
                 if (typeof data.limitBreakCharge === "number") setCurrentCharge(data.limitBreakCharge);
                 if (typeof data.manaLeft === "number") setCurrentMana(data.manaLeft);
+                if (data.ctbEffectApplied) {
+                    const eff = data.ctbEffectApplied;
+                    toast({
+                        title: eff.type === "SLOW" ? "❄️ Slow! เลื่อนการโจมตีของบอส" : "⚡ Haste! เร่งการโจมตีของตัวเอง",
+                        description: eff.type === "SLOW"
+                            ? `บอสถูกชะลอ (−${Math.abs(eff.delta)} CTB)`
+                            : `ตัวเองได้รับ Haste (+${eff.delta} CTB)`,
+                        duration: 3000,
+                    });
+                }
 
                 // Combo label
                 if (data.comboLabel) {

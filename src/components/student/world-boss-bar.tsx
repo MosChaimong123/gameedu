@@ -153,7 +153,9 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
     const comboReady = hasComboOpportunity(jobClass, recentJobClasses);
 
     const isBound = playerBattleState?.statusEffects.some((e) => e.type === "BIND") ?? false;
-    const playerBattleHp = playerBattleState?.battleHp ?? 100;
+    const playerBattleHp = playerBattleState?.battleHp ?? 0;
+    const playerMaxBattleHp = playerBattleState?.maxBattleHp ?? 100;
+    const playerHpPct = playerMaxBattleHp > 0 ? (playerBattleHp / playerMaxBattleHp) * 100 : 0;
     const activeStatuses = playerBattleState?.statusEffects ?? [];
 
     const handleAttack = async (action: "attack" | "magic" | "limitBreak", skillId?: string) => {
@@ -547,15 +549,15 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between mb-1.5">
                                     <span className="text-[10px] font-black text-slate-600 uppercase">Battle HP</span>
-                                    <span className={`text-xs font-black tabular-nums ${playerBattleHp <= 20 ? "text-rose-600 animate-pulse" : playerBattleHp <= 50 ? "text-amber-600" : "text-emerald-600"}`}>
-                                        {playerBattleHp} / 100
+                                    <span className={`text-xs font-black tabular-nums ${playerHpPct <= 20 ? "text-rose-600 animate-pulse" : playerHpPct <= 50 ? "text-amber-600" : "text-emerald-600"}`}>
+                                        {playerBattleHp.toLocaleString()} / {playerMaxBattleHp.toLocaleString()}
                                     </span>
                                 </div>
                                 <div className="w-full h-4 bg-slate-100 rounded-full border border-slate-200 overflow-hidden">
                                     <motion.div
-                                        animate={{ width: `${playerBattleHp}%` }}
+                                        animate={{ width: `${playerHpPct}%` }}
                                         transition={{ duration: 0.5, ease: "easeOut" }}
-                                        className={`h-full rounded-full ${playerBattleHp <= 20 ? "bg-gradient-to-r from-rose-500 to-rose-400" : playerBattleHp <= 50 ? "bg-gradient-to-r from-amber-400 to-yellow-400" : "bg-gradient-to-r from-emerald-500 to-green-400"}`}
+                                        className={`h-full rounded-full ${playerHpPct <= 20 ? "bg-gradient-to-r from-rose-500 to-rose-400" : playerHpPct <= 50 ? "bg-gradient-to-r from-amber-400 to-yellow-400" : "bg-gradient-to-r from-emerald-500 to-green-400"}`}
                                     />
                                 </div>
                             </div>
@@ -630,25 +632,36 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                                 </motion.button>
                             )}
 
-                            {/* Magic / Skill button */}
-                            {(() => {
-                                const activeSkill = selectedSkillId ? bossSkills.find((s) => s.id === selectedSkillId) : null;
-                                const mpNeeded = activeSkill ? activeSkill.cost : 20;
-                                const canCast = currentMana >= mpNeeded && !isAttacking && !isBound;
-                                const label = activeSkill ? `${activeSkill.name} (${mpNeeded} MP)` : `Magic (${mpNeeded} MP)`;
+                            {/* Magic / Skill button:
+                                - หากมีสกิล → แสดงเฉพาะเมื่อเลือกสกิลแล้ว
+                                - หากไม่มีสกิลเลย → แสดง Magic (20 MP) ทั่วไป */}
+                            {bossSkills.length === 0 ? (
+                                <motion.button
+                                    whileHover={currentMana >= 20 && !isAttacking && !isBound ? { scale: 1.05 } : {}}
+                                    whileTap={currentMana >= 20 && !isAttacking && !isBound ? { scale: 0.95 } : {}}
+                                    onClick={() => handleAttack("magic")}
+                                    disabled={currentMana < 20 || isAttacking || isBound}
+                                    className={`relative px-4 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg ${currentMana >= 20 && !isAttacking && !isBound ? "bg-violet-600 text-white hover:bg-violet-700 shadow-violet-200 border-2 border-violet-400/50" : "bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300"}`}
+                                >
+                                    {isAttacking ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}><Target className="w-4 h-4" /></motion.div> : <WandSparkles className="w-4 h-4" />}
+                                    Magic (20 MP)
+                                </motion.button>
+                            ) : selectedSkillId ? (() => {
+                                const activeSkill = bossSkills.find((s) => s.id === selectedSkillId)!;
+                                const canCast = currentMana >= activeSkill.cost && !isAttacking && !isBound;
                                 return (
                                     <motion.button
                                         whileHover={canCast ? { scale: 1.05 } : {}}
                                         whileTap={canCast ? { scale: 0.95 } : {}}
-                                        onClick={() => handleAttack("magic", activeSkill?.id)}
+                                        onClick={() => handleAttack("magic", activeSkill.id)}
                                         disabled={!canCast}
                                         className={`relative px-4 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg ${canCast ? "bg-violet-600 text-white hover:bg-violet-700 shadow-violet-200 border-2 border-violet-400/50" : "bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300"}`}
                                     >
                                         {isAttacking ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}><Target className="w-4 h-4" /></motion.div> : <WandSparkles className="w-4 h-4" />}
-                                        {label}
+                                        {activeSkill.name} ({activeSkill.cost} MP)
                                     </motion.button>
                                 );
-                            })()}
+                            })() : null}
 
                             {/* Normal attack button */}
                             <motion.button
@@ -678,7 +691,7 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                                         <button
                                             key={sk.id}
                                             onClick={() => setSelectedSkillId(isSelected ? null : sk.id)}
-                                            className={`flex items-start gap-2.5 p-3 rounded-2xl border text-left transition-all ${
+                                            className={`flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all ${
                                                 isSelected
                                                     ? "bg-violet-50 border-violet-400 shadow ring-2 ring-violet-300"
                                                     : canAfford
@@ -687,13 +700,20 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                                             }`}
                                             disabled={!canAfford && !isSelected}
                                         >
-                                            <span className="text-xl shrink-0">{sk.icon ?? "✨"}</span>
+                                            <div className="w-10 h-10 shrink-0 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
+                                                {sk.icon ? (
+                                                    // eslint-disable-next-line @next/next/no-img-element
+                                                    <img src={sk.icon} alt={sk.name} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <span className="text-lg">✨</span>
+                                                )}
+                                            </div>
                                             <div className="min-w-0 flex-1">
                                                 <p className={`text-xs font-black leading-none truncate ${isSelected ? "text-violet-700" : "text-slate-700"}`}>
                                                     {sk.name}
                                                 </p>
                                                 <p className="text-[10px] text-slate-500 mt-0.5 font-medium">
-                                                    {sk.cost} MP{dmgText ? ` · DMG ${dmgText}` : ""}{critText}
+                                                    {sk.cost} MP{dmgText ? ` · ${dmgText}` : ""}{sk.isCrit ? " · Crit" : ""}
                                                 </p>
                                             </div>
                                             {isSelected && (

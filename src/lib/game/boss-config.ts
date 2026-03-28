@@ -25,7 +25,8 @@ export interface BossAction {
 }
 
 export interface PlayerBattleState {
-  battleHp: number;       // 0–100
+  battleHp: number;       // current HP (actual stat value, not 0–100 scale)
+  maxBattleHp: number;    // max HP derived from StatCalculator.compute().hp
   statusEffects: { type: PlayerStatusType; remainingTurns: number }[];
 }
 

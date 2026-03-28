@@ -652,14 +652,25 @@ export class IdleEngine {
       let damage = 0;
       let isCrit = false;
 
+      // Always compute full stats — needed for player max HP (battle state)
+      const levelForStats = (this.parseGameStats(student?.gameStats)?.level as number) || 1;
+      const playerFullStats = StatCalculator.compute(
+        student.points || 0,
+        student.items || [],
+        levelForStats,
+        student.jobClass,
+        student.jobTier ?? "BASE",
+        student.advanceClass,
+      );
+      const playerMaxHp = Math.max(1, playerFullStats.hp);
+
       if (typeof options.damageOverride === "number") {
         damage = options.damageOverride;
       } else {
-        const stats = this.parseGameStats(student?.gameStats);
         const battleResult = this.calculateBossDamage(
           student?.points || 0,
           student?.items || [],
-          stats?.level || 1,
+          levelForStats,
           student.jobClass,
           student.jobTier ?? "BASE",
           student.advanceClass,
@@ -719,7 +730,18 @@ export class IdleEngine {
         }
 
         // ── FF: Player battle state ────────────────────────────────────────────
-        const playerBattleState: PlayerBattleState = personal.playerBattleState ?? { battleHp: 100, statusEffects: [] };
+        // battleHp / maxBattleHp use actual HP stat — migrate old 0-100 scale by scaling up
+        const existingState = personal.playerBattleState;
+        const playerBattleState: PlayerBattleState = existingState
+          ? {
+              ...existingState,
+              maxBattleHp: playerMaxHp,
+              // If previously stored on old 0-100 scale (maxBattleHp undefined or ≤100), scale up
+              battleHp: existingState.maxBattleHp && existingState.maxBattleHp > 100
+                ? existingState.battleHp
+                : Math.round((existingState.battleHp / 100) * playerMaxHp),
+            }
+          : { battleHp: playerMaxHp, maxBattleHp: playerMaxHp, statusEffects: [] };
 
         // Decrement status turns (each call = 1 turn)
         const activeStatuses = playerBattleState.statusEffects
@@ -807,12 +829,13 @@ export class IdleEngine {
 
         // ── FF: POISON self-damage + natural HP regen ─────────────────────────
         const isPoisoned = activeStatuses.some((e) => e.type === "POISON");
-        const poisonDamage = isPoisoned ? 8 : 0;
-        // Regen 10 HP every 5 turns when no status effects are active
+        const poisonDamage = isPoisoned ? Math.floor(playerMaxHp * 0.05) : 0;  // 5% max HP
+        // Regen 3% max HP every 5 turns when no status effects are active
         const totalAttacksForRegen = (personal.totalAttacksReceived ?? 0) + 1;
-        const regenHeal = (activeStatuses.length === 0 && totalAttacksForRegen % 5 === 0) ? 10 : 0;
-        const newPlayerBattleHp = Math.min(100, Math.max(0,
-          (playerBattleState.battleHp ?? 100) - poisonDamage + regenHeal
+        const regenHeal = (activeStatuses.length === 0 && totalAttacksForRegen % 5 === 0)
+          ? Math.floor(playerMaxHp * 0.03) : 0;
+        const newPlayerBattleHp = Math.min(playerMaxHp, Math.max(0,
+          (playerBattleState.battleHp ?? playerMaxHp) - poisonDamage + regenHeal
         ));
 
         const prevHp = bossState.currentHp;
@@ -903,6 +926,7 @@ export class IdleEngine {
         let executedBossAction: BossAction | null = null;
         let updatedPlayerState: PlayerBattleState = {
           battleHp: newPlayerBattleHp,
+          maxBattleHp: playerMaxHp,
           statusEffects: activeStatuses,
         };
         const logEntries: BattleLogEntry[] = [...(personal.battleLog ?? [])];
@@ -950,7 +974,8 @@ export class IdleEngine {
             executedBossAction = availableActions[actionIdx];
 
             // Apply boss action effects to player
-            let hitDamage = Math.floor(executedBossAction.baseDamage * (1 + (phase - 1) * 0.2));
+            // baseDamage is % of player max HP (e.g., baseDamage=20 → 20% of maxHp), phase scales +20%/phase
+            let hitDamage = Math.floor(playerMaxHp * (executedBossAction.baseDamage / 100) * (1 + (phase - 1) * 0.2));
             const isVulnerable = updatedPlayerState.statusEffects.some((e) => e.type === "VULNERABLE");
             if (isVulnerable) hitDamage = Math.floor(hitDamage * 1.5);
 
@@ -975,7 +1000,7 @@ export class IdleEngine {
               bossHeal = Math.floor(personal.maxHp * executedBossAction.selfHealPct);
             }
 
-            updatedPlayerState = { battleHp: Math.max(0, newBattleHp), statusEffects: newEffects };
+            updatedPlayerState = { battleHp: Math.max(0, newBattleHp), maxBattleHp: playerMaxHp, statusEffects: newEffects };
 
             logEntries.push({
               id: `${now}-boss`,

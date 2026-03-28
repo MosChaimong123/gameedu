@@ -34,6 +34,7 @@ export async function POST(
     const { code } = await params;
     const body = await req.json();
     const { clientGold, lastSyncTime } = body;
+    void lastSyncTime;
 
     // 1. Find the student with full data for rank calculation
     const student = await db.student.findUnique({
@@ -91,17 +92,43 @@ export async function POST(
     const events = settings.events || [];
     const now = new Date();
 
-    // 4. Daily Refill Logic (Stamina & Mana)
-    // Defensive: handle nulls for existing records
-    let stamina = student.stamina ?? 3;
-    let mana = student.mana ?? 50;
-    const lastRefill = student.lastStaminaRefill ? new Date(student.lastStaminaRefill) : new Date(0);
-    const isNewDay = now.toDateString() !== lastRefill.toDateString();
+    // 4. Stamina Time-Based Regen + Daily Mana Refill
+    const STAMINA_REGEN_INTERVAL_MS = 2 * 60 * 60 * 1000; // 1 stamina per 2 hours
+    const MANA_MAX = 200;
+    const MANA_REGEN_PER_DAY = 40;
 
-    if (isNewDay) {
-        stamina = student.maxStamina; // Reset to daily max
-        mana = Math.min(100, mana + 20); // Regain 20 mana per day (or define max)
+    // Existing students may have old maxStamina=3 — upgrade them silently
+    const effectiveMaxStamina = Math.max(student.maxStamina ?? 10, 10);
+    let stamina = Math.min(student.stamina ?? effectiveMaxStamina, effectiveMaxStamina);
+    let mana = student.mana ?? 50;
+
+    const lastRefill = student.lastStaminaRefill ? new Date(student.lastStaminaRefill) : new Date(0);
+    const msElapsed = now.getTime() - lastRefill.getTime();
+    const staminaToAdd = Math.floor(msElapsed / STAMINA_REGEN_INTERVAL_MS);
+
+    // Advance lastStaminaRefill by consumed regen ticks (not full elapsed time)
+    // so the remainder carries forward correctly
+    let newLastRefill = lastRefill;
+    if (staminaToAdd > 0 && stamina < effectiveMaxStamina) {
+        const added = Math.min(staminaToAdd, effectiveMaxStamina - stamina);
+        stamina = stamina + added;
+        newLastRefill = new Date(lastRefill.getTime() + added * STAMINA_REGEN_INTERVAL_MS);
     }
+    // If stamina is already full, anchor refill to now (so countdown restarts when they spend stamina)
+    if (stamina >= effectiveMaxStamina) {
+        newLastRefill = now;
+    }
+
+    // Mana: still daily regen (every new calendar day)
+    const isNewDay = now.toDateString() !== lastRefill.toDateString();
+    if (isNewDay) {
+        mana = Math.min(MANA_MAX, mana + MANA_REGEN_PER_DAY);
+    }
+
+    // Compute when next stamina regen will arrive (for UI countdown)
+    const nextStaminaRegenAt = stamina < effectiveMaxStamina
+        ? new Date(newLastRefill.getTime() + STAMINA_REGEN_INTERVAL_MS)
+        : null; // null = already full
 
     const activeEvents = events.filter((e) => new Date(e.startAt || 0) <= now && new Date(e.endAt || 0) >= now);
 
@@ -169,8 +196,9 @@ export async function POST(
       where: { id: student.id },
       data: {
         stamina,
+        maxStamina: effectiveMaxStamina,
         mana,
-        lastStaminaRefill: isNewDay ? now : student.lastStaminaRefill,
+        lastStaminaRefill: newLastRefill,
         gameStats: {
           ...currentStats,
           gold: streakGold,
@@ -203,6 +231,7 @@ export async function POST(
       maxStamina: updatedStudent.maxStamina,
       mana: updatedStudent.mana,
       lastSyncTime: updatedStudent.lastSyncTime,
+      nextStaminaRegenAt: nextStaminaRegenAt?.toISOString() ?? null,
       loginStreak: newStreak,
       streakBonus,
       streakBonusMaterial,

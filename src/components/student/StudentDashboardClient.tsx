@@ -1,13 +1,12 @@
 "use client";
 
+import type { ComponentProps, CSSProperties } from "react";
 import { useState, useEffect, useMemo } from "react";
 import {
     LayoutDashboard,
     MessageSquare,
     Award,
-    Settings,
     BarChart3,
-    Users,
     Shield,
     ArrowLeft,
     ShoppingBag,
@@ -15,18 +14,14 @@ import {
     Swords,
     CheckCircle2,
     Clock,
-    AlertCircle,
-    ChevronRight,
-    Calendar,
     Trophy,
     Star,
-    Flame, // Added Flame import
-    ExternalLink // Added ExternalLink import as it was in the provided snippet
+    Flame,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
-import { useLanguage } from "@/components/providers/language-provider";
 import { StudentAvatarSection } from "./student-avatar-section";
 import { DailyQuestCard } from "./DailyQuestCard";
 import { AchievementsTab } from "./AchievementsTab";
@@ -41,7 +36,6 @@ import { WorldBossBar } from "./world-boss-bar";
 import { CraftingTab } from "./CraftingTab";
 import { BossRewardModal } from "./BossRewardModal";
 import { useSocket } from "@/components/providers/socket-provider";
-import { getClassroomTheme } from "@/lib/classroom-utils";
 import { IdleEngine } from "@/lib/game/idle-engine";
 import { JobSelectionModal } from "@/components/rpg/JobSelectionModal";
 import { SyncAccountButton } from "./sync-account-button";
@@ -58,22 +52,134 @@ import { getRaidBossForStudentUi } from "@/lib/game/personal-classroom-boss";
 import { getMergedClassDef } from "@/lib/game/job-system";
 import { getEffectiveSkillAtRank, getSkillRank } from "@/lib/game/skill-tree";
 import type { Skill } from "@/lib/game/job-system";
+import type { RankEntry } from "@/lib/classroom-utils";
+import type { GameStats } from "@/lib/game/idle-engine";
+
+type StudentGameStats = GameStats &
+    Record<string, unknown> & {
+        skillTreeProgress?: Record<string, number>;
+        limitBreakCharge?: number;
+        personalClassroomBoss?: unknown;
+    };
+
+type StudentUpdate = Omit<Partial<DashboardStudent>, "gameStats"> & {
+    gameStats?: Partial<StudentGameStats>;
+};
+
+type ChecklistItem = string | { text: string; points?: number };
+
+interface AssignmentRecord {
+    id: string;
+    name: string;
+    description?: string | null;
+    visible?: boolean;
+    type?: string;
+    checklists?: ChecklistItem[];
+    maxScore?: number;
+    passScore?: number;
+}
+
+interface SubmissionRecord {
+    assignmentId: string;
+    score: number;
+}
+
+interface HistoryRecord {
+    timestamp: string;
+    value: number;
+    reason: string;
+}
+
+interface TeacherRecord {
+    name?: string | null;
+}
+
+interface ClassroomRecord {
+    id: string;
+    name: string;
+    teacher: TeacherRecord;
+    gamifiedSettings: Record<string, unknown>;
+    levelConfig?: unknown;
+    assignments?: AssignmentRecord[];
+}
+
+interface DashboardStudent {
+    id: string;
+    classId: string;
+    loginCode: string;
+    name: string;
+    nickname?: string | null;
+    avatar?: string | null;
+    userId?: string | null;
+    points: number;
+    gameStats: unknown;
+    items?: unknown[];
+    stamina?: number;
+    maxStamina?: number;
+    mana?: number;
+    nextStaminaRegenAt?: string | null;
+    jobClass?: string | null;
+    jobTier?: string | null;
+    advanceClass?: string | null;
+    lastSyncTime?: string | Date | null;
+    jobSkills?: unknown;
+}
 
 interface StudentDashboardClientProps {
-    student: any;
-    classroom: any;
-    history: any[];
-    submissions: any[];
+    student: DashboardStudent;
+    classroom: ClassroomRecord;
+    history: HistoryRecord[];
+    submissions: SubmissionRecord[];
     academicTotal: number;
     totalPositive: number;
     totalNegative: number;
-    rankEntry: any;
+    rankEntry: RankEntry;
     themeClass: string;
-    themeStyle: any;
+    themeStyle: CSSProperties;
     classIcon: string | null;
     isImageIcon: boolean;
     currentUserId?: string;
     code: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeStudentGameStats(value: DashboardStudent["gameStats"]): StudentGameStats {
+    if (!value) return IdleEngine.getDefaultStats() as StudentGameStats;
+
+    if (typeof value === "string") {
+        try {
+            const parsed = JSON.parse(value) as unknown;
+            return isRecord(parsed)
+                ? ({ ...IdleEngine.getDefaultStats(), ...parsed } as StudentGameStats)
+                : (IdleEngine.getDefaultStats() as StudentGameStats);
+        } catch {
+            return IdleEngine.getDefaultStats() as StudentGameStats;
+        }
+    }
+
+    return { ...IdleEngine.getDefaultStats(), ...value };
+}
+
+function normalizeJobSkills(value: DashboardStudent["jobSkills"]): string[] {
+    return Array.isArray(value) ? value.filter((skill): skill is string => typeof skill === "string") : [];
+}
+
+function mergeStudentUpdate(prev: DashboardStudent, updated: StudentUpdate): DashboardStudent {
+    const mergedGameStats = updated.gameStats
+        ? {
+            ...normalizeStudentGameStats(prev.gameStats),
+            ...updated.gameStats,
+        }
+        : prev.gameStats;
+
+    return {
+        ...prev,
+        ...updated,
+        gameStats: mergedGameStats,
+    };
 }
 
 export function StudentDashboardClient({
@@ -92,21 +198,12 @@ export function StudentDashboardClient({
     currentUserId,
     code
 }: StudentDashboardClientProps) {
-    const { t } = useLanguage();
     const { socket, isConnected } = useSocket();
     const [student, setStudent] = useState(initialStudent);
-    const safeGameStats = useMemo(() => {
-        const gs = student?.gameStats;
-        if (!gs) return IdleEngine.getDefaultStats();
-        if (typeof gs === 'string') {
-            try {
-                return JSON.parse(gs);
-            } catch (e) {
-                return IdleEngine.getDefaultStats();
-            }
-        }
-        return gs;
-    }, [student?.gameStats]);
+    const safeGameStats = useMemo<StudentGameStats>(
+        () => normalizeStudentGameStats(student?.gameStats),
+        [student?.gameStats]
+    );
 
     const gameStats = safeGameStats;
     const [classroom, setClassroom] = useState(initialClassroom);
@@ -127,8 +224,8 @@ export function StudentDashboardClient({
         try {
             const classDef = getMergedClassDef(jobKey);
             const skillProgress: Record<string, number> =
-                (student.gameStats as any)?.skillTreeProgress ?? {};
-            const unlockedJobSkills: string[] = (student.jobSkills as string[]) ?? [];
+                gameStats.skillTreeProgress ?? {};
+            const unlockedJobSkills = normalizeJobSkills(student.jobSkills);
             return classDef.skills
                 .filter((s) => s.costType === "MP")
                 .filter((s) => getSkillRank(skillProgress, s.id) > 0 || unlockedJobSkills.includes(s.id))
@@ -139,7 +236,7 @@ export function StudentDashboardClient({
         } catch {
             return [];
         }
-    }, [student.advanceClass, student.jobClass, student.gameStats, student.jobSkills]);
+    }, [gameStats.skillTreeProgress, student.advanceClass, student.jobClass, student.jobSkills]);
     const [viewMode, setViewMode] = useState<"academic" | "game">("academic");
     const [activeTab, setActiveTab] = useState("assignments");
     const [showJobModal, setShowJobModal] = useState(false);
@@ -161,13 +258,13 @@ export function StudentDashboardClient({
 
         socket.emit("join-classroom", classroom.id);
 
-        const handleBossUpdate = (event: any) => {
+        const handleBossUpdate = (event: { type: string; data?: Record<string, unknown> }) => {
             const eventData = event?.data || {};
 
             if (event.type === "BOSS_HP_UPDATE" && eventData.studentId === student.id) {
-                setStudent((prev: any) => {
+                setStudent((prev: DashboardStudent) => {
                     const gs = {
-                        ...(typeof prev.gameStats === "object" && prev.gameStats ? prev.gameStats : {}),
+                        ...normalizeStudentGameStats(prev.gameStats),
                     };
                     if (eventData.personalBoss == null) {
                         delete gs.personalClassroomBoss;
@@ -181,16 +278,16 @@ export function StudentDashboardClient({
 
             if (event.type === "BOSS_SUMMONED") {
                 const tpl = eventData.bossRaidTemplate ?? eventData.template;
-                setClassroom((prev: any) => {
-                    const gs = { ...((prev.gamifiedSettings as Record<string, unknown>) || {}) };
+                setClassroom((prev: ClassroomRecord) => {
+                    const gs = { ...(prev.gamifiedSettings || {}) };
                     if (tpl && typeof tpl === "object") {
                         return { ...prev, gamifiedSettings: { ...gs, bossRaidTemplate: tpl } };
                     }
                     return prev;
                 });
             } else if (event.type === "BOSS_DEFEATED") {
-                setClassroom((prev: any) => {
-                    const gs = { ...((prev.gamifiedSettings as Record<string, unknown>) || {}) };
+                setClassroom((prev: ClassroomRecord) => {
+                    const gs = { ...(prev.gamifiedSettings || {}) };
                     delete gs.bossRaidTemplate;
                     delete gs.bosses;
                     delete gs.boss;
@@ -209,17 +306,23 @@ export function StudentDashboardClient({
 
     // Check for Job Class Eligibility - only auto-show for FIRST base selection
     useEffect(() => {
-        const level = (student.gameStats as any)?.level || 1;
+        const level = gameStats.level || 1;
 
         // Base Selection (Lv 5+) - only auto-show when no job has been selected yet
         if (level >= 5 && !student.jobClass) {
-            setShowJobModal(true);
+            const frameId = window.requestAnimationFrame(() => {
+                setShowJobModal(true);
+            });
+            return () => window.cancelAnimationFrame(frameId);
         }
-    }, [student.gameStats, student.jobClass]);
+    }, [gameStats.level, student.jobClass]);
 
-    const submissionMap = useMemo(() => new Map(initialSubmissions.map((s: any) => [s.assignmentId, s])), [initialSubmissions]);
+    const submissionMap = useMemo(
+        () => new Map<string, SubmissionRecord>(initialSubmissions.map((s) => [s.assignmentId, s])),
+        [initialSubmissions]
+    );
 
-    const calculateChecklistScore = (bitmask: number, checklistItems: any[]) => {
+    const calculateChecklistScore = (bitmask: number, checklistItems: ChecklistItem[]) => {
         if (!Array.isArray(checklistItems)) return 0;
         return checklistItems.reduce((sum, item, i) => {
             const isChecked = (bitmask & (1 << i)) !== 0;
@@ -229,7 +332,7 @@ export function StudentDashboardClient({
         }, 0);
     };
 
-    const calculateChecklistCount = (bitmask: number, checklistItems: any[]) => {
+    const calculateChecklistCount = (bitmask: number, checklistItems: ChecklistItem[]) => {
         if (!Array.isArray(checklistItems)) return 0;
         let count = 0;
         for (let i = 0; i < checklistItems.length; i++) {
@@ -239,7 +342,7 @@ export function StudentDashboardClient({
     };
 
     const groupedHistory = useMemo(() => {
-        const groups: { [key: string]: any[] } = {};
+        const groups: Record<string, HistoryRecord[]> = {};
         [...initialHistory]
             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
             .forEach(h => {
@@ -252,7 +355,7 @@ export function StudentDashboardClient({
                 groups[dateStr].push(h);
             });
         return groups;
-    }, [initialHistory, th]);
+    }, [initialHistory]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-100 via-indigo-50/30 to-slate-200 overflow-hidden relative pb-20">
@@ -292,7 +395,15 @@ export function StudentDashboardClient({
                             className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 shadow-xl overflow-hidden text-4xl shrink-0"
                         >
                             {isImageIcon
-                                ? <img src={classIcon!} alt="icon" className="w-full h-full object-cover" />
+                                ? (
+                                    <Image
+                                        src={classIcon!}
+                                        alt="icon"
+                                        width={80}
+                                        height={80}
+                                        className="w-full h-full object-cover"
+                                    />
+                                )
                                 : <span>{classIcon || "🏫"}</span>
                             }
                         </motion.div>
@@ -364,12 +475,8 @@ export function StudentDashboardClient({
                             jobTier={student.jobTier || "BASE"}
                             advanceClass={student.advanceClass}
                             lastSyncTime={student.lastSyncTime}
-                            onUpdateStudent={(updated: any) => {
-                                setStudent((prev: any) => ({
-                                    ...prev,
-                                    ...updated,
-                                    gameStats: updated.gameStats ? { ...prev.gameStats, ...updated.gameStats } : prev.gameStats
-                                }));
+                            onUpdateStudent={(updated: StudentUpdate) => {
+                                setStudent((prev) => mergeStudentUpdate(prev, updated));
                             }}
                         />
                     </div>
@@ -381,10 +488,11 @@ export function StudentDashboardClient({
                         <DailyQuestCard
                             code={code}
                             onGoldEarned={(newGold) => {
-                                setStudent((prev: any) => ({
-                                    ...prev,
-                                    gameStats: { ...(prev.gameStats || {}), gold: newGold }
-                                }));
+                                setStudent((prev) =>
+                                    mergeStudentUpdate(prev, {
+                                        gameStats: { gold: newGold },
+                                    })
+                                );
                             }}
                         />
                         <Tabs
@@ -474,12 +582,13 @@ export function StudentDashboardClient({
                                         ภารกิจที่ได้รับมอบหมาย
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {classroom.assignments?.filter((a: any) => a.visible !== false).map((assignment: any) => {
+                                        {classroom.assignments?.filter((a) => a.visible !== false).map((assignment) => {
                                             const submission = submissionMap.get(assignment.id);
                                             const isChecklist = assignment.type === 'checklist';
-                                            const maxScore = isChecklist ? (assignment.checklists?.reduce((sum: number, item: any) => sum + (item.points || 1), 0) || 1) : (assignment.maxScore || 100);
-                                            const score = submission ? (isChecklist ? calculateChecklistScore(submission.score, assignment.checklists) : submission.score) : 0;
-                                            const progressValue = isChecklist ? calculateChecklistCount(submission?.score || 0, assignment.checklists) : score;
+                                            const maxScore = isChecklist ? (assignment.checklists?.reduce((sum: number, item) => sum + (typeof item === "object" ? item.points || 1 : 1), 0) || 1) : (assignment.maxScore || 100);
+                                            const checklistItems = assignment.checklists ?? [];
+                                            const score = submission ? (isChecklist ? calculateChecklistScore(submission.score, checklistItems) : submission.score) : 0;
+                                            const progressValue = isChecklist ? calculateChecklistCount(submission?.score || 0, checklistItems) : score;
                                             const maxValue = isChecklist ? (assignment.checklists?.length || 1) : maxScore;
                                             const progress = (progressValue / maxValue) * 100;
                                             const isCompleted = submission && (isChecklist ? progressValue >= (assignment.passScore || maxValue * 0.5) : score >= (assignment.passScore || maxScore * 0.5));
@@ -521,7 +630,7 @@ export function StudentDashboardClient({
 
                                                         {isChecklist && assignment.checklists && (
                                                             <div className="mt-4 pt-4 border-t border-slate-100/50 space-y-2">
-                                                                {assignment.checklists.map((item: any, i: number) => {
+                                                                {assignment.checklists.map((item, i: number) => {
                                                                     const isChecked = submission ? (submission.score & (1 << i)) !== 0 : false;
                                                                     return (
                                                                         <div key={i} className="flex items-center gap-2.5 group/item">
@@ -571,14 +680,14 @@ export function StudentDashboardClient({
                                         {initialHistory.length === 0 ? (
                                             <div className="p-12 text-center text-slate-400 font-bold bg-white/40">ยังไม่มีประวัติการได้รับคะแนน</div>
                                         ) : (
-                                            Object.entries(groupedHistory).map(([dateLabel, entries], gIdx) => (
+                                            Object.entries(groupedHistory).map(([dateLabel, entries]) => (
                                                 <div key={dateLabel} className="first:rounded-t-[2rem] last:rounded-b-[2rem] overflow-hidden">
                                                     <div className="px-5 py-2.5 bg-slate-50/80 border-y border-slate-100/50 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md shadow-sm">
                                                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{dateLabel}</span>
                                                         <span className="text-[10px] font-bold text-slate-400 bg-white/50 px-2 py-0.5 rounded-full">{entries.length} รายการ</span>
                                                     </div>
                                                     <div className="divide-y divide-slate-100/30">
-                                                        {entries.map((h: any, idx: number) => (
+                                                        {entries.map((h, idx: number) => (
                                                             <div key={idx} className="p-4 px-5 flex items-center justify-between hover:bg-white/60 transition-colors bg-white/20">
                                                                 <div className="flex items-center gap-4">
                                                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${h.value > 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
@@ -608,17 +717,15 @@ export function StudentDashboardClient({
                             <TabsContent value="shop" className="mt-0 border-none p-0 outline-hidden">
                                 <ShopTab 
                                     studentId={student.id} 
-                                    currentGold={(student.gameStats as any)?.gold || 0}
+                                    currentGold={gameStats.gold || 0}
                                     currentPoints={student.points || 0}
                                     onPurchaseSuccess={({ gold, points }) => {
-                                        setStudent((prev: any) => ({
-                                            ...prev,
-                                            ...(points !== undefined ? { points } : {}),
-                                            gameStats: { 
-                                                ...(prev.gameStats || {}), 
-                                                ...(gold !== undefined ? { gold } : {}) 
-                                            }
-                                        }));
+                                        setStudent((prev) =>
+                                            mergeStudentUpdate(prev, {
+                                                ...(points !== undefined ? { points } : {}),
+                                                ...(gold !== undefined ? { gameStats: { gold } } : {}),
+                                            })
+                                        );
                                     }}
                                 />
                             </TabsContent>
@@ -626,19 +733,15 @@ export function StudentDashboardClient({
                             <TabsContent value="inventory" className="mt-0 border-none p-0 outline-hidden">
                                 <InventoryTab 
                                     studentId={student.id}
-                                    gold={(student.gameStats as any)?.gold || 0}
+                                    gold={gameStats.gold || 0}
                                     points={student.points || 0}
                                     level={gameStats.level || 1}
-                                    jobClass={student.jobClass}
+                                    jobClass={student.jobClass ?? undefined}
                                     jobTier={student.jobTier || "BASE"}
-                                    advanceClass={student.advanceClass}
+                                    advanceClass={student.advanceClass ?? null}
                                     onUpdate={() => {}}
-                                    onUpdateStudent={(updated: any) => {
-                                        setStudent((prev: any) => ({ 
-                                            ...prev, 
-                                            ...updated,
-                                            gameStats: updated.gameStats ? { ...prev.gameStats, ...updated.gameStats } : prev.gameStats
-                                        }));
+                                    onUpdateStudent={(updated: StudentUpdate) => {
+                                        setStudent((prev) => mergeStudentUpdate(prev, updated));
                                     }}
                                 />
                             </TabsContent>
@@ -651,10 +754,10 @@ export function StudentDashboardClient({
                                 <SkillTab 
                                     studentId={student.id} 
                                     level={gameStats.level || 1}
-                                    jobClass={student.jobClass}
+                                    jobClass={student.jobClass ?? null}
                                     jobTier={student.jobTier || "BASE"}
-                                    advanceClass={student.advanceClass}
-                                    jobSkills={student.jobSkills || []}
+                                    advanceClass={student.advanceClass ?? null}
+                                    jobSkills={normalizeJobSkills(student.jobSkills)}
                                     onShowJobModal={() => setShowJobModal(true)}
                                     onNavigateToFarming={() => setActiveTab("farming")}
                                 />
@@ -667,16 +770,12 @@ export function StudentDashboardClient({
                                     mana={student.mana || 0}
                                     stamina={student.stamina || 0}
                                     level={gameStats.level || 1}
-                                    jobClass={student.jobClass}
+                                    jobClass={student.jobClass ?? null}
                                     jobTier={student.jobTier || "BASE"}
-                                    advanceClass={student.advanceClass}
-                                    jobSkills={(student.jobSkills as any) || []}
-                                    onUpdateStudent={(updated: any) => {
-                                        setStudent((prev: any) => ({ 
-                                            ...prev, 
-                                            ...updated,
-                                            gameStats: updated.gameStats ? { ...prev.gameStats, ...updated.gameStats } : prev.gameStats
-                                        }));
+                                    advanceClass={student.advanceClass ?? null}
+                                    jobSkills={normalizeJobSkills(student.jobSkills)}
+                                    onUpdateStudent={(updated: StudentUpdate) => {
+                                        setStudent((prev) => mergeStudentUpdate(prev, updated));
                                     }}
                                 />
                             </TabsContent>
@@ -702,27 +801,25 @@ export function StudentDashboardClient({
 
                                     {raidBosses.length > 0 ? (
                                         <WorldBossBar
-                                            bosses={raidBosses as any}
+                                            bosses={raidBosses as ComponentProps<typeof WorldBossBar>["bosses"]}
                                             classId={classroom.id}
                                             studentId={student.id}
                                             stamina={student.stamina}
+                                            maxStamina={student.maxStamina ?? 10}
                                             mana={student.mana ?? 0}
+                                            nextStaminaRegenAt={student.nextStaminaRegenAt}
                                             jobClass={student.advanceClass ?? student.jobClass}
-                                            limitBreakCharge={(student.gameStats as any)?.limitBreakCharge ?? 0}
+                                            limitBreakCharge={gameStats.limitBreakCharge ?? 0}
                                             bossSkills={bossSkills}
-                                            playerGold={(student.gameStats as any)?.gold ?? 0}
+                                            playerGold={gameStats.gold ?? 0}
                                             onAttackSuccess={(raw) => {
                                                 const data = raw as {
                                                     boss?: unknown | null;
                                                     staminaLeft?: number;
                                                     manaLeft?: number;
                                                 };
-                                                setStudent((prev: any) => {
-                                                    const gs =
-                                                        prev.gameStats &&
-                                                        typeof prev.gameStats === "object"
-                                                            ? { ...prev.gameStats }
-                                                            : {};
+                                                setStudent((prev) => {
+                                                    const gs = { ...normalizeStudentGameStats(prev.gameStats) };
                                                     if (data.boss == null) {
                                                         delete (gs as Record<string, unknown>).personalClassroomBoss;
                                                     } else {
@@ -765,7 +862,7 @@ export function StudentDashboardClient({
                             </TabsContent>
 
                             <TabsContent value="pvp" className="mt-0 border-none p-0 outline-hidden">
-                                <PvPArenaTab code={code} gold={(student.gameStats as any)?.gold || 0} />
+                                <PvPArenaTab code={code} gold={gameStats.gold || 0} />
                             </TabsContent>
                         </Tabs>
                     </div>
@@ -779,10 +876,10 @@ export function StudentDashboardClient({
             {showJobModal && (
                 <JobSelectionModal
                     studentId={student.id}
-                    level={(student.gameStats as any)?.level || 1}
-                    jobClass={student.jobClass}
+                    level={gameStats.level || 1}
+                    jobClass={student.jobClass ?? null}
                     jobTier={student.jobTier || "BASE"}
-                    advanceClass={student.advanceClass}
+                    advanceClass={student.advanceClass ?? null}
                     onClose={() => setShowJobModal(false)}
                     onJobSelected={async () => {
                         // Refresh student data to get new skills and stats

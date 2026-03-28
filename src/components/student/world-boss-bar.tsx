@@ -53,12 +53,14 @@ interface WorldBossBarProps {
     bosses: BossProp[];
     studentId?: string;
     stamina?: number;
+    maxStamina?: number;
     mana?: number;
     classId?: string;
     jobClass?: string | null;
     limitBreakCharge?: number;
     bossSkills?: Skill[];
     playerGold?: number;
+    nextStaminaRegenAt?: string | null;
     onAttackSuccess?: (data: unknown) => void;
     onBossDefeated?: (rewards: { bossName: string; rewardGold?: number; rewardXp?: number; rewardMaterials?: { type: string; quantity: number }[] }) => void;
 }
@@ -79,7 +81,7 @@ const LOG_COLOR: Record<string, string> = {
     MISS:          "text-slate-400 italic",
 };
 
-export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana = 0, classId, jobClass, limitBreakCharge = 0, bossSkills = [], playerGold = 0, onAttackSuccess, onBossDefeated }: WorldBossBarProps) {
+export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, maxStamina = 10, mana = 0, classId, jobClass, limitBreakCharge = 0, bossSkills = [], playerGold = 0, nextStaminaRegenAt, onAttackSuccess, onBossDefeated }: WorldBossBarProps) {
     const { socket } = useSocket();
     const [isAttacking, setIsAttacking] = useState(false);
     const [currentCharge, setCurrentCharge] = useState(limitBreakCharge);
@@ -98,8 +100,28 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
     const [flashType, setFlashType] = useState<"attack" | "magic" | "limitBreak" | "boss" | "crit" | null>(null);
     const [isUsingPotion, setIsUsingPotion] = useState(false);
     const [currentGold, setCurrentGold] = useState(playerGold);
+    const [staminaCountdown, setStaminaCountdown] = useState("");
     const logRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
+
+    // Stamina regen countdown
+    useEffect(() => {
+        if (!nextStaminaRegenAt || stamina >= maxStamina) { setStaminaCountdown(""); return; }
+        const update = () => {
+            const diff = new Date(nextStaminaRegenAt).getTime() - Date.now();
+            if (diff <= 0) { setStaminaCountdown(""); return; }
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            setStaminaCountdown(h > 0
+                ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+                : `${m}:${String(s).padStart(2, "0")}`
+            );
+        };
+        update();
+        const id = setInterval(update, 1000);
+        return () => clearInterval(id);
+    }, [nextStaminaRegenAt, stamina, maxStamina]);
 
     // Sync gold from prop
     useEffect(() => { setCurrentGold(playerGold); }, [playerGold]);
@@ -165,6 +187,8 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
         return activeBosses[0];
     }, [activeBosses]);
 
+    const isPreviewBoss = boss?.instanceId?.startsWith("preview-") ?? false;
+
     // Sync FF state from boss prop (initial load / socket update)
     useEffect(() => {
         if (!boss) return;
@@ -172,7 +196,7 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
         if (typeof boss.isStaggered === "boolean") setIsStaggered(boss.isStaggered);
         if (boss.playerBattleState) setPlayerBattleState(boss.playerBattleState);
         if (boss.battleLog && boss.battleLog.length > 0) setBattleLog(boss.battleLog);
-    }, [boss?.instanceId]); // only on boss instance change
+    }, [boss]); // only on boss instance change
 
     if (!boss || !boss.active) return null;
 
@@ -716,7 +740,10 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                             {/* Stamina / Mana indicators */}
                             <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-colors ${stamina > 0 ? "bg-amber-50 border-amber-200" : "bg-slate-100 border-slate-200 opacity-60"}`}>
                                 <Zap className={`w-3.5 h-3.5 ${stamina > 0 ? "text-amber-500 fill-amber-500" : "text-slate-400"}`} />
-                                <span className={`text-xs font-black ${stamina > 0 ? "text-amber-700" : "text-slate-400"}`}>{stamina} ST</span>
+                                <span className={`text-xs font-black ${stamina > 0 ? "text-amber-700" : "text-slate-400"}`}>{stamina}/{maxStamina} ST</span>
+                                {staminaCountdown && (
+                                    <span className="text-xs text-amber-500 font-mono">+1 {staminaCountdown}</span>
+                                )}
                             </div>
                             <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-colors ${currentMana >= 20 ? "bg-violet-50 border-violet-200" : "bg-slate-100 border-slate-200 opacity-60"}`}>
                                 <WandSparkles className={`w-3.5 h-3.5 ${currentMana >= 20 ? "text-violet-500" : "text-slate-400"}`} />
@@ -725,24 +752,24 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
 
                             {/* HP Potion button */}
                             <motion.button
-                                whileHover={currentGold >= 100 && !isUsingPotion ? { scale: 1.05 } : {}}
-                                whileTap={currentGold >= 100 && !isUsingPotion ? { scale: 0.95 } : {}}
+                                whileHover={currentGold >= 100 && !isUsingPotion && !isPreviewBoss ? { scale: 1.05 } : {}}
+                                whileTap={currentGold >= 100 && !isUsingPotion && !isPreviewBoss ? { scale: 0.95 } : {}}
                                 onClick={() => handlePotion("HP")}
-                                disabled={currentGold < 100 || isUsingPotion || isAttacking}
-                                title="HP Potion — ฟื้น 40% HP (100 Gold)"
-                                className={`px-3 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1.5 transition-all ${currentGold >= 100 && !isUsingPotion && !isAttacking ? "bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100" : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"}`}
+                                disabled={currentGold < 100 || isUsingPotion || isAttacking || isPreviewBoss}
+                                title={isPreviewBoss ? "โจมตีบอสก่อนเพื่อใช้ยา" : "HP Potion — ฟื้น 40% HP (100 Gold)"}
+                                className={`px-3 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1.5 transition-all ${currentGold >= 100 && !isUsingPotion && !isAttacking && !isPreviewBoss ? "bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100" : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"}`}
                             >
                                 ❤️ 100g
                             </motion.button>
 
                             {/* MP Elixir button */}
                             <motion.button
-                                whileHover={currentGold >= 60 && !isUsingPotion ? { scale: 1.05 } : {}}
-                                whileTap={currentGold >= 60 && !isUsingPotion ? { scale: 0.95 } : {}}
+                                whileHover={currentGold >= 60 && !isUsingPotion && !isPreviewBoss ? { scale: 1.05 } : {}}
+                                whileTap={currentGold >= 60 && !isUsingPotion && !isPreviewBoss ? { scale: 0.95 } : {}}
                                 onClick={() => handlePotion("MP")}
-                                disabled={currentGold < 60 || isUsingPotion || isAttacking}
-                                title="MP Elixir — ฟื้น 80 MP (60 Gold)"
-                                className={`px-3 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1.5 transition-all ${currentGold >= 60 && !isUsingPotion && !isAttacking ? "bg-violet-50 border-violet-300 text-violet-700 hover:bg-violet-100" : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"}`}
+                                disabled={currentGold < 60 || isUsingPotion || isAttacking || isPreviewBoss}
+                                title={isPreviewBoss ? "โจมตีบอสก่อนเพื่อใช้ยา" : "MP Elixir — ฟื้น 80 MP (60 Gold)"}
+                                className={`px-3 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1.5 transition-all ${currentGold >= 60 && !isUsingPotion && !isAttacking && !isPreviewBoss ? "bg-violet-50 border-violet-300 text-violet-700 hover:bg-violet-100" : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"}`}
                             >
                                 🔮 60g
                             </motion.button>
@@ -825,6 +852,7 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                                     const canAfford = currentMana >= sk.cost;
                                     const dmgText = sk.damageMultiplier ? `×${sk.damageMultiplier.toFixed(2)}` : "";
                                     const critText = sk.isCrit ? " 💥Crit" : "";
+                                    void critText;
                                     return (
                                         <button
                                             key={sk.id}

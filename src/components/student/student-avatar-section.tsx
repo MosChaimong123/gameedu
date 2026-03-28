@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
-import { Camera, Zap, Heart, Shield, Trophy, Sword, Coins } from "lucide-react";
+import { Camera, Zap, Shield, Coins } from "lucide-react";
 import { AvatarPickerModal } from "./avatar-picker-modal";
 import { type RankEntry, getNextRankProgress, formatAmount } from "@/lib/classroom-utils";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { StatProgress } from "./StatProgress";
-import { motion, AnimatePresence } from "framer-motion";
-import { IdleEngine, type GameStats } from "@/lib/game/idle-engine";
+import { motion } from "framer-motion";
+import { IdleEngine } from "@/lib/game/idle-engine";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useToast } from "@/components/ui/use-toast";
@@ -22,9 +21,9 @@ interface StudentAvatarSectionProps {
     nickname?: string | null;
     points: number;
     behaviorPoints: number;
+    totalPositive?: number;
+    totalNegative?: number;
     rankEntry: RankEntry;
-    totalPositive: number;
-    totalNegative: number;
     themeClass: string;
     themeStyle: React.CSSProperties;
     levelConfig?: any;
@@ -43,7 +42,6 @@ interface StudentAvatarSectionProps {
 export function StudentAvatarSection({
     studentId, classId, loginCode, initialAvatar,
     name, nickname, points, behaviorPoints, rankEntry,
-    totalPositive, totalNegative,
     themeClass, themeStyle, levelConfig,
     gameStats, items = [],
     jobClass = null,
@@ -66,13 +64,14 @@ export function StudentAvatarSection({
     
     // Live Gold State
     const [displayGold, setDisplayGold] = useState<number>(0);
+    const [displayGoldRate, setDisplayGoldRate] = useState<number>(0);
     const goldValueRef = useRef<number>(0);
     const goldRateRef = useRef<number>(0);
     const lastSyncRef = useRef<Date>(lastSyncTime ? new Date(lastSyncTime) : new Date());
     const [loginStreak, setLoginStreak] = useState<number>((gameStats?.loginStreak as number) ?? 0);
 
     // Sync Gold to Database
-    const syncGold = async (currentGold: number) => {
+    const syncGold = useCallback(async (currentGold: number) => {
         try {
             const res = await fetch(`/api/student/${loginCode}/sync`, {
                 method: 'POST',
@@ -113,6 +112,7 @@ export function StudentAvatarSection({
                         stamina: data.stamina,
                         maxStamina: data.maxStamina,
                         mana: data.mana,
+                        nextStaminaRegenAt: data.nextStaminaRegenAt ?? null,
                         lastSyncTime: data.lastSyncTime
                     });
                 }
@@ -120,7 +120,7 @@ export function StudentAvatarSection({
         } catch (err) {
             console.error("Sync error", err);
         }
-    };
+    }, [gameStats, loginCode, onUpdateStudent, toast]);
 
     // Initialize and Tick Gold
     useEffect(() => {
@@ -138,11 +138,15 @@ export function StudentAvatarSection({
         }, activeEvents);
         
         const initialGold = baseResources.stats.gold;
-        setDisplayGold(initialGold);
         goldValueRef.current = initialGold;
 
         const rate = IdleEngine.calculateGoldRate(points, baseResources.stats, levelConfig, items, activeEvents);
         goldRateRef.current = rate;
+
+        const frameId = window.requestAnimationFrame(() => {
+            setDisplayGold(initialGold);
+            setDisplayGoldRate(rate);
+        });
 
         const startTime = Date.now();
         const startGold = initialGold;
@@ -160,21 +164,13 @@ export function StudentAvatarSection({
         }, 60000);
 
         return () => {
+            window.cancelAnimationFrame(frameId);
             clearInterval(interval);
             clearInterval(syncInterval);
         };
-    }, [gameStats, lastSyncTime, points, loginCode, items]);
+    }, [gameStats, items, lastSyncTime, levelConfig, loginCode, points, syncGold]);
 
     const rankProgress = getNextRankProgress(points, levelConfig);
-    const charStats = IdleEngine.calculateCharacterStats(
-        points,
-        items,
-        (gameStats as any)?.level || 1,
-        jobClass,
-        jobTier,
-        advanceClass
-    );
-
     const jobBadgeLabel =
         jobTier !== "BASE" && advanceClass ? advanceClass : jobClass;
 
@@ -288,7 +284,7 @@ export function StudentAvatarSection({
                             {nickname && (
                                 <div className="inline-block relative">
                                     <span className="px-5 py-1.5 bg-indigo-50 border border-indigo-100 rounded-2xl text-indigo-500 font-black text-lg shadow-sm">
-                                        "{nickname}"
+                                        &quot;{nickname}&quot;
                                     </span>
                                 </div>
                             )}
@@ -319,7 +315,7 @@ export function StudentAvatarSection({
                                                 <h2 className="text-lg font-black text-amber-950/80 tracking-tighter uppercase whitespace-nowrap">Gold Coins</h2>
                                                 <div className="bg-amber-950/10 px-2 py-1 rounded-lg border border-amber-950/10 flex items-center self-start">
                                                     <span className="text-[9px] font-black text-amber-950 whitespace-nowrap uppercase">
-                                                        +{formatAmount(goldRateRef.current * 3600)} / ชั่วโมง
+                                                        +{formatAmount(displayGoldRate * 3600)} / ชั่วโมง
                                                     </span>
                                                 </div>
                                             </div>
@@ -424,5 +420,3 @@ export function StudentAvatarSection({
         </div>
     );
 }
-
-

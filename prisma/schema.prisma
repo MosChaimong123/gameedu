@@ -163,8 +163,8 @@ model Student {
   challengesSent     StudentBattle[]   @relation("Challenger")
   challengesReceived StudentBattle[]   @relation("Defender")
   gameStats     Json?                  // RPG stats: { gold, xp, level, inventory... }
-  stamina       Int                    @default(3) // Default 3 energy
-  maxStamina    Int                    @default(3)
+  stamina       Int                    @default(10) // Default 10 energy (time-based regen)
+  maxStamina    Int                    @default(10)
   mana          Int                    @default(50)
   lastStaminaRefill DateTime?           @default(now())
   lastSyncTime  DateTime?              // For idle calculations

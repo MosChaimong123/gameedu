@@ -791,10 +791,15 @@ export class IdleEngine {
         if (isMiss) effectiveDamage = 0;
         else effectiveDamage = Math.max(1, effectiveDamage);
 
-        // ── FF: POISON self-damage ─────────────────────────────────────────────
+        // ── FF: POISON self-damage + natural HP regen ─────────────────────────
         const isPoisoned = activeStatuses.some((e) => e.type === "POISON");
         const poisonDamage = isPoisoned ? 8 : 0;
-        const newPlayerBattleHp = Math.max(0, (playerBattleState.battleHp ?? 100) - poisonDamage);
+        // Regen 10 HP every 5 turns when no status effects are active
+        const totalAttacksForRegen = (personal.totalAttacksReceived ?? 0) + 1;
+        const regenHeal = (activeStatuses.length === 0 && totalAttacksForRegen % 5 === 0) ? 10 : 0;
+        const newPlayerBattleHp = Math.min(100, Math.max(0,
+          (playerBattleState.battleHp ?? 100) - poisonDamage + regenHeal
+        ));
 
         const prevHp = bossState.currentHp;
         const newHp = Math.max(0, prevHp - effectiveDamage);
@@ -861,7 +866,8 @@ export class IdleEngine {
             if (newStaggerGauge === 0) { newIsStaggered = false; newStaggerExpiry = null; }
           } else {
             // Fill stagger gauge
-            const staggerGain = options.isMagicAttack ? 18 : (options.elementMultiplier ?? 1) > 1 ? 15 : 10;
+            // Pressured (elemental weakness) fills stagger faster — FF13 mechanic
+            const staggerGain = options.isMagicAttack ? 18 : (options.elementMultiplier ?? 1) > 1 ? 20 : 10;
             newStaggerGauge = Math.min(100, prevStagger + staggerGain);
             if (newStaggerGauge >= 100) {
               newIsStaggered = true;
@@ -901,6 +907,15 @@ export class IdleEngine {
           });
         } else {
           logEntries.push({ id: `${now}-miss`, type: "MISS", text: "💨 พลาด! (Blind)", timestamp: now });
+        }
+
+        if (regenHeal > 0) {
+          logEntries.push({
+            id: `${now}-regen`,
+            type: "PLAYER_ATTACK",
+            text: `💚 HP ฟื้นฟู +${regenHeal} HP (${newPlayerBattleHp}/100)`,
+            timestamp: now,
+          });
         }
 
         if (justStaggered) {
@@ -1053,6 +1068,10 @@ export class IdleEngine {
           playerBattleState: updatedPlayerState,
           battleLog: trimmedLog,
           phase,
+          // Boss turn countdown: null during stagger (boss can't act), else hits remaining
+          hitsUntilBossAct: staggerActive
+            ? null
+            : ((turnInterval - (totalAttacks % turnInterval)) % turnInterval) || turnInterval,
         } as const;
       });
 
@@ -1084,6 +1103,7 @@ export class IdleEngine {
         playerBattleState: txResult.playerBattleState,
         battleLog: txResult.battleLog,
         phase: txResult.phase,
+        hitsUntilBossAct: txResult.hitsUntilBossAct,
       };
     } catch (error: unknown) {
       console.error("[IdleEngine] Error applying boss damage:", error);

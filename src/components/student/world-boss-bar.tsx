@@ -88,6 +88,8 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
     const [playerBattleState, setPlayerBattleState] = useState<PlayerBattleState | null>(null);
     const [battleLog, setBattleLog] = useState<BattleLogEntry[]>([]);
     const [phase, setPhase] = useState<1 | 2 | 3 | 4>(1);
+    const [hitsUntilBoss, setHitsUntilBoss] = useState<number | null>(null);
+    const [pulsingThreshold, setPulsingThreshold] = useState<number | null>(null);
     const [showLog, setShowLog] = useState(false);
     const logRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
@@ -198,6 +200,7 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                 playerBattleState?: PlayerBattleState | null;
                 battleLog?: BattleLogEntry[];
                 phase?: 1 | 2 | 3 | 4;
+                hitsUntilBossAct?: number | null;
             };
 
             if (data.success) {
@@ -212,7 +215,17 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                 if (typeof data.isStaggered === "boolean") setIsStaggered(data.isStaggered);
                 if (data.playerBattleState) setPlayerBattleState(data.playerBattleState);
                 if (data.battleLog) setBattleLog(data.battleLog);
-                if (data.phase) setPhase(data.phase);
+                if (data.phase) {
+                    // Detect phase transition → trigger HP bar pulse
+                    setPhase((prev) => {
+                        if (data.phase && data.phase > prev) {
+                            setPulsingThreshold(data.phase);
+                            setTimeout(() => setPulsingThreshold(null), 2000);
+                        }
+                        return data.phase ?? prev;
+                    });
+                }
+                if (data.hitsUntilBossAct !== undefined) setHitsUntilBoss(data.hitsUntilBossAct ?? null);
                 if (typeof data.limitBreakCharge === "number") setCurrentCharge(data.limitBreakCharge);
                 if (typeof data.manaLeft === "number") setCurrentMana(data.manaLeft);
 
@@ -389,6 +402,15 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                                                 {elementLabel}
                                             </div>
                                         )}
+                                        {elementMult > 1 && (
+                                            <motion.div
+                                                animate={{ scale: [1, 1.06, 1] }}
+                                                transition={{ duration: 1.2, repeat: Infinity }}
+                                                className="px-2 py-0.5 rounded-lg border text-[10px] font-black bg-orange-50 border-orange-300 text-orange-700"
+                                            >
+                                                ⚡ PRESSURED
+                                            </motion.div>
+                                        )}
                                         {comboReady && (
                                             <motion.div
                                                 animate={{ scale: [1, 1.05, 1] }}
@@ -436,16 +458,26 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                                             className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
                                         />
                                     </motion.div>
-                                    {[75, 50, 25].map((pct) => (
-                                        <div key={pct} className="absolute top-0 bottom-0 w-0.5 bg-white/60" style={{ left: `${pct}%` }} />
-                                    ))}
+                                    {[75, 50, 25].map((pct, i) => {
+                                        const thresholdPhase = [2, 3, 4][i];
+                                        const isPulsing = pulsingThreshold === thresholdPhase;
+                                        return (
+                                            <motion.div
+                                                key={pct}
+                                                className="absolute top-0 bottom-0 w-0.5 bg-white/60"
+                                                style={{ left: `${pct}%` }}
+                                                animate={isPulsing ? { scaleX: [1, 6, 1], opacity: [0.6, 1, 0.6] } : {}}
+                                                transition={{ duration: 0.5, repeat: isPulsing ? 3 : 0 }}
+                                            />
+                                        );
+                                    })}
                                 </div>
                                 <div className="absolute -left-3 -top-3 w-10 h-10 bg-white rounded-xl shadow-lg border border-slate-100 flex items-center justify-center -rotate-12 group-hover:rotate-0 transition-transform">
                                     <Sword className="w-6 h-6 text-rose-500" />
                                 </div>
                             </div>
 
-                            {/* Stagger Gauge */}
+                            {/* Stagger Gauge + Boss Turn Countdown */}
                             <div className="flex items-center gap-3">
                                 <div className="flex items-center gap-1.5 shrink-0">
                                     <span className={`text-sm ${isStaggered ? "animate-bounce" : ""}`}>💥</span>
@@ -463,6 +495,20 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                                 <span className={`text-[10px] font-black tabular-nums shrink-0 ${isStaggered ? "text-amber-600" : "text-slate-500"}`}>
                                     {isStaggered ? "MAX" : `${Math.min(100, staggerGauge)}/100`}
                                 </span>
+                                {/* Boss turn countdown */}
+                                {!isStaggered && hitsUntilBoss !== null && (
+                                    <motion.div
+                                        animate={hitsUntilBoss === 1 ? { scale: [1, 1.1, 1] } : {}}
+                                        transition={{ duration: 0.6, repeat: hitsUntilBoss === 1 ? Infinity : 0 }}
+                                        className={`shrink-0 px-2 py-0.5 rounded-lg border text-[10px] font-black ${
+                                            hitsUntilBoss === 1
+                                                ? "bg-rose-100 border-rose-400 text-rose-700"
+                                                : "bg-slate-100 border-slate-300 text-slate-600"
+                                        }`}
+                                    >
+                                        {hitsUntilBoss === 1 ? "⚠️ Boss โจมตี!" : `Boss act ใน ${hitsUntilBoss} hits`}
+                                    </motion.div>
+                                )}
                             </div>
 
                             {/* Limit Break Gauge */}

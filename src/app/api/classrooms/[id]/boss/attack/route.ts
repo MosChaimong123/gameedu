@@ -148,6 +148,7 @@ export async function POST(
             playerBattleState: result.playerBattleState ?? null,
             battleLog: result.battleLog ?? [],
             phase: result.phase ?? 1,
+            hitsUntilBossAct: result.hitsUntilBossAct ?? null,
         });
 
     } catch (error) {

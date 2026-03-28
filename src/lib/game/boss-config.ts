@@ -90,6 +90,7 @@ export interface DifficultyConfig {
   borderColor: string;
   hpMultiplier: number;
   rewardMultiplier: number;
+  ctbSpeedMultiplier: number; // scales boss ctbSpeed (1.0 = base, >1 = faster/harder)
   description: string;
   suggestedStudents: string;
 }
@@ -105,6 +106,7 @@ export const DIFFICULTIES: DifficultyConfig[] = [
     borderColor: "border-emerald-300",
     hpMultiplier: 0.5,
     rewardMultiplier: 0.7,
+    ctbSpeedMultiplier: 0.70, // boss acts much slower — forgiving for beginners
     description: "เหมาะสำหรับห้องที่เพิ่งเริ่มเล่น",
     suggestedStudents: "10–15 คน",
   },
@@ -118,6 +120,7 @@ export const DIFFICULTIES: DifficultyConfig[] = [
     borderColor: "border-sky-300",
     hpMultiplier: 1.0,
     rewardMultiplier: 1.0,
+    ctbSpeedMultiplier: 0.85, // slightly slower than base
     description: "มาตรฐานสำหรับห้องทั่วไป",
     suggestedStudents: "20–25 คน",
   },
@@ -131,6 +134,7 @@ export const DIFFICULTIES: DifficultyConfig[] = [
     borderColor: "border-amber-300",
     hpMultiplier: 2.0,
     rewardMultiplier: 1.5,
+    ctbSpeedMultiplier: 1.00, // base speed
     description: "ท้าทายขึ้น ต้องใช้ทีม",
     suggestedStudents: "25–35 คน",
   },
@@ -144,6 +148,7 @@ export const DIFFICULTIES: DifficultyConfig[] = [
     borderColor: "border-rose-300",
     hpMultiplier: 4.0,
     rewardMultiplier: 2.5,
+    ctbSpeedMultiplier: 1.15, // boss acts more frequently
     description: "สำหรับห้องที่แข็งแกร่ง",
     suggestedStudents: "35–40 คน",
   },
@@ -157,6 +162,7 @@ export const DIFFICULTIES: DifficultyConfig[] = [
     borderColor: "border-purple-300",
     hpMultiplier: 8.0,
     rewardMultiplier: 4.0,
+    ctbSpeedMultiplier: 1.30, // boss acts very frequently — maximum challenge
     description: "ท้าทายสูงสุด รางวัลมหาศาล",
     suggestedStudents: "40+ คน",
   },
@@ -592,6 +598,19 @@ export function getActionsForPhase(actions: BossAction[], phase: number): BossAc
 
 export function getBossPreset(id: string): BossPresetConfig | undefined {
   return BOSS_PRESETS.find((b) => b.id === id);
+}
+
+/**
+ * Compute effective boss CTB speed after applying difficulty multiplier.
+ * Result is clamped to [40, 160] to prevent extremes.
+ *
+ * Example: shadow_queen (95) on LEGENDARY (×1.30) → 124
+ * Example: frost_king   (65) on BEGINNER  (×0.70) →  46
+ */
+export function getBossCTBSpeed(preset: BossPresetConfig, difficultyId: string): number {
+  const diff = DIFFICULTIES.find((d) => d.id === difficultyId);
+  const multiplier = diff?.ctbSpeedMultiplier ?? 1.0;
+  return Math.max(40, Math.min(160, Math.round(preset.ctbSpeed * multiplier)));
 }
 
 export function getDifficulty(id: string): DifficultyConfig | undefined {

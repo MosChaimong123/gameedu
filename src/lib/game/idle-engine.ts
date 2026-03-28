@@ -1,10 +1,11 @@
-import { Prisma, Student, PrismaClient } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { db } from "../db";
 import { getRankEntry } from "../classroom-utils";
 import { SKILLS } from "./game-constants";
 import { spawnSoloMonster, rollFarmingLoot, SoloMonster } from "./farming-system";
 import {
   applyJobPassiveMultipliers,
+  buildGlobalSkillMap,
   getPassivesForClass,
   getStatMultipliers,
   resolveEffectiveJobKey,
@@ -19,19 +20,24 @@ import {
   getBossPreset,
   getBossPhase,
   getBossTurnInterval,
+  getBossCTBSpeed,
   getActionsForPhase,
   type BossSkillConfig,
   type BossAction,
   type PlayerBattleState,
   type BattleLogEntry,
-  type PlayerStatusType,
 } from "./boss-config";
+import {
+  createInitialCTBState,
+  advanceToNextTurn,
+  predictTimeline,
+  type CTBState,
+} from "./ctb-engine";
 import {
   getBossRaidTemplate,
   getPersonalBossFromStats,
   mergeGameStatsWithPersonalBoss,
   spawnPersonalBossFromTemplate,
-  type BossRaidTemplate,
   type PersonalClassroomBoss,
 } from "./personal-classroom-boss";
 import { trackQuestEvent } from "./quest-engine";
@@ -109,10 +115,6 @@ export interface GameStats {
   };
 }
 
-type LevelConfigLike = {
-  ranks?: unknown[];
-};
-
 type EquippedItemLike = {
   enhancementLevel?: number | null;
   item?: {
@@ -171,16 +173,6 @@ type BossState = {
    * Stored inside classroom.gamifiedSettings.boss (JSON field).
    */
   rewardDistributedAt?: string | null;
-};
-
-type GamifiedSettings = {
-  boss?: BossState;
-  bosses?: BossState[];
-};
-
-type BossClassroom = {
-  gamifiedSettings: GamifiedSettings | null;
-  updatedAt: Date;
 };
 
 type BossStudent = {
@@ -341,7 +333,7 @@ export class IdleEngine {
     if (typeof gameStats === 'string') {
       try {
         stats = JSON.parse(gameStats);
-      } catch (e) {
+      } catch {
         return defaults;
       }
     } else if (typeof gameStats === "object") {
@@ -478,14 +470,14 @@ export class IdleEngine {
       multipliers = getStatMultipliers(effectiveJobKey, jobTier as JobTier);
     }
 
-    let totalAtk   = multipliers ? raw.atk   * multipliers.atk   : raw.atk;
-    let totalDef   = multipliers ? raw.def   * multipliers.def   : raw.def;
-    let totalHp    = multipliers ? raw.hp    * multipliers.hp    : raw.hp;
-    let totalSpd   = multipliers ? raw.spd   * multipliers.spd   : raw.spd;
-    let totalCrit  = multipliers ? raw.crit  * multipliers.crit  : raw.crit;
-    let totalMag   = multipliers ? raw.mag   * multipliers.mag   : raw.mag;
-    let totalMaxMp = multipliers ? raw.maxMp * multipliers.mp    : raw.maxMp;
-    let totalLuck  = multipliers ? raw.luck  * multipliers.luck  : raw.luck;
+    const totalAtk   = multipliers ? raw.atk   * multipliers.atk   : raw.atk;
+    const totalDef   = multipliers ? raw.def   * multipliers.def   : raw.def;
+    const totalHp    = multipliers ? raw.hp    * multipliers.hp    : raw.hp;
+    const totalSpd   = multipliers ? raw.spd   * multipliers.spd   : raw.spd;
+    const totalCrit  = multipliers ? raw.crit  * multipliers.crit  : raw.crit;
+    const totalMag   = multipliers ? raw.mag   * multipliers.mag   : raw.mag;
+    const totalMaxMp = multipliers ? raw.maxMp * multipliers.mp    : raw.maxMp;
+    const totalLuck  = multipliers ? raw.luck  * multipliers.luck  : raw.luck;
 
     // 3. Apply Job Passives (+X% stats)
     const afterPassives = effectiveJobKey
@@ -527,7 +519,7 @@ export class IdleEngine {
     
     // If the rank has a goldRate set by the teacher, use it. 
     // If not, fallback to a minimal 1 gold/hour to avoid zero income.
-    let baseRatePerSec = (rankEntry && typeof rankEntry.goldRate === 'number') 
+    const baseRatePerSec = (rankEntry && typeof rankEntry.goldRate === 'number') 
       ? rankEntry.goldRate / 3600 
       : 1 / 3600; 
 
@@ -916,12 +908,27 @@ export class IdleEngine {
           }
         }
 
-        // ── FF: Boss Turn System ───────────────────────────────────────────────
+        // ── FF: Boss Turn System (CTB) ─────────────────────────────────────────
         const bossPreset = personal.bossId ? getBossPreset(personal.bossId) : null;
         const totalAttacks = (personal.totalAttacksReceived ?? 0) + 1;
         const phase = getBossPhase(newHp, personal.maxHp);
-        const turnInterval = getBossTurnInterval(phase);
         const prevIndex = personal.actionQueueIndex ?? 0;
+
+        // ── CTB: compute speeds and advance turn ───────────────────────────────
+        const playerCTBSpeed = StatCalculator.getCTBSpeed(playerFullStats.spd);
+        const bossCTBSpeed = bossPreset
+          ? getBossCTBSpeed(bossPreset, template.difficulty ?? "NORMAL")
+          : 80;
+        const prevCTBState: CTBState = (personal as PersonalClassroomBoss).ctbState
+          ?? createInitialCTBState(playerCTBSpeed, bossCTBSpeed);
+
+        // Player just acted — advance CTB to next entity's turn
+        const { owner: nextOwner, newState: ctbAfterPlayer } =
+          advanceToNextTurn(prevCTBState, playerCTBSpeed, bossCTBSpeed);
+
+        // Boss acts if CTB says so, and is not staggered / defeated
+        const bossActsNow = !staggerActive && !isDefeated
+          && nextOwner === "boss" && bossPreset?.actions;
 
         let executedBossAction: BossAction | null = null;
         let updatedPlayerState: PlayerBattleState = {
@@ -965,9 +972,9 @@ export class IdleEngine {
           });
         }
 
-        // Boss acts every N hits (skip during stagger)
+        // Boss acts based on CTB turn order (skip during stagger / defeat)
         let bossHeal = 0;
-        if (!staggerActive && !isDefeated && totalAttacks % turnInterval === 0 && bossPreset?.actions) {
+        if (bossActsNow) {
           const availableActions = getActionsForPhase(bossPreset.actions, phase);
           if (availableActions.length > 0) {
             const actionIdx = prevIndex % availableActions.length;
@@ -1034,6 +1041,26 @@ export class IdleEngine {
         // Apply boss self-heal to finalHp
         const finalHpWithHeal = Math.min(personal.maxHp, finalHp + bossHeal);
 
+        // ── CTB: advance to next player turn after boss (if boss acted) ──────────
+        let finalCTBState: CTBState;
+        if (bossActsNow) {
+          // Boss acted — advance once more to get back to player's turn
+          const { newState: ctbAfterBoss } =
+            advanceToNextTurn(ctbAfterPlayer, playerCTBSpeed, bossCTBSpeed);
+          finalCTBState = ctbAfterBoss;
+        } else {
+          // Player acts again next — use ctbAfterPlayer directly
+          finalCTBState = ctbAfterPlayer;
+        }
+
+        // Predict upcoming turns for UI "hits until boss acts" display
+        const ctbTimeline = predictTimeline(finalCTBState, playerCTBSpeed, bossCTBSpeed, 8);
+        let playerTurnsUntilBoss = 0;
+        for (const slot of ctbTimeline) {
+          if (slot.owner === "boss") break;
+          playerTurnsUntilBoss++;
+        }
+
         const mergedPatch: PersonalClassroomBoss = {
           ...(personal as PersonalClassroomBoss),
           currentHp: finalHpWithHeal,
@@ -1048,6 +1075,7 @@ export class IdleEngine {
           actionQueueIndex: (prevIndex + (executedBossAction ? 1 : 0)) % Math.max(1, bossPreset?.actions?.length ?? 1),
           playerBattleState: updatedPlayerState,
           battleLog: trimmedLog,
+          ctbState: finalCTBState,
           ...(isDefeated && !alreadyDistributed
             ? { rewardDistributedAt: new Date().toISOString() }
             : {}),
@@ -1112,10 +1140,9 @@ export class IdleEngine {
           playerBattleState: updatedPlayerState,
           battleLog: trimmedLog,
           phase,
-          // Boss turn countdown: null during stagger (boss can't act), else hits remaining
-          hitsUntilBossAct: staggerActive
-            ? null
-            : ((turnInterval - (totalAttacks % turnInterval)) % turnInterval) || turnInterval,
+          // CTB-based: player turns until boss acts next (null during stagger)
+          hitsUntilBossAct: staggerActive ? null : playerTurnsUntilBoss,
+          ctbState: finalCTBState,
         } as const;
       });
 
@@ -1148,6 +1175,7 @@ export class IdleEngine {
         battleLog: txResult.battleLog,
         phase: txResult.phase,
         hitsUntilBossAct: txResult.hitsUntilBossAct,
+        ctbState: txResult.ctbState,
       };
     } catch (error: unknown) {
       console.error("[IdleEngine] Error applying boss damage:", error);
@@ -1313,7 +1341,8 @@ export class IdleEngine {
    * Adds XP to a student and handles automatic level up.
    */
   static calculateXpGain(currentStats: GameStats, xpToAdd: number) {
-    let { level, xp } = currentStats;
+    let { level } = currentStats;
+    const { xp } = currentStats;
     console.log(`[XP_DEBUG] Start: Lv.${level}, XP:${xp}, Adding:${xpToAdd}`);
     if (level >= this.MAX_LEVEL) {
       return {
@@ -1349,9 +1378,8 @@ export class IdleEngine {
   /**
    * Processes skill usage: Checks MP, applies effects, and updates DB.
    */
-  static async useSkill(studentId: string, skillId: string, classId: string) {
+  static async activateSkill(studentId: string, skillId: string, classId: string) {
     try {
-        const { buildGlobalSkillMap } = require("./job-system");
         const baseSkill = (buildGlobalSkillMap() as Record<string, Skill | undefined>)[skillId];
 
         // 1. Fetch student data
@@ -1545,7 +1573,7 @@ export class IdleEngine {
         let rewardLoot = null;
         let nextWave = farming.currentWave;
         let newMonster: typeof monster = monster;
-        let isDefeated = monster.hp <= 0;
+        const isDefeated = monster.hp <= 0;
 
         if (isDefeated) {
             activeEffects = {}; // clear effects on kill
@@ -1716,9 +1744,8 @@ export class IdleEngine {
   /**
    * Solo Farming: Use Skill on monster
    */
-  static async useSkillOnMonster(studentId: string, skillId: string) {
+  static async activateSkillOnMonster(studentId: string, skillId: string) {
     try {
-        const { buildGlobalSkillMap } = require("./job-system");
         const baseSkill = (buildGlobalSkillMap() as Record<string, Skill | undefined>)[skillId];
 
         const student = await db.student.findUnique({
@@ -1742,7 +1769,6 @@ export class IdleEngine {
         const remainingCooldown = skillCooldowns[skillId] ?? 0;
         if (remainingCooldown > 0) return { error: `สกิลยังไม่พร้อม (${remainingCooldown} เทิร์น)`, cooldownRemaining: remainingCooldown };
 
-        const { StatCalculator } = require("./stat-calculator");
         const charStats = StatCalculator.compute(
             student.points, student.items, stats.level,
             student.jobClass, student.jobTier || "BASE", student.advanceClass ?? null
@@ -1971,7 +1997,7 @@ export class IdleEngine {
         let rewardLoot = null;
         let nextWave = farming.currentWave;
         let newMonster: typeof monster = monster;
-        let isDefeated = monster.hp <= 0;
+        const isDefeated = monster.hp <= 0;
 
         if (isDefeated) {
             activeEffects = {};

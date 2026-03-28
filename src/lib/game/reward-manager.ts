@@ -11,6 +11,7 @@ import { IdleEngine, GameStats } from "./idle-engine";
 import { BattlePlayer, FinalReward } from "../types/game";
 import { parseGameStats } from "./game-stats";
 import { buildStudentItemStatSnapshot } from "./student-item-stats";
+import { applyJobSkillUnlocksOnLevelUp } from "./job-system";
 
 const MAX_RETRIES = 3;
 const BASE_BACKOFF_MS = 100;
@@ -105,7 +106,13 @@ export class RewardManager {
           // 1. Fetch current student gameStats
           const student = await tx.student.findUnique({
             where: { id: player.studentId },
-            select: { gameStats: true },
+            select: {
+              gameStats: true,
+              jobClass: true,
+              jobTier: true,
+              advanceClass: true,
+              jobSkills: true,
+            },
           });
 
           if (!student) {
@@ -125,6 +132,18 @@ export class RewardManager {
           const { level: newLevel, xp: newXp, leveledUp } =
             IdleEngine.calculateXpGain(currentStats, finalXp);
 
+          let updatedJobSkills: string[] | undefined;
+          if (leveledUp) {
+            updatedJobSkills = applyJobSkillUnlocksOnLevelUp({
+              jobClass: student.jobClass ?? null,
+              jobTier: student.jobTier ?? null,
+              advanceClass: student.advanceClass ?? null,
+              oldLevel: currentStats.level ?? player.level ?? 1,
+              newLevel: newLevel ?? (currentStats.level ?? player.level ?? 1),
+              currentJobSkills: (student.jobSkills as string[] | null) ?? [],
+            });
+          }
+
           // 4. Update gameStats: gold, xp, level
           const updatedStats: GameStats = {
             ...currentStats,
@@ -135,7 +154,10 @@ export class RewardManager {
 
           await tx.student.update({
             where: { id: player.studentId },
-            data: { gameStats: updatedStats as unknown as Prisma.InputJsonValue },
+            data: {
+              gameStats: updatedStats as unknown as Prisma.InputJsonValue,
+              ...(updatedJobSkills ? { jobSkills: updatedJobSkills } : {}),
+            },
           });
 
           // 4. Merge item drops into inventory to avoid duplicate-key failures

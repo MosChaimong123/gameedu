@@ -12,6 +12,7 @@ import { useBattleAnimation } from "@/components/battle/use-battle-animation";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { BattleAnimationEvent } from "@/lib/game/battle-events";
+import { IdleEngine } from "@/lib/game/idle-engine";
 import {
   getVisibleSkillIds,
   resolveBattleMaxStamina,
@@ -43,6 +44,7 @@ export function BossRaidView({
   onAnswer,
   onAction,
 }: BossRaidViewProps) {
+  const maxLevel = IdleEngine.getMaxLevel();
   const bossHpPct = Math.max(0, (boss.hp / boss.maxHp) * 100);
   const currentStamina = resolveBattleStamina(myPlayer);
   const maxStamina = resolveBattleMaxStamina(myPlayer);
@@ -161,7 +163,7 @@ export function BossRaidView({
                   >
                     <div className="flex items-center justify-between">
                       <p className="font-bold">{isMe ? "คุณ" : player.name}</p>
-                      <p className="text-xs text-white/45">Lv.{player.level}</p>
+                      <p className="text-xs text-white/45">Lv.{Math.min(player.level, maxLevel)}</p>
                     </div>
                     <Progress value={hpPct} className="mt-3 h-2 bg-white/10 [&>div]:bg-emerald-400" />
                     <div className="mt-2 flex items-center justify-between text-xs text-slate-300">

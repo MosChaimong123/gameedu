@@ -3,6 +3,7 @@ import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd()); // โหลด .env.local ก่อน import อื่นใดทั้งหมด
 
 import { createServer } from "node:http";
+import { randomUUID } from "node:crypto";
 import next from "next";
 import { Server } from "socket.io";
 import { gameManager } from "./src/lib/game-engine/manager";
@@ -71,9 +72,11 @@ app.prepare().then(async () => {
                     set.questions,
                     io
                 );
+                const hostReconnectToken = randomUUID();
+                game.registerHostConnection(socket.id, hostReconnectToken);
 
                 socket.join(pin); // Host joins "room" pin
-                socket.emit("game-created", { pin });
+                socket.emit("game-created", { pin, hostReconnectToken });
                 console.log(`Game created: ${pin} for Set: ${set.title}`);
             }).catch((err: any) => {
                 console.error("Error fetching set:", err);
@@ -81,8 +84,39 @@ app.prepare().then(async () => {
             });
         });
 
+        socket.on("reconnect-host", ({ pin, reconnectToken }) => {
+            const game = gameManager.getGame(pin);
+            if (!game) {
+                socket.emit("error", { message: "Game not found" });
+                return;
+            }
+
+            if (!game.reconnectHost(socket.id, reconnectToken)) {
+                socket.emit("error", { message: "Host reconnection denied" });
+                return;
+            }
+
+            socket.join(pin);
+            socket.emit("host-reconnected", {
+                pin,
+                gameMode: game.gameMode,
+                status: game.status,
+            });
+
+            if (game.status === "PLAYING") {
+                socket.emit("game-started", {
+                    startTime: game.startTime,
+                    settings: game.settings,
+                    gameMode: game.gameMode
+                });
+                socket.emit("game-state-update", game.serialize());
+            } else if (game.status === "ENDED") {
+                socket.emit("game-over", { players: game.players });
+            }
+        });
+
         // --- Player Joining ---
-        socket.on("join-game", ({ pin, nickname }) => {
+        socket.on("join-game", ({ pin, nickname, reconnectToken }) => {
             const game = gameManager.getGame(pin);
             if (!game) {
                 socket.emit("error", { message: "Game not found" });
@@ -97,14 +131,18 @@ app.prepare().then(async () => {
             // Handle Reconnection
             const existingPlayer = game.players.find(p => p.name === nickname);
             if (existingPlayer) {
-                if (nickname === "HOST") {
-                    socket.join(pin);
-                    socket.emit("player-joined", { players: game.players });
+                if (!game.canReconnectPlayer(nickname, reconnectToken)) {
+                    socket.emit("error", { message: "Nickname already in use" });
                     return;
                 }
                 game.handleReconnection(existingPlayer, socket);
                 socket.join(pin);
-                socket.emit("joined-success", { pin, nickname, gameMode: game.gameMode });
+                socket.emit("joined-success", {
+                    pin,
+                    nickname,
+                    gameMode: game.gameMode,
+                    reconnectToken: game.getPlayerReconnectToken(nickname)
+                });
                 return;
             }
 
@@ -119,12 +157,19 @@ app.prepare().then(async () => {
                 isConnected: true,
                 score: 0
             };
+            const newReconnectToken = randomUUID();
 
             socket.join(pin);
+            game.registerPlayerReconnectToken(nickname, newReconnectToken);
             // The engine handles "player-joined" emit
             game.addPlayer(newPlayer as any, socket);
 
-            socket.emit("joined-success", { pin, nickname, gameMode: game.gameMode });
+            socket.emit("joined-success", {
+                pin,
+                nickname,
+                gameMode: game.gameMode,
+                reconnectToken: newReconnectToken
+            });
 
             // Sync state if late join
             if (game.status === "PLAYING") {
@@ -157,12 +202,22 @@ app.prepare().then(async () => {
 
         socket.on("start-game", ({ pin }) => {
             const game = gameManager.getGame(pin);
-            if (game) game.startGame();
+            if (!game) return;
+            if (!game.isHostSocket(socket.id)) {
+                socket.emit("error", { message: "Only the host can start the game" });
+                return;
+            }
+            game.startGame();
         });
 
         socket.on("end-game", ({ pin }) => {
             const game = gameManager.getGame(pin);
-            if (game) game.endGame();
+            if (!game) return;
+            if (!game.isHostSocket(socket.id)) {
+                socket.emit("error", { message: "Only the host can end the game" });
+                return;
+            }
+            game.endGame();
         });
 
         socket.on("leave-game", ({ pin }) => {
@@ -175,13 +230,16 @@ app.prepare().then(async () => {
         });
 
         socket.on("disconnect", () => {
-            // We need to find which game this socket was in
-            // Ideally we map socketId -> GameId but meant for simplicity we scan
-            // Or we let the game engines handle it if they knew their sockets?
-            // Since we don't have a global socket map here easily exposed yet:
-            // We won't do O(N) scan on every disconnect for now unless critical.
-            // AbstractGameEngine.handleDisconnect logic is implemented but not called here efficiently yet.
-            // For now, let's skip expensive scan. Reconnect handles the logic.
+            const playerGame = gameManager.findGameBySocket(socket.id);
+            if (playerGame) {
+                playerGame.handleDisconnect(socket.id);
+                return;
+            }
+
+            const hostGame = gameManager.findGameByHostSocket(socket.id);
+            if (hostGame) {
+                console.log(`[Server] Host socket disconnected for game ${hostGame.pin}`);
+            }
         });
 
         // --- Delegate Game Specific Events ---

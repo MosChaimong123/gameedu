@@ -1,7 +1,8 @@
 import type { Skill } from "./job-system";
 
 export const SKILL_POINTS_PER_LEVEL = 1;
-export const DEFAULT_SKILL_MAX_RANK = 3;
+export const SKILL_BASE_POINTS = 1;
+export const DEFAULT_SKILL_MAX_RANK = 6;
 export const RESPEC_BASE_GOLD = 500;
 export const RESPEC_LEVEL_MULTIPLIER = 75;
 
@@ -41,6 +42,11 @@ export type SkillTreeNodeView = {
   lockMessage: string | null;
 };
 
+export function calculateGrantedSkillPoints(level: number): number {
+  const safeLevel = Math.max(1, Math.floor(level));
+  return Math.max(0, SKILL_BASE_POINTS + (safeLevel - 1) * SKILL_POINTS_PER_LEVEL);
+}
+
 export function normalizeSkillTreeState(
   raw: Partial<SkillTreeState> | null | undefined,
   level: number
@@ -59,26 +65,52 @@ export function normalizeSkillTreeState(
     spentFromProgress,
     typeof raw?.skillPointsSpent === "number" ? Math.max(0, Math.floor(raw.skillPointsSpent)) : 0
   );
-  const granted = Math.max(0, Math.floor(level - 1) * SKILL_POINTS_PER_LEVEL);
-  const explicitAvailable =
-    typeof raw?.skillPointsAvailable === "number"
-      ? Math.max(0, Math.floor(raw.skillPointsAvailable))
-      : null;
-  const shouldDeriveFromLevel =
-    explicitAvailable !== null &&
-    explicitAvailable <= 0 &&
-    spent <= 0 &&
-    Object.keys(safeProgress).length === 0;
-  const available =
-    explicitAvailable === null || shouldDeriveFromLevel
-      ? Math.max(0, granted - spent)
-      : explicitAvailable;
+  const granted = calculateGrantedSkillPoints(level);
+  // Always derive available points from level + spent.
+  // This guarantees "skill points increase with level" deterministically,
+  // and respec only re-allocates already-granted points (doesn't create new points).
+  const available = Math.max(0, granted - spent);
 
   return {
     skillPointsAvailable: available,
     skillPointsSpent: spent,
     skillTreeProgress: safeProgress,
     ...(raw?.lastRespecAt ? { lastRespecAt: raw.lastRespecAt } : {}),
+  };
+}
+
+/**
+ * Balance guard:
+ * Cap skill points by currently available skill tree capacity.
+ * This prevents very high leftover points when a player has already maxed unlocked skills.
+ */
+export function clampSkillTreeStateToSkills(
+  state: SkillTreeState,
+  skills: Skill[]
+): SkillTreeState {
+  const skillMaxRankMap = new Map(
+    skills.map((skill) => [skill.id, skill.maxRank ?? DEFAULT_SKILL_MAX_RANK] as const)
+  );
+
+  const clampedProgress = Object.entries(state.skillTreeProgress).reduce<SkillTreeProgress>(
+    (acc, [skillId, rank]) => {
+      const maxRank = skillMaxRankMap.get(skillId);
+      if (!maxRank) return acc;
+      const safeRank = Math.max(0, Math.min(Math.floor(rank), maxRank));
+      if (safeRank > 0) acc[skillId] = safeRank;
+      return acc;
+    },
+    {}
+  );
+
+  const spentFromProgress = Object.values(clampedProgress).reduce((sum, rank) => sum + rank, 0);
+  return {
+    ...state,
+    skillTreeProgress: clampedProgress,
+    skillPointsSpent: spentFromProgress,
+    // Keep accumulated points (banking) even when current tree is fully capped.
+    // Spending is still naturally limited by per-skill max rank/requirements.
+    skillPointsAvailable: Math.max(0, state.skillPointsAvailable),
   };
 }
 

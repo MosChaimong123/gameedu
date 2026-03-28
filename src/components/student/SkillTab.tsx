@@ -2,24 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Zap } from "lucide-react";
+import { CircleHelp, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/use-toast";
-import { useSocket } from "@/components/providers/socket-provider";
+import { cn } from "@/lib/utils";
+import { IdleEngine } from "@/lib/game/idle-engine";
 
 interface SkillTabProps {
     studentId: string;
-    classId: string;
-    mana: number;
-    stamina: number;
     jobClass: string | null;
     jobTier?: string;
     advanceClass?: string | null;
     level?: number;
     jobSkills: string[];
-    onUpdateStudent: (data: any) => void;
     onShowJobModal?: () => void;
+    onNavigateToFarming?: () => void;
 }
 
 import {
@@ -28,7 +27,7 @@ import {
   resolveEffectiveJobKey,
   type Skill,
 } from "@/lib/game/job-system";
-import { getEffectiveSkillAtRank } from "@/lib/game/skill-tree";
+import { calculateGrantedSkillPoints, getEffectiveSkillAtRank } from "@/lib/game/skill-tree";
 
 type SkillTreeNode = {
   skillId: string;
@@ -52,31 +51,71 @@ const CLASS_ICONS: Record<string, string> = {
     "SHADOW LORD": "👑", PHANTOM: "👻", "BLADE MASTER": "🌀", "SWORD SAINT": "⚔️",
 };
 
+type ClassTierKey = "BASE" | "ADVANCE" | "MASTER";
+
+function resolveSkillTierByUnlockLevel(unlockLevel: number): ClassTierKey {
+    if (unlockLevel >= 50) return "MASTER";
+    if (unlockLevel >= 20) return "ADVANCE";
+    return "BASE";
+}
+
+function getEmblemPath(className: string, currentTier: string): string {
+  const normalized = (className || "NOVICE").toLowerCase().replace(/\s+/g, "_");
+  const prefix = currentTier === "BASE" ? "base" : (currentTier === "ADVANCE" ? "adv" : "master");
+  return `/assets/jobs/emblems/${prefix}_${normalized}.png`;
+}
+
+const TIER_META: Record<ClassTierKey, { title: string; subtitle: string; badgeClass: string }> = {
+    BASE: {
+        title: "Base Class Skills",
+        subtitle: "สกิลพื้นฐานสำหรับการต่อสู้ช่วงต้น",
+        badgeClass: "bg-slate-100 text-slate-700",
+    },
+    ADVANCE: {
+        title: "Advance Class Skills",
+        subtitle: "สกิลสายอาชีพขั้นกลาง (ปลดล็อกเมื่อถึงเงื่อนไขคลาส)",
+        badgeClass: "bg-amber-100 text-amber-700",
+    },
+    MASTER: {
+        title: "Master Class Skills",
+        subtitle: "สกิลขั้นสูงสุดของสายอาชีพ",
+        badgeClass: "bg-violet-100 text-violet-700",
+    },
+};
+
 export function SkillTab({
     studentId,
-    classId,
-    mana,
-    stamina,
     jobClass,
     jobTier = "BASE",
     advanceClass = null,
     level = 1,
     jobSkills,
-    onUpdateStudent,
-    onShowJobModal
+    onShowJobModal,
+    onNavigateToFarming
 }: SkillTabProps) {
+    const maxLevel = IdleEngine.getMaxLevel();
+    const displayLevel = Math.min(level, maxLevel);
+    const isMaxLevel = displayLevel >= maxLevel;
     // Determine if advance/master promotion is available
     const canAdvance = jobClass && jobTier === "BASE" && level >= 20;
     const canMaster = jobClass && jobTier === "ADVANCE" && advanceClass && level >= 50;
     const { toast } = useToast();
-    const { socket } = useSocket();
-    const [usingId, setUsingId] = useState<string | null>(null);
     const [treeLoading, setTreeLoading] = useState(false);
     const [upgradeLoadingId, setUpgradeLoadingId] = useState<string | null>(null);
     const [respecLoading, setRespecLoading] = useState(false);
     const [skillPointsAvailable, setSkillPointsAvailable] = useState(0);
     const [skillTree, setSkillTree] = useState<Record<string, SkillTreeNode>>({});
     const [respecCost, setRespecCost] = useState(0);
+    const [totalEarnedPoints, setTotalEarnedPoints] = useState(calculateGrantedSkillPoints(displayLevel));
+    const [spendableInCurrentTree, setSpendableInCurrentTree] = useState(0);
+    const [bankedPoints, setBankedPoints] = useState(0);
+    const treeStats = useMemo(() => {
+        const nodes = Object.values(skillTree);
+        const spent = nodes.reduce((sum, node) => sum + Math.max(0, node.currentRank ?? 0), 0);
+        const capacity = nodes.reduce((sum, node) => sum + Math.max(0, node.maxRank ?? 0), 0);
+        const percent = capacity > 0 ? Math.min(100, Math.max(0, (spent / capacity) * 100)) : 0;
+        return { spent, capacity, percent };
+    }, [skillTree]);
 
     // Map jobSkills (IDs) to full Skill objects + Add Auto-unlocked skills by level
     const currentSkills: Skill[] = useMemo(() => {
@@ -106,6 +145,26 @@ export function SkillTab({
             (a, b) => a.unlockLevel - b.unlockLevel
         );
     }, [jobClass, jobTier, advanceClass, jobSkills, level]);
+    const upcomingSkills = useMemo(() => {
+        const eff = resolveEffectiveJobKey({ jobClass, jobTier, advanceClass });
+        const classDef = getMergedClassDef(eff);
+        return classDef.skills
+            .filter((skill) => (skill.unlockLevel ?? 1) > level)
+            .sort((a, b) => a.unlockLevel - b.unlockLevel)
+            .slice(0, 4);
+    }, [jobClass, jobTier, advanceClass, level]);
+    const groupedSkills = useMemo(() => {
+        const base: Skill[] = [];
+        const advance: Skill[] = [];
+        const master: Skill[] = [];
+        currentSkills.forEach((skill) => {
+            const tier = resolveSkillTierByUnlockLevel(skill.unlockLevel ?? 1);
+            if (tier === "MASTER") master.push(skill);
+            else if (tier === "ADVANCE") advance.push(skill);
+            else base.push(skill);
+        });
+        return { BASE: base, ADVANCE: advance, MASTER: master };
+    }, [currentSkills]);
 
     useEffect(() => {
         const loadTree = async () => {
@@ -121,6 +180,9 @@ export function SkillTab({
                 setSkillTree(map);
                 setSkillPointsAvailable(data.skillPointsAvailable ?? 0);
                 setRespecCost(data.respecCost ?? 0);
+                setTotalEarnedPoints(data.totalEarnedPoints ?? calculateGrantedSkillPoints(data.level ?? level ?? 1));
+                setSpendableInCurrentTree(data.spendableInCurrentTree ?? 0);
+                setBankedPoints(data.bankedPoints ?? 0);
             } catch (err: any) {
                 toast({ title: "โหลดสกิลไม่สำเร็จ", description: err.message, variant: "destructive" });
             } finally {
@@ -173,6 +235,9 @@ export function SkillTab({
                 setSkillTree(map);
                 setSkillPointsAvailable(treeData.skillPointsAvailable ?? 0);
                 setRespecCost(treeData.respecCost ?? 0);
+                setTotalEarnedPoints(treeData.totalEarnedPoints ?? calculateGrantedSkillPoints(treeData.level ?? level ?? 1));
+                setSpendableInCurrentTree(treeData.spendableInCurrentTree ?? 0);
+                setBankedPoints(treeData.bankedPoints ?? 0);
             }
         } catch (err: any) {
             toast({ title: "อัปสกิลไม่สำเร็จ", description: err.message, variant: "destructive" });
@@ -203,6 +268,9 @@ export function SkillTab({
                 setSkillTree(map);
                 setSkillPointsAvailable(treeData.skillPointsAvailable ?? 0);
                 setRespecCost(treeData.respecCost ?? 0);
+                setTotalEarnedPoints(treeData.totalEarnedPoints ?? calculateGrantedSkillPoints(treeData.level ?? level ?? 1));
+                setSpendableInCurrentTree(treeData.spendableInCurrentTree ?? 0);
+                setBankedPoints(treeData.bankedPoints ?? 0);
             }
         } catch (err: any) {
             toast({ title: "รีสกิลไม่สำเร็จ", description: err.message, variant: "destructive" });
@@ -211,108 +279,114 @@ export function SkillTab({
         }
     };
 
-    const handleUseSkill = async (skill: Skill) => {
-        const isAP = skill.costType === "AP";
-        const currentResource = isAP ? stamina : mana;
-        const resourceName = isAP ? "ค่าพลัง (Stamina)" : "มานา (Mana)";
-
-        if (currentResource < skill.cost) {
-            toast({
-                title: `${resourceName} ไม่พอ!`,
-                description: isAP ? "รอฟื้นฟูพลังงานสักครู่นะครับ" : "รอสักพักเพื่อให้มานาฟื้นฟูนะครับ",
-                variant: "destructive",
-            });
-            return;
-        }
-
-        setUsingId(skill.id);
-        try {
-            const res = await fetch("/api/student/skill", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ skillId: skill.id, studentId, classId }),
-            });
-
-            const data = await res.json();
-
-            if (data.success) {
-                toast({
-                    title: `ใช้ทักษะ ${skill.name} สำเร็จ! ✨`,
-                    description: data.message,
-                });
-
-                // 1. Update Boss HP for everyone in the room
-                if (data.boss) {
-                    socket?.emit("classroom-update", {
-                        classId,
-                        type: "BOSS_HP_UPDATE",
-                        data: {
-                            currentHp: data.boss.currentHp,
-                            boss: data.boss
-                        }
-                    });
-                }
-
-                // 2. Update Local Student State
-                onUpdateStudent({ 
-                    mana: data.mana, 
-                    stamina: data.stamina 
-                });
-            } else {
-                throw new Error(data.error || "เกิดข้อผิดพลาด");
-            }
-        } catch (err: any) {
-            toast({
-                title: "เกิดข้อผิดพลาด",
-                description: err.message,
-                variant: "destructive",
-            });
-        } finally {
-            setUsingId(null);
-        }
-    };
-
     return (
         <div className="space-y-6">
-            {/* Header / Resource Status */}
-            <div className="flex items-center justify-between rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-indigo-50/40 to-white p-6 shadow-sm">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center">
-                        <Sparkles className="w-7 h-7 text-indigo-600" />
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-black text-slate-800">ทักษะประจำตัว (Skills)</h2>
-                        <p className="text-xs text-slate-500 font-medium">กดใช้ความสามารถพิเศษเพื่อชิงความได้เปรียบ</p>
-                    </div>
-                </div>
-                <div className="text-right space-y-2">
-                    <p className="text-[10px] uppercase font-black text-indigo-400 tracking-widest">Skill Points</p>
-                    <p className="text-2xl font-black text-indigo-700">{skillPointsAvailable}</p>
-                    <Button
-                        onClick={handleRespec}
-                        disabled={respecLoading || treeLoading}
-                        className="h-9 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black"
-                    >
-                        {respecLoading ? "กำลังรีสกิล..." : `Respec (${respecCost.toLocaleString()} Gold)`}
-                    </Button>
-                </div>
-                <div className="text-right space-y-2">
-                    <div>
-                        <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest mb-1">Stamina</p>
-                        <div className="flex items-end justify-end gap-1">
-                            <span className="text-2xl font-black text-slate-800">{stamina}</span>
-                            <span className="text-xs font-bold text-slate-400 mb-1">SP</span>
+            {/* Header / Summary */}
+            <div className="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
+                <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-indigo-50/40 to-white p-6 shadow-sm">
+                    <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center shrink-0">
+                            <Sparkles className="w-7 h-7 text-indigo-600" />
+                        </div>
+                        <div className="min-w-0">
+                            <h2 className="text-xl font-black text-slate-800">ทักษะประจำตัว (Skills)</h2>
+                            <p className="text-xs text-slate-500 font-medium mt-1">อัป Rank เพื่อเพิ่มพลังสกิล และปลดล็อกสกิลใหม่ตามเลเวล</p>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                                <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-black">
+                                    แต้มคงเหลือ {skillPointsAvailable}
+                                </span>
+                                <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold">
+                                    สะสมทั้งหมด {totalEarnedPoints}
+                                </span>
+                                <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold">
+                                    ใช้ได้อีก {spendableInCurrentTree}
+                                </span>
+                            </div>
                         </div>
                     </div>
-                    <div>
-                        <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest mb-1">Mana</p>
-                        <div className="flex items-end justify-end gap-1">
-                            <span className="text-2xl font-black text-slate-800">{mana}</span>
-                            <span className="text-xs font-bold text-slate-400 mb-1">MP</span>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Skill Points</p>
+                            <p className="text-3xl leading-none font-black text-indigo-700">{skillPointsAvailable}</p>
                         </div>
+                        {bankedPoints > 0 && (
+                            <div className="flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                                <p className="text-[11px] font-semibold text-amber-700">แต้มสะสมรอใช้งาน {bankedPoints}</p>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                type="button"
+                                                aria-label="คำอธิบายแต้มสะสมรอใช้งาน"
+                                                className="text-amber-600 hover:text-amber-700 transition-colors"
+                                            >
+                                                <CircleHelp className="w-3.5 h-3.5" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-[280px] text-xs leading-relaxed">
+                                            แต้มส่วนนี้ยังไม่หายและจะใช้งานได้ทันทีเมื่อปลดล็อกสกิลใหม่/เลื่อนคลาส
+                                            ตอนนี้ต้นไม้สกิลปัจจุบันเต็มแล้วจึงยังอัปต่อไม่ได้
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </div>
+                        )}
+                        <div>
+                            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 mb-1">
+                                <span>ความจุต้นไม้สกิล</span>
+                                <span>{treeStats.spent}/{treeStats.capacity}</span>
+                            </div>
+                            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-gradient-to-r from-indigo-500 to-violet-500"
+                                    style={{ width: `${treeStats.percent}%` }}
+                                />
+                            </div>
+                        </div>
+                        <Button
+                            onClick={handleRespec}
+                            disabled={respecLoading || treeLoading}
+                            className="h-10 w-full rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black"
+                        >
+                            {respecLoading ? "กำลังรีสกิล..." : `Respec (${respecCost.toLocaleString()} Gold)`}
+                        </Button>
                     </div>
                 </div>
             </div>
+
+            {upcomingSkills.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                        <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                            สกิลที่กำลังจะปลดล็อก
+                        </p>
+                        {onNavigateToFarming && (
+                            <Button
+                                type="button"
+                                onClick={onNavigateToFarming}
+                                className="h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black px-3"
+                            >
+                                ไปฟาร์มเก็บ XP
+                            </Button>
+                        )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {upcomingSkills.map((skill) => (
+                            <div key={skill.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                <div className="min-w-0">
+                                    <p className="text-sm font-bold text-slate-700 truncate">{skill.name}</p>
+                                    <p className="text-[11px] text-slate-500">ปลดล็อกเมื่อถึงเลเวลที่กำหนด</p>
+                                </div>
+                                <span className="ml-3 shrink-0 px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-black">
+                                    Lv.{Math.min(skill.unlockLevel, maxLevel)}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Advance / Master Class Promotion Banner */}
             {(canAdvance || canMaster) && onShowJobModal && (
@@ -332,8 +406,8 @@ export function SkillTab({
                             </h3>
                             <p className="text-xs text-yellow-200/70">
                                 {canMaster
-                                    ? `Lv.${level} — คุณมีคุณสมบัติครบแล้ว! กดเพื่อเลือก Master Class`
-                                    : `Lv.${level} — คุณมีคุณสมบัติครบแล้ว! กดเพื่อเลือก Advance Class`
+                                    ? `${isMaxLevel ? `MAX LV ${maxLevel}` : `Lv.${displayLevel}`} — คุณมีคุณสมบัติครบแล้ว! กดเพื่อเลือก Master Class`
+                                    : `${isMaxLevel ? `MAX LV ${maxLevel}` : `Lv.${displayLevel}`} — คุณมีคุณสมบัติครบแล้ว! กดเพื่อเลือก Advance Class`
                                 }
                             </p>
                         </div>
@@ -344,88 +418,131 @@ export function SkillTab({
                 </motion.div>
             )}
 
-            {/* Skills Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {currentSkills.map((skill) => {
-                    const node = skillTree[skill.id];
-                    const rank = node?.currentRank ?? 0;
-                    const rankedSkill = getEffectiveSkillAtRank(skill, rank);
-                    const isAP = skill.costType === "AP";
-                    const canUse = (isAP ? stamina : mana) >= rankedSkill.cost;
-                    const canUpgrade = Boolean(node?.canUpgrade);
-                    const icon =
-                        CLASS_ICONS[displayIconKey] ||
-                        CLASS_ICONS[jobClass || "WARRIOR"] ||
-                        "✨";
-
+            {/* Skills Grid by Class Tier */}
+            <div className="space-y-6">
+                {(Object.keys(TIER_META) as ClassTierKey[]).map((tierKey) => {
+                    const tierSkills = groupedSkills[tierKey];
+                    if (!tierSkills.length) return null;
+                    const meta = TIER_META[tierKey];
                     return (
-                        <motion.div
-                            key={skill.id}
-                            whileHover={{ y: -5 }}
-                            className="group"
-                        >
-                            <GlassCard className="h-full flex flex-col p-6 relative overflow-hidden">
-                                {/* Decorative Icon Background */}
-                                <div className="absolute -right-4 -top-4 text-8xl opacity-5 group-hover:scale-110 transition-transform duration-500">
-                                    {icon}
+                        <section key={tierKey} className="space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-800">{meta.title}</h3>
+                                    <p className="text-[11px] text-slate-500">{meta.subtitle}</p>
                                 </div>
+                                <span className={cn("px-2.5 py-1 rounded-full text-[10px] font-black", meta.badgeClass)}>
+                                    {tierKey}
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                {tierSkills.map((skill) => {
+                                    const node = skillTree[skill.id];
+                                    const rank = node?.currentRank ?? 0;
+                                    const rankedSkill = getEffectiveSkillAtRank(skill, rank);
+                                    const canUpgrade = Boolean(node?.canUpgrade);
+                                    const icon = CLASS_ICONS[displayIconKey] || CLASS_ICONS[jobClass || "WARRIOR"] || "✨";
+                                    const emblemPath = getEmblemPath(displayIconKey, jobTier);
 
-                                <div className="relative z-10 space-y-4 flex-1">
-                                    <div className="flex justify-between items-start">
-                                        <div className="w-14 h-14 bg-white shadow-inner rounded-2xl flex items-center justify-center text-3xl group-hover:rotate-12 transition-transform overflow-hidden">
-                                            {skill.icon ? (
-                                                <img 
-                                                    src={skill.icon} 
-                                                    alt={skill.name} 
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            ) : (
-                                                icon
-                                            )}
-                                        </div>
-                                        <div className={`px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-tighter
-                                             ${canUse ? (isAP ? 'bg-amber-50 border-amber-100 text-amber-600' : 'bg-indigo-50 border-indigo-100 text-indigo-600') : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                                            {rankedSkill.cost} {isAP ? "Stamina" : "MP"}
-                                        </div>
-                                    </div>
+                                    return (
+                                        <motion.div
+                                            key={skill.id}
+                                            whileHover={{ y: -5 }}
+                                            className="group"
+                                        >
+                                            <GlassCard 
+                                                className={cn(
+                                                    "h-full flex flex-col p-6 relative overflow-hidden transition-all duration-500",
+                                                    tierKey === "MASTER" ? "hover:border-amber-400/50 hover:shadow-[0_0_25px_rgba(245,158,11,0.15)]" :
+                                                    tierKey === "ADVANCE" ? "hover:border-purple-400/50 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)]" :
+                                                    "hover:border-blue-400/50 hover:shadow-[0_0_25px_rgba(59,130,246,0.15)]"
+                                                )}
+                                            >
+                                                {/* Tier Gradient Border (Bottom) */}
+                                                <div className={cn(
+                                                    "absolute bottom-0 left-0 right-0 h-1 transition-opacity opacity-30 group-hover:opacity-100",
+                                                    tierKey === "MASTER" ? "bg-amber-500" :
+                                                    tierKey === "ADVANCE" ? "bg-purple-500" :
+                                                    "bg-blue-500"
+                                                )} />
 
-                                    <div>
-                                        <h3 className="text-lg font-black text-slate-800">{skill.name}</h3>
-                                        <p className="text-[11px] font-bold text-indigo-500 mt-1">
-                                            Rank {rank}/{node?.maxRank ?? 3}
-                                        </p>
-                                        <p className="text-sm text-slate-500 font-medium leading-relaxed mt-1">
-                                            {skill.description}
-                                        </p>
-                                        {node?.lockMessage && !node.canUpgrade && (
-                                            <p className="text-[11px] mt-2 font-semibold text-rose-500">
-                                                ล็อก: {node.lockMessage}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
+                                                {/* Decorative Icon Background / Watermark */}
+                                                <div className="absolute -right-6 -top-6 w-32 h-32 opacity-[0.03] group-hover:opacity-[0.07] group-hover:scale-110 transition-all duration-700 pointer-events-none grayscale">
+                                                    <img src={emblemPath} alt="" className="w-full h-full object-contain" />
+                                                </div>
 
-                                <Button
-                                    onClick={() => handleUpgradeSkill(skill.id)}
-                                    disabled={upgradeLoadingId !== null || !canUpgrade}
-                                    className={`mt-4 w-full h-10 rounded-xl font-black uppercase tracking-wider text-[11px] transition-all
-                                        ${canUpgrade ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-slate-100 text-slate-400 cursor-not-allowed"}`}
-                                >
-                                    {upgradeLoadingId === skill.id ? "กำลังอัป..." : canUpgrade ? "อัป Rank +1" : "อัปไม่ได้"}
-                                </Button>
-                                <Button
-                                    onClick={() => handleUseSkill(rankedSkill)}
-                                    disabled={usingId !== null || !canUse}
-                                    className={`mt-6 w-full h-12 rounded-2xl font-black uppercase tracking-widest text-xs transition-all
-                                         ${canUse
-                                            ? 'bg-indigo-600 hover:bg-black text-white shadow-lg'
-                                            : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                        }`}
-                                >
-                                    {usingId === skill.id ? "กำลังร่ายเวท..." : canUse ? "ร่ายทักษะ" : isAP ? "Stamina ไม่พอ" : "มานาไม่พอ"}
-                                </Button>
-                            </GlassCard>
-                        </motion.div>
+                                                <div className="relative z-10 space-y-4 flex-1">
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="w-14 h-14 bg-white shadow-inner rounded-2xl flex items-center justify-center text-3xl group-hover:scale-105 transition-transform overflow-hidden relative border border-slate-100">
+                                                            {skill.icon ? (
+                                                                <img 
+                                                                    src={skill.icon} 
+                                                                    alt={skill.name} 
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <span className="group-hover:rotate-12 transition-transform">{icon}</span>
+                                                            )}
+                                                        </div>
+                                                        <div className={cn(
+                                                            "px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-tighter shadow-sm",
+                                                            tierKey === "MASTER" ? "bg-amber-50 border-amber-100 text-amber-600" :
+                                                            tierKey === "ADVANCE" ? "bg-purple-50 border-purple-100 text-purple-600" :
+                                                            "bg-blue-50 border-blue-100 text-blue-600"
+                                                        )}>
+                                                            {rankedSkill.cost} {skill.costType === "AP" ? "Stamina" : "MP"}
+                                                        </div>
+                                                    </div>
+
+                                                    <div>
+                                                        <h3 className="text-lg font-black text-slate-800">{skill.name}</h3>
+                                                        <p className="text-[11px] font-bold text-indigo-500 mt-1">
+                                                            Rank {rank}/{node?.maxRank ?? 6}
+                                                        </p>
+                                                        <p className="text-sm text-slate-500 font-medium leading-relaxed mt-1">
+                                                            {skill.description}
+                                                        </p>
+                                                        {(typeof skill.damageMultiplier === "number" || typeof skill.healMultiplier === "number") && (
+                                                            <p className="text-[11px] font-semibold text-emerald-600 mt-1">
+                                                                {typeof skill.damageMultiplier === "number" && (
+                                                                    <span>
+                                                                        DMG x{rankedSkill.damageMultiplier?.toFixed(2)}
+                                                                        {rank > 0 ? ` (ฐาน x${skill.damageMultiplier.toFixed(2)})` : ""}
+                                                                    </span>
+                                                                )}
+                                                                {typeof skill.damageMultiplier === "number" && typeof skill.healMultiplier === "number" ? " • " : ""}
+                                                                {typeof skill.healMultiplier === "number" && (
+                                                                    <span>
+                                                                        HEAL x{rankedSkill.healMultiplier?.toFixed(2)}
+                                                                        {rank > 0 ? ` (ฐาน x${skill.healMultiplier.toFixed(2)})` : ""}
+                                                                    </span>
+                                                                )}
+                                                            </p>
+                                                        )}
+                                                        {node?.lockMessage && !node.canUpgrade && (
+                                                            <p className="text-[11px] mt-2 font-semibold text-rose-500">
+                                                                ล็อก: {node.lockMessage}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <Button
+                                                    onClick={() => handleUpgradeSkill(skill.id)}
+                                                    disabled={upgradeLoadingId !== null || !canUpgrade}
+                                                    className={cn(
+                                                        "mt-5 w-full h-11 rounded-xl font-black uppercase tracking-wider text-[11px] transition-all",
+                                                        canUpgrade ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                                    )}
+                                                >
+                                                    {upgradeLoadingId === skill.id ? "กำลังอัป..." : canUpgrade ? "อัป Rank +1" : "อัปไม่ได้"}
+                                                </Button>
+                                            </GlassCard>
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+                        </section>
                     );
                 })}
             </div>
@@ -436,9 +553,9 @@ export function SkillTab({
                     <Zap className="w-4 h-4 text-amber-600" />
                 </div>
                 <div>
-                    <h4 className="text-xs font-black text-amber-900 uppercase">Tip: การจัดการพลังงาน</h4>
+                    <h4 className="text-xs font-black text-amber-900 uppercase">Tip: อัปสกิลให้คุ้มแต้ม</h4>
                     <p className="text-[11px] text-amber-800/80 font-medium leading-relaxed">
-                        สกิลบางสายใช้ Stamina และบางสายใช้ Mana จัดการทั้งสองทรัพยากรให้ดีเพื่อทำดาเมจและคุมจังหวะการสู้บอส
+                        เริ่มจากสกิลที่ใช้บ่อยก่อน และดูค่า DMG/HEAL ใต้การ์ดเพื่อเทียบความคุ้มค่าของแต่ละ Rank
                     </p>
                 </div>
             </div>

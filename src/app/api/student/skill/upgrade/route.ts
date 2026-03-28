@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { parseGameStats, toPrismaJson } from "@/lib/game/game-stats";
-import { buildGlobalSkillMap } from "@/lib/game/job-system";
+import { buildGlobalSkillMap, getSkillsForLevel, resolveEffectiveJobKey } from "@/lib/game/job-system";
 import { RPG_ROUTE_ERROR, RpgRouteError, toSkillTreeErrorResponse } from "@/lib/game/rpg-route-errors";
 import {
   applySkillUpgrade,
+  clampSkillTreeStateToSkills,
   getEffectiveSkillAtRank,
   normalizeSkillTreeState,
   validateSkillUpgrade,
@@ -32,7 +33,15 @@ export async function POST(req: NextRequest) {
     const updated = await db.$transaction(async (tx) => {
       const student = await tx.student.findUnique({
         where: { id: studentId },
-        select: { id: true, userId: true, gameStats: true },
+        select: {
+          id: true,
+          userId: true,
+          gameStats: true,
+          jobClass: true,
+          jobTier: true,
+          advanceClass: true,
+          jobSkills: true,
+        },
       });
       if (!student) throw new RpgRouteError(RPG_ROUTE_ERROR.studentNotFound);
       if (student.userId !== userId) throw new Error("FORBIDDEN");
@@ -52,12 +61,36 @@ export async function POST(req: NextRequest) {
       const skill = buildGlobalSkillMap()[skillId];
       if (!skill) throw new RpgRouteError(RPG_ROUTE_ERROR.skillNotFound);
 
-      const validation = validateSkillUpgrade({ skill, state: skillState, level });
+      // Server-side lock: skill must be unlocked by current job path + level,
+      // and must exist in student's persisted jobSkills.
+      const effectiveJobKey = resolveEffectiveJobKey({
+        jobClass: student.jobClass,
+        jobTier: student.jobTier,
+        advanceClass: student.advanceClass,
+      });
+      const classSkills = getSkillsForLevel(effectiveJobKey, level);
+      const balancedState = clampSkillTreeStateToSkills(skillState, classSkills);
+      const unlockedByLevel = new Set(
+        classSkills.map((s) => s.id)
+      );
+      const persistedJobSkills = Array.isArray(student.jobSkills)
+        ? (student.jobSkills as string[])
+        : [];
+      const unlockedByStorage = new Set(persistedJobSkills);
+
+      if (!unlockedByLevel.has(skillId) || !unlockedByStorage.has(skillId)) {
+        throw new RpgRouteError(
+          RPG_ROUTE_ERROR.skillUpgradeBlocked,
+          "ทักษะนี้ยังไม่ถูกปลดล็อกตามเลเวล/สายอาชีพ"
+        );
+      }
+
+      const validation = validateSkillUpgrade({ skill, state: balancedState, level });
       if (!validation.ok) {
         throw new RpgRouteError(RPG_ROUTE_ERROR.skillUpgradeBlocked, validation.message);
       }
 
-      const nextState = applySkillUpgrade(skillState, skill.id);
+      const nextState = applySkillUpgrade(balancedState, skill.id);
       const nextStats = {
         ...gameStats,
         ...nextState,

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, ArrowRight, Gamepad2 } from "lucide-react"
+import { getPlayerReconnectToken, savePlayerSession } from "@/lib/player-session"
 
 export default function PlayPage() {
     const router = useRouter()
@@ -30,15 +31,20 @@ export default function PlayPage() {
         setJoining(true)
         setError("")
 
-        socket.emit("join-game", { pin, nickname: name })
+        const reconnectToken = getPlayerReconnectToken(pin, name)
+
+        socket.emit("join-game", { pin, nickname: name, reconnectToken: reconnectToken ?? undefined })
 
         // Listen for one-time response
         socket.once("joined-success", (data: any) => {
             // Save info to local storage or state management? 
             // For now, simpler: pass via URL or just assume session context?
             // Actually, best to store in localStorage or Context so /play/lobby knows who we are.
-            sessionStorage.setItem("game_pin", data.pin)
-            sessionStorage.setItem("player_name", data.nickname)
+            savePlayerSession({
+                pin: data.pin,
+                name: data.nickname,
+                reconnectToken: data.reconnectToken,
+            })
             router.push("/play/lobby")
         })
 

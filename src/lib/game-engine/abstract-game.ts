@@ -15,6 +15,9 @@ export abstract class AbstractGameEngine {
     public endTime?: number;
     public questions: any[];
     protected io: any; // SocketIO.Server
+    private hostSocketId?: string;
+    private hostReconnectToken?: string;
+    private playerReconnectTokens: Map<string, string>;
 
     constructor(
         pin: string,
@@ -32,6 +35,7 @@ export abstract class AbstractGameEngine {
         this.settings = settings;
         this.questions = questions;
         this.io = io;
+        this.playerReconnectTokens = new Map();
     }
 
     public setIO(io: any) {
@@ -46,6 +50,10 @@ export abstract class AbstractGameEngine {
     }
 
     public removePlayer(socketId: string): void {
+        const removedPlayer = this.players.find((p) => p.id === socketId);
+        if (removedPlayer) {
+            this.playerReconnectTokens.delete(removedPlayer.name);
+        }
         this.players = this.players.filter(p => p.id !== socketId);
         this.statusUpdate();
     }
@@ -58,6 +66,37 @@ export abstract class AbstractGameEngine {
         player.id = socket.id;
         player.isConnected = true;
         this.statusUpdate();
+    }
+
+    public registerHostConnection(socketId: string, reconnectToken: string): void {
+        this.hostSocketId = socketId;
+        this.hostReconnectToken = reconnectToken;
+    }
+
+    public reconnectHost(socketId: string, reconnectToken: string): boolean {
+        if (!this.hostReconnectToken || reconnectToken !== this.hostReconnectToken) {
+            return false;
+        }
+
+        this.hostSocketId = socketId;
+        return true;
+    }
+
+    public isHostSocket(socketId: string): boolean {
+        return this.hostSocketId === socketId;
+    }
+
+    public registerPlayerReconnectToken(playerName: string, reconnectToken: string): void {
+        this.playerReconnectTokens.set(playerName, reconnectToken);
+    }
+
+    public getPlayerReconnectToken(playerName: string): string | undefined {
+        return this.playerReconnectTokens.get(playerName);
+    }
+
+    public canReconnectPlayer(playerName: string, reconnectToken?: string): boolean {
+        if (!reconnectToken) return false;
+        return this.playerReconnectTokens.get(playerName) === reconnectToken;
     }
 
     public handleDisconnect(socketId: string): void {
@@ -154,5 +193,8 @@ export abstract class AbstractGameEngine {
             isConnected: false, // Force disconnect state on restore
             id: "" // Reset Socket ID as it's invalid
         }));
+        this.hostSocketId = undefined;
+        this.hostReconnectToken = undefined;
+        this.playerReconnectTokens.clear();
     }
 }

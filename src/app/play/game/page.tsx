@@ -100,8 +100,10 @@ export default function PlayerGamePage() {
 
         if (!socket) return
 
+        const reconnectToken = sessionStorage.getItem(`player_reconnect_token_${pin}_${name}`)
+
         // Re-join game on mount to handle refreshes
-        socket.emit("join-game", { pin, nickname: name })
+        socket.emit("join-game", { pin, nickname: name, reconnectToken: reconnectToken ?? undefined })
 
         // Explicitly request current game state
         socket.emit("get-game-state", { pin })
@@ -418,6 +420,10 @@ export default function PlayerGamePage() {
         socket.on("joined-success", (data: any) => {
             console.log("Joined success. Server says Mode:", data?.gameMode);
 
+            if (data?.reconnectToken) {
+                sessionStorage.setItem(`player_reconnect_token_${data.pin}_${data.nickname}`, data.reconnectToken)
+            }
+
             if (data?.gameMode) {
                 setGameMode(data.gameMode as any);
                 gameModeRef.current = data.gameMode as any;
@@ -525,8 +531,12 @@ export default function PlayerGamePage() {
                 <button
                     onClick={() => {
                         const pin = sessionStorage.getItem("game_pin");
+                        const playerName = sessionStorage.getItem("player_name");
                         if (socket && pin) {
                             socket.emit("leave-game", { pin });
+                        }
+                        if (pin && playerName) {
+                            sessionStorage.removeItem(`player_reconnect_token_${pin}_${playerName}`);
                         }
                         sessionStorage.removeItem("game_pin");
                         // Don't clear player_name so they can rejoin easily if accidental? 

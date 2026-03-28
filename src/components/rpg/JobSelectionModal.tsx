@@ -38,13 +38,11 @@ const CLASS_ICONS: Record<string, string> = {
 }
 
 const CLASS_DESCRIPTIONS: Record<string, string> = {
-  // Base
   WARRIOR: "นักรบผู้กล้าหาญ เน้นพลังป้องกันและพลังชีวิตที่สูงที่สุดในบรรดาทุกอาชีพ",
   MAGE: "ผู้ใช้เวทมนตร์ พลังทำลายล้างรุนแรงในวงกว้าง แต่อ่อนแอต่อการโจมตีกายภาพ",
   RANGER: "นักล่าผู้รวดเร็ว โจมตีจากระยะไกลด้วยความแม่นยำและโอกาสคริติคอลที่สูง",
   HEALER: "ผู้เยียวยา สนับสนุนทีมด้วยคาถาฟื้นฟูและบัฟเสริมพลังเวทมนตร์",
   ROGUE: "จารชน ผู้ว่องไวเหนือแสง โจมตีจุดตายด้วยความเร็วและโอกาสคริติคอลมหาศาล",
-  // Advance
   KNIGHT: "อัศวินผู้พิทักษ์ พัฒนาการป้องกันให้แข็งแกร่งขึ้น พร้อมปกป้องสหายในทุกสถานการณ์",
   BERSERKER: "นักรบคลั่ง แลกพลังป้องกันเพื่อพลังโจมตีที่รุนแรงและป่าเถื่อน",
   ARCHMAGE: "จอมเวทผู้เชี่ยวชาญ ค้นพบคัมภีร์เวทโบราณ เพิ่มพลังทำลายเวทให้ถึงขีดสุด",
@@ -55,7 +53,6 @@ const CLASS_DESCRIPTIONS: Record<string, string> = {
   DRUID: "ผู้อัญเชิญธรรมชาติ ใช้พลังแห่งป่าและสัตว์ป่าในการรักษารวมถึงโจมตี",
   ASSASSIN: "นักฆ่ามือสังหาร เงียบเชียบ ดุดัน และปลิดชีพศัตรูภายในพริบตา",
   DUELIST: "นักดาบผู้สง่างาม เน้นเทคนิคการร่ายรำดาบและการสวนกลับที่เฉียบคม",
-  // Master
   PALADIN: "อัศวินศักดิ์สิทธิ์ ผสมผสานการป้องกันอันแข็งแกร่งกับเวทมนตร์แสงสว่าง",
   GUARDIAN: "ผู้รักษาปราการ พลังป้องกันดุจกำแพงเหล็กที่ไม่มีวันพังทลาย",
   WARLORD: "แม่ทัพผู้เกรงขาม เพิ่มขวัญกำลังใจและนำพาชัยชนะมาสู่กองทัพ",
@@ -84,6 +81,12 @@ const TIER_COLORS: Record<string, string> = {
   MASTER: "text-amber-400 border-amber-400/30 bg-amber-500/10",
 }
 
+function getEmblemPath(className: string, currentTier: string): string {
+  const normalized = className.toLowerCase().replace(/\s+/g, "_");
+  const prefix = currentTier === "BASE" ? "base" : (currentTier === "ADVANCE" ? "adv" : "master");
+  return `/assets/jobs/emblems/${prefix}_${normalized}.png`;
+}
+
 export function JobSelectionModal({
   studentId,
   level,
@@ -96,6 +99,7 @@ export function JobSelectionModal({
   const [selected, setSelected] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [imageError, setImageError] = useState<Record<string, boolean>>({})
 
   const isBaseSelection = !jobClass
   const options = useMemo(() => getOptions(jobClass, jobTier, advanceClass), [jobClass, jobTier, advanceClass])
@@ -108,12 +112,9 @@ export function JobSelectionModal({
     return getMergedClassDef(selected);
   }, [selected]);
 
-  // Skills that are newly added compared to the previous class
   const newSkills = useMemo(() => {
     if (!selectedClassDef) return [];
     if (isBaseSelection) return selectedClassDef.skills;
-    
-    // For Advance/Master, only show skills specifically from that path (usually unlockLevel 20/25 or 50/55)
     const minLevel = currentTier === "ADVANCE" ? 20 : 50;
     return selectedClassDef.skills.filter(s => s.unlockLevel >= minLevel);
   }, [selectedClassDef, isBaseSelection, currentTier]);
@@ -191,15 +192,24 @@ export function JobSelectionModal({
                       {selected === cls && (
                         <motion.div 
                           layoutId="active-bg"
-                          className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-transparent pointer-none"
+                          className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-transparent pointer-events-none"
                         />
                       )}
                       <div className="flex items-center gap-4">
                         <div className={cn(
-                          "w-12 h-12 rounded-xl flex items-center justify-center text-2xl transition-all",
+                          "w-12 h-12 rounded-xl flex items-center justify-center text-2xl transition-all overflow-hidden",
                           selected === cls ? "bg-amber-500 text-slate-950 scale-110 shadow-lg" : "bg-slate-800 text-slate-400"
                         )}>
-                          {CLASS_ICONS[cls] ?? "⚔️"}
+                          {!imageError[cls] ? (
+                            <img 
+                              src={getEmblemPath(cls, currentTier)} 
+                              alt={cls} 
+                              className="w-full h-full object-cover"
+                              onError={() => setImageError(prev => ({ ...prev, [cls]: true }))}
+                            />
+                          ) : (
+                            CLASS_ICONS[cls] ?? "⚔️"
+                          )}
                         </div>
                         <div className="flex-1">
                           <div className={cn("font-bold text-lg leading-tight transition-colors", selected === cls ? "text-amber-400" : "text-white")}>
@@ -235,9 +245,18 @@ export function JobSelectionModal({
                    exit={{ opacity: 0, scale: 0.95 }}
                    className="w-full flex flex-col items-center z-10"
                  >
-                   <div className="w-24 h-24 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-5xl mb-6 shadow-2xl relative">
+                   <div className="w-32 h-32 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-5xl mb-6 shadow-2xl relative overflow-hidden">
                       <div className="absolute inset-0 bg-amber-500/10 blur-2xl rounded-full" />
-                      {CLASS_ICONS[selected]}
+                      {!imageError[selected] ? (
+                        <img 
+                          src={getEmblemPath(selected, currentTier)} 
+                          alt={selected} 
+                          className="w-full h-full object-cover scale-110"
+                          onError={() => setImageError(prev => ({ ...prev, [selected]: true }))}
+                        />
+                      ) : (
+                        CLASS_ICONS[selected]
+                      )}
                    </div>
                    
                    <h3 className="text-3xl font-black text-white mb-2 tracking-tight uppercase">
@@ -329,4 +348,3 @@ function getOptions(jobClass: string | null, jobTier: string, advanceClass: stri
   if (jobTier === "ADVANCE" && advanceClass) return MASTER_CLASS_OPTIONS[advanceClass] ?? []
   return []
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
     Dialog,
     DialogContent,
@@ -27,30 +27,39 @@ import {
     type BossPresetConfig,
     type DifficultyConfig,
 } from "@/lib/game/boss-config";
+import {
+    getBossRaidTemplate,
+    type BossRaidTemplate,
+} from "@/lib/game/personal-classroom-boss";
 
 interface SummonBossDialogProps {
     classId: string;
-    onBossSummoned: (boss: unknown) => void;
-    onBossDismissed: () => void;
-    currentBoss?: Record<string, unknown>;
+    gamifiedSettings: Record<string, unknown>;
+    onRaidTemplateChange: (template: BossRaidTemplate | null) => void;
 }
 
 export function SummonBossDialog({
     classId,
-    onBossSummoned,
-    onBossDismissed,
-    currentBoss
+    gamifiedSettings,
+    onRaidTemplateChange,
 }: SummonBossDialogProps) {
     const { socket } = useSocket();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [step, setStep] = useState(1); // 1 = boss, 2 = difficulty, 3 = rewards
+    const [showWizard, setShowWizard] = useState(false);
 
     const [selectedBoss, setSelectedBoss] = useState<BossPresetConfig>(BOSS_PRESETS[0]);
     const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyConfig>(DIFFICULTIES[1]); // EASY default
     const [rewardGoldOverride, setRewardGoldOverride] = useState<string>("");
 
     const { toast } = useToast();
+
+    const raidTemplate = useMemo(
+        () => getBossRaidTemplate(gamifiedSettings),
+        [gamifiedSettings]
+    );
+    const hasRaid = !!raidTemplate;
 
     const baseGold = computeRewardGold(selectedDifficulty.id, 1.0);
     const finalGold = rewardGoldOverride !== "" ? parseInt(rewardGoldOverride) || baseGold : baseGold;
@@ -65,6 +74,7 @@ export function SummonBossDialog({
             setSelectedBoss(BOSS_PRESETS[0]);
             setSelectedDifficulty(DIFFICULTIES[1]);
             setRewardGoldOverride("");
+            setShowWizard(!getBossRaidTemplate(gamifiedSettings));
         }
     }
 
@@ -81,31 +91,40 @@ export function SummonBossDialog({
                 })
             });
 
-            if (!res.ok) throw new Error("Summon failed");
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({})) as { error?: string };
+                throw new Error(err.error || "Summon failed");
+            }
 
-            const data = await res.json() as { boss: unknown };
+            const data = await res.json() as { bossRaidTemplate?: BossRaidTemplate; template?: BossRaidTemplate };
 
+            const tpl = data.bossRaidTemplate ?? data.template ?? null;
             socket?.emit("classroom-update", {
                 classId,
                 type: "BOSS_SUMMONED",
-                data: { boss: data.boss }
+                data: { bossRaidTemplate: tpl, template: tpl },
             });
 
-            onBossSummoned(data.boss);
+            onRaidTemplateChange(tpl);
             setOpen(false);
+            setShowWizard(false);
             toast({
                 title: "อัญเชิญสำเร็จ!",
                 description: `${selectedBoss.name} ปรากฏตัวในห้องเรียนแล้ว!`,
                 className: "bg-indigo-600 text-white"
             });
-        } catch {
-            toast({ title: "Error", description: "ไม่สามารถอัญเชิญบอสได้", variant: "destructive" });
+        } catch (e) {
+            toast({
+                title: "Error",
+                description: e instanceof Error ? e.message : "ไม่สามารถอัญเชิญบอสได้",
+                variant: "destructive"
+            });
         } finally {
             setLoading(false);
         }
     };
 
-    const handleDismiss = async () => {
+    const handleDismissAll = async () => {
         setLoading(true);
         try {
             const res = await fetch(`/api/classrooms/${classId}/boss`, {
@@ -114,15 +133,17 @@ export function SummonBossDialog({
 
             if (!res.ok) throw new Error("Dismiss failed");
 
+            await res.json().catch(() => ({}));
+
             socket?.emit("classroom-update", {
                 classId,
                 type: "BOSS_DEFEATED",
-                data: { boss: null }
+                data: {},
             });
 
-            onBossDismissed();
+            onRaidTemplateChange(null);
             setOpen(false);
-            toast({ title: "Dismissed", description: "บอสถูกส่งกลับไปแล้ว" });
+            toast({ title: "Dismissed", description: "ยกเลิกบอสทั้งหมดแล้ว" });
         } catch {
             toast({ title: "Error", description: "ไม่สามารถยกเลิกบอสได้", variant: "destructive" });
         } finally {
@@ -139,13 +160,13 @@ export function SummonBossDialog({
                     variant="secondary"
                     size="sm"
                     className={`h-9 border-0 font-semibold shadow backdrop-blur-sm ${
-                        currentBoss
+                        hasRaid
                             ? "bg-rose-500/80 hover:bg-rose-600 text-white"
                             : "bg-indigo-500/80 hover:bg-indigo-600 text-white"
                     }`}
                 >
-                    <Sword className={`w-4 h-4 mr-1.5 ${currentBoss ? "animate-pulse" : ""}`} />
-                    {currentBoss ? "จัดการบอส" : "อัญเชิญบอส"}
+                    <Sword className={`w-4 h-4 mr-1.5 ${hasRaid ? "animate-pulse" : ""}`} />
+                    {hasRaid ? "จัดการบอส" : "อัญเชิญบอส"}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-2xl w-[95vw] max-h-[90vh] flex flex-col p-0 rounded-3xl shadow-2xl border-0 overflow-hidden bg-[#F8FAFC]">
@@ -155,67 +176,35 @@ export function SummonBossDialog({
                 <div className="flex flex-col overflow-y-auto px-6 pb-6 pt-6">
                     <DialogHeader className="pt-2">
                         <DialogTitle className="text-2xl font-black flex items-center gap-2">
-                            {currentBoss ? "ภารกิจกำจัดบอส" : "อัญเชิญบอสประจำห้องเรียน"}
+                            {hasRaid && !showWizard ? "ภารกิจกำจัดบอส" : "อัญเชิญบอสประจำห้องเรียน"}
                         </DialogTitle>
                         <DialogDescription>
-                            {currentBoss
-                                ? "บอสกำลังคุกคามห้องเรียน! งานของนักเรียนทุกคนจะกลายเป็นดาเมจ"
+                            {hasRaid && !showWizard
+                                ? "เทมเพลตบอสประจำห้อง — แต่ละนักเรียนมี HP / ความคืบหน้าเป็นของตัวเอง"
                                 : "เลือกบอส ระดับความยาก และตั้งค่ารางวัล"}
                         </DialogDescription>
                     </DialogHeader>
 
-                    {currentBoss ? (
-                        /* ── Active boss management ── */
-                        <div className="mt-4 space-y-4">
-                            <div className="flex flex-col items-center gap-3">
-                                <div className="relative w-32 h-32">
-                                    <div className="absolute inset-0 bg-rose-500/10 rounded-full blur-2xl" />
+                    {hasRaid && !showWizard ? (
+                        <div className="mt-4 space-y-3">
+                            <div className="flex gap-3 items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                                <div className="relative w-16 h-16 shrink-0">
                                     <Image
-                                        src={(currentBoss.image as string) ?? "/assets/monsters/lethargy_dragon.png"}
-                                        alt="Boss"
-                                        width={128}
-                                        height={128}
-                                        className="relative z-10 drop-shadow-2xl animate-bounce object-contain"
-                                        style={{ animationDuration: "3s" }}
+                                        src={(raidTemplate?.image as string) ?? "/assets/monsters/lethargy_dragon.png"}
+                                        alt=""
+                                        width={64}
+                                        height={64}
+                                        className="object-contain"
                                     />
                                 </div>
-                                <div className="text-center">
-                                    <p className="font-black text-xl text-slate-800">{currentBoss.name as string}</p>
-                                    <p className="text-sm text-slate-500">{currentBoss.element as string} {currentBoss.elementIcon as string}</p>
-                                </div>
-                            </div>
-                            <div className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-sm font-bold text-slate-500">สถานะ:</span>
-                                    <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 uppercase">ACTIVE</span>
-                                </div>
-                                <div className="space-y-1">
-                                    <div className="flex justify-between text-xs font-black">
-                                        <span className="text-slate-600">BOSS HP</span>
-                                        <span className="text-indigo-600">
-                                            {currentBoss.currentHp as number} / {currentBoss.maxHp as number}
-                                        </span>
-                                    </div>
-                                    <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden border border-slate-300 shadow-inner">
-                                        <div
-                                            className="h-full bg-gradient-to-r from-rose-500 to-rose-600 transition-all duration-1000"
-                                            style={{ width: `${((currentBoss.currentHp as number) / (currentBoss.maxHp as number)) * 100}%` }}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-3 gap-2 pt-1">
-                                    <div className="bg-white rounded-xl p-2 text-center border border-slate-100">
-                                        <p className="text-[10px] text-slate-400 uppercase font-bold">รางวัลทอง</p>
-                                        <p className="font-black text-amber-600">{currentBoss.rewardGold as number}</p>
-                                    </div>
-                                    <div className="bg-white rounded-xl p-2 text-center border border-slate-100">
-                                        <p className="text-[10px] text-slate-400 uppercase font-bold">รางวัล XP</p>
-                                        <p className="font-black text-blue-600">{currentBoss.rewardXp as number}</p>
-                                    </div>
-                                    <div className="bg-white rounded-xl p-2 text-center border border-slate-100">
-                                        <p className="text-[10px] text-slate-400 uppercase font-bold">ระดับ</p>
-                                        <p className="font-black text-purple-600">{currentBoss.difficulty as string}</p>
-                                    </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-black text-slate-800 truncate">{raidTemplate?.name ?? "—"}</p>
+                                        <p className="text-[10px] text-slate-500">
+                                        {(raidTemplate?.maxHp ?? 0).toLocaleString()} HP ต่อคน · {raidTemplate?.difficulty ?? ""}
+                                    </p>
+                                    <p className="text-[10px] text-slate-400 mt-0.5">
+                                        รางวัล 🪙 {raidTemplate?.rewardGold ?? 0} · ✨ {raidTemplate?.rewardXp ?? 0} XP
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -442,18 +431,36 @@ export function SummonBossDialog({
                     )}
                 </div>
 
-                <DialogFooter className="px-6 pb-6 gap-2 sm:gap-0">
-                    {currentBoss ? (
-                        <Button
-                            variant="destructive"
-                            onClick={handleDismiss}
-                            disabled={loading}
-                            className="bg-rose-600 hover:bg-rose-700 w-full sm:w-auto"
-                        >
-                            <Trash2 className="w-4 h-4 mr-2" /> ยกเลิกบอส
-                        </Button>
+                <DialogFooter className="px-6 pb-6 gap-2 sm:gap-0 flex-col sm:flex-row sm:justify-end">
+                    {hasRaid && !showWizard ? (
+                        <div className="flex flex-wrap gap-2 w-full justify-end">
+                            <Button
+                                variant="destructive"
+                                onClick={() => void handleDismissAll()}
+                                disabled={loading}
+                                className="bg-rose-600 hover:bg-rose-700"
+                            >
+                                <Trash2 className="w-4 h-4 mr-2" /> ยกเลิกทั้งหมด
+                            </Button>
+                            <Button
+                                onClick={() => setShowWizard(true)}
+                                disabled={loading}
+                                className="bg-indigo-600 hover:bg-indigo-700 font-black"
+                            >
+                                <Sword className="w-4 h-4 mr-2" /> เปลี่ยนบอส
+                            </Button>
+                        </div>
                     ) : (
-                        <div className="flex gap-2 w-full sm:w-auto">
+                        <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
+                            {hasRaid && showWizard && (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowWizard(false)}
+                                    disabled={loading}
+                                >
+                                    <ChevronLeft className="w-4 h-4 mr-1" /> กลับรายการ
+                                </Button>
+                            )}
                             {step > 1 && (
                                 <Button
                                     variant="outline"
@@ -473,7 +480,7 @@ export function SummonBossDialog({
                                 </Button>
                             ) : (
                                 <Button
-                                    onClick={handleSummon}
+                                    onClick={() => void handleSummon()}
                                     disabled={loading}
                                     className="flex-1 sm:flex-initial bg-indigo-600 hover:bg-indigo-700 font-black"
                                 >

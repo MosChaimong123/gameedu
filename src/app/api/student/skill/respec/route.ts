@@ -6,8 +6,10 @@ import { RPG_ROUTE_ERROR, RpgRouteError, toSkillTreeErrorResponse } from "@/lib/
 import {
   applySkillRespec,
   calculateRespecCost,
+  clampSkillTreeStateToSkills,
   normalizeSkillTreeState,
 } from "@/lib/game/skill-tree";
+import { getMergedClassDef, resolveEffectiveJobKey } from "@/lib/game/job-system";
 
 type RespecBody = {
   studentId?: string;
@@ -29,7 +31,14 @@ export async function POST(req: NextRequest) {
     const updated = await db.$transaction(async (tx) => {
       const student = await tx.student.findUnique({
         where: { id: studentId },
-        select: { id: true, userId: true, gameStats: true },
+        select: {
+          id: true,
+          userId: true,
+          gameStats: true,
+          jobClass: true,
+          jobTier: true,
+          advanceClass: true,
+        },
       });
       if (!student) throw new RpgRouteError(RPG_ROUTE_ERROR.studentNotFound);
       if (student.userId !== userId) throw new Error("FORBIDDEN");
@@ -50,7 +59,14 @@ export async function POST(req: NextRequest) {
         },
         level
       );
-      const nextState = applySkillRespec(state);
+      const jobKey = resolveEffectiveJobKey({
+        jobClass: student.jobClass,
+        jobTier: student.jobTier,
+        advanceClass: student.advanceClass,
+      });
+      const classDef = getMergedClassDef(jobKey);
+      const balancedState = clampSkillTreeStateToSkills(state, classDef.skills);
+      const nextState = applySkillRespec(balancedState);
       const nextStats = {
         ...gameStats,
         ...nextState,

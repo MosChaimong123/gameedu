@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
 import { getQuestProgress } from "@/lib/game/quest-engine";
+import { getBossRaidTemplate } from "@/lib/game/personal-classroom-boss";
 
 export async function GET(
   req: NextRequest,
@@ -38,29 +39,6 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Boss status
-    const settings =
-      classroom.gamifiedSettings && typeof classroom.gamifiedSettings === "object"
-        ? (classroom.gamifiedSettings as Record<string, unknown>)
-        : {};
-    const bossRaw = settings.boss as Record<string, unknown> | null | undefined;
-    const boss = bossRaw?.active
-      ? {
-          active: true,
-          name: (bossRaw.name as string) ?? "Unknown",
-          hpPct:
-            typeof bossRaw.currentHp === "number" && typeof bossRaw.maxHp === "number" && bossRaw.maxHp > 0
-              ? Math.round((bossRaw.currentHp / bossRaw.maxHp) * 100)
-              : 100,
-          elementKey: (bossRaw.elementKey as string) ?? null,
-          difficulty: (bossRaw.difficulty as string) ?? null,
-        }
-      : null;
-
-    // Build student stat lists
-    type StudentRow = { id: string; name: string; jobClass: string | null; gameStats: unknown; questProgress: unknown };
-    const students: StudentRow[] = classroom.students;
-
     const parseStats = (gs: unknown): Record<string, unknown> => {
       if (!gs) return {};
       if (typeof gs === "string") {
@@ -68,6 +46,37 @@ export async function GET(
       }
       return gs as Record<string, unknown>;
     };
+
+    // Boss status — personal boss system
+    const template = getBossRaidTemplate(
+      (classroom.gamifiedSettings ?? {}) as Record<string, unknown>
+    );
+
+    let boss: { active: boolean; name: string; hpPct: number; elementKey: string | null; difficulty: string | null } | null = null;
+    if (template) {
+      // Average remaining HP% across students who have an active personal boss
+      let totalHpPct = 0;
+      let activeCount = 0;
+      for (const s of classroom.students) {
+        const pb = (parseStats(s.gameStats) as Record<string, unknown>)
+          ?.personalClassroomBoss as Record<string, unknown> | undefined;
+        if (pb && pb.active === true && typeof pb.currentHp === "number" && template.maxHp > 0) {
+          totalHpPct += Math.max(0, (pb.currentHp as number) / template.maxHp) * 100;
+          activeCount++;
+        }
+      }
+      boss = {
+        active: true,
+        name: template.name,
+        hpPct: activeCount > 0 ? Math.round(totalHpPct / activeCount) : 100,
+        elementKey: template.elementKey ?? null,
+        difficulty: template.difficulty ?? null,
+      };
+    }
+
+    // Build student stat lists
+    type StudentRow = { id: string; name: string; jobClass: string | null; gameStats: unknown; questProgress: unknown };
+    const students: StudentRow[] = classroom.students;
 
     const toNum = (v: unknown): number => (typeof v === "number" ? v : 0);
 

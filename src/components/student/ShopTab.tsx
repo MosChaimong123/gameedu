@@ -205,7 +205,7 @@ export function ShopTab({
     if (currentPoints !== undefined) setPoints(currentPoints);
   }, [currentPoints]);
 
-  const loadShop = useCallback(async () => {
+  const loadShop = useCallback(async (options?: { silent?: boolean }) => {
     try {
       setLoading(true);
       const response = await fetch(`/api/shop?studentId=${studentId}`);
@@ -219,6 +219,12 @@ export function ShopTab({
       setGold(data.gold || 0);
       setGems(data.gems || 0);
       setPoints(data.points || 0);
+      if (!options?.silent) {
+        toast({
+          title: "อัปเดตรายการแล้ว",
+          description: "โหลดสินค้าและยอดเงินล่าสุด",
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "โหลดร้านค้าไม่สำเร็จ";
       toast({
@@ -232,7 +238,7 @@ export function ShopTab({
   }, [studentId, toast]);
 
   useEffect(() => {
-    void loadShop();
+    void loadShop({ silent: true });
   }, [loadShop]);
 
   const filteredItems = useMemo(() => {
@@ -291,7 +297,7 @@ export function ShopTab({
       });
 
       onUpdate?.();
-      void loadShop();
+      void loadShop({ silent: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : "ซื้อไอเทมไม่สำเร็จ";
       toast({
@@ -354,7 +360,10 @@ export function ShopTab({
               variant="outline"
               size="icon"
               onClick={() => void loadShop()}
-              className="h-12 w-12 rounded-2xl border-white/80 bg-white/85 text-slate-500 shadow-[0_16px_35px_-28px_rgba(15,23,42,0.75)] hover:bg-white"
+              disabled={loading}
+              title="โหลดร้านค้าใหม่"
+              aria-label="โหลดร้านค้าใหม่"
+              className="h-12 w-12 rounded-2xl border-white/80 bg-white/85 text-slate-500 shadow-[0_16px_35px_-28px_rgba(15,23,42,0.75)] hover:bg-white disabled:opacity-60"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </Button>

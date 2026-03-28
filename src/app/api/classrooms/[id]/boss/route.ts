@@ -10,6 +10,8 @@ import {
   DIFFICULTY_MATERIALS,
   XP_FROM_GOLD_RATIO,
 } from "@/lib/game/boss-config";
+import { persistGamifiedSettingsWithBossTemplate } from "@/lib/game/personal-classroom-boss";
+import { randomUUID } from "crypto";
 
 export async function POST(
   req: NextRequest,
@@ -23,7 +25,7 @@ export async function POST(
     const {
       bossId,
       difficulty = "EASY",
-      rewardGold,      // optional teacher override
+      rewardGold,
       rewardGoldMultiplier = 1.0,
     } = body;
 
@@ -31,7 +33,6 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Resolve boss preset
     const bossPreset = getBossPreset(bossId);
     if (!bossPreset) {
       return NextResponse.json({ error: `Unknown boss: ${bossId}` }, { status: 400 });
@@ -42,7 +43,6 @@ export async function POST(
       return NextResponse.json({ error: `Unknown difficulty: ${difficulty}` }, { status: 400 });
     }
 
-    // 1. Verify teacher owns the classroom
     const classroom = await db.classroom.findUnique({
       where: { id: classroomId },
       select: { gamifiedSettings: true, teacherId: true },
@@ -58,39 +58,36 @@ export async function POST(
     const materials = DIFFICULTY_MATERIALS[difficulty] ?? [];
 
     const existing = (classroom.gamifiedSettings as Record<string, unknown>) || {};
+    const template = {
+      templateId: randomUUID(),
+      bossId,
+      difficulty,
+      name: bossPreset.name,
+      image: bossPreset.image,
+      element: bossPreset.element,
+      elementIcon: bossPreset.elementIcon,
+      elementKey: bossPreset.elementKey,
+      maxHp,
+      rewardGold: gold,
+      rewardXp: xp,
+      rewardMaterials: materials,
+      passiveDamageMultiplier: bossPreset.passiveDamageMultiplier,
+      createdAt: new Date().toISOString(),
+    };
+
     const updatedClassroom = await db.classroom.update({
       where: { id: classroomId },
       data: {
-        gamifiedSettings: {
-          ...existing,
-          boss: {
-            active: true,
-            bossId,
-            difficulty,
-            name: bossPreset.name,
-            image: bossPreset.image,
-            element: bossPreset.element,
-            elementIcon: bossPreset.elementIcon,
-            maxHp,
-            currentHp: maxHp,
-            rewardGold: gold,
-            rewardXp: xp,
-            rewardMaterials: materials,
-            // Skill tracking
-            triggeredSkills: [] as string[],
-            activeEffect: null,
-            // Passive multiplier from boss preset
-            passiveDamageMultiplier: bossPreset.passiveDamageMultiplier,
-            createdAt: new Date().toISOString(),
-            rewardDistributedAt: null,
-          },
-        },
+        gamifiedSettings: persistGamifiedSettingsWithBossTemplate(existing, template) as Prisma.InputJsonValue,
       },
     });
 
+    const gs = updatedClassroom.gamifiedSettings as Record<string, unknown>;
+
     return NextResponse.json({
       success: true,
-      boss: (updatedClassroom.gamifiedSettings as Record<string, unknown>).boss,
+      bossRaidTemplate: gs.bossRaidTemplate,
+      template,
     });
   } catch (error) {
     console.error("Error summoning boss:", error);
@@ -120,11 +117,12 @@ export async function DELETE(
     }
 
     const existing = (classroom.gamifiedSettings as Record<string, unknown>) || {};
-    const { boss, ...rest } = existing as { boss: unknown; [k: string]: unknown };
-    void boss; // intentionally removed
+
     await db.classroom.update({
       where: { id: classroomId },
-      data: { gamifiedSettings: rest as Prisma.InputJsonValue },
+      data: {
+        gamifiedSettings: persistGamifiedSettingsWithBossTemplate(existing, null) as Prisma.InputJsonValue,
+      },
     });
 
     return NextResponse.json({ success: true });

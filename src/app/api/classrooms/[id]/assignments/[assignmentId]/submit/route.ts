@@ -79,9 +79,9 @@ export async function POST(
         const scoreMultiplier = questions.length > 0 ? (correct / questions.length) : 0;
         const finalDamage = Math.max(1, Math.round(battleResult.damage * scoreMultiplier));
         
-        const updatedBoss = await IdleEngine.applyBossDamage(id, student.id, { 
+        const updatedBoss = await IdleEngine.applyBossDamage(id, student.id, {
             damageOverride: finalDamage,
-            consumeStamina: false 
+            consumeStamina: false,
         });
 
         // Grant XP for submitting (10 XP base + score scaling)

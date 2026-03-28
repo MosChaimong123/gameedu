@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Classroom, Student, Skill, Assignment, AssignmentSubmission } from "@prisma/client";
+import { Classroom, Student, Skill, Assignment, AssignmentSubmission, Prisma } from "@prisma/client";
 import { StudentAvatar } from "./student-avatar";
 import { AddStudentDialog } from "./add-student-dialog";
 import { StudentLoginsDialog } from "./student-logins-dialog";
@@ -33,7 +33,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { useToast } from "@/components/ui/use-toast";
 import { useSocket } from "@/components/providers/socket-provider";
 import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
-import { normalizeBossesFromGamifiedSettings } from "@/lib/game/classroom-bosses";
+import type { BossRaidTemplate } from "@/lib/game/personal-classroom-boss";
 import useSound from "use-sound";
 
 interface ClassroomDashboardProps {
@@ -96,23 +96,8 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                     )
                 }));
             } else if (payload.type === "BOSS_HP_UPDATE") {
-                const { bosses: evBosses, boss, instanceId, currentHp } = payload.data || {};
-                setClassroom((prev) => {
-                    const gs = { ...(prev.gamifiedSettings as Record<string, unknown>) || {} };
-                    if (Array.isArray(evBosses)) {
-                        return { ...prev, gamifiedSettings: { ...gs, bosses: evBosses } };
-                    }
-                    if (instanceId && boss) {
-                        const list = normalizeBossesFromGamifiedSettings(gs);
-                        const next = list.map((b) =>
-                            b.instanceId === instanceId
-                                ? { ...b, ...boss, currentHp: currentHp ?? (boss as { currentHp?: number }).currentHp }
-                                : b
-                        );
-                        return { ...prev, gamifiedSettings: { ...gs, bosses: next } };
-                    }
-                    return prev;
-                });
+                // Boss HP is per-student (gameStats.personalClassroomBoss); no shared classroom HP to merge.
+                void payload;
             } else if (payload.type === "BOSS_UPDATE") {
                 const { boss } = payload.data;
                 setClassroom(prev => ({
@@ -450,14 +435,23 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                                 <SummonBossDialog
                                     classId={classroom.id}
                                     gamifiedSettings={(classroom.gamifiedSettings as Record<string, unknown>) || {}}
-                                    onBossesUpdated={(bosses) =>
-                                        setClassroom((prev) => ({
-                                            ...prev,
-                                            gamifiedSettings: {
+                                    onRaidTemplateChange={(template: BossRaidTemplate | null) =>
+                                        setClassroom((prev) => {
+                                            const gs = {
                                                 ...((prev.gamifiedSettings as Record<string, unknown>) || {}),
-                                                bosses,
-                                            } as any,
-                                        }))
+                                            };
+                                            if (template) {
+                                                gs.bossRaidTemplate = template;
+                                            } else {
+                                                delete gs.bossRaidTemplate;
+                                                delete gs.bosses;
+                                                delete gs.boss;
+                                            }
+                                            return {
+                                                ...prev,
+                                                gamifiedSettings: gs as unknown as Prisma.JsonValue,
+                                            };
+                                        })
                                     }
                                 />
                                 <ClassroomRankSettingsDialog classroom={classroom} />

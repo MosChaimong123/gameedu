@@ -74,7 +74,7 @@ export async function POST(
         
         const updatedBoss = await IdleEngine.applyBossDamage(id, studentId, {
             damageOverride: finalDamage,
-            consumeStamina: false
+            consumeStamina: false,
         });
 
         return NextResponse.json({ 

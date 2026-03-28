@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { MATERIAL_TYPES, MATERIAL_TIER_MAP } from "@/lib/game/crafting-system";
 import { parseGameStats, toPrismaJson } from "@/lib/game/game-stats";
 import { RPG_COPY } from "@/lib/game/rpg-copy";
+import { IdleEngine } from "@/lib/game/idle-engine";
 import {
   RPG_ROUTE_ERROR,
   RpgRouteError,
@@ -213,7 +214,8 @@ export async function POST(req: NextRequest) {
 
       if (item.isLevelUp) {
         const currentLevel: number = currentGameStats.level ?? 1;
-        const newLevel = currentLevel + 1;
+        const maxLevel = IdleEngine.getMaxLevel();
+        const newLevel = Math.min(currentLevel + 1, maxLevel);
         const newCharStats = StatCalculator.compute(
           latestStudent.points ?? 0,
           (latestStudent.items ?? []) as EquippedItemSource[],
@@ -365,8 +367,12 @@ export async function POST(req: NextRequest) {
       const label = buffLabels[item.farmingBuffType] ?? item.farmingBuffType;
       message += ` ได้บัฟ ${label} เป็นเวลา ${farmingBuffTurns} เทิร์น`;
     } else if (item.isLevelUp) {
-      const newLv = result.gameStats?.level ?? "?";
-      message = `เลเวลอัปสำเร็จ ตอนนี้เป็น Lv.${newLv}`;
+      const maxLevel = IdleEngine.getMaxLevel();
+      const newLv = Number(result.gameStats?.level ?? 1);
+      message =
+        newLv >= maxLevel
+          ? `ถึงเลเวลสูงสุดแล้ว (MAX LV ${maxLevel})`
+          : `เลเวลอัปสำเร็จ ตอนนี้เป็น Lv.${newLv}`;
     }
 
     const finalGameStats = result.gameStats;

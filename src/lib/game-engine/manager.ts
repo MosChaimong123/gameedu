@@ -65,6 +65,15 @@ class GameManager {
         return undefined;
     }
 
+    public findGameByHostSocket(socketId: string): AbstractGameEngine | undefined {
+        for (const game of this.games.values()) {
+            if (game.isHostSocket(socketId)) {
+                return game;
+            }
+        }
+        return undefined;
+    }
+
     public removeGame(pin: string) {
         this.games.delete(pin);
         this.deleteGameOnDb(pin);

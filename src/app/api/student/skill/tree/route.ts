@@ -3,7 +3,13 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { parseGameStats } from "@/lib/game/game-stats";
 import { getMergedClassDef, resolveEffectiveJobKey } from "@/lib/game/job-system";
-import { buildSkillTreeView, normalizeSkillTreeState } from "@/lib/game/skill-tree";
+import {
+  buildSkillTreeView,
+  calculateGrantedSkillPoints,
+  calculateRespecCost,
+  clampSkillTreeStateToSkills,
+  normalizeSkillTreeState,
+} from "@/lib/game/skill-tree";
 
 export async function GET(req: NextRequest) {
   try {
@@ -51,21 +57,31 @@ export async function GET(req: NextRequest) {
       advanceClass: student.advanceClass,
     });
     const classDef = getMergedClassDef(jobKey);
+    const balancedState = clampSkillTreeStateToSkills(skillState, classDef.skills);
     const nodes = buildSkillTreeView({
       skills: classDef.skills,
-      state: skillState,
+      state: balancedState,
       level,
     });
+    const totalEarnedPoints = calculateGrantedSkillPoints(level);
+    const spendableInCurrentTree = nodes.reduce(
+      (sum, node) => sum + Math.max(0, (node.maxRank ?? 0) - (node.currentRank ?? 0)),
+      0
+    );
+    const bankedPoints = Math.max(0, balancedState.skillPointsAvailable - spendableInCurrentTree);
 
     return NextResponse.json({
       success: true,
       level,
       skillTree: nodes,
-      skillPointsAvailable: skillState.skillPointsAvailable,
-      skillPointsSpent: skillState.skillPointsSpent,
-      progress: skillState.skillTreeProgress,
-      respecCost: Math.max(0, 500 + level * 75),
-      lastRespecAt: skillState.lastRespecAt ?? null,
+      skillPointsAvailable: balancedState.skillPointsAvailable,
+      skillPointsSpent: balancedState.skillPointsSpent,
+      totalEarnedPoints,
+      spendableInCurrentTree,
+      bankedPoints,
+      progress: balancedState.skillTreeProgress,
+      respecCost: calculateRespecCost(level),
+      lastRespecAt: balancedState.lastRespecAt ?? null,
     });
   } catch (error) {
     console.error("[SKILL_TREE_GET_ERROR]", error);

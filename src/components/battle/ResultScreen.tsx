@@ -5,6 +5,7 @@ import { FinalReward } from "@/lib/types/game"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { IdleEngine } from "@/lib/game/idle-engine"
 
 interface ResultScreenProps {
   rewards: FinalReward[]
@@ -15,6 +16,7 @@ export function ResultScreen({ rewards, myStudentId }: ResultScreenProps) {
   const router = useRouter()
   const myReward = rewards.find((r) => r.studentId === myStudentId)
   const otherRewards = rewards.filter((r) => r.studentId !== myStudentId)
+  const maxLevel = IdleEngine.getMaxLevel()
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center p-6">
@@ -26,7 +28,12 @@ export function ResultScreen({ rewards, myStudentId }: ResultScreenProps) {
             <span className="text-xl font-bold text-white">{myReward.playerName}</span>
             {myReward.leveledUp && (
               <Badge className="bg-amber-500 text-black font-bold animate-pulse">
-                LEVEL UP! -&gt; {myReward.newLevel}
+                LEVEL UP! -&gt; {Math.min(myReward.newLevel, maxLevel)}
+              </Badge>
+            )}
+            {myReward.newLevel >= maxLevel && (
+              <Badge className="bg-emerald-500 text-white font-bold">
+                MAX LV {maxLevel}
               </Badge>
             )}
           </div>
@@ -79,6 +86,9 @@ export function ResultScreen({ rewards, myStudentId }: ResultScreenProps) {
                 <span className="font-semibold text-sm">{r.playerName}</span>
                 {r.leveledUp && (
                   <Badge className="bg-amber-500 text-black text-xs">LEVEL UP</Badge>
+                )}
+                {r.newLevel >= maxLevel && (
+                  <Badge className="bg-emerald-500 text-white text-xs">MAX LV {maxLevel}</Badge>
                 )}
               </div>
               <div className="flex gap-4 text-sm">

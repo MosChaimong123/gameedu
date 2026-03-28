@@ -7,6 +7,7 @@ import { Loader2, User, Volume2, VolumeX } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { SoundController } from "@/components/game/sound-controller"
 import { useSound } from "@/hooks/use-sound"
+import { clearPlayerSession, getPlayerSession } from "@/lib/player-session"
 
 export default function PlayerLobbyPage() {
     const router = useRouter()
@@ -26,21 +27,25 @@ export default function PlayerLobbyPage() {
 
     useEffect(() => {
         // Retrieve session
-        const storedName = sessionStorage.getItem("player_name")
-        const storedPin = sessionStorage.getItem("game_pin")
+        const playerSession = getPlayerSession()
 
-        if (!storedName || !storedPin) {
+        if (!playerSession) {
             router.push("/play")
             return
         }
 
-        setName(storedName)
-        setPin(storedPin)
+        setName(playerSession.name)
+        setPin(playerSession.pin)
         setAvatarSeed(Math.floor(Math.random() * 1000))
 
-        if (socket && storedPin) {
-            console.log("Lobby: Requesting game state for", storedPin);
-            socket.emit("get-game-state", { pin: storedPin });
+        if (socket) {
+            socket.emit("join-game", {
+                pin: playerSession.pin,
+                nickname: playerSession.name,
+                reconnectToken: playerSession.reconnectToken,
+            })
+            console.log("Lobby: Requesting game state for", playerSession.pin);
+            socket.emit("get-game-state", { pin: playerSession.pin });
         }
 
         // Listen for game start
@@ -117,7 +122,7 @@ export default function PlayerLobbyPage() {
                         if (socket && pin) {
                             socket.emit("leave-game", { pin });
                         }
-                        sessionStorage.clear();
+                        clearPlayerSession()
                         router.push("/play");
                     }}
                     className="text-red-500 hover:text-red-400 text-sm font-bold hover:underline transition-colors"

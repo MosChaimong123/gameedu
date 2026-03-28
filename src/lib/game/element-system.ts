@@ -109,3 +109,77 @@ export function getElementLabel(multiplier: number): string {
   if (multiplier < 1) return "🔻 เสียเปรียบธาตุ -20%";
   return "";
 }
+
+// ─── Party Combo System ──────────────────────────────────────────────────────
+
+const TANK_JOBS = new Set([
+  "WARRIOR", "KNIGHT", "BERSERKER", "GUARDIAN", "PALADIN", "WARLORD", "DEATH KNIGHT",
+]);
+const HEALER_JOBS = new Set([
+  "HEALER", "SAINT", "DRUID", "ARCHBISHOP", "DIVINE HERALD", "ELDER DRUID", "NATURE WARDEN",
+]);
+const MAGE_JOBS = new Set([
+  "MAGE", "ARCHMAGE", "GRAND WIZARD", "ELEMENTALIST", "WARLOCK", "LICH", "SHADOW MAGE",
+]);
+const ROGUE_JOBS = new Set([
+  "ROGUE", "ASSASSIN", "DUELIST", "SHADOW LORD", "PHANTOM", "BLADE MASTER", "SWORD SAINT",
+]);
+const RANGER_JOBS = new Set([
+  "RANGER", "SNIPER", "HAWKEYE", "DEADEYE", "BEASTMASTER", "BEAST KING", "TAMER",
+]);
+
+function getJobCategory(jobClass: string): string {
+  const j = jobClass.toUpperCase();
+  if (TANK_JOBS.has(j)) return "TANK";
+  if (HEALER_JOBS.has(j)) return "HEALER";
+  if (MAGE_JOBS.has(j)) return "MAGE";
+  if (ROGUE_JOBS.has(j)) return "ROGUE";
+  if (RANGER_JOBS.has(j)) return "RANGER";
+  return "UNKNOWN";
+}
+
+// Combo pair → [categoryA, categoryB, multiplier, label]
+const COMBO_TABLE: [string, string, number, string][] = [
+  ["TANK",   "HEALER", 1.20, "🛡️🌿 Tank+Healer Combo! +20%"],
+  ["MAGE",   "ROGUE",  1.15, "🔮🗡️ Dark Synergy! +15%"],
+  ["RANGER", "MAGE",   1.10, "🏹🔮 Range+Magic! +10%"],
+];
+
+/**
+ * Returns combo multiplier if attacker's job synergizes with any job in recentJobClasses.
+ * recentJobClasses: job classes that attacked within the last 10 seconds.
+ */
+export function getComboMultiplier(
+  attackerJobClass: string | null | undefined,
+  recentJobClasses: string[]
+): { multiplier: number; label: string } {
+  if (!attackerJobClass || recentJobClasses.length === 0) {
+    return { multiplier: 1.0, label: "" };
+  }
+
+  const attackerCat = getJobCategory(attackerJobClass);
+  const recentCats = new Set(recentJobClasses.map(getJobCategory));
+
+  let bestMult = 1.0;
+  let bestLabel = "";
+
+  for (const [catA, catB, mult, label] of COMBO_TABLE) {
+    const match =
+      (attackerCat === catA && recentCats.has(catB)) ||
+      (attackerCat === catB && recentCats.has(catA));
+    if (match && mult > bestMult) {
+      bestMult = mult;
+      bestLabel = label;
+    }
+  }
+
+  return { multiplier: bestMult, label: bestLabel };
+}
+
+/** Check if any recent job class combos with the attacker (for UI badge) */
+export function hasComboOpportunity(
+  attackerJobClass: string | null | undefined,
+  recentJobClasses: string[]
+): boolean {
+  return getComboMultiplier(attackerJobClass, recentJobClasses).multiplier > 1.0;
+}

@@ -38,6 +38,7 @@ export default function HostLobbyPage() {
     // Timer State
     const [timeLeft, setTimeLeft] = useState(0)
     const [endTime, setEndTime] = useState<number | null>(null)
+    const hostTokenStorageKey = `host_reconnect_token_${setId}`
 
     // BGM Management
     useEffect(() => {
@@ -61,11 +62,11 @@ export default function HostLobbyPage() {
 
         // ... (rest of existing effect) ...
         const savedPin = sessionStorage.getItem(`host_pin_${setId}`)
+        const savedHostToken = sessionStorage.getItem(hostTokenStorageKey)
 
-        if (savedPin) {
+        if (savedPin && savedHostToken) {
             console.log("Attempting to reconnect as host:", savedPin);
-            // Re-join existing room
-            socket.emit("join-game", { pin: savedPin, nickname: "HOST" })
+            socket.emit("reconnect-host", { pin: savedPin, reconnectToken: savedHostToken })
             setPin(savedPin)
             setLoading(false)
             // View update will trigger BGM change
@@ -79,11 +80,16 @@ export default function HostLobbyPage() {
         }
 
         // Listeners
-        socket.on("game-created", (data: { pin: string }) => {
+        socket.on("game-created", (data: { pin: string, hostReconnectToken: string }) => {
             setPin(data.pin)
             sessionStorage.setItem(`host_pin_${setId}`, data.pin)
+            sessionStorage.setItem(hostTokenStorageKey, data.hostReconnectToken)
             setLoading(false)
             setView("LOBBY")
+        })
+
+        socket.on("host-reconnected", (data: { status: "LOBBY" | "PLAYING" | "ENDED" }) => {
+            setView(data.status === "LOBBY" ? "LOBBY" : data.status)
         })
 
         socket.on("player-joined", (data: { players: (GoldQuestPlayer | CryptoHackPlayer)[] }) => {
@@ -136,13 +142,15 @@ export default function HostLobbyPage() {
             setView("ENDED");
             setEndTime(null);
             sessionStorage.removeItem(`host_pin_${setId}`);
+            sessionStorage.removeItem(hostTokenStorageKey);
         })
 
         socket.on("error", (err: { message: string }) => {
             console.error("Socket Error:", err);
-            if (err.message === "Game not found" || err.message === "Game is locked") {
+            if (err.message === "Game not found" || err.message === "Game is locked" || err.message === "Host reconnection denied") {
                 // Clear invalid session and retry
                 sessionStorage.removeItem(`host_pin_${setId}`);
+                sessionStorage.removeItem(hostTokenStorageKey);
                 window.location.reload();
             }
         })
@@ -150,6 +158,7 @@ export default function HostLobbyPage() {
         return () => {
             stopBGM() // Stop on unmount
             socket.off("game-created")
+            socket.off("host-reconnected")
             socket.off("player-joined")
             socket.off("game-started")
             socket.off("game-state-update")
@@ -157,7 +166,7 @@ export default function HostLobbyPage() {
             socket.off("game-over")
             socket.off("error")
         }
-    }, [socket, isConnected, session, setId])
+    }, [socket, isConnected, session, setId, hostTokenStorageKey])
 
     // Timer Interval
     // ... (keep existing) ...
@@ -420,6 +429,7 @@ export default function HostLobbyPage() {
                         if (confirm("End this game and return to menu?")) {
                             handleEndGame();
                             sessionStorage.removeItem(`host_pin_${setId}`);
+                            sessionStorage.removeItem(hostTokenStorageKey);
                             setPin(null);
                             setPlayers([]);
                             setView("SELECT_MODE");

@@ -66,7 +66,8 @@ export default function BattlePage() {
     if (!socket || !pin) return
 
     const name = sessionStorage.getItem("player_name") ?? "Player"
-    socket.emit("join-game", { pin, nickname: name })
+    const reconnectToken = sessionStorage.getItem(`player_reconnect_token_${pin}_${name}`)
+    socket.emit("join-game", { pin, nickname: name, reconnectToken: reconnectToken ?? undefined })
 
     socket.on("battle-state", (data: { phase: BattlePhase; players: BattlePlayer[]; boss: BossState | null }) => {
       setBattlePhase(data.phase)

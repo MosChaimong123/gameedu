@@ -648,7 +648,7 @@ function mergeJobDefinitions(
 function ensureSkillTreeMeta(skill: Skill): Skill {
   return {
     ...skill,
-    maxRank: skill.maxRank ?? 3,
+    maxRank: skill.maxRank ?? 6,
     requiredLevel: skill.requiredLevel ?? skill.unlockLevel,
     prerequisite: Array.isArray(skill.prerequisite) ? skill.prerequisite : [],
     rankScales: {
@@ -801,6 +801,37 @@ export function getNewlyUnlockedSkills(
     )
     .map((skill) => skill.id)
     .filter((id) => !currentSet.has(id));
+}
+
+/**
+ * Apply job skill unlocks when a student levels up.
+ * - Uses effective job key (base/advance/master resolved via resolveEffectiveJobKey).
+ * - If the student has no stored skills yet (empty/null jobSkills), we initialize from all
+ *   skills unlocked at `newLevel` (fixes NOVICE + early levels edge cases).
+ * - Otherwise we append only "newly unlocked" skills between (oldLevel, newLevel].
+ */
+export function applyJobSkillUnlocksOnLevelUp(params: {
+  jobClass: string | null;
+  jobTier: JobTier | string | null;
+  advanceClass: string | null;
+  oldLevel: number;
+  newLevel: number;
+  currentJobSkills?: string[] | null;
+}): string[] {
+  const { jobClass, jobTier, advanceClass, oldLevel, newLevel, currentJobSkills } = params;
+
+  const jobKey = resolveEffectiveJobKey({ jobClass, jobTier, advanceClass });
+  const currentIds = Array.isArray(currentJobSkills) ? currentJobSkills : [];
+
+  if (newLevel <= oldLevel) return Array.from(new Set(currentIds));
+
+  // Initialization path: if jobSkills is missing/empty, backfill from unlock table.
+  if (currentIds.length === 0) {
+    return getSkillsForLevel(jobKey, newLevel).map((s) => s.id);
+  }
+
+  const newlyUnlocked = getNewlyUnlockedSkills(jobKey, oldLevel, newLevel, currentIds);
+  return Array.from(new Set([...currentIds, ...newlyUnlocked]));
 }
 
 /**

@@ -1431,7 +1431,7 @@ export class BattleTurnEngine extends AbstractGameEngine {
 
     switch (eventName) {
       case "start-battle":
-        if (socket.id === this.hostId) {
+        if (this.isHostSocket(socket.id)) {
           this.startGame();
         }
         break;

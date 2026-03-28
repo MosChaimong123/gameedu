@@ -17,7 +17,7 @@ export async function POST(
 
     try {
         const body = await req.json();
-        const { studentId, skillId, weight } = body;
+        const { studentId, skillId } = body;
 
         if (!studentId || !skillId) {
             return new NextResponse("Missing data", { status: 400 });
@@ -35,6 +35,15 @@ export async function POST(
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
+        const student = await db.student.findUnique({
+            where: { id: studentId },
+            select: { id: true, classId: true, loginCode: true }
+        });
+
+        if (!student || student.classId !== classroom.id) {
+            return new NextResponse("Student not found", { status: 404 });
+        }
+
         // Get Skill details
         const skill = await db.skill.findUnique({
             where: { id: skillId }
@@ -46,7 +55,7 @@ export async function POST(
 
         // Update Student Points
         const updatedStudent = await db.student.update({
-            where: { id: studentId },
+            where: { id: student.id },
             data: {
                 points: { increment: skill.weight },
                 history: {
@@ -61,16 +70,16 @@ export async function POST(
  
         // Trigger Stamina Refill if good deed is significant
         if (skill.weight >= 10) {
-            await IdleEngine.handleStaminaRefill(studentId, skill.weight);
+            await IdleEngine.handleStaminaRefill(student.id, skill.weight);
         }
 
         // Send Notification to Student
         await sendNotification({
-            studentId,
+            studentId: student.id,
             title: skill.weight > 0 ? "ได้รับคะแนน!" : "โดนหักคะแนน!",
             message: `คุณได้รับ ${skill.weight} คะแนน ในทักษะ: ${skill.name}`,
             type: "POINT",
-            link: `/student/${updatedStudent.loginCode}`
+            link: `/student/${student.loginCode ?? updatedStudent.loginCode}`
         });
 
         return NextResponse.json(updatedStudent);

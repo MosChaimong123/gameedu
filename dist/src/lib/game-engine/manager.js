@@ -1,0 +1,191 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.gameManager = void 0;
+const gold_quest_engine_1 = require("./gold-quest-engine");
+const crypto_hack_engine_1 = require("./crypto-hack-engine");
+const battle_turn_engine_1 = require("./battle-turn-engine");
+const db_1 = require("../db");
+class GameManager {
+    constructor() {
+        this.loopInterval = null;
+        this.games = new Map();
+        this.startGameLoop();
+    }
+    static getInstance() {
+        if (!GameManager.instance) {
+            GameManager.instance = new GameManager();
+        }
+        return GameManager.instance;
+    }
+    createGame(mode, pin, hostId, setId, settings, questions, io) {
+        let game;
+        if (mode === "GOLD_QUEST") {
+            game = new gold_quest_engine_1.GoldQuestEngine(pin, hostId, setId, settings, questions, io);
+        }
+        else if (mode === "CRYPTO_HACK") {
+            game = new crypto_hack_engine_1.CryptoHackEngine(pin, hostId, setId, settings, questions, io);
+        }
+        else if (mode === "BATTLE_TURN") {
+            game = new battle_turn_engine_1.BattleTurnEngine(pin, hostId, setId, settings, questions, io);
+        }
+        else {
+            // Default fallback
+            game = new gold_quest_engine_1.GoldQuestEngine(pin, hostId, setId, settings, questions, io);
+        }
+        this.games.set(pin, game);
+        this.saveGame(game); // Initial Save
+        console.log(`[GameManager] Created game ${pin} (Mode: ${mode})`);
+        return game;
+    }
+    getGame(pin) {
+        return this.games.get(pin);
+    }
+    findGameBySocket(socketId) {
+        for (const game of this.games.values()) {
+            if (game.getPlayer(socketId)) {
+                return game;
+            }
+        }
+        return undefined;
+    }
+    removeGame(pin) {
+        this.games.delete(pin);
+        this.deleteGameOnDb(pin);
+        console.log(`[GameManager] Removed game ${pin}`);
+    }
+    setIO(io) {
+        this.io = io;
+        for (const game of this.games.values()) {
+            game.setIO(io);
+        }
+    }
+    // --- Persistence ---
+    async saveGameToHistory(game) {
+        if (!game.startTime || game.hasArchived)
+            return;
+        try {
+            await db_1.db.gameHistory.create({
+                data: {
+                    hostId: game.hostId,
+                    setId: game.setId,
+                    gameMode: game.gameMode,
+                    pin: game.pin,
+                    startedAt: new Date(game.startTime),
+                    endedAt: new Date(game.endTime || Date.now()),
+                    settings: game.settings,
+                    players: JSON.parse(JSON.stringify(game.players))
+                }
+            });
+            console.log(`[Persistence] History archived for game ${game.pin}`);
+            game.hasArchived = true;
+        }
+        catch (err) {
+            console.error(`[Persistence] Failed to archive history for ${game.pin}`, err);
+        }
+    }
+    async saveGame(game) {
+        // ... (existing save logic)
+        try {
+            const data = game.serialize();
+            await db_1.db.activeGame.upsert({
+                where: { pin: game.pin },
+                update: {
+                    state: data.state,
+                    players: data.players, // JSON
+                    settings: data.settings,
+                    startTime: data.startTime ? new Date(data.startTime) : null,
+                },
+                create: {
+                    pin: game.pin,
+                    gameMode: game.gameMode, // Dynamic game mode
+                    hostId: game.hostId,
+                    settings: data.settings,
+                    players: data.players,
+                    questions: data.questions,
+                    startTime: data.startTime ? new Date(data.startTime) : null,
+                    state: data.state
+                }
+            });
+        }
+        catch (err) {
+            console.error(`[Persistence] Failed to save game ${game.pin}`, err);
+        }
+    }
+    async deleteGameOnDb(pin) {
+        try {
+            await db_1.db.activeGame.delete({ where: { pin } }).catch(() => { });
+        }
+        catch (err) {
+            // Ignore error if already deleted
+        }
+    }
+    async recoverGames() {
+        console.log("[Persistence] Recovering games...");
+        try {
+            // Auto-delete stale games older than 24 hours
+            const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const stale = await db_1.db.activeGame.deleteMany({ where: { updatedAt: { lt: cutoff } } });
+            if (stale.count > 0)
+                console.log(`[Persistence] Cleaned up ${stale.count} stale game(s)`);
+            const activeGames = await db_1.db.activeGame.findMany();
+            for (const record of activeGames) {
+                if (this.games.has(record.pin))
+                    continue;
+                let game;
+                if (record.gameMode === "CRYPTO_HACK") {
+                    game = new crypto_hack_engine_1.CryptoHackEngine(record.pin, record.hostId, "", record.settings, record.questions, null);
+                }
+                else if (record.gameMode === "BATTLE_TURN") {
+                    game = new battle_turn_engine_1.BattleTurnEngine(record.pin, record.hostId, "", record.settings, record.questions, null);
+                }
+                else {
+                    // Default to Gold Quest
+                    game = new gold_quest_engine_1.GoldQuestEngine(record.pin, record.hostId, "", record.settings, record.questions, null);
+                }
+                // restore data
+                game.restore({
+                    ...record,
+                    state: record.state
+                });
+                this.games.set(record.pin, game);
+                console.log(`[Persistence] Recovered game ${record.pin} (${record.gameMode})`);
+            }
+        }
+        catch (err) {
+            console.error("[Persistence] Recovery failed", err);
+        }
+    }
+    // --- Global Loop ---
+    startGameLoop() {
+        if (this.loopInterval)
+            return;
+        let tickCount = 0;
+        this.loopInterval = setInterval(() => {
+            const now = Date.now();
+            tickCount++;
+            for (const [pin, game] of this.games.entries()) {
+                // 1. Tick logic
+                try {
+                    game.tick();
+                }
+                catch (e) {
+                    console.error(`[GameManager] Error ticking game ${pin}`, e);
+                }
+                // 2. Check for End & Archive
+                if (game.status === "ENDED" && !game.hasArchived) {
+                    this.saveGameToHistory(game);
+                }
+                // 3. Cleanup Stale Games
+                if (game.status === "ENDED" && game.endTime && (now - game.endTime > 5 * 60 * 1000)) {
+                    this.removeGame(pin);
+                }
+                // 4. Persistence Snapshot (Every 5 seconds)
+                if (tickCount % 5 === 0 && game.status === "PLAYING") {
+                    this.saveGame(game);
+                }
+            }
+        }, 1000);
+        console.log("[GameManager] Helper loop started");
+    }
+}
+exports.gameManager = GameManager.getInstance();

@@ -4,6 +4,11 @@ import { db } from "@/lib/db";
 import { sendNotification } from "@/lib/notifications";
 import { IdleEngine } from "@/lib/game/idle-engine";
 
+type StudentMembership = {
+    id: string;
+    classId: string;
+};
+
 export async function POST(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -17,7 +22,7 @@ export async function POST(
 
     try {
         const body = await req.json();
-        const { studentIds, skillId, weight } = body;
+        const { studentIds, skillId } = body;
 
         if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0 || !skillId) {
             return new NextResponse("Missing data", { status: 400 });
@@ -35,6 +40,24 @@ export async function POST(
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
+        const students = await db.student.findMany({
+            where: {
+                id: { in: studentIds },
+            },
+            select: {
+                id: true,
+                classId: true,
+            }
+        });
+
+        const validStudentIds = students
+            .filter((student: StudentMembership) => student.classId === classroom.id)
+            .map((student: StudentMembership) => student.id);
+
+        if (validStudentIds.length !== studentIds.length) {
+            return new NextResponse("One or more students were not found in this classroom", { status: 404 });
+        }
+
         // Get Skill details
         const skill = await db.skill.findUnique({
             where: { id: skillId }
@@ -46,12 +69,9 @@ export async function POST(
 
         // Apply Points to all students in a transaction
         await db.$transaction(
-            studentIds.map((studentId: any) => 
+            validStudentIds.map((studentId: string) => 
                 db.student.update({
-                    where: { 
-                        id: studentId,
-                        classId: classroom.id // extra security measure
-                    },
+                    where: { id: studentId },
                     data: {
                         points: { increment: skill.weight },
                         history: {
@@ -69,13 +89,13 @@ export async function POST(
         // Trigger Stamina Refill for everyone if good deed is significant
         if (skill.weight >= 10) {
             await Promise.all(
-                studentIds.map((sid: any) => IdleEngine.handleStaminaRefill(sid, skill.weight))
+                validStudentIds.map((sid: string) => IdleEngine.handleStaminaRefill(sid, skill.weight))
             );
         }
 
         // Notify all students in parallel
         await Promise.all(
-            studentIds.map((studentId: any) => 
+            validStudentIds.map((studentId: string) => 
                 sendNotification({
                     studentId,
                     title: skill.weight > 0 ? "ทั้งชั้นเรียนได้รับคะแนน!" : "ทั้งชั้นเรียนโดนหักคะแนน!",
@@ -85,7 +105,7 @@ export async function POST(
             )
         );
 
-        return NextResponse.json({ success: true, count: studentIds.length });
+        return NextResponse.json({ success: true, count: validStudentIds.length });
 
     } catch (error) {
         console.error("[POINTS_BATCH_POST]", error);

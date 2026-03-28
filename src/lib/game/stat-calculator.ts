@@ -107,6 +107,11 @@ export type EquippedItemSource = {
 // Re-export for callers that imported SET_IDS from stat-calculator
 export { SET_IDS } from "./set-bonus-config";
 
+// ─── CTB Constants ───────────────────────────────────────────────────────────
+
+/** A character acts when their CTB counter reaches this threshold. */
+export const CTB_THRESHOLD = 1000;
+
 // ─── Special Effect IDs ──────────────────────────────────────────────────────
 
 export const EFFECT_IDS = {
@@ -428,6 +433,27 @@ export class StatCalculator {
     if (effects.has(EFFECT_IDS.SOUL_EATER))      result.hasSoulEater      = true;
 
     return result;
+  }
+
+  // ── CTB Speed ─────────────────────────────────────────────────────────────
+
+  /**
+   * Convert a character's `spd` stat to a CTB battle speed value.
+   *
+   * CTB threshold = CTB_THRESHOLD (1000).
+   * A character acts when their counter reaches the threshold.
+   * Each "tick" their counter increases by their CTB speed.
+   * → ticks_to_act = CTB_THRESHOLD / ctbSpeed
+   *
+   * Reference points (no equipment, job multipliers applied):
+   *   Guardian lv20  spd≈25  → CTBSpeed  63  (slowest)
+   *   Warrior  lv20  spd≈30  → CTBSpeed  75
+   *   Mage     lv20  spd≈30  → CTBSpeed  75
+   *   Ranger   lv20  spd≈39  → CTBSpeed  97
+   *   Rogue    lv20  spd≈42  → CTBSpeed 105  (fastest player)
+   */
+  static getCTBSpeed(spd: number): number {
+    return Math.max(40, Math.min(130, Math.round(spd * 2.5)));
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

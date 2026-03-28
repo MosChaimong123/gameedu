@@ -73,6 +73,7 @@ export interface BossPresetConfig {
   baseHp: number;         // HP at NORMAL difficulty (×1)
   passiveDescription: string;
   passiveDamageMultiplier: number; // permanent incoming damage multiplier (e.g. 0.8 = take 80%)
+  ctbSpeed: number;               // CTB turn speed (40–130); higher = acts more often
   skills: [BossSkillConfig, BossSkillConfig, BossSkillConfig];
   actions: BossAction[];  // FF-style attack rotation
 }
@@ -177,6 +178,7 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
     baseHp: 1800,
     passiveDescription: "Flame Aura — ทน HP สูง แต่เมื่อ Enrage ดาเมจที่รับเพิ่มทันที",
     passiveDamageMultiplier: 1.0,
+    ctbSpeed: 85, // aggressive — acts often
     skills: [
       {
         id: "flame_shield",
@@ -230,6 +232,7 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
     baseHp: 3000,
     passiveDescription: "Permafrost — HP สูงสุดในบรรดาบอสทั้งหมด แต่ไม่มีการลดดาเมจถาวร",
     passiveDamageMultiplier: 1.0,
+    ctbSpeed: 65, // slow and tanky — compensates with high HP
     skills: [
       {
         id: "blizzard",
@@ -283,6 +286,7 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
     baseHp: 1600,
     passiveDescription: "Shadow Veil — ลดดาเมจที่รับถาวร 15% (เงามืดปกป้อง)",
     passiveDamageMultiplier: 0.85,
+    ctbSpeed: 95, // fast and evasive — acts frequently
     skills: [
       {
         id: "shadow_cloak",
@@ -336,6 +340,7 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
     baseHp: 2200,
     passiveDescription: "Void Presence — ลดดาเมจที่รับถาวร 10%",
     passiveDamageMultiplier: 0.90,
+    ctbSpeed: 88, // moderate — unpredictable rhythm
     skills: [
       {
         id: "void_shield",
@@ -389,6 +394,7 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
     baseHp: 2400,
     passiveDescription: "Undying Will — เมื่อ HP ถึง 50% จะฟื้นฟู HP 10% ครั้งเดียว",
     passiveDamageMultiplier: 1.0,
+    ctbSpeed: 78, // moderate-slow — deliberate and methodical
     skills: [
       {
         id: "death_shroud",
@@ -442,6 +448,7 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
     baseHp: 2600,
     passiveDescription: "Holy Barrier — ลดดาเมจที่รับถาวร 20% (เกราะแสงสวรรค์)",
     passiveDamageMultiplier: 0.80,
+    ctbSpeed: 82, // moderate — steady and disciplined
     skills: [
       {
         id: "holy_shield",
@@ -495,6 +502,7 @@ export const BOSS_PRESETS: BossPresetConfig[] = [
     baseHp: 2800,
     passiveDescription: "Deep Roots — ลดดาเมจที่รับถาวร 10% และฟื้นฟู HP ได้เมื่อใช้สกิล",
     passiveDamageMultiplier: 0.90,
+    ctbSpeed: 60, // slowest boss — compensates with high HP + regen
     skills: [
       {
         id: "bark_shield",

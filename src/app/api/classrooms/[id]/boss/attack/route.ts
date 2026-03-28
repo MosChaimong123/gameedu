@@ -187,6 +187,8 @@ export async function POST(
             battleLog: result.battleLog ?? [],
             phase: result.phase ?? 1,
             hitsUntilBossAct: result.hitsUntilBossAct ?? null,
+            // CTB Timeline
+            ctbTimeline: result.ctbTimeline ?? [],
         });
 
     } catch (error) {

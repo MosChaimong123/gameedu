@@ -10,6 +10,7 @@ import { useSocket } from "@/components/providers/socket-provider";
 import { getBossPreset } from "@/lib/game/boss-config";
 import { getElementMultiplier, getJobElement, getElementLabel, hasComboOpportunity } from "@/lib/game/element-system";
 import type { BossAction, BattleLogEntry, PlayerBattleState } from "@/lib/game/boss-config";
+import type { TurnSlot } from "@/lib/game/ctb-engine";
 import type { Skill } from "@/lib/game/job-system";
 
 interface ActiveEffect {
@@ -100,6 +101,7 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, maxSt
     const [flashType, setFlashType] = useState<"attack" | "magic" | "limitBreak" | "boss" | "crit" | null>(null);
     const [isUsingPotion, setIsUsingPotion] = useState(false);
     const [currentGold, setCurrentGold] = useState(playerGold);
+    const [ctbTimeline, setCtbTimeline] = useState<TurnSlot[]>([]);
     const [staminaCountdown, setStaminaCountdown] = useState("");
     const logRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
@@ -281,6 +283,7 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, maxSt
                 battleLog?: BattleLogEntry[];
                 phase?: 1 | 2 | 3 | 4;
                 hitsUntilBossAct?: number | null;
+                ctbTimeline?: TurnSlot[];
             };
 
             if (data.success) {
@@ -317,6 +320,7 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, maxSt
                     });
                 }
                 if (data.hitsUntilBossAct !== undefined) setHitsUntilBoss(data.hitsUntilBossAct ?? null);
+                if (data.ctbTimeline?.length) setCtbTimeline(data.ctbTimeline);
                 if (typeof data.limitBreakCharge === "number") setCurrentCharge(data.limitBreakCharge);
                 if (typeof data.manaLeft === "number") setCurrentMana(data.manaLeft);
 
@@ -605,8 +609,8 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, maxSt
                                 <span className={`text-[10px] font-black tabular-nums shrink-0 ${isStaggered ? "text-amber-600" : "text-slate-500"}`}>
                                     {isStaggered ? "MAX" : `${Math.min(100, staggerGauge)}/100`}
                                 </span>
-                                {/* Boss turn countdown */}
-                                {!isStaggered && hitsUntilBoss !== null && (
+                                {/* Boss turn countdown (fallback when no timeline) */}
+                                {!isStaggered && hitsUntilBoss !== null && ctbTimeline.length === 0 && (
                                     <motion.div
                                         animate={hitsUntilBoss === 1 ? { scale: [1, 1.1, 1] } : {}}
                                         transition={{ duration: 0.6, repeat: hitsUntilBoss === 1 ? Infinity : 0 }}
@@ -620,6 +624,33 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, maxSt
                                     </motion.div>
                                 )}
                             </div>
+
+                            {/* CTB Timeline Bar */}
+                            {ctbTimeline.length > 0 && (
+                                <div className="flex flex-col gap-1.5">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Turn Order</span>
+                                    <div className="flex items-center gap-1.5">
+                                        {ctbTimeline.map((slot, i) => (
+                                            <motion.div
+                                                key={i}
+                                                initial={{ scale: 0.8, opacity: 0 }}
+                                                animate={{ scale: i === 0 ? 1.15 : 1, opacity: 1 }}
+                                                transition={{ duration: 0.2, delay: i * 0.03 }}
+                                                className={`relative flex items-center justify-center rounded-lg border font-black transition-all
+                                                    ${i === 0 ? "w-9 h-9 shadow-md" : "w-7 h-7"}
+                                                    ${slot.owner === "boss"
+                                                        ? "bg-rose-100 border-rose-400 text-rose-700"
+                                                        : "bg-sky-100 border-sky-400 text-sky-700"}`}
+                                            >
+                                                {slot.owner === "boss" ? "👹" : "⚔️"}
+                                                {i === 0 && (
+                                                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[8px] font-black text-slate-500 whitespace-nowrap">NEXT</span>
+                                                )}
+                                            </motion.div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Limit Break Gauge */}
                             <div className="flex items-center gap-3">

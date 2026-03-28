@@ -19,7 +19,6 @@ import {
   getTriggeredSkills,
   getBossPreset,
   getBossPhase,
-  getBossTurnInterval,
   getBossCTBSpeed,
   getActionsForPhase,
   type BossSkillConfig,
@@ -1143,6 +1142,7 @@ export class IdleEngine {
           // CTB-based: player turns until boss acts next (null during stagger)
           hitsUntilBossAct: staggerActive ? null : playerTurnsUntilBoss,
           ctbState: finalCTBState,
+          ctbTimeline,
         } as const;
       });
 
@@ -1176,6 +1176,7 @@ export class IdleEngine {
         phase: txResult.phase,
         hitsUntilBossAct: txResult.hitsUntilBossAct,
         ctbState: txResult.ctbState,
+        ctbTimeline: txResult.ctbTimeline,
       };
     } catch (error: unknown) {
       console.error("[IdleEngine] Error applying boss damage:", error);

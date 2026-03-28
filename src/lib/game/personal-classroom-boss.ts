@@ -1,4 +1,5 @@
 import type { PlayerBattleState, BattleLogEntry } from "./boss-config";
+import type { CTBState } from "./ctb-engine";
 
 /**
  * Teacher-set raid configuration on the classroom (no shared HP — each student has their own copy).
@@ -38,6 +39,9 @@ export type PersonalClassroomBoss = BossRaidTemplate & {
   actionQueueIndex?: number;     // cycles through boss actions
   playerBattleState?: PlayerBattleState; // this student's HP/status effects
   battleLog?: BattleLogEntry[];  // last 15 entries shown in UI
+
+  // ── CTB Timeline System (PR2) ─────────────────────────────────────────────
+  ctbState?: CTBState; // persisted CTB counters; absent = legacy turn-interval mode
 };
 
 const TEMPLATE_KEY = "bossRaidTemplate";

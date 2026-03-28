@@ -10,6 +10,7 @@ import { useSocket } from "@/components/providers/socket-provider";
 import { getBossPreset } from "@/lib/game/boss-config";
 import { getElementMultiplier, getJobElement, getElementLabel, hasComboOpportunity } from "@/lib/game/element-system";
 import type { BossAction, BattleLogEntry, PlayerBattleState } from "@/lib/game/boss-config";
+import type { Skill } from "@/lib/game/job-system";
 
 interface ActiveEffect {
     type: string;
@@ -56,6 +57,7 @@ interface WorldBossBarProps {
     classId?: string;
     jobClass?: string | null;
     limitBreakCharge?: number;
+    bossSkills?: Skill[];
     onAttackSuccess?: (data: unknown) => void;
     onBossDefeated?: (rewards: { bossName: string; rewardGold?: number; rewardXp?: number; rewardMaterials?: { type: string; quantity: number }[] }) => void;
 }
@@ -76,12 +78,13 @@ const LOG_COLOR: Record<string, string> = {
     MISS:          "text-slate-400 italic",
 };
 
-export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana = 0, classId, jobClass, limitBreakCharge = 0, onAttackSuccess, onBossDefeated }: WorldBossBarProps) {
+export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana = 0, classId, jobClass, limitBreakCharge = 0, bossSkills = [], onAttackSuccess, onBossDefeated }: WorldBossBarProps) {
     const { socket } = useSocket();
     const [isAttacking, setIsAttacking] = useState(false);
     const [currentCharge, setCurrentCharge] = useState(limitBreakCharge);
     const [lastComboLabel, setLastComboLabel] = useState("");
     const [currentMana, setCurrentMana] = useState(mana);
+    const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
     // FF state
     const [staggerGauge, setStaggerGauge] = useState(0);
     const [isStaggered, setIsStaggered] = useState(false);
@@ -153,14 +156,16 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
     const playerBattleHp = playerBattleState?.battleHp ?? 100;
     const activeStatuses = playerBattleState?.statusEffects ?? [];
 
-    const handleAttack = async (action: "attack" | "magic" | "limitBreak") => {
+    const handleAttack = async (action: "attack" | "magic" | "limitBreak", skillId?: string) => {
         const isLimitBreak = action === "limitBreak";
-        const isMagic = action === "magic";
+        const isMagic = action === "magic" || !!skillId;
+        const selectedSkill = skillId ? bossSkills.find((s) => s.id === skillId) : null;
+        const manaCost = selectedSkill ? selectedSkill.cost : 20;
 
         if (!classId || isAttacking) return;
         if (!isMagic && stamina <= 0) return;
         if (isLimitBreak && lbCharge < 100) return;
-        if (isMagic && currentMana < 20) return;
+        if (isMagic && currentMana < manaCost) return;
         if (isBound) {
             toast({ title: "⛓️ ถูกล็อค!", description: "ไม่สามารถโจมตีได้ในรอบนี้", variant: "destructive" });
             return;
@@ -177,6 +182,7 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                 body: JSON.stringify({
                     limitBreak: isLimitBreak,
                     action: isMagic ? "magic" : "attack",
+                    ...(skillId ? { skillId } : {}),
                 }),
             });
             const data = await res.json() as {
@@ -260,9 +266,9 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                 if (data.isMiss) {
                     toast({ title: "💨 MISS!", description: "การโจมตีพลาด! (Blind)", variant: "destructive" });
                 } else {
-                    const prefix = isLimitBreak ? "💥 LIMIT BREAK!" : isMagic ? "🔮 Magic!" : data.isCrit ? "⚡ CRITICAL!" : "⚔️ โจมตี!";
+                    const skillLabel = selectedSkill ? `✨ ${selectedSkill.name}!` : isLimitBreak ? "💥 LIMIT BREAK!" : isMagic ? "🔮 Magic!" : data.isCrit ? "⚡ CRITICAL!" : "⚔️ โจมตี!";
                     toast({
-                        title: prefix,
+                        title: skillLabel,
                         description: `ดาเมจ ${(data.damage ?? 0).toLocaleString()} HP${data.isStaggered ? " [STAGGERED ×2]" : ""}`,
                         className: isLimitBreak ? "bg-orange-600 text-white" : isMagic ? "bg-violet-600 text-white" : undefined,
                     });
@@ -624,17 +630,25 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                                 </motion.button>
                             )}
 
-                            {/* Magic button */}
-                            <motion.button
-                                whileHover={currentMana >= 20 && !isAttacking && !isBound ? { scale: 1.05 } : {}}
-                                whileTap={currentMana >= 20 && !isAttacking && !isBound ? { scale: 0.95 } : {}}
-                                onClick={() => handleAttack("magic")}
-                                disabled={currentMana < 20 || isAttacking || isBound}
-                                className={`relative px-4 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg ${currentMana >= 20 && !isAttacking && !isBound ? "bg-violet-600 text-white hover:bg-violet-700 shadow-violet-200 border-2 border-violet-400/50" : "bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300"}`}
-                            >
-                                {isAttacking ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}><Target className="w-4 h-4" /></motion.div> : <WandSparkles className="w-4 h-4" />}
-                                Magic (20 MP)
-                            </motion.button>
+                            {/* Magic / Skill button */}
+                            {(() => {
+                                const activeSkill = selectedSkillId ? bossSkills.find((s) => s.id === selectedSkillId) : null;
+                                const mpNeeded = activeSkill ? activeSkill.cost : 20;
+                                const canCast = currentMana >= mpNeeded && !isAttacking && !isBound;
+                                const label = activeSkill ? `${activeSkill.name} (${mpNeeded} MP)` : `Magic (${mpNeeded} MP)`;
+                                return (
+                                    <motion.button
+                                        whileHover={canCast ? { scale: 1.05 } : {}}
+                                        whileTap={canCast ? { scale: 0.95 } : {}}
+                                        onClick={() => handleAttack("magic", activeSkill?.id)}
+                                        disabled={!canCast}
+                                        className={`relative px-4 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg ${canCast ? "bg-violet-600 text-white hover:bg-violet-700 shadow-violet-200 border-2 border-violet-400/50" : "bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300"}`}
+                                    >
+                                        {isAttacking ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}><Target className="w-4 h-4" /></motion.div> : <WandSparkles className="w-4 h-4" />}
+                                        {label}
+                                    </motion.button>
+                                );
+                            })()}
 
                             {/* Normal attack button */}
                             <motion.button
@@ -649,6 +663,48 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                             </motion.button>
                         </div>
                     </div>
+
+                    {/* ── Player Skill Selector ── */}
+                    {bossSkills.length > 0 && (
+                        <div className="relative z-10 pt-2 border-t border-slate-100">
+                            <p className="text-[10px] uppercase font-black text-slate-400 tracking-wider mb-2">สกิลของคุณ — เลือกก่อนกด Magic</p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                {bossSkills.map((sk) => {
+                                    const isSelected = selectedSkillId === sk.id;
+                                    const canAfford = currentMana >= sk.cost;
+                                    const dmgText = sk.damageMultiplier ? `×${sk.damageMultiplier.toFixed(2)}` : "";
+                                    const critText = sk.isCrit ? " 💥Crit" : "";
+                                    return (
+                                        <button
+                                            key={sk.id}
+                                            onClick={() => setSelectedSkillId(isSelected ? null : sk.id)}
+                                            className={`flex items-start gap-2.5 p-3 rounded-2xl border text-left transition-all ${
+                                                isSelected
+                                                    ? "bg-violet-50 border-violet-400 shadow ring-2 ring-violet-300"
+                                                    : canAfford
+                                                    ? "bg-white border-slate-200 hover:border-violet-300 hover:bg-violet-50/50"
+                                                    : "bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed"
+                                            }`}
+                                            disabled={!canAfford && !isSelected}
+                                        >
+                                            <span className="text-xl shrink-0">{sk.icon ?? "✨"}</span>
+                                            <div className="min-w-0 flex-1">
+                                                <p className={`text-xs font-black leading-none truncate ${isSelected ? "text-violet-700" : "text-slate-700"}`}>
+                                                    {sk.name}
+                                                </p>
+                                                <p className="text-[10px] text-slate-500 mt-0.5 font-medium">
+                                                    {sk.cost} MP{dmgText ? ` · DMG ${dmgText}` : ""}{critText}
+                                                </p>
+                                            </div>
+                                            {isSelected && (
+                                                <span className="text-[9px] font-black bg-violet-500 text-white px-1.5 py-0.5 rounded-full shrink-0">✓</span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     {/* ── Battle Log ── */}
                     <AnimatePresence>

@@ -619,6 +619,9 @@ export class IdleEngine {
       jobClass?: string | null;
       isMagicAttack?: boolean;
       studentName?: string;
+      skillDamageMultiplier?: number; // skill-specific multiplier (overrides base 1.0×)
+      skillForceCrit?: boolean;       // guaranteed crit for skill with isCrit: true
+      skillName?: string;             // for battle log display
     } = { consumeStamina: true }
   ) {
     try {
@@ -663,6 +666,17 @@ export class IdleEngine {
         );
         damage = battleResult.damage;
         isCrit = battleResult.isCrit;
+
+        // Skill: guaranteed crit — re-apply crit multiplier if natural roll missed
+        if (options.skillForceCrit && !isCrit) {
+          const critValue = this.normalizeCritPercent(battleResult.stats.crit);
+          damage = Math.floor(damage * this.getCritDamageMultiplier(critValue));
+          isCrit = true;
+        }
+        // Skill: damage multiplier on top of base stats
+        if (options.skillDamageMultiplier && options.skillDamageMultiplier !== 1.0) {
+          damage = Math.floor(damage * options.skillDamageMultiplier);
+        }
       }
 
       const txResult = await db.$transaction(async (tx) => {
@@ -895,12 +909,12 @@ export class IdleEngine {
 
         // Add player attack to log
         if (!isMiss) {
+          const skillLabel = options.skillName ? `ใช้ ${options.skillName}` : options.isMagicAttack ? "ใช้ Magic" : "โจมตี";
+          const skillEmoji = options.skillName ? "✨" : options.isMagicAttack ? "🔮" : "⚔️";
           logEntries.push({
             id: `${now}-atk`,
             type: options.isMagicAttack ? "PLAYER_MAGIC" : "PLAYER_ATTACK",
-            text: options.isMagicAttack
-              ? `🔮 ${options.studentName ?? "คุณ"} ใช้ Magic ${effectiveDamage} DMG${isCrit ? " (Crit!)" : ""}${justStaggered ? " 💥 STAGGER!" : ""}`
-              : `⚔️ ${options.studentName ?? "คุณ"} โจมตี ${effectiveDamage} DMG${isCrit ? " (Crit!)" : ""}${justStaggered ? " 💥 STAGGER!" : ""}`,
+            text: `${skillEmoji} ${options.studentName ?? "คุณ"} ${skillLabel} ${effectiveDamage} DMG${isCrit ? " (Crit!)" : ""}${justStaggered ? " 💥 STAGGER!" : ""}`,
             damage: effectiveDamage,
             isCrit,
             timestamp: now,

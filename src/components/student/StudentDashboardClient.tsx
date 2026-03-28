@@ -55,6 +55,9 @@ import { format, isToday, isYesterday } from "date-fns";
 import { th } from "date-fns/locale";
 import { AccessibilityControlPanel } from "@/components/accessibility/AccessibilityControlPanel";
 import { getRaidBossForStudentUi } from "@/lib/game/personal-classroom-boss";
+import { getMergedClassDef } from "@/lib/game/job-system";
+import { getEffectiveSkillAtRank, getSkillRank } from "@/lib/game/skill-tree";
+import type { Skill } from "@/lib/game/job-system";
 
 interface StudentDashboardClientProps {
     student: any;
@@ -116,6 +119,27 @@ export function StudentDashboardClient({
         if (!row || row.active === false || Number(row.currentHp) <= 0) return [];
         return [row];
     }, [classroom.gamifiedSettings, student.gameStats]);
+
+    // Boss skills: MP skills the student has unlocked via skill tree or job level
+    const bossSkills = useMemo<Skill[]>(() => {
+        const jobKey = student.advanceClass ?? student.jobClass;
+        if (!jobKey) return [];
+        try {
+            const classDef = getMergedClassDef(jobKey);
+            const skillProgress: Record<string, number> =
+                (student.gameStats as any)?.skillTreeProgress ?? {};
+            const unlockedJobSkills: string[] = (student.jobSkills as string[]) ?? [];
+            return classDef.skills
+                .filter((s) => s.costType === "MP")
+                .filter((s) => getSkillRank(skillProgress, s.id) > 0 || unlockedJobSkills.includes(s.id))
+                .map((s) => {
+                    const rank = Math.max(1, getSkillRank(skillProgress, s.id));
+                    return getEffectiveSkillAtRank(s, rank);
+                });
+        } catch {
+            return [];
+        }
+    }, [student.advanceClass, student.jobClass, student.gameStats, student.jobSkills]);
     const [viewMode, setViewMode] = useState<"academic" | "game">("academic");
     const [activeTab, setActiveTab] = useState("assignments");
     const [showJobModal, setShowJobModal] = useState(false);
@@ -685,6 +709,7 @@ export function StudentDashboardClient({
                                             mana={student.mana ?? 0}
                                             jobClass={student.advanceClass ?? student.jobClass}
                                             limitBreakCharge={(student.gameStats as any)?.limitBreakCharge ?? 0}
+                                            bossSkills={bossSkills}
                                             onAttackSuccess={(raw) => {
                                                 const data = raw as {
                                                     boss?: unknown | null;

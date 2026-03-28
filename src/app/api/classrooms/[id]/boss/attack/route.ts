@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { IdleEngine } from "@/lib/game/idle-engine";
-import { applyJobSkillUnlocksOnLevelUp } from "@/lib/game/job-system";
+import { applyJobSkillUnlocksOnLevelUp, getMergedClassDef } from "@/lib/game/job-system";
 import { getElementMultiplier, getJobElement, getElementLabel } from "@/lib/game/element-system";
 import { getBossPreset } from "@/lib/game/boss-config";
 import { getBossRaidTemplate } from "@/lib/game/personal-classroom-boss";
 import { trackQuestEvent } from "@/lib/game/quest-engine";
+import { getEffectiveSkillAtRank, getSkillRank } from "@/lib/game/skill-tree";
 
 export async function POST(
     req: NextRequest,
@@ -23,9 +24,12 @@ export async function POST(
         const body = await req.json().catch(() => ({})) as {
             limitBreak?: boolean;
             action?: "magic" | "attack";
+            skillId?: string;
         };
         const isLimitBreak = body.limitBreak === true;
-        const isMagicAction = body.action === "magic";
+        const skillId = body.skillId ?? null;
+        // A skill use always counts as magic (no stamina cost, MP deducted instead)
+        const isMagicAction = body.action === "magic" || skillId !== null;
 
         const student = await db.student.findFirst({
             where: { classId, userId: session.user.id },
@@ -54,7 +58,38 @@ export async function POST(
         }
 
         const currentMana: number = student.mana ?? 0;
-        if (isMagicAction && currentMana < 20) {
+
+        // Skill attack: resolve skill def, validate, compute effective stats
+        let skillDamageMultiplier: number | undefined;
+        let skillForceCrit: boolean | undefined;
+        let skillName: string | undefined;
+        let manaCost = 20; // default magic attack cost
+
+        if (skillId) {
+            const jobKey = student.advanceClass ?? student.jobClass;
+            if (!jobKey) {
+                return NextResponse.json({ error: "ไม่มีอาชีพ" }, { status: 400 });
+            }
+            const classDef = getMergedClassDef(jobKey);
+            const skillDef = classDef.skills.find((s) => s.id === skillId);
+            if (!skillDef) {
+                return NextResponse.json({ error: "ไม่พบสกิลนี้" }, { status: 400 });
+            }
+            if (skillDef.costType !== "MP") {
+                return NextResponse.json({ error: "สกิลนี้ไม่ใช่ Magic skill" }, { status: 400 });
+            }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const skillProgress = ((student.gameStats as any)?.skillTreeProgress ?? {}) as Record<string, number>;
+            const skillRank = getSkillRank(skillProgress, skillId);
+            const effectiveSkill = getEffectiveSkillAtRank(skillDef, Math.max(1, skillRank));
+            manaCost = effectiveSkill.cost;
+            if (currentMana < manaCost) {
+                return NextResponse.json({ error: `MP ไม่พอ (ต้องการ ${manaCost} MP)` }, { status: 400 });
+            }
+            skillDamageMultiplier = effectiveSkill.damageMultiplier;
+            skillForceCrit = effectiveSkill.isCrit;
+            skillName = effectiveSkill.name;
+        } else if (isMagicAction && currentMana < manaCost) {
             return NextResponse.json({ error: "MP ไม่พอ (ต้องการ 20 MP)" }, { status: 400 });
         }
 
@@ -77,6 +112,9 @@ export async function POST(
             jobClass: student.jobClass,
             isMagicAttack: isMagicAction,
             studentName: student.name ?? undefined,
+            skillDamageMultiplier,
+            skillForceCrit,
+            skillName,
         });
 
         if (result.error) {
@@ -111,7 +149,7 @@ export async function POST(
             data: {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 gameStats: { ...currentStats, level: xpResult.level, xp: xpResult.xp, limitBreakCharge: newCharge } as any,
-                ...(isMagicAction ? { mana: { decrement: 20 } } : {}),
+                ...(isMagicAction ? { mana: { decrement: manaCost } } : {}),
                 ...(updatedJobSkills ? { jobSkills: updatedJobSkills } : {})
             },
             select: { mana: true },

@@ -951,7 +951,7 @@ export class IdleEngine {
           logEntries.push({
             id: `${now}-regen`,
             type: "PLAYER_ATTACK",
-            text: `💚 HP ฟื้นฟู +${regenHeal} HP (${newPlayerBattleHp}/100)`,
+            text: `💚 HP ฟื้นฟู +${regenHeal} HP (${newPlayerBattleHp}/${playerMaxHp})`,
             timestamp: now,
           });
         }
@@ -974,10 +974,15 @@ export class IdleEngine {
             executedBossAction = availableActions[actionIdx];
 
             // Apply boss action effects to player
-            // baseDamage is % of player max HP (e.g., baseDamage=20 → 20% of maxHp), phase scales +20%/phase
-            let hitDamage = Math.floor(playerMaxHp * (executedBossAction.baseDamage / 100) * (1 + (phase - 1) * 0.2));
+            // baseDamage = % of player maxHp; phase bonus = +10%/phase (not 20%); cap at 40% maxHp per hit
+            let hitDamage = Math.floor(playerMaxHp * (executedBossAction.baseDamage / 100) * (1 + (phase - 1) * 0.10));
+            // DEF reduces incoming damage: sigmoid formula (DEF 200 → ~40% reduction, DEF 400 → ~57%)
+            const defReduction = playerFullStats.def / (playerFullStats.def + 300);
+            hitDamage = Math.floor(hitDamage * Math.max(0.10, 1 - defReduction));
+            // Hard cap: no single boss hit can exceed 40% of player max HP
+            hitDamage = Math.min(hitDamage, Math.floor(playerMaxHp * 0.40));
             const isVulnerable = updatedPlayerState.statusEffects.some((e) => e.type === "VULNERABLE");
-            if (isVulnerable) hitDamage = Math.floor(hitDamage * 1.5);
+            if (isVulnerable) hitDamage = Math.floor(hitDamage * 1.30); // VULNERABLE: +30% (was +50%)
 
             const newBattleHp = Math.max(0, updatedPlayerState.battleHp - hitDamage);
             let newEffects = [...updatedPlayerState.statusEffects.filter((e) => e.type !== "VULNERABLE")];

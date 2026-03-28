@@ -710,6 +710,7 @@ export function StudentDashboardClient({
                                             jobClass={student.advanceClass ?? student.jobClass}
                                             limitBreakCharge={(student.gameStats as any)?.limitBreakCharge ?? 0}
                                             bossSkills={bossSkills}
+                                            playerGold={(student.gameStats as any)?.gold ?? 0}
                                             onAttackSuccess={(raw) => {
                                                 const data = raw as {
                                                     boss?: unknown | null;

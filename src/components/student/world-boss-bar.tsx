@@ -58,6 +58,7 @@ interface WorldBossBarProps {
     jobClass?: string | null;
     limitBreakCharge?: number;
     bossSkills?: Skill[];
+    playerGold?: number;
     onAttackSuccess?: (data: unknown) => void;
     onBossDefeated?: (rewards: { bossName: string; rewardGold?: number; rewardXp?: number; rewardMaterials?: { type: string; quantity: number }[] }) => void;
 }
@@ -78,7 +79,7 @@ const LOG_COLOR: Record<string, string> = {
     MISS:          "text-slate-400 italic",
 };
 
-export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana = 0, classId, jobClass, limitBreakCharge = 0, bossSkills = [], onAttackSuccess, onBossDefeated }: WorldBossBarProps) {
+export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana = 0, classId, jobClass, limitBreakCharge = 0, bossSkills = [], playerGold = 0, onAttackSuccess, onBossDefeated }: WorldBossBarProps) {
     const { socket } = useSocket();
     const [isAttacking, setIsAttacking] = useState(false);
     const [currentCharge, setCurrentCharge] = useState(limitBreakCharge);
@@ -94,8 +95,55 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
     const [hitsUntilBoss, setHitsUntilBoss] = useState<number | null>(null);
     const [pulsingThreshold, setPulsingThreshold] = useState<number | null>(null);
     const [showLog, setShowLog] = useState(false);
+    const [flashType, setFlashType] = useState<"attack" | "magic" | "limitBreak" | "boss" | "crit" | null>(null);
+    const [isUsingPotion, setIsUsingPotion] = useState(false);
+    const [currentGold, setCurrentGold] = useState(playerGold);
     const logRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
+
+    // Sync gold from prop
+    useEffect(() => { setCurrentGold(playerGold); }, [playerGold]);
+
+    // Trigger flash overlay then clear
+    const triggerFlash = (type: typeof flashType) => {
+        setFlashType(type);
+        setTimeout(() => setFlashType(null), 350);
+    };
+
+    const handlePotion = async (type: "HP" | "MP") => {
+        if (!classId || isUsingPotion || isAttacking) return;
+        setIsUsingPotion(true);
+        try {
+            const res = await fetch(`/api/classrooms/${classId}/boss/potion`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ type }),
+            });
+            const data = await res.json() as {
+                success?: boolean; error?: string;
+                battleHp?: number; maxBattleHp?: number; manaLeft?: number; goldLeft?: number;
+            };
+            if (data.success) {
+                if (typeof data.goldLeft === "number") setCurrentGold(data.goldLeft);
+                if (type === "HP" && data.battleHp !== undefined) {
+                    setPlayerBattleState((prev) => prev
+                        ? { ...prev, battleHp: data.battleHp!, maxBattleHp: data.maxBattleHp ?? prev.maxBattleHp }
+                        : prev
+                    );
+                    toast({ title: "❤️ HP ฟื้นฟู!", description: `Battle HP กลับมา ${data.battleHp?.toLocaleString()} HP`, className: "bg-emerald-600 text-white" });
+                } else if (type === "MP" && data.manaLeft !== undefined) {
+                    setCurrentMana(data.manaLeft);
+                    toast({ title: "🔮 MP ฟื้นฟู!", description: `Mana กลับมา ${data.manaLeft} MP`, className: "bg-violet-600 text-white" });
+                }
+            } else {
+                toast({ title: "ใช้ยาไม่ได้", description: data.error ?? "เกิดข้อผิดพลาด", variant: "destructive" });
+            }
+        } catch {
+            toast({ title: "Error", description: "ไม่สามารถเชื่อมต่อได้", variant: "destructive" });
+        } finally {
+            setIsUsingPotion(false);
+        }
+    };
 
     // Sync mana from prop (changes after sync route)
     useEffect(() => { setCurrentMana(mana); }, [mana]);
@@ -212,6 +260,17 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
             };
 
             if (data.success) {
+                // Trigger visual flash based on action type
+                if (isLimitBreak) triggerFlash("limitBreak");
+                else if (data.isCrit) triggerFlash("crit");
+                else if (skillId || isMagic) triggerFlash("magic");
+                else triggerFlash("attack");
+
+                // Boss action → separate flash after short delay
+                if (data.executedBossAction) {
+                    setTimeout(() => triggerFlash("boss"), 400);
+                }
+
                 socket?.emit("classroom-update", {
                     classId,
                     type: "BOSS_HP_UPDATE",
@@ -306,6 +365,25 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
             <GlassCard className="overflow-hidden border-2 border-rose-500/20 shadow-[0_20px_40px_rgba(225,29,72,0.15)]" hover={false}>
                 <div className="relative p-6 sm:p-8 flex flex-col gap-6">
                     <div className={`absolute inset-0 transition-colors duration-1000 pointer-events-none ${isLowHp ? "bg-rose-500/10" : "bg-indigo-500/5"}`} />
+
+                    {/* Attack flash overlay */}
+                    <AnimatePresence>
+                        {flashType && (
+                            <motion.div
+                                key={`flash-${flashType}`}
+                                initial={{ opacity: flashType === "boss" ? 0.55 : 0.45 }}
+                                animate={{ opacity: 0 }}
+                                transition={{ duration: 0.35, ease: "easeOut" }}
+                                className={`absolute inset-0 pointer-events-none z-50 rounded-[inherit] ${
+                                    flashType === "limitBreak" ? "bg-orange-400" :
+                                    flashType === "crit"       ? "bg-yellow-300" :
+                                    flashType === "magic"      ? "bg-violet-400" :
+                                    flashType === "boss"       ? "bg-rose-600"   :
+                                                                 "bg-white"
+                                }`}
+                            />
+                        )}
+                    </AnimatePresence>
 
                     {/* STAGGERED Banner */}
                     <AnimatePresence>
@@ -544,42 +622,78 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                     {/* ── Player Battle State ── */}
                     <div className="relative z-10 pt-4 border-t border-slate-100">
                         <p className="text-[10px] uppercase font-black text-slate-400 tracking-wider mb-3">สถานะผู้เล่น</p>
-                        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                            {/* Player HP bar */}
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-[10px] font-black text-slate-600 uppercase">Battle HP</span>
-                                    <span className={`text-xs font-black tabular-nums ${playerHpPct <= 20 ? "text-rose-600 animate-pulse" : playerHpPct <= 50 ? "text-amber-600" : "text-emerald-600"}`}>
-                                        {playerBattleHp.toLocaleString()} / {playerMaxBattleHp.toLocaleString()}
-                                    </span>
+
+                        {/* KO Banner */}
+                        <AnimatePresence>
+                            {playerBattleHp <= 0 && (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="mb-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900/90 border-2 border-rose-500 text-white"
+                                >
+                                    <span className="text-xl">💀</span>
+                                    <div className="text-center">
+                                        <p className="font-black text-sm tracking-widest text-rose-400">K.O.!</p>
+                                        <p className="text-[10px] text-slate-300 mt-0.5">กำลังฟื้นคืน — ถูกล็อค 2 ตา</p>
+                                    </div>
+                                    <span className="text-xl">💀</span>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        <div className="flex flex-col gap-3">
+                            {/* HP + MP bars */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {/* HP bar */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <span className="text-[10px] font-black text-slate-600 uppercase">❤️ Battle HP</span>
+                                        <span className={`text-xs font-black tabular-nums ${playerHpPct <= 20 ? "text-rose-600 animate-pulse" : playerHpPct <= 50 ? "text-amber-600" : "text-emerald-600"}`}>
+                                            {playerBattleHp.toLocaleString()} / {playerMaxBattleHp.toLocaleString()}
+                                        </span>
+                                    </div>
+                                    <div className="w-full h-4 bg-slate-100 rounded-full border border-slate-200 overflow-hidden">
+                                        <motion.div
+                                            animate={{ width: `${playerHpPct}%` }}
+                                            transition={{ duration: 0.5, ease: "easeOut" }}
+                                            className={`h-full rounded-full ${playerBattleHp <= 0 ? "bg-slate-400" : playerHpPct <= 20 ? "bg-gradient-to-r from-rose-500 to-rose-400" : playerHpPct <= 50 ? "bg-gradient-to-r from-amber-400 to-yellow-400" : "bg-gradient-to-r from-emerald-500 to-green-400"}`}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="w-full h-4 bg-slate-100 rounded-full border border-slate-200 overflow-hidden">
-                                    <motion.div
-                                        animate={{ width: `${playerHpPct}%` }}
-                                        transition={{ duration: 0.5, ease: "easeOut" }}
-                                        className={`h-full rounded-full ${playerHpPct <= 20 ? "bg-gradient-to-r from-rose-500 to-rose-400" : playerHpPct <= 50 ? "bg-gradient-to-r from-amber-400 to-yellow-400" : "bg-gradient-to-r from-emerald-500 to-green-400"}`}
-                                    />
+                                {/* MP bar */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <span className="text-[10px] font-black text-slate-600 uppercase">🔮 Mana</span>
+                                        <span className={`text-xs font-black tabular-nums ${currentMana <= 20 ? "text-slate-400" : "text-violet-600"}`}>
+                                            {currentMana} MP
+                                        </span>
+                                    </div>
+                                    <div className="w-full h-4 bg-slate-100 rounded-full border border-slate-200 overflow-hidden">
+                                        <motion.div
+                                            animate={{ width: `${Math.min(100, (currentMana / 200) * 100)}%` }}
+                                            transition={{ duration: 0.5, ease: "easeOut" }}
+                                            className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-400"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Status effects */}
-                            {activeStatuses.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5">
-                                    {activeStatuses.map((s, i) => {
-                                        const meta = STATUS_META[s.type] ?? { icon: "❓", label: s.type, color: "bg-slate-100 border-slate-300 text-slate-700" };
-                                        return (
-                                            <div key={i} className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-black ${meta.color}`}>
-                                                <span>{meta.icon}</span>
-                                                <span>{meta.label}</span>
-                                                <span className="opacity-70">×{s.remainingTurns}</span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                            {activeStatuses.length === 0 && (
-                                <div className="text-[10px] text-slate-400 font-medium">ไม่มี status effect</div>
-                            )}
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                                {activeStatuses.length > 0 ? activeStatuses.map((s, i) => {
+                                    const meta = STATUS_META[s.type] ?? { icon: "❓", label: s.type, color: "bg-slate-100 border-slate-300 text-slate-700" };
+                                    return (
+                                        <div key={i} className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-black ${meta.color}`}>
+                                            <span>{meta.icon}</span>
+                                            <span>{meta.label}</span>
+                                            <span className="opacity-70">×{s.remainingTurns}</span>
+                                        </div>
+                                    );
+                                }) : (
+                                    <div className="text-[10px] text-slate-400 font-medium">ไม่มี status effect</div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -608,6 +722,30 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, mana 
                                 <WandSparkles className={`w-3.5 h-3.5 ${currentMana >= 20 ? "text-violet-500" : "text-slate-400"}`} />
                                 <span className={`text-xs font-black ${currentMana >= 20 ? "text-violet-700" : "text-slate-400"}`}>{currentMana} MP</span>
                             </div>
+
+                            {/* HP Potion button */}
+                            <motion.button
+                                whileHover={currentGold >= 100 && !isUsingPotion ? { scale: 1.05 } : {}}
+                                whileTap={currentGold >= 100 && !isUsingPotion ? { scale: 0.95 } : {}}
+                                onClick={() => handlePotion("HP")}
+                                disabled={currentGold < 100 || isUsingPotion || isAttacking}
+                                title="HP Potion — ฟื้น 40% HP (100 Gold)"
+                                className={`px-3 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1.5 transition-all ${currentGold >= 100 && !isUsingPotion && !isAttacking ? "bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100" : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"}`}
+                            >
+                                ❤️ 100g
+                            </motion.button>
+
+                            {/* MP Elixir button */}
+                            <motion.button
+                                whileHover={currentGold >= 60 && !isUsingPotion ? { scale: 1.05 } : {}}
+                                whileTap={currentGold >= 60 && !isUsingPotion ? { scale: 0.95 } : {}}
+                                onClick={() => handlePotion("MP")}
+                                disabled={currentGold < 60 || isUsingPotion || isAttacking}
+                                title="MP Elixir — ฟื้น 80 MP (60 Gold)"
+                                className={`px-3 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1.5 transition-all ${currentGold >= 60 && !isUsingPotion && !isAttacking ? "bg-violet-50 border-violet-300 text-violet-700 hover:bg-violet-100" : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"}`}
+                            >
+                                🔮 60g
+                            </motion.button>
 
                             {/* Battle Log toggle */}
                             <button

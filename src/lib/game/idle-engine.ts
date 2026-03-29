@@ -64,6 +64,12 @@ export interface CharacterStats {
   maxMp: number;
 }
 
+type LevelConfigInput = Record<string, number> | Array<{ name: string; minScore: number }> | null | undefined;
+
+type TriggeredBossSkillsWithRegen = BossSkillConfig[] & {
+  _regenHp?: number;
+};
+
 /**
  * Interface for the JSON gameStats field in the Student model
  */
@@ -510,8 +516,7 @@ export class IdleEngine {
   static calculateGoldRate(
     points: number,
     stats: GameStats,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    levelConfig?: any,
+    levelConfig?: LevelConfigInput,
     equippedItems: EquippedItemLike[] = [],
     activeEvents: ActiveEventLike[] = []
   ): number {
@@ -737,17 +742,18 @@ export class IdleEngine {
             }
           : { battleHp: playerMaxHp, maxBattleHp: playerMaxHp, statusEffects: [] };
 
-        // Decrement status turns (each call = 1 turn)
-        const activeStatuses = playerBattleState.statusEffects
-          .map((e) => ({ ...e, remainingTurns: e.remainingTurns - 1 }))
-          .filter((e) => e.remainingTurns > 0) as PlayerBattleState["statusEffects"];
+        const originalStatuses = playerBattleState.statusEffects as PlayerBattleState["statusEffects"];
 
-        // BIND: blocks physical attacks only (magic/skills can still be used)
-        if (!options.isMagicAttack && activeStatuses.some((e) => e.type === "BIND")) {
-          // Persist decremented statuses and return error
+        // BIND: blocks physical attacks only (magic/skills can still be used).
+        // Check BEFORE decrementing so turns=1 correctly blocks exactly 1 attack.
+        if (!options.isMagicAttack && originalStatuses.some((e) => e.type === "BIND" && e.remainingTurns > 0)) {
+          // Decrement and persist so BIND expires after this blocked turn
+          const decremented = originalStatuses
+            .map((e) => ({ ...e, remainingTurns: e.remainingTurns - 1 }))
+            .filter((e) => e.remainingTurns > 0) as PlayerBattleState["statusEffects"];
           const boundPatch: PersonalClassroomBoss = {
             ...(personal as PersonalClassroomBoss),
-            playerBattleState: { ...playerBattleState, statusEffects: activeStatuses },
+            playerBattleState: { ...playerBattleState, statusEffects: decremented },
           };
           await tx.student.update({
             where: { id: studentId },
@@ -755,6 +761,11 @@ export class IdleEngine {
           });
           return { error: "ถูกล็อค! ใช้ Magic เพื่อโจมตีแทน" } as const;
         }
+
+        // Decrement status turns for normal flow (1 turn = 1 attack)
+        const activeStatuses = originalStatuses
+          .map((e) => ({ ...e, remainingTurns: e.remainingTurns - 1 }))
+          .filter((e) => e.remainingTurns > 0) as PlayerBattleState["statusEffects"];
 
         const bossState = { ...(personal as unknown as BossState) };
 
@@ -848,6 +859,7 @@ export class IdleEngine {
             )
           : [];
 
+        const triggeredWithRegen = newlyTriggered as TriggeredBossSkillsWithRegen;
         let newActiveEffect: BossActiveEffect | null =
           activeEffect && effectActive ? activeEffect : null;
         if (newlyTriggered.length > 0) {
@@ -859,7 +871,7 @@ export class IdleEngine {
             );
             const regenAdjusted = Math.min(regenHp, bossState.maxHp ?? prevHp);
             newActiveEffect = null;
-            (newlyTriggered as any)._regenHp = regenAdjusted;
+            triggeredWithRegen._regenHp = regenAdjusted;
           } else {
             const expiresAt =
               latestSkill.durationSeconds !== null
@@ -876,7 +888,7 @@ export class IdleEngine {
           }
         }
 
-        const regenHp: number | null = (newlyTriggered as any)._regenHp ?? null;
+        const regenHp: number | null = triggeredWithRegen._regenHp ?? null;
         const finalHp = regenHp !== null ? regenHp : newHp;
 
         // ── FF: Stagger System ─────────────────────────────────────────────────
@@ -1313,7 +1325,8 @@ export class IdleEngine {
     const xpResult = this.calculateXpGain(stats, rewardXp);
 
     const materials = bossSettings.rewardMaterials ?? [];
-    const existingMaterials: { type: string; quantity: number }[] = (stats as any).materials ?? [];
+    const existingMaterials: { type: string; quantity: number }[] =
+      (stats as GameStats & { materials?: { type: string; quantity: number }[] }).materials ?? [];
     for (const mat of materials) {
       const found = existingMaterials.find((m) => m.type === mat.type);
       if (found) found.quantity += mat.quantity;

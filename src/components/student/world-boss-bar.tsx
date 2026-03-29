@@ -242,8 +242,8 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, maxSt
         if (!isMagic && stamina <= 0) return;
         if (isLimitBreak && lbCharge < 100) return;
         if (isMagic && currentMana < manaCost) return;
-        if (isBound) {
-            toast({ title: "⛓️ ถูกล็อค!", description: "ไม่สามารถโจมตีได้ในรอบนี้", variant: "destructive" });
+        if (isBound && !isMagic) {
+            toast({ title: "⛓️ ถูกล็อค!", description: "ใช้ Magic เพื่อโจมตีแทน", variant: "destructive" });
             return;
         }
 

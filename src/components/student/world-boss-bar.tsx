@@ -844,18 +844,18 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, maxSt
                                 - หากไม่มีสกิลเลย → แสดง Magic (20 MP) ทั่วไป */}
                             {bossSkills.length === 0 ? (
                                 <motion.button
-                                    whileHover={currentMana >= 20 && !isAttacking && !isBound ? { scale: 1.05 } : {}}
-                                    whileTap={currentMana >= 20 && !isAttacking && !isBound ? { scale: 0.95 } : {}}
+                                    whileHover={currentMana >= 20 && !isAttacking ? { scale: 1.05 } : {}}
+                                    whileTap={currentMana >= 20 && !isAttacking ? { scale: 0.95 } : {}}
                                     onClick={() => handleAttack("magic")}
-                                    disabled={currentMana < 20 || isAttacking || isBound}
-                                    className={`relative px-4 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg ${currentMana >= 20 && !isAttacking && !isBound ? "bg-violet-600 text-white hover:bg-violet-700 shadow-violet-200 border-2 border-violet-400/50" : "bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300"}`}
+                                    disabled={currentMana < 20 || isAttacking}
+                                    className={`relative px-4 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 transition-all shadow-lg ${currentMana >= 20 && !isAttacking ? "bg-violet-600 text-white hover:bg-violet-700 shadow-violet-200 border-2 border-violet-400/50" : "bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300"}`}
                                 >
                                     {isAttacking ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}><Target className="w-4 h-4" /></motion.div> : <WandSparkles className="w-4 h-4" />}
                                     Magic (20 MP)
                                 </motion.button>
                             ) : selectedSkillId ? (() => {
                                 const activeSkill = bossSkills.find((s) => s.id === selectedSkillId)!;
-                                const canCast = currentMana >= activeSkill.cost && !isAttacking && !isBound;
+                                const canCast = currentMana >= activeSkill.cost && !isAttacking;
                                 return (
                                     <motion.button
                                         whileHover={canCast ? { scale: 1.05 } : {}}

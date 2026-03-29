@@ -510,7 +510,8 @@ export class IdleEngine {
   static calculateGoldRate(
     points: number,
     stats: GameStats,
-    levelConfig?: unknown,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    levelConfig?: any,
     equippedItems: EquippedItemLike[] = [],
     activeEvents: ActiveEventLike[] = []
   ): number {
@@ -741,8 +742,8 @@ export class IdleEngine {
           .map((e) => ({ ...e, remainingTurns: e.remainingTurns - 1 }))
           .filter((e) => e.remainingTurns > 0) as PlayerBattleState["statusEffects"];
 
-        // BIND: cannot attack this turn
-        if (activeStatuses.some((e) => e.type === "BIND")) {
+        // BIND: blocks physical attacks only (magic/skills can still be used)
+        if (!options.isMagicAttack && activeStatuses.some((e) => e.type === "BIND")) {
           // Persist decremented statuses and return error
           const boundPatch: PersonalClassroomBoss = {
             ...(personal as PersonalClassroomBoss),
@@ -752,7 +753,7 @@ export class IdleEngine {
             where: { id: studentId },
             data: { gameStats: toPrismaJson(mergeGameStatsWithPersonalBoss(studentRow.gameStats, boundPatch)) },
           });
-          return { error: "ถูกล็อค! ไม่สามารถโจมตีได้ในรอบนี้" } as const;
+          return { error: "ถูกล็อค! ใช้ Magic เพื่อโจมตีแทน" } as const;
         }
 
         const bossState = { ...(personal as unknown as BossState) };

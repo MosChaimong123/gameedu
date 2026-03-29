@@ -40,8 +40,9 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
     (session?.user as { settings?: unknown } | undefined)?.settings
   );
 
-  // Use server-safe defaults for initial render to avoid hydration mismatch.
-  // Browser state (localStorage, matchMedia) is applied after mount in useEffect.
+  // Always start with server-safe defaults (null / false) so SSR and client
+  // initial render produce identical HTML. Browser state is synced in useEffect
+  // after hydration — this is the only correct fix for this hydration mismatch.
   const [motionOverride, setMotionOverride] = useState<boolean | null>(null);
   const [soundOverride, setSoundOverride] = useState<boolean | null>(null);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
@@ -51,11 +52,13 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
   const reducedSound =
     soundOverride ?? sessionSettings.accessibility?.reducedSound ?? false;
 
+  // Sync browser-only values after mount (safe — runs client-side only)
   useEffect(() => {
-    // Sync browser-only state after hydration to avoid SSR mismatch
     setMotionOverride(readStoredPreference(REDUCED_MOTION_OVERRIDE_KEY));
     setSoundOverride(readStoredPreference(REDUCED_SOUND_OVERRIDE_KEY));
-    setPrefersReducedMotion(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
+    setPrefersReducedMotion(
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false
+    );
     hydratedRef.current = true;
   }, []);
 

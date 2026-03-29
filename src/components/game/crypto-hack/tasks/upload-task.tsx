@@ -9,14 +9,14 @@ type Props = {
 }
 
 export function UploadTask({ task, onComplete }: Props) {
+    const isUploadTask = task.type === "UPLOAD_DATA";
     const [progress, setProgress] = useState(0);
     const [isHolding, setIsHolding] = useState(false);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Safety check
-    if (task.type !== "UPLOAD_DATA") return null;
-
     useEffect(() => {
+        if (!isUploadTask) return;
+
         if (isHolding) {
             intervalRef.current = setInterval(() => {
                 setProgress(prev => {
@@ -40,7 +40,9 @@ export function UploadTask({ task, onComplete }: Props) {
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current);
         }
-    }, [isHolding, onComplete]);
+    }, [isHolding, isUploadTask, onComplete]);
+
+    if (!isUploadTask) return null;
 
     return (
         <div className="flex flex-col items-center gap-6 w-full max-w-md select-none">

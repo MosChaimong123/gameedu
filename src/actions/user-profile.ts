@@ -1,6 +1,6 @@
 "use server"
 
-import { auth, signIn } from "@/auth"
+import { auth } from "@/auth"
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 
@@ -28,9 +28,9 @@ export async function updateProfile(data: { name?: string, image?: string }) {
         revalidatePath("/dashboard/profile")
 
         return { success: true, name: updated.name }
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Unknown server error"
         console.error("[ACTION_UPDATE_PROFILE] CRITICAL ERROR:", error)
-        return { error: error.message || "Unknown server error" }
+        return { error: message }
     }
 }
-

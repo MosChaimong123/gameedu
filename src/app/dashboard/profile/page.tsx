@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react"
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { useLanguage } from "@/components/providers/language-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,8 +17,8 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog"
-import { User, Mail, Shield, Camera, Save, Loader2, CheckCircle2, Upload, Trash2 } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { User, Mail, Shield, Camera, Save, Loader2, CheckCircle2, Upload } from "lucide-react"
+import { PageBackLink } from "@/components/ui/page-back-link"
 
 const DEFAULT_AVATARS = [
     "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix",
@@ -31,12 +32,9 @@ const DEFAULT_AVATARS = [
     "https://api.dicebear.com/7.x/avataaars/svg?seed=Milo",
 ]
 
-import { updateProfile } from "@/actions/user-profile"
-
 export default function ProfilePage() {
     const { data: session, update } = useSession()
     const { t } = useLanguage()
-    const router = useRouter()
     
     const [name, setName] = useState("")
     const [email, setEmail] = useState("")
@@ -100,9 +98,10 @@ export default function ProfilePage() {
                 const err = await res.text()
                 alert("Error: " + err)
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Error in handleSave:", error)
-            alert("Fetch Error: " + error.message)
+            const message = error instanceof Error ? error.message : "Unknown error"
+            alert("Fetch Error: " + message)
         } finally {
             setLoading(false)
         }
@@ -123,7 +122,8 @@ export default function ProfilePage() {
 
     return (
         <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between">
+            <div className="space-y-4">
+                <PageBackLink href="/dashboard" label="แดชบอร์ด" />
                 <div>
                     <h1 className="text-3xl font-black text-foreground tracking-tight">
                         {getTranslation("profileSettings", "ตั้งค่าโปรไฟล์")}
@@ -168,7 +168,7 @@ export default function ProfilePage() {
                                                     }}
                                                     className={`relative rounded-2xl overflow-hidden aspect-square border-4 transition-all hover:scale-105 active:scale-95 ${image === avatarUrl ? "border-indigo-500 ring-2 ring-indigo-200" : "border-transparent bg-slate-50"}`}
                                                 >
-                                                    <img src={avatarUrl} alt={`Avatar ${idx}`} className="w-full h-full object-cover" />
+                                                    <Image src={avatarUrl} alt={`Avatar ${idx}`} fill sizes="(max-width: 768px) 33vw, 120px" unoptimized className="object-cover" />
                                                 </button>
                                             ))}
                                             
@@ -196,13 +196,12 @@ export default function ProfilePage() {
                                 <div className="flex items-center justify-between text-xs">
                                     <span className="text-slate-400 font-bold uppercase tracking-wider">บทบาท (Role)</span>
                                     <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-black border border-indigo-100 uppercase tracking-tighter">
-                                        {/* @ts-ignore */}
                                         {session?.user?.role || "STUDENT"}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between text-xs">
                                     <span className="text-slate-400 font-bold uppercase tracking-wider">สถานะ (Status)</span>
-                                    <span className="px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-black border border-green-100 uppercase tracking-tighter">ปกติ (Active)</span>
+                                    <span className="px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-black border border-green-100 uppercase tracking-tighter">ใช้งาน (Active)</span>
                                 </div>
                             </div>
                         </CardContent>
@@ -285,3 +284,4 @@ export default function ProfilePage() {
         </div>
     )
 }
+

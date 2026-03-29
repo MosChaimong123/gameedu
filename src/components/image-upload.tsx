@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Image as ImageIcon, Upload, Link as LinkIcon, X, Loader2 } from "lucide-react"
+import { Image as ImageIcon, Upload, Link as LinkIcon, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/components/providers/language-provider"
 
@@ -99,6 +99,7 @@ export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
                     className="hidden"
                     accept="image/*"
                     onChange={handleFileSelect}
+                    disabled={disabled}
                 />
 
                 {value ? (
@@ -131,6 +132,7 @@ export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
                                 variant="outline"
                                 size="sm"
                                 className="bg-white hover:bg-slate-50"
+                                disabled={disabled}
                                 onClick={() => document.getElementById('gallery-trigger')?.click()}
                             >
                                 <ImageIcon className="mr-2 h-4 w-4" />
@@ -143,6 +145,7 @@ export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
                                 variant="outline"
                                 size="sm"
                                 className="bg-white hover:bg-slate-50"
+                                disabled={disabled}
                                 onClick={() => fileInputRef.current?.click()}
                             >
                                 <Upload className="mr-2 h-4 w-4" />
@@ -153,6 +156,7 @@ export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
                                 variant="outline"
                                 size="sm"
                                 className="bg-white hover:bg-slate-50"
+                                disabled={disabled}
                                 onClick={() => setIsLinkDialogOpen(true)}
                             >
                                 <LinkIcon className="mr-2 h-4 w-4" />
@@ -174,13 +178,14 @@ export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
                             <Input
                                 placeholder="https://example.com/image.png"
                                 value={linkUrl}
+                                disabled={disabled}
                                 onChange={(e) => setLinkUrl(e.target.value)}
                             />
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsLinkDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleLinkSubmit}>Import</Button>
+                        <Button onClick={handleLinkSubmit} disabled={disabled}>Import</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

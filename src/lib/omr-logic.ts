@@ -8,23 +8,60 @@
  * I am Antigravity.
  */
 
-export const processOMR = async (cv: any, imageSource: HTMLImageElement | HTMLCanvasElement) => {
-    let src = cv.imread(imageSource)
-    let gray = new cv.Mat()
-    let thresh = new cv.Mat()
+type OpenCVMatrix = {
+    delete: () => void
+    roi: (rect: unknown) => OpenCVMatrix
+}
+
+type OpenCVDeletable = {
+    delete: () => void
+}
+
+type OpenCVContourVector = {
+    delete: () => void
+    size: () => number
+    get: (index: number) => unknown
+}
+
+type OpenCVRuntime = {
+    imread: (imageSource: HTMLImageElement | HTMLCanvasElement) => OpenCVMatrix
+    Mat: new () => OpenCVMatrix
+    MatVector: new () => OpenCVContourVector
+    Rect: new (x: number, y: number, width: number, height: number) => unknown
+    Size: new (width: number, height: number) => unknown
+    cvtColor: (...args: unknown[]) => void
+    adaptiveThreshold: (...args: unknown[]) => void
+    findContours: (...args: unknown[]) => void
+    boundingRect: (contour: unknown) => { x: number; y: number; width: number; height: number }
+    matFromArray: (...args: unknown[]) => OpenCVDeletable
+    getPerspectiveTransform: (src: OpenCVDeletable, dst: OpenCVDeletable) => OpenCVDeletable
+    warpPerspective: (...args: unknown[]) => void
+    mean: (roi: OpenCVMatrix) => number[]
+    COLOR_RGBA2GRAY: number
+    ADAPTIVE_THRESH_GAUSSIAN_C: number
+    THRESH_BINARY_INV: number
+    RETR_EXTERNAL: number
+    CHAIN_APPROX_SIMPLE: number
+    CV_32FC2: number
+}
+
+export const processOMR = async (cv: OpenCVRuntime, imageSource: HTMLImageElement | HTMLCanvasElement) => {
+    const src = cv.imread(imageSource)
+    const gray = new cv.Mat()
+    const thresh = new cv.Mat()
 
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0)
     cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 11, 2)
 
-    let contours = new cv.MatVector()
-    let hierarchy = new cv.Mat()
+    const contours = new cv.MatVector()
+    const hierarchy = new cv.Mat()
     cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
-    let anchors = []
+    const anchors = []
     for (let i = 0; i < contours.size(); ++i) {
-        let cnt = contours.get(i)
-        let rect = cv.boundingRect(cnt)
-        let aspectRatio = rect.width / rect.height
+        const cnt = contours.get(i)
+        const rect = cv.boundingRect(cnt)
+        const aspectRatio = rect.width / rect.height
         
         if (aspectRatio > 0.7 && aspectRatio < 1.3 && rect.width > 15 && rect.width < 120) {
             anchors.push({
@@ -53,12 +90,12 @@ export const processOMR = async (cv: any, imageSource: HTMLImageElement | HTMLCa
     const tr = others[1]
 
     // Perspective Transformation
-    let srcCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y])
-    let outSize = 600 // We want a 600x600 square result
-    let dstCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, outSize, 0, 0, outSize, outSize, outSize])
+    const srcCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y])
+    const outSize = 600 // We want a 600x600 square result
+    const dstCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, outSize, 0, 0, outSize, outSize, outSize])
     
-    let M = cv.getPerspectiveTransform(srcCoords, dstCoords)
-    let warped = new cv.Mat()
+    const M = cv.getPerspectiveTransform(srcCoords, dstCoords)
+    const warped = new cv.Mat()
     cv.warpPerspective(gray, warped, M, new cv.Size(outSize, outSize))
 
     // Bubble Detection (20 Questions mock grid)
@@ -76,12 +113,12 @@ export const processOMR = async (cv: any, imageSource: HTMLImageElement | HTMLCa
             const colX = 130 + (opt * 45) // First bubble starts at 130, spacing 45
             
             // Sample a 10x10 area around the bubble center
-            let rect = new cv.Rect(colX - 5, rowY - 5, 10, 10)
-            let roi = warped.roi(rect)
+            const rect = new cv.Rect(colX - 5, rowY - 5, 10, 10)
+            const roi = warped.roi(rect)
             
             // Count average intensity (0=black, 255=white)
-            let mean = cv.mean(roi)[0]
-            let darkness = 255 - mean // Reverse to 255=black
+            const mean = cv.mean(roi)[0]
+            const darkness = 255 - mean // Reverse to 255=black
 
             if (darkness > maxDarkness) {
                 maxDarkness = darkness

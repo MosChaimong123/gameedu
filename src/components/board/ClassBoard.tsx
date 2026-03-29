@@ -4,9 +4,28 @@ import { useEffect, useState, useCallback } from "react";
 import { Plus, Layout, RefreshCw, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PostCard } from "./PostCard";
+import type { BoardPostCardData } from "./PostCard";
 import { CreatePostModal } from "./CreatePostModal";
 import { getBoardWithPosts, ensureDefaultBoard } from "@/lib/actions/board-actions";
 import { io, Socket } from "socket.io-client";
+
+type BoardData = {
+    id: string;
+    posts?: BoardPostCardData[];
+};
+
+type CreatedPost = {
+    id: string;
+    title?: string | null;
+    content?: string | null;
+};
+
+type BoardPost = BoardPostCardData;
+
+type ClassroomSocketEvent = {
+    type: string;
+    data: unknown;
+};
 
 interface ClassBoardProps {
     classId: string;
@@ -18,13 +37,13 @@ interface ClassBoardProps {
 let socket: Socket;
 
 export function ClassBoard({ classId, studentId, userId, isTeacher }: ClassBoardProps) {
-    const [board, setBoard] = useState<any>(null);
-    const [posts, setPosts] = useState<any[]>([]);
+    const [board, setBoard] = useState<BoardData | null>(null);
+    const [posts, setPosts] = useState<BoardPost[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    const currentAuthorId = isTeacher ? userId! : studentId!;
+    const currentAuthorId = isTeacher ? (userId ?? "") : (studentId ?? "");
 
     const fetchBoard = useCallback(async (quiet = false) => {
         if (!quiet) setLoading(true);
@@ -54,7 +73,7 @@ export function ClassBoard({ classId, studentId, userId, isTeacher }: ClassBoard
 
         socket.emit("join-classroom", classId);
 
-        socket.on("classroom-event", (event: { type: string, data: any }) => {
+        socket.on("classroom-event", (event: ClassroomSocketEvent) => {
             if (event.type === "BOARD_UPDATE") {
                 // To keep it simple and consistent, we just re-fetch the board data
                 // This ensures we have the latest reactions and comments too
@@ -68,16 +87,14 @@ export function ClassBoard({ classId, studentId, userId, isTeacher }: ClassBoard
         };
     }, [classId, fetchBoard]);
 
-    const handlePostCreated = (newPost: any) => {
-        // Optimistic update
-        setPosts(prev => [newPost, ...prev]);
-        
-        // Notify others via socket
+    const handlePostCreated = (newPost: CreatedPost) => {
+        setPosts(prev => prev.some((post) => post.id === newPost.id) ? prev : prev);
         socket.emit("classroom-update", {
             classId,
             type: "BOARD_UPDATE",
             data: { postId: newPost.id }
         });
+        fetchBoard(true);
     };
 
     const handleUpdate = () => {
@@ -163,14 +180,14 @@ export function ClassBoard({ classId, studentId, userId, isTeacher }: ClassBoard
                 </div>
             )}
 
-            <CreatePostModal 
-                open={showCreateModal}
-                onOpenChange={setShowCreateModal}
-                boardId={board?.id}
-                studentId={studentId}
-                userId={userId}
-                onPostCreated={handlePostCreated}
-            />
+            {board?.id && (
+                <CreatePostModal 
+                    open={showCreateModal}
+                    onOpenChange={setShowCreateModal}
+                    boardId={board.id}
+                    onPostCreated={handlePostCreated}
+                />
+            )}
         </div>
     );
 }

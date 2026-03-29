@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { db as prisma } from "@/lib/db"
 
-export async function GET(req: NextRequest) {
+export async function GET() {
     try {
         const session = await auth()
         if (!session?.user?.id) {
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
         })
 
         // Transform for list view (e.g. just player count)
-        const summary = history.map((h: any) => ({
+        const summary = history.map((h) => ({
             id: h.id,
             gameMode: h.gameMode,
             startedAt: h.startedAt,

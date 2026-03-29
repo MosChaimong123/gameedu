@@ -2,7 +2,6 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle2, Circle } from "lucide-react"
-import { useState } from "react"
 
 const TEACHER_QUESTS = [
     { id: 1, title: "Create a new Question Set", reward: 50, completed: false },
@@ -17,7 +16,7 @@ const STUDENT_QUESTS = [
 ]
 
 export function QuestList({ role }: { role?: string }) {
-    const [quests, setQuests] = useState(role === "STUDENT" ? STUDENT_QUESTS : TEACHER_QUESTS)
+    const quests = role === "STUDENT" ? STUDENT_QUESTS : TEACHER_QUESTS
 
     return (
         <Card className="border-2 border-slate-100 shadow-sm">

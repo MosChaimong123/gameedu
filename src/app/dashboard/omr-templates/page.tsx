@@ -1,16 +1,22 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { ArrowLeft, FileText, Download, Printer } from "lucide-react"
-import Link from "next/link"
+import { PageBackLink } from "@/components/ui/page-back-link"
 import { motion, AnimatePresence } from "framer-motion"
 import { OMRPrintableSheet } from "@/components/omr/omr-printable-sheet"
 
-export default function OMRTemplatesPage() {
-    const [selectedSize, setSelectedSize] = useState<"20" | "50" | "80">("20")
+type TemplateSize = "20" | "50" | "80"
+type TemplateOption = {
+    id: TemplateSize
+    label: string
+    icon: string
+    description: string
+}
 
-    const templates = [
+export default function OMRTemplatesPage() {
+    const [selectedSize, setSelectedSize] = useState<TemplateSize>("20")
+
+    const templates: TemplateOption[] = [
         { id: "20", label: "20 Questions", icon: "📄", description: "Perfect for quick quizzes and short tests." },
         { id: "50", label: "50 Questions", icon: "📑", description: "Standard size for mid-term exams." },
         { id: "80", label: "80 Questions", icon: "📚", description: "Comprehensive for final exams and large tests." }
@@ -20,12 +26,8 @@ export default function OMRTemplatesPage() {
         <div className="min-h-screen bg-slate-50 p-6 md:p-12 font-sans">
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
-                <div className="flex items-center gap-4 mb-8">
-                    <Link href="/dashboard/omr">
-                        <Button variant="ghost" className="w-12 h-12 rounded-full hover:bg-white shadow-sm">
-                            <ArrowLeft className="w-6 h-6" />
-                        </Button>
-                    </Link>
+                <div className="flex flex-wrap items-center gap-4 mb-8">
+                    <PageBackLink href="/dashboard/omr" label="ระบบ OMR" />
                     <div>
                         <h1 className="text-3xl font-black text-slate-800 tracking-tight">OMR Paper Templates</h1>
                         <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Download & Print Professional Sheets</p>
@@ -36,10 +38,10 @@ export default function OMRTemplatesPage() {
                     {/* Sidebar Selection */}
                     <div className="lg:col-span-1 space-y-4">
                         <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 px-1">Select Size</h2>
-                        {templates.map((t: any) => (
+                        {templates.map((t) => (
                             <button
                                 key={t.id}
-                                onClick={() => setSelectedSize(t.id as any)}
+                                onClick={() => setSelectedSize(t.id)}
                                 className={`w-full p-6 rounded-[2rem] text-left transition-all border-2 flex flex-col gap-2 ${
                                     selectedSize === t.id 
                                     ? "bg-slate-900 border-slate-900 text-white shadow-xl scale-105" 

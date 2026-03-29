@@ -40,7 +40,7 @@ export default function LoginForm() {
                 // Fetch the session to determine role-based redirect
                 const { getSession } = await import("next-auth/react")
                 const session = await getSession()
-                const role = (session?.user as any)?.role
+                const role = session?.user?.role
                 if (role === "STUDENT") {
                     window.location.href = "/student/home"
                 } else if (role === "ADMIN") {
@@ -54,11 +54,6 @@ export default function LoginForm() {
         } finally {
             setIsLoading(false)
         }
-    }
-
-    const handleGoogleLogin = () => {
-        setIsLoading(true)
-        signIn("google", { callbackUrl: "/dashboard" })
     }
 
     return (

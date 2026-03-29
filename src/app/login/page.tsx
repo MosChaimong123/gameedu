@@ -1,6 +1,11 @@
 import LoginForm from "./login-form"
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
+import { PageBackLink } from "@/components/ui/page-back-link"
+
+type FeaturePill = {
+    icon: string
+    text: string
+}
 
 export default function LoginPage() {
     return (
@@ -32,7 +37,7 @@ export default function LoginPage() {
                         { icon: "🏆", text: "ระบบคะแนนและยศ" },
                         { icon: "📊", text: "รายงานผลแบบ real-time" },
                         { icon: "🎮", text: "เกมการเรียนรู้ที่สนุก" },
-                    ].map((item: any) => (
+                    ].map((item: FeaturePill) => (
                         <div key={item.text} className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-3 border border-white/20">
                             <span className="text-2xl">{item.icon}</span>
                             <span className="text-white font-semibold">{item.text}</span>
@@ -43,10 +48,9 @@ export default function LoginPage() {
 
             {/* ===== Right: Form Panel ===== */}
             <div className="flex flex-1 flex-col items-center justify-center p-8 bg-slate-50 relative">
-                <Link href="/" className="absolute top-6 left-6 flex items-center gap-2 text-slate-400 hover:text-indigo-600 transition-colors text-sm font-semibold">
-                    <ArrowLeft className="w-4 h-4" />
-                    <span>กลับหน้าแรก</span>
-                </Link>
+                <div className="absolute left-6 top-6">
+                    <PageBackLink href="/" label="กลับหน้าแรก" />
+                </div>
 
                 <div className="w-full max-w-md">
                     {/* Mobile logo */}

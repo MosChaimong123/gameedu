@@ -1,8 +1,5 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Printer, X } from "lucide-react"
-
 interface OMRSheetProps {
     questionsCount: number
     studentName?: string
@@ -15,8 +12,6 @@ export function OMRSheet({ questionsCount = 20, studentName = ".................
     
     // Calculate columns based on question count to fit A4
     const cols = questionsCount <= 20 ? 1 : questionsCount <= 60 ? 3 : 4
-    const itemsPerCol = Math.ceil(questionsCount / cols)
-    
     // Scalability for more questions
     const bubbleSize = questionsCount > 60 ? "w-6 h-6 text-xs" : "w-8 h-8 text-sm"
     const gapSize = questionsCount > 60 ? "gap-4" : "gap-8"

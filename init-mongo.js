@@ -1,6 +1,5 @@
-const { MongoClient } = require("mongodb");
-
 async function main() {
+    const { MongoClient } = await import("mongodb");
     const uri = "mongodb://127.0.0.1:27017/admin?directConnection=true";
     const client = new MongoClient(uri);
 

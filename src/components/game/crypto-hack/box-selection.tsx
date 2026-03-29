@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import type { MouseEvent } from "react";
 import { CryptoReward } from "@/lib/types/game";
 
 type Props = {
@@ -11,31 +12,39 @@ type Props = {
 export function CryptoBoxSelection({ onSelect, reveal }: Props) {
     console.log("CryptoBoxSelection Render. Reveal:", reveal);
     const [selected, setSelected] = useState<number | null>(null);
+    const effectiveSelected = reveal?.index ?? selected;
 
     // Sync selected state if reveal comes in (in case selection handling was upstream)
     useEffect(() => {
-        if (reveal && selected === null) {
-            setSelected(reveal.index);
+        if (!reveal && selected !== null) {
+            const frameId = window.requestAnimationFrame(() => {
+                setSelected(null);
+            });
+            return () => window.cancelAnimationFrame(frameId);
         }
-        if (!reveal) {
-            setSelected(null); // Reset when parent clears reveal
-        }
-    }, [reveal]);
 
-    const handleSelect = (index: number, e?: any) => {
+        if (reveal && selected === null) {
+            const frameId = window.requestAnimationFrame(() => {
+                setSelected(reveal.index);
+            });
+            return () => window.cancelAnimationFrame(frameId);
+        }
+    }, [reveal, selected]);
+
+    const handleSelect = (index: number, e?: MouseEvent<HTMLButtonElement>) => {
         if (e) {
             e.preventDefault();
             e.stopPropagation();
         }
         console.log("Box Selected:", index);
-        if (selected !== null) return;
+        if (effectiveSelected !== null) return;
         setSelected(index);
         onSelect(index);
     }
 
     // Safety timeout: If loading takes too long (stuck), reset
     useEffect(() => {
-        if (selected !== null && !reveal) {
+        if (effectiveSelected !== null && !reveal) {
             const timer = setTimeout(() => {
                 console.log("Box selection timed out/resetting.");
                 setSelected(null);
@@ -43,9 +52,9 @@ export function CryptoBoxSelection({ onSelect, reveal }: Props) {
             }, 5000);
             return () => clearTimeout(timer);
         }
-    }, [selected, reveal]);
+    }, [effectiveSelected, reveal]);
 
-    const renderRewardParams = (reward: any) => {
+    const renderRewardParams = (reward: CryptoReward) => {
         if (!reward || !reward.type) return { text: "???", color: "text-slate-500" };
 
         switch (reward.type) {
@@ -53,7 +62,7 @@ export function CryptoBoxSelection({ onSelect, reveal }: Props) {
             case "MULTIPLIER": return { text: `${reward.value}x`, color: "text-yellow-400" };
             case "HACK": return { text: "HACK", color: "text-red-500" };
             case "NOTHING": return { text: "EMPTY", color: "text-slate-500" };
-            default: return { text: reward.type, color: "text-white" };
+            default: return { text: "???", color: "text-white" };
         }
     }
 
@@ -65,7 +74,7 @@ export function CryptoBoxSelection({ onSelect, reveal }: Props) {
 
             <div className="flex flex-wrap justify-center gap-6 md:gap-12">
                 {[0, 1, 2].map((i) => {
-                    const isSelected = selected === i;
+                    const isSelected = effectiveSelected === i;
                     const isRevealed = reveal && reveal.index === i;
                     const rewardContent = isRevealed ? renderRewardParams(reveal.reward) : null;
 
@@ -74,13 +83,13 @@ export function CryptoBoxSelection({ onSelect, reveal }: Props) {
                             key={i}
                             initial={{ scale: 0, opacity: 0 }}
                             animate={{
-                                scale: isRevealed ? 1.1 : (selected !== null && !isSelected ? 0.9 : 1),
-                                opacity: selected !== null && !isSelected ? 0.3 : 1
+                                scale: isRevealed ? 1.1 : (effectiveSelected !== null && !isSelected ? 0.9 : 1),
+                                opacity: effectiveSelected !== null && !isSelected ? 0.3 : 1
                             }}
                             transition={{ delay: i * 0.1 }}
-                            whileHover={selected === null ? { scale: 1.05 } : {}}
+                            whileHover={effectiveSelected === null ? { scale: 1.05 } : {}}
                             onClick={(e) => handleSelect(i, e)}
-                            disabled={selected !== null}
+                            disabled={effectiveSelected !== null}
                             className={cn(
                                 "w-40 h-40 md:w-56 md:h-56 border-4 flex items-center justify-center relative overflow-hidden transition-all group cursor-pointer z-30",
                                 isRevealed

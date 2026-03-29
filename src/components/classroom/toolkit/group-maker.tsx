@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Student, StudentGroup, Skill } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { X, Users, RefreshCw, Heart, Star, Zap, ThumbsUp, Brain, Trophy, AlertCircle } from "lucide-react";
-import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/components/providers/language-provider";
@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
 
 // Map icon strings to Lucide components
-const iconMap: Record<string, any> = {
+const iconMap: Record<string, typeof Heart> = {
     "heart": Heart,
     "star": Star,
     "zap": Zap,
@@ -31,10 +31,16 @@ interface GroupMakerProps {
     skills: Skill[];
     theme: string;
     onClose: () => void;
-    levelConfig?: any;
+    levelConfig?: unknown;
 }
 
-export function GroupMaker({ students, skills, theme, onClose, levelConfig }: GroupMakerProps) {
+type ParsedSavedGroup = {
+    name?: string;
+    studentIds?: string[];
+};
+
+export function GroupMaker({ students, skills, theme, onClose, levelConfig: _levelConfig }: GroupMakerProps) {
+    void _levelConfig;
     const { t } = useLanguage();
     const [groupCount, setGroupCount] = useState(4);
     const [groups, setGroups] = useState<Student[][]>([]);
@@ -135,7 +141,7 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig }: Gr
                 if (!Array.isArray(parsed) && parsed && parsed.studentIds) {
                     return parsed.name || `Group ${index + 1}`;
                 }
-            } catch (e) {}
+            } catch {}
             return `Group ${index + 1}`;
         });
         setEditSavedGroupNames(names);
@@ -155,13 +161,13 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig }: Gr
             if (!isOldFormat) {
                 newStudentIds = groupSet.studentIds.map((groupStr, idx) => {
                     try {
-                        let parsedGroup = JSON.parse(groupStr);
+                        const parsedGroup = JSON.parse(groupStr);
                         if (Array.isArray(parsedGroup)) {
                             return JSON.stringify({ name: editSavedGroupNames[idx] || `Group ${idx + 1}`, studentIds: parsedGroup });
                         } else if (parsedGroup && parsedGroup.studentIds) {
                             return JSON.stringify({ ...parsedGroup, name: editSavedGroupNames[idx] || `Group ${idx + 1}` });
                         }
-                    } catch (e) {}
+                    } catch {}
                     return groupStr;
                 });
             }
@@ -404,10 +410,13 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig }: Gr
                                                     ${draggedStudentId === student.id ? 'opacity-50 ring-2 ring-indigo-400 shadow-md' : 'hover:border-indigo-200 hover:shadow-md'}
                                                 `}
                                             >
-                                                <img 
+                                                <Image 
                                                     src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=${student.avatar || student.id}`} 
                                                     alt={student.name}
+                                                    width={40}
+                                                    height={40}
                                                     className="w-10 h-10 rounded-full bg-indigo-50 pointer-events-none"
+                                                    unoptimized
                                                 />
                                                 <span className="text-sm font-semibold text-slate-700 truncate pointer-events-none">
                                                     {student.name}
@@ -478,7 +487,7 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig }: Gr
                                                             Edit
                                                         </button>
                                                         <button 
-                                                            onClick={(e) => {
+                                                            onClick={() => {
                                                                 if (window.confirm(t("deleteConfirm") || "Delete this group set?")) {
                                                                     handleDeleteSavedGroup(groupSet.id);
                                                                 }
@@ -518,7 +527,7 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig }: Gr
                                                                 if (!s) return null;
                                                                 return (
                                                                     <div key={s.id} className="flex items-center gap-3 bg-slate-50 p-2 pr-4 rounded-xl border border-slate-100">
-                                                                        <img src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=${s.avatar || s.id}`} alt={s.name} className="w-8 h-8 rounded-full bg-indigo-50" />
+                                                                        <Image src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=${s.avatar || s.id}`} alt={s.name} width={32} height={32} className="w-8 h-8 rounded-full bg-indigo-50" unoptimized />
                                                                         <span className="text-sm font-semibold text-slate-700 truncate">{s.name}</span>
                                                                     </div>
                                                                 );
@@ -534,7 +543,7 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig }: Gr
                                                     </div>
                                                 ) : (
                                                     groupSet.studentIds.map((groupStr, index) => {
-                                                        let parsedGroup: any = null;
+                                                        let parsedGroup: ParsedSavedGroup | string[] | null = null;
                                                         let parsedIds: string[] = [];
                                                         let groupName = `Group ${index + 1}`;
                                                         
@@ -577,7 +586,7 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig }: Gr
                                                                 <div className="flex flex-col gap-2 mb-4">
                                                                     {groupStudents.map(student => (
                                                                         <div key={student.id} className="flex items-center gap-3 bg-slate-50 p-2 pr-4 rounded-xl border border-slate-100 transition-colors hover:border-indigo-200">
-                                                                            <img src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=${student.avatar || student.id}`} alt={student.name} className="w-8 h-8 rounded-full bg-indigo-50" />
+                                                                            <Image src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=${student.avatar || student.id}`} alt={student.name} width={32} height={32} className="w-8 h-8 rounded-full bg-indigo-50" unoptimized />
                                                                             <span className="text-sm font-semibold text-slate-700 truncate">{student.name}</span>
                                                                         </div>
                                                                     ))}

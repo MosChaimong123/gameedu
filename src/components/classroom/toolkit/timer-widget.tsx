@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Play, Pause, RotateCcw, X } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
 import useSound from "use-sound";
 
 interface TimerWidgetProps {
@@ -25,11 +24,21 @@ export function TimerWidget({ onClose }: TimerWidgetProps) {
 
         if (isActive && timeLeft > 0) {
             interval = setInterval(() => {
-                setTimeLeft((time) => time - 1);
+                setTimeLeft((time) => {
+                    const next = time - 1;
+
+                    if (next <= 0) {
+                        if (interval) clearInterval(interval);
+                        window.requestAnimationFrame(() => {
+                            setIsActive(false);
+                            playAlarm();
+                        });
+                        return 0;
+                    }
+
+                    return next;
+                });
             }, 1000);
-        } else if (timeLeft === 0 && isActive) {
-            setIsActive(false);
-            playAlarm();
         }
 
         return () => {

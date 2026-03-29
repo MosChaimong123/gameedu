@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Classroom, Student, Skill, Assignment, AssignmentSubmission, Prisma } from "@prisma/client";
+import Image from "next/image";
+import { Classroom, Student, Skill, Assignment, AssignmentSubmission } from "@prisma/client";
 import { StudentAvatar } from "./student-avatar";
 import { AddStudentDialog } from "./add-student-dialog";
 import { StudentLoginsDialog } from "./student-logins-dialog";
@@ -13,13 +14,11 @@ import { ClassroomTable } from "./classroom-table";
 import { AddAssignmentDialog } from "./add-assignment-dialog";
 import { StudentManagerDialog } from "./student-manager-dialog";
 import { StudentHistoryModal } from "./student-history-modal";
-import { SummonBossDialog } from "./summon-boss-dialog";
 import { CustomAchievementManagerButton } from "./CustomAchievementManagerButton";
 import { EventManagerButton } from "./EventManagerButton";
 import { ClassroomSettingsDialog } from "./classroom-settings-dialog";
 import { ClassroomRankSettingsDialog } from "./classroom-rank-settings-dialog";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import {
     Dialog,
     DialogContent,
@@ -32,9 +31,9 @@ import { Users, Timer, Shuffle, Settings, LayoutGrid, TableProperties, Plus, Use
 import { useLanguage } from "@/components/providers/language-provider";
 import { useToast } from "@/components/ui/use-toast";
 import { useSocket } from "@/components/providers/socket-provider";
-import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
-import type { BossRaidTemplate } from "@/lib/game/personal-classroom-boss";
 import useSound from "use-sound";
+import type { LevelConfigInput } from "@/lib/classroom-utils";
+import type { AssignmentWithChecklist } from "./classroom-table";
 
 interface ClassroomDashboardProps {
     classroom: Classroom & {
@@ -43,6 +42,14 @@ interface ClassroomDashboardProps {
         assignments: Assignment[];
     };
 }
+
+type ClassroomSocketPayload = {
+    type: string;
+    data: {
+        studentId?: string;
+        points?: number;
+    };
+};
 
 export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDashboardProps) {
     const { t } = useLanguage();
@@ -83,9 +90,10 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
 
         socket.emit("join-classroom", classroom.id);
 
-        const handleUpdate = (payload: { type: string, data: any }) => {
+        const handleUpdate = (payload: ClassroomSocketPayload) => {
             if (payload.type === "POINT_UPDATE") {
                 const { studentId, points } = payload.data;
+                if (studentId === undefined || points === undefined) return;
 
                 playDing();
 
@@ -94,18 +102,6 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                     students: prev.students.map(s =>
                         s.id === studentId ? { ...s, points } : s
                     )
-                }));
-            } else if (payload.type === "BOSS_HP_UPDATE") {
-                // Boss HP is per-student (gameStats.personalClassroomBoss); no shared classroom HP to merge.
-                void payload;
-            } else if (payload.type === "BOSS_UPDATE") {
-                const { boss } = payload.data;
-                setClassroom(prev => ({
-                    ...prev,
-                    gamifiedSettings: {
-                        ...(prev.gamifiedSettings as any || {}),
-                        boss
-                    }
                 }));
             }
         };
@@ -163,7 +159,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
             toast({ title: "Attendance Saved", description: "Records updated successfully." });
             setIsAttendanceMode(false);
             setHasChanges(false);
-        } catch (error) {
+        } catch {
             toast({ title: "Error", description: "Failed to save attendance.", variant: "destructive" });
         } finally {
             setLoading(false);
@@ -198,7 +194,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
             }));
             
             toast({ title: "Success", description: "All points have been reset to 0." });
-        } catch (error) {
+        } catch {
             toast({ title: t("error") || "Error", description: "Failed to reset points.", variant: "destructive" });
         } finally {
             setLoading(false);
@@ -272,7 +268,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                 });
             }
 
-        } catch (error) {
+        } catch {
             // Revert
             setClassroom(prev => ({
                 ...prev,
@@ -296,15 +292,6 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
         }
     };
 
-    const handleTablePointUpdate = (studentId: string, diff: number) => {
-        setClassroom(prev => ({
-            ...prev,
-            students: prev.students.map(s =>
-                s.id === studentId ? { ...s, points: s.points + diff } : s
-            )
-        }));
-    };
-
     return (
         <div className="flex flex-col h-full space-y-6 relative">
             {/* Toolbar */}
@@ -316,7 +303,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                         <div className="flex items-center gap-4">
                             <div className="w-14 h-14 bg-white/20 p-2 md:p-2.5 rounded-xl border border-white/30 backdrop-blur-sm shadow-inner shrink-0 flex items-center justify-center text-2xl overflow-hidden">
                                 {classroom.emoji?.startsWith('data:image') || classroom.emoji?.startsWith('http') ? (
-                                    <img src={classroom.emoji} alt="Class Icon" className="w-full h-full object-cover" />
+                                    <Image src={classroom.emoji} alt="Class Icon" width={56} height={56} className="w-full h-full object-cover" unoptimized />
                                 ) : (
                                     <span>{classroom.emoji || classroom.image || "🛡️"}</span>
                                 )}
@@ -432,28 +419,6 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                         <div className="flex flex-col justify-center px-5 py-4 border-r border-b border-slate-700/50 flex-grow sm:flex-grow-0">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-2">🎮 Gamification</p>
                             <div className="flex flex-wrap items-center gap-2">
-                                <SummonBossDialog
-                                    classId={classroom.id}
-                                    gamifiedSettings={(classroom.gamifiedSettings as Record<string, unknown>) || {}}
-                                    onRaidTemplateChange={(template: BossRaidTemplate | null) =>
-                                        setClassroom((prev) => {
-                                            const gs = {
-                                                ...((prev.gamifiedSettings as Record<string, unknown>) || {}),
-                                            };
-                                            if (template) {
-                                                gs.bossRaidTemplate = template;
-                                            } else {
-                                                delete gs.bossRaidTemplate;
-                                                delete gs.bosses;
-                                                delete gs.boss;
-                                            }
-                                            return {
-                                                ...prev,
-                                                gamifiedSettings: gs as unknown as Prisma.JsonValue,
-                                            };
-                                        })
-                                    }
-                                />
                                 <ClassroomRankSettingsDialog classroom={classroom} />
                                 <CustomAchievementManagerButton
                                     classId={classroom.id}
@@ -615,7 +580,7 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                                 onClick={() => handleStudentClick(student)}
                                 onContextMenu={(e) => { e.preventDefault(); setHistoryStudentId(student.id); }}
                                 attendance={student.attendance || "PRESENT"}
-                                levelConfig={classroom.levelConfig}
+                                levelConfig={classroom.levelConfig as LevelConfigInput}
                                 isSelected={selectedStudentIds.includes(student.id)}
                                 academicPoints={
                                     student.submissions?.reduce((sum, sub) => sum + sub.score, 0) || 0
@@ -634,11 +599,10 @@ export function ClassroomDashboard({ classroom: initialClassroom }: ClassroomDas
                     <ClassroomTable 
                         classId={classroom.id}
                         students={classroom.students}
-                        assignments={classroom.assignments}
-                        levelConfig={classroom.levelConfig}
-                        onUpdatePoints={handleTablePointUpdate}
+                        assignments={classroom.assignments as AssignmentWithChecklist[]}
+                        levelConfig={classroom.levelConfig as LevelConfigInput}
                         isAttendanceMode={isAttendanceMode}
-                        onStudentClick={handleStudentClick as any}
+                        onStudentClick={handleStudentClick}
                     />
                 </div>
             )}

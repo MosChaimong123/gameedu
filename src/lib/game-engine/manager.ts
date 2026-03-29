@@ -1,16 +1,58 @@
 
-
-import { AbstractGameEngine } from "./abstract-game";
+import type { Server } from "socket.io";
+import type { Prisma } from "@prisma/client";
+import { AbstractGameEngine, type GameQuestion } from "./abstract-game";
 import { GoldQuestEngine } from "./gold-quest-engine";
 import { CryptoHackEngine } from "./crypto-hack-engine";
-import { BattleTurnEngine } from "./battle-turn-engine";
 import { db } from "../db";
+import type { GameSettings } from "../types/game";
+import { toPrismaJson } from "../prisma-json";
+
+type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK";
+
+type PersistedGameRecord = {
+    pin: string;
+    hostId: string;
+    setId: string;
+    status: "LOBBY" | "PLAYING" | "ENDED";
+    settings: Partial<GameSettings>;
+    players: AbstractGameEngine["players"];
+    questions: GameQuestion[];
+    startTime?: number | string;
+    endTime?: number | string;
+    state?: unknown;
+};
+
+function isGameQuestion(value: unknown): value is GameQuestion {
+    if (!value || typeof value !== "object") return false;
+    const candidate = value as Record<string, unknown>;
+    return (
+        typeof candidate.id === "string" &&
+        typeof candidate.question === "string" &&
+        Array.isArray(candidate.options) &&
+        typeof candidate.correctAnswer === "number"
+    );
+}
+
+function parseQuestions(value: Prisma.JsonValue): GameQuestion[] {
+    return Array.isArray(value) ? value.filter(isGameQuestion) : [];
+}
+
+function parseSettings(value: Prisma.JsonValue): Partial<GameSettings> {
+    return value && typeof value === "object" && !Array.isArray(value)
+        ? (value as unknown as Partial<GameSettings>)
+        : {};
+}
+
+function parseRequiredSettings(value: Prisma.JsonValue): GameSettings {
+    return parseSettings(value) as GameSettings;
+}
 
 class GameManager {
     private static instance: GameManager;
     private games: Map<string, AbstractGameEngine>;
     private loopInterval: NodeJS.Timeout | null = null;
-    private io: any;
+    private io: Server | null = null;
 
     private constructor() {
         this.games = new Map();
@@ -25,13 +67,13 @@ class GameManager {
     }
 
     public createGame(
-        mode: "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "BATTLE_TURN",
+        mode: GameMode,
         pin: string,
         hostId: string,
         setId: string,
-        settings: any,
-        questions: any[],
-        io: any
+        settings: GameSettings,
+        questions: GameQuestion[],
+        io: Server
     ): AbstractGameEngine {
         let game: AbstractGameEngine;
 
@@ -39,10 +81,8 @@ class GameManager {
             game = new GoldQuestEngine(pin, hostId, setId, settings, questions, io);
         } else if (mode === "CRYPTO_HACK") {
             game = new CryptoHackEngine(pin, hostId, setId, settings, questions, io);
-        } else if (mode === "BATTLE_TURN") {
-            game = new BattleTurnEngine(pin, hostId, setId, settings, questions, io);
         } else {
-            // Default fallback
+            // CLASSIC or unknown → Gold Quest
             game = new GoldQuestEngine(pin, hostId, setId, settings, questions, io);
         }
 
@@ -80,7 +120,7 @@ class GameManager {
         console.log(`[GameManager] Removed game ${pin}`);
     }
 
-    public setIO(io: any) {
+    public setIO(io: Server) {
         this.io = io;
         for (const game of this.games.values()) {
             game.setIO(io);
@@ -101,8 +141,8 @@ class GameManager {
                     pin: game.pin,
                     startedAt: new Date(game.startTime),
                     endedAt: new Date(game.endTime || Date.now()),
-                    settings: game.settings,
-                    players: JSON.parse(JSON.stringify(game.players))
+                    settings: toPrismaJson(game.settings),
+                    players: toPrismaJson(game.players)
                 }
             });
             console.log(`[Persistence] History archived for game ${game.pin}`);
@@ -120,20 +160,20 @@ class GameManager {
             await db.activeGame.upsert({
                 where: { pin: game.pin },
                 update: {
-                    state: data.state,
-                    players: data.players, // JSON
-                    settings: data.settings,
+                    state: data.state === undefined ? undefined : toPrismaJson(data.state),
+                    players: toPrismaJson(data.players),
+                    settings: toPrismaJson(data.settings),
                     startTime: data.startTime ? new Date(data.startTime) : null,
                 },
                 create: {
                     pin: game.pin,
                     gameMode: game.gameMode, // Dynamic game mode
                     hostId: game.hostId,
-                    settings: data.settings,
-                    players: data.players,
-                    questions: data.questions,
+                    settings: toPrismaJson(data.settings),
+                    players: toPrismaJson(data.players),
+                    questions: toPrismaJson(data.questions),
                     startTime: data.startTime ? new Date(data.startTime) : null,
-                    state: data.state
+                    state: data.state === undefined ? undefined : toPrismaJson(data.state)
                 }
             });
         } catch (err) {
@@ -144,7 +184,7 @@ class GameManager {
     private async deleteGameOnDb(pin: string) {
         try {
             await db.activeGame.delete({ where: { pin } }).catch(() => { });
-        } catch (err) {
+        } catch {
             // Ignore error if already deleted
         }
     }
@@ -152,6 +192,14 @@ class GameManager {
     public async recoverGames() {
         console.log("[Persistence] Recovering games...");
         try {
+            // Battle RPG mode removed — drop any persisted sessions
+            const removedBattle = await db.activeGame.deleteMany({
+                where: { gameMode: "BATTLE_TURN" },
+            });
+            if (removedBattle.count > 0) {
+                console.log(`[Persistence] Removed ${removedBattle.count} BATTLE_TURN game(s)`);
+            }
+
             // Auto-delete stale games older than 24 hours
             const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
             const stale = await db.activeGame.deleteMany({ where: { updatedAt: { lt: cutoff } } });
@@ -169,18 +217,9 @@ class GameManager {
                         record.pin,
                         record.hostId,
                         "",
-                        record.settings as any,
-                        record.questions as any[],
-                        null as any
-                    );
-                } else if (record.gameMode === "BATTLE_TURN") {
-                    game = new BattleTurnEngine(
-                        record.pin,
-                        record.hostId,
-                        "",
-                        record.settings as any,
-                        record.questions as any[],
-                        null as any
+                        parseRequiredSettings(record.settings),
+                        parseQuestions(record.questions),
+                        null as unknown as Server
                     );
                 } else {
                     // Default to Gold Quest
@@ -188,17 +227,28 @@ class GameManager {
                         record.pin,
                         record.hostId,
                         "",
-                        record.settings as any,
-                        record.questions as any[],
-                        null as any
+                        parseSettings(record.settings),
+                        parseQuestions(record.questions),
+                        null as unknown as Server
                     );
                 }
 
                 // restore data
-                game.restore({
-                    ...record,
-                    state: record.state
-                });
+                const persistedRecord: PersistedGameRecord = {
+                    pin: record.pin,
+                    hostId: record.hostId,
+                    setId: "",
+                    status: "PLAYING",
+                    settings: parseSettings(record.settings),
+                    players: [],
+                    questions: parseQuestions(record.questions),
+                    startTime: record.startTime?.toISOString(),
+                    state: record.state,
+                };
+                if (Array.isArray(record.players)) {
+                    persistedRecord.players = record.players as PersistedGameRecord["players"];
+                }
+                game.restore(persistedRecord);
 
                 this.games.set(record.pin, game);
                 console.log(`[Persistence] Recovered game ${record.pin} (${record.gameMode})`);

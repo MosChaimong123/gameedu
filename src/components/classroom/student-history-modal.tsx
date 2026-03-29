@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, TrendingUp, TrendingDown, Star, Clock, CalendarDays } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, Star, Clock } from "lucide-react";
 import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip } from "recharts";
-import { isToday, isYesterday, startOfDay, format } from "date-fns";
-import { useLanguage } from "@/components/providers/language-provider";
+import { ResponsiveContainer, AreaChart, Area } from "recharts";
+import { isToday, isYesterday, format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface PointRecord {
@@ -41,18 +41,20 @@ export function StudentHistoryModal({
     onOpenChange,
     theme,
 }: StudentHistoryModalProps) {
-    const { t } = useLanguage();
     const [data, setData] = useState<StudentHistoryData | null>(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (!open || !studentId) return;
-        setData(null);
-        setLoading(true);
+        const frameId = window.requestAnimationFrame(() => {
+            setData(null);
+            setLoading(true);
+        });
         fetch(`/api/classrooms/${classId}/students/${studentId}/history`)
             .then((r) => (r.ok ? r.json() : null))
             .then((json) => setData(json))
             .finally(() => setLoading(false));
+        return () => window.cancelAnimationFrame(frameId);
     }, [open, classId, studentId]);
 
     const totalPositive = data?.history.filter(h => h.value > 0).reduce((s, h) => s + h.value, 0) ?? 0;
@@ -98,16 +100,19 @@ export function StudentHistoryModal({
                         {data ? (
                             <>
                                 <div className="w-12 h-12 rounded-full overflow-hidden bg-white/20 border-2 border-white/30 shrink-0">
-                                    <img
+                                    <Image
                                         src={`https://api.dicebear.com/7.x/bottts/svg?seed=${data.avatar || data.id}`}
                                         alt={data.name}
+                                        width={48}
+                                        height={48}
                                         className="w-full h-full"
+                                        unoptimized
                                     />
                                 </div>
                                 <div className="min-w-0">
                                     <p className="font-black text-xl leading-tight truncate">{data.name}</p>
                                     {data.nickname && (
-                                        <p className="text-white/70 text-sm">"{data.nickname}"</p>
+                                        <p className="text-white/70 text-sm">&quot;{data.nickname}&quot;</p>
                                     )}
                                 </div>
                             </>
@@ -178,7 +183,7 @@ export function StudentHistoryModal({
                             <div className="absolute left-[27px] top-4 bottom-4 w-0.5 bg-slate-200" />
 
                             <div className="space-y-6 pl-0">
-                                {Object.entries(groupedHistory).map(([dateLabel, records], groupIndex) => (
+                                {Object.entries(groupedHistory).map(([dateLabel, records]) => (
                                     <div key={dateLabel} className="space-y-3">
                                         <div className="flex items-center gap-2 mb-4">
                                             <div className="bg-slate-200 h-[1px] flex-1" />

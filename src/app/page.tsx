@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Gamepad2, ArrowRight, UserPlus, LogIn } from "lucide-react"
+import { Gamepad2, ArrowRight } from "lucide-react"
 
 export default function Home() {
   return (

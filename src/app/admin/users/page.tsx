@@ -2,12 +2,12 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { UserTable } from "./user-table";
-import { Users, ChevronLeft } from "lucide-react";
-import Link from "next/link";
+import { Users } from "lucide-react";
+import { PageBackLink } from "@/components/ui/page-back-link";
 
 export default async function UserManagementPage() {
     const session = await auth();
-    const role = (session?.user as any)?.role;
+    const role = session?.user?.role;
     
     if (!session?.user || role !== "ADMIN") {
         redirect("/dashboard");
@@ -22,12 +22,7 @@ export default async function UserManagementPage() {
             <div className="max-w-6xl mx-auto space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Link 
-                            href="/admin" 
-                            className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center hover:bg-slate-50 transition-colors shadow-sm"
-                        >
-                            <ChevronLeft className="w-5 h-5 text-slate-600" />
-                        </Link>
+                        <PageBackLink href="/admin" label="แอดมิน" />
                         <div>
                             <div className="flex items-center gap-2">
                                 <Users className="w-5 h-5 text-purple-600" />

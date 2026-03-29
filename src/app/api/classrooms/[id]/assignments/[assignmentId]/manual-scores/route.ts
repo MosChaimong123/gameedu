@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
-import { IdleEngine } from "@/lib/game/idle-engine";
 
 export async function POST(
     req: Request,
@@ -21,19 +20,6 @@ export async function POST(
             return new NextResponse("Missing data", { status: 400 });
         }
 
-        // Fetch student items for damage calculation
-        const student = await db.student.findUnique({
-            where: { id: studentId },
-            select: {
-                points: true,
-                items: {
-                    where: { isEquipped: true },
-                    include: { item: true }
-                }
-            }
-        });
-
-        // Verify Class Ownership & Assignment Existence
         const assignment = await db.assignment.findUnique({
             where: {
                 id: assignmentId,
@@ -48,7 +34,6 @@ export async function POST(
             return new NextResponse("Assignment not found or unauthorized", { status: 404 });
         }
 
-        // Upsert Submission
         const submission = await db.assignmentSubmission.upsert({
             where: {
                 studentId_assignmentId: {
@@ -67,23 +52,14 @@ export async function POST(
             }
         });
 
-        // Apply World Boss Damage using the new ATK-based calculation
-        const battleResult = IdleEngine.calculateBossDamage(student?.points || 0, student?.items || []);
-        const scoreMultiplier = assignment.maxScore > 0 ? (score / assignment.maxScore) : 0;
-        const finalDamage = Math.max(1, Math.round(battleResult.damage * scoreMultiplier));
-        
-        const updatedBoss = await IdleEngine.applyBossDamage(id, studentId, {
-            damageOverride: finalDamage,
-            consumeStamina: false,
-        });
-
-        return NextResponse.json({ 
-            ...submission,
-            updatedBoss
+        return NextResponse.json({
+            success: true,
+            submissionId: submission.id,
+            score: submission.score,
         });
 
     } catch (error) {
-        console.error("[MANUAL_SCORE_POST]", error);
+        console.error("[MANUAL_SCORES_POST]", error);
         return new NextResponse("Internal Error", { status: 500 });
     }
 }

@@ -1,43 +1,23 @@
 "use client";
 
-import type { ComponentProps, CSSProperties } from "react";
-import { useState, useEffect, useMemo } from "react";
+import type { CSSProperties } from "react";
+import { useMemo, useState } from "react";
 import {
     LayoutDashboard,
     MessageSquare,
-    Award,
     BarChart3,
-    Shield,
-    ArrowLeft,
-    ShoppingBag,
-    Package,
-    Swords,
     CheckCircle2,
     Clock,
     Trophy,
-    Star,
-    Flame,
+    Award,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import Link from "next/link";
+import { PageBackLink } from "@/components/ui/page-back-link";
 import { StudentAvatarSection } from "./student-avatar-section";
-import { DailyQuestCard } from "./DailyQuestCard";
-import { AchievementsTab } from "./AchievementsTab";
 import { LeaderboardTab } from "./LeaderboardTab";
 import { EventBanner } from "./EventBanner";
-import { ShopTab } from "./ShopTab";
-import { InventoryTab } from "./InventoryTab";
-import { PvPArenaTab } from "./PvPArenaTab";
-import { SkillTab } from "./SkillTab";
-import { FarmingTab } from "./FarmingTab";
-import { WorldBossBar } from "./world-boss-bar";
-import { CraftingTab } from "./CraftingTab";
-import { BossRewardModal } from "./BossRewardModal";
-import { useSocket } from "@/components/providers/socket-provider";
-import { IdleEngine } from "@/lib/game/idle-engine";
-import { JobSelectionModal } from "@/components/rpg/JobSelectionModal";
 import { SyncAccountButton } from "./sync-account-button";
 import { NotificationTray } from "@/components/dashboard/notification-tray";
 import { ClassBoard } from "@/components/board/ClassBoard";
@@ -48,23 +28,7 @@ import { cn } from "@/lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
 import { th } from "date-fns/locale";
 import { AccessibilityControlPanel } from "@/components/accessibility/AccessibilityControlPanel";
-import { getRaidBossForStudentUi } from "@/lib/game/personal-classroom-boss";
-import { getMergedClassDef } from "@/lib/game/job-system";
-import { getEffectiveSkillAtRank, getSkillRank } from "@/lib/game/skill-tree";
-import type { Skill } from "@/lib/game/job-system";
-import type { RankEntry } from "@/lib/classroom-utils";
-import type { GameStats } from "@/lib/game/idle-engine";
-
-type StudentGameStats = GameStats &
-    Record<string, unknown> & {
-        skillTreeProgress?: Record<string, number>;
-        limitBreakCharge?: number;
-        personalClassroomBoss?: unknown;
-    };
-
-type StudentUpdate = Omit<Partial<DashboardStudent>, "gameStats"> & {
-    gameStats?: Partial<StudentGameStats>;
-};
+import type { RankEntry, LevelConfigInput } from "@/lib/classroom-utils";
 
 type ChecklistItem = string | { text: string; points?: number };
 
@@ -84,7 +48,7 @@ interface SubmissionRecord {
     score: number;
 }
 
-interface HistoryRecord {
+export interface HistoryRecord {
     timestamp: string;
     value: number;
     reason: string;
@@ -94,7 +58,7 @@ interface TeacherRecord {
     name?: string | null;
 }
 
-interface ClassroomRecord {
+export interface ClassroomRecord {
     id: string;
     name: string;
     teacher: TeacherRecord;
@@ -112,17 +76,6 @@ interface DashboardStudent {
     avatar?: string | null;
     userId?: string | null;
     points: number;
-    gameStats: unknown;
-    items?: unknown[];
-    stamina?: number;
-    maxStamina?: number;
-    mana?: number;
-    nextStaminaRegenAt?: string | null;
-    jobClass?: string | null;
-    jobTier?: string | null;
-    advanceClass?: string | null;
-    lastSyncTime?: string | Date | null;
-    jobSkills?: unknown;
 }
 
 interface StudentDashboardClientProps {
@@ -142,48 +95,8 @@ interface StudentDashboardClientProps {
     code: string;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function normalizeStudentGameStats(value: DashboardStudent["gameStats"]): StudentGameStats {
-    if (!value) return IdleEngine.getDefaultStats() as StudentGameStats;
-
-    if (typeof value === "string") {
-        try {
-            const parsed = JSON.parse(value) as unknown;
-            return isRecord(parsed)
-                ? ({ ...IdleEngine.getDefaultStats(), ...parsed } as StudentGameStats)
-                : (IdleEngine.getDefaultStats() as StudentGameStats);
-        } catch {
-            return IdleEngine.getDefaultStats() as StudentGameStats;
-        }
-    }
-
-    return { ...IdleEngine.getDefaultStats(), ...value };
-}
-
-function normalizeJobSkills(value: DashboardStudent["jobSkills"]): string[] {
-    return Array.isArray(value) ? value.filter((skill): skill is string => typeof skill === "string") : [];
-}
-
-function mergeStudentUpdate(prev: DashboardStudent, updated: StudentUpdate): DashboardStudent {
-    const mergedGameStats = updated.gameStats
-        ? {
-            ...normalizeStudentGameStats(prev.gameStats),
-            ...updated.gameStats,
-        }
-        : prev.gameStats;
-
-    return {
-        ...prev,
-        ...updated,
-        gameStats: mergedGameStats,
-    };
-}
-
 export function StudentDashboardClient({
-    student: initialStudent,
+    student,
     classroom: initialClassroom,
     history: initialHistory,
     submissions: initialSubmissions,
@@ -198,124 +111,9 @@ export function StudentDashboardClient({
     currentUserId,
     code
 }: StudentDashboardClientProps) {
-    const { socket, isConnected } = useSocket();
-    const [student, setStudent] = useState(initialStudent);
-    const safeGameStats = useMemo<StudentGameStats>(
-        () => normalizeStudentGameStats(student?.gameStats),
-        [student?.gameStats]
-    );
-
-    const gameStats = safeGameStats;
-    const [classroom, setClassroom] = useState(initialClassroom);
-
-    const raidBosses = useMemo(() => {
-        const row = getRaidBossForStudentUi(
-            classroom.gamifiedSettings,
-            student.gameStats
-        );
-        if (!row || row.active === false || Number(row.currentHp) <= 0) return [];
-        return [row];
-    }, [classroom.gamifiedSettings, student.gameStats]);
-
-    // Boss skills: MP skills the student has unlocked via skill tree or job level
-    const bossSkills = useMemo<Skill[]>(() => {
-        const jobKey = student.advanceClass ?? student.jobClass;
-        if (!jobKey) return [];
-        try {
-            const classDef = getMergedClassDef(jobKey);
-            const skillProgress: Record<string, number> =
-                gameStats.skillTreeProgress ?? {};
-            const unlockedJobSkills = normalizeJobSkills(student.jobSkills);
-            return classDef.skills
-                .filter((s) => s.costType === "MP")
-                .filter((s) => getSkillRank(skillProgress, s.id) > 0 || unlockedJobSkills.includes(s.id))
-                .map((s) => {
-                    const rank = Math.max(1, getSkillRank(skillProgress, s.id));
-                    return getEffectiveSkillAtRank(s, rank);
-                });
-        } catch {
-            return [];
-        }
-    }, [gameStats.skillTreeProgress, student.advanceClass, student.jobClass, student.jobSkills]);
-    const [viewMode, setViewMode] = useState<"academic" | "game">("academic");
+    const [classroom] = useState(initialClassroom);
     const [activeTab, setActiveTab] = useState("assignments");
-    const [showJobModal, setShowJobModal] = useState(false);
-    const [bossReward, setBossReward] = useState<{ bossName: string; rewardGold?: number; rewardXp?: number; rewardMaterials?: { type: string; quantity: number }[] } | null>(null);
-
-    const handleViewModeChange = (mode: "academic" | "game") => {
-        setViewMode(mode);
-        // Switch to the first logical tab of each mode
-        if (mode === "academic") {
-            setActiveTab("assignments");
-        } else {
-            setActiveTab("shop");
-        }
-    };
-
-    // Socket.io for Real-time Boss HP & Events
-    useEffect(() => {
-        if (!socket || !isConnected) return;
-
-        socket.emit("join-classroom", classroom.id);
-
-        const handleBossUpdate = (event: { type: string; data?: Record<string, unknown> }) => {
-            const eventData = event?.data || {};
-
-            if (event.type === "BOSS_HP_UPDATE" && eventData.studentId === student.id) {
-                setStudent((prev: DashboardStudent) => {
-                    const gs = {
-                        ...normalizeStudentGameStats(prev.gameStats),
-                    };
-                    if (eventData.personalBoss == null) {
-                        delete gs.personalClassroomBoss;
-                    } else {
-                        gs.personalClassroomBoss = eventData.personalBoss;
-                    }
-                    return { ...prev, gameStats: gs };
-                });
-                return;
-            }
-
-            if (event.type === "BOSS_SUMMONED") {
-                const tpl = eventData.bossRaidTemplate ?? eventData.template;
-                setClassroom((prev: ClassroomRecord) => {
-                    const gs = { ...(prev.gamifiedSettings || {}) };
-                    if (tpl && typeof tpl === "object") {
-                        return { ...prev, gamifiedSettings: { ...gs, bossRaidTemplate: tpl } };
-                    }
-                    return prev;
-                });
-            } else if (event.type === "BOSS_DEFEATED") {
-                setClassroom((prev: ClassroomRecord) => {
-                    const gs = { ...(prev.gamifiedSettings || {}) };
-                    delete gs.bossRaidTemplate;
-                    delete gs.bosses;
-                    delete gs.boss;
-                    return { ...prev, gamifiedSettings: gs };
-                });
-            }
-        };
-
-        socket.on("classroom-event", handleBossUpdate);
-
-        return () => {
-            socket.emit("leave-classroom", classroom.id);
-            socket.off("classroom-event", handleBossUpdate);
-        };
-    }, [socket, isConnected, classroom.id, student.id]);
-
-    // Check for Job Class Eligibility - only auto-show for FIRST base selection
-    useEffect(() => {
-        const level = gameStats.level || 1;
-
-        // Base Selection (Lv 5+) - only auto-show when no job has been selected yet
-        if (level >= 5 && !student.jobClass) {
-            const frameId = window.requestAnimationFrame(() => {
-                setShowJobModal(true);
-            });
-            return () => window.cancelAnimationFrame(frameId);
-        }
-    }, [gameStats.level, student.jobClass]);
+    const canAccessBoard = Boolean(currentUserId && student.userId && currentUserId === student.userId);
 
     const submissionMap = useMemo(
         () => new Map<string, SubmissionRecord>(initialSubmissions.map((s) => [s.assignmentId, s])),
@@ -326,8 +124,7 @@ export function StudentDashboardClient({
         if (!Array.isArray(checklistItems)) return 0;
         return checklistItems.reduce((sum, item, i) => {
             const isChecked = (bitmask & (1 << i)) !== 0;
-            // Always treat each item as at least 1 point for progress/score calculation if it's a checklist
-            const points = typeof item === 'object' ? (item.points || 1) : 1;
+            const points = typeof item === "object" ? (item.points || 1) : 1;
             return isChecked ? sum + points : sum;
         }, 0);
     };
@@ -345,9 +142,9 @@ export function StudentDashboardClient({
         const groups: Record<string, HistoryRecord[]> = {};
         [...initialHistory]
             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-            .forEach(h => {
+            .forEach((h) => {
                 const date = new Date(h.timestamp);
-                let dateStr = format(date, 'd MMMM yyyy', { locale: th });
+                let dateStr = format(date, "d MMMM yyyy", { locale: th });
                 if (isToday(date)) dateStr = "วันนี้ (Today)";
                 else if (isYesterday(date)) dateStr = "เมื่อวาน (Yesterday)";
 
@@ -359,28 +156,22 @@ export function StudentDashboardClient({
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-100 via-indigo-50/30 to-slate-200 overflow-hidden relative pb-20">
-            {/* Background elements for depth */}
             <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-200/20 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2" />
             <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-200/20 blur-[100px] rounded-full translate-y-1/2 -translate-x-1/2" />
 
             <div className="max-w-6xl mx-auto px-4 py-8 relative z-10">
-
-                {/* ===== Back Button ===== */}
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="mb-6"
                 >
-                    <Link
+                    <PageBackLink
                         href="/student/home"
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/40 hover:bg-white/60 backdrop-blur-md border border-white/50 text-slate-600 font-black text-xs transition-all hover:scale-105 active:scale-95 shadow-sm group"
-                    >
-                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                        <span>กลับหน้าหลัก</span>
-                    </Link>
+                        label="กลับหน้าหลัก"
+                        className="rounded-xl border border-white/50 bg-white/40 shadow-sm backdrop-blur-md hover:bg-white/60 [&>span]:text-xs [&>span]:font-black"
+                    />
                 </motion.div>
 
-                {/* ===== Header: Classroom Info ===== */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -394,18 +185,17 @@ export function StudentDashboardClient({
                             whileHover={{ scale: 1.05, rotate: 5 }}
                             className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 shadow-xl overflow-hidden text-4xl shrink-0"
                         >
-                            {isImageIcon
-                                ? (
-                                    <Image
-                                        src={classIcon!}
-                                        alt="icon"
-                                        width={80}
-                                        height={80}
-                                        className="w-full h-full object-cover"
-                                    />
-                                )
-                                : <span>{classIcon || "🏫"}</span>
-                            }
+                            {isImageIcon ? (
+                                <Image
+                                    src={classIcon!}
+                                    alt="icon"
+                                    width={80}
+                                    height={80}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <span>{classIcon || "🏫"}</span>
+                            )}
                         </motion.div>
                         <div>
                             <div className="flex items-center gap-2 mb-1">
@@ -421,11 +211,8 @@ export function StudentDashboardClient({
                         {currentUserId && !student.userId && (
                             <SyncAccountButton loginCode={code} />
                         )}
-
                         <NotificationTray studentCode={code} />
-
                         <div className="w-px h-10 bg-white/10 hidden sm:block" />
-
                         <div className="flex items-center gap-3">
                             <div className="text-right">
                                 <p className="text-white/50 text-[10px] uppercase tracking-wide font-bold">Status</p>
@@ -448,8 +235,6 @@ export function StudentDashboardClient({
                 </motion.div>
 
                 <div className="grid md:grid-cols-4 gap-8">
-
-                    {/* ===== Left: Character Sidebar ===== */}
                     <div className="md:col-span-1">
                         <StudentAvatarSection
                             studentId={student.id}
@@ -465,115 +250,31 @@ export function StudentDashboardClient({
                             totalNegative={totalNegative}
                             themeClass={themeClass}
                             themeStyle={themeStyle}
-                            levelConfig={classroom.levelConfig}
-                            gameStats={student.gameStats}
-                            items={student.items || []}
-                            stamina={student.stamina}
-                            maxStamina={student.maxStamina}
-                            mana={student.mana}
-                            jobClass={student.jobClass}
-                            jobTier={student.jobTier || "BASE"}
-                            advanceClass={student.advanceClass}
-                            lastSyncTime={student.lastSyncTime}
-                            onUpdateStudent={(updated: StudentUpdate) => {
-                                setStudent((prev) => mergeStudentUpdate(prev, updated));
-                            }}
+                            levelConfig={classroom.levelConfig as LevelConfigInput}
                         />
                     </div>
 
-                    {/* ===== Right: Main Content ===== */}
                     <div className="md:col-span-3 space-y-8">
-                        {/* Event Banner + Daily Quest Card + World Boss System */}
                         <EventBanner classId={student.classId} />
-                        <DailyQuestCard
-                            code={code}
-                            onGoldEarned={(newGold) => {
-                                setStudent((prev) =>
-                                    mergeStudentUpdate(prev, {
-                                        gameStats: { gold: newGold },
-                                    })
-                                );
-                            }}
-                        />
-                        <Tabs
-                            value={activeTab}
-                            onValueChange={(value) => {
-                                setActiveTab(value);
-                                if (value === "shop") {
-                                    window.dispatchEvent(new CustomEvent("trigger-quest", { detail: { questId: "DAILY_SHOP_VISIT" } }));
-                                } else if (value === "inventory") {
-                                    window.dispatchEvent(new CustomEvent("trigger-quest", { detail: { questId: "DAILY_INVENTORY_CHECK" } }));
-                                }
-                            }}
-                            className="w-full"
-                        >
-                            {/* View Mode Switcher (Academic vs RPG) */}
-                            <div className="flex justify-center mb-8">
-                                <div className="bg-slate-200/50 backdrop-blur-md p-1 rounded-2xl border border-white/40 shadow-inner flex items-center relative">
-                                    <button
-                                        onClick={() => handleViewModeChange("academic")}
-                                        className={`px-8 py-2.5 rounded-xl text-xs font-black transition-all relative z-10 flex items-center gap-2.5 ${viewMode === 'academic' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                    >
-                                        <LayoutDashboard className={`w-4 h-4 ${viewMode === 'academic' ? 'animate-pulse' : ''}`} />
-                                        <span>ภารกิจเรียนรู้ (ACADEMIC)</span>
-                                    </button>
-                                    <button
-                                        onClick={() => handleViewModeChange("game")}
-                                        className={`px-8 py-2.5 rounded-xl text-xs font-black transition-all relative z-10 flex items-center gap-2.5 ${viewMode === 'game' ? 'text-amber-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                    >
-                                        <Shield className={`w-4 h-4 ${viewMode === 'game' ? 'animate-bounce' : ''}`} />
-                                        <span>ระบบเกม (RPG SYSTEM)</span>
-                                    </button>
 
-                                    {/* Animated Background Slider */}
-                                    <motion.div
-                                        className="absolute top-1 bottom-1 bg-white rounded-xl shadow-md border border-slate-200/50"
-                                        initial={false}
-                                        animate={{
-                                            left: viewMode === "academic" ? "4px" : "calc(50% + 1px)",
-                                            right: viewMode === "academic" ? "calc(50% + 1px)" : "4px"
-                                        }}
-                                        transition={{ type: "spring", stiffness: 450, damping: 35 }}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="w-full mb-6">
-                                {viewMode === "academic" ? (
-                                    <TabsList className="w-full rounded-3xl border border-slate-200 bg-white p-1.5 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.45)] grid grid-cols-3 gap-1.5">
-                                        {[
-                                            { value: "assignments", icon: <LayoutDashboard className="w-4 h-4" />, label: "ภารกิจ", color: "data-[state=active]:text-indigo-600 data-[state=active]:bg-indigo-50 data-[state=active]:border-indigo-200" },
-                                            { value: "board", icon: <MessageSquare className="w-4 h-4" />, label: "ไอเดีย", color: "data-[state=active]:text-purple-600 data-[state=active]:bg-purple-50 data-[state=active]:border-purple-200" },
-                                            { value: "history", icon: <Trophy className="w-4 h-4" />, label: "ประวัติ", color: "data-[state=active]:text-amber-600 data-[state=active]:bg-amber-50 data-[state=active]:border-amber-200" },
-                                        ].map(({ value, icon, label, color }) => (
-                                            <TabsTrigger key={value} value={value}
-                                                className={`h-12 rounded-2xl px-4 py-2.5 flex items-center justify-center gap-2 font-black text-slate-500 text-sm border border-transparent transition-all duration-200 data-[state=active]:shadow-sm ${color}`}>
-                                                {icon}<span>{label}</span>
-                                            </TabsTrigger>
-                                        ))}
-                                    </TabsList>
-                                ) : (
-                                    <TabsList className="w-full rounded-3xl border border-slate-200 bg-white p-1.5 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.45)] grid grid-cols-9 gap-1">
-                                        {[
-                                            { value: "boss",         icon: <Shield className="w-4 h-4" />,      label: "บอสห้อง",  active: "data-[state=active]:bg-rose-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
-                                            { value: "farming",      icon: <Flame className="w-4 h-4" />,       label: "ฟาร์ม",    active: "data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
-                                            { value: "shop",         icon: <ShoppingBag className="w-4 h-4" />, label: "ร้านค้า",  active: "data-[state=active]:bg-amber-500  data-[state=active]:text-white data-[state=active]:shadow-md" },
-                                            { value: "inventory",    icon: <Package className="w-4 h-4" />,     label: "คลัง",     active: "data-[state=active]:bg-blue-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
-                                            { value: "crafting",     icon: <span className="text-sm leading-none">🔨</span>,         label: "Craft",    active: "data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
-                                            { value: "skills",       icon: <Star className="w-4 h-4" />,        label: "ทักษะ",    active: "data-[state=active]:bg-violet-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
-                                            { value: "pvp",          icon: <Swords className="w-4 h-4" />,      label: "PvP",      active: "data-[state=active]:bg-rose-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
-                                            { value: "achievements", icon: <Award className="w-4 h-4" />,       label: "รางวัล",   active: "data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-md" },
-                                            { value: "leaderboard",  icon: <BarChart3 className="w-4 h-4" />,   label: "อันดับ",   active: "data-[state=active]:bg-cyan-500   data-[state=active]:text-white data-[state=active]:shadow-md" },
-                                        ].map(({ value, icon, label, active }) => (
-                                            <TabsTrigger key={value} value={value}
-                                                className={`h-12 rounded-2xl px-1 w-full flex flex-col items-center justify-center gap-0.5 text-slate-600 font-semibold transition-all duration-150 overflow-hidden ${active}`}>
-                                                {icon}
-                                                <span className="text-[10px] font-bold leading-none w-full text-center truncate px-0.5">{label}</span>
-                                            </TabsTrigger>
-                                        ))}
-                                    </TabsList>
-                                )}
-                            </div>
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                            <TabsList className="w-full rounded-3xl border border-slate-200 bg-white p-1.5 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.45)] grid grid-cols-4 gap-1.5 mb-6">
+                                {[
+                                    { value: "assignments", icon: <LayoutDashboard className="w-4 h-4" />, label: "ภารกิจ", color: "data-[state=active]:text-indigo-600 data-[state=active]:bg-indigo-50 data-[state=active]:border-indigo-200" },
+                                    { value: "board", icon: <MessageSquare className="w-4 h-4" />, label: "ไอเดีย", color: "data-[state=active]:text-purple-600 data-[state=active]:bg-purple-50 data-[state=active]:border-purple-200" },
+                                    { value: "history", icon: <Trophy className="w-4 h-4" />, label: "ประวัติ", color: "data-[state=active]:text-amber-600 data-[state=active]:bg-amber-50 data-[state=active]:border-amber-200" },
+                                    { value: "leaderboard", icon: <BarChart3 className="w-4 h-4" />, label: "อันดับ", color: "data-[state=active]:text-cyan-600 data-[state=active]:bg-cyan-50 data-[state=active]:border-cyan-200" },
+                                ].map(({ value, icon, label, color }) => (
+                                    <TabsTrigger
+                                        key={value}
+                                        value={value}
+                                        className={`h-12 rounded-2xl px-4 py-2.5 flex items-center justify-center gap-2 font-black text-slate-500 text-sm border border-transparent transition-all duration-200 data-[state=active]:shadow-sm ${color}`}
+                                    >
+                                        {icon}
+                                        <span>{label}</span>
+                                    </TabsTrigger>
+                                ))}
+                            </TabsList>
 
                             <TabsContent value="assignments" className="mt-0 border-none p-0 outline-hidden">
                                 <div className="space-y-4">
@@ -584,14 +285,24 @@ export function StudentDashboardClient({
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {classroom.assignments?.filter((a) => a.visible !== false).map((assignment) => {
                                             const submission = submissionMap.get(assignment.id);
-                                            const isChecklist = assignment.type === 'checklist';
-                                            const maxScore = isChecklist ? (assignment.checklists?.reduce((sum: number, item) => sum + (typeof item === "object" ? item.points || 1 : 1), 0) || 1) : (assignment.maxScore || 100);
+                                            const isChecklist = assignment.type === "checklist";
+                                            const maxScore = isChecklist
+                                                ? assignment.checklists?.reduce((sum: number, item) => sum + (typeof item === "object" ? item.points || 1 : 1), 0) || 1
+                                                : assignment.maxScore || 100;
                                             const checklistItems = assignment.checklists ?? [];
-                                            const score = submission ? (isChecklist ? calculateChecklistScore(submission.score, checklistItems) : submission.score) : 0;
+                                            const score = submission
+                                                ? isChecklist
+                                                    ? calculateChecklistScore(submission.score, checklistItems)
+                                                    : submission.score
+                                                : 0;
                                             const progressValue = isChecklist ? calculateChecklistCount(submission?.score || 0, checklistItems) : score;
-                                            const maxValue = isChecklist ? (assignment.checklists?.length || 1) : maxScore;
+                                            const maxValue = isChecklist ? assignment.checklists?.length || 1 : maxScore;
                                             const progress = (progressValue / maxValue) * 100;
-                                            const isCompleted = submission && (isChecklist ? progressValue >= (assignment.passScore || maxValue * 0.5) : score >= (assignment.passScore || maxScore * 0.5));
+                                            const isCompleted =
+                                                submission &&
+                                                (isChecklist
+                                                    ? progressValue >= (assignment.passScore || maxValue * 0.5)
+                                                    : score >= (assignment.passScore || maxScore * 0.5));
 
                                             return (
                                                 <Card key={assignment.id} className="group hover:shadow-xl transition-all border-white/60 bg-white/60 backdrop-blur-md rounded-2xl overflow-hidden active:scale-[0.98]">
@@ -612,12 +323,10 @@ export function StudentDashboardClient({
                                                                 </Badge>
                                                             )}
                                                         </div>
-
                                                         <div className="mb-4">
                                                             <h4 className="font-black text-slate-800 line-clamp-1">{assignment.name}</h4>
                                                             <p className="text-[10px] text-slate-400 line-clamp-2 mt-1 font-medium">{assignment.description || "ไม่มีคำอธิบาย"}</p>
                                                         </div>
-
                                                         <div className="space-y-2">
                                                             <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider">
                                                                 <span className="text-slate-400">Progress</span>
@@ -625,28 +334,34 @@ export function StudentDashboardClient({
                                                                     {progressValue} / {maxValue}
                                                                 </span>
                                                             </div>
-                                                            <Progress value={progress} className={`h-1.5 bg-slate-100 ${isCompleted ? "[&>div]:bg-green-500" : "[&>div]:bg-indigo-500"}`} />
+                                                            <Progress
+                                                                value={progress}
+                                                                className={`h-1.5 bg-slate-100 ${isCompleted ? "[&>div]:bg-green-500" : "[&>div]:bg-indigo-500"}`}
+                                                            />
                                                         </div>
-
                                                         {isChecklist && assignment.checklists && (
                                                             <div className="mt-4 pt-4 border-t border-slate-100/50 space-y-2">
                                                                 {assignment.checklists.map((item, i: number) => {
                                                                     const isChecked = submission ? (submission.score & (1 << i)) !== 0 : false;
                                                                     return (
                                                                         <div key={i} className="flex items-center gap-2.5 group/item">
-                                                                            <div className={cn(
-                                                                                "w-4 h-4 rounded-md border flex items-center justify-center transition-all duration-300",
-                                                                                isChecked
-                                                                                    ? "bg-green-500 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.3)]"
-                                                                                    : "border-slate-200 bg-white group-hover/item:border-indigo-300"
-                                                                            )}>
+                                                                            <div
+                                                                                className={cn(
+                                                                                    "w-4 h-4 rounded-md border flex items-center justify-center transition-all duration-300",
+                                                                                    isChecked
+                                                                                        ? "bg-green-500 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.3)]"
+                                                                                        : "border-slate-200 bg-white group-hover/item:border-indigo-300"
+                                                                                )}
+                                                                            >
                                                                                 {isChecked && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}
                                                                             </div>
-                                                                            <span className={cn(
-                                                                                "text-[11px] font-bold transition-all",
-                                                                                isChecked ? "text-slate-400 line-through decoration-slate-300" : "text-slate-600"
-                                                                            )}>
-                                                                                {typeof item === 'object' ? item.text : item}
+                                                                            <span
+                                                                                className={cn(
+                                                                                    "text-[11px] font-bold transition-all",
+                                                                                    isChecked ? "text-slate-400 line-through decoration-slate-300" : "text-slate-600"
+                                                                                )}
+                                                                            >
+                                                                                {typeof item === "object" ? item.text : item}
                                                                             </span>
                                                                         </div>
                                                                     );
@@ -662,12 +377,32 @@ export function StudentDashboardClient({
                             </TabsContent>
 
                             <TabsContent value="board" className="mt-0 border-none p-0 outline-hidden">
-                                <ClassBoard
-                                    classId={classroom.id}
-                                    studentId={student.id}
-                                    userId={currentUserId}
-                                    isTeacher={false}
-                                />
+                                {canAccessBoard ? (
+                                    <ClassBoard classId={classroom.id} studentId={student.id} userId={currentUserId} isTeacher={false} />
+                                ) : (
+                                    <Card className="rounded-[2rem] border-white/60 bg-white/70 backdrop-blur-md shadow-sm">
+                                        <CardContent className="p-8 text-center space-y-4">
+                                            <div className="mx-auto w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                                                <MessageSquare className="w-6 h-6" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <h3 className="text-lg font-black text-slate-800">ต้องเชื่อมบัญชีก่อนใช้งานกระดานห้องเรียน</h3>
+                                                <p className="text-sm text-slate-500 max-w-xl mx-auto">
+                                                    ระบบกระดานห้องเรียนผูกกับ session ของบัญชีที่เชื่อมกับนักเรียนแล้ว เพื่อป้องกันการสวมรอยโพสต์ คอมเมนต์ และโหวตแทนกัน
+                                                </p>
+                                            </div>
+                                            {currentUserId && !student.userId ? (
+                                                <div className="flex justify-center">
+                                                    <SyncAccountButton loginCode={code} />
+                                                </div>
+                                            ) : (
+                                                <Badge variant="outline" className="border-slate-200 text-slate-500 px-3 py-1 rounded-full">
+                                                    เข้าสู่ระบบด้วยบัญชีที่ผูกกับนักเรียนเพื่อใช้งานกระดาน
+                                                </Badge>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                )}
                             </TabsContent>
 
                             <TabsContent value="history" className="mt-0 border-none p-0 outline-hidden">
@@ -690,18 +425,20 @@ export function StudentDashboardClient({
                                                         {entries.map((h, idx: number) => (
                                                             <div key={idx} className="p-4 px-5 flex items-center justify-between hover:bg-white/60 transition-colors bg-white/20">
                                                                 <div className="flex items-center gap-4">
-                                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${h.value > 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                                                                    <div
+                                                                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${h.value > 0 ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"}`}
+                                                                    >
                                                                         <Award className="w-5 h-5" />
                                                                     </div>
                                                                     <div>
                                                                         <p className="font-black text-slate-800 text-sm whitespace-pre-wrap leading-tight mb-1">{h.reason}</p>
                                                                         <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
                                                                             <Clock className="w-3 h-3" />
-                                                                            {format(new Date(h.timestamp), 'HH:mm', { locale: th })}
+                                                                            {format(new Date(h.timestamp), "HH:mm", { locale: th })}
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                                <span className={`text-lg font-black shrink-0 ml-4 ${h.value > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                <span className={`text-lg font-black shrink-0 ml-4 ${h.value > 0 ? "text-green-600" : "text-red-600"}`}>
                                                                     {h.value > 0 ? `+${h.value}` : h.value}
                                                                 </span>
                                                             </div>
@@ -714,183 +451,13 @@ export function StudentDashboardClient({
                                 </div>
                             </TabsContent>
 
-                            <TabsContent value="shop" className="mt-0 border-none p-0 outline-hidden">
-                                <ShopTab 
-                                    studentId={student.id} 
-                                    currentGold={gameStats.gold || 0}
-                                    currentPoints={student.points || 0}
-                                    onPurchaseSuccess={({ gold, points }) => {
-                                        setStudent((prev) =>
-                                            mergeStudentUpdate(prev, {
-                                                ...(points !== undefined ? { points } : {}),
-                                                ...(gold !== undefined ? { gameStats: { gold } } : {}),
-                                            })
-                                        );
-                                    }}
-                                />
-                            </TabsContent>
-
-                            <TabsContent value="inventory" className="mt-0 border-none p-0 outline-hidden">
-                                <InventoryTab 
-                                    studentId={student.id}
-                                    gold={gameStats.gold || 0}
-                                    points={student.points || 0}
-                                    level={gameStats.level || 1}
-                                    jobClass={student.jobClass ?? undefined}
-                                    jobTier={student.jobTier || "BASE"}
-                                    advanceClass={student.advanceClass ?? null}
-                                    onUpdate={() => {}}
-                                    onUpdateStudent={(updated: StudentUpdate) => {
-                                        setStudent((prev) => mergeStudentUpdate(prev, updated));
-                                    }}
-                                />
-                            </TabsContent>
-
-                            <TabsContent value="crafting" className="mt-0 border-none p-0 outline-hidden">
-                                <CraftingTab code={code} />
-                            </TabsContent>
-
-                            <TabsContent value="skills" className="mt-0 border-none p-0 outline-hidden">
-                                <SkillTab 
-                                    studentId={student.id} 
-                                    level={gameStats.level || 1}
-                                    jobClass={student.jobClass ?? null}
-                                    jobTier={student.jobTier || "BASE"}
-                                    advanceClass={student.advanceClass ?? null}
-                                    jobSkills={normalizeJobSkills(student.jobSkills)}
-                                    onShowJobModal={() => setShowJobModal(true)}
-                                    onNavigateToFarming={() => setActiveTab("farming")}
-                                />
-                            </TabsContent>
-
-                            <TabsContent value="farming" className="mt-0 border-none p-0 outline-hidden">
-                                <FarmingTab 
-                                    code={code}
-                                    studentId={student.id}
-                                    mana={student.mana || 0}
-                                    stamina={student.stamina || 0}
-                                    level={gameStats.level || 1}
-                                    jobClass={student.jobClass ?? null}
-                                    jobTier={student.jobTier || "BASE"}
-                                    advanceClass={student.advanceClass ?? null}
-                                    jobSkills={normalizeJobSkills(student.jobSkills)}
-                                    onUpdateStudent={(updated: StudentUpdate) => {
-                                        setStudent((prev) => mergeStudentUpdate(prev, updated));
-                                    }}
-                                />
-                            </TabsContent>
-
-                            <TabsContent value="boss" className="mt-0 border-none p-0 outline-hidden">
-                                <div className="space-y-4">
-                                    <div className="rounded-3xl border border-rose-100 bg-gradient-to-br from-rose-50 via-white to-indigo-50 p-5 shadow-sm">
-                                        <div className="flex items-center justify-between gap-4">
-                                            <div>
-                                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500">
-                                                    Classroom Boss
-                                                </p>
-                                                <h3 className="mt-1 text-xl font-black text-slate-800">สู้บอสประจำห้อง</h3>
-                                                <p className="mt-1 text-sm font-medium text-slate-500">
-                                                    รวมระบบโจมตีบอสไว้ในเมนูเดียว ดูสถานะบอสและเข้าร่วมโจมตีได้ทันที
-                                                </p>
-                                            </div>
-                                            <div className="rounded-2xl border border-rose-200 bg-white px-3 py-2 text-xs font-black text-rose-600">
-                                                Team Raid
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {raidBosses.length > 0 ? (
-                                        <WorldBossBar
-                                            bosses={raidBosses as ComponentProps<typeof WorldBossBar>["bosses"]}
-                                            classId={classroom.id}
-                                            studentId={student.id}
-                                            stamina={student.stamina}
-                                            maxStamina={student.maxStamina ?? 10}
-                                            mana={student.mana ?? 0}
-                                            nextStaminaRegenAt={student.nextStaminaRegenAt}
-                                            jobClass={student.advanceClass ?? student.jobClass}
-                                            limitBreakCharge={gameStats.limitBreakCharge ?? 0}
-                                            bossSkills={bossSkills}
-                                            playerGold={gameStats.gold ?? 0}
-                                            onAttackSuccess={(raw) => {
-                                                const data = raw as {
-                                                    boss?: unknown | null;
-                                                    staminaLeft?: number;
-                                                    manaLeft?: number;
-                                                };
-                                                setStudent((prev) => {
-                                                    const gs = { ...normalizeStudentGameStats(prev.gameStats) };
-                                                    if (data.boss == null) {
-                                                        delete (gs as Record<string, unknown>).personalClassroomBoss;
-                                                    } else {
-                                                        (gs as Record<string, unknown>).personalClassroomBoss =
-                                                            data.boss;
-                                                    }
-                                                    return {
-                                                        ...prev,
-                                                        stamina:
-                                                            typeof data.staminaLeft === "number"
-                                                                ? data.staminaLeft
-                                                                : prev.stamina,
-                                                        mana:
-                                                            typeof data.manaLeft === "number"
-                                                                ? data.manaLeft
-                                                                : prev.mana,
-                                                        gameStats: gs,
-                                                    };
-                                                });
-                                            }}
-                                            onBossDefeated={(rewards) => setBossReward(rewards)}
-                                        />
-                                    ) : (
-                                        <div className="rounded-3xl border border-dashed border-slate-300 bg-white/70 p-10 text-center">
-                                            <p className="text-sm font-black text-slate-600">ยังไม่มีบอสในห้องเรียนตอนนี้</p>
-                                            <p className="mt-1 text-xs font-medium text-slate-400">
-                                                เมื่อครูหรือระบบเรียกบอสขึ้นมา คุณสามารถกลับมาโจมตีได้จากเมนูนี้
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="achievements" className="mt-0 border-none p-0 outline-hidden">
-                                <AchievementsTab code={code} classId={student.classId} />
-                            </TabsContent>
-
                             <TabsContent value="leaderboard" className="mt-0 border-none p-0 outline-hidden">
                                 <LeaderboardTab classId={classroom.id} currentStudentId={student.id} />
-                            </TabsContent>
-
-                            <TabsContent value="pvp" className="mt-0 border-none p-0 outline-hidden">
-                                <PvPArenaTab code={code} gold={gameStats.gold || 0} />
                             </TabsContent>
                         </Tabs>
                     </div>
                 </div>
             </div>
-
-            {/* Boss Reward Modal */}
-            <BossRewardModal reward={bossReward} onClose={() => setBossReward(null)} />
-
-            {/* Job Selection Modal */}
-            {showJobModal && (
-                <JobSelectionModal
-                    studentId={student.id}
-                    level={gameStats.level || 1}
-                    jobClass={student.jobClass ?? null}
-                    jobTier={student.jobTier || "BASE"}
-                    advanceClass={student.advanceClass ?? null}
-                    onClose={() => setShowJobModal(false)}
-                    onJobSelected={async () => {
-                        // Refresh student data to get new skills and stats
-                        const res = await fetch(`/api/student/${code}`);
-                        if (res.ok) {
-                            const data = await res.json();
-                            setStudent(data.student);
-                        }
-                    }}
-                />
-            )}
         </div>
     );
 }

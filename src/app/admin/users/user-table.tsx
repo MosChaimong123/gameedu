@@ -29,8 +29,10 @@ interface User {
     name: string | null;
     email: string | null;
     role: string;
-    createdAt: any;
+    createdAt: Date;
 }
+
+type UserRole = "ADMIN" | "TEACHER" | "STUDENT";
 
 export function UserTable({ initialUsers }: { initialUsers: User[] }) {
     const [users, setUsers] = React.useState(initialUsers);
@@ -38,18 +40,18 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
     const [isPending, setIsPending] = React.useState<string | null>(null);
     const { toast } = useToast();
 
-    const filteredUsers = users.filter((user: any) => 
+    const filteredUsers = users.filter((user) => 
         (user.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
          user.email?.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    const handleRoleUpdate = async (userId: string, newRole: string) => {
+    const handleRoleUpdate = async (userId: string, newRole: UserRole) => {
         setIsPending(userId);
         const result = await updateUserRole(userId, newRole);
         setIsPending(null);
         
         if (result.success) {
-            setUsers(prev => prev.map((u: any) => u.id === userId ? { ...u, role: newRole } : u));
+            setUsers(prev => prev.map((user) => user.id === userId ? { ...user, role: newRole } : user));
             toast({ title: "บทบาทถูกเปลี่ยนแล้ว", description: `เปลี่ยนเป็น ${newRole} สำเร็จ` });
         } else {
             toast({ title: "เกิดข้อผิดพลาด", description: result.error, variant: "destructive" });
@@ -64,7 +66,7 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
         setIsPending(null);
 
         if (result.success) {
-            setUsers(prev => prev.filter((u: any) => u.id !== userId));
+            setUsers(prev => prev.filter((user) => user.id !== userId));
             toast({ title: "ลบผู้ใช้แล้ว", description: "ลบผู้ใช้สำเร็จ" });
         } else {
             toast({ title: "เกิดข้อผิดพลาด", description: result.error, variant: "destructive" });
@@ -105,7 +107,7 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filteredUsers.map((user: any) => (
+                            {filteredUsers.map((user) => (
                                 <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">

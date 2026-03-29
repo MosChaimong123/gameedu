@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
+type StudentGroupPatchData = {
+    name?: string
+    studentIds?: string[]
+};
+
 export async function DELETE(
     req: Request,
     { params }: { params: Promise<{ id: string, groupId: string }> }
@@ -60,7 +65,7 @@ export async function PATCH(
     }
 
     try {
-        const body = await req.json();
+        const body = await req.json() as StudentGroupPatchData;
         const { name, studentIds } = body;
 
         const classroom = await db.classroom.findUnique({
@@ -85,7 +90,7 @@ export async function PATCH(
             return new NextResponse("Group not found", { status: 404 });
         }
 
-        const updatedData: any = {};
+        const updatedData: StudentGroupPatchData = {};
         if (name !== undefined) updatedData.name = name;
         if (studentIds !== undefined) updatedData.studentIds = studentIds;
 

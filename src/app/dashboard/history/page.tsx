@@ -2,9 +2,10 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { format } from "date-fns";
-import { Calendar, Clock, Trophy, Users, ArrowRight } from "lucide-react";
+import { Calendar, Clock, Users, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { PageBackLink } from "@/components/ui/page-back-link";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
@@ -20,10 +21,13 @@ export default async function HistoryPage() {
 
     return (
         <div className="p-8 max-w-6xl mx-auto space-y-8">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Game History</h1>
-                    <p className="text-slate-500 mt-2">View results and stats from your past games.</p>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-3">
+                    <PageBackLink href="/dashboard" label="แดชบอร์ด" />
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Game History</h1>
+                        <p className="text-slate-500 mt-2">View results and stats from your past games.</p>
+                    </div>
                 </div>
             </div>
 
@@ -38,7 +42,7 @@ export default async function HistoryPage() {
                 </div>
             ) : (
                 <div className="grid gap-4">
-                    {history.map((game: any) => (
+                    {history.map((game) => (
                         <Link key={game.id} href={`/dashboard/history/${game.id}`}>
                             <Card className="hover:shadow-md transition-shadow cursor-pointer group border-slate-200">
                                 <CardContent className="p-6 flex items-center justify-between">
@@ -71,7 +75,7 @@ export default async function HistoryPage() {
                                         <div className="flex flex-col items-end">
                                             <div className="flex items-center gap-2 font-semibold text-slate-700">
                                                 <Users className="w-4 h-4" />
-                                                {(game.players as any[])?.length || 0} Players
+                                                {Array.isArray(game.players) ? game.players.length : 0} Players
                                             </div>
                                             <span className="text-xs text-slate-400 font-mono">PIN: {game.pin}</span>
                                         </div>

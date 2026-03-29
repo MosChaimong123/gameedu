@@ -1,20 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Student } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { X, Shuffle, Trophy } from "lucide-react";
 import { StudentAvatar } from "../student-avatar";
 import useSound from "use-sound";
 import { useLanguage } from "@/components/providers/language-provider";
-import { getThemeTextClass, getThemeBgStyle } from "@/lib/classroom-utils";
+import { getThemeTextClass, getThemeBgStyle, type LevelConfigInput } from "@/lib/classroom-utils";
 
 interface RandomPickerProps {
     students: Student[];
     theme: string;
     onClose: () => void;
     onSelect?: (student: Student) => void;
-    levelConfig?: any;
+    levelConfig?: unknown;
 }
 
 export function RandomPicker({ students, theme, onClose, onSelect, levelConfig }: RandomPickerProps) {
@@ -24,8 +24,8 @@ export function RandomPicker({ students, theme, onClose, onSelect, levelConfig }
     const [winner, setWinner] = useState<Student | null>(null);
 
     // Sounds
-    const [playDrumRoll, { stop: stopDrumRoll }] = useSound("/sounds/drumroll.mp3"); // Need to add
-    const [playTada] = useSound("/sounds/tada.mp3"); // Need to add
+    useSound("/sounds/drumroll.mp3"); // Need to add
+    useSound("/sounds/tada.mp3"); // Need to add
 
     const pickRandom = () => {
         if (students.length === 0) return;
@@ -89,7 +89,7 @@ export function RandomPicker({ students, theme, onClose, onSelect, levelConfig }
                                 name={currentStudent.name}
                                 avatarSeed={currentStudent.avatar || currentStudent.id}
                                 points={currentStudent.points}
-                                levelConfig={levelConfig}
+                                levelConfig={levelConfig as LevelConfigInput}
                                 className="w-full h-full pointer-events-none"
                             />
                         </div>

@@ -11,6 +11,9 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    "dist/**",
+    "tmp/**",
+    "public/opencv.js",
     "next-env.d.ts",
   ]),
 ]);

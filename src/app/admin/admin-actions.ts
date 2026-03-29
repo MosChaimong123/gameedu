@@ -4,21 +4,23 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
+type UserRole = "ADMIN" | "TEACHER" | "STUDENT";
+
 async function ensureAdmin() {
     const session = await auth();
-    const role = (session?.user as any)?.role;
+    const role = session?.user?.role;
     if (role !== "ADMIN") {
         throw new Error("Unauthorized: Admin access required");
     }
 }
 
-export async function updateUserRole(userId: string, newRole: string) {
+export async function updateUserRole(userId: string, newRole: UserRole) {
     await ensureAdmin();
     
     try {
         await db.user.update({
             where: { id: userId },
-            data: { role: newRole as any }
+            data: { role: newRole }
         });
         revalidatePath("/admin");
         revalidatePath("/admin/users");

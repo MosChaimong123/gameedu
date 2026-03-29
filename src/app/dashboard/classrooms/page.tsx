@@ -41,10 +41,10 @@ export default async function MyClassroomsPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {classrooms.map((c: any) => (
+                    {classrooms.map((c) => (
                         <ClassroomCard
                             key={c.id}
-                            classroom={c as any}
+                            classroom={c}
                             studentCount={c._count.students}
                         />
                     ))}

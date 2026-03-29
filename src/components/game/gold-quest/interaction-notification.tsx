@@ -12,12 +12,17 @@ export function InteractionNotification({ message, type, onClose }: Props) {
     const [isVisible, setIsVisible] = useState(false)
 
     useEffect(() => {
-        setIsVisible(true)
+        const showFrame = window.requestAnimationFrame(() => {
+            setIsVisible(true)
+        })
         const timer = setTimeout(() => {
             setIsVisible(false)
             setTimeout(onClose, 300) // Wait for exit animation
         }, 3000)
-        return () => clearTimeout(timer)
+        return () => {
+            window.cancelAnimationFrame(showFrame)
+            clearTimeout(timer)
+        }
     }, [onClose])
 
     const getIcon = () => {

@@ -7,7 +7,7 @@ export const authConfig = {
     callbacks: {
         authorized({ auth, request: { nextUrl } }) {
             const isLoggedIn = !!auth?.user
-            const role = (auth?.user as any)?.role as string | undefined
+            const role = auth?.user?.role
 
             const isOnDashboard = nextUrl.pathname.startsWith('/dashboard')
             const isOnAdmin = nextUrl.pathname.startsWith('/admin')
@@ -38,9 +38,7 @@ export const authConfig = {
         async jwt({ token, user, trigger, session: sessionData }) {
             if (user) {
                 token.id = user.id
-                // @ts-ignore
                 token.role = user.role
-                // @ts-ignore
                 token.school = user.school
                 token.name = user.name
                 token.picture = user.image
@@ -56,12 +54,10 @@ export const authConfig = {
         async session({ session, token }) {
             if (token) {
                 if (token.id) session.user.id = token.id as string
-                // @ts-ignore
-                if (token.role) session.user.role = token.role as string
-                // @ts-ignore
-                if (token.school) session.user.school = token.school as string
+                if (token.role) session.user.role = token.role
+                if (token.school) session.user.school = token.school
                 
-                session.user.name = token.name
+                if (token.name !== undefined) session.user.name = token.name
                 session.user.image = token.picture as string
             }
             return session

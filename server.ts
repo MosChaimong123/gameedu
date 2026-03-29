@@ -5,10 +5,13 @@ loadEnvConfig(process.cwd()); // โหลด .env.local ก่อน import อ
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import next from "next";
+import { getToken } from "next-auth/jwt";
 import { Server } from "socket.io";
 import { gameManager } from "./src/lib/game-engine/manager";
 import { db } from "./src/lib/db"; // Use Singleton
+import { registerGameSocketHandlers } from "./src/lib/socket/register-game-socket-handlers";
 
+type RegisterHandlersDeps = Parameters<typeof registerGameSocketHandlers>[1];
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = dev ? "localhost" : "0.0.0.0";
@@ -35,295 +38,47 @@ app.prepare().then(async () => {
     // Inject IO into Game Manager (Critical for recovered games)
     gameManager.setIO(io);
 
-    io.on("connection", (socket) => {
-        // --- Host Creating Game ---
-        socket.on("create-game", ({ setId, hostId, settings, mode }) => {
-            // ... (Generate Pin)
-            let pin = Math.floor(100000 + Math.random() * 900000).toString();
-            // ... (Collision check)
-            let attempts = 0;
-            while (gameManager.getGame(pin) && attempts < 10) {
-                pin = Math.floor(100000 + Math.random() * 900000).toString();
-                attempts++;
-            }
-
-            db.questionSet.findUnique({
-                where: { id: setId },
-            }).then((set: any) => {
-                if (!set) {
-                    socket.emit("error", { message: "Set not found" });
-                    return;
-                }
-
-                const game = gameManager.createGame(
-                    mode || "GOLD_QUEST",
-                    pin,
-                    hostId,
-                    setId,
-                    settings || {
-                        winCondition: "TIME",
-                        timeLimitMinutes: 7,
-                        goldGoal: 1000000,
-                        allowLateJoin: true,
-                        showInstructions: true,
-                        useRandomNames: false,
-                        allowStudentAccounts: true
+    registerGameSocketHandlers(io, {
+        db: db as unknown as RegisterHandlersDeps["db"],
+        gameManager: gameManager as unknown as RegisterHandlersDeps["gameManager"],
+        randomId: randomUUID,
+        resolveSocketUserId: async (socket) => {
+            const headers = Object.fromEntries(
+                Object.entries(socket.handshake.headers).flatMap(([key, value]) => {
+                    if (typeof value === "string") {
+                        return [[key, value]];
+                    }
+                    if (Array.isArray(value)) {
+                        return [[key, value.join(",")]];
+                    }
+                    return [];
+                })
+            );
+            const token = await getToken({
+                req: { headers },
+                secret: process.env.AUTH_SECRET,
+            });
+            return typeof token?.id === "string" ? token.id : null;
+        },
+        canAccessClassroom: async (userId, classId) => {
+            const classroom = await db.classroom.findUnique({
+                where: { id: classId },
+                select: {
+                    teacherId: true,
+                    students: {
+                        where: { userId },
+                        select: { id: true },
+                        take: 1,
                     },
-                    set.questions,
-                    io
-                );
-                const hostReconnectToken = randomUUID();
-                game.registerHostConnection(socket.id, hostReconnectToken);
-
-                socket.join(pin); // Host joins "room" pin
-                socket.emit("game-created", { pin, hostReconnectToken });
-                console.log(`Game created: ${pin} for Set: ${set.title}`);
-            }).catch((err: any) => {
-                console.error("Error fetching set:", err);
-                socket.emit("error", { message: "Failed to load questions" });
-            });
-        });
-
-        socket.on("reconnect-host", ({ pin, reconnectToken }) => {
-            const game = gameManager.getGame(pin);
-            if (!game) {
-                socket.emit("error", { message: "Game not found" });
-                return;
-            }
-
-            if (!game.reconnectHost(socket.id, reconnectToken)) {
-                socket.emit("error", { message: "Host reconnection denied" });
-                return;
-            }
-
-            socket.join(pin);
-            socket.emit("host-reconnected", {
-                pin,
-                gameMode: game.gameMode,
-                status: game.status,
+                },
             });
 
-            if (game.status === "PLAYING") {
-                socket.emit("game-started", {
-                    startTime: game.startTime,
-                    settings: game.settings,
-                    gameMode: game.gameMode
-                });
-                socket.emit("game-state-update", game.serialize());
-            } else if (game.status === "ENDED") {
-                socket.emit("game-over", { players: game.players });
-            }
-        });
-
-        // --- Player Joining ---
-        socket.on("join-game", ({ pin, nickname, reconnectToken }) => {
-            const game = gameManager.getGame(pin);
-            if (!game) {
-                socket.emit("error", { message: "Game not found" });
-                return;
+            if (!classroom) {
+                return false;
             }
 
-            if (game.status !== "LOBBY" && !game.settings.allowLateJoin) {
-                socket.emit("error", { message: "Game is locked" });
-                return;
-            }
-
-            // Handle Reconnection
-            const existingPlayer = game.players.find(p => p.name === nickname);
-            if (existingPlayer) {
-                if (!game.canReconnectPlayer(nickname, reconnectToken)) {
-                    socket.emit("error", { message: "Nickname already in use" });
-                    return;
-                }
-                game.handleReconnection(existingPlayer, socket);
-                socket.join(pin);
-                socket.emit("joined-success", {
-                    pin,
-                    nickname,
-                    gameMode: game.gameMode,
-                    reconnectToken: game.getPlayerReconnectToken(nickname)
-                });
-                return;
-            }
-
-            // New Player
-            if (nickname === "HOST") return; // Security check
-
-            // Create Player Object (Generic BasePlayer initially)
-            // The specific engine (GoldQuestEngine) will add extra props in addPlayer
-            const newPlayer = {
-                id: socket.id,
-                name: nickname,
-                isConnected: true,
-                score: 0
-            };
-            const newReconnectToken = randomUUID();
-
-            socket.join(pin);
-            game.registerPlayerReconnectToken(nickname, newReconnectToken);
-            // The engine handles "player-joined" emit
-            game.addPlayer(newPlayer as any, socket);
-
-            socket.emit("joined-success", {
-                pin,
-                nickname,
-                gameMode: game.gameMode,
-                reconnectToken: newReconnectToken
-            });
-
-            // Sync state if late join
-            if (game.status === "PLAYING") {
-                socket.emit("game-started", {
-                    startTime: game.startTime,
-                    settings: game.settings,
-                    gameMode: game.gameMode
-                });
-                socket.emit("game-state-update", game.serialize());
-            }
-        });
-
-        // --- Generic Game Commands ---
-
-        socket.on("get-game-state", ({ pin }) => {
-            const game = gameManager.getGame(pin);
-            if (!game) return;
-
-            if (game.status === "PLAYING") {
-                socket.emit("game-started", {
-                    startTime: game.startTime,
-                    settings: game.settings,
-                    gameMode: game.gameMode
-                });
-                socket.emit("game-state-update", game.serialize());
-            } else if (game.status === "ENDED") {
-                socket.emit("game-over", { players: game.players });
-            }
-        });
-
-        socket.on("start-game", ({ pin }) => {
-            const game = gameManager.getGame(pin);
-            if (!game) return;
-            if (!game.isHostSocket(socket.id)) {
-                socket.emit("error", { message: "Only the host can start the game" });
-                return;
-            }
-            game.startGame();
-        });
-
-        socket.on("end-game", ({ pin }) => {
-            const game = gameManager.getGame(pin);
-            if (!game) return;
-            if (!game.isHostSocket(socket.id)) {
-                socket.emit("error", { message: "Only the host can end the game" });
-                return;
-            }
-            game.endGame();
-        });
-
-        socket.on("leave-game", ({ pin }) => {
-            const game = gameManager.getGame(pin);
-            if (game) {
-                game.removePlayer(socket.id);
-                socket.leave(pin);
-                console.log(`Player ${socket.id} left game ${pin}`);
-            }
-        });
-
-        socket.on("disconnect", () => {
-            const playerGame = gameManager.findGameBySocket(socket.id);
-            if (playerGame) {
-                playerGame.handleDisconnect(socket.id);
-                return;
-            }
-
-            const hostGame = gameManager.findGameByHostSocket(socket.id);
-            if (hostGame) {
-                console.log(`[Server] Host socket disconnected for game ${hostGame.pin}`);
-            }
-        });
-
-        // --- Delegate Game Specific Events ---
-
-        const forwardToGame = (eventName: string, payload: any) => {
-            const pin = payload.pin; // Most payloads should have pin
-            if (pin) {
-                const game = gameManager.getGame(pin);
-                if (game) game.handleEvent(eventName, payload, socket);
-            } else {
-                // Fallback: Try to find game by player socket if pin missing
-                // This is expensive O(Games * Players), avoid if possible
-            }
-        };
-
-        socket.on("open-chest", (payload) => forwardToGame("open-chest", payload));
-
-        // Delegate specific events where we know the payload has PIN
-        socket.on("request-question", (payload) => forwardToGame("request-question", payload));
-        socket.on("submit-answer", (payload) => forwardToGame("submit-answer", payload));
-
-        // Battle Turn (BATTLE_TURN) client actions
-        socket.on("battle-action", (payload) => forwardToGame("battle-action", payload));
-        socket.on("farming-action", (payload) => forwardToGame("farming-action", payload));
-
-        // --- Crypto Hack Events (Critical Fix) ---
-        socket.on("select-password", (payload) => forwardToGame("select-password", payload));
-        socket.on("request-hack-options", (payload) => forwardToGame("request-hack-options", payload));
-        socket.on("attempt-hack", (payload) => forwardToGame("attempt-hack", payload));
-
-        // Use findGameBySocket for these as they might lack PIN in payload currently
-        socket.on("request-rewards", (payload) => {
-            const game = gameManager.findGameBySocket(socket.id);
-            if (game) (game as any).handleEvent("request-rewards", payload, socket);
-        });
-        socket.on("select-box", (payload) => {
-            const game = gameManager.findGameBySocket(socket.id);
-            if (game) (game as any).handleEvent("select-box", payload, socket);
-        });
-        socket.on("task-complete", (payload) => {
-            const game = gameManager.findGameBySocket(socket.id);
-            if (game) (game as any).handleEvent("task-complete", payload, socket);
-        });
-
-        // Special handling for payloads missing PIN (use-interaction)
-        socket.on("use-interaction", (payload) => {
-            const game = gameManager.findGameBySocket(socket.id);
-            if (game) {
-                (game as any).handleEvent("use-interaction", payload, socket);
-            } else {
-                console.log("[Server] Could not find game for interaction event from socket", socket.id);
-            }
-        });
-
-        // --- Classroom System Events ---
-        socket.on("join-classroom", (classId) => {
-            if (classId) {
-                socket.join(`classroom-${classId}`);
-                console.log(`Socket ${socket.id} joined classroom-${classId}`);
-            }
-        });
-
-        socket.on("leave-classroom", (classId) => {
-            if (classId) {
-                socket.leave(`classroom-${classId}`);
-            }
-        });
-
-        socket.on("classroom-update", (payload) => {
-            const { classId, type } = payload || {};
-            if (!classId || !type) return;
-
-            // Normalize payload for backward compatibility:
-            // preferred shape is { classId, type, data }.
-            const data =
-                payload?.data ??
-                Object.fromEntries(
-                    Object.entries(payload || {}).filter(([key]) => key !== "classId" && key !== "type")
-                );
-
-            // Broadcast to everyone in the classroom room EXCEPT the sender
-            socket.to(`classroom-${classId}`).emit("classroom-event", { type, data });
-        });
-
+            return classroom.teacherId === userId || classroom.students.length > 0;
+        },
     });
 
 

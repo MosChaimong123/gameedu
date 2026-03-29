@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { HackTask } from "@/lib/types/game";
 import { TypeCodeTask } from "./tasks/type-code-task";
 import { UploadTask } from "./tasks/upload-task";
@@ -12,6 +13,10 @@ type Props = {
 }
 
 export function TaskOverlay({ task, onComplete }: Props) {
+    const [errorCode] = useState(() =>
+        Math.floor(Math.random() * 10000).toString(16).toUpperCase()
+    );
+
     if (!task) return null;
 
     return (
@@ -49,7 +54,7 @@ export function TaskOverlay({ task, onComplete }: Props) {
             </div>
 
             <div className="absolute bottom-8 text-red-500/50 text-sm font-mono animate-pulse">
-                ERR_CODE: 0x{Math.floor(Math.random() * 10000).toString(16).toUpperCase()} // CONNECTION_UNSTABLE
+                ERR_CODE: 0x{errorCode} {"// CONNECTION_UNSTABLE"}
             </div>
         </div>
     )

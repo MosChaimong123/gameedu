@@ -9,6 +9,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, ArrowRight, Gamepad2 } from "lucide-react"
 import { getPlayerReconnectToken, savePlayerSession } from "@/lib/player-session"
 
+type JoinedSuccessPayload = {
+    pin: string
+    nickname: string
+    reconnectToken?: string
+}
+
+type ErrorPayload = {
+    message?: string
+}
+
 export default function PlayPage() {
     const router = useRouter()
     const { socket, isConnected } = useSocket()
@@ -36,7 +46,7 @@ export default function PlayPage() {
         socket.emit("join-game", { pin, nickname: name, reconnectToken: reconnectToken ?? undefined })
 
         // Listen for one-time response
-        socket.once("joined-success", (data: any) => {
+        socket.once("joined-success", (data: JoinedSuccessPayload) => {
             // Save info to local storage or state management? 
             // For now, simpler: pass via URL or just assume session context?
             // Actually, best to store in localStorage or Context so /play/lobby knows who we are.
@@ -48,7 +58,7 @@ export default function PlayPage() {
             router.push("/play/lobby")
         })
 
-        socket.once("error", (err: any) => {
+        socket.once("error", (err: ErrorPayload) => {
             setError(err.message || "Failed to join")
             setJoining(false)
         })

@@ -4,7 +4,7 @@ import { useState, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/components/providers/language-provider"
-import { FileText, Upload, AlertCircle, FileSpreadsheet, CheckCircle2 } from "lucide-react"
+import { Upload, AlertCircle, FileSpreadsheet, CheckCircle2 } from "lucide-react"
 import Papa from "papaparse"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -16,16 +16,29 @@ import {
     TableRow,
 } from "@/components/ui/table"
 
+type ImportedQuestion = {
+    id: string
+    question: string
+    timeLimit: number
+    options: string[]
+    answers: string[]
+    questionType: "MULTIPLE_CHOICE"
+}
+
+type CsvQuestionRow = {
+    [key: string]: string | undefined
+}
+
 type Props = {
     open: boolean
     onOpenChange: (open: boolean) => void
-    onImport: (questions: any[]) => void
+    onImport: (questions: ImportedQuestion[]) => void
 }
 
 export function ImportSpreadsheetDialog({ open, onOpenChange, onImport }: Props) {
     const { t, language } = useLanguage()
     const [isDragging, setIsDragging] = useState(false)
-    const [parsedData, setParsedData] = useState<any[]>([])
+    const [parsedData, setParsedData] = useState<ImportedQuestion[]>([])
     const [error, setError] = useState<string | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -57,7 +70,7 @@ export function ImportSpreadsheetDialog({ open, onOpenChange, onImport }: Props)
                 }
 
                 // Transform to our Question format
-                const questions = data.map((row: any) => {
+                const questions = (data as CsvQuestionRow[]).map((row) => {
                     // Normalize keys
                     const qText = row["Question Text"] || row["คำถาม"]
                     const correctTags = row["Correct Answer"] || row["คำตอบที่ถูกต้อง"]
@@ -71,15 +84,19 @@ export function ImportSpreadsheetDialog({ open, onOpenChange, onImport }: Props)
                         opt2,
                         opt3,
                         opt4
-                    ].filter(opt => opt && opt.toString().trim() !== "")
+                    ].filter((opt): opt is string => typeof opt === "string" && opt.trim() !== "")
+
+                    const questionText = typeof qText === "string" ? qText : ""
+                    const correctAnswer = typeof correctTags === "string" ? correctTags : ""
+                    const parsedTime = typeof timeTags === "string" ? parseInt(timeTags, 10) : Number.NaN
 
                     return {
                         id: crypto.randomUUID(),
-                        question: qText || "",
-                        timeLimit: parseInt(timeTags) || 30, // Default 30s
+                        question: questionText,
+                        timeLimit: Number.isFinite(parsedTime) ? parsedTime : 30, // Default 30s
                         options: options,
-                        answers: [correctTags],
-                        questionType: "MULTIPLE_CHOICE",
+                        answers: correctAnswer ? [correctAnswer] : [],
+                        questionType: "MULTIPLE_CHOICE" as const,
                     }
                 }).filter(q => q.question && q.answers.length > 0)
 

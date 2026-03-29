@@ -1,16 +1,52 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { formatDistanceToNow } from "date-fns";
-import { BookOpen, PlayCircle, Star, Gamepad2, Bell, Trophy } from "lucide-react";
+import { BookOpen, PlayCircle, Star, Trophy } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { JoinClassDialog } from "@/components/student/join-class-dialog";
 import { getThemeBgStyle } from "@/lib/classroom-utils";
+
+type StudentHomeAssignment = {
+    id: string;
+    name: string;
+    maxScore: number;
+    deadline?: Date | null;
+};
+
+type StudentHomeSubmission = {
+    assignmentId: string;
+    score: number | null;
+};
+
+type StudentHomeHistory = {
+    id: string;
+    reason: string;
+    value: number;
+};
+
+type StudentHomeRecord = {
+    id: string;
+    loginCode: string;
+    points: number;
+    classroom: {
+        id: string;
+        name: string;
+        emoji: string | null;
+        theme: string | null;
+        teacher: {
+            name: string | null;
+        };
+        assignments: StudentHomeAssignment[];
+    };
+    submissions: StudentHomeSubmission[];
+    history: StudentHomeHistory[];
+};
 
 export default async function StudentHomePage() {
     const session = await auth();
     const userId = session?.user?.id;
-    const role = (session?.user as any)?.role;
+    const role = session?.user?.role;
 
     if (!session?.user || !userId) redirect("/login");
 
@@ -30,7 +66,7 @@ export default async function StudentHomePage() {
                     teacher: { select: { name: true } },
                     assignments: {
                         where: { visible: true, type: "quiz" },
-                        select: { id: true, name: true, maxScore: true } as any
+                        select: { id: true, name: true, maxScore: true, deadline: true }
                     }
                 }
             },
@@ -38,7 +74,7 @@ export default async function StudentHomePage() {
             history: { orderBy: { timestamp: "desc" }, take: 5 }
         },
         orderBy: { updatedAt: "desc" }
-    });
+    }) as StudentHomeRecord[];
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200">
@@ -47,7 +83,7 @@ export default async function StudentHomePage() {
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center text-3xl border border-white/30 overflow-hidden shadow-inner">
-                            {session.user.image ? <img src={session.user.image} alt={session.user.name || ""} className="w-full h-full object-cover" /> : "🎮"}
+                            {session.user.image ? <Image src={session.user.image} alt={session.user.name || ""} width={56} height={56} unoptimized className="w-full h-full object-cover" /> : "🎮"}
                         </div>
                         <div>
                             <p className="text-white/70 text-xs font-bold uppercase tracking-wider">Welcome back</p>
@@ -79,9 +115,9 @@ export default async function StudentHomePage() {
                         <p className="text-slate-400 text-sm">ขอ Login Code จากครูผู้สอนหรือครูจะเพิ่มคุณเข้าห้องเรียนให้</p>
                     </div>
                 ) : (
-                    (studentRecords as any[]).map((record: any) => {
-                        const submissionMap = new Map((record.submissions as any[]).map((s: any) => [s.assignmentId, s]));
-                        const pendingAssignments = (record.classroom.assignments as any[]).filter((a: any) => !submissionMap.has(a.id));
+                    studentRecords.map((record) => {
+                        const submissionMap = new Map(record.submissions.map((submission) => [submission.assignmentId, submission]));
+                        const pendingAssignments = record.classroom.assignments.filter((assignment) => !submissionMap.has(assignment.id));
                         const theme = record.classroom.theme || "from-indigo-500 to-purple-600";
                         const isCustom = theme.startsWith("custom:");
                         const themeClass = isCustom ? "" : `bg-gradient-to-br ${theme}`;
@@ -112,7 +148,7 @@ export default async function StudentHomePage() {
                                                 <BookOpen className="w-4 h-4 text-purple-500" /> การบ้านที่ยังไม่ได้ส่ง
                                             </p>
                                             <div className="space-y-2">
-                                                {pendingAssignments.slice(0, 3).map((a: any) => (
+                                                {pendingAssignments.slice(0, 3).map((a) => (
                                                     <Link key={a.id} href={`/student/${record.loginCode}/quiz/${a.id}`}
                                                         className="flex items-center justify-between bg-purple-50 hover:bg-purple-100 border border-purple-100 rounded-xl p-3 transition-colors">
                                                         <div>
@@ -140,7 +176,7 @@ export default async function StudentHomePage() {
                                                 <Trophy className="w-4 h-4 text-amber-500" /> คะแนนล่าสุด
                                             </p>
                                             <div className="space-y-1.5">
-                                                {record.history.slice(0, 3).map((h: any) => (
+                                                {record.history.slice(0, 3).map((h) => (
                                                     <div key={h.id} className="flex items-center justify-between text-sm px-1">
                                                         <span className="text-slate-600 text-xs">{h.reason}</span>
                                                         <span className={`font-bold text-sm ${h.value > 0 ? 'text-green-600' : 'text-red-500'}`}>

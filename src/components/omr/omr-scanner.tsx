@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Camera, RefreshCw, X, CheckCircle2, ScanLine } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
+import { RefreshCw, X, ScanLine } from "lucide-react"
+import { motion } from "framer-motion"
 
 interface OMRScannerProps {
     onCapture: (imageData: string) => void
@@ -15,14 +15,7 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const [stream, setStream] = useState<MediaStream | null>(null)
     const [error, setError] = useState<string | null>(null)
-    const [isCapturing, setIsCapturing] = useState(false)
-
-    useEffect(() => {
-        startCamera()
-        return () => stopCamera()
-    }, [])
-
-    const startCamera = async () => {
+    const startCamera = useCallback(async () => {
         try {
             const mediaStream = await navigator.mediaDevices.getUserMedia({
                 video: { 
@@ -40,13 +33,23 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
             console.error("Error accessing camera:", err)
             setError("ไม่สามารถเข้าถึงกล้องได้ กรุณาตรวจสอบสิทธิ์การใช้งาน")
         }
-    }
+    }, [])
 
-    const stopCamera = () => {
+    const stopCamera = useCallback(() => {
         if (stream) {
             stream.getTracks().forEach(track => track.stop())
         }
-    }
+    }, [stream])
+
+    useEffect(() => {
+        const frameId = window.requestAnimationFrame(() => {
+            void startCamera()
+        })
+        return () => {
+            window.cancelAnimationFrame(frameId)
+            stopCamera()
+        }
+    }, [startCamera, stopCamera])
 
     const captureImage = () => {
         if (!videoRef.current || !canvasRef.current) return
@@ -60,7 +63,6 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
         if (ctx) {
             ctx.drawImage(video, 0, 0)
             const imageData = canvas.toDataURL("image/jpeg")
-            setIsCapturing(true)
             onCapture(imageData)
         }
     }

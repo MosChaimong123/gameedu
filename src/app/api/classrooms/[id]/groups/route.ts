@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
+type GroupEntry = {
+    name: string
+    studentIds: string[]
+};
+
 export async function GET(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -45,7 +50,7 @@ export async function POST(
     }
 
     try {
-        const body = await req.json();
+        const body = await req.json() as { name?: string; groups?: GroupEntry[] };
         const { name, groups } = body;
 
         if (!name || !groups || !Array.isArray(groups)) {
@@ -69,7 +74,7 @@ export async function POST(
             data: {
                 name: name,
                 classId: id,
-                studentIds: groups.map((g: any) => JSON.stringify({ name: g.name, studentIds: g.studentIds }))
+                studentIds: groups.map((group) => JSON.stringify({ name: group.name, studentIds: group.studentIds }))
             }
         });
 

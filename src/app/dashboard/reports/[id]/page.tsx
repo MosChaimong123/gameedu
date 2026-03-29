@@ -2,14 +2,25 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { format } from "date-fns";
-import { Calendar, Clock, Trophy, ArrowLeft, BarChart3 } from "lucide-react";
-import Link from "next/link";
+import { Calendar, Clock, Trophy, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageBackLink } from "@/components/ui/page-back-link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { redirect } from "next/navigation";
 import { AnalysisDashboard } from "@/components/dashboard/reports/analysis-dashboard";
+import Image from "next/image";
 
 export const dynamic = "force-dynamic";
+
+type ReportPlayer = {
+    id?: string;
+    name?: string;
+    avatar?: string;
+    gold?: number;
+    crypto?: number;
+    score?: number;
+    correctAnswers?: number;
+    incorrectAnswers?: number;
+};
 
 export default async function ReportDetailPage(props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
@@ -41,7 +52,14 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
         return <div className="p-8 text-center">Forbidden</div>;
     }
 
-    const players = (game.players as any[]) || [];
+    const players = (game.players as ReportPlayer[]) || [];
+    const analysisPlayers = players
+        .filter((player): player is ReportPlayer & { id: string; name: string } => typeof player.id === "string" && typeof player.name === "string")
+        .map((player) => ({
+            ...player,
+            id: player.id,
+            name: player.name,
+        }));
 
     // Calculate aggregated stats
     let totalCorrect = 0;
@@ -77,13 +95,9 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
                     .card { border: 1px solid #e2e8f0 !important; box-shadow: none !important; }
                 }
             `}} />
-            <div className="flex items-center gap-4 no-print">
-                <Link href="/dashboard/reports">
-                    <Button variant="ghost" size="icon">
-                        <ArrowLeft className="w-5 h-5" />
-                    </Button>
-                </Link>
-                <div>
+            <div className="flex flex-wrap items-center gap-4 no-print">
+                <PageBackLink href="/dashboard/reports" label="รายงานทั้งหมด" className="shrink-0" />
+                <div className="min-w-0 flex-1">
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900">Game Report</h1>
                     <div className="flex items-center gap-4 text-slate-500 mt-1">
                         <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> {format(new Date(game.endedAt), "PP p")}</span>
@@ -95,7 +109,7 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
                 </div>
                 <Button 
                     variant="outline" 
-                    className="gap-2 border-purple-200 text-purple-700 hover:bg-purple-50"
+                    className="ml-auto shrink-0 gap-2 border-purple-200 text-purple-700 hover:bg-purple-50"
                     onClick={() => window.print()}
                 >
                     <BarChart3 className="w-4 h-4" /> Export PDF
@@ -113,7 +127,7 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
                     <CardContent>
                         <div className="flex items-center gap-4">
                             {winner?.avatar && (
-                                <img src={winner.avatar} alt="Winner" className="w-16 h-16 rounded-full bg-white p-1 border-2 border-amber-300" />
+                                <Image src={winner.avatar} alt="Winner" width={64} height={64} unoptimized className="w-16 h-16 rounded-full bg-white p-1 border-2 border-amber-300" />
                             )}
                             <div>
                                 <div className="text-3xl font-black text-slate-900">{winner?.name || "No players"}</div>
@@ -167,7 +181,7 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
             */}
             <AnalysisDashboard 
                 game={game} 
-                players={players} 
+                players={analysisPlayers} 
                 questionSet={questionSet}
                 fullHistory={fullHistory}
             />

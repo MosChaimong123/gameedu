@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
+type StudentIdOnly = {
+    id: string
+};
+
 export async function POST(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -31,7 +35,7 @@ export async function POST(
             select: { id: true }
         });
 
-        const studentIds = students.map((s: any) => s.id);
+        const studentIds = students.map((s: StudentIdOnly) => s.id);
 
         if (studentIds.length === 0) {
              return NextResponse.json({ 
@@ -42,7 +46,7 @@ export async function POST(
         }
 
         // 2. Perform the transaction with direct IDs
-        const [deletedActivities, deletedSubmissions, resetStudents] = await db.$transaction([
+        const [deletedActivities, , resetStudents] = await db.$transaction([
             db.pointHistory.deleteMany({
                 where: {
                     studentId: { in: studentIds }

@@ -1,6 +1,41 @@
 import { Server, Socket } from "socket.io";
-import { AbstractGameEngine } from "./abstract-game";
-import { CryptoHackPlayer, CryptoHackSession, GameSettings, HackTask, CryptoReward } from "../types/game";
+import { AbstractGameEngine, type GameQuestion } from "./abstract-game";
+import { CryptoHackPlayer, GameSettings, HackTask, CryptoReward } from "../types/game";
+
+type CryptoGameStatePayload = {
+    players: CryptoHackPlayer[];
+    hackState: "PASSWORD_SELECTION" | "HACKING";
+    passwordOptions?: string[];
+};
+
+type CryptoPlayerJoin = Pick<CryptoHackPlayer, "name" | "avatar"> & Partial<CryptoHackPlayer>;
+
+type SelectPasswordPayload = {
+    password: string;
+};
+
+type SubmitAnswerPayload = {
+    questionId: string;
+    answerIndex: number;
+};
+
+type SelectBoxPayload = {
+    index: number | string;
+};
+
+type RequestHackOptionsPayload = {
+    targetId: string;
+};
+
+type AttemptHackPayload = {
+    targetId: string;
+    passwordGuess: string;
+};
+
+type CryptoRestoreState = ReturnType<AbstractGameEngine["serialize"]> & {
+    hackState?: "PASSWORD_SELECTION" | "HACKING";
+    passwordOptions?: string[];
+};
 
 const CRYPTO_PASSWORDS = [
     "Bitcoin", "Ethereum", "Dogecoin", "Solana", "Cardano",
@@ -28,7 +63,7 @@ export class CryptoHackEngine extends AbstractGameEngine {
         hostId: string,
         setId: string,
         settings: GameSettings,
-        questions: any[],
+        questions: GameQuestion[],
         io: Server
     ) {
         super(pin, hostId, setId, settings, questions, io);
@@ -42,7 +77,7 @@ export class CryptoHackEngine extends AbstractGameEngine {
         // Update local ref ensuring it doesn't get stale in wrong way, though we use calculated one for payload
         this.passwords = availablePasswords;
 
-        const payload: any = {
+        const payload: CryptoGameStatePayload = {
             players: this.players,
             hackState: this.hackState,
             // Send ONLY available passwords
@@ -51,7 +86,7 @@ export class CryptoHackEngine extends AbstractGameEngine {
         this.io.to(this.pin).emit("game-state-update", payload);
     }
 
-    addPlayer(player: any, socket: Socket) {
+    addPlayer(player: CryptoPlayerJoin, socket: Socket) {
         if (this.status !== "LOBBY" && !this.settings.allowLateJoin) {
             socket.emit("error", { message: "Game is locked" });
             return;
@@ -74,7 +109,10 @@ export class CryptoHackEngine extends AbstractGameEngine {
             // New Player
             const newPlayer: CryptoHackPlayer = {
                 ...player,
+                name: player.name,
+                avatar: player.avatar,
                 id: socket.id, // Ensure we use the socket ID
+                isConnected: true,
                 crypto: 0,
                 // If joining late (HACKING phase), auto-assign password to prevent bugs
                 password: this.hackState === "HACKING" ? "GuestPass" : "",
@@ -85,6 +123,7 @@ export class CryptoHackEngine extends AbstractGameEngine {
                 incorrectAnswers: 0,
                 isLocked: false,
                 hackingHistory: {},
+                responses: {},
                 completedTaskTypes: []
             };
             this.players.push(newPlayer);
@@ -109,25 +148,25 @@ export class CryptoHackEngine extends AbstractGameEngine {
         // For now, let's just wait or start tick loop.
     }
 
-    handleEvent(eventName: string, payload: any, socket: Socket) {
+    handleEvent(eventName: string, payload: unknown, socket: Socket) {
         const player = this.getPlayer(socket.id) as CryptoHackPlayer;
         if (!player) return;
 
         switch (eventName) {
             case "select-password":
-                this.handleSelectPassword(player, payload.password);
+                this.handleSelectPassword(player, (payload as SelectPasswordPayload).password);
                 break;
             case "submit-answer":
-                this.handleAnswerPayload(player, payload, socket);
+                this.handleAnswerPayload(player, payload as SubmitAnswerPayload, socket);
                 break;
             case "select-box":
-                this.handleBoxSelection(player, payload.index, socket);
+                this.handleBoxSelection(player, (payload as SelectBoxPayload).index, socket);
                 break;
             case "request-hack-options":
-                this.handleRequestHackOptions(player, payload.targetId, socket);
+                this.handleRequestHackOptions(player, (payload as RequestHackOptionsPayload).targetId, socket);
                 break;
             case "attempt-hack":
-                this.handleHackAttempt(player, payload, socket);
+                this.handleHackAttempt(player, payload as AttemptHackPayload, socket);
                 break;
             case "request-question":
                 this.handleRequestQuestion(socket);
@@ -167,6 +206,8 @@ export class CryptoHackEngine extends AbstractGameEngine {
     }
 
     private handleAnswer(player: CryptoHackPlayer, answerIndex: number) {
+        void player;
+        void answerIndex;
         // Find current question (randomness should be handled per player ideally, but for MVP assuming synced or managed)
         // Actually Base Engine handles random question serving but we need to validate.
         // For MVP let's assume client sends Question ID and we validate.
@@ -190,14 +231,13 @@ export class CryptoHackEngine extends AbstractGameEngine {
 
 
     public handleReconnection(player: CryptoHackPlayer, socket: Socket) {
-        const oldId = player.id;
         super.handleReconnection(player, socket);
         // Player object state (including pendingRewards) is preserved by reference or restore
         console.log(`[Crypto] Player reconnected: ${player.name}`);
     }
 
     // Updated signature to handle full payload
-    private handleAnswerPayload(player: CryptoHackPlayer, payload: any, socket: Socket) {
+    private handleAnswerPayload(player: CryptoHackPlayer, payload: SubmitAnswerPayload, socket: Socket) {
         const { questionId, answerIndex } = payload;
         const question = this.questions.find(q => q.id === questionId);
 
@@ -255,11 +295,11 @@ export class CryptoHackEngine extends AbstractGameEngine {
         return rewards;
     }
 
-    private handleBoxSelection(player: CryptoHackPlayer, index: number, socket: Socket) {
+    private handleBoxSelection(player: CryptoHackPlayer, index: number | string, socket: Socket) {
         try {
             // Ensure index is a number
             if (typeof index !== 'number') {
-                index = parseInt(index as any);
+                index = parseInt(index, 10);
                 if (isNaN(index)) {
                     console.warn(`[Crypto] Invalid index format from ${player.name}:`, index);
                     return;
@@ -346,7 +386,7 @@ export class CryptoHackEngine extends AbstractGameEngine {
         });
     }
 
-    private handleHackAttempt(player: CryptoHackPlayer, payload: any, socket: Socket) {
+    private handleHackAttempt(player: CryptoHackPlayer, payload: AttemptHackPayload, socket: Socket) {
         const { targetId, passwordGuess } = payload;
         const target = this.players.find(p => p.id === targetId);
 
@@ -513,7 +553,8 @@ export class CryptoHackEngine extends AbstractGameEngine {
 
         if (this.status === "PLAYING" && this.settings.winCondition === "GOLD" && this.settings.goldGoal) {
             // Check if any player reached the goal
-            const winner = this.players.find(p => p.crypto >= this.settings.goldGoal);
+            const goldGoal = this.settings.goldGoal;
+            const winner = this.players.find((p) => p.crypto >= goldGoal);
             if (winner) {
                 this.endGame();
             }
@@ -521,7 +562,7 @@ export class CryptoHackEngine extends AbstractGameEngine {
     }
 
     // Override State for Serialization
-    public restore(data: any): void {
+    public restore(data: CryptoRestoreState): void {
         super.restore(data);
         this.hackState = data.hackState || "PASSWORD_SELECTION";
         this.passwords = data.passwordOptions || [
@@ -536,7 +577,7 @@ export class CryptoHackEngine extends AbstractGameEngine {
     }
 
     // Override State for Serialization
-    public serialize(): any {
+    public serialize(): CryptoRestoreState {
         return {
             ...super.serialize(),
             players: this.players,

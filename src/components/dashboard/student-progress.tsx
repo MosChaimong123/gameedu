@@ -52,7 +52,7 @@ export function StudentProgress() {
                         <div className="h-2 w-2 rounded-full bg-red-400 mt-2" />
                         <div>
                             <p className="text-slate-700 font-medium">Bob Smith</p>
-                            <p className="text-xs text-slate-500">{t("strugglingWith")} "Fractions" (Avg: 45%)</p>
+                            <p className="text-xs text-slate-500">{t("strugglingWith")} &quot;Fractions&quot; (Avg: 45%)</p>
                         </div>
                     </div>
                     <div className="flex items-start gap-3 text-sm">

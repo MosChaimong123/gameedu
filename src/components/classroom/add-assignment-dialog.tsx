@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useLanguage } from "@/components/providers/language-provider";
 import { useToast } from "@/components/ui/use-toast";
 import {
     Plus, X, Star, Eye, EyeOff, Edit, Trash2, GripVertical,
@@ -39,6 +38,8 @@ interface AddAssignmentDialogProps {
     onAdded: () => void;
     assignments: Assignment[];
 }
+
+type ChecklistValue = { text: string; points: number };
 
 // --- Sortable Assignment List Item ---
 function SortableItem({
@@ -141,7 +142,6 @@ export function AddAssignmentDialog({
     onAdded,
     assignments: initialAssignments,
 }: AddAssignmentDialogProps) {
-    const { t } = useLanguage();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -181,12 +181,12 @@ export function AddAssignmentDialog({
         setPassScore(a.passScore?.toString() ?? "");
         
         // Handle both old String[] and new Json structure
-        const rawChecklists = a.checklists as any;
+        const rawChecklists = a.checklists as unknown;
         if (Array.isArray(rawChecklists)) {
             if (rawChecklists.length > 0 && typeof rawChecklists[0] === 'object') {
-                setChecklists(rawChecklists);
+                setChecklists(rawChecklists as ChecklistValue[]);
             } else {
-                setChecklists(rawChecklists.map(text => ({ text, points: 1 })));
+                setChecklists(rawChecklists.map((text) => ({ text: String(text), points: 1 })));
             }
         } else {
             setChecklists([{ text: "", points: 1 }]);

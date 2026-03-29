@@ -1,12 +1,40 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { Users, BookOpen, Gamepad2, ShieldCheck, Trash2, Settings } from "lucide-react";
+import { Users, BookOpen, Gamepad2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
+
+type RecentUser = {
+    id: string;
+    name: string | null;
+    email: string | null;
+    role: string;
+    createdAt: Date;
+    image: string | null;
+};
+
+type AdminStat = {
+    label: string;
+    value: number;
+    icon: typeof Users;
+    color: string;
+    bg: string;
+    text: string;
+};
+
+type AdminLink = {
+    label: string;
+    desc: string;
+    icon: typeof Users;
+    href: string;
+    color: string;
+    bg: string;
+};
 
 export default async function AdminDashboardPage() {
     const session = await auth();
-    const role = (session?.user as any)?.role;
+    const role = session?.user?.role;
     
     if (!session?.user || role !== "ADMIN") {
         redirect("/dashboard");
@@ -20,13 +48,13 @@ export default async function AdminDashboardPage() {
         db.gameHistory.count(),
     ]);
 
-    const recentUsers = await db.user.findMany({
+    const recentUsers: RecentUser[] = await db.user.findMany({
         orderBy: { createdAt: "desc" },
         take: 10,
         select: { id: true, name: true, email: true, role: true, createdAt: true, image: true }
     });
 
-    const stats = [
+    const stats: AdminStat[] = [
         { label: "ผู้ใช้ทั้งหมด", value: userCount, icon: Users, color: "from-blue-500 to-cyan-500", bg: "bg-blue-50", text: "text-blue-600" },
         { label: "ครู", value: teacherCount, icon: ShieldCheck, color: "from-purple-500 to-indigo-500", bg: "bg-purple-50", text: "text-purple-600" },
         { label: "นักเรียน", value: studentDbCount, icon: Users, color: "from-green-500 to-emerald-500", bg: "bg-green-50", text: "text-green-600" },
@@ -72,7 +100,7 @@ export default async function AdminDashboardPage() {
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    {stats.map((stat: any) => (
+                    {stats.map((stat) => (
                         <div key={stat.label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 hover:shadow-md transition-shadow">
                             <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center mb-3`}>
                                 <stat.icon className={`w-5 h-5 ${stat.text}`} />
@@ -103,13 +131,13 @@ export default async function AdminDashboardPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                                {recentUsers.map((user: any) => (
+                                {recentUsers.map((user) => (
                                     <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden shrink-0">
                                                     {user.image ? (
-                                                        <img src={user.image} alt={user.name || ""} className="w-full h-full object-cover" />
+                                                        <Image src={user.image} alt={user.name || ""} width={32} height={32} unoptimized className="w-full h-full object-cover" />
                                                     ) : (
                                                         user.name?.charAt(0) || "?"
                                                     )}
@@ -135,11 +163,11 @@ export default async function AdminDashboardPage() {
 
                 {/* Quick Links */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {[
+                    {([
                         { label: "จัดการผู้ใช้ทั้งหมด", desc: "ดู/แก้ไข/ลบบัญชีผู้ใช้", icon: Users, href: "/admin/users", color: "text-purple-600", bg: "bg-purple-50 hover:bg-purple-100 border-purple-100" },
                         { label: "ชุดคำถามทั้งหมด", desc: "ดูและลบเนื้อหาที่ไม่เหมาะสม", icon: BookOpen, href: "/admin/sets", color: "text-orange-600", bg: "bg-orange-50 hover:bg-orange-100 border-orange-100" },
                         { label: "หน้าแรกครู", desc: "กลับไปยังหน้าจัดการชั้นเรียน", icon: ShieldCheck, href: "/dashboard", color: "text-slate-600", bg: "bg-slate-50 hover:bg-slate-100 border-slate-200" },
-                    ].map((link: any) => (
+                    ] satisfies AdminLink[]).map((link) => (
                         <Link key={link.label} href={link.href}
                             className={`${link.bg} border rounded-2xl p-5 flex items-center gap-4 transition-colors group`}
                         >
@@ -157,3 +185,4 @@ export default async function AdminDashboardPage() {
         </div>
     );
 }
+

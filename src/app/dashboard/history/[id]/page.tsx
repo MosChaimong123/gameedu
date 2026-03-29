@@ -2,13 +2,24 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { format } from "date-fns";
-import { Calendar, Clock, Trophy, ArrowLeft, Download } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Calendar, Clock, Trophy } from "lucide-react";
+import { PageBackLink } from "@/components/ui/page-back-link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
+
+type HistoryPlayer = {
+    name: string;
+    gold?: number;
+    crypto?: number;
+};
+
+type HistorySettings = {
+    winCondition?: string;
+    goldGoal?: number;
+    cryptoGoal?: number;
+    timeLimitMinutes?: number;
+};
 
 export default async function HistoryDetailPage(props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
@@ -27,7 +38,8 @@ export default async function HistoryDetailPage(props: { params: Promise<{ id: s
         return <div className="p-8 text-center">Forbidden</div>;
     }
 
-    const players = (game.players as any[]) || [];
+    const players = (game.players as HistoryPlayer[]) || [];
+    const settings = (game.settings as HistorySettings | null) || {};
 
     // Calculate Winner
     const sortedPlayers = [...players].sort((a, b) => {
@@ -43,12 +55,8 @@ export default async function HistoryDetailPage(props: { params: Promise<{ id: s
 
     return (
         <div className="p-8 max-w-6xl mx-auto space-y-8">
-            <div className="flex items-center gap-4">
-                <Link href="/dashboard/history">
-                    <Button variant="ghost" size="icon">
-                        <ArrowLeft className="w-5 h-5" />
-                    </Button>
-                </Link>
+            <div className="flex flex-wrap items-center gap-4">
+                <PageBackLink href="/dashboard/history" label="ประวัติเกมทั้งหมด" />
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900">Game Report</h1>
                     <div className="flex items-center gap-4 text-slate-500 mt-1">
@@ -93,10 +101,10 @@ export default async function HistoryDetailPage(props: { params: Promise<{ id: s
                     </CardHeader>
                     <CardContent>
                         <div className="text-xl font-bold text-slate-900">
-                            {(game.settings as any)?.winCondition || "Default"}
+                            {settings.winCondition || "Default"}
                         </div>
                         <div className="text-sm text-slate-500">
-                            Goal: {(game.settings as any)?.goldGoal || (game.settings as any)?.cryptoGoal || (game.settings as any)?.timeLimitMinutes + " mins" || "-"}
+                            Goal: {settings.goldGoal || settings.cryptoGoal || (settings.timeLimitMinutes ? `${settings.timeLimitMinutes} mins` : "-")}
                         </div>
                     </CardContent>
                 </Card>

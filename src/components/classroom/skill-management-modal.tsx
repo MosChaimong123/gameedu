@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { 
     Heart, Star, Zap, ThumbsUp, Brain, Trophy, 
-    AlertCircle, X, Plus, Loader2, Trash2, Edit3, Settings2
+    AlertCircle, Plus, Loader2, Trash2, Settings2
 } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,7 +18,7 @@ interface Skill {
     name: string;
     weight: number;
     type: string;
-    icon?: string;
+    icon?: string | null;
 }
 
 interface SkillManagementModalProps {
@@ -333,4 +333,3 @@ export function SkillManagementModal({
         </>
     );
 }
-

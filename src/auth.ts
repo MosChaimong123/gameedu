@@ -63,7 +63,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             if (user) {
                 token.id = user.id
                 token.email = user.email
-                token.name = user.name
+                if (user.name !== undefined) token.name = user.name
                 token.picture = user.image
             }
 
@@ -77,7 +77,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     })
                     
                     if (freshUser) {
-                        token.name = freshUser.name
+                        if (freshUser.name !== undefined) token.name = freshUser.name
                         token.picture = freshUser.image
                         token.role = freshUser.role
                         token.school = freshUser.school
@@ -85,7 +85,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         token.plan = freshUser.plan
                         token.planStatus = freshUser.planStatus
                     }
-                } catch (error) {
+                } catch {
                     // If it's an edge error, we just keep the existing token
                     console.log("[AUTH_JWT] Skipping DB sync (likely Edge or DB down)")
                 }
@@ -102,18 +102,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         async session({ session, token }) {
             if (token) {
                 if (token.id) session.user.id = token.id as string
-                // @ts-ignore
-                if (token.role) session.user.role = token.role as string
-                // @ts-ignore
-                if (token.school) session.user.school = token.school as string
+                if (token.role) session.user.role = token.role
+                if (token.school) session.user.school = token.school
                 
-                session.user.name = token.name
+                if (token.name !== undefined) session.user.name = token.name
                 session.user.image = token.picture as string
-                // @ts-ignore
                 session.user.settings = token.settings
-                // @ts-ignore
                 session.user.plan = token.plan
-                // @ts-ignore
                 session.user.planStatus = token.planStatus
             }
             return session

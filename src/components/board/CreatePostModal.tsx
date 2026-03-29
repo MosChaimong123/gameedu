@@ -11,13 +11,34 @@ import { createBoardPost } from "@/lib/actions/board-actions";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 
+type CreatedPost = {
+    id: string;
+    title?: string | null;
+    content?: string | null;
+};
+
+type BoardPostInput = {
+    boardId: string;
+    type: PostType;
+    title: string;
+    content: string;
+    color: string;
+    linkUrl?: string;
+    fileUrl?: string;
+    fileName?: string;
+    videoUrl?: string;
+    videoName?: string;
+    youtubeId?: string;
+    pollQuestion?: string;
+    pollOptions?: Array<{ text: string; id: string }>;
+    albumImages?: string[];
+};
+
 interface CreatePostModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     boardId: string;
-    studentId?: string;
-    userId?: string;
-    onPostCreated?: (post: any) => void;
+    onPostCreated?: (post: CreatedPost) => void;
 }
 
 const COLORS = [
@@ -32,7 +53,7 @@ const COLORS = [
 type PostType = "link" | "file" | "video" | "youtube" | "poll" | "album";
 
 export function CreatePostModal({
-    open, onOpenChange, boardId, studentId, userId, onPostCreated
+    open, onOpenChange, boardId, onPostCreated
 }: CreatePostModalProps) {
     const [type, setType] = useState<PostType>("file");
     const [title, setTitle] = useState("");
@@ -81,14 +102,12 @@ export function CreatePostModal({
         
         setIsSubmitting(true);
         try {
-            const data: any = {
+            const data: BoardPostInput = {
                 boardId,
                 type,
                 title: title.trim(),
                 content: content.trim(),
-                color: selectedColor,
-                authorStudentId: studentId,
-                authorUserId: userId
+                color: selectedColor
             };
 
             if (type === "link") data.linkUrl = linkUrl.trim();
@@ -115,7 +134,10 @@ export function CreatePostModal({
                 if (!data.videoUrl) throw new Error("กรุณาอัปโหลดวิดีโอหรือใส่ลิงก์");
             }
             if (type === "youtube") {
-                data.youtubeId = extractYoutubeId(youtubeUrl);
+                const youtubeId = extractYoutubeId(youtubeUrl);
+                if (youtubeId) {
+                    data.youtubeId = youtubeId;
+                }
             }
             if (type === "poll") {
                 data.pollQuestion = pollQuestion.trim();
@@ -157,7 +179,7 @@ export function CreatePostModal({
                 title: "โพสต์สำเร็จ!",
                 description: "โพสต์ของคุณถูกแชร์ลงกระดานแล้ว",
             });
-        } catch (error) {
+        } catch {
             toast({
                 variant: "destructive",
                 title: "เกิดข้อผิดพลาด",
@@ -174,14 +196,6 @@ export function CreatePostModal({
         const newOptions = [...pollOptions];
         newOptions[index] = val;
         setPollOptions(newOptions);
-    };
-
-    const addAlbumUrl = () => setAlbumUrls([...albumUrls, ""]);
-    const removeAlbumUrl = (index: number) => setAlbumUrls(albumUrls.filter((_, i) => i !== index));
-    const updateAlbumUrl = (index: number, val: string) => {
-        const newUrls = [...albumUrls];
-        newUrls[index] = val;
-        setAlbumUrls(newUrls);
     };
 
     return (

@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
 
+type CustomAchievement = {
+  id: string;
+  name: string;
+  icon: string;
+  goldReward: number;
+};
+
+type GamifiedSettings = {
+  customAchievements?: CustomAchievement[];
+};
+
 // POST /api/classrooms/[id]/custom-achievements/award
 // Body: { achievementId, studentId }
 export async function POST(
@@ -22,26 +33,22 @@ export async function POST(
     });
     if (!classroom) return NextResponse.json({ error: "Classroom not found" }, { status: 404 });
 
-    const settings = (classroom.gamifiedSettings as any) || {};
+    const settings = (classroom.gamifiedSettings as GamifiedSettings | null) || {};
     const customAchievements = settings.customAchievements || [];
-    const achievementDef = customAchievements.find((a: any) => a.id === achievementId);
+    const achievementDef = customAchievements.find((a) => a.id === achievementId);
 
     if (!achievementDef) return NextResponse.json({ error: "Achievement not found" }, { status: 404 });
 
     // 2. Check student exists and hasn't already received it
     const student = await db.student.findUnique({
       where: { id: studentId },
-      select: { id: true, gameStats: true, achievements: { where: { achievementId } } }
+      select: { id: true, achievements: { where: { achievementId } } }
     });
 
     if (!student) return NextResponse.json({ error: "Student not found" }, { status: 404 });
     if (student.achievements.length > 0) {
       return NextResponse.json({ error: "นักเรียนได้รับรางวัลนี้ไปแล้ว" }, { status: 400 });
     }
-
-    // 3. Award achievement + gold
-    const currentStats = (student.gameStats as any) || { gold: 0 };
-    const newGold = (currentStats.gold || 0) + achievementDef.goldReward;
 
     await db.studentAchievement.create({
       data: {
@@ -54,7 +61,7 @@ export async function POST(
     await db.student.update({
       where: { id: studentId },
       data: {
-        gameStats: { ...currentStats, gold: newGold } as any,
+        points: { increment: achievementDef.goldReward },
       }
     });
 
@@ -66,7 +73,7 @@ export async function POST(
       }
     });
 
-    return NextResponse.json({ success: true, goldAwarded: achievementDef.goldReward });
+    return NextResponse.json({ success: true, pointsAwarded: achievementDef.goldReward });
   } catch (error) {
     console.error("Error awarding custom achievement:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

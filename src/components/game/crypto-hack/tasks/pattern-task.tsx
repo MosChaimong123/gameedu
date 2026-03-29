@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { HackTask } from "@/lib/types/game";
 import { cn } from "@/lib/utils";
-import { useSound } from "@/hooks/use-sound";
 
 type Props = {
     task: HackTask;
@@ -9,32 +8,25 @@ type Props = {
 }
 
 export function PatternTask({ task, onComplete }: Props) {
+    const isPatternTask = task.type === "PATTERN";
     // 2x2 Grid: 0, 1, 2, 3
     const [sequence, setSequence] = useState<number[]>([]);
     const [playerSequence, setPlayerSequence] = useState<number[]>([]);
     const [isPlaying, setIsPlaying] = useState(false); // If true, showing sequence
     const [litIndex, setLitIndex] = useState<number | null>(null); // Which button is currently lit
     const [isError, setIsError] = useState(false);
-    const [round, setRound] = useState(1);
-
-    // Safety check
-    if (!task || task.type !== "PATTERN") return null;
-
-    const targetLength = (task.type === "PATTERN" && task.payload && task.payload.length) || 4;
-    // Fix: task.payload might be undefined if task type mismatch
 
     // Generate Sequence on mount
     useEffect(() => {
-        // ... (existing)
-        // Actually the payload structure is strict
-        const len = (task as any).payload?.length || 4;
-        const newSeq = Array.from({ length: len }, () => Math.floor(Math.random() * 4));
-        // Use a ref to store seq to avoid re-renders? State is fine.
-        setSequence(newSeq); // This triggers re-render but that's ok.
+        if (!isPatternTask) return;
 
-        // Delay start slightly
-        setTimeout(() => playSequence(newSeq), 1000);
-    }, []);
+        const len = task.payload?.length || 4;
+        const newSeq = Array.from({ length: len }, () => Math.floor(Math.random() * 4));
+        setSequence(newSeq);
+
+        const timer = window.setTimeout(() => playSequence(newSeq), 1000);
+        return () => window.clearTimeout(timer);
+    }, [isPatternTask, task]);
 
     const playSequence = (seq: number[], speed = 600) => {
         setIsPlaying(true);
@@ -95,6 +87,8 @@ export function PatternTask({ task, onComplete }: Props) {
             onComplete();
         }
     }
+
+    if (!isPatternTask) return null;
 
     return (
         <div className="flex flex-col items-center gap-6 w-full max-w-md select-none animate-in zoom-in duration-300">

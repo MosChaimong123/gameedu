@@ -63,8 +63,8 @@ export default function RegisterForm() {
 
             // On success, redirect to login
             router.push("/login?registered=true")
-        } catch (err: any) {
-            setError(err.message)
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Registration failed")
         } finally {
             setLoading(false)
         }

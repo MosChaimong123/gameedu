@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { toPrismaJson } from "@/lib/game/game-stats";
+import { toPrismaJson } from "@/lib/prisma-json";
 import { parseUserSettings } from "@/lib/user-settings";
 
 type SettingsPatchBody = {

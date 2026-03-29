@@ -1,41 +1,24 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai"
+import { GoogleGenerativeAI } from "@google/generative-ai"
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 
-// Initialize inside the handler for better environment variable reliability
+type GeminiContentPart =
+    | { text: string }
+    | {
+        inlineData: {
+            data: string
+            mimeType: string
+        }
+    }
 
-// Define the response schema for structural output
-const schema: any = {
-  description: "List of multiple choice questions",
-  type: SchemaType.ARRAY as any,
-  items: {
-    type: SchemaType.OBJECT as any,
-    properties: {
-      question: {
-        type: SchemaType.STRING as any,
-        description: "The question text",
-        nullable: false,
-      },
-      options: {
-        type: SchemaType.ARRAY as any,
-        items: { type: SchemaType.STRING as any },
-        description: "Four multiple choice options",
-        minItems: 4,
-        maxItems: 4,
-      },
-      correctAnswer: {
-        type: SchemaType.NUMBER as any,
-        description: "Index of the correct answer (0-3)",
-        nullable: false,
-      },
-      explanation: {
-        type: SchemaType.STRING as any,
-        description: "Brief explanation of why the answer is correct",
-      },
-    },
-    required: ["question", "options", "correctAnswer"],
-  },
-} as any
+type GeneratedQuestion = {
+    question: string
+    options: string[]
+    correctAnswer: number
+    explanation?: string
+}
+
+// Initialize inside the handler for better environment variable reliability
 
 export async function POST(req: Request) {
     try {
@@ -44,7 +27,7 @@ export async function POST(req: Request) {
             return new NextResponse("Unauthorized", { status: 401 })
         }
 
-        const { content, count = 10, language = "th", difficulty = "MEDIUM", pdfData, fileName } = await req.json()
+        const { content, count = 10, language = "th", difficulty = "MEDIUM", pdfData } = await req.json()
 
         if (!content && !pdfData) {
             return new NextResponse("Content or PDF data is required", { status: 400 })
@@ -72,7 +55,7 @@ export async function POST(req: Request) {
         `
 
         // Build parts for generation (Restoring PDF support)
-        const parts: any[] = []
+        const parts: GeminiContentPart[] = []
         
         if (pdfData) {
             parts.push({
@@ -102,7 +85,7 @@ export async function POST(req: Request) {
         }
         
         // Parse and add IDs and default values to match GameEdu format
-        const questions = JSON.parse(text).map((q: any) => ({
+        const questions = (JSON.parse(text) as GeneratedQuestion[]).map((q) => ({
             id: crypto.randomUUID(),
             question: q.question,
             image: null,

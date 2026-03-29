@@ -14,23 +14,41 @@ import {
     Languages, 
     Shield, 
     Save,
-    Bell,
-    Smartphone,
     Globe,
-    Sparkles
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { PageBackLink } from "@/components/ui/page-back-link"
+import type { UserSettings } from "@/lib/user-settings"
+import { parseUserSettings } from "@/lib/user-settings"
+
+type SettingsState = UserSettings & {
+    language: "en" | "th"
+    notifications: boolean
+    highPerformance: boolean
+}
+
+type LanguageOption = {
+    id: SettingsState["language"]
+    name: string
+    sub: string
+    flag: string
+}
+
+const LANGUAGE_OPTIONS = [
+    { id: "th", name: "ภาษาไทย", sub: "Thai Language", flag: "🇹🇭" },
+    { id: "en", name: "English", sub: "Global Version", flag: "🇺🇸" }
+] satisfies LanguageOption[]
 
 export default function SettingsPage() {
     const { data: session, update } = useSession()
-    const { t, language, setLanguage } = useLanguage()
+    const { t, setLanguage } = useLanguage()
     
     const [loading, setLoading] = useState(false)
     const [saved, setSaved] = useState(false)
     const [hasInitialized, setHasInitialized] = useState(false)
 
     // Local state for settings
-    const [settings, setSettings] = useState({
+    const [settings, setSettings] = useState<SettingsState>({
         sfxEnabled: true,
         bgmEnabled: true,
         language: "th",
@@ -41,19 +59,13 @@ export default function SettingsPage() {
     useEffect(() => {
         // Only initialize once from session
         if (session?.user && !hasInitialized) {
-            // @ts-ignore
             if (session.user.settings) {
-                try {
-                    // @ts-ignore
-                    const userSettings = typeof session.user.settings === 'string' 
-                        // @ts-ignore
-                        ? JSON.parse(session.user.settings) 
-                        // @ts-ignore
-                        : session.user.settings
-                    setSettings(prev => ({ ...prev, ...userSettings }))
-                } catch (e) {
-                    console.error("Failed to parse settings", e)
-                }
+                const userSettings = parseUserSettings(session.user.settings)
+                setSettings(prev => ({
+                    ...prev,
+                    ...userSettings,
+                    language: userSettings.language === "en" ? "en" : "th",
+                }))
             }
             setHasInitialized(true)
         }
@@ -82,15 +94,16 @@ export default function SettingsPage() {
         }
     }
 
-    const updateSetting = (key: string, value: any) => {
+    const updateSetting = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => {
         setSettings(prev => ({ ...prev, [key]: value }))
         
-        if (key === "language") setLanguage(value)
+        if (key === "language") setLanguage(value as SettingsState["language"])
     }
 
     return (
         <div className="min-h-[calc(100vh-4rem)] bg-slate-50/50 pb-20">
             <div className="container max-w-4xl py-12 px-6 space-y-10 mx-auto animate-in fade-in slide-in-from-bottom-6 duration-700">
+                <PageBackLink href="/dashboard" label="แดชบอร์ด" />
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border pb-10">
                     <div className="space-y-2">
@@ -172,10 +185,7 @@ export default function SettingsPage() {
                             </CardHeader>
                             <CardContent className="p-10 pt-6">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                                    {[
-                                        { id: 'th', name: 'ภาษาไทย', sub: 'Thai Language', flag: '🇹🇭' },
-                                        { id: 'en', name: 'English', sub: 'Global Version', flag: '🇺🇸' }
-                                    ].map((lang: any) => (
+                                    {LANGUAGE_OPTIONS.map((lang) => (
                                         <motion.button 
                                             key={lang.id}
                                             whileHover={{ y: -5, scale: 1.02 }}
@@ -248,7 +258,6 @@ export default function SettingsPage() {
                     </TabsContent>
                 </Tabs>
 
-                {/* @ts-ignore */}
                 {session?.user?.role === 'ADMIN' && (
                     <motion.div 
                         initial={{ opacity: 0, scale: 0.9 }}
@@ -282,3 +291,5 @@ export default function SettingsPage() {
         </div>
     )
 }
+
+

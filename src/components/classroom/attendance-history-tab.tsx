@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import { format } from "date-fns";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { StudentAvatar } from "@/components/classroom/student-avatar";
 
 interface AttendanceRecord {
     id: string;
@@ -28,7 +28,7 @@ export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
 
-    const fetchHistory = async () => {
+    const fetchHistory = useCallback(async () => {
         setLoading(true);
         try {
             const res = await fetch(`/api/classrooms/${classId}/attendance/history?date=${selectedDate}`);
@@ -41,11 +41,11 @@ export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [classId, selectedDate]);
 
     useEffect(() => {
-        fetchHistory();
-    }, [classId, selectedDate]);
+        void fetchHistory();
+    }, [fetchHistory]);
 
     const updateStatus = async (recordId: string, newStatus: string) => {
         const previousRecords = [...records];
@@ -74,16 +74,6 @@ export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
             case "ABSENT": return "bg-red-100 text-red-700 border-red-200";
             case "LEFT_EARLY": return "bg-orange-100 text-orange-700 border-orange-200";
             default: return "bg-slate-100 text-slate-700 border-slate-200";
-        }
-    };
-
-    const getTranslatedStatus = (status: string) => {
-        switch (status) {
-            case "PRESENT": return t("present") || "Present";
-            case "LATE": return t("late") || "Late";
-            case "ABSENT": return t("absent") || "Absent";
-            case "LEFT_EARLY": return t("leftEarly") || "Left Early";
-            default: return status;
         }
     };
 
@@ -127,7 +117,7 @@ export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
                                         <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                                             <td className="px-6 py-4 font-medium text-slate-900 flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
-                                                    <img src={`https://api.dicebear.com/7.x/bottts/svg?seed=${record.student.avatar || "1"}`} alt={record.student.name} className="w-full h-full object-contain p-1" />
+                                                    <Image src={`https://api.dicebear.com/7.x/bottts/svg?seed=${record.student.avatar || "1"}`} alt={record.student.name} width={32} height={32} className="w-full h-full object-contain p-1" unoptimized />
                                                 </div>
                                                 {record.student.name}
                                             </td>

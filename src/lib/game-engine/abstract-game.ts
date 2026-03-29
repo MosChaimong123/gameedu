@@ -1,7 +1,14 @@
-
 import { Server, Socket } from "socket.io";
-import { db as prisma } from "../db";
-import { GameSession, BasePlayer } from "../types/game";
+import { BasePlayer, GameSettings } from "../types/game";
+
+export type GameQuestion = {
+    id: string;
+    question: string;
+    options: string[];
+    correctAnswer: number;
+    timeLimit?: number;
+    image?: string;
+};
 
 export abstract class AbstractGameEngine {
     public abstract gameMode: string; // Enforce game mode definition
@@ -10,11 +17,11 @@ export abstract class AbstractGameEngine {
     public setId: string;
     public status: "LOBBY" | "PLAYING" | "ENDED";
     public players: BasePlayer[];
-    public settings: any;
+    public settings: Partial<GameSettings>;
     public startTime?: number;
     public endTime?: number;
-    public questions: any[];
-    protected io: any; // SocketIO.Server
+    public questions: GameQuestion[];
+    protected io: Server;
     private hostSocketId?: string;
     private hostReconnectToken?: string;
     private playerReconnectTokens: Map<string, string>;
@@ -23,9 +30,9 @@ export abstract class AbstractGameEngine {
         pin: string,
         hostId: string,
         setId: string,
-        settings: any,
-        questions: any[],
-        io: any
+        settings: Partial<GameSettings>,
+        questions: GameQuestion[],
+        io: Server
     ) {
         this.pin = pin;
         this.hostId = hostId;
@@ -38,13 +45,14 @@ export abstract class AbstractGameEngine {
         this.playerReconnectTokens = new Map();
     }
 
-    public setIO(io: any) {
+    public setIO(io: Server) {
         this.io = io;
     }
 
     // --- Player Management ---
 
     public addPlayer(player: BasePlayer, socket: Socket): void {
+        void socket;
         this.players.push(player);
         this.statusUpdate();
     }
@@ -148,7 +156,7 @@ export abstract class AbstractGameEngine {
     }
 
     // Abstract methods to be implemented by specific derived classes
-    public abstract handleEvent(eventName: string, payload: any, socket: Socket): void;
+    public abstract handleEvent(eventName: string, payload: unknown, _socket: Socket): void;
 
     // Helper to broadcast updates
     protected statusUpdate(): void {
@@ -160,7 +168,18 @@ export abstract class AbstractGameEngine {
 
     // --- Serialization for Persistence ---
 
-    public serialize(): any {
+    public serialize(): {
+        pin: string;
+        hostId: string;
+        setId: string;
+        status: "LOBBY" | "PLAYING" | "ENDED";
+        settings: Partial<GameSettings>;
+        players: BasePlayer[];
+        questions: GameQuestion[];
+        startTime?: number;
+        endTime?: number;
+        state?: unknown;
+    } {
         return {
             pin: this.pin,
             hostId: this.hostId,
@@ -175,7 +194,18 @@ export abstract class AbstractGameEngine {
         };
     }
 
-    public restore(data: any): void {
+    public restore(data: {
+        pin: string;
+        hostId: string;
+        setId: string;
+        status: "LOBBY" | "PLAYING" | "ENDED";
+        settings: Partial<GameSettings>;
+        players: BasePlayer[];
+        questions: GameQuestion[];
+        startTime?: number | string;
+        endTime?: number | string;
+        state?: unknown;
+    }): void {
         this.pin = data.pin;
         this.hostId = data.hostId;
         this.setId = data.setId;
@@ -188,7 +218,7 @@ export abstract class AbstractGameEngine {
         // Players handling might need specific derived logic
         // But base properties are safe to restore here
         // Note: Socket connections are LOST on restart so isConnected will be false
-        this.players = data.players.map((p: any) => ({
+        this.players = data.players.map((p) => ({
             ...p,
             isConnected: false, // Force disconnect state on restore
             id: "" // Reset Socket ID as it's invalid

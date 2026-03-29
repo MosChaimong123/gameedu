@@ -1,9 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getStudentRank } from "@/lib/classroom-utils";
 import { useLanguage } from "@/components/providers/language-provider";
+
+type LevelConfigInput = Record<string, number> | Array<{ name: string; minScore: number }> | null | undefined;
 
 interface StudentAvatarProps {
     id: string;
@@ -16,7 +19,7 @@ interface StudentAvatarProps {
     onContextMenu?: (e: React.MouseEvent) => void;
     className?: string;
     attendance?: string; // PRESENT, ABSENT, LATE, LEFT_EARLY
-    levelConfig?: any;
+    levelConfig?: LevelConfigInput;
     isSelected?: boolean;
     isAttendanceMode?: boolean;
 }
@@ -38,6 +41,7 @@ export function StudentAvatar({
     isSelected = false,
     isAttendanceMode = false
 }: StudentAvatarProps) {
+    void points;
     const { t } = useLanguage();
 
     // Styles based on attendance
@@ -90,7 +94,7 @@ export function StudentAvatar({
             {/* History persistent button */}
             {onContextMenu && !isAttendanceMode && (
                 <button
-                    onClick={(e) => { e.stopPropagation(); onContextMenu(e as any); }}
+                    onClick={(e) => { e.stopPropagation(); onContextMenu(e); }}
                     className="absolute top-3 left-3 bg-indigo-600 text-white rounded-xl p-1.5 shadow-lg border-2 border-white z-30 hover:bg-indigo-700 transition-all active:scale-90"
                     title="ดูประวัติคะแนน"
                 >
@@ -124,10 +128,13 @@ export function StudentAvatar({
                 isLeftEarly && "ring-4 ring-orange-400 ring-offset-2"
             )}>
                 {isAbsent && <div className="absolute inset-0 bg-red-500/10 z-10" />}
-                <img
+                <Image
                     src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatarSeed || id}`}
                     alt={name}
-                    className="w-full h-full object-contain drop-shadow-md group-hover:scale-110 transition-transform duration-500"
+                    fill
+                    sizes="112px"
+                    unoptimized
+                    className="object-contain drop-shadow-md group-hover:scale-110 transition-transform duration-500"
                 />
             </div>
 

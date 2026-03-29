@@ -8,22 +8,23 @@ type Props = {
     cryptoGoal?: number
 }
 
+function getTimeRemaining(endTime: number | null) {
+    if (!endTime) return 0;
+    return Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+}
+
 export function CryptoHackGameHeader({ player, endTime, cryptoGoal }: Props) {
-    const [timeLeft, setTimeLeft] = useState(0)
+    const [timeLeft, setTimeLeft] = useState(() => getTimeRemaining(endTime))
 
     useEffect(() => {
         if (!endTime) return
 
         const interval = setInterval(() => {
-            const now = Date.now()
-            const left = Math.max(0, Math.ceil((endTime - now) / 1000))
+            const left = getTimeRemaining(endTime)
             setTimeLeft(left)
 
             if (left <= 0) clearInterval(interval)
         }, 1000)
-
-        // Initial set
-        setTimeLeft(Math.max(0, Math.ceil((endTime - Date.now()) / 1000)))
 
         return () => clearInterval(interval)
     }, [endTime])

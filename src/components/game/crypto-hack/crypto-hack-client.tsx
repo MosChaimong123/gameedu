@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 // Force Rebuild
 import { Socket } from "socket.io-client";
-import { CryptoHackPlayer, CryptoReward, HackTask } from "@/lib/types/game";
+import { CryptoHackPlayer, CryptoReward } from "@/lib/types/game";
 import { CryptoHackGameHeader } from "./game-header";
 import { CryptoBoxSelection } from "./box-selection";
-import { useSound } from "@/hooks/use-sound";
+import { getPlayerSession } from "@/lib/player-session";
 
 type Props = {
     socket: Socket | null;
@@ -13,7 +13,7 @@ type Props = {
     onNavigate: (view: string) => void;
     // We might need to pass down initial view or sync it
     view: string;
-    setView: (view: any) => void; // Parent controls view? Or local?
+    setView: (view: string) => void; // Parent controls view? Or local?
     // Analysis: page.tsx controls global view state usually.
     // But CryptoHack has its own internal flow (Password -> Box -> Hack).
     // Let's accept props but maybe manage some local transitions.
@@ -25,27 +25,20 @@ type Props = {
     boxReveal: { index: number, reward: CryptoReward } | null;
 }
 
-export function CryptoHackClient({ socket, player, otherPlayers, onNavigate, view, setView, endTime, cryptoGoal, passwordOptions, hackHint, hackResult, boxReveal }: Props) {
-    const { play } = useSound();
-
+export function CryptoHackClient({ socket, player, otherPlayers, onNavigate, view, endTime, cryptoGoal, passwordOptions, hackHint, hackResult, boxReveal }: Props) {
     const [isWaiting, setIsWaiting] = useState(false);
-
-    // Socket Listeners
-    useEffect(() => {
-        if (!socket) return;
-    }, [socket]);
 
     // Handlers
     const handleSelectPassword = (pwd: string) => {
         if (!socket) return;
         setIsWaiting(true);
-        const pin = sessionStorage.getItem("game_pin");
+        const pin = getPlayerSession()?.pin;
         socket.emit("select-password", { pin, password: pwd });
     };
 
     const handleSelectBox = (index: number) => {
         console.log("CryptoHackClient: handleSelectBox called with index:", index);
-        const pin = sessionStorage.getItem("game_pin");
+        const pin = getPlayerSession()?.pin;
         if (!socket) {
             console.error("CryptoHackClient: Socket is null!");
             return;
@@ -55,12 +48,12 @@ export function CryptoHackClient({ socket, player, otherPlayers, onNavigate, vie
     }
 
     const handleRequestHack = (targetId: string) => {
-        const pin = sessionStorage.getItem("game_pin");
+        const pin = getPlayerSession()?.pin;
         socket?.emit("request-hack-options", { pin, targetId });
     }
 
     const handleAttemptHack = (pwd: string) => {
-        const pin = sessionStorage.getItem("game_pin");
+        const pin = getPlayerSession()?.pin;
         const targetId = sessionStorage.getItem("hack_target_id");
         socket?.emit("attempt-hack", { pin, targetId, passwordGuess: pwd });
     }

@@ -10,7 +10,7 @@ export function OpenCVProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         // Polling fallback
         const poll = setInterval(() => {
-            // @ts-ignore
+            // @ts-expect-error window.cv is injected by the OpenCV script at runtime
             if (window.cv && window.cv.Mat) {
                 setCvStatus("loaded")
                 clearInterval(poll)
@@ -37,12 +37,12 @@ export function OpenCVProvider({ children }: { children: React.ReactNode }) {
                 src="/opencv.js" 
                 strategy="afterInteractive" 
                 onLoad={() => {
-                    // @ts-ignore
+                    // @ts-expect-error window.cv is injected by the OpenCV script at runtime
                     if (window.cv) {
-                        // @ts-ignore
+                        // @ts-expect-error window.cv is injected by the OpenCV script at runtime
                         window.cv.onRuntimeInitialized = () => setCvStatus("loaded")
                         // Check if already ready
-                        // @ts-ignore
+                        // @ts-expect-error window.cv is injected by the OpenCV script at runtime
                         if (window.cv.Mat) setCvStatus("loaded")
                     }
                 }}
@@ -52,11 +52,11 @@ export function OpenCVProvider({ children }: { children: React.ReactNode }) {
                     script.src = "https://unpkg.com/opencv.js@4.5.5/opencv.js";
                     script.async = true;
                     script.onload = () => {
-                         // @ts-ignore
+                         // @ts-expect-error window.cv is injected by the OpenCV script at runtime
                         if (window.cv) {
-                            // @ts-ignore
+                            // @ts-expect-error window.cv is injected by the OpenCV script at runtime
                             window.cv.onRuntimeInitialized = () => setCvStatus("loaded")
-                            // @ts-ignore
+                            // @ts-expect-error window.cv is injected by the OpenCV script at runtime
                             if (window.cv.Mat) setCvStatus("loaded")
                         }
                     };

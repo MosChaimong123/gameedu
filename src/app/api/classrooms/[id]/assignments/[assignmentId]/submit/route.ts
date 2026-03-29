@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { IdleEngine } from "@/lib/game/idle-engine";
-import { applyJobSkillUnlocksOnLevelUp } from "@/lib/game/job-system";
-import { trackQuestEvent } from "@/lib/game/quest-engine";
 
 export async function POST(
     req: Request,
@@ -17,26 +14,12 @@ export async function POST(
             return new NextResponse("Bad Request", { status: 400 });
         }
 
-        // Look up student by loginCode in this classroom
         const student = await db.student.findFirst({
             where: { loginCode: studentCode.toUpperCase(), classId: id },
-            select: {
-                id: true,
-                points: true,
-                gameStats: true,
-                jobClass: true,
-                jobTier: true,
-                advanceClass: true,
-                jobSkills: true,
-                items: {
-                    where: { isEquipped: true },
-                    include: { item: true }
-                }
-            }
+            select: { id: true },
         });
         if (!student) return new NextResponse("Student Not Found", { status: 404 });
 
-        // Fetch the assignment
         const assignment = await db.assignment.findUnique({
             where: { id: assignmentId, classId: id },
             select: { type: true, quizData: true, maxScore: true }
@@ -45,7 +28,6 @@ export async function POST(
             return new NextResponse("Not a quiz assignment", { status: 400 });
         }
 
-        // Check for existing submission (no retakes)
         const existing = await db.assignmentSubmission.findUnique({
             where: { studentId_assignmentId: { studentId: student.id, assignmentId } }
         });
@@ -53,7 +35,6 @@ export async function POST(
             return NextResponse.json({ alreadySubmitted: true, score: existing.score }, { status: 200 });
         }
 
-        // Grade the quiz
         const quizData = assignment.quizData as { questions: { correctAnswer: number }[] };
         const questions = quizData.questions ?? [];
         let correct = 0;
@@ -64,7 +45,6 @@ export async function POST(
             ? Math.round((correct / questions.length) * assignment.maxScore)
             : 0;
 
-        // Save submission
         const submission = await db.assignmentSubmission.create({
             data: {
                 studentId: student.id,
@@ -74,58 +54,11 @@ export async function POST(
             }
         });
 
-        // Apply World Boss Damage using the new ATK-based calculation
-        const battleResult = IdleEngine.calculateBossDamage(student.points, student.items);
-        const scoreMultiplier = questions.length > 0 ? (correct / questions.length) : 0;
-        const finalDamage = Math.max(1, Math.round(battleResult.damage * scoreMultiplier));
-        
-        const updatedBoss = await IdleEngine.applyBossDamage(id, student.id, {
-            damageOverride: finalDamage,
-            consumeStamina: false,
-        });
-
-        // Grant XP for submitting (10 XP base + score scaling)
-        const xpGain = 10 + Math.floor(score / 10);
-        const currentGameStats = (student.gameStats as any) || IdleEngine.getDefaultStats();
-        const xpResult = IdleEngine.calculateXpGain(currentGameStats, xpGain);
-
-        // Check for newly unlocked skills on level-up (Req 11.6)
-        let updatedJobSkills: string[] | undefined;
-        if (xpResult.leveledUp) {
-            const currentSkillIds = (student.jobSkills as string[]) ?? [];
-            updatedJobSkills = applyJobSkillUnlocksOnLevelUp({
-                jobClass: student.jobClass,
-                jobTier: student.jobTier,
-                advanceClass: student.advanceClass,
-                oldLevel: currentGameStats.level ?? 1,
-                newLevel: xpResult.level ?? currentGameStats.level ?? 1,
-                currentJobSkills: currentSkillIds,
-            });
-        }
-
-        await db.student.update({
-            where: { id: student.id },
-            data: {
-                gameStats: {
-                    ...currentGameStats,
-                    level: xpResult.level,
-                    xp: xpResult.xp
-                } as any,
-                ...(updatedJobSkills ? { jobSkills: updatedJobSkills } : {})
-            }
-        });
-
-        // Track quest event (fire-and-forget)
-        void trackQuestEvent(student.id, "ASSIGNMENT_SUBMIT");
-
         return NextResponse.json({
             score,
             correct,
             total: questions.length,
             submissionId: submission.id,
-            updatedBoss,
-            xpGained: xpGain,
-            leveledUp: xpResult.leveledUp
         });
 
     } catch (error) {

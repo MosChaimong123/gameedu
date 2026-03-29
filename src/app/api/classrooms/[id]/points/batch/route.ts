@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { sendNotification } from "@/lib/notifications";
-import { IdleEngine } from "@/lib/game/idle-engine";
-
 type StudentMembership = {
     id: string;
     classId: string;
@@ -85,13 +83,6 @@ export async function POST(
                 })
             )
         );
- 
-        // Trigger Stamina Refill for everyone if good deed is significant
-        if (skill.weight >= 10) {
-            await Promise.all(
-                validStudentIds.map((sid: string) => IdleEngine.handleStaminaRefill(sid, skill.weight))
-            );
-        }
 
         // Notify all students in parallel
         await Promise.all(

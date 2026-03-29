@@ -17,6 +17,13 @@ import {
 } from "@/components/ui/select"
 
 type Role = "STUDENT" | "TEACHER"
+type RoleCardProps = {
+    icon: React.ReactNode
+    title: string
+    description: string
+    selected: boolean
+    onClick: () => void
+}
 
 export default function SignupWizard() {
     const router = useRouter()
@@ -118,8 +125,8 @@ export default function SignupWizard() {
 
             // Success
             router.push("/login?registered=true")
-        } catch (err: any) {
-            setError(err.message)
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Registration failed")
         } finally {
             setIsLoading(false)
         }
@@ -183,7 +190,7 @@ export default function SignupWizard() {
                                         <SelectValue placeholder="วัน" />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[200px]">
-                                        {days.map((d: any) => (
+                                        {days.map((d) => (
                                             <SelectItem key={d} value={d.toString()}>
                                                 {d}
                                             </SelectItem>
@@ -221,7 +228,7 @@ export default function SignupWizard() {
                                         <SelectValue placeholder="ปี" />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[200px]">
-                                        {years.map((y: any) => (
+                                        {years.map((y) => (
                                             <SelectItem key={y} value={y.toString()}>
                                                 {y + 543}
                                             </SelectItem>
@@ -376,7 +383,7 @@ export default function SignupWizard() {
     )
 }
 
-function RoleCard({ icon, title, description, selected, onClick }: any) {
+function RoleCard({ icon, title, description, selected, onClick }: RoleCardProps) {
     return (
         <div
             onClick={onClick}

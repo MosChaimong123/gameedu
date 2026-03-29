@@ -4,16 +4,16 @@ import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { useSocket } from "@/components/providers/socket-provider"
-import { GoldQuestPlayerView } from "@/components/game/gold-quest/player-view"
 import { QuestionCard } from "@/components/game/gold-quest/question-card"
 import { GameHeader } from "@/components/game/gold-quest/game-header"
 import { InteractionNotification } from "@/components/game/gold-quest/interaction-notification"
-import { CryptoHackPlayer, GoldQuestPlayer, ChestReward, GameSettings, HackTask, CryptoReward } from "@/lib/types/game"
+import { CryptoHackPlayer, GoldQuestPlayer, GameSettings, HackTask, CryptoReward } from "@/lib/types/game"
 import { GoldQuestClient } from "@/components/game/gold-quest/gold-quest-client"
 import { CryptoHackClient } from "@/components/game/crypto-hack/crypto-hack-client"
 import { TaskOverlay } from "@/components/game/crypto-hack/task-overlay"
 
 import { cn } from "@/lib/utils"
+import { clearPlayerSession, getPlayerReconnectToken, getPlayerSession, savePlayerSession } from "@/lib/player-session"
 
 type GameView = "LOBBY" | "QUESTION" | "FEEDBACK" | "CHEST" | "GAME_OVER" | "PASSWORD_SELECTION" | "ACTION_CHOICE" | "HACK_TARGET" | "HACK_GUESS" | "BOX_SELECTION";
 
@@ -29,37 +29,90 @@ type QuestionPayload = {
 import { useSound } from "@/hooks/use-sound"
 import { SoundController } from "@/components/game/sound-controller"
 
-export default function PlayerGamePage() {
-    const router = useRouter()
-    const { socket } = useSocket()
-    const { play, stopBGM, toggleMute, isMuted } = useSound()
-    // Game State
-    const [view, setView] = useState<GameView>("QUESTION")
-    const [gameMode, setGameMode] = useState<"GOLD_QUEST" | "CRYPTO_HACK">("GOLD_QUEST")
-    const gameModeRef = useRef<"GOLD_QUEST" | "CRYPTO_HACK">("GOLD_QUEST")
+type PlayerMode = "GOLD_QUEST" | "CRYPTO_HACK"
+type PlayerState = GoldQuestPlayer | CryptoHackPlayer
 
-    // Use union type for player state. Initialize with safe defaults.
-    const [player, setPlayer] = useState<GoldQuestPlayer | CryptoHackPlayer>({
+type GameStartedPayload = {
+    startTime: number
+    settings: GameSettings
+    gameMode?: PlayerMode
+    timeLimit?: number
+}
+
+type GameStateUpdatePayload = {
+    players: PlayerState[]
+    hackState?: "PASSWORD_SELECTION" | "HACKING" | "ENDED"
+    passwordOptions?: string[]
+}
+
+type JoinedSuccessPayload = {
+    pin: string
+    nickname: string
+    reconnectToken?: string
+    gameMode?: PlayerMode
+}
+
+function createInitialPlayer(name: string): GoldQuestPlayer {
+    return {
         id: "me",
-        name: "Player",
-        gold: 0, // Default for GQ
-        crypto: 0, // Default for CH
+        name,
+        gold: 0,
         multiplier: 1,
         streak: 0,
         isConnected: true,
         score: 0,
-        // Crypto specific defaults
-        password: "",
-        hackChance: 1.0,
-        isLocked: false
-    } as any)
+        correctAnswers: 0,
+        incorrectAnswers: 0,
+    }
+}
+
+function isCryptoHackPlayer(player: PlayerState): player is CryptoHackPlayer {
+    return "crypto" in player
+}
+
+function toGoldQuestPlayer(player: PlayerState): GoldQuestPlayer {
+    if (isCryptoHackPlayer(player)) {
+        return {
+            gold: player.crypto,
+            id: player.id,
+            name: player.name,
+            avatar: player.avatar,
+            isConnected: player.isConnected,
+            score: player.score,
+            correctAnswers: player.correctAnswers,
+            incorrectAnswers: player.incorrectAnswers,
+            responses: player.responses,
+            multiplier: 1,
+            streak: 0,
+        }
+    }
+
+    return player
+}
+
+function getPlayerScoreValue(player: PlayerState, mode: PlayerMode): number {
+    return mode === "CRYPTO_HACK" && isCryptoHackPlayer(player) ? player.crypto : toGoldQuestPlayer(player).gold
+}
+
+export default function PlayerGamePage() {
+    const router = useRouter()
+    const { socket } = useSocket()
+    const { play, stopBGM } = useSound()
+    const initialPlayerSession = getPlayerSession()
+    // Game State
+    const [view, setView] = useState<GameView>("QUESTION")
+    const [gameMode, setGameMode] = useState<PlayerMode>("GOLD_QUEST")
+    const gameModeRef = useRef<PlayerMode>("GOLD_QUEST")
+
+    // Use union type for player state. Initialize with safe defaults.
+    const [player, setPlayer] = useState<PlayerState>(createInitialPlayer(initialPlayerSession?.name ?? "Player"))
 
     // Question State
     const [currentQuestion, setCurrentQuestion] = useState<QuestionPayload | null>(null)
     const [feedback, setFeedback] = useState<{ correct: boolean } | null>(null)
 
     // Interaction / Chest State
-    const [otherPlayers, setOtherPlayers] = useState<GoldQuestPlayer[]>([])
+    const [otherPlayers, setOtherPlayers] = useState<PlayerState[]>([])
     const [notification, setNotification] = useState<{ message: string, type: "SWAP" | "STEAL" | "generic" } | null>(null)
 
     // Timer & Settings State
@@ -85,32 +138,30 @@ export default function PlayerGamePage() {
         play("bgm-gold-quest", { volume: 0.3 })
 
         return () => stopBGM()
-    }, [])
+    }, [play, stopBGM])
 
     useEffect(() => {
         // ... (existing session check) ...
-        const name = sessionStorage.getItem("player_name")
-        const pin = sessionStorage.getItem("game_pin")
+        const playerSession = getPlayerSession()
 
-        if (!name || !pin) {
+        if (!playerSession) {
             router.push("/play")
             return
         }
-        setPlayer(prev => ({ ...prev, name }))
 
         if (!socket) return
 
-        const reconnectToken = sessionStorage.getItem(`player_reconnect_token_${pin}_${name}`)
+        const reconnectToken = getPlayerReconnectToken(playerSession.pin, playerSession.name)
 
         // Re-join game on mount to handle refreshes
-        socket.emit("join-game", { pin, nickname: name, reconnectToken: reconnectToken ?? undefined })
+        socket.emit("join-game", { pin: playerSession.pin, nickname: playerSession.name, reconnectToken: reconnectToken ?? undefined })
 
         // Explicitly request current game state
-        socket.emit("get-game-state", { pin })
+        socket.emit("get-game-state", { pin: playerSession.pin })
 
         // --- Socket Listeners ---
 
-        socket.on("game-started", (data: { startTime: number, settings: any, gameMode?: string }) => {
+        socket.on("game-started", (data: GameStartedPayload) => {
             console.log("CLIENT RECEIVED GAME START:", data);
 
             // Ensure music is playing if reconnected
@@ -121,8 +172,8 @@ export default function PlayerGamePage() {
             // CRITICAL: Update Game Mode immediately if provided
             if (data.gameMode) {
                 console.log("Setting Game Mode from start payload:", data.gameMode);
-                setGameMode(data.gameMode as any);
-                gameModeRef.current = data.gameMode as any; // Force sync ref immediately for next check
+                setGameMode(data.gameMode);
+                gameModeRef.current = data.gameMode; // Force sync ref immediately for next check
             }
 
             // Request first question logic MOVED to game-state-update to ensure correct mode detection
@@ -135,8 +186,8 @@ export default function PlayerGamePage() {
                 setEndTime(end)
             } else if (data.settings?.winCondition === "GOLD") {
                 setEndTime(null) // No timer in gold mode
-            } else if (data.startTime && (data as any).timeLimit) {
-                const end = data.startTime + ((data as any).timeLimit * 1000)
+            } else if (data.startTime && data.timeLimit) {
+                const end = data.startTime + (data.timeLimit * 1000)
                 setEndTime(end)
             }
         })
@@ -175,6 +226,7 @@ export default function PlayerGamePage() {
                 }, 1500)
             } else {
                 setTimeout(() => {
+                    const pin = playerSession.pin
                     if (pin) socket.emit("request-question", { pin })
                 }, 2000)
             }
@@ -186,16 +238,15 @@ export default function PlayerGamePage() {
 
 
 
-        socket.on("game-state-update", (data: { players: (GoldQuestPlayer | CryptoHackPlayer)[] }) => {
-            const others = data.players.filter((p: any) => p.name !== name);
-            setOtherPlayers(others as any[]);
+        socket.on("game-state-update", (data: GameStateUpdatePayload) => {
+            const others = data.players.filter((p) => p.name !== playerSession.name)
+            setOtherPlayers(others)
 
-            const hackState = (data as any).hackState;
-            const passwordOptions = (data as any).passwordOptions;
+            const { hackState, passwordOptions } = data
 
-            const me = data.players.find((p: any) => p.name === name);
-            const isCrypto = me && 'crypto' in me;
-            const newMode = isCrypto ? "CRYPTO_HACK" : "GOLD_QUEST";
+            const me = data.players.find((p) => p.name === playerSession.name)
+            const isCrypto = me ? isCryptoHackPlayer(me) : false
+            const newMode: PlayerMode = isCrypto ? "CRYPTO_HACK" : "GOLD_QUEST"
 
             // Sync Game Mode
             if (me && gameModeRef.current !== newMode) {
@@ -223,8 +274,7 @@ export default function PlayerGamePage() {
                 // Client-Side Filter: Remove passwords taken by others to ensure uniqueness
                 if (data.players && Array.isArray(data.players)) {
                     const taken = new Set(data.players
-                        .map((p: any) => p.password)
-                        .filter((p: any) => p && p !== ""));
+                        .flatMap((p) => isCryptoHackPlayer(p) && p.password ? [p.password] : []))
 
                     opts = opts.filter((p: string) => !taken.has(p));
                 }
@@ -237,7 +287,7 @@ export default function PlayerGamePage() {
             if (newMode === "GOLD_QUEST") {
                 // Gold Quest Logic
                 if (!hasRequestedFirstQuestion.current) {
-                    const pin = sessionStorage.getItem("game_pin");
+                    const pin = playerSession.pin;
                     if (pin) {
                         console.log("Requesting initial question for GOLD_QUEST.");
                         socket.emit("request-question", { pin });
@@ -263,7 +313,7 @@ export default function PlayerGamePage() {
                             setView("QUESTION");
                         }
 
-                        const pin = sessionStorage.getItem("game_pin");
+                        const pin = playerSession.pin;
                         if (pin) socket.emit("request-question", { pin });
                         hasRequestedFirstQuestion.current = true;
                     }
@@ -271,12 +321,9 @@ export default function PlayerGamePage() {
             }
 
             // Stats Update
-            const sorted = [...data.players].sort((a: any, b: any) => {
-                if (isCrypto) return (b.crypto || 0) - (a.crypto || 0);
-                return (b.gold || 0) - (a.gold || 0);
-            });
+            const sorted = [...data.players].sort((a, b) => getPlayerScoreValue(b, newMode) - getPlayerScoreValue(a, newMode));
 
-            const rank = sorted.findIndex(p => p.name === name) + 1;
+                const rank = sorted.findIndex(p => p.name === playerSession.name) + 1;
 
             if (me) {
                 setPlayer(prev => ({
@@ -292,7 +339,7 @@ export default function PlayerGamePage() {
         });
 
         socket.on("interaction-effect", (data: { source: string; target: string; type: "SWAP" | "STEAL" }) => {
-            if (data.target === name) {
+            if (data.target === playerSession.name) {
                 // SFX for being attacked
                 play(data.type === "SWAP" ? "swap" : "steal")
 
@@ -355,6 +402,7 @@ export default function PlayerGamePage() {
                 setTimeout(() => {
                     setBoxReveal(null);
                     setView("QUESTION");
+                    const pin = playerSession.pin
                     if (pin) socket.emit("request-question", { pin });
                 }, 2000);
             }
@@ -368,7 +416,7 @@ export default function PlayerGamePage() {
             setTimeout(() => {
                 setHackResult(null);
                 setView("QUESTION");
-                const pin = sessionStorage.getItem("game_pin");
+                const pin = playerSession.pin;
                 if (pin) socket.emit("request-question", { pin });
             }, 3000);
         });
@@ -376,6 +424,7 @@ export default function PlayerGamePage() {
         socket.on("selection-error", () => {
             console.log("Selection error, returning to question.");
             setView("QUESTION");
+            const pin = playerSession.pin
             if (pin) socket.emit("request-question", { pin });
         });
 
@@ -384,9 +433,9 @@ export default function PlayerGamePage() {
             stopBGM()
             play("game-over")
 
-            const me = data.players.find((p: any) => p.name === name)
+            const me = data.players.find((p) => p.name === playerSession.name)
             if (me) {
-                const rank = data.players.findIndex(p => p.name === name) + 1;
+                const rank = data.players.findIndex(p => p.name === playerSession.name) + 1;
                 setPlayer(prev => ({ ...prev, gold: me.gold, score: rank }))
             }
             setView("GAME_OVER")
@@ -397,7 +446,7 @@ export default function PlayerGamePage() {
         socket.on("game-phase-change", (data: { phase: string }) => {
             if (data.phase === "HACKING") {
                 // Start questions
-                socket.emit("request-question", { pin: sessionStorage.getItem("game_pin") });
+                socket.emit("request-question", { pin: playerSession.pin });
             }
         })
 
@@ -417,19 +466,24 @@ export default function PlayerGamePage() {
             }
         })
 
-        socket.on("joined-success", (data: any) => {
+        socket.on("joined-success", (data: JoinedSuccessPayload) => {
             console.log("Joined success. Server says Mode:", data?.gameMode);
 
             if (data?.reconnectToken) {
-                sessionStorage.setItem(`player_reconnect_token_${data.pin}_${data.nickname}`, data.reconnectToken)
+                savePlayerSession({
+                    pin: data.pin,
+                    name: data.nickname,
+                    reconnectToken: data.reconnectToken,
+                })
             }
 
             if (data?.gameMode) {
-                setGameMode(data.gameMode as any);
-                gameModeRef.current = data.gameMode as any;
+                setGameMode(data.gameMode);
+                gameModeRef.current = data.gameMode;
             }
 
             // Only request question for Gold Quest
+            const pin = playerSession.pin
             if (pin && gameModeRef.current === "GOLD_QUEST") {
                 socket.emit("request-question", { pin });
             } else {
@@ -459,7 +513,7 @@ export default function PlayerGamePage() {
             socket.off("hack-result");
             socket.off("selection-error");
         };
-    }, [socket, router]);
+    }, [socket, router, play, stopBGM, view]);
 
     // Handle Glitch/Task Events separately or in main effect? 
     // Let's put them in a separate effect to keep it clean or merge above?
@@ -496,7 +550,7 @@ export default function PlayerGamePage() {
 
     const handleAnswer = (index: number) => {
         if (!socket || !currentQuestion) return;
-        const pin = sessionStorage.getItem("game_pin");
+        const pin = getPlayerSession()?.pin;
         socket.emit("submit-answer", {
             pin,
             questionId: currentQuestion.id,
@@ -530,18 +584,11 @@ export default function PlayerGamePage() {
                 {/* Leave Button */}
                 <button
                     onClick={() => {
-                        const pin = sessionStorage.getItem("game_pin");
-                        const playerName = sessionStorage.getItem("player_name");
-                        if (socket && pin) {
-                            socket.emit("leave-game", { pin });
+                        const currentPlayerSession = getPlayerSession();
+                        if (socket && currentPlayerSession?.pin) {
+                            socket.emit("leave-game", { pin: currentPlayerSession.pin });
                         }
-                        if (pin && playerName) {
-                            sessionStorage.removeItem(`player_reconnect_token_${pin}_${playerName}`);
-                        }
-                        sessionStorage.removeItem("game_pin");
-                        // Don't clear player_name so they can rejoin easily if accidental? 
-                        // Actually user wants to leave to remove name. So clear all relevant.
-                        sessionStorage.removeItem("player_name");
+                        clearPlayerSession();
                         window.location.href = "/play";
                     }}
                     className="absolute bottom-4 left-4 z-50 bg-red-600/80 hover:bg-red-500 text-white px-4 py-2 rounded-full font-bold text-xs shadow-lg backdrop-blur-sm transition-all hover:scale-105 active:scale-95"
@@ -562,7 +609,7 @@ export default function PlayerGamePage() {
                             ) : (
                                 // Basic placeholder for CryptoHack if needed, or reuse GameHeader with different styling
                                 <GameHeader
-                                    player={{ ...player, gold: (player as CryptoHackPlayer).crypto || 0 } as GoldQuestPlayer}
+                                    player={toGoldQuestPlayer(player)}
                                     endTime={endTime}
                                     goldGoal={gameSettings?.winCondition === "GOLD" ? gameSettings.goldGoal : undefined}
                                 />
@@ -621,7 +668,7 @@ export default function PlayerGamePage() {
                         onComplete={() => {
                             // Optimistic clear
                             setCurrentTask(null);
-                            if (socket) socket.emit("task-complete", { pin: sessionStorage.getItem("game_pin") });
+                            if (socket) socket.emit("task-complete", { pin: getPlayerSession()?.pin });
                         }}
                     />
                 )}
@@ -631,11 +678,11 @@ export default function PlayerGamePage() {
                     <GoldQuestClient
                         socket={socket}
                         player={player as GoldQuestPlayer}
-                        otherPlayers={otherPlayers as GoldQuestPlayer[]}
+                        otherPlayers={otherPlayers.filter((other): other is GoldQuestPlayer => !isCryptoHackPlayer(other))}
                         onNavigate={(v) => {
                             setView(v as GameView)
                             if (v === "QUESTION") {
-                                const pin = sessionStorage.getItem("game_pin");
+                                const pin = getPlayerSession()?.pin;
                                 if (pin && socket) socket.emit("request-question", { pin });
                             }
                         }}
@@ -646,10 +693,10 @@ export default function PlayerGamePage() {
                     <CryptoHackClient
                         socket={socket}
                         player={player as CryptoHackPlayer}
-                        otherPlayers={otherPlayers as unknown as CryptoHackPlayer[]}
+                        otherPlayers={otherPlayers.filter(isCryptoHackPlayer)}
                         onNavigate={(v) => setView(v as GameView)}
                         view={view}
-                        setView={setView}
+                        setView={(nextView) => setView(nextView as GameView)}
                         endTime={endTime}
                         cryptoGoal={gameSettings?.winCondition === "GOLD" ? gameSettings.goldGoal : undefined}
                         // Connect Missing State

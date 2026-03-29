@@ -1,6 +1,6 @@
 import Link from "next/link"
 import SignupWizard from "./signup-wizard"
-import { ArrowLeft } from "lucide-react"
+import { PageBackLink } from "@/components/ui/page-back-link"
 
 export default function RegisterPage() {
     return (
@@ -46,10 +46,9 @@ export default function RegisterPage() {
 
             {/* ===== Right: Form Panel ===== */}
             <div className="flex flex-1 flex-col items-center justify-center p-8 bg-slate-50 relative overflow-y-auto">
-                <Link href="/" className="absolute top-6 left-6 flex items-center gap-2 text-slate-400 hover:text-indigo-600 transition-colors text-sm font-semibold">
-                    <ArrowLeft className="w-4 h-4" />
-                    <span>กลับหน้าแรก</span>
-                </Link>
+                <div className="absolute left-6 top-6">
+                    <PageBackLink href="/" label="กลับหน้าแรก" />
+                </div>
 
                 <div className="w-full max-w-lg py-8">
                     {/* Mobile logo */}

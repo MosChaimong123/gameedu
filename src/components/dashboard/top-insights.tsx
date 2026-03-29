@@ -34,7 +34,7 @@ const TEACHER_MISSIONS = [
 
 export function TopInsights({ role }: TopInsightsProps) {
     const { t } = useLanguage()
-    const isStudent = role === "STUDENT"
+    void role
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

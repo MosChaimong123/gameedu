@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { Users, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { Classroom } from "@prisma/client";
 import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
 import { ClassroomManagementButton } from "./classroom-management-button";
@@ -67,7 +67,7 @@ export function ClassroomCard({ classroom, studentCount }: ClassroomCardProps) {
                         style={getThemeBgStyle(theme)}
                     >
                         {icon.startsWith('data:image') || icon.startsWith('http') ? (
-                            <img src={icon} alt="Class Icon" className="w-full h-full object-cover" />
+                            <Image src={icon} alt="Class Icon" fill sizes="56px" unoptimized className="object-cover" />
                         ) : (
                             <span>{icon}</span>
                         )}

@@ -10,7 +10,6 @@ import { Users, Copy, Loader2, Play } from "lucide-react"
 import { GameModeSelector } from "@/components/host/game-mode-selector"
 import { GoldQuestSettings } from "@/components/host/settings/gold-quest-settings"
 import { CryptoHackSettings } from "@/components/host/settings/crypto-hack-settings"
-import { BattleTurnSettings } from "@/components/host/settings/battle-turn-settings"
 import { GoldQuestHostView } from "@/components/game/gold-quest/host-view"
 import { CryptoHackHostView } from "@/components/game/crypto-hack/host-view"
 import { GoldQuestPlayer, CryptoHackPlayer, GameSettings } from "@/lib/types/game"
@@ -19,21 +18,43 @@ import { cn } from "@/lib/utils"
 import { useSound } from "@/hooks/use-sound"
 import { SoundController } from "@/components/game/sound-controller"
 
+type HostView = "SELECT_MODE" | "SETTINGS" | "LOBBY" | "PLAYING" | "ENDED"
+type GameMode = "GOLD_QUEST" | "CRYPTO_HACK"
+type HostPlayer = GoldQuestPlayer | CryptoHackPlayer
+
+type HostEvent = {
+    source: string
+    target: string
+    type: "SWAP" | "STEAL"
+    amount?: number
+}
+
+type HostGameStartedPayload = {
+    startTime: number
+    settings?: GameSettings
+    mode?: Extract<GameMode, "GOLD_QUEST" | "CRYPTO_HACK">
+    timeLimit?: number
+}
+
+function isCryptoHackPlayer(player: HostPlayer): player is CryptoHackPlayer {
+    return "crypto" in player
+}
+
 export default function HostLobbyPage() {
     const params = useParams()
     const setId = params.setId as string
     const { socket, isConnected } = useSocket()
     const { data: session } = useSession()
-    const { play, stopBGM, toggleMute, isMuted } = useSound()
+    const { play, stopBGM } = useSound()
     const router = useRouter()
 
     const [pin, setPin] = useState<string | null>(null)
-    const [players, setPlayers] = useState<(GoldQuestPlayer | CryptoHackPlayer)[]>([])
+    const [players, setPlayers] = useState<HostPlayer[]>([])
     const [loading, setLoading] = useState(true)
-    const [view, setView] = useState<"SELECT_MODE" | "SETTINGS" | "LOBBY" | "PLAYING" | "ENDED">("SELECT_MODE")
-    const [gameEvents, setGameEvents] = useState<any[]>([])
+    const [view, setView] = useState<HostView>("SELECT_MODE")
+    const [gameEvents, setGameEvents] = useState<HostEvent[]>([])
     const [gameSettings, setGameSettings] = useState<GameSettings | null>(null)
-    const [selectedMode, setSelectedMode] = useState<"GOLD_QUEST" | "CRYPTO_HACK" | "BATTLE_TURN">("GOLD_QUEST")
+    const [selectedMode, setSelectedMode] = useState<GameMode>("GOLD_QUEST")
 
     // Timer State
     const [timeLeft, setTimeLeft] = useState(0)
@@ -55,7 +76,7 @@ export default function HostLobbyPage() {
         return () => {
             // Cleanup handled by next effect execution or unmount
         }
-    }, [view]) // Re-run when view changes
+    }, [view, play, stopBGM]) // Re-run when view changes
 
     useEffect(() => {
         if (!socket || !isConnected || !session?.user) return;
@@ -67,13 +88,17 @@ export default function HostLobbyPage() {
         if (savedPin && savedHostToken) {
             console.log("Attempting to reconnect as host:", savedPin);
             socket.emit("reconnect-host", { pin: savedPin, reconnectToken: savedHostToken })
-            setPin(savedPin)
-            setLoading(false)
-            // View update will trigger BGM change
-            setView("LOBBY") // Or PLAYING if server tells us
+            window.requestAnimationFrame(() => {
+                setPin(savedPin)
+                setLoading(false)
+                // View update will trigger BGM change
+                setView("LOBBY") // Or PLAYING if server tells us
+            })
         } else {
             // New Session: Wait for user to select mode
-            setLoading(false)
+            window.requestAnimationFrame(() => {
+                setLoading(false)
+            })
             if (view === "SELECT_MODE") {
                 // Do nothing, just show selector
             }
@@ -92,13 +117,13 @@ export default function HostLobbyPage() {
             setView(data.status === "LOBBY" ? "LOBBY" : data.status)
         })
 
-        socket.on("player-joined", (data: { players: (GoldQuestPlayer | CryptoHackPlayer)[] }) => {
+        socket.on("player-joined", (data: { players: HostPlayer[] }) => {
             console.log("Host Received Players Update:", data.players);
             setPlayers(data.players)
         })
 
         // Listen for game start
-        socket.on("game-started", (data: { startTime: number, settings: any, mode?: "GOLD_QUEST" | "CRYPTO_HACK" }) => {
+        socket.on("game-started", (data: HostGameStartedPayload) => {
             console.log("Game Started Data:", data);
             setView("PLAYING")
 
@@ -114,11 +139,11 @@ export default function HostLobbyPage() {
                     setEndTime(null) // Disable timer logic
                     setTimeLeft(0)
                 }
-            } else if (data.startTime && (data as any).timeLimit) {
+            } else if (data.startTime && data.timeLimit) {
                 // Fallback for legacy
-                const end = data.startTime + ((data as any).timeLimit * 1000)
+                const end = data.startTime + (data.timeLimit * 1000)
                 setEndTime(end)
-                setTimeLeft((data as any).timeLimit)
+                setTimeLeft(data.timeLimit)
             } else {
                 // Final Fallback
                 console.warn("Missing timer data, using fallback");
@@ -128,11 +153,11 @@ export default function HostLobbyPage() {
             }
         })
 
-        socket.on("game-state-update", (data: { players: (GoldQuestPlayer | CryptoHackPlayer)[] }) => {
+        socket.on("game-state-update", (data: { players: HostPlayer[] }) => {
             setPlayers(data.players)
         })
 
-        socket.on("interaction-effect", (event: any) => {
+        socket.on("interaction-effect", (event: HostEvent) => {
             setGameEvents(prev => [...prev, event])
             if (event.type === "SWAP") play("swap")
             if (event.type === "STEAL") play("steal")
@@ -166,7 +191,7 @@ export default function HostLobbyPage() {
             socket.off("game-over")
             socket.off("error")
         }
-    }, [socket, isConnected, session, setId, hostTokenStorageKey])
+    }, [socket, isConnected, session, setId, hostTokenStorageKey, play, stopBGM, view])
 
     // Timer Interval
     // ... (keep existing) ...
@@ -197,9 +222,6 @@ export default function HostLobbyPage() {
             setView("SETTINGS");
         } else if (modeId === "crypto-hack") {
             setSelectedMode("CRYPTO_HACK");
-            setView("SETTINGS");
-        } else if (modeId === "battle-turn") {
-            setSelectedMode("BATTLE_TURN");
             setView("SETTINGS");
         }
     }
@@ -248,14 +270,6 @@ export default function HostLobbyPage() {
                 </>
             )
         }
-        if (selectedMode === "BATTLE_TURN") {
-            return (
-                <>
-                    <SoundController className="fixed top-4 right-4" />
-                    <BattleTurnSettings onHost={handleHostGame} onBack={() => setView("SELECT_MODE")} />
-                </>
-            )
-        }
         return (
             <>
                 <SoundController className="fixed top-4 right-4" />
@@ -278,7 +292,7 @@ export default function HostLobbyPage() {
             return <>
                 <SoundController className="fixed bottom-6 left-6 z-[60]" />
                 <CryptoHackHostView
-                    players={players as CryptoHackPlayer[]}
+                    players={players.filter(isCryptoHackPlayer)}
                     events={gameEvents}
                     timeLeft={timeLeft}
                     onEndGame={handleEndGame}
@@ -287,36 +301,10 @@ export default function HostLobbyPage() {
                 />
             </>
         }
-        if (selectedMode === "BATTLE_TURN") {
-            return (
-                <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center gap-6 p-8">
-                    <SoundController className="fixed top-6 right-6 z-[60]" />
-                    <h1 className="text-4xl font-black text-red-400">Battle RPG — In Progress</h1>
-                    <p className="text-slate-400 text-lg">PIN: <span className="font-bold text-white">{pin}</span></p>
-                    <p className="text-slate-500">Players are battling at <span className="text-purple-400">/game/battle/{pin}</span></p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-3xl">
-                        {players.map((p: any) => (
-                            <div key={p.id} className="bg-slate-800 rounded-xl p-4 text-center border border-slate-700">
-                                <div className="font-bold text-white truncate">{p.name}</div>
-                                {p.hp !== undefined && (
-                                    <div className="text-sm text-red-400 mt-1">HP: {p.hp}/{p.maxHp}</div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                    <button
-                        onClick={handleEndGame}
-                        className="mt-4 bg-red-700 hover:bg-red-800 text-white font-bold px-8 py-4 rounded-xl transition-colors"
-                    >
-                        End Battle
-                    </button>
-                </div>
-            )
-        }
         return <>
             <SoundController className="fixed bottom-6 left-6 z-[60]" />
             <GoldQuestHostView
-                players={players as GoldQuestPlayer[]}
+                players={players.filter((player): player is GoldQuestPlayer => !isCryptoHackPlayer(player))}
                 events={gameEvents}
                 timeLeft={timeLeft}
                 onEndGame={handleEndGame}
@@ -405,7 +393,7 @@ export default function HostLobbyPage() {
                 {/* Player Grid */}
                 <div className="w-full max-w-5xl">
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        {Array.from(new Map(players.map((p: any) => [p.id, p])).values()).map((player: any) => (
+                        {Array.from(new Map(players.map((player) => [player.id, player])).values()).map((player) => (
                             <Card key={player.id} className="bg-slate-800 border-none p-4 flex items-center justify-center animate-in scale-0 duration-300 fill-mode-both">
                                 <span className="font-bold text-lg text-white truncate">{player.name}</span>
                             </Card>

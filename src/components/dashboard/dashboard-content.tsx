@@ -1,22 +1,11 @@
 "use client"
 
 import { QuickActions } from "@/components/dashboard/quick-actions"
-import { ProfileCard } from "@/components/dashboard/profile-card"
-import { QuestList } from "@/components/dashboard/quest-list"
-import { RecentActivity } from "@/components/dashboard/recent-activity"
-import { NewsFeed } from "@/components/dashboard/news-feed"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { ShieldCheck } from "lucide-react"
-import Link from "next/link"
-import { useLanguage } from "@/components/providers/language-provider"
 import { TopInsights } from "@/components/dashboard/top-insights"
 
 import { motion } from "framer-motion"
 
 export function DashboardContent({ role }: { role: string }) {
-    const { t } = useLanguage()
-
     return (
         <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden bg-slate-50/50">
             {/* Background Decorations */}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { HackTask } from "@/lib/types/game";
 import { cn } from "@/lib/utils";
 
@@ -54,7 +54,7 @@ export function TypeCodeTask({ task, onComplete }: Props) {
             </form>
 
             <button
-                onClick={(e) => handleSubmit(e as any)}
+                type="submit"
                 className="bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-8 rounded-lg w-full transition-colors"
             >
                 UNLOCK

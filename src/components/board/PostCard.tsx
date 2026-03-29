@@ -5,7 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import { th } from "date-fns/locale";
 import { 
     Heart, MessageCircle, Trash2, MoreVertical, ExternalLink, 
-    FileIcon, Youtube, BarChart3, ChevronRight, X,
+    BarChart3, ChevronRight, X,
     FileText, FileImage, FileAudio, FileVideo, FileArchive, FileSpreadsheet, File,
     Lock, Unlock, ChevronLeft
 } from "lucide-react";
@@ -20,8 +20,64 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toggleBoardReaction, deleteBoardPost, addBoardComment, voteBoardPoll, togglePollStatus } from "@/lib/actions/board-actions";
 import { useToast } from "@/components/ui/use-toast";
 
+type BoardAuthor = {
+    name: string | null;
+    image?: string | null;
+    avatar?: string | null;
+    nickname?: string | null;
+};
+
+type BoardReaction = {
+    authorStudentId: string | null;
+    authorUserId: string | null;
+};
+
+type BoardVote = {
+    optionId: string;
+    authorStudentId: string | null;
+    authorUserId: string | null;
+};
+
+type BoardComment = {
+    id: string;
+    content: string;
+    authorStudent?: BoardAuthor | null;
+    authorUser?: BoardAuthor | null;
+};
+
+type BoardPollOption = {
+    id: string;
+    text: string;
+};
+
+export type BoardPostCardData = {
+    id: string;
+    type?: string | null;
+    title?: string | null;
+    content: string;
+    image?: string | null;
+    color?: string | null;
+    linkUrl?: string | null;
+    fileUrl?: string | null;
+    fileName?: string | null;
+    videoUrl?: string | null;
+    youtubeId?: string | null;
+    albumImages?: string[] | null;
+    pollQuestion?: string | null;
+    pollOptions?: BoardPollOption[] | null;
+    pollClosed: boolean;
+    createdAt: Date | string;
+    authorStudentId?: string | null;
+    authorUserId?: string | null;
+    authorStudent?: BoardAuthor | null;
+    authorUser?: BoardAuthor | null;
+    comments: BoardComment[];
+    reactions: BoardReaction[];
+    pollVotes?: BoardVote[];
+};
+
 interface PostCardProps {
-    post: any;
+    post: BoardPostCardData;
     currentUserIdOrStudentId: string;
     isTeacher?: boolean;
     onUpdate?: () => void;
@@ -51,7 +107,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
     const authorImage = post.authorUser?.image || (post.authorStudent?.avatar ? `https://api.dicebear.com/7.x/bottts/svg?seed=${post.authorStudent.avatar}&backgroundColor=transparent` : null);
     
     const reactionCount = post.reactions.length;
-    const hasReacted = post.reactions.some((r: any) => r.authorStudentId === currentUserIdOrStudentId || r.authorUserId === currentUserIdOrStudentId);
+    const hasReacted = post.reactions.some((reaction) => reaction.authorStudentId === currentUserIdOrStudentId || reaction.authorUserId === currentUserIdOrStudentId);
 
     const handleReaction = async () => {
         if (isReacting) return;
@@ -60,12 +116,9 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
             await toggleBoardReaction({
                 postId: post.id,
                 type: "HEART",
-                authorStudentId: !isTeacher ? currentUserIdOrStudentId : undefined,
-                authorUserId: isTeacher ? currentUserIdOrStudentId : undefined
             });
             if (onUpdate) onUpdate();
-        } catch (error) {
-            console.error(error);
+        } catch {
         } finally {
             setIsReacting(false);
         }
@@ -74,10 +127,10 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
     const handleDelete = async () => {
         if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้?")) return;
         try {
-            await deleteBoardPost(post.id, currentUserIdOrStudentId);
+            await deleteBoardPost(post.id);
             toast({ title: "ลบสำเร็จ", description: "ลบโพสต์เรียบร้อยแล้ว" });
             if (onUpdate) onUpdate();
-        } catch (error) {
+        } catch {
             toast({ variant: "destructive", title: "ผิดพลาด", description: "ไม่สามารถลบโพสต์ได้" });
         }
     };
@@ -91,12 +144,10 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
             await addBoardComment({
                 postId: post.id,
                 content: commentText.trim(),
-                authorStudentId: !isTeacher ? currentUserIdOrStudentId : undefined,
-                authorUserId: isTeacher ? currentUserIdOrStudentId : undefined
             });
             setCommentText("");
             if (onUpdate) onUpdate();
-        } catch (error) {
+        } catch {
              toast({ variant: "destructive", title: "ผิดพลาด", description: "ไม่สามารถส่งคอมเมนต์ได้" });
         } finally {
             setIsCommenting(false);
@@ -110,12 +161,11 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
             await voteBoardPoll({
                 postId: post.id,
                 optionId,
-                authorStudentId: !isTeacher ? currentUserIdOrStudentId : undefined,
-                authorUserId: isTeacher ? currentUserIdOrStudentId : undefined
             });
             if (onUpdate) onUpdate();
-        } catch (error: any) {
-            toast({ variant: "destructive", title: "ผิดพลาด", description: error.message || "ไม่สามารถโหวตได้" });
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "ไม่สามารถโหวตได้";
+            toast({ variant: "destructive", title: "ผิดพลาด", description: message });
         } finally {
             setIsVoting(false);
         }
@@ -123,20 +173,22 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
 
     const handleTogglePoll = async () => {
         try {
-            await togglePollStatus(post.id, currentUserIdOrStudentId);
+            await togglePollStatus(post.id);
             toast({ 
                 title: post.pollClosed ? "เปิดโหวตแล้ว" : "ปิดโหวตแล้ว", 
                 description: post.pollClosed ? "นักเรียนสามารถกลับมาโหวตได้" : "นักเรียนจะไม่สามารถโหวตเพิ่มได้" 
             });
             if (onUpdate) onUpdate();
-        } catch (error) {
+        } catch {
             toast({ variant: "destructive", title: "ผิดพลาด", description: "ไม่สามารถเปลี่ยนสถานะโพลได้" });
         }
     };
 
     const pollVotes = post.pollVotes || [];
     const totalVotes = pollVotes.length;
-    const myVote = pollVotes.find((v: any) => v.authorStudentId === currentUserIdOrStudentId || v.authorUserId === currentUserIdOrStudentId);
+    const myVote = pollVotes.find((vote) => vote.authorStudentId === currentUserIdOrStudentId || vote.authorUserId === currentUserIdOrStudentId);
+    const imageUrl = post.image ?? null;
+    const albumImages = post.albumImages ?? [];
 
     const openPreview = (gallery: string[], index: number) => {
         setPreviewGallery(gallery);
@@ -182,7 +234,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full overflow-hidden bg-white/50 border border-slate-200">
                         {authorImage ? (
-                            <img src={authorImage} alt={authorName} className="w-full h-full object-cover" />
+                            <Image src={authorImage} alt={authorName} width={32} height={32} className="w-full h-full object-cover" unoptimized />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-400">👤</div>
                         )}
@@ -230,12 +282,12 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                 {post.content && <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed mb-2">{post.content}</p>}
                 
                 {/* Text / Standard Image or Thumbnail */}
-                {(post.type === "text" || (post.image && post.type !== "album")) && post.image && (
+                {(post.type === "text" || (imageUrl && post.type !== "album")) && imageUrl && (
                     <div 
                         className="mb-2 rounded-xl overflow-hidden border border-black/5 bg-black/5 aspect-video relative cursor-zoom-in group"
-                        onClick={() => openPreview([post.image], 0)}
+                        onClick={() => openPreview([imageUrl], 0)}
                     >
-                        <img src={post.image} alt="post" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                        <Image src={imageUrl} alt="post" fill className="object-cover transition-transform group-hover:scale-105" unoptimized sizes="(max-width: 768px) 100vw, 50vw" />
                     </div>
                 )}
 
@@ -313,18 +365,18 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                 )}
 
                 {/* Album View */}
-                {post.type === "album" && post.albumImages && Array.isArray(post.albumImages) && (
+                {post.type === "album" && albumImages.length > 0 && (
                     <div className="mb-2 grid grid-cols-2 gap-1.5 rounded-xl overflow-hidden">
-                        {post.albumImages.slice(0, 4).map((imgUrl: string, idx: number) => (
+                        {albumImages.slice(0, 4).map((imgUrl, idx) => (
                             <div 
                                 key={idx} 
-                                className={`relative bg-black/5 aspect-square cursor-zoom-in group ${post.albumImages.length === 1 ? 'col-span-2' : ''}`}
-                                onClick={() => openPreview(post.albumImages, idx)}
+                                className={`relative bg-black/5 aspect-square cursor-zoom-in group ${albumImages.length === 1 ? 'col-span-2' : ''}`}
+                                onClick={() => openPreview(albumImages, idx)}
                             >
-                                <img src={imgUrl} alt={`album-${idx}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                                {idx === 3 && post.albumImages.length > 4 && (
+                                <Image src={imgUrl} alt={`album-${idx}`} fill className="object-cover transition-transform group-hover:scale-105" unoptimized sizes="(max-width: 768px) 50vw, 25vw" />
+                                {idx === 3 && albumImages.length > 4 && (
                                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-black text-lg group-hover:bg-black/40 transition-colors">
-                                        +{post.albumImages.length - 4}
+                                        +{albumImages.length - 4}
                                     </div>
                                 )}
                             </div>
@@ -347,8 +399,8 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                             )}
                         </div>
                         <div className="space-y-1.5">
-                            {post.pollOptions.map((opt: any) => {
-                                const optVotes = pollVotes.filter((v: any) => v.optionId === opt.id).length;
+                            {post.pollOptions.map((opt) => {
+                                const optVotes = pollVotes.filter((vote) => vote.optionId === opt.id).length;
                                 const percent = totalVotes > 0 ? (optVotes / totalVotes) * 100 : 0;
                                 const isSelected = myVote?.optionId === opt.id;
                                 
@@ -414,7 +466,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                         {post.comments.length === 0 && (
                             <p className="text-[10px] text-slate-400 text-center italic py-2">ยังไม่มีความคิดเห็น</p>
                         )}
-                        {post.comments.map((comment: any) => {
+                        {post.comments.map((comment) => {
                             const cAuthor = comment.authorStudent || comment.authorUser;
                             const cName = cAuthor?.nickname || cAuthor?.name || "ไม่ทราบชื่อ";
                             return (
@@ -453,10 +505,13 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                     </DialogHeader>
                     {previewGallery && (
                         <div className="relative w-full h-full flex items-center justify-center p-4">
-                            <img 
-                                src={previewGallery[currentPreviewIndex]} 
-                                alt="Preview" 
-                                className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+                            <Image
+                                src={previewGallery[currentPreviewIndex]}
+                                alt="Preview"
+                                width={1200}
+                                height={900}
+                                className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+                                unoptimized
                             />
                             
                             {/* Navigation Buttons */}

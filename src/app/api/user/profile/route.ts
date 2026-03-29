@@ -19,8 +19,9 @@ export async function PATCH(req: Request) {
 
         console.log("[API_PROFILE] Update success")
         return NextResponse.json(updatedUser)
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Internal Error"
         console.error("[API_PROFILE] Error:", error)
-        return new NextResponse(error.message || "Internal Error", { status: 500 })
+        return new NextResponse(message, { status: 500 })
     }
 }

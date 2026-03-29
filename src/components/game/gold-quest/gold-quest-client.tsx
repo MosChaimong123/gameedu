@@ -3,6 +3,7 @@ import { Socket } from "socket.io-client";
 import { GoldQuestPlayer, ChestReward } from "@/lib/types/game";
 import { GoldQuestPlayerView } from "./player-view";
 import { useSound } from "@/hooks/use-sound";
+import { getPlayerSession } from "@/lib/player-session";
 
 type Props = {
     socket: Socket | null;
@@ -30,13 +31,6 @@ export function GoldQuestClient({ socket, player, otherPlayers, onNavigate }: Pr
             // newTotal is updated in parent via game-state-update usually, 
             // but we might want to propagate it or rely on parent props updating.
             // Parent handles player state update via "player-gold-update" or "game-state-update".
-        };
-
-        const handleInteractionEffect = (data: { source: string; target: string; type: "SWAP" | "STEAL" }) => {
-            // Parent handles "being attacked" notification.
-            // This component cares if WE are the source? 
-            // Actually, parent handles notifications. 
-            // This component handles the *Active* interaction (choosing a victim).
         };
 
         socket.on("chest-result", handleChestResult);
@@ -67,7 +61,7 @@ export function GoldQuestClient({ socket, player, otherPlayers, onNavigate }: Pr
         }
         if (isChestOpen) return;
 
-        const pin = sessionStorage.getItem("game_pin");
+        const pin = getPlayerSession()?.pin;
         if (!pin) {
             console.error("No game PIN found");
             return;

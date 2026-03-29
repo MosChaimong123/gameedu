@@ -4,37 +4,90 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, X, Minus } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip } from 'recharts';
 
-interface AnalysisDashboardProps {
-    game: any;
-    players: any[];
-    questionSet: any;
-    fullHistory: any[];
+type PlayerResponses = Record<string, boolean | undefined>;
+
+interface AnalysisPlayer {
+    id: string;
+    name: string;
+    responses?: PlayerResponses;
+    correctAnswers?: number;
+    incorrectAnswers?: number;
+    gold?: number;
+    crypto?: number;
+    score?: number;
 }
 
-export function AnalysisDashboard({ game, players, questionSet, fullHistory }: AnalysisDashboardProps) {
+interface QuestionItem {
+    id: string;
+    question: string;
+}
+
+interface QuestionSet {
+    questions?: unknown;
+}
+
+interface HistoryEntry {
+    endedAt: string | Date;
+    players?: unknown;
+}
+
+interface GrowthDatum {
+    date: string;
+    accuracy: number;
+    score: number;
+}
+
+interface QuestionAverage {
+    id: string;
+    text: string;
+    avg: number;
+}
+
+function isQuestionItem(value: unknown): value is QuestionItem {
+    return (
+        typeof value === "object" &&
+        value !== null &&
+        "id" in value &&
+        "question" in value &&
+        typeof value.id === "string" &&
+        typeof value.question === "string"
+    );
+}
+
+function isAnalysisPlayer(value: unknown): value is AnalysisPlayer {
+    return (
+        typeof value === "object" &&
+        value !== null &&
+        "id" in value &&
+        "name" in value &&
+        typeof value.id === "string" &&
+        typeof value.name === "string"
+    );
+}
+
+interface AnalysisDashboardProps {
+    game?: unknown;
+    players: AnalysisPlayer[];
+    questionSet: QuestionSet | null;
+    fullHistory: HistoryEntry[];
+}
+
+export function AnalysisDashboard({ game: _game, players, questionSet, fullHistory }: AnalysisDashboardProps) {
+    void _game;
     const [selectedStudent, setSelectedStudent] = React.useState<string | null>(players[0]?.name || null);
-
-    if (!questionSet) {
-        return (
-            <Card className="bg-slate-50 border-dashed">
-                <CardContent className="py-10 text-center text-slate-500">
-                    <p>Question set data not available for this report.</p>
-                </CardContent>
-            </Card>
-        );
-    }
-
-    const questions = questionSet.questions || [];
+    const questions = React.useMemo<QuestionItem[]>(
+        () => (Array.isArray(questionSet?.questions) ? questionSet.questions.filter(isQuestionItem) : []),
+        [questionSet?.questions]
+    );
     const sortedPlayers = [...players].sort((a, b) => a.name.localeCompare(b.name));
 
-    // Prepare Growth Data for Selected Student
-    const growthData = React.useMemo(() => {
+    const growthData = React.useMemo<GrowthDatum[]>(() => {
         if (!selectedStudent) return [];
         
-        return fullHistory.map(h => {
-            const hPlayers = (h.players as any[]) || [];
+        return fullHistory.map((h) => {
+            const hPlayers = Array.isArray(h.players) ? h.players.filter(isAnalysisPlayer) : [];
             const p = hPlayers.find(p => p.name === selectedStudent);
             if (!p) return null;
 
@@ -47,8 +100,41 @@ export function AnalysisDashboard({ game, players, questionSet, fullHistory }: A
                 accuracy: accuracy,
                 score: p.gold || p.crypto || p.score || 0
             };
-        }).filter(Boolean);
+        }).filter((entry): entry is GrowthDatum => entry !== null);
     }, [fullHistory, selectedStudent]);
+
+    const questionAverages = React.useMemo<QuestionAverage[]>(() => {
+        return questions
+            .map((q) => {
+                let correct = 0;
+                let total = 0;
+
+                players.forEach((p) => {
+                    const resp = p.responses?.[q.id];
+                    if (resp !== undefined) {
+                        total++;
+                        if (resp === true) correct++;
+                    }
+                });
+
+                return {
+                    id: q.id,
+                    text: q.question,
+                    avg: total > 0 ? correct / total : 1,
+                };
+            })
+            .sort((a, b) => a.avg - b.avg);
+    }, [players, questions]);
+
+    if (!questionSet) {
+        return (
+            <Card className="bg-slate-50 border-dashed">
+                <CardContent className="py-10 text-center text-slate-500">
+                    <p>Question set data not available for this report.</p>
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <div className="space-y-8">
@@ -89,7 +175,7 @@ export function AnalysisDashboard({ game, players, questionSet, fullHistory }: A
                                         />
                                         <RechartsTooltip 
                                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                            formatter={(value: any) => [`${value}%`, 'Accuracy']}
+                                            formatter={(value: number | string | undefined) => [`${value ?? 0}%`, 'Accuracy']}
                                         />
                                         <Line 
                                             type="monotone" 
@@ -120,19 +206,10 @@ export function AnalysisDashboard({ game, players, questionSet, fullHistory }: A
                         <div className="p-4 bg-white rounded-xl border border-purple-100 shadow-sm">
                             <p className="text-xs text-purple-600 font-bold uppercase tracking-wider mb-1">Topic Struggler</p>
                             {(() => {
-                                const questionAverages = questions.map((q: any) => {
-                                    let correct = 0; let total = 0;
-                                    players.forEach(p => {
-                                        const resp = p.responses?.[q.id];
-                                        if (resp !== undefined) { total++; if (resp === true) correct++; }
-                                    });
-                                    return { id: q.id, text: q.question, avg: total > 0 ? (correct / total) : 1 };
-                                }).sort((a: any, b: any) => a.avg - b.avg);
-                                
                                 const stuffer = questionAverages[0];
                                 return stuffer && stuffer.avg < 0.6 ? (
                                     <p className="text-sm font-medium text-slate-700 line-clamp-2">
-                                        The class struggles most with: <span className="text-red-600">"{stuffer.text}"</span>
+                                        The class struggles most with: <span className="text-red-600">&quot;{stuffer.text}&quot;</span>
                                     </p>
                                 ) : <p className="text-sm text-slate-500 italic">Class mastery is well-distributed.</p>;
                             })()}
@@ -166,7 +243,7 @@ export function AnalysisDashboard({ game, players, questionSet, fullHistory }: A
                             <thead>
                                 <tr className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider">
                                     <th className="px-4 py-3 border-r sticky left-0 bg-slate-50 z-10 w-[200px]">Student</th>
-                                    {questions.map((q: any, idx: number) => (
+                                    {questions.map((q, idx: number) => (
                                         <th key={q.id} className="p-2 border-r text-center min-w-[40px]">
                                             <TooltipProvider>
                                                 <Tooltip>
@@ -197,7 +274,7 @@ export function AnalysisDashboard({ game, players, questionSet, fullHistory }: A
                                             <td className="px-4 py-3 border-r font-semibold text-slate-700 sticky left-0 bg-white z-10">
                                                 {player.name}
                                             </td>
-                                            {questions.map((q: any) => {
+                                            {questions.map((q) => {
                                                 const isCorrect = responses[q.id];
                                                 const hasData = isCorrect !== undefined;
 
@@ -224,7 +301,7 @@ export function AnalysisDashboard({ game, players, questionSet, fullHistory }: A
                             <tfoot className="bg-slate-50 font-bold border-t-2 border-slate-200">
                                 <tr>
                                     <td className="px-4 py-4 border-r sticky left-0 bg-slate-50 z-10">Topic Average</td>
-                                    {questions.map((q: any) => {
+                                    {questions.map((q) => {
                                         let correct = 0;
                                         let total = 0;
                                         sortedPlayers.forEach(p => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -25,6 +26,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Plus, BookOpen, Clock, Loader2, MoreVertical, Search, Trash2, ArrowLeft, Image as ImageIcon, ClipboardList } from "lucide-react"
 import { AssignmentCreateModal } from "@/components/dashboard/assignment-create-modal"
+import { PageBackLink } from "@/components/ui/page-back-link"
+import { cn } from "@/lib/utils"
 
 type QuestionSet = {
     id: string
@@ -77,7 +80,7 @@ export default function MySetsPage() {
         setActiveFolderDropId(null)
     }
 
-    const handleDrop = async (e: React.DragEvent, folderId: string) => {
+    const handleDrop = async (e: React.DragEvent, folderId: string | null) => {
         e.preventDefault()
         setActiveFolderDropId(null)
         const setId = e.dataTransfer.getData("setId")
@@ -151,7 +154,7 @@ export default function MySetsPage() {
             })
 
             if (response.ok) {
-                setSets(sets.filter((s: any) => s.id !== setToDelete))
+                setSets(sets.filter((s) => s.id !== setToDelete))
             }
         } catch (error) {
             console.error("Failed to delete set", error)
@@ -169,7 +172,7 @@ export default function MySetsPage() {
             })
 
             if (response.ok) {
-                setSets(sets.map((s: any) => s.id === setId ? { ...s, folderId } : s))
+                setSets(sets.map((s) => s.id === setId ? { ...s, folderId } : s))
             }
         } catch (error) {
             console.error("Failed to move set", error)
@@ -185,7 +188,7 @@ export default function MySetsPage() {
             })
 
             if (response.ok) {
-                setFolders(folders.filter((f: any) => f.id !== folderToDelete))
+                setFolders(folders.filter((f) => f.id !== folderToDelete))
                 // If we are currently inside the deleted folder, go back
                 if (currentFolderId === folderToDelete) {
                     setCurrentFolderId(null)
@@ -198,7 +201,7 @@ export default function MySetsPage() {
         }
     }
 
-    const filteredSets = sets.filter((set: any) =>
+    const filteredSets = sets.filter((set) =>
         set.title.toLowerCase().includes(searchQuery.toLowerCase())
     )
 
@@ -259,21 +262,24 @@ export default function MySetsPage() {
             </AlertDialog>
 
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <Button 
-                        variant="outline" 
-                        size="icon" 
-                        className={`h-10 w-10 border-slate-200 transition-all ${activeFolderDropId === 'main' ? 'bg-indigo-100 ring-2 ring-indigo-500 scale-110' : ''}`}
-                        onClick={() => currentFolderId ? setCurrentFolderId(null) : router.push("/dashboard")}
-                        onDragOver={(e) => handleDragOver(e, 'main')}
-                        onDragLeave={handleDragLeave}
-                        onDrop={(e) => handleDrop(e, null as any)}
-                    >
-                        <ArrowLeft className="h-5 w-5 text-slate-600" />
-                    </Button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                    <PageBackLink
+                        label={currentFolderId ? "กลับไปคลังชุดคำถาม" : "กลับแดชบอร์ด"}
+                        onClick={() => (currentFolderId ? setCurrentFolderId(null) : router.push("/dashboard"))}
+                        className={cn(
+                            "shrink-0 shadow-md shadow-slate-200/50",
+                            activeFolderDropId === "main" &&
+                                "border-indigo-300 bg-indigo-50 ring-2 ring-indigo-400/60 ring-offset-2"
+                        )}
+                        dragZoneProps={{
+                            onDragOver: (e) => handleDragOver(e, "main"),
+                            onDragLeave: handleDragLeave,
+                            onDrop: (e) => handleDrop(e, null),
+                        }}
+                    />
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                            {currentFolderId ? folders.find((f: any) => f.id === currentFolderId)?.name : t("mySets")}
+                            {currentFolderId ? folders.find((f) => f.id === currentFolderId)?.name : t("mySets")}
                         </h1>
                         <p className="text-slate-500">{t("manageSetsDesc")}</p>
                     </div>
@@ -310,7 +316,7 @@ export default function MySetsPage() {
                 <div className="flex h-32 items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
                 </div>
-            ) : (filteredSets.length === 0 && folders.filter((f: any) => f.parentFolderId === currentFolderId).length === 0) ? (
+            ) : (filteredSets.length === 0 && folders.filter((f) => f.parentFolderId === currentFolderId).length === 0) ? (
                 <div className="flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-in fade-in-50">
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
                         <BookOpen className="h-6 w-6 text-purple-600" />
@@ -335,9 +341,9 @@ export default function MySetsPage() {
                     {/* Folders */}
                     <AnimatePresence mode="popLayout">
                         {folders
-                            .filter((f: any) => f.parentFolderId === currentFolderId)
-                            .filter((f: any) => f.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                            .map((folder: any) => (
+                            .filter((f) => f.parentFolderId === currentFolderId)
+                            .filter((f) => f.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                            .map((folder) => (
                                 <motion.div
                                     key={folder.id}
                                     layout
@@ -378,7 +384,7 @@ export default function MySetsPage() {
                                     </div>
                                     <h3 className="text-lg font-bold text-slate-800 text-center line-clamp-1">{folder.name}</h3>
                                     <p className="text-xs text-slate-400 mt-1">
-                                        {sets.filter((s: any) => s.folderId === folder.id).length} {t("items") || "Items"}
+                                        {sets.filter((s) => s.folderId === folder.id).length} {t("items") || "Items"}
                                     </p>
                                 </motion.div>
                             ))}
@@ -386,8 +392,8 @@ export default function MySetsPage() {
 
                     {/* Sets */}
                     {filteredSets
-                        .filter((s: any) => s.folderId === currentFolderId)
-                        .map((set: any) => (
+                        .filter((s) => s.folderId === currentFolderId)
+                        .map((set) => (
                         <Card 
                             key={set.id} 
                             className="group hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col border-slate-200 cursor-grab active:cursor-grabbing"
@@ -396,10 +402,13 @@ export default function MySetsPage() {
                         >
                             <div className="relative w-full aspect-video bg-slate-100 group-hover:bg-slate-200 transition-colors overflow-hidden">
                                 {set.coverImage ? (
-                                    <img
+                                    <Image
                                         src={set.coverImage}
                                         alt={set.title}
-                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                        fill
+                                        sizes="(max-width: 768px) 100vw, 33vw"
+                                        unoptimized
+                                        className="object-cover transition-transform duration-500 group-hover:scale-110"
                                     />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-slate-300">
@@ -432,7 +441,7 @@ export default function MySetsPage() {
                                                             <span>{t("moveToMain") || "Move to Main Library"}</span>
                                                         </DropdownMenuItem>
                                                     )}
-                                                    {folders.filter((f: any) => f.id !== set.folderId).map((folder: any) => (
+                                                    {folders.filter((f) => f.id !== set.folderId).map((folder) => (
                                                         <DropdownMenuItem key={folder.id} onClick={() => handleMoveToFolder(set.id, folder.id)}>
                                                             <FolderIcon className="mr-2 h-4 w-4 text-indigo-400" />
                                                             <span>{folder.name}</span>

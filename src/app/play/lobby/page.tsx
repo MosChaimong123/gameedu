@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSocket } from "@/components/providers/socket-provider"
-import { Loader2, User, Volume2, VolumeX } from "lucide-react"
+import { User } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { SoundController } from "@/components/game/sound-controller"
 import { useSound } from "@/hooks/use-sound"
@@ -12,18 +12,19 @@ import { clearPlayerSession, getPlayerSession } from "@/lib/player-session"
 export default function PlayerLobbyPage() {
     const router = useRouter()
     const { socket } = useSocket()
-    const { play, stopBGM, toggleMute, isMuted } = useSound()
+    const { play, stopBGM } = useSound()
+    const initialPlayerSession = getPlayerSession()
 
-    const [name, setName] = useState<string | null>(null)
-    const [pin, setPin] = useState<string | null>(null)
-    const [avatarSeed, setAvatarSeed] = useState(0); // For random avatar
+    const [name] = useState<string | null>(initialPlayerSession?.name ?? null)
+    const [pin] = useState<string | null>(initialPlayerSession?.pin ?? null)
+    const [avatarSeed] = useState(() => Math.floor(Math.random() * 1000)); // For random avatar
 
     useEffect(() => {
         // Play Lobby Music
         play("bgm-lobby", { volume: 0.3 })
 
         return () => stopBGM()
-    }, [])
+    }, [play, stopBGM])
 
     useEffect(() => {
         // Retrieve session
@@ -33,10 +34,6 @@ export default function PlayerLobbyPage() {
             router.push("/play")
             return
         }
-
-        setName(playerSession.name)
-        setPin(playerSession.pin)
-        setAvatarSeed(Math.floor(Math.random() * 1000))
 
         if (socket) {
             socket.emit("join-game", {
@@ -72,7 +69,7 @@ export default function PlayerLobbyPage() {
                 socket.off("host-disconnected")
             }
         }
-    }, [router, socket])
+    }, [router, socket, stopBGM])
 
     if (!name) return null
 
@@ -114,7 +111,7 @@ export default function PlayerLobbyPage() {
                 </div>
 
                 <p className="text-slate-500 text-sm max-w-xs text-center">
-                    You're in! wait for the host to start the game.
+                    You&apos;re in! wait for the host to start the game.
                 </p>
 
                 <button

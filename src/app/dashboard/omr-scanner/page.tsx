@@ -1,20 +1,40 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { OMRScanner } from "@/components/omr/omr-scanner"
 import { Button } from "@/components/ui/button"
-import { Camera, ArrowLeft, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
-import Link from "next/link"
+import { Camera, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { PageBackLink } from "@/components/ui/page-back-link"
 import { OpenCVProvider } from "@/components/omr/opencv-provider"
 import { processOMR } from "@/lib/omr-logic"
 import { motion } from "framer-motion"
+
+type OMRResultItem = {
+    question: number
+    answer: string | null
+    isCorrect?: boolean
+    correctAnswer?: string
+}
+
+type OMRProcessResult = {
+    success: boolean
+    message: string
+    data?: OMRResultItem[]
+}
+
+type OMRQuizSet = {
+    id: string
+    title: string
+    answerKey: Record<string, string>
+}
 
 export default function OMRInferencePage() {
     const [showScanner, setShowScanner] = useState(false)
     const [capturedImage, setCapturedImage] = useState<string | null>(null)
     const [isProcessing, setIsProcessing] = useState(false)
-    const [result, setResult] = useState<any>(null)
-    const [selectedSet, setSelectedSet] = useState<any>(null)
+    const [result, setResult] = useState<OMRProcessResult | null>(null)
+    const [selectedSet, setSelectedSet] = useState<OMRQuizSet | null>(null)
     const [score, setScore] = useState<{ correct: number, total: number } | null>(null)
 
     // Fetch OMR Quiz on load if ID provided
@@ -39,11 +59,11 @@ export default function OMRInferencePage() {
         setResult(null)
         setScore(null)
 
-        const img = new Image()
+        const img = new window.Image()
         img.src = imageData
         img.onload = async () => {
             try {
-                // @ts-ignore
+                // @ts-expect-error window.cv is injected by the OpenCV script at runtime
                 const cv = window.cv
                 const res = await processOMR(cv, img)
                 setResult(res)
@@ -54,7 +74,7 @@ export default function OMRInferencePage() {
                     let correctCount = 0
                     const total = res.data.length
 
-                    res.data.forEach((item: any) => {
+                    res.data.forEach((item: OMRResultItem) => {
                         const correctVal = answerKey[item.question.toString()]
                         if (correctVal && item.answer === correctVal) {
                             correctCount++
@@ -79,7 +99,7 @@ export default function OMRInferencePage() {
                         })
                     })
                 }
-            } catch (err) {
+            } catch {
                 setResult({ success: false, message: "เกิดข้อผิดพลาดในการประมวลผล" })
             } finally {
                 setIsProcessing(false)
@@ -93,11 +113,7 @@ export default function OMRInferencePage() {
                 <div className="w-full max-w-4xl">
                     <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-4">
-                            <Link href="/dashboard/omr">
-                                <Button variant="ghost" className="rounded-full text-white/50 hover:text-white hover:bg-white/10">
-                                    <ArrowLeft className="w-5 h-5" />
-                                </Button>
-                            </Link>
+                            <PageBackLink href="/dashboard/omr" label="ระบบ OMR" variant="inverse" />
                             <div>
                                 <h1 className="text-2xl font-black text-white tracking-tight">ระบบสแกนอัตโนมัติ</h1>
                                 <p className="text-purple-400 font-bold uppercase tracking-widest text-[10px]">
@@ -122,7 +138,7 @@ export default function OMRInferencePage() {
                         {capturedImage ? (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full">
                                 <div className="relative">
-                                    <img src={capturedImage} className="w-full rounded-[2.5rem] shadow-2xl border-4 border-white/5 aspect-[4/3] object-cover" />
+                                    <Image src={capturedImage} alt="Captured OMR sheet" width={1200} height={900} unoptimized className="w-full rounded-[2.5rem] shadow-2xl border-4 border-white/5 aspect-[4/3] object-cover" />
                                     {isProcessing && (
                                         <div className="absolute inset-0 bg-black/80 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center text-white">
                                             <Loader2 className="w-12 h-12 animate-spin mb-4 text-purple-400" />
@@ -164,7 +180,7 @@ export default function OMRInferencePage() {
                                             {result.success && result.data && (
                                                 <div className="bg-white/5 rounded-[2.5rem] p-8 border border-white/5 max-h-[400px] overflow-auto custom-scrollbar">
                                                     <div className="grid grid-cols-4 gap-3">
-                                                        {result.data.map((item: any) => (
+                                                        {result.data.map((item: OMRResultItem) => (
                                                             <div key={item.question} className={`p-4 rounded-2xl border flex flex-col items-center transition-all ${
                                                                 item.answer === null ? "bg-white/5 border-white/10 opacity-30" :
                                                                 item.isCorrect ? "bg-emerald-500/20 border-emerald-500/30 ring-1 ring-emerald-500/20" : "bg-red-500/20 border-red-500/30 ring-1 ring-red-500/20"

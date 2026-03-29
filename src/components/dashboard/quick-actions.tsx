@@ -2,20 +2,16 @@
 
 import { useRouter } from "next/navigation"
 import { 
-    Plus, 
     Play, 
-    Calendar, 
     BarChart, 
     Users, 
-    Library, 
     ShoppingBag, 
     Settings,
     Gamepad2,
     Trophy,
     Search,
     History as HistoryIcon,
-    Camera,
-    FileText
+    Camera
 } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { motion, Variants } from "framer-motion"

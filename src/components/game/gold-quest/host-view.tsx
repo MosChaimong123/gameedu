@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { GoldQuestPlayer } from "@/lib/types/game"
 import { cn } from "@/lib/utils"

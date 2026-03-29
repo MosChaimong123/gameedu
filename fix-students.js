@@ -1,6 +1,5 @@
-const { MongoClient } = require('mongodb');
-
 async function fix() {
+    const { MongoClient } = await import("mongodb");
     console.log("Fixing existing students...");
     const m = new MongoClient('mongodb://localhost:27017');
     try {

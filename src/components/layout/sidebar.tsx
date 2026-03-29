@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Library, Search, ShoppingBag, Joystick, BarChart, Settings, LogOut } from "lucide-react"
+import { LayoutDashboard, Library, Search, ShoppingBag, Joystick, BarChart, Settings } from "lucide-react"
 
 import { useLanguage } from "@/components/providers/language-provider"
 

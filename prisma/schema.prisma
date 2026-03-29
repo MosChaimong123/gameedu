@@ -130,7 +130,7 @@ model Classroom {
   attendanceRecords AttendanceRecord[]
   boards      Board[]
   omrQuizzes  OMRQuiz[]
-  gamifiedSettings Json?   // Stores shop items, world boss status, etc.
+  gamifiedSettings Json?   // events, customAchievements, etc.
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -157,24 +157,7 @@ model Student {
   boardComments BoardComment[]
   boardReactions BoardReaction[]
   boardPollVotes BoardPollVote[]
-  items         StudentItem[]
   achievements  StudentAchievement[]
-  questProgress Json?                  // { lastQuestDate: "", completedQuests: [] }
-  challengesSent     StudentBattle[]   @relation("Challenger")
-  challengesReceived StudentBattle[]   @relation("Defender")
-  gameStats     Json?                  // RPG stats: { gold, xp, level, inventory... }
-  stamina       Int                    @default(10) // Default 10 energy (time-based regen)
-  maxStamina    Int                    @default(10)
-  mana          Int                    @default(50)
-  lastStaminaRefill DateTime?           @default(now())
-  lastSyncTime  DateTime?              // For idle calculations
-  // Job Class System
-  jobClass      String?                // "WARRIOR" | "MAGE" | "RANGER" | "HEALER" | "ROGUE"
-  jobTier       String?                @default("BASE") // "BASE" | "ADVANCE" | "MASTER"
-  advanceClass  String?                // e.g. "KNIGHT", "BERSERKER", "ARCHMAGE" ...
-  jobSkills     Json?                  // string[] of unlocked skill IDs + passive IDs
-  jobSelectedAt DateTime?
-  materials     Material[]
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
 }
@@ -376,94 +359,6 @@ model BoardReaction {
   @@unique([postId, authorStudentId, authorUserId, type])
 }
 
-model Item {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  description String?
-  price       Int      @default(0)
-  type        String   // "WEAPON" | "ARMOR" | "HELMET" | "GLOVES" | "BOOTS" | "NECKLACE" | "RING"
-  image       String?
-  
-  // RPG Stats
-  baseHp      Int?     @default(0)
-  baseAtk     Int?     @default(0)
-  baseDef     Int?     @default(0)
-  
-  // Special Multipliers (0.05 = 5%, 1.0 = 100%)
-  goldMultiplier      Float?   @default(0)
-  bossDamageMultiplier Float?   @default(0)
-
-  // Advanced Stats
-  baseSpd     Int?      @default(0) // Speed / Agility
-  baseCrit    Float?    @default(0) // Critical Rate (0 - 1.0)
-  baseLuck    Float?    @default(0) // Luck (0 - 1.0)
-  baseMag     Int?      @default(0) // Magic Power
-  baseMp      Int?      @default(0) // Max Mana
-
-  // Battle RPG System fields
-  tier        String    @default("COMMON") // "COMMON" | "RARE" | "EPIC" | "LEGENDARY"
-  slot        String?   // "HEAD" | "BODY" | "WEAPON" | "OFFHAND" | "GLOVES" | "BOOTS" | "ACCESSORY"
-  setId       String?   // "DRAGON_SET" | "THUNDER_SET" | "SHADOW_SET" | "LEGENDARY_SET"
-  effects     Json?     // string[] of effect IDs e.g. ["GOLD_FINDER", "LIFESTEAL"]
-  xpMultiplier Float?   @default(0)
-  
-  // Stamina/Consumable Support
-  currency        String    @default("GOLD") // "GOLD" | "POINTS"
-  staminaRestore  Int?      @default(0)
-  manaRestore     Int?      @default(0)
-  hpRestorePercent Float?   @default(0) // 0.3 = +30% maxHp bonus at next battle start
-  isPhoenix       Boolean?  @default(false) // Revive once with 50% HP at next battle
-  buffAtk         Float?    @default(0) // 0.5 = ATK +50% at next battle start
-  buffDef         Float?    @default(0) // 0.8 = DEF +80% at next battle start
-  buffSpd         Float?    @default(0) // 1.0 = SPD +100% at next battle start
-  buffGoldMinutes Int?      @default(0) // Gold ×2 for N minutes (stored as expiry timestamp)
-  buffXpMinutes   Int?      @default(0) // XP ×2 for N minutes
-  isTransmute     Boolean?  @default(false) // Converts 5 COMMON materials → 1 RARE material
-  isLevelUp       Boolean?  @default(false) // Instantly grants +1 level (XP resets to 0)
-  farmingBuffType String?   // Farming active effect: "BUFF_ATK" | "BUFF_DEF" | "CRIT_BUFF" | "REGEN"
-  farmingBuffTurns Int?     @default(3)     // How many turns the farming buff lasts
-  
-  students    StudentItem[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model StudentItem {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  studentId   String   @db.ObjectId
-  itemId      String   @db.ObjectId
-  quantity    Int      @default(1)
-  isEquipped  Boolean  @default(false)
-  enhancementLevel Int   @default(0)
-  
-  // Instance stats (Calculated based on base stats + enhancement)
-  hp          Int      @default(0)
-  atk         Int      @default(0)
-  def         Int      @default(0)
-  spd         Int      @default(0)
-  crit        Float    @default(0)
-  luck        Float    @default(0)
-  mag         Int      @default(0)
-  mp          Int      @default(0)
-  
-  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([studentId, itemId])
-}
-
-model Material {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  studentId String   @db.ObjectId
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  type      String   // One of 12 material types
-  quantity  Int      @default(1)
-
-  @@unique([studentId, type])
-}
-
 model StudentAchievement {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   studentId      String   @db.ObjectId
@@ -473,23 +368,6 @@ model StudentAchievement {
   unlockedAt     DateTime @default(now())
 
   @@unique([studentId, achievementId])
-}
-
-model StudentBattle {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  challengerId    String   @db.ObjectId
-  defenderId      String   @db.ObjectId
-  challenger      Student  @relation("Challenger", fields: [challengerId], references: [id], onDelete: Cascade)
-  defender        Student  @relation("Defender", fields: [defenderId], references: [id], onDelete: Cascade)
-  status          String   @default("PENDING") // PENDING, ACCEPTED, DECLINED, COMPLETED
-  classId         String?  @db.ObjectId
-  betAmount       Int      @default(0)
-  challengerRoll  Int?
-  defenderRoll    Int?
-  winnerId        String?  @db.ObjectId
-  resolvedAt      DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
 }
 
 model QuestionSet {

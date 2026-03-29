@@ -3,24 +3,22 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Key, Printer } from "lucide-react";
-import { Student } from "@prisma/client";
-import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
 
-export function StudentLoginsDialog({ students, classId, theme }: { students: any[], classId: string, theme?: string }) {
-    const { t } = useLanguage();
-    const [isMounted, setIsMounted] = useState(false);
+type StudentLoginCard = {
+    id: string
+    name: string
+    loginCode?: string | null
+};
 
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
+export function StudentLoginsDialog({ students, classId, theme }: { students: StudentLoginCard[]; classId: string; theme?: string }) {
+    void classId;
+    const { t } = useLanguage();
 
     const handlePrint = () => {
         window.print();
     };
-
-    if (!isMounted) return null;
 
     return (
         <Dialog>

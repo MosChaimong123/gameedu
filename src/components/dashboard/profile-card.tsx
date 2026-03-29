@@ -1,8 +1,8 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Trophy, Star, Gamepad2, Layers, School, Building2, Library, Sparkles } from "lucide-react"
+import { Trophy, Star, Gamepad2, Building2, Library } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { useSession } from "next-auth/react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -24,6 +24,13 @@ const USER_STATS = {
     totalSets: 0,
 }
 
+type SessionUserWithSchool = {
+    name?: string | null
+    email?: string | null
+    image?: string | null
+    school?: string | null
+}
+
 export function ProfileCard({ role }: { role?: string }) {
     const { data: session, update } = useSession()
     const { t } = useLanguage()
@@ -35,14 +42,14 @@ export function ProfileCard({ role }: { role?: string }) {
     const [loading, setLoading] = useState(false)
     const [name, setName] = useState("")
     const [school, setSchool] = useState("")
+    const sessionUser = session?.user as SessionUserWithSchool | undefined
 
     useEffect(() => {
-        if (session?.user) {
-            setName(session.user.name || "")
-            // @ts-ignore
-            setSchool(session.user.school || "")
+        if (sessionUser) {
+            setName(sessionUser.name || "")
+            setSchool(sessionUser.school || "")
         }
-    }, [session])
+    }, [sessionUser])
 
     const handleSave = async () => {
         if (!name.trim()) return
@@ -62,18 +69,17 @@ export function ProfileCard({ role }: { role?: string }) {
             } else {
                 throw new Error("Failed")
             }
-        } catch (error) {
+        } catch {
             toast({ title: t("error") || "Error", variant: "destructive", description: "Failed to update profile." })
         } finally {
             setLoading(false)
         }
     }
 
-    const userName = session?.user?.name || "Player"
-    const userEmail = session?.user?.email || ""
-    // @ts-ignore
+    const userName = sessionUser?.name || "Player"
+    const userEmail = sessionUser?.email || ""
     const userSchool = session?.user?.school || t("noSchoolSet") || "ไม่ระบุโรงเรียน"
-    const userImage = session?.user?.image || ""
+    const userImage = sessionUser?.image || ""
 
     // Calculate progress percentage
     const progress = (USER_STATS.currentXp / USER_STATS.nextLevelXp) * 100

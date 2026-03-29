@@ -1,8 +1,9 @@
 "use strict";
 import React, { useState } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Lock, Trophy, Wifi, Coins, Fish, Calculator, Zap, Swords } from "lucide-react";
+import { Lock, Coins, Calculator, Zap } from "lucide-react";
 
 type GameMode = {
     id: string;
@@ -21,7 +22,7 @@ const MODES: GameMode[] = [
         id: "gold-quest",
         title: "Gold Quest",
         description: "Answer questions to earn gold. Open chests to multiply your fortune or steal from others! Speed and luck are key.",
-        icon: <img src="/assets/gold-quest.png" alt="Gold Quest" className="w-full h-full object-contain drop-shadow-xl" />,
+        icon: <Image src="/assets/gold-quest.png" alt="Gold Quest" width={96} height={96} className="w-full h-full object-contain drop-shadow-xl" />,
         color: "bg-indigo-900 border-amber-400", // Adjusted for better contrast with image
         bgColor: "bg-indigo-950",
         players: "2-60",
@@ -32,7 +33,7 @@ const MODES: GameMode[] = [
         id: "crypto-hack",
         title: "Crypto Hack",
         description: "Hack your way to the top! Answer questions to mine crypto and steal passwords.",
-        icon: <img src="/assets/crypto-hack.png" alt="Crypto Hack" className="w-full h-full object-contain drop-shadow-xl" />,
+        icon: <Image src="/assets/crypto-hack.png" alt="Crypto Hack" width={96} height={96} className="w-full h-full object-contain drop-shadow-xl" />,
         color: "bg-green-900 border-green-400",
         bgColor: "bg-green-950",
         players: "2-60",
@@ -40,21 +41,10 @@ const MODES: GameMode[] = [
         active: true
     },
     {
-        id: "battle-turn",
-        title: "Battle RPG",
-        description: "Co-op Boss Raid + Solo Farming! Equip gear, pick a job class, and fight monsters with your class. Answer questions to deal damage and earn loot.",
-        icon: <Swords className="w-12 h-12 text-red-100" />,
-        color: "bg-red-900 border-red-400",
-        bgColor: "bg-red-950",
-        players: "1-30",
-        time: "15-30 min",
-        active: true
-    },
-    {
         id: "fishing-frenzy",
         title: "Fishing Frenzy",
         description: "Cast your line and reel in big answers! A relaxing yet competitive mode.",
-        icon: <img src="/assets/fishing-frenzy.png" alt="Fishing Frenzy" className="w-full h-full object-contain drop-shadow-xl" />,
+        icon: <Image src="/assets/fishing-frenzy.png" alt="Fishing Frenzy" width={96} height={96} className="w-full h-full object-contain drop-shadow-xl" />,
         color: "bg-blue-900 border-blue-400",
         bgColor: "bg-blue-950",
         players: "2-60",

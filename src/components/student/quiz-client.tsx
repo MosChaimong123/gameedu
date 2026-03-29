@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, XCircle, ChevronRight, Trophy, RotateCcw, BookOpen } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronRight, Trophy, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 interface QuizQuestion {
     id: string;
@@ -28,7 +28,6 @@ export function QuizClient({ assignment, questions, classId, studentCode, themeC
     const router = useRouter();
     const [currentQ, setCurrentQ] = useState(0);
     const [answers, setAnswers] = useState<number[]>(new Array(questions.length).fill(-1));
-    const [selectedOption, setSelectedOption] = useState<number | null>(null);
     const [showResult, setShowResult] = useState(false);
     const [result, setResult] = useState<{ score: number; correct: number; total: number } | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -43,13 +42,11 @@ export function QuizClient({ assignment, questions, classId, studentCode, themeC
         const next = [...answers];
         next[currentQ] = idx;
         setAnswers(next);
-        setSelectedOption(idx);
         setShowExplain(true);
     }
 
     async function handleNext() {
         setShowExplain(false);
-        setSelectedOption(null);
         if (!isLastQ) {
             setCurrentQ(p => p + 1);
         } else {

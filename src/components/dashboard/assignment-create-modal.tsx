@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar as CalendarIcon, Loader2, BookOpen, School, Target } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
-import { format } from "date-fns";
 
 interface Classroom {
     id: string;
@@ -92,7 +91,7 @@ export function AssignmentCreateModal({
             } else {
                 throw new Error("Failed");
             }
-        } catch (error) {
+        } catch {
             toast({
                 title: t("error"),
                 variant: "destructive",

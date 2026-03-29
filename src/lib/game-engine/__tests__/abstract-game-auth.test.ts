@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { Socket } from "socket.io";
+import type { Server, Socket } from "socket.io";
 import { AbstractGameEngine } from "../abstract-game";
+
+const mockIo = { to: () => ({ emit: () => undefined }) } as unknown as Server;
 
 class TestGameEngine extends AbstractGameEngine {
   public gameMode = "TEST";
@@ -12,7 +14,7 @@ class TestGameEngine extends AbstractGameEngine {
 
 describe("AbstractGameEngine auth guards", () => {
   it("only authorizes the registered host socket", () => {
-    const game = new TestGameEngine("123456", "host-user", "set-1", {}, [], { to: () => ({ emit: () => undefined }) });
+    const game = new TestGameEngine("123456", "host-user", "set-1", {}, [], mockIo);
 
     game.registerHostConnection("socket-host", "host-token");
 
@@ -24,7 +26,7 @@ describe("AbstractGameEngine auth guards", () => {
   });
 
   it("requires the issued reconnect token before a player can reclaim a nickname", () => {
-    const game = new TestGameEngine("123456", "host-user", "set-1", {}, [], { to: () => ({ emit: () => undefined }) });
+    const game = new TestGameEngine("123456", "host-user", "set-1", {}, [], mockIo);
 
     game.registerPlayerReconnectToken("Alice", "player-token");
 
@@ -35,7 +37,7 @@ describe("AbstractGameEngine auth guards", () => {
   });
 
   it("drops a player's reconnect token after leaving the game", () => {
-    const game = new TestGameEngine("123456", "host-user", "set-1", {}, [], { to: () => ({ emit: () => undefined }) });
+    const game = new TestGameEngine("123456", "host-user", "set-1", {}, [], mockIo);
 
     game.registerPlayerReconnectToken("Alice", "player-token");
     game.addPlayer(

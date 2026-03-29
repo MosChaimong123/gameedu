@@ -8,6 +8,22 @@ import { parseUserSettings } from "@/lib/user-settings";
 const REDUCED_MOTION_OVERRIDE_KEY = "gamedu-accessibility-reduced-motion";
 const REDUCED_SOUND_OVERRIDE_KEY = "gamedu-accessibility-reduced-sound";
 
+function getInitialAccessibilityState() {
+  if (typeof window === "undefined") {
+    return {
+      motionOverride: null as boolean | null,
+      soundOverride: null as boolean | null,
+      prefersReducedMotion: false,
+    };
+  }
+
+  return {
+    motionOverride: readStoredPreference(REDUCED_MOTION_OVERRIDE_KEY),
+    soundOverride: readStoredPreference(REDUCED_SOUND_OVERRIDE_KEY),
+    prefersReducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
+  };
+}
+
 type AccessibilityContextValue = {
   reducedMotion: boolean;
   reducedSound: boolean;
@@ -43,9 +59,10 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
   // Always start with server-safe defaults (null / false) so SSR and client
   // initial render produce identical HTML. Browser state is synced in useEffect
   // after hydration — this is the only correct fix for this hydration mismatch.
-  const [motionOverride, setMotionOverride] = useState<boolean | null>(null);
-  const [soundOverride, setSoundOverride] = useState<boolean | null>(null);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const initialState = getInitialAccessibilityState();
+  const [motionOverride, setMotionOverride] = useState<boolean | null>(initialState.motionOverride);
+  const [soundOverride, setSoundOverride] = useState<boolean | null>(initialState.soundOverride);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(initialState.prefersReducedMotion);
 
   const reducedMotion =
     motionOverride ?? sessionSettings.accessibility?.reducedMotion ?? prefersReducedMotion;
@@ -54,11 +71,6 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
 
   // Sync browser-only values after mount (safe — runs client-side only)
   useEffect(() => {
-    setMotionOverride(readStoredPreference(REDUCED_MOTION_OVERRIDE_KEY));
-    setSoundOverride(readStoredPreference(REDUCED_SOUND_OVERRIDE_KEY));
-    setPrefersReducedMotion(
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false
-    );
     hydratedRef.current = true;
   }, []);
 

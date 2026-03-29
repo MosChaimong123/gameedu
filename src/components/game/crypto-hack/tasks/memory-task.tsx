@@ -14,28 +14,23 @@ type Card = {
     matched: boolean;
 }
 
-export function MemoryTask({ task, onComplete }: Props) {
-    const [cards, setCards] = useState<Card[]>([]);
-    const [flipped, setFlipped] = useState<number[]>([]);
-    const [matchedCount, setMatchedCount] = useState(0);
-
-    // Initial Setup
-    useEffect(() => {
-        const pairs = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6]; // 12 cards, 6 pairs
-        // Shuffle
+export function MemoryTask({ onComplete }: Props) {
+    const [cards, setCards] = useState<Card[]>(() => {
+        const pairs = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6];
         for (let i = pairs.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
         }
 
-        const newCards = pairs.map((val, idx) => ({
+        return pairs.map((val, idx) => ({
             id: idx,
             val,
             flipped: false,
             matched: false
         }));
-        setCards(newCards);
-    }, []);
+    });
+    const [flipped, setFlipped] = useState<number[]>([]);
+    const [matchedCount, setMatchedCount] = useState(0);
 
     const handleFlip = (idx: number) => {
         if (flipped.length >= 2 || cards[idx].flipped || cards[idx].matched) return;

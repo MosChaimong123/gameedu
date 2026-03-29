@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { IdleEngine } from "@/lib/game/idle-engine";
 
-// GET /api/classroom/[id]/leaderboard
-// Returns students ranked by gold, points, and achievement count
+// GET /api/classroom/[id]/leaderboard — behavior points (พฤติกรรม)
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,33 +16,24 @@ export async function GET(
         name: true,
         avatar: true,
         points: true,
-        gameStats: true,
-        achievements: { select: { id: true } },
-        items: {
-          where: { isEquipped: true },
-          include: { item: true }
-        }
       }
     });
 
     const ranked = students
-      .map((s: any) => {
-        const stats = IdleEngine.calculateCharacterStats(s.points, s.items);
-        return {
-          id: s.id,
-          name: s.name,
-          avatar: s.avatar,
-          points: s.points,
-          gold: (s.gameStats as any)?.gold || 0,
-          achievementCount: s.achievements.length,
-          equippedCount: s.items.length,
-          hp: stats.hp,
-          atk: stats.atk,
-          def: stats.def
-        };
-      })
-      .sort((a: any, b: any) => b.gold - a.gold) // Primary: gold
-      .map((s: any, idx: number) => ({ ...s, rank: idx + 1 }));
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        avatar: s.avatar,
+        points: s.points,
+        gold: 0,
+        achievementCount: 0,
+        equippedCount: 0,
+        hp: 0,
+        atk: 0,
+        def: 0,
+      }))
+      .sort((a, b) => b.points - a.points)
+      .map((s, idx: number) => ({ ...s, rank: idx + 1 }));
 
     return NextResponse.json(ranked);
   } catch (error) {

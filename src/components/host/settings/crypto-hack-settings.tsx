@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { GameSettings } from "@/lib/types/game"
 import { cn } from "@/lib/utils"
-import { Check, Clock, Bitcoin, ChevronLeft } from "lucide-react"
+import { Check, Clock, Bitcoin } from "lucide-react"
+import { PageBackLink } from "@/components/ui/page-back-link"
 
 interface CryptoHackSettingsProps {
     onHost: (settings: GameSettings) => void;
@@ -40,10 +41,12 @@ export function CryptoHackSettings({ onHost, onBack }: CryptoHackSettingsProps) 
             {/* Main Card */}
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col items-center relative animate-in zoom-in-95 duration-300">
 
-                {/* Back Button */}
-                <button onClick={onBack} className="absolute top-4 left-4 p-2 hover:bg-slate-100 rounded-full transition-colors z-10">
-                    <ChevronLeft className="w-6 h-6 text-slate-500" />
-                </button>
+                <PageBackLink
+                    onClick={onBack}
+                    label="เลือกโหมดเกม"
+                    variant="minimal"
+                    className="absolute left-3 top-3 z-10 border border-slate-200 bg-white/95 shadow-sm backdrop-blur-sm [&>span]:max-sm:sr-only"
+                />
 
                 {/* Header */}
                 <div className="bg-slate-900 w-full py-6 text-center shadow-lg mb-6">

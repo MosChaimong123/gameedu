@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
+type AttendanceRecordWithStudent = Awaited<ReturnType<typeof db.attendanceRecord.findMany>>[number];
+type GroupedAttendanceRecords = Record<string, AttendanceRecordWithStudent[]>;
+
 export async function GET(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -63,7 +66,7 @@ export async function GET(
         });
 
         // Group by date
-        const groupedRecords = records.reduce((acc: any, record: any) => {
+        const groupedRecords = records.reduce<GroupedAttendanceRecords>((acc, record) => {
             const dateStr = record.date.toISOString().split('T')[0];
             if (!acc[dateStr]) {
                 acc[dateStr] = [];

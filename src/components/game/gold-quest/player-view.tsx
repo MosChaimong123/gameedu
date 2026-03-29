@@ -16,6 +16,7 @@ type Props = {
 }
 
 export function GoldQuestPlayerView({ player, otherPlayers = [], onOpenChest, onInteraction, currentReward, isChestOpen }: Props) {
+    void player;
     // Mock chest visuals
     const chests = [0, 1, 2];
     const [interactionTarget, setInteractionTarget] = useState<string | null>(null);

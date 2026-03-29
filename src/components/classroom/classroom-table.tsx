@@ -1,24 +1,34 @@
 "use client";
 
-import { Classroom, Student, Assignment, AssignmentSubmission } from "@prisma/client";
+import { Student, Assignment, AssignmentSubmission } from "@prisma/client";
+import Image from "next/image";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { getRankEntry } from "@/lib/classroom-utils";
+import { getRankEntry, type LevelConfigInput } from "@/lib/classroom-utils";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSocket } from "@/components/providers/socket-provider";
 
-type StudentWithSubmissions = Student & { submissions: AssignmentSubmission[] };
+type ChecklistItem = string | { text?: string; points?: number };
+
+export type AssignmentWithChecklist = Assignment & {
+    checklists?: ChecklistItem[] | null;
+};
+
+type StudentScoreMap = Record<string, Record<string, number>>;
+
+type StudentWithSubmissions = Student & {
+    submissions: AssignmentSubmission[];
+    nickname?: string | null;
+};
 
 interface ClassroomTableProps {
     classId: string;
     students: StudentWithSubmissions[];
-    assignments: Assignment[];
-    levelConfig: any;
-    onUpdatePoints: (studentId: string, diff: number) => void;
+    assignments: AssignmentWithChecklist[];
+    levelConfig: unknown;
     isAttendanceMode?: boolean;
     onStudentClick?: (student: Student) => void;
 }
@@ -28,14 +38,12 @@ export function ClassroomTable({
     students, 
     assignments, 
     levelConfig, 
-    onUpdatePoints,
     isAttendanceMode = false,
     onStudentClick
 }: ClassroomTableProps) {
     const { t } = useLanguage();
-    const { socket } = useSocket();
     const sortedStudents = [...students].sort((a, b) => a.order - b.order);
-    const initialScores: Record<string, any> = {};
+    const initialScores: StudentScoreMap = {};
     sortedStudents.forEach(s => {
         initialScores[s.id] = {};
         s.submissions.forEach(sub => {
@@ -78,19 +86,10 @@ export function ClassroomTable({
             });
 
             if (!res.ok) throw new Error("Failed");
-            const data = await res.json();
-
-            // Emit World Boss update
-            if (data.updatedBoss) {
-                socket?.emit("classroom-update", {
-                    classId,
-                    type: "BOSS_UPDATE",
-                    data: { boss: data.updatedBoss }
-                });
-            }
+            await res.json();
             // student.points tracks behavior (skill) points only.
             // Academic scores are stored in submissions, computed separately.
-        } catch (e) {
+        } catch {
             toast({ title: "Error saving score", variant: "destructive" });
             setScores(prev => ({
                 ...prev,
@@ -136,16 +135,7 @@ export function ClassroomTable({
             });
 
             if (!res.ok) throw new Error();
-            const data = await res.json();
-
-            // Emit World Boss update
-            if (data.updatedBoss) {
-                socket?.emit("classroom-update", {
-                    classId,
-                    type: "BOSS_UPDATE",
-                    data: { boss: data.updatedBoss }
-                });
-            }
+            await res.json();
         } catch {
             toast({ title: "เกิดข้อผิดพลาด", variant: "destructive" });
             setScores(prev => ({
@@ -158,7 +148,7 @@ export function ClassroomTable({
     };
 
     // Helper: calculate total score from bitmask and checklist items with points
-    const calculateChecklistScore = (bitmask: number, checklistItems: any[]) => {
+    const calculateChecklistScore = (bitmask: number, checklistItems: ChecklistItem[]) => {
         if (!Array.isArray(checklistItems)) return 0;
         return checklistItems.reduce((sum, item, i) => {
             const isChecked = (bitmask & (1 << i)) !== 0;
@@ -169,20 +159,12 @@ export function ClassroomTable({
     };
 
     // Helper: count how many boxes are checked
-    const countChecked = (bitmask: number, total: number) => {
-        let count = 0;
-        for (let i = 0; i < total; i++) {
-            if ((bitmask & (1 << i)) !== 0) count++;
-        }
-        return count;
-    };
-
     // Helper: calculate total academic points for a student from the reactive scores state
     const calculateTotalAcademicPoints = (studentId: string) => {
         return assignments.reduce((sum, a) => {
             const score = scores[studentId]?.[a.id] ?? 0;
             if (a.type === 'checklist') {
-                return sum + calculateChecklistScore(score, a.checklists as any[]);
+                return sum + calculateChecklistScore(score, a.checklists ?? []);
             }
             return sum + score;
         }, 0);
@@ -227,7 +209,7 @@ export function ClassroomTable({
                                         "border-r transition-colors",
                                         isAttendanceMode && "cursor-pointer hover:bg-indigo-50 active:bg-indigo-100"
                                     )}
-                                    onClick={() => isAttendanceMode && onStudentClick?.(student as any)}
+                                    onClick={() => isAttendanceMode && onStudentClick?.(student)}
                                 >
                                     <div className="flex items-center gap-2 relative">
                                         <div className={cn(
@@ -236,7 +218,7 @@ export function ClassroomTable({
                                             student.attendance === "LATE" && "border-2 border-yellow-400",
                                             student.attendance === "LEFT_EARLY" && "border-2 border-orange-400"
                                         )}>
-                                            <img src={`https://api.dicebear.com/7.x/bottts/svg?seed=${student.avatar || student.id}`} className="w-full h-full" />
+                                            <Image src={`https://api.dicebear.com/7.x/bottts/svg?seed=${student.avatar || student.id}`} alt={student.name} width={32} height={32} className="w-full h-full" unoptimized />
                                             {student.attendance === "ABSENT" && <div className="absolute inset-0 bg-red-500/10" />}
                                         </div>
                                         <div className="flex flex-col min-w-0">
@@ -258,20 +240,20 @@ export function ClassroomTable({
                                                     </span>
                                                 )}
                                             </div>
-                                            {(student as any).nickname && (
-                                                <span className="text-[10px] text-slate-400 italic truncate font-medium">({(student as any).nickname})</span>
+                                            {student.nickname && (
+                                                <span className="text-[10px] text-slate-400 italic truncate font-medium">({student.nickname})</span>
                                             )}
                                         </div>
                                     </div>
                                 </TableCell>
                                 <TableCell className="text-center border-r">
                                     {(() => {
-                                        const rank = getRankEntry(calculateTotalAcademicPoints(student.id), levelConfig);
+                                        const rank = getRankEntry(calculateTotalAcademicPoints(student.id), levelConfig as LevelConfigInput);
                                         return (
                                             <div className="flex flex-col items-center gap-1">
                                                 <div className="w-8 h-8 flex items-center justify-center shrink-0">
                                                     {(rank.icon?.startsWith('data:image') || rank.icon?.startsWith('http')) ? (
-                                                        <img src={rank.icon} alt={rank.name} className="w-full h-full object-contain" />
+                                                        <Image src={rank.icon} alt={rank.name} width={32} height={32} className="w-full h-full object-contain" unoptimized />
                                                     ) : (
                                                         <span className="text-xl">{rank.icon ?? "⭐"}</span>
                                                     )}
@@ -309,15 +291,15 @@ export function ClassroomTable({
                                             <div className="flex flex-col items-center gap-1.5 py-1 px-2">
                                                 {/* Summary badge */}
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                                    calculateChecklistScore(scores[student.id]?.[a.id] ?? 0, a.checklists as any[]) === a.maxScore
+                                                    calculateChecklistScore(scores[student.id]?.[a.id] ?? 0, a.checklists ?? []) === a.maxScore
                                                         ? 'bg-emerald-100 text-emerald-700'
                                                         : 'bg-slate-100 text-slate-500'
                                                 }`}>
-                                                    {calculateChecklistScore(scores[student.id]?.[a.id] ?? 0, a.checklists as any[])} / {a.maxScore} คะแนน
+                                                    {calculateChecklistScore(scores[student.id]?.[a.id] ?? 0, a.checklists ?? [])} / {a.maxScore} คะแนน
                                                 </span>
                                                 {/* Checkbox grid */}
                                                 <div className="flex flex-wrap gap-1 justify-center max-w-[140px]">
-                                                    {(a.checklists as any[]).map((item, i) => {
+                                                    {(a.checklists ?? []).map((item, i) => {
                                                         const bitmask = scores[student.id]?.[a.id] ?? 0;
                                                         const isChecked = (bitmask & (1 << i)) !== 0;
                                                         const saving = savingChecklist === `${student.id}-${a.id}`;

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect } from "react"
+import React, { createContext, useContext, useEffect, useState } from "react"
 import { translations, Language } from "@/lib/translations"
 
 type LanguageContextType = {
@@ -11,17 +11,16 @@ type LanguageContextType = {
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
+type TranslationDictionary = Record<string, string>
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
+    // Same initial value on server + first client render — sync localStorage after mount to avoid hydration mismatch.
     const [language, setLanguage] = useState<Language>("en")
-    const [isMounted, setIsMounted] = useState(false)
 
-    // Load language preference from local storage on mount
     useEffect(() => {
-        setIsMounted(true)
-        const savedLang = localStorage.getItem("language") as Language
-        if (savedLang) {
-            setLanguage(savedLang)
+        const stored = localStorage.getItem("language") as Language | null
+        if (stored === "th" || stored === "en") {
+            setLanguage(stored)
         }
     }, [])
 
@@ -36,7 +35,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     }
 
     const t = (key: string, params?: Record<string, string | number>) => {
-        let text = (translations[language] as any)[key] || key
+        let text = (translations[language] as TranslationDictionary)[key] || key
         if (params) {
             Object.entries(params).forEach(([paramKey, value]) => {
                 text = text.replace(`{${paramKey}}`, String(value))

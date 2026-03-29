@@ -13,11 +13,23 @@ import { MathKeyboard } from "./math-keyboard"
 import { MathRender } from "@/components/math-render"
 import { useState } from "react"
 
+export type EditableQuestion = {
+    id?: string
+    question: string
+    options: string[]
+    timeLimit: number
+    image?: string | null
+    randomOrder?: boolean
+    questionType?: "MULTIPLE_CHOICE" | "TYPING_ANSWER"
+    optionTypes?: string[]
+    correctAnswer?: number
+}
+
 type Props = {
     open: boolean
     onOpenChange: (open: boolean) => void
-    activeQuestion: any
-    setActiveQuestion: (q: any) => void
+    activeQuestion: EditableQuestion | null
+    setActiveQuestion: (q: EditableQuestion) => void
     onSave: () => void
 }
 
@@ -84,16 +96,16 @@ export function EditorDialog({ open, onOpenChange, activeQuestion, setActiveQues
                             <div
                                 className="group flex items-center bg-purple-700/60 hover:bg-purple-700 rounded-lg px-3 py-2 border border-purple-400/30 cursor-pointer transition-all active:scale-95 select-none h-10 gap-2"
                                 onClick={() => {
-                                    const isRandom = (activeQuestion as any).randomOrder || false
-                                    setActiveQuestion({ ...activeQuestion, randomOrder: !isRandom } as any)
+                                    const isRandom = activeQuestion.randomOrder || false
+                                    setActiveQuestion({ ...activeQuestion, randomOrder: !isRandom })
                                 }}
                             >
                                 <span className="text-xs font-bold text-purple-200 group-hover:text-white whitespace-nowrap">{t("randomOrder")}</span>
                                 <div className={cn(
                                     "w-5 h-5 border-2 rounded flex items-center justify-center transition-all",
-                                    (activeQuestion as any).randomOrder ? "bg-green-500 border-green-500" : "border-purple-300/50 bg-transparent"
+                                    activeQuestion.randomOrder ? "bg-green-500 border-green-500" : "border-purple-300/50 bg-transparent"
                                 )}>
-                                    {(activeQuestion as any).randomOrder && <CheckCircle2 className="w-3 h-3 text-white" />}
+                                    {activeQuestion.randomOrder && <CheckCircle2 className="w-3 h-3 text-white" />}
                                 </div>
                             </div>
 
@@ -289,7 +301,7 @@ export function EditorDialog({ open, onOpenChange, activeQuestion, setActiveQues
                                                     {activeQuestion.options.length > 1 && (
                                                         <button
                                                             onClick={() => {
-                                                                const newOpts = activeQuestion.options.filter((_: any, i: number) => i !== idx);
+                                                                const newOpts = activeQuestion.options.filter((_, i: number) => i !== idx);
                                                                 setActiveQuestion({ ...activeQuestion, options: newOpts });
                                                             }}
                                                             className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-300 hover:text-white p-1"

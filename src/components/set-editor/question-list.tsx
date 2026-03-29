@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Clock, Trash2, CheckCircle2 } from "lucide-react"
+import { Clock, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/components/providers/language-provider"
 import { MathRender } from "@/components/math-render"
@@ -11,14 +11,25 @@ import { MathRender } from "@/components/math-render"
 // For now, let's redefine locally or import if we make a types file.
 // Let's assume passed as props nicely.
 
+export type QuestionListItem = {
+    id: string
+    question?: string
+    image?: string | null
+    timeLimit: number
+    options: string[]
+    correctAnswer: number
+    optionTypes?: string[]
+}
+
 type Props = {
-    questions: any[]
+    questions: QuestionListItem[]
     onAddQuestion: () => void
-    onEditQuestion: (q: any) => void
+    onEditQuestion: (q: QuestionListItem) => void
     onDeleteQuestion: (id: string) => void
 }
 
 export function QuestionList({ questions, onAddQuestion, onEditQuestion, onDeleteQuestion }: Props) {
+    void onAddQuestion
     const { t } = useLanguage()
 
     return (

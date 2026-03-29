@@ -7,8 +7,7 @@ import { AnalyticsDashboard } from "@/components/classroom/AnalyticsDashboard";
 import { AttendanceHistoryTab } from "@/components/classroom/attendance-history-tab";
 import { TranslatedTabsTriggers } from "@/components/classroom/translated-tabs-triggers";
 import { ClassBoard } from "@/components/board/ClassBoard";
-import { GameOverviewTab } from "@/components/classroom/GameOverviewTab";
-
+import { PageBackLink } from "@/components/ui/page-back-link";
 interface ClassroomPageProps {
     params: Promise<{
         id: string;
@@ -50,6 +49,7 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
 
     return (
         <div className="h-[calc(100vh-80px)] p-6 overflow-hidden flex flex-col">
+            <PageBackLink href="/dashboard/classrooms" label="รายการห้องเรียน" className="mb-3 shrink-0 self-start" />
             <Tabs defaultValue={defaultTab} className="w-full flex-1 flex flex-col min-h-0">
                 <TabsList className="mb-4">
                     <TranslatedTabsTriggers />
@@ -72,9 +72,6 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
                     <ClassBoard classId={classroom.id} userId={session.user.id} isTeacher={true} />
                 </TabsContent>
 
-                <TabsContent value="game" className="flex-1 mt-0 h-full overflow-y-auto p-4">
-                    <GameOverviewTab classId={classroom.id} />
-                </TabsContent>
             </Tabs>
         </div>
     );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, Zap, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,13 +45,13 @@ export function EventManagerButton({ classId }: { classId: string }) {
     endAt: new Date(Date.now() + 7 * 24 * 3600000).toISOString().slice(0, 16),
   });
 
-  const loadEvents = async () => {
+  const loadEvents = useCallback(async () => {
     const res = await fetch(`/api/classrooms/${classId}/events`);
     const data = await res.json();
     setEvents(Array.isArray(data) ? data : []);
-  };
+  }, [classId]);
 
-  useEffect(() => { if (open) loadEvents(); }, [open]);
+  useEffect(() => { if (open) void loadEvents(); }, [open, loadEvents]);
 
   const handleTypeChange = (type: string) => {
     const preset = EVENT_TYPES.find(t => t.value === type);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,7 @@ function SortableStudentRow({
             </div>
             {/* Avatar */}
             <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden border-2 border-slate-200 shrink-0">
-                <img src={`https://api.dicebear.com/7.x/bottts/svg?seed=${student.avatar || student.id}`} className="w-full h-full" alt="" />
+                <Image src={`https://api.dicebear.com/7.x/bottts/svg?seed=${student.avatar || student.id}`} alt="" fill sizes="48px" unoptimized className="object-cover" />
             </div>
             {/* Name & Nickname */}
             <div className="flex-1 min-w-0">
@@ -248,7 +249,7 @@ export function StudentManagerDialog({ classId, theme, open, onOpenChange, onCha
                                     {/* Avatar preview */}
                                     <div className="flex justify-center">
                                         <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-amber-200 shadow-md bg-slate-50">
-                                            <img src={`https://api.dicebear.com/7.x/bottts/svg?seed=${editStudent.avatar || editStudent.id}`} className="w-full h-full" alt="" />
+                                            <Image src={`https://api.dicebear.com/7.x/bottts/svg?seed=${editStudent.avatar || editStudent.id}`} alt="" fill sizes="96px" unoptimized className="object-cover" />
                                         </div>
                                     </div>
 

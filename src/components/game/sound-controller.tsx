@@ -11,6 +11,7 @@ interface SoundControllerProps {
 }
 
 export function SoundController({ className, variant = "default" }: SoundControllerProps) {
+    void variant;
     const { isMuted, toggleMute } = useSound()
 
     return (

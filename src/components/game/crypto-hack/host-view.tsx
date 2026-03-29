@@ -1,7 +1,6 @@
 "use client"
 // Force Rebuild
 
-import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { CryptoHackPlayer } from "@/lib/types/game"
 import { cn } from "@/lib/utils"

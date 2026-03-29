@@ -24,8 +24,7 @@ export async function POST(req: Request) {
             pdfData = buffer.toString("base64")
             // Use eval('require') to bypass Next.js/Turbopack's attempts to "smartly" analyze the package
             // which often fails for pdf-parse due to its internal structure and test files.
-            // @ts-ignore
-            const pdf = eval('require')("pdf-parse")
+            const pdf = eval('require')("pdf-parse") as (input: Buffer) => Promise<{ text: string }>
             const data = await pdf(buffer)
             text = data.text
             console.log("[FILE_PARSE_DEBUG] Raw data keys:", Object.keys(data))
@@ -47,8 +46,9 @@ export async function POST(req: Request) {
             pdfData: isPDF ? pdfData : null,
             fileName: file.name
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[FILE_PARSE_POST]", error)
-        return new NextResponse(error.message || "Internal Error", { status: 500 })
+        const message = error instanceof Error ? error.message : "Internal Error"
+        return new NextResponse(message, { status: 500 })
     }
 }

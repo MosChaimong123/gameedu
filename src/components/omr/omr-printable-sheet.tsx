@@ -1,9 +1,9 @@
 "use client"
 
 import React, { useRef } from "react"
-import { Button } from "@/components/ui/button"
 import { Download } from "lucide-react"
 import html2canvas from "html2canvas"
+import { Button } from "@/components/ui/button"
 
 interface OMRPrintableSheetProps {
     type: "20" | "50" | "80"
@@ -16,10 +16,6 @@ export function OMRPrintableSheet({ type, quizTitle = "General Quiz" }: OMRPrint
     const downloadImage = async () => {
         if (!sheetRef.current) return
 
-        // Temporarily reset scale for perfect capture
-        const originalScale = sheetRef.current.style.scale
-        const originalTransform = sheetRef.current.style.transform
-        
         const canvas = await html2canvas(sheetRef.current, {
             scale: 3, 
             useCORS: true,
@@ -135,8 +131,6 @@ export function OMRPrintableSheet({ type, quizTitle = "General Quiz" }: OMRPrint
 
         const bubbleSize = type === "20" ? "w-6 h-6" : "w-5 h-5"
         const numSize = type === "20" ? "w-6 text-base" : "w-5 text-sm"
-        const textSize = type === "20" ? "text-[10px]" : "text-[8px]"
-
         for (let col = 0; col < colCount; col++) {
             const colQs = []
             for (let q = 1; q <= questionsPerCol; q++) {

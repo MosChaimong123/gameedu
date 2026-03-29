@@ -30,7 +30,7 @@ export function CreateClassroomDialog() {
 
             if (!res.ok) throw new Error("Failed to create");
 
-            const data = await res.json();
+            await res.json();
 
             toast({
                 title: "Success",
@@ -39,7 +39,7 @@ export function CreateClassroomDialog() {
 
             setOpen(false);
             router.refresh(); // Refresh server components
-        } catch (error) {
+        } catch {
             toast({
                 title: "Error",
                 description: "Something went wrong.",

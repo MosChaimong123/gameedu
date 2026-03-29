@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
-export async function GET(req: Request) {
+export async function GET() {
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {

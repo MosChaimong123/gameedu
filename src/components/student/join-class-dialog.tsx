@@ -43,7 +43,7 @@ export function JoinClassDialog() {
                 setOpen(false);
                 setCode("");
             }
-        } catch (error) {
+        } catch {
             toast({
                 title: "เกิดข้อผิดพลาด",
                 description: "โปรดลองอีกครั้งภายหลัง",

@@ -44,8 +44,10 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
     const { reducedSound } = useAccessibility()
     const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map())
     const bgmRef = useRef<HTMLAudioElement | null>(null)
-    // Keep first SSR/client render deterministic; hydrate persisted mute state after mount.
-    const [isMuted, setIsMuted] = useState(false)
+    const [isMuted, setIsMuted] = useState(() => {
+        if (typeof window === "undefined") return false
+        return localStorage.getItem("gamedu-muted") === "true"
+    })
 
     const userSettings = useMemo(
         () => parseUserSettings((session?.user as { settings?: unknown } | undefined)?.settings),
@@ -61,11 +63,6 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
         if (userSettings.sfxEnabled === false) return 0
         return reducedSound ? 0.22 : 0.5
     }, [reducedSound, userSettings.sfxEnabled])
-
-    useEffect(() => {
-        if (typeof window === "undefined") return
-        setIsMuted(localStorage.getItem("gamedu-muted") === "true")
-    }, [])
 
     useEffect(() => {
         // Preload SFX

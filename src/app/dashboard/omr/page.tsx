@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { 
     Plus, 
@@ -17,33 +17,52 @@ import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import { OMRKeyEditor } from "@/components/omr/omr-key-editor"
 import { useToast } from "@/components/ui/use-toast"
+import { PageBackLink } from "@/components/ui/page-back-link"
+
+type OMRQuiz = {
+    id: string
+    title: string
+    questionCount: number
+    answerKey: Record<string, string>
+    showResults?: boolean
+    _count?: {
+        results: number
+    }
+    results?: {
+        id: string
+        studentName: string
+        scannedAt: string
+        score: number
+        total: number
+    }[]
+}
 
 export default function OMRDashboardPage() {
     const { toast } = useToast()
-    const [quizzes, setQuizzes] = useState<any[]>([])
+    const [quizzes, setQuizzes] = useState<OMRQuiz[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const [isKeyModalOpen, setIsKeyModalOpen] = useState(false)
-    const [selectedQuiz, setSelectedQuiz] = useState<any>(null)
+    const [selectedQuiz, setSelectedQuiz] = useState<OMRQuiz | null>(null)
     
     // New Quiz State
     const [newQuiz, setNewQuiz] = useState({ title: "", questionCount: 20 })
 
-    useEffect(() => {
-        fetchQuizzes()
-    }, [])
-
-    const fetchQuizzes = async () => {
+    const fetchQuizzes = useCallback(async () => {
         try {
             const res = await fetch("/api/omr/quizzes")
             const data = await res.json()
             setQuizzes(Array.isArray(data) ? data : [])
-        } catch (error) {
+        } catch {
             toast({ title: "โหลดข้อมูลไม่สำเร็จ", variant: "destructive" })
         } finally {
             setIsLoading(false)
         }
-    }
+    }, [toast])
+
+    useEffect(() => {
+        fetchQuizzes()
+    }, [fetchQuizzes])
 
     const handleCreateQuiz = async () => {
         if (!newQuiz.title) return
@@ -56,7 +75,7 @@ export default function OMRDashboardPage() {
             setQuizzes([data, ...quizzes])
             setIsCreateModalOpen(false)
             toast({ title: "สร้างเฉลยใหม่สำเร็จ!" })
-        } catch (error) {
+        } catch {
             toast({ title: "สร้างไม่สำเร็จ", variant: "destructive" })
         }
     }
@@ -69,10 +88,10 @@ export default function OMRDashboardPage() {
                 body: JSON.stringify({ answerKey: newKey })
             })
             const data = await res.json()
-            setQuizzes(quizzes.map((q: any) => q.id === data.id ? data : q))
+            setQuizzes(quizzes.map((q) => q.id === data.id ? data : q))
             setSelectedQuiz(data)
             toast({ title: "บันทึกเฉลยเรียบร้อย" })
-        } catch (error) {
+        } catch {
             toast({ title: "บันทึกไม่สำเร็จ", variant: "destructive" })
         }
     }
@@ -81,9 +100,9 @@ export default function OMRDashboardPage() {
         if (!confirm("ยืนยันการลบเฉลยนี้?")) return
         try {
             await fetch(`/api/omr/quizzes/${id}`, { method: "DELETE" })
-            setQuizzes(quizzes.filter((q: any) => q.id !== id))
+            setQuizzes(quizzes.filter((q) => q.id !== id))
             toast({ title: "ลบสำเร็จ" })
-        } catch (error) {
+        } catch {
             toast({ title: "ลบไม่สำเร็จ", variant: "destructive" })
         }
     }
@@ -93,9 +112,12 @@ export default function OMRDashboardPage() {
             <div className="max-w-6xl mx-auto">
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-                    <div>
-                        <h1 className="text-4xl font-black text-slate-800 tracking-tight mb-2">ระบบ OMR Digital</h1>
-                        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Manage Answer Keys & Scan Results</p>
+                    <div className="space-y-4">
+                        <PageBackLink href="/dashboard" label="แดชบอร์ด" />
+                        <div>
+                            <h1 className="text-4xl font-black text-slate-800 tracking-tight mb-2">ระบบ OMR Digital</h1>
+                            <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Manage Answer Keys & Scan Results</p>
+                        </div>
                     </div>
                     <Button 
                         onClick={() => setIsCreateModalOpen(true)}
@@ -126,11 +148,11 @@ export default function OMRDashboardPage() {
                                     <BarChart3 className="w-10 h-10 text-slate-200" />
                                 </div>
                                 <h3 className="text-xl font-black text-slate-400 mb-2">ยังไม่มีชุดตรวจเฉลย</h3>
-                                <p className="text-sm text-slate-400 font-medium max-w-xs">เริ่มต้นด้วยการกดปุ่ม "เริ่มสร้างเฉลยใหม่" ด้านบนเพื่อเปิดระบบการตรวจครับ</p>
+                                <p className="text-sm text-slate-400 font-medium max-w-xs">เริ่มต้นด้วยการกดปุ่ม &quot;เริ่มสร้างเฉลยใหม่&quot; ด้านบนเพื่อเปิดระบบการตรวจครับ</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 gap-4">
-                                {quizzes.map((quiz: any) => (
+                                {quizzes.map((quiz) => (
                                     <motion.div 
                                         key={quiz.id}
                                         layoutId={quiz.id}
@@ -231,7 +253,7 @@ export default function OMRDashboardPage() {
                                 <div>
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">เลือกจำนวนข้อ</label>
                                     <div className="grid grid-cols-3 gap-3 mt-2">
-                                        {[20, 50, 80].map((num: any) => (
+                                        {[20, 50, 80].map((num) => (
                                             <button
                                                 key={num}
                                                 onClick={() => setNewQuiz({...newQuiz, questionCount: num})}
@@ -307,7 +329,7 @@ export default function OMRDashboardPage() {
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100">
-                                                    {selectedQuiz.results?.map((res: any) => (
+                                                    {selectedQuiz.results?.map((res) => (
                                                         <tr key={res.id} className="group hover:bg-white transition-colors">
                                                             <td className="py-4">
                                                                 <div className="font-black text-slate-700">{res.studentName}</div>
@@ -341,3 +363,4 @@ export default function OMRDashboardPage() {
         </div>
     )
 }
+

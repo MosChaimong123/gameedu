@@ -1,10 +1,10 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState } from "react"
-import { io as ClientIO } from "socket.io-client"
+import { io as ClientIO, type Socket } from "socket.io-client"
 
 type SocketContextType = {
-    socket: any | null
+    socket: Socket | null
     isConnected: boolean
 }
 
@@ -18,31 +18,32 @@ export const useSocket = () => {
 }
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
-    const [socket, setSocket] = useState<any | null>(null)
-    const [isConnected, setIsConnected] = useState(false)
+    const [socket] = useState<Socket | null>(() => {
+        if (typeof window === "undefined") return null
 
-    useEffect(() => {
-        // Use NEXT_PUBLIC_SOCKET_URL if provided, else undefined (defaults to current host)
         const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || undefined
-        const socketInstance = ClientIO(socketUrl, {
+        return ClientIO(socketUrl, {
             path: "/socket.io",
             addTrailingSlash: false,
         })
+    })
+    const [isConnected, setIsConnected] = useState(false)
 
-        socketInstance.on("connect", () => {
+    useEffect(() => {
+        if (!socket) return
+
+        socket.on("connect", () => {
             setIsConnected(true)
         })
 
-        socketInstance.on("disconnect", () => {
+        socket.on("disconnect", () => {
             setIsConnected(false)
         })
 
-        setSocket(socketInstance)
-
         return () => {
-            socketInstance.disconnect()
+            socket.disconnect()
         }
-    }, [])
+    }, [socket])
 
     return (
         <SocketContext.Provider value={{ socket, isConnected }}>

@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import Image from "next/image"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Clock, BookOpen, ChevronRight, PenSquare, Play } from "lucide-react"
 import Link from "next/link"
 import { useLanguage } from "@/components/providers/language-provider"
@@ -12,6 +13,14 @@ type RecentSet = {
     questionsCount: number
     updatedAt: string
     coverImage: string | null
+}
+
+type RecentSetApiItem = {
+    id: string
+    title: string
+    updatedAt: string
+    coverImage: string | null
+    questions: unknown[]
 }
 
 export function RecentActivity() {
@@ -27,12 +36,11 @@ export function RecentActivity() {
                 // For now, let's just fetch all and slice the top 3
                 const res = await fetch("/api/sets")
                 if (res.ok) {
-                    const data = await res.json()
+                    const data = await res.json() as RecentSetApiItem[]
                     // Sort by updatedAt desc
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const sorted = data.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                    const sorted = data.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
 
-                    setRecentSets(sorted.slice(0, 3).map((s: any) => ({
+                    setRecentSets(sorted.slice(0, 3).map((s) => ({
                         id: s.id,
                         title: s.title,
                         questionsCount: s.questions.length,
@@ -81,7 +89,7 @@ export function RecentActivity() {
                         {/* Thumbnail */}
                         <div className="h-16 w-24 flex-shrink-0 bg-slate-100 rounded-lg overflow-hidden relative">
                             {set.coverImage ? (
-                                <img src={set.coverImage} alt={set.title} className="w-full h-full object-cover" />
+                                <Image src={set.coverImage} alt={set.title} fill sizes="96px" unoptimized className="object-cover" />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center text-slate-300">
                                     <BookOpen className="w-6 h-6" />

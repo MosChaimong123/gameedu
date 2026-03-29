@@ -1,5 +1,4 @@
 import { auth } from "@/auth"
-import { Sidebar } from "@/components/layout/sidebar"
 import { Topbar } from "@/components/layout/topbar"
 import { SessionProvider } from "next-auth/react"
 
@@ -9,9 +8,6 @@ export default async function DashboardLayout({
     children: React.ReactNode
 }) {
     const session = await auth()
-    // @ts-ignore
-    const role = session?.user?.role || "STUDENT"
-    const isStudent = role === "STUDENT"
 
     return (
         <SessionProvider session={session}>

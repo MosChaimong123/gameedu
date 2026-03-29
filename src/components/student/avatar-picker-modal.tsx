@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Check, Shuffle } from "lucide-react";
@@ -32,6 +33,7 @@ export function AvatarPickerModal({
     open, onOpenChange, classId, studentId, loginCode,
     currentAvatar, onSaved, theme
 }: AvatarPickerModalProps) {
+    void theme;
     const [selected, setSelected] = useState(currentAvatar);
     const [loading, setLoading] = useState(false);
     const [customSeeds, setCustomSeeds] = useState<string[]>([]);
@@ -73,10 +75,13 @@ export function AvatarPickerModal({
                     <div className="flex justify-center mb-5">
                         <div className="relative">
                             <div className="w-28 h-28 rounded-2xl bg-white border-4 border-indigo-400 shadow-xl overflow-hidden">
-                                <img
+                                <Image
                                     src={`https://api.dicebear.com/7.x/bottts/svg?seed=${selected}&backgroundColor=transparent`}
                                     alt="selected"
-                                    className="w-full h-full"
+                                    fill
+                                    sizes="112px"
+                                    unoptimized
+                                    className="object-cover"
                                 />
                             </div>
                             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-xs px-3 py-0.5 rounded-full font-semibold whitespace-nowrap shadow">
@@ -99,10 +104,13 @@ export function AvatarPickerModal({
                                             : "border-transparent bg-white hover:border-indigo-200 shadow-sm"
                                     }`}
                                 >
-                                    <img
+                                    <Image
                                         src={`https://api.dicebear.com/7.x/bottts/svg?seed=${seed}&backgroundColor=transparent`}
                                         alt={seed}
-                                        className="w-full aspect-square"
+                                        fill
+                                        sizes="64px"
+                                        unoptimized
+                                        className="object-cover"
                                         loading="lazy"
                                     />
                                     {isSelected && (

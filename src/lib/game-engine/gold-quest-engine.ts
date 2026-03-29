@@ -1,8 +1,18 @@
 
 import { Socket } from "socket.io";
-import { AbstractGameEngine } from "./abstract-game";
-import { GoldQuestPlayer, GoldQuestSession, ChestReward, ClientEvents } from "../types/game";
-import { generateChestReward } from "../game/gold-quest";
+import { AbstractGameEngine, GameQuestion } from "./abstract-game";
+import { GameSettings, GoldQuestPlayer } from "../types/game";
+import { generateChestReward } from "./gold-quest-rewards";
+
+type GoldQuestInteractionPayload = {
+    targetId: string;
+    type: "SWAP" | "STEAL";
+};
+
+type SubmitAnswerPayload = {
+    questionId: string;
+    answerIndex: number;
+};
 
 export class GoldQuestEngine extends AbstractGameEngine {
     public gameMode = "GOLD_QUEST";
@@ -13,9 +23,9 @@ export class GoldQuestEngine extends AbstractGameEngine {
         pin: string,
         hostId: string,
         setId: string,
-        settings: any,
-        questions: any[],
-        io: any
+        settings: Partial<GameSettings>,
+        questions: GameQuestion[],
+        io: Parameters<AbstractGameEngine["setIO"]>[0]
     ) {
         super(pin, hostId, setId, settings, questions, io);
     }
@@ -34,16 +44,16 @@ export class GoldQuestEngine extends AbstractGameEngine {
         super.addPlayer(player, socket);
     }
 
-    public handleEvent(eventName: string, payload: any, socket: Socket): void {
+    public handleEvent(eventName: string, payload: unknown, socket: Socket): void {
         switch (eventName) {
             case "open-chest":
                 this.handleOpenChest(socket);
                 break;
             case "use-interaction":
-                this.handleInteraction(socket, payload);
+                this.handleInteraction(socket, payload as GoldQuestInteractionPayload);
                 break;
             case "submit-answer":
-                this.handleSubmitAnswer(socket, payload);
+                this.handleSubmitAnswer(socket, payload as SubmitAnswerPayload);
                 break;
             case "request-question":
                 this.handleRequestQuestion(socket);
@@ -56,7 +66,7 @@ export class GoldQuestEngine extends AbstractGameEngine {
 
         // Check Gold Goal
         if (this.status === "PLAYING" && this.settings.winCondition === "GOLD") {
-            const winner = this.players.find(p => p.gold >= this.settings.goldGoal);
+            const winner = this.players.find(p => p.gold >= (this.settings.goldGoal ?? Infinity));
             if (winner) {
                 this.endGame();
             }
@@ -90,7 +100,7 @@ export class GoldQuestEngine extends AbstractGameEngine {
         this.statusUpdate(); // Broadcast new scores
     }
 
-    private handleInteraction(socket: Socket, payload: any) {
+    private handleInteraction(socket: Socket, payload: GoldQuestInteractionPayload) {
         const { targetId, type } = payload;
         const actor = this.getPlayer(socket.id);
         const victim = this.getPlayer(targetId);
@@ -123,7 +133,7 @@ export class GoldQuestEngine extends AbstractGameEngine {
         this.statusUpdate();
     }
 
-    private handleSubmitAnswer(socket: Socket, payload: any) {
+    private handleSubmitAnswer(socket: Socket, payload: SubmitAnswerPayload) {
         const { questionId, answerIndex } = payload;
         const question = this.questions.find(q => q.id === questionId);
 
@@ -136,7 +146,7 @@ export class GoldQuestEngine extends AbstractGameEngine {
             // Initialize responses if not exists
             if (!player.responses) player.responses = {};
             // Record the response (using questionId as key for robustness)
-            player.responses[questionId] = isCorrect;
+            player.responses[Number(questionId)] = isCorrect;
 
             if (isCorrect) {
                 player.correctAnswers = (player.correctAnswers || 0) + 1;
@@ -168,7 +178,7 @@ export class GoldQuestEngine extends AbstractGameEngine {
         // Filter available questions
         const available = this.questions.filter(q => !seen.has(q.id));
 
-        let q: any;
+        let q: GameQuestion;
 
         if (available.length > 0) {
             // Pick a random available question
@@ -206,7 +216,7 @@ export class GoldQuestEngine extends AbstractGameEngine {
 
     // --- Persistence ---
 
-    public override serialize(): any {
+    public override serialize() {
         const base = super.serialize();
         return {
             ...base,
@@ -216,7 +226,7 @@ export class GoldQuestEngine extends AbstractGameEngine {
         };
     }
 
-    public override restore(data: any): void {
+    public override restore(data: Parameters<AbstractGameEngine["restore"]>[0]): void {
         super.restore(data);
         // Any specific state restoration can go here
         // Players are already restored by base

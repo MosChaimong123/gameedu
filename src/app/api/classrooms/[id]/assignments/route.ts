@@ -3,6 +3,23 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { sendNotification } from "@/lib/notifications";
 
+type AssignmentChecklist = {
+    text?: string;
+    points?: number;
+};
+
+type AssignmentRequestBody = {
+    name?: string;
+    description?: string | null;
+    maxScore?: number;
+    type?: string;
+    checklists?: AssignmentChecklist[];
+    passScore?: number | null;
+    deadline?: string | null;
+    quizSetId?: string | null;
+    quizData?: unknown;
+};
+
 export async function POST(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -15,7 +32,7 @@ export async function POST(
     }
 
     try {
-        const body = await req.json();
+        const body = await req.json() as AssignmentRequestBody;
         const { name, description, maxScore, type, checklists, passScore, deadline, quizSetId } = body;
 
         if (!name) {
@@ -60,12 +77,12 @@ export async function POST(
                 quizSetId: quizSetId || null,
                 quizData,
                 order: classroom.assignments.length
-            } as any
+            }
         });
 
         // Notify all students
         await Promise.all(
-            classroom.students.map((student: any) => 
+            classroom.students.map((student) => 
                 sendNotification({
                     studentId: student.id,
                     title: "มีงานใหม่!",
@@ -103,10 +120,10 @@ export async function PATCH(
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
-        const items: { id: string; order: number }[] = await req.json();
+        const items = await req.json() as Array<{ id: string; order: number }>;
 
         await Promise.all(
-            items.map((item: any) =>
+            items.map((item) =>
                 db.assignment.update({
                     where: { id: item.id },
                     data: { order: item.order }
@@ -120,4 +137,3 @@ export async function PATCH(
         return new NextResponse("Internal Error", { status: 500 });
     }
 }
-

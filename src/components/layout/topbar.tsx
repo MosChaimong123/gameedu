@@ -11,10 +11,10 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { LogOut, User, Menu, Settings, Sparkles, Search, ArrowLeft, Gamepad2 } from "lucide-react"
-import { useRouter, usePathname } from "next/navigation"
+import { LogOut, User, Settings, Sparkles, Search, Gamepad2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 
 import { LanguageToggle } from "@/components/language-toggle"
 import { useLanguage } from "@/components/providers/language-provider"
@@ -25,11 +25,7 @@ export function Topbar() {
     const { data: session } = useSession()
     const { t } = useLanguage()
     const router = useRouter()
-    const pathname = usePathname()
     const [searchQuery, setSearchQuery] = useState("")
-
-    // Don't show back button on main dashboard or landing page
-    const showBackButton = pathname !== "/dashboard" && pathname !== "/"
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault()
@@ -41,17 +37,6 @@ export function Topbar() {
     return (
         <header className="flex h-16 items-center justify-between border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-50 px-6 transition-colors duration-500">
             <div className="flex items-center gap-4 hidden md:flex lg:w-1/4">
-                {showBackButton && (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-full text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all active:scale-90"
-                        onClick={() => router.push("/dashboard")}
-                        title={t("back") || "Back"}
-                    >
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                )}
                 <motion.div 
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -94,7 +79,6 @@ export function Topbar() {
             </div>
 
             <div className="flex items-center space-x-4">
-                {/* @ts-ignore */}
                 {session?.user?.plan === "PLUS" ? (
                     <motion.div
                         whileHover={{ scale: 1.05 }}
@@ -147,7 +131,6 @@ export function Topbar() {
                                 </div>
                                 <div className="flex items-center gap-2 pt-2">
                                     <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-[9px] font-black text-indigo-600 border border-indigo-100 uppercase tracking-tighter">
-                                        {/* @ts-ignore */}
                                         {session?.user?.role || "STUDENT"}
                                     </span>
                                     <span className="px-2 py-0.5 rounded-full bg-amber-50 text-[9px] font-black text-amber-600 border border-amber-100 uppercase tracking-tighter">

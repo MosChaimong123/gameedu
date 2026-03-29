@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
+type StudentCreateInput = {
+    name: string
+    nickname?: string | null
+    avatar?: string | null
+};
+
+type StudentOrderInput = {
+    id: string
+    order: number
+};
+
 export async function POST(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -14,7 +25,7 @@ export async function POST(
     }
 
     try {
-        const body = await req.json();
+        const body = await req.json() as { students?: StudentCreateInput[] };
         const { students } = body;
 
         if (!students || !Array.isArray(students)) {
@@ -33,7 +44,7 @@ export async function POST(
         const startOrder = classroom.students.length;
 
         const created = await db.student.createMany({
-            data: students.map((s: any, i: number) => ({
+            data: students.map((s, i: number) => ({
                 name: s.name,
                 nickname: s.nickname || null,
                 classId: id,
@@ -63,10 +74,10 @@ export async function PATCH(
         const classroom = await db.classroom.findUnique({ where: { id, teacherId: session.user.id } });
         if (!classroom) return new NextResponse("Unauthorized", { status: 401 });
 
-        const items: { id: string; order: number }[] = await req.json();
+        const items = await req.json() as StudentOrderInput[];
 
         await Promise.all(
-            items.map((item: any) =>
+            items.map((item) =>
                 db.student.update({ where: { id: item.id }, data: { order: item.order } })
             )
         );

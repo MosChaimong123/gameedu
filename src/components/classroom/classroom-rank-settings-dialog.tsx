@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Crown, Info } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
-import { parseLevelConfigToEntries, type RankEntry, DEFAULT_RANK_ENTRIES } from "@/lib/classroom-utils";
+import { parseLevelConfigToEntries, type RankEntry, type LevelConfigInput, DEFAULT_RANK_ENTRIES } from "@/lib/classroom-utils";
 
 const RANK_LABELS_TH: Record<string, string> = {
     "Common": "ทั่วไป",
@@ -39,7 +39,7 @@ export function ClassroomRankSettingsDialog({ classroom }: ClassroomRankSettings
 
     // Force migration to the new 6 fixed ranks
     const [ranks, setRanks] = useState<RankEntry[]>(() => {
-        const current = parseLevelConfigToEntries(classroom.levelConfig);
+        const current = parseLevelConfigToEntries(classroom.levelConfig as LevelConfigInput);
         return DEFAULT_RANK_ENTRIES.map((def, idx) => {
             const existing = current.find(r => r.name === def.name);
             if (existing) return { ...def, ...existing };

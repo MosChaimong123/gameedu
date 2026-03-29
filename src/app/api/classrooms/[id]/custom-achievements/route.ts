@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
+import { toPrismaJson } from "@/lib/prisma-json";
+
+type CustomAchievement = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  goldReward: number;
+  createdAt: string;
+};
+
+type GamifiedSettings = {
+  customAchievements?: CustomAchievement[];
+};
 
 // GET /api/classrooms/[id]/custom-achievements — list all custom achievements for a classroom
 export async function GET(
@@ -14,9 +28,9 @@ export async function GET(
       select: { gamifiedSettings: true }
     });
     if (!classroom) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const settings = (classroom.gamifiedSettings as any) || {};
+    const settings = (classroom.gamifiedSettings as GamifiedSettings | null) || {};
     return NextResponse.json(settings.customAchievements || []);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
@@ -41,10 +55,10 @@ export async function POST(
     });
     if (!classroom) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const settings = (classroom.gamifiedSettings as any) || {};
+    const settings = (classroom.gamifiedSettings as GamifiedSettings | null) || {};
     const existing = settings.customAchievements || [];
 
-    const newAchievement = {
+    const newAchievement: CustomAchievement = {
       id: `custom_${Date.now()}`,
       name: name.trim(),
       description: description?.trim() || "",
@@ -56,10 +70,10 @@ export async function POST(
     await db.classroom.update({
       where: { id },
       data: {
-        gamifiedSettings: {
+        gamifiedSettings: toPrismaJson({
           ...settings,
           customAchievements: [...existing, newAchievement]
-        } as any
+        })
       }
     });
 
@@ -88,16 +102,16 @@ export async function DELETE(
     });
     if (!classroom) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const settings = (classroom.gamifiedSettings as any) || {};
-    const updated = (settings.customAchievements || []).filter((a: any) => a.id !== achievementId);
+    const settings = (classroom.gamifiedSettings as GamifiedSettings | null) || {};
+    const updated = (settings.customAchievements || []).filter((a) => a.id !== achievementId);
 
     await db.classroom.update({
       where: { id },
-      data: { gamifiedSettings: { ...settings, customAchievements: updated } as any }
+      data: { gamifiedSettings: toPrismaJson({ ...settings, customAchievements: updated }) }
     });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

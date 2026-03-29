@@ -27,6 +27,13 @@ export async function GET() {
     }
 }
 
+type CreateSetRequest = {
+    title?: string
+    description?: string
+    isPublic?: boolean
+    coverImage?: string | null
+}
+
 export async function POST(req: Request) {
     try {
         const session = await auth()
@@ -35,7 +42,7 @@ export async function POST(req: Request) {
             return new NextResponse("Unauthorized", { status: 401 })
         }
 
-        const body = await req.json()
+        const body = await req.json() as CreateSetRequest
         const { title, description, isPublic, coverImage } = body
 
         if (!title) {
@@ -54,8 +61,9 @@ export async function POST(req: Request) {
         })
 
         return NextResponse.json(set)
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Internal Error"
         console.error("[SETS_POST]", error)
-        return new NextResponse(error.message || "Internal Error", { status: 500 })
+        return new NextResponse(message, { status: 500 })
     }
 }

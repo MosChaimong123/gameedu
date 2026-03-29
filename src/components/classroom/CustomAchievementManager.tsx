@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Award, Gift, Send, Check } from "lucide-react";
+import { Plus, Trash2, Award, Gift, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,14 +44,14 @@ export function CustomAchievementManager({ classId, students }: CustomAchievemen
   const [awardPanel, setAwardPanel] = useState<string | null>(null); // achievementId
   const [selectedStudentId, setSelectedStudentId] = useState("");
 
-  const loadAchievements = async () => {
+  const loadAchievements = useCallback(async () => {
     const res = await fetch(`/api/classrooms/${classId}/custom-achievements`);
     const data = await res.json();
     setAchievements(Array.isArray(data) ? data : []);
     setLoading(false);
-  };
+  }, [classId]);
 
-  useEffect(() => { loadAchievements(); }, [classId]);
+  useEffect(() => { void loadAchievements(); }, [loadAchievements]);
 
   const handleCreate = async () => {
     if (!form.name.trim()) return;
@@ -221,7 +221,7 @@ export function CustomAchievementManager({ classId, students }: CustomAchievemen
         <div className="text-center py-10 bg-white/30 rounded-2xl border border-dashed border-slate-200">
           <Award className="w-10 h-10 text-slate-200 mx-auto mb-2" />
           <p className="text-slate-400 font-bold text-sm">ยังไม่มีรางวัลพิเศษ</p>
-          <p className="text-slate-300 text-xs mt-1">กดปุ่ม "สร้างรางวัลใหม่" เพื่อเริ่มต้น</p>
+          <p className="text-slate-300 text-xs mt-1">กดปุ่ม &quot;สร้างรางวัลใหม่&quot; เพื่อเริ่มต้น</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -293,3 +293,4 @@ export function CustomAchievementManager({ classId, students }: CustomAchievemen
     </div>
   );
 }
+

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { Classroom } from "@prisma/client";
 import {
     Dialog,
@@ -48,13 +49,14 @@ interface ClassroomSettingsDialogProps {
 }
 
 export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: ClassroomSettingsDialogProps) {
+    const classroomWithGrade = classroom as Classroom & { grade?: string | null };
     const { t } = useLanguage();
     const [loading, setLoading] = useState(false);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const { toast } = useToast();
 
     const [name, setName] = useState(classroom.name);
-    const [grade, setGrade] = useState((classroom as any).grade || "");
+    const [grade, setGrade] = useState(classroomWithGrade.grade || "");
     const [emoji, setEmoji] = useState(classroom.emoji || "🛡️");
     const [theme, setTheme] = useState(classroom.theme || THEMES[0].value);
 
@@ -210,7 +212,7 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
                                 onClick={() => fileInputRef.current?.click()}
                             >
                                 {emoji.startsWith('data:image') || emoji.startsWith('http') ? (
-                                    <img src={emoji} alt="Icon" className="w-full h-full object-cover" />
+                                    <Image src={emoji} alt="Icon" fill sizes="96px" unoptimized className="object-cover" />
                                 ) : (
                                     <span>{emoji}</span>
                                 )}

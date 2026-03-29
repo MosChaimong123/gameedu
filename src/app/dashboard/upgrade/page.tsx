@@ -7,11 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Check, Sparkles, Rocket, Zap, ShieldCheck } from "lucide-react"
 import { motion } from "framer-motion"
+import { PageBackLink } from "@/components/ui/page-back-link"
 
 export default function UpgradePage() {
     const { data: session, update } = useSession()
-    // @ts-ignore
-    const currentPlan = session?.user?.plan || "FREE"
+    const currentPlan = session?.user?.plan ?? "FREE"
     const [loading, setLoading] = useState<string | null>(null)
 
     const handleUpgrade = async (planId: string) => {
@@ -32,7 +32,7 @@ export default function UpgradePage() {
             } else {
                 throw new Error("Failed to upgrade")
             }
-        } catch (error) {
+        } catch {
             alert("เกิดข้อผิดพลาดในการจำลองการอัปเกรด")
         } finally {
             setLoading(planId)
@@ -43,6 +43,7 @@ export default function UpgradePage() {
     return (
         <div className="min-h-screen bg-slate-50 py-20 px-6">
             <div className="container max-w-6xl mx-auto space-y-16">
+                <PageBackLink href="/dashboard" label="แดชบอร์ด" />
                 {/* Header */}
                 <div className="text-center space-y-4 max-w-2xl mx-auto">
                     <motion.div

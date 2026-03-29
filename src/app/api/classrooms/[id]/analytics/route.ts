@@ -2,8 +2,33 @@ import { NextResponse, NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
-// GET /api/classrooms/[id]/analytics
-// Returns enriched data including game stats per student
+type StudentAnalyticsRecord = {
+  id: string;
+  studentName: string;
+  studentId: string;
+  reason: string;
+  value: number;
+  timestamp: Date;
+};
+
+type AnalyticsStudent = {
+  id: string;
+  name: string;
+  nickname: string | null;
+  points: number;
+  attendance: string | null;
+  history: {
+    id: string;
+    reason: string;
+    value: number;
+    timestamp: Date;
+  }[];
+  achievements: {
+    achievementId: string;
+  }[];
+};
+
+// GET /api/classrooms/[id]/analytics — behavior + custom-achievement counts (no RPG economy)
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -20,7 +45,6 @@ export async function GET(
           include: {
             history: { orderBy: { timestamp: "desc" } },
             achievements: true,
-            items: { include: { item: true } },
           }
         }
       }
@@ -28,13 +52,11 @@ export async function GET(
 
     if (!classroom) return new NextResponse("Not Found", { status: 404 });
 
-    // === Behavior Data ===
     let totalPositive = 0, totalNeedsWork = 0;
-    const recentHistory: any[] = [];
+    const recentHistory: StudentAnalyticsRecord[] = [];
     const skillCounts: Record<string, number> = {};
     const dailyGrowth: Record<string, number> = {};
 
-    // Prepare last 14 days
     const now = new Date();
     for (let i = 13; i >= 0; i--) {
       const d = new Date(now);
@@ -42,36 +64,18 @@ export async function GET(
       dailyGrowth[d.toISOString().split("T")[0]] = 0;
     }
 
-    // === Game Data ===
-    let totalGold = 0;
     let totalAchievements = 0;
-    let totalItems = 0;
-    const goldPerStudent: { name: string; gold: number; points: number; achievements: number }[] = [];
     const achievementCounts: Record<string, number> = {};
     const attendanceSummary: Record<string, number> = { PRESENT: 0, ABSENT: 0, LATE: 0, LEFT_EARLY: 0 };
 
-    for (const student of classroom.students) {
-      const gold = (student.gameStats as any)?.gold || 0;
+    for (const student of classroom.students as AnalyticsStudent[]) {
       const achievementsCount = student.achievements.length;
-      const itemsCount = student.items.length;
-
-      totalGold += gold;
       totalAchievements += achievementsCount;
-      totalItems += itemsCount;
 
-      goldPerStudent.push({
-        name: student.nickname || student.name.split(" ")[0] || student.name,
-        gold,
-        points: student.points,
-        achievements: achievementsCount
-      });
-
-      // Achievement breakdown
       for (const ach of student.achievements) {
         achievementCounts[ach.achievementId] = (achievementCounts[ach.achievementId] || 0) + 1;
       }
 
-      // Behavior
       for (const record of student.history) {
         if (record.value > 0) totalPositive += record.value;
         else totalNeedsWork += Math.abs(record.value);
@@ -111,30 +115,23 @@ export async function GET(
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
 
-    // Gold leaderboard
-    const goldLeaderboard = [...goldPerStudent].sort((a, b) => b.gold - a.gold).slice(0, 10);
-
-    // === Student full stats ===
-    const studentStats = classroom.students.map((s: any) => {
-      const pos = s.history.filter((h: any) => h.value > 0).reduce((sum: number, h: any) => sum + h.value, 0);
-      const neg = Math.abs(s.history.filter((h: any) => h.value < 0).reduce((sum: number, h: any) => sum + h.value, 0));
+    const studentStats = (classroom.students as AnalyticsStudent[]).map((s) => {
+      const pos = s.history.filter((h) => h.value > 0).reduce((sum, h) => sum + h.value, 0);
+      const neg = Math.abs(s.history.filter((h) => h.value < 0).reduce((sum, h) => sum + h.value, 0));
       const att = s.attendance || "PRESENT";
       return {
         id: s.id,
         name: s.name,
         nickname: s.nickname ?? null,
         points: s.points,
-        gold: (s.gameStats as any)?.gold || 0,
         totalPositive: pos,
         totalNeedsWork: neg,
         attendance: att,
         achievementCount: s.achievements.length,
-        itemCount: s.items.length,
       };
     });
 
     return NextResponse.json({
-      // Behavior
       summary: [
         { name: "Positive", value: totalPositive, fill: "#22c55e" },
         { name: "Needs Work", value: totalNeedsWork, fill: "#ef4444" }
@@ -148,15 +145,13 @@ export async function GET(
         { name: "สาย", value: attendanceSummary.LATE, fill: "#f59e0b" },
         { name: "ขาดเรียน", value: attendanceSummary.ABSENT, fill: "#ef4444" },
         { name: "ออกก่อน", value: attendanceSummary.LEFT_EARLY, fill: "#f97316" },
-      ].filter((e: any) => e.value > 0),
-      // Game
-      gameSummary: {
-        totalGold,
-        avgGold: classroom.students.length > 0 ? Math.round(totalGold / classroom.students.length) : 0,
-        totalAchievements,
-        totalItems,
+      ].filter((entry) => entry.value > 0),
+      achievementSummary: {
+        total: totalAchievements,
+        avgPerStudent: classroom.students.length > 0
+          ? Math.round((totalAchievements / classroom.students.length) * 10) / 10
+          : 0,
       },
-      goldLeaderboard,
       achievementDistribution,
     });
 

@@ -1,12 +1,11 @@
-const fs = require('fs');
-
 async function listAllModels() {
+    const fs = await import("fs");
     let envKey = "";
     try {
         const envContent = fs.readFileSync('.env', 'utf8');
         const match = envContent.match(/GEMINI_API_KEY=(.*)/);
         if (match) envKey = match[1].trim().replace(/"/g, '');
-    } catch (e) {}
+    } catch {}
 
     if (!envKey) return;
 

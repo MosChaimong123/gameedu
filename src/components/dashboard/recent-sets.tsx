@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, Play, Edit, Share2, Folder } from "lucide-react"
+import { Play, Edit, Folder } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 
 const RECENT_SETS = [

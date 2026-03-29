@@ -1,24 +1,38 @@
+# GameEdu — Render Blueprint
+# Docs: https://render.com/docs/blueprint-spec
+#
+# หลัง commit + push แล้ว สร้าง Blueprint จาก repo:
+#   https://dashboard.render.com/blueprint/new?repo=<HTTPS_URL_ของ_repo>
+#
+# ฐานข้อมูล: ใช้ MongoDB Atlas (หรือที่อื่น) แล้วใส่ connection string ใน DATABASE_URL
+# หลัง deploy ครั้งแรก อาจต้องรัน schema ครั้งหนึ่ง (เช่น npx prisma db push) ผ่าน Render Shell
+
 services:
   - type: web
     name: gamedu-app
-    env: node
+    runtime: node
+    region: singapore
     plan: free
-    buildCommand: npm install && npm run build
+    branch: main
+    buildCommand: npm ci && npm run build
     startCommand: npm run start
+    healthCheckPath: /
     envVars:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: 20
+        value: "20"
       - key: DATABASE_URL
         sync: false
-      - key: NEXTAUTH_SECRET
-        sync: false
       - key: AUTH_SECRET
+        sync: false
+      - key: NEXTAUTH_SECRET
         sync: false
       - key: NEXTAUTH_URL
         sync: false
       - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: NEXT_PUBLIC_SOCKET_URL
         sync: false
       - key: ADMIN_SECRET
         sync: false
@@ -26,9 +40,5 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
-      - key: AUTH_GOOGLE_ID
-        sync: false
-      - key: AUTH_GOOGLE_SECRET
-        sync: false
-      - key: NEXT_PUBLIC_SOCKET_URL
+      - key: GEMINI_API_KEY
         sync: false

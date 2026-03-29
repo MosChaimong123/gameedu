@@ -2,6 +2,18 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
+type OriginalSkill = {
+    name: string;
+    type: string;
+    weight: number;
+    icon: string | null;
+};
+type OriginalAssignment = {
+    name: string;
+    description: string | null;
+    order: number;
+};
+
 export async function POST(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -30,6 +42,9 @@ export async function POST(
             return new NextResponse("Not Found", { status: 404 });
         }
 
+        const sourceSkills = originalClassroom.skills as OriginalSkill[];
+        const sourceAssignments = originalClassroom.assignments as OriginalAssignment[];
+
         // Generate unique name for duplicate
         const timestamp = new Date().toLocaleString('en-US', {
             month: 'short',
@@ -51,7 +66,7 @@ export async function POST(
                 levelConfig: originalClassroom.levelConfig,
                 // Copy skills
                 skills: {
-                    create: originalClassroom.skills.map((skill: any) => ({
+                    create: sourceSkills.map((skill) => ({
                         name: skill.name,
                         type: skill.type,
                         weight: skill.weight,
@@ -60,7 +75,7 @@ export async function POST(
                 },
                 // Copy assignments
                 assignments: {
-                    create: originalClassroom.assignments.map((assignment: any) => ({
+                    create: sourceAssignments.map((assignment) => ({
                         name: assignment.name,
                         description: assignment.description,
                         order: assignment.order

@@ -7,34 +7,26 @@ type Props = {
     onComplete: () => void;
 }
 
-export function FrequencyTask({ task, onComplete }: Props) {
+export function FrequencyTask({ onComplete }: Props) {
+    const [initialTarget] = useState(() => {
+        const min = 50 + Math.random() * 20;
+        return { min, max: min + 20 };
+    });
+    const [initialValue] = useState(() => Math.random() * 40);
     // Range 0-100
-    const [value, setValue] = useState(20);
-    const [target, setTarget] = useState({ min: 60, max: 80 });
+    const [value, setValue] = useState(initialValue);
+    const [target] = useState(initialTarget);
     const [holdTime, setHoldTime] = useState(0);
     const [status, setStatus] = useState<"LOW" | "GOOD" | "HIGH">("LOW");
 
     // Stable Refs for Game Loop access
     const stateRef = useRef({
-        value: 20,
+        value: initialValue,
         holdTime: 0,
-        target: { min: 60, max: 80 }
+        target: initialTarget
     });
 
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
-    // Initial Randomization
-    useEffect(() => {
-        // Random Target Logic
-        const min = 50 + Math.random() * 20;
-        const newTarget = { min, max: min + 20 };
-        setTarget(newTarget);
-        stateRef.current.target = newTarget;
-
-        const startVal = Math.random() * 40;
-        setValue(startVal);
-        stateRef.current.value = startVal;
-    }, []);
 
     // Game Loop (Single Interval)
     useEffect(() => {

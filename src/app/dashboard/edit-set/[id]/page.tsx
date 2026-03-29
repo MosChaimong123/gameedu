@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Loader2, Plus, Save, Clock, Globe, Lock, PenSquare, FileText, Library, Image as ImageIcon, Sparkles } from "lucide-react"
+import { Loader2, Plus, Save, Globe, Lock, PenSquare, FileText, Image as ImageIcon, Sparkles } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { SettingsDialog } from "@/components/set-editor/settings-dialog"
-import { QuestionList } from "@/components/set-editor/question-list"
-import { EditorDialog } from "@/components/set-editor/editor-dialog"
+import { QuestionList, type QuestionListItem } from "@/components/set-editor/question-list"
+import { EditorDialog, type EditableQuestion } from "@/components/set-editor/editor-dialog"
 import { ImportSpreadsheetDialog } from "@/components/set-editor/import-spreadsheet-dialog"
-import { AIGeneratorDialog } from "@/components/set-editor/ai-generator-dialog"
+import { AIGeneratorDialog, type GeneratedQuestion } from "@/components/set-editor/ai-generator-dialog"
+import { PageBackLink } from "@/components/ui/page-back-link"
 
 // Types matching Prisma Schema
 // TODO: Move to a shared types file
@@ -22,6 +23,7 @@ export type Question = {
     optionTypes: string[] // "TEXT" | "IMAGE" | "MATH"
     questionType: "MULTIPLE_CHOICE" | "TYPING_ANSWER"
     correctAnswer: number
+    randomOrder?: boolean
 }
 
 export type QuestionSet = {
@@ -31,6 +33,14 @@ export type QuestionSet = {
     questions: Question[]
     isPublic: boolean
     coverImage: string | null
+}
+
+type ImportedQuestionInput = {
+    question?: string
+    timeLimit?: number
+    options?: string[]
+    questionType?: string
+    correctAnswer?: number
 }
 
 export default function EditSetPage() {
@@ -89,7 +99,7 @@ export default function EditSetPage() {
             if (!res.ok) throw new Error("Failed to save")
             router.push("/dashboard/my-sets")
             // Optional: Show happiness/success toast
-        } catch (error) {
+        } catch {
             alert("Error saving set")
         } finally {
             setSaving(false)
@@ -111,15 +121,24 @@ export default function EditSetPage() {
         setIsQuestionDialogOpen(true)
     }
 
-    const editQuestion = (q: Question) => {
-        setActiveQuestion({ ...q })
+    const editQuestion = (q: QuestionListItem) => {
+        setActiveQuestion({
+            id: q.id,
+            question: q.question || "",
+            image: q.image ?? null,
+            timeLimit: q.timeLimit,
+            options: q.options,
+            optionTypes: q.optionTypes ?? ["TEXT", "TEXT", "TEXT", "TEXT"],
+            questionType: "MULTIPLE_CHOICE",
+            correctAnswer: q.correctAnswer,
+        })
         setIsQuestionDialogOpen(true)
     }
 
     const saveQuestion = () => {
         if (!set || !activeQuestion) return
 
-        let updatedQuestions = [...set.questions]
+        const updatedQuestions = [...set.questions]
         const index = updatedQuestions.findIndex(q => q.id === activeQuestion.id)
 
         if (index >= 0) {
@@ -132,24 +151,24 @@ export default function EditSetPage() {
         setIsQuestionDialogOpen(false)
     }
 
-    const handleImportQuestions = (importedQuestions: any[]) => {
+    const handleImportQuestions = (importedQuestions: ImportedQuestionInput[] | GeneratedQuestion[]) => {
         if (!set) return
 
         // Map imported questions to ensure they conform to our Question type
-        const newQuestions: Question[] = importedQuestions.map((q: any) => ({
+        const newQuestions: Question[] = importedQuestions.map((q) => ({
             id: crypto.randomUUID(),
-            question: q.question,
+            question: q.question || "",
             image: null,
             timeLimit: q.timeLimit || 20,
             options: [
-                q.options[0] || "",
-                q.options[1] || "",
-                q.options[2] || "",
-                q.options[3] || ""
+                q.options?.[0] || "",
+                q.options?.[1] || "",
+                q.options?.[2] || "",
+                q.options?.[3] || ""
             ],
             // Default to TEXT for imported options for now
             optionTypes: ["TEXT", "TEXT", "TEXT", "TEXT"],
-            questionType: q.questionType || "MULTIPLE_CHOICE",
+            questionType: q.questionType === "TYPING_ANSWER" ? "TYPING_ANSWER" : "MULTIPLE_CHOICE",
             // Preserve correct answer if provided (e.g. from AI), otherwise default to 0 (for spreadsheet)
             correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : 0
         }))
@@ -163,7 +182,7 @@ export default function EditSetPage() {
     const deleteQuestion = (qId: string) => {
         if (!set) return
         if (!confirm(t("deleteConfirm"))) return
-        const updatedQuestions = set.questions.filter((q: any) => q.id !== qId)
+        const updatedQuestions = set.questions.filter((q) => q.id !== qId)
         setSet({ ...set, questions: updatedQuestions })
     }
 
@@ -183,6 +202,7 @@ export default function EditSetPage() {
             {/* Left Sidebar - Fixed Layout */}
             <div className="w-80 bg-white border-r flex-shrink-0 flex flex-col h-full overflow-y-auto">
                 <div className="p-6 space-y-6">
+                    <PageBackLink href="/dashboard/my-sets" label="ชุดคำถามของฉัน" />
                     {/* Cover Image & Title Block */}
                     <div className="space-y-4">
                         <div className="aspect-[4/3] rounded-xl bg-slate-100 overflow-hidden border-2 border-slate-100 shadow-sm relative group">
@@ -289,7 +309,19 @@ export default function EditSetPage() {
                 open={isQuestionDialogOpen}
                 onOpenChange={setIsQuestionDialogOpen}
                 activeQuestion={activeQuestion}
-                setActiveQuestion={setActiveQuestion}
+                setActiveQuestion={(q: EditableQuestion) => {
+                    setActiveQuestion((prev) => ({
+                        id: q.id ?? prev?.id ?? crypto.randomUUID(),
+                        question: q.question,
+                        image: q.image ?? null,
+                        timeLimit: q.timeLimit,
+                        options: q.options,
+                        optionTypes: q.optionTypes ?? prev?.optionTypes ?? ["TEXT", "TEXT", "TEXT", "TEXT"],
+                        questionType: q.questionType ?? prev?.questionType ?? "MULTIPLE_CHOICE",
+                        correctAnswer: q.correctAnswer ?? prev?.correctAnswer ?? 0,
+                        randomOrder: q.randomOrder ?? prev?.randomOrder,
+                    }))
+                }}
                 onSave={saveQuestion}
             />
 

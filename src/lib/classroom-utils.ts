@@ -2,6 +2,8 @@ export type LevelConfig = {
     [key: string]: number;
 };
 
+export type LevelConfigInput = LevelConfig | RankEntry[] | null | undefined;
+
 export type RankEntry = {
     name: string;
     minScore: number;
@@ -57,7 +59,7 @@ export const DEFAULT_LEVEL_CONFIG: LevelConfig = {
 };
 
 /** Parse levelConfig from DB — supports both old object format and new array format */
-export function parseLevelConfigToEntries(raw: any): RankEntry[] {
+export function parseLevelConfigToEntries(raw: LevelConfigInput): RankEntry[] {
     if (!raw) return DEFAULT_RANK_ENTRIES;
     // New array format
     if (Array.isArray(raw)) {
@@ -78,7 +80,7 @@ export function parseLevelConfigToEntries(raw: any): RankEntry[] {
 }
 
 /** Get rank name from a score, supporting both old and new levelConfig formats */
-export function getRankEntry(totalPoints: number, levelConfig?: any): RankEntry {
+export function getRankEntry(totalPoints: number, levelConfig?: LevelConfigInput): RankEntry {
     const entries = parseLevelConfigToEntries(levelConfig);
     let current = entries[0] || DEFAULT_RANK_ENTRIES[0];
     for (const entry of entries) {
@@ -88,11 +90,11 @@ export function getRankEntry(totalPoints: number, levelConfig?: any): RankEntry 
     return current;
 }
 
-export function getStudentRank(totalPoints: number, levelConfig?: LevelConfig | any): string {
+export function getStudentRank(totalPoints: number, levelConfig?: LevelConfigInput): string {
     return getRankEntry(totalPoints, levelConfig).name;
 }
 
-export function getNextRankProgress(totalPoints: number, levelConfig?: any) {
+export function getNextRankProgress(totalPoints: number, levelConfig?: LevelConfigInput) {
     const entries = parseLevelConfigToEntries(levelConfig);
     
     let currentRankIndex = 0;

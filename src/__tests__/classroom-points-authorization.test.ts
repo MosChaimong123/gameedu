@@ -16,8 +16,6 @@ const mockStudentFindMany = vi.fn();
 const mockStudentUpdate = vi.fn();
 const mockTransaction = vi.fn();
 const mockSendNotification = vi.fn();
-const mockHandleStaminaRefill = vi.fn();
-
 vi.mock("@/auth", () => ({
   auth: mockAuth,
 }));
@@ -41,12 +39,6 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/notifications", () => ({
   sendNotification: mockSendNotification,
-}));
-
-vi.mock("@/lib/game/idle-engine", () => ({
-  IdleEngine: {
-    handleStaminaRefill: mockHandleStaminaRefill,
-  },
 }));
 
 describe("classroom points authorization", () => {

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Link2, Loader2, Sparkles } from "lucide-react";
+import { Link2, Loader2 } from "lucide-react";
 import { joinClassroom } from "@/app/student/student-actions";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -31,7 +31,7 @@ export function SyncAccountButton({ loginCode, className }: SyncAccountButtonPro
                     description: `บัญชีของคุณถูกเชื่อมโยงกับห้องเรียน ${result.className} แล้ว คุณสามารถเข้าถึงห้องนี้ได้จากแดชบอร์ดหลักของคุณในครั้งถัดไป`,
                 });
             }
-        } catch (error) {
+        } catch {
             toast({
                 title: "เกิดข้อผิดพลาด",
                 description: "โปรดลองอีกครั้งภายหลัง",

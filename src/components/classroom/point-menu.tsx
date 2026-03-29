@@ -6,9 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skill } from "@prisma/client";
 import { cn } from "@/lib/utils";
-import { Heart, Star, Zap, ThumbsUp, Brain, Trophy, AlertCircle, X, Plus, Loader2 } from "lucide-react";
+import { Heart, Star, Zap, ThumbsUp, Brain, Trophy, AlertCircle } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
-import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { SkillManagementModal } from "./skill-management-modal";
 
@@ -24,7 +23,7 @@ interface PointMenuProps {
 }
 
 // Map icon strings to Lucide components
-const iconMap: Record<string, any> = {
+const iconMap: Record<string, typeof Heart> = {
     "heart": Heart,
     "star": Star,
     "zap": Zap,
@@ -56,11 +55,12 @@ export function PointMenu({
 
 
 
-    const renderSkillButton = (skill: Skill, isPositive: boolean) => {
+    const renderSkillButton = (skill: Skill, isPositive: boolean, index: number) => {
         const Icon = (skill.icon && iconMap[skill.icon as keyof typeof iconMap]) || (isPositive ? iconMap["default"] : AlertCircle);
+        const stableKey = skill.id || `${isPositive ? "pos" : "nw"}-${index}-${skill.name}`;
         return (
             <motion.div 
-                key={skill.id} 
+                key={stableKey} 
                 className="relative group h-full"
                 whileHover={{ y: -5, scale: 1.02 }}
                 whileTap={{ scale: 0.95 }}
@@ -105,13 +105,11 @@ export function PointMenu({
         );
     };
 
-    const renderAddForm = (type: "POSITIVE" | "NEEDS_WORK") => null;
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-[95vw] w-[95vw] p-0 overflow-hidden bg-slate-50 border-0 shadow-[0_32px_128px_-16px_rgba(0,0,0,0.4)] rounded-[4rem] h-[95vh] flex flex-col">
+            <DialogContent className="w-[min(98vw,1920px)] max-w-[min(98vw,1920px)] sm:max-w-[min(98vw,1920px)] p-0 overflow-hidden bg-slate-50 border-0 shadow-[0_32px_128px_-16px_rgba(0,0,0,0.4)] rounded-[4rem] h-[min(95vh,1080px)] flex flex-col">
 
-                <DialogHeader className="p-12 pb-8 relative z-20 bg-white/70 backdrop-blur-xl border-b-2 border-slate-100 flex-shrink-0">
+                <DialogHeader className="p-8 sm:p-10 lg:p-12 pb-6 sm:pb-8 relative z-20 bg-white/70 backdrop-blur-xl border-b-2 border-slate-100 flex-shrink-0">
                     <div className="flex justify-between items-center">
                         <DialogTitle className="text-3xl font-black tracking-tighter text-slate-800">
                             {t("giveFeedbackTo")} <span className="text-indigo-600 bg-indigo-50 px-4 py-1 rounded-2xl ml-2 inline-block border-2 border-indigo-100/50">{studentName}</span>
@@ -127,7 +125,7 @@ export function PointMenu({
                     </div>
                 </DialogHeader>
 
-                <Tabs defaultValue="positive" className="flex-1 flex flex-col overflow-hidden px-12 pb-12">
+                <Tabs defaultValue="positive" className="flex-1 flex flex-col overflow-hidden px-6 sm:px-10 lg:px-14 pb-10">
 
                     <TabsList className="grid w-full grid-cols-2 p-2 bg-slate-200/50 rounded-[2.5rem] h-auto mb-6 border-2 border-slate-100/50">
                         <TabsTrigger 
@@ -145,14 +143,14 @@ export function PointMenu({
                     </TabsList>
 
                     <AnimatePresence mode="wait">
-                        <TabsContent value="positive" className="flex-1 overflow-y-auto pr-2 custom-scrollbar focus-visible:outline-none">
+                        <TabsContent key="tab-positive" value="positive" className="flex-1 overflow-y-auto pr-2 custom-scrollbar focus-visible:outline-none">
                             <motion.div 
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
-                                className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 p-2"
+                                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6 sm:gap-8 p-2"
                             >
-                                {positiveSkills.map((skill) => renderSkillButton(skill, true))}
+                                {positiveSkills.map((skill, i) => renderSkillButton(skill, true, i))}
                                 {positiveSkills.length === 0 && (
                                     <div className="col-span-full text-center py-20 bg-white/50 rounded-[3rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center">
                                         <Star className="w-12 h-12 text-slate-300 mb-4" />
@@ -164,14 +162,14 @@ export function PointMenu({
                             </motion.div>
                         </TabsContent>
 
-                        <TabsContent value="needs_work" className="flex-1 overflow-y-auto pr-2 custom-scrollbar focus-visible:outline-none">
+                        <TabsContent key="tab-needs-work" value="needs_work" className="flex-1 overflow-y-auto pr-2 custom-scrollbar focus-visible:outline-none">
                             <motion.div 
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
-                                className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 p-2"
+                                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6 sm:gap-8 p-2"
                             >
-                                {needsWorkSkills.map((skill) => renderSkillButton(skill, false))}
+                                {needsWorkSkills.map((skill, i) => renderSkillButton(skill, false, i))}
                                 {needsWorkSkills.length === 0 && (
                                     <div className="col-span-full text-center py-20 bg-white/50 rounded-[3rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center">
                                         <AlertCircle className="w-12 h-12 text-slate-300 mb-4" />
@@ -190,7 +188,7 @@ export function PointMenu({
                 open={isManagementOpen}
                 onOpenChange={setIsManagementOpen}
                 classId={classId}
-                skills={skills as any}
+                skills={skills}
                 onSkillsChanged={onSkillsChanged}
             />
         </Dialog>

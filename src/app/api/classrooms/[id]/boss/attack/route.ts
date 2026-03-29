@@ -147,11 +147,20 @@ export async function POST(
             });
         }
 
+        // Re-fetch gameStats AFTER applyBossDamage has saved boss HP / CTB state,
+        // so our XP update doesn't overwrite the new personalClassroomBoss data.
+        const studentAfterBoss = await db.student.findUnique({
+            where: { id: student.id },
+            select: { gameStats: true },
+        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const latestStats = (studentAfterBoss?.gameStats as any) ?? currentStats;
+
         const updatedStudent = await db.student.update({
             where: { id: student.id },
             data: {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                gameStats: { ...currentStats, level: xpResult.level, xp: xpResult.xp, limitBreakCharge: newCharge } as any,
+                gameStats: { ...latestStats, level: xpResult.level, xp: xpResult.xp, limitBreakCharge: newCharge } as any,
                 ...(isMagicAction ? { mana: { decrement: manaCost } } : {}),
                 ...(updatedJobSkills ? { jobSkills: updatedJobSkills } : {})
             },

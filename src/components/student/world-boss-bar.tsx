@@ -887,6 +887,11 @@ export function WorldBossBar({ bosses: bossesProp, studentId, stamina = 0, maxSt
                     {/* ── Player Skill Selector ── */}
                     {bossSkills.length > 0 && (
                         <div className="relative z-10 pt-2 border-t border-slate-100">
+                            {isBound && !selectedSkillId && (
+                                <div className="mb-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-800 text-xs font-black flex items-center gap-2">
+                                    ⛓️ ถูกล็อค — เลือกสกิล Magic ด้านล่างเพื่อโจมตีแทน
+                                </div>
+                            )}
                             <p className="text-[10px] uppercase font-black text-slate-400 tracking-wider mb-2">สกิลของคุณ — เลือกก่อนกด Magic</p>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 {bossSkills.map((sk) => {

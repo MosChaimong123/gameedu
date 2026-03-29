@@ -55,6 +55,7 @@ export function AccessibilityControlPanel({
               onClick={toggleReducedMotion}
               className="h-auto min-w-[170px] justify-start gap-3 rounded-2xl border-slate-200 bg-white/85 px-4 py-3 text-left shadow-sm hover:bg-white"
               aria-pressed={reducedMotion}
+              suppressHydrationWarning
             >
               {reducedMotion ? (
                 <WavesLadder className="h-4 w-4 text-amber-600" />
@@ -77,6 +78,7 @@ export function AccessibilityControlPanel({
               onClick={toggleReducedSound}
               className="h-auto min-w-[170px] justify-start gap-3 rounded-2xl border-slate-200 bg-white/85 px-4 py-3 text-left shadow-sm hover:bg-white"
               aria-pressed={reducedSound}
+              suppressHydrationWarning
             >
               {reducedSound ? (
                 <EarOff className="h-4 w-4 text-rose-600" />
@@ -99,6 +101,7 @@ export function AccessibilityControlPanel({
               onClick={toggleMute}
               className="h-auto min-w-[170px] justify-start gap-3 rounded-2xl border-slate-200 bg-white/85 px-4 py-3 text-left shadow-sm hover:bg-white"
               aria-pressed={isMuted}
+              suppressHydrationWarning
             >
               {isMuted ? (
                 <VolumeX className="h-4 w-4 text-slate-600" />

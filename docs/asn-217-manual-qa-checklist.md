@@ -49,3 +49,21 @@ Manual QA checklist for the Assignment Command Center teacher flow.
 - Tester: `<fill>`
 - Date: `<fill>`
 - Status: `[ ] Pass  [ ] Pass with notes  [ ] Blocked`
+
+## Optional Browser Smoke (Playwright)
+
+Prerequisites:
+
+- app running at `PLAYWRIGHT_BASE_URL` (default `http://127.0.0.1:3000`)
+- teacher-auth storage state file (optional but recommended):
+  - set `PLAYWRIGHT_STORAGE_STATE=<path-to-json>`
+- sample IDs for targeted deep-link checks:
+  - `ASN_E2E_CLASS_ID=<class ObjectId>`
+  - `ASN_E2E_ASSIGNMENT_ID=<assignment ObjectId>`
+
+Commands:
+
+```bash
+npm run test:e2e:asn:install
+npm run test:e2e:asn
+```

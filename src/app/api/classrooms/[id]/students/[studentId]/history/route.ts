@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
 
 export async function GET(
     req: Request,
@@ -10,7 +11,7 @@ export async function GET(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
     try {
@@ -20,7 +21,7 @@ export async function GET(
         });
 
         if (!classroom) {
-            return new NextResponse("Not Found", { status: 404 });
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
         }
 
         // Fetch the student and their full history
@@ -30,7 +31,7 @@ export async function GET(
                 id: true,
                 name: true,
                 nickname: true,
-                points: true,
+                behaviorPoints: true,
                 avatar: true,
                 history: {
                     orderBy: { timestamp: "desc" },
@@ -40,13 +41,13 @@ export async function GET(
         });
 
         if (!student) {
-            return new NextResponse("Student Not Found", { status: 404 });
+            return createAppErrorResponse("NOT_FOUND", "Student Not Found", 404);
         }
 
         return NextResponse.json(student);
 
     } catch (error) {
         console.error("[STUDENT_HISTORY_GET]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
     }
 }

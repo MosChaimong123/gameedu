@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
 type GroupEntry = {
     name: string
@@ -15,7 +16,7 @@ export async function GET(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
@@ -46,7 +47,7 @@ export async function POST(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
@@ -65,7 +66,26 @@ export async function POST(
         });
 
         if (!classroom) {
-            return new NextResponse("Unauthorized", { status: 401 });
+            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        }
+
+        const requestedStudentIds = groups.flatMap((group) => group.studentIds);
+        if (requestedStudentIds.length > 0) {
+            const students = await db.student.findMany({
+                where: {
+                    id: {
+                        in: requestedStudentIds,
+                    },
+                },
+                select: {
+                    id: true,
+                    classId: true,
+                },
+            });
+
+            if (students.length !== requestedStudentIds.length || students.some((student) => student.classId !== id)) {
+                return new NextResponse("Student not found in classroom", { status: 404 });
+            }
         }
 
         // Store the entire set of groups as a single record

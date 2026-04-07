@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
-
-type CustomAchievement = {
-  id: string;
-  name: string;
-  icon: string;
-  goldReward: number;
-};
-
-type GamifiedSettings = {
-  customAchievements?: CustomAchievement[];
-};
+import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error";
+import {
+  getClassroomGamificationRecord,
+  getCustomAchievementsFromGamification,
+} from "@/lib/services/classroom-settings/gamification-settings";
+import { logAuditEvent } from "@/lib/security/audit-log";
 
 // POST /api/classrooms/[id]/custom-achievements/award
 // Body: { achievementId, studentId }
@@ -21,33 +16,49 @@ export async function POST(
 ) {
   try {
     const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.id) {
+      return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
 
     const { id } = await params;
     const { achievementId, studentId } = await req.json();
 
-    // 1. Get classroom and find the achievement definition
-    const classroom = await db.classroom.findUnique({
-      where: { id },
-      select: { gamifiedSettings: true }
-    });
-    if (!classroom) return NextResponse.json({ error: "Classroom not found" }, { status: 404 });
+    const classroom = await getClassroomGamificationRecord(id);
 
-    const settings = (classroom.gamifiedSettings as GamifiedSettings | null) || {};
-    const customAchievements = settings.customAchievements || [];
-    const achievementDef = customAchievements.find((a) => a.id === achievementId);
+    if (!classroom) {
+      return createAppErrorResponse("NOT_FOUND", "Classroom not found", 404);
+    }
 
-    if (!achievementDef) return NextResponse.json({ error: "Achievement not found" }, { status: 404 });
+    if (classroom.teacherId !== session.user.id) {
+      return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+    }
 
-    // 2. Check student exists and hasn't already received it
+    const customAchievements = getCustomAchievementsFromGamification(classroom.gamifiedSettings);
+    const achievementDef = customAchievements.find((achievement) => achievement.id === achievementId);
+
+    if (!achievementDef) {
+      return createAppErrorResponse("NOT_FOUND", "Achievement not found", 404);
+    }
+
     const student = await db.student.findUnique({
       where: { id: studentId },
-      select: { id: true, achievements: { where: { achievementId } } }
+      select: {
+        id: true,
+        classId: true,
+        achievements: { where: { achievementId } },
+      },
     });
 
-    if (!student) return NextResponse.json({ error: "Student not found" }, { status: 404 });
+    if (!student) {
+      return createAppErrorResponse("NOT_FOUND", "Student not found", 404);
+    }
+
+    if (student.classId !== id) {
+      return createAppErrorResponse("NOT_FOUND", "Student not found in classroom", 404);
+    }
+
     if (student.achievements.length > 0) {
-      return NextResponse.json({ error: "นักเรียนได้รับรางวัลนี้ไปแล้ว" }, { status: 400 });
+      return createAppErrorResponse("INVALID_PAYLOAD", "Student already received this achievement", 400);
     }
 
     await db.studentAchievement.create({
@@ -55,27 +66,39 @@ export async function POST(
         studentId,
         achievementId,
         goldRewarded: achievementDef.goldReward,
-      }
+      },
     });
 
     await db.student.update({
       where: { id: studentId },
       data: {
-        points: { increment: achievementDef.goldReward },
-      }
+        behaviorPoints: { increment: achievementDef.goldReward },
+      },
     });
 
     await db.pointHistory.create({
       data: {
         studentId,
-        reason: `${achievementDef.icon} รางวัลพิเศษจากครู: ${achievementDef.name}`,
+        reason: `${achievementDef.icon} Special reward from teacher: ${achievementDef.name}`,
         value: achievementDef.goldReward,
-      }
+      },
+    });
+
+    logAuditEvent({
+      actorUserId: session.user.id,
+      action: "classroom.custom_achievement.awarded",
+      targetType: "student",
+      targetId: studentId,
+      metadata: {
+        classroomId: id,
+        achievementId,
+        goldReward: achievementDef.goldReward,
+      },
     });
 
     return NextResponse.json({ success: true, pointsAwarded: achievementDef.goldReward });
   } catch (error) {
     console.error("Error awarding custom achievement:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
   }
 }

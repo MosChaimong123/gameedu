@@ -1,12 +1,22 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { DEFAULT_LEVEL_CONFIG } from "@/lib/classroom-utils";
+import { AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
+
+function canManageClassrooms(role?: string | null) {
+    return role === "TEACHER" || role === "ADMIN";
+}
 
 export async function GET() {
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+    }
+
+    if (!canManageClassrooms(session.user.role)) {
+        return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 });
     }
 
     try {
@@ -35,7 +45,11 @@ export async function POST(req: Request) {
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+    }
+
+    if (!canManageClassrooms(session.user.role)) {
+        return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 });
     }
 
     try {
@@ -53,15 +67,7 @@ export async function POST(req: Request) {
                 grade,
                 image,
                 teacherId: session.user.id as string,
-                levelConfig: {
-                    'ชาวบ้าน (Villager)': 0,
-                    'ทหารฝึกหัด (Militia)': 10,
-                    'ผู้พิทักษ์ (Defender)': 20,
-                    'อัศวิน (Knight)': 40,
-                    'กัปตัน (Captain)': 60,
-                    'ฮีโร่ (Hero)': 80,
-                    'ตำนาน (Legend)': 100,
-                },
+                levelConfig: DEFAULT_LEVEL_CONFIG,
                 // Add default skills
                 skills: {
                     create: [

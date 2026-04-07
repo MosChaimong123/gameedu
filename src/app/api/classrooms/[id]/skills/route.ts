@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
 
 export async function GET(
     req: Request,
@@ -10,7 +11,7 @@ export async function GET(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
     try {
@@ -26,7 +27,7 @@ export async function GET(
         return NextResponse.json(skills);
     } catch (error) {
         console.error("[SKILLS_GET]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
     }
 }
 
@@ -38,7 +39,7 @@ export async function POST(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
     try {
@@ -46,7 +47,7 @@ export async function POST(
         const { name, weight, type, icon } = body;
 
         if (!name || weight === undefined || !type || !icon) {
-            return new NextResponse("Missing required fields", { status: 400 });
+            return createAppErrorResponse("INVALID_PAYLOAD", "Missing required fields", 400);
         }
 
         const classroom = await db.classroom.findUnique({
@@ -57,7 +58,7 @@ export async function POST(
         });
 
         if (!classroom) {
-            return new NextResponse("Unauthorized", { status: 401 });
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
         }
 
         const skill = await db.skill.create({
@@ -74,6 +75,6 @@ export async function POST(
 
     } catch (error) {
         console.error("[SKILL_POST]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
     }
 }

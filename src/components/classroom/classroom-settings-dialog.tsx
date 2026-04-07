@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { Classroom } from "@prisma/client";
 import {
@@ -14,7 +14,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Palette, School, Upload, RefreshCw, AlertTriangle } from "lucide-react";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Settings, Palette, School, Upload, RefreshCw, AlertTriangle, ClipboardList } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
 
@@ -42,13 +49,23 @@ const GRADE_PRESETS = [
     "ม.1","ม.2","ม.3","ม.4","ม.5","ม.6",
 ];
 
+const CLASSROOM_QUIZ_REVIEW_INHERIT = "inherit";
+
 interface ClassroomSettingsDialogProps {
     classroom: Classroom;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    onSaved?: (classroom: Classroom) => void;
+    onPointsReset?: () => void;
 }
 
-export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: ClassroomSettingsDialogProps) {
+export function ClassroomSettingsDialog({
+    classroom,
+    open,
+    onOpenChange,
+    onSaved,
+    onPointsReset,
+}: ClassroomSettingsDialogProps) {
     const classroomWithGrade = classroom as Classroom & { grade?: string | null };
     const { t } = useLanguage();
     const [loading, setLoading] = useState(false);
@@ -67,17 +84,41 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const [classroomQuizReview, setClassroomQuizReview] = useState<string>(() => {
+        const m = classroom.quizReviewMode;
+        if (m === "never" || m === "end_only") return m;
+        return CLASSROOM_QUIZ_REVIEW_INHERIT;
+    });
+
+    useEffect(() => {
+        if (!open) return;
+        const m = classroom.quizReviewMode;
+        if (m === "never" || m === "end_only") {
+            setClassroomQuizReview(m);
+        } else {
+            setClassroomQuizReview(CLASSROOM_QUIZ_REVIEW_INHERIT);
+        }
+    }, [open, classroom.id, classroom.quizReviewMode]);
+
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         if (!file.type.startsWith("image/")) {
-            toast({ title: t("error") || "Error", description: "Please upload an image file", variant: "destructive" });
+            toast({
+                title: t("error"),
+                description: t("toastSettingsImageTypeError"),
+                variant: "destructive",
+            });
             return;
         }
 
         if (file.size > 2 * 1024 * 1024) { // 2MB limit
-            toast({ title: t("error") || "Error", description: "Image size should be less than 2MB", variant: "destructive" });
+            toast({
+                title: t("error"),
+                description: t("toastSettingsImageSizeError"),
+                variant: "destructive",
+            });
             return;
         }
 
@@ -98,15 +139,29 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
             const res = await fetch(`/api/classrooms/${classroom.id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, grade: grade.trim() || null, emoji, theme: finalTheme })
+                body: JSON.stringify({
+                    name,
+                    grade: grade.trim() || null,
+                    emoji,
+                    theme: finalTheme,
+                    quizReviewMode:
+                        classroomQuizReview === CLASSROOM_QUIZ_REVIEW_INHERIT
+                            ? null
+                            : classroomQuizReview,
+                })
             });
             if (res.ok) {
-                toast({ title: t("settingsSaved") || "Settings Saved" });
+                const updatedClassroom = await res.json() as Classroom;
+                toast({ title: t("settingsSaved") });
+                onSaved?.(updatedClassroom);
                 onOpenChange(false);
-                window.location.reload();
             } else throw new Error("Failed");
         } catch {
-            toast({ title: t("error") || "Error", variant: "destructive", description: "Could not save settings." });
+            toast({
+                title: t("settingsSaveFailedTitle"),
+                variant: "destructive",
+                description: t("settingsSaveFailedDesc"),
+            });
         } finally {
             setLoading(false);
         }
@@ -133,10 +188,17 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
                 method: "POST"
             });
             if (!res.ok) throw new Error("Failed");
-            toast({ title: t("success") || "Success", description: "All points have been reset to 0." });
-            window.location.reload();
+            toast({
+                title: t("success"),
+                description: t("resetPointsSuccessDesc"),
+            });
+            onPointsReset?.();
         } catch {
-            toast({ title: t("error") || "Error", variant: "destructive", description: "Could not reset points." });
+            toast({
+                title: t("error"),
+                variant: "destructive",
+                description: t("resetPointsFailDesc"),
+            });
         } finally {
             setLoading(false);
             setShowResetConfirm(false);
@@ -156,9 +218,9 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
                             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center border border-white/30 shadow-inner">
                                 <Settings className="w-5 h-5" />
                             </div>
-                            {t("classroomSettings") || "Classroom Settings"}
+                            {t("classroomSettings")}
                         </DialogTitle>
-                        <p className="text-white/80 text-sm mt-1">ปรับแต่งห้องเรียนของคุณ</p>
+                        <p className="text-white/80 text-sm mt-1">{t("settingsCustomizeSubtitle")}</p>
                     </DialogHeader>
                 </div>
 
@@ -167,17 +229,17 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
                     <div className="grid grid-cols-3 gap-5">
                         <div className="col-span-2 space-y-2">
                             <Label className="text-sm font-bold text-slate-500 flex items-center gap-2">
-                                <School className="w-4 h-4" /> ชื่อห้องเรียน
+                                <School className="w-4 h-4" /> {t("classroomNameLabel")}
                             </Label>
                             <Input 
                                 value={name} 
                                 onChange={(e) => setName(e.target.value)}
                                 className="h-12 text-lg font-bold rounded-xl border-2 focus-visible:ring-indigo-400 transition-all shadow-sm"
-                                placeholder="เช่น ป.5/1 ห้องตัวอย่าง"
+                                placeholder={t("classroomNamePlaceholderExample")}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-sm font-bold text-slate-500">ระดับชั้น</Label>
+                            <Label className="text-sm font-bold text-slate-500">{t("gradeLevelLabel")}</Label>
                             <div className="grid grid-cols-2 gap-2">
                                 <Input 
                                     value={grade} 
@@ -203,7 +265,7 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
                     {/* Row 2: Emoji / Icon Picker */}
                     <div className="space-y-3">
                         <Label className="text-sm font-bold text-slate-500 flex items-center gap-2">
-                            ไอคอนห้องเรียน
+                            {t("classroomIconLabel")}
                         </Label>
                         <div className="flex gap-4 items-start">
                             <div 
@@ -249,7 +311,7 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
                             <Label className="text-sm font-bold text-slate-500 flex items-center gap-2">
-                                <Palette className="w-4 h-4" /> ธีมสีห้องเรียน
+                                <Palette className="w-4 h-4" /> {t("classroomThemeColorsLabel")}
                             </Label>
                             <Button 
                                 variant="ghost" 
@@ -258,22 +320,22 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
                                 onClick={() => setIsCustomTheme(!isCustomTheme)}
                                 className={`text-xs font-bold ${isCustomTheme ? 'text-indigo-600' : 'text-slate-400'}`}
                             >
-                                {isCustomTheme ? "✨ ใช้ธีมสำเร็จรูป" : "🎨 สร้างธีมเอง"}
+                                {isCustomTheme ? t("themeToggleUsePresets") : t("themeToggleCustomGradients")}
                             </Button>
                         </div>
 
                         {!isCustomTheme ? (
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                {THEMES.map(t => (
+                                {THEMES.map((preset) => (
                                     <button
-                                        key={t.value}
+                                        key={preset.value}
                                         type="button"
-                                        onClick={() => setTheme(t.value)}
-                                        className={`group relative h-16 rounded-xl overflow-hidden shadow-sm transition-all hover:scale-[1.02] border-2 ${theme === t.value ? 'border-slate-800 ring-2 ring-slate-800 ring-offset-2' : 'border-transparent'}`}
+                                        onClick={() => setTheme(preset.value)}
+                                        className={`group relative h-16 rounded-xl overflow-hidden shadow-sm transition-all hover:scale-[1.02] border-2 ${theme === preset.value ? 'border-slate-800 ring-2 ring-slate-800 ring-offset-2' : 'border-transparent'}`}
                                     >
-                                        <div className={`absolute inset-0 bg-gradient-to-r ${t.value}`} />
+                                        <div className={`absolute inset-0 bg-gradient-to-r ${preset.value}`} />
                                         <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-colors">
-                                            <span className="text-white text-xs font-black drop-shadow-md brightness-110">{t.label}</span>
+                                            <span className="text-white text-xs font-black drop-shadow-md brightness-110">{preset.label}</span>
                                         </div>
                                     </button>
                                 ))}
@@ -282,7 +344,7 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
                             <div className="bg-white p-5 rounded-2xl border-2 border-dashed border-indigo-200 space-y-4">
                                 <div className="grid grid-cols-2 gap-6">
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">จุดเริ่มต้น (Start)</label>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t("customGradientStartLabel")}</label>
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-lg shadow-inner border" style={{ backgroundColor: customStartColor }} />
                                             <input 
@@ -294,7 +356,7 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
                                         </div>
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">จุดจบ (End)</label>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t("customGradientEndLabel")}</label>
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-lg shadow-inner border" style={{ backgroundColor: customEndColor }} />
                                             <input 
@@ -308,11 +370,41 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
                                 </div>
                                 <div className="h-10 rounded-xl shadow-inner border-2 border-white bg-slate-100 flex items-center justify-center">
                                     <div className="w-full h-full rounded-[10px] flex items-center justify-center font-bold text-white text-sm" style={{ backgroundImage: `linear-gradient(to right, ${customStartColor}, ${customEndColor})` }}>
-                                        ตัวอย่างสีของคุณ
+                                        {t("customGradientPreviewBar")}
                                     </div>
                                 </div>
                             </div>
                         )}
+                    </div>
+
+                    {/* Quiz review default for this classroom */}
+                    <div className="space-y-3 bg-white p-5 rounded-2xl border-2 border-slate-100 shadow-sm">
+                        <Label className="text-sm font-bold text-slate-500 flex items-center gap-2">
+                            <ClipboardList className="w-4 h-4" />
+                            {t("classroomDefaultQuizReviewTitle")}
+                        </Label>
+                        <p className="text-xs text-slate-500 leading-snug">
+                            {t("classroomDefaultQuizReviewHint")}
+                        </p>
+                        <Select
+                            value={classroomQuizReview}
+                            onValueChange={setClassroomQuizReview}
+                        >
+                            <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 font-medium text-left">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={CLASSROOM_QUIZ_REVIEW_INHERIT}>
+                                    {t("quizReviewModeInherit")}
+                                </SelectItem>
+                                <SelectItem value="end_only">
+                                    {t("quizReviewModeEndOnly")}
+                                </SelectItem>
+                                <SelectItem value="never">
+                                    {t("quizReviewModeScoreOnly")}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     {/* Zone Danger */}
@@ -321,9 +413,9 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
                            <div className="flex items-start justify-between relative z-10">
                                 <div className="space-y-1">
                                     <h4 className="font-black text-red-600 flex items-center gap-2">
-                                        <AlertTriangle className="w-4 h-4" /> รีเซ็ตคะแนนนักเรียน
+                                        <AlertTriangle className="w-4 h-4" /> {t("resetBehaviorPointsZoneTitle")}
                                     </h4>
-                                    <p className="text-xs text-red-500/80 font-medium">คะแนนทั้งหมดของนักเรียนในห้องนี้จะกลับเป็น 0 (ไม่สามารถย้อนกลับได้)</p>
+                                    <p className="text-xs text-red-500/80 font-medium">{t("resetBehaviorPointsZoneHint")}</p>
                                 </div>
                                 
                                 <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
@@ -332,17 +424,17 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
                                         onClick={() => setShowResetConfirm(true)}
                                         className="h-10 px-4 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white rounded-xl transition-all font-bold text-sm shadow-sm"
                                     >
-                                        <RefreshCw className="w-4 h-4 mr-2 inline" /> รีเซ็ตคะแนน
+                                        <RefreshCw className="w-4 h-4 mr-2 inline" /> {t("resetBehaviorPointsButton")}
                                     </button>
                                     <DialogContent className="sm:max-w-[400px]">
                                         <DialogHeader>
-                                            <DialogTitle className="text-red-600">ยืนยันการรีเซ็ตคะแนน?</DialogTitle>
-                                            <DialogDescription>การดำเนินการนี้จะทำให้คะแนนสะสมของนักเรียนทุกคนในห้องนี้กลายเป็น 0 ทันที และข้อความประกาศคะแนนจะถูกลบออก (ไม่รวมประวัติการเข้าเรียน)</DialogDescription>
+                                            <DialogTitle className="text-red-600">{t("resetBehaviorPointsDialogTitle")}</DialogTitle>
+                                            <DialogDescription>{t("resetBehaviorPointsDialogDescription")}</DialogDescription>
                                         </DialogHeader>
                                         <DialogFooter className="gap-2 sm:gap-0">
-                                            <Button variant="outline" type="button" onClick={() => setShowResetConfirm(false)}>ยกเลิก</Button>
+                                            <Button variant="outline" type="button" onClick={() => setShowResetConfirm(false)}>{t("cancel")}</Button>
                                             <Button variant="destructive" type="button" onClick={handleResetPoints} disabled={loading}>
-                                                {loading ? "กำลังดำเนินการ..." : "ยืนยันการรีเซ็ต"}
+                                                {loading ? t("resetInProgress") : t("resetConfirmButton")}
                                             </Button>
                                         </DialogFooter>
                                     </DialogContent>
@@ -357,14 +449,14 @@ export function ClassroomSettingsDialog({ classroom, open, onOpenChange }: Class
 
                 {/* Footer */}
                 <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-white shrink-0">
-                    <Button variant="outline" type="button" onClick={() => onOpenChange(false)} className="h-11 px-5">{t("cancel") || "Cancel"}</Button>
+                    <Button variant="outline" type="button" onClick={() => onOpenChange(false)} className="h-11 px-5">{t("cancel")}</Button>
                     <Button 
                         type="button"
                         onClick={onSave} 
                         disabled={loading}
                         className={`h-11 px-8 hover:opacity-90 transition-opacity bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md border-0`}
                     >
-                        {loading ? "กำลังบันทึก..." : (t("saveChanges") || "Save")}
+                        {loading ? t("savingChanges") : t("saveChanges")}
                     </Button>
                 </div>
             </DialogContent>

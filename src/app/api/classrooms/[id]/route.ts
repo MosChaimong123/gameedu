@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    InvalidClassroomBasicUpdateError,
+    type ClassroomBasicUpdateInput,
+    updateClassroomBasics,
+} from "@/lib/services/classroom-settings/update-classroom-basics";
 
 export async function GET(
     req: Request,
@@ -10,29 +16,29 @@ export async function GET(
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
         const classroom = await db.classroom.findUnique({
             where: {
                 id,
-                teacherId: session.user.id as string // Ensure ownership
+                teacherId: session.user.id as string,
             },
             include: {
                 students: {
-                    orderBy: { name: 'asc' },
+                    orderBy: { name: "asc" },
                     include: {
-                        submissions: true
-                    }
+                        submissions: true,
+                    },
                 },
                 skills: true,
                 assignments: {
                     orderBy: {
-                        order: 'asc'
-                    }
-                }
-            }
+                        order: "asc",
+                    },
+                },
+            },
         });
 
         if (!classroom) {
@@ -54,15 +60,15 @@ export async function DELETE(
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
         const classroom = await db.classroom.delete({
             where: {
                 id,
-                teacherId: session.user.id as string
-            }
+                teacherId: session.user.id as string,
+            },
         });
 
         return NextResponse.json(classroom);
@@ -80,24 +86,23 @@ export async function PATCH(
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
-        const body = await req.json();
-        
-        const classroom = await db.classroom.update({
-            where: {
-                id,
-                teacherId: session.user.id as string
-            },
-            data: {
-                ...body
-            }
+        const body = await req.json() as ClassroomBasicUpdateInput;
+        const classroom = await updateClassroomBasics({
+            classroomId: id,
+            teacherId: session.user.id as string,
+            body,
         });
 
         return NextResponse.json(classroom);
     } catch (error) {
+        if (error instanceof InvalidClassroomBasicUpdateError) {
+            return new NextResponse(error.message, { status: 400 });
+        }
+
         console.error("[CLASSROOM_PATCH]", error);
         return new NextResponse("Internal Error", { status: 500 });
     }

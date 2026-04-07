@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
-import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { requireSessionUser } from "@/lib/auth-guards";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
 type StudentAnalyticsRecord = {
   id: string;
@@ -15,8 +16,13 @@ type AnalyticsStudent = {
   id: string;
   name: string;
   nickname: string | null;
-  points: number;
+  behaviorPoints: number;
   attendance: string | null;
+  submissions: {
+    assignmentId: string;
+    score: number;
+    submittedAt: Date;
+  }[];
   history: {
     id: string;
     reason: string;
@@ -34,20 +40,56 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const session = await auth();
-  if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
+  const user = await requireSessionUser();
+  if (!user) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
 
   try {
     const classroom = await db.classroom.findUnique({
-      where: { id, teacherId: session.user.id },
-      include: {
+      where: { id, teacherId: user.id },
+      select: {
+        assignments: {
+          orderBy: { order: "asc" },
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            maxScore: true,
+            passScore: true,
+            deadline: true,
+            visible: true,
+          },
+        },
         students: {
-          include: {
-            history: { orderBy: { timestamp: "desc" } },
-            achievements: true,
-          }
-        }
-      }
+          select: {
+            id: true,
+            name: true,
+            nickname: true,
+            behaviorPoints: true,
+            attendance: true,
+            submissions: {
+              select: {
+                assignmentId: true,
+                score: true,
+                submittedAt: true,
+              },
+            },
+            history: {
+              orderBy: { timestamp: "desc" },
+              select: {
+                id: true,
+                reason: true,
+                value: true,
+                timestamp: true,
+              },
+            },
+            achievements: {
+              select: {
+                achievementId: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!classroom) return new NextResponse("Not Found", { status: 404 });
@@ -123,13 +165,59 @@ export async function GET(
         id: s.id,
         name: s.name,
         nickname: s.nickname ?? null,
-        points: s.points,
+        behaviorPoints: s.behaviorPoints,
         totalPositive: pos,
         totalNeedsWork: neg,
         attendance: att,
         achievementCount: s.achievements.length,
       };
     });
+
+    // ── Assignment analytics ──────────────────────────────────────────
+    const students = classroom.students as AnalyticsStudent[];
+    const totalStudents = students.length;
+
+    // Build submission map: assignmentId → { studentId → score }
+    const subMap = new Map<string, Map<string, number>>();
+    for (const student of students) {
+      for (const sub of student.submissions) {
+        if (!subMap.has(sub.assignmentId)) subMap.set(sub.assignmentId, new Map());
+        subMap.get(sub.assignmentId)!.set(student.id, sub.score);
+      }
+    }
+
+    const assignmentStats = (classroom.assignments ?? [])
+      .filter((a) => a.visible !== false)
+      .map((assignment) => {
+        const subs = subMap.get(assignment.id) ?? new Map<string, number>();
+        const submittedCount = subs.size;
+        const scores = [...subs.values()];
+        const avgScore = scores.length > 0
+          ? Math.round((scores.reduce((s, v) => s + v, 0) / scores.length) * 10) / 10
+          : 0;
+        const maxScore = assignment.maxScore ?? 100;
+        const passScore = assignment.passScore ?? null;
+        const passCount = passScore !== null ? scores.filter((s) => s >= passScore).length : null;
+        const notSubmittedIds = totalStudents > 0
+          ? students
+              .filter((st) => !subs.has(st.id))
+              .map((st) => ({ id: st.id, name: st.name }))
+          : [];
+
+        return {
+          id: assignment.id,
+          name: assignment.name,
+          type: assignment.type,
+          maxScore,
+          passScore,
+          submittedCount,
+          totalStudents,
+          submissionRate: totalStudents > 0 ? Math.round((submittedCount / totalStudents) * 100) : 0,
+          avgScore,
+          passCount,
+          notSubmitted: notSubmittedIds,
+        };
+      });
 
     return NextResponse.json({
       summary: [
@@ -141,10 +229,10 @@ export async function GET(
       recentHistory: recentHistory.slice(0, 100),
       studentStats,
       attendanceSummary: [
-        { name: "มาเรียน", value: attendanceSummary.PRESENT, fill: "#22c55e" },
-        { name: "สาย", value: attendanceSummary.LATE, fill: "#f59e0b" },
-        { name: "ขาดเรียน", value: attendanceSummary.ABSENT, fill: "#ef4444" },
-        { name: "ออกก่อน", value: attendanceSummary.LEFT_EARLY, fill: "#f97316" },
+        { status: "PRESENT", value: attendanceSummary.PRESENT, fill: "#22c55e" },
+        { status: "LATE", value: attendanceSummary.LATE, fill: "#f59e0b" },
+        { status: "ABSENT", value: attendanceSummary.ABSENT, fill: "#ef4444" },
+        { status: "LEFT_EARLY", value: attendanceSummary.LEFT_EARLY, fill: "#f97316" },
       ].filter((entry) => entry.value > 0),
       achievementSummary: {
         total: totalAchievements,
@@ -153,6 +241,7 @@ export async function GET(
           : 0,
       },
       achievementDistribution,
+      assignmentStats,
     });
 
   } catch (error) {

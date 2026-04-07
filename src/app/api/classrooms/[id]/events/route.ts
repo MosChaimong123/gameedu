@@ -1,18 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { auth } from "@/auth";
-import { toPrismaJson } from "@/lib/prisma-json";
+import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error";
+import {
+  getClassEventsFromGamification,
+  getClassroomGamificationRecord,
+  updateGamificationSettings,
+} from "@/lib/services/classroom-settings/gamification-settings";
+import { logAuditEvent } from "@/lib/security/audit-log";
 
 export interface ClassEvent {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   icon: string;
-  type: "GOLD_BOOST" | "DOUBLE_QUEST" | "CUSTOM";
+  type: "GOLD_BOOST" | "GOLD_BOOST_3" | "DOUBLE_QUEST" | "CUSTOM";
   multiplier: number;
   startAt: string;
   endAt: string;
-  active: boolean;
+  active?: boolean;
 }
 
 type GamifiedSettings = {
@@ -26,14 +31,10 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const classroom = await db.classroom.findUnique({
-      where: { id },
-      select: { gamifiedSettings: true }
-    });
-    if (!classroom) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const classroom = await getClassroomGamificationRecord(id);
+    if (!classroom) return createAppErrorResponse("NOT_FOUND", "Not found", 404);
 
-    const settings = (classroom.gamifiedSettings as GamifiedSettings | null) || {};
-    const events: ClassEvent[] = settings.events || [];
+    const events = getClassEventsFromGamification(classroom.gamifiedSettings) as ClassEvent[];
     const now = new Date();
 
     const withActive = events.map((e) => ({
@@ -43,7 +44,7 @@ export async function GET(
 
     return NextResponse.json(withActive);
   } catch {
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
   }
 }
 
@@ -54,23 +55,23 @@ export async function POST(
 ) {
   try {
     const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.id) return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
 
     const { id } = await params;
     const { title, description, icon, type, multiplier, startAt, endAt } = await req.json();
 
     if (!title?.trim() || !startAt || !endAt) {
-      return NextResponse.json({ error: "title, startAt, endAt are required" }, { status: 400 });
+      return createAppErrorResponse("INVALID_PAYLOAD", "title, startAt, endAt are required", 400);
     }
 
-    const classroom = await db.classroom.findUnique({
-      where: { id },
-      select: { gamifiedSettings: true }
-    });
-    if (!classroom) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const classroom = await getClassroomGamificationRecord(id);
+    if (!classroom) return createAppErrorResponse("NOT_FOUND", "Not found", 404);
+    if (classroom.teacherId !== session.user.id) {
+      return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+    }
 
-    const settings = (classroom.gamifiedSettings as GamifiedSettings | null) || {};
-    const existing: ClassEvent[] = settings.events || [];
+    const settings = classroom.gamifiedSettings as GamifiedSettings;
+    const existing = getClassEventsFromGamification(settings) as ClassEvent[];
 
     const newEvent: ClassEvent = {
       id: `event_${Date.now()}`,
@@ -84,20 +85,27 @@ export async function POST(
       active: false,
     };
 
-    await db.classroom.update({
-      where: { id },
-      data: {
-        gamifiedSettings: toPrismaJson({
-          ...settings,
-          events: [...existing, newEvent]
-        })
-      }
+    await updateGamificationSettings(id, session.user.id, {
+      ...settings,
+      events: [...existing, newEvent],
+    });
+
+    logAuditEvent({
+      actorUserId: session.user.id,
+      action: "classroom.event.created",
+      targetType: "classroom",
+      targetId: id,
+      metadata: {
+        eventId: newEvent.id,
+        eventType: newEvent.type,
+        multiplier: newEvent.multiplier,
+      },
     });
 
     return NextResponse.json({ success: true, event: newEvent });
   } catch (error) {
     console.error("Error creating event:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
   }
 }
 
@@ -108,27 +116,37 @@ export async function DELETE(
 ) {
   try {
     const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.id) return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
 
     const { id } = await params;
     const { eventId } = await req.json();
 
-    const classroom = await db.classroom.findUnique({
-      where: { id },
-      select: { gamifiedSettings: true }
+    const classroom = await getClassroomGamificationRecord(id);
+    if (!classroom) return createAppErrorResponse("NOT_FOUND", "Not found", 404);
+    if (classroom.teacherId !== session.user.id) {
+      return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+    }
+
+    const settings = classroom.gamifiedSettings as GamifiedSettings;
+    const updated = getClassEventsFromGamification(settings).filter((e: ClassEvent) => e.id !== eventId);
+
+    await updateGamificationSettings(id, session.user.id, {
+      ...settings,
+      events: updated,
     });
-    if (!classroom) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const settings = (classroom.gamifiedSettings as GamifiedSettings | null) || {};
-    const updated = (settings.events || []).filter((e: ClassEvent) => e.id !== eventId);
-
-    await db.classroom.update({
-      where: { id },
-      data: { gamifiedSettings: toPrismaJson({ ...settings, events: updated }) }
+    logAuditEvent({
+      actorUserId: session.user.id,
+      action: "classroom.event.deleted",
+      targetType: "classroom",
+      targetId: id,
+      metadata: {
+        eventId,
+      },
     });
 
     return NextResponse.json({ success: true });
   } catch {
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
   }
 }

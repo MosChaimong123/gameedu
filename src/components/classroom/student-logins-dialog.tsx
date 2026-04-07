@@ -15,6 +15,7 @@ type StudentLoginCard = {
 export function StudentLoginsDialog({ students, classId, theme }: { students: StudentLoginCard[]; classId: string; theme?: string }) {
     void classId;
     const { t } = useLanguage();
+    const joinUrl = `${process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || ""}/student`.replace(/^\/{2,}/, "/");
 
     const handlePrint = () => {
         window.print();
@@ -23,49 +24,47 @@ export function StudentLoginsDialog({ students, classId, theme }: { students: St
     return (
         <Dialog>
             <DialogTrigger asChild>
-                <Button variant="secondary" className="h-9 bg-transparent text-white border-0 font-medium shadow-none transition-colors whitespace-nowrap hidden print:hidden md:flex" size="sm">
-                    <Key className="w-4 h-4 md:mr-1.5" />
+                <Button variant="secondary" className="hidden h-9 whitespace-nowrap border-0 bg-transparent font-medium text-white shadow-none transition-colors print:hidden md:flex" size="sm">
+                    <Key className="h-4 w-4 md:mr-1.5" />
                     <span className="hidden xl:inline">{t("studentLogins")}</span>
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl w-[95vw] h-[90vh] flex flex-col p-6 rounded-3xl shadow-2xl border-0 overflow-hidden bg-[#F8FAFC]">
-                <DialogHeader className="shrink-0 mb-4 border-b border-slate-100 pb-4 print:hidden">
-                    <DialogTitle className="text-xl md:text-2xl">{t("studentAccessCodes")}</DialogTitle>
-                    <DialogDescription className="text-sm md:text-base mt-1.5 leading-relaxed">
+            <DialogContent className="flex h-[min(92dvh,40rem)] w-[min(96vw,42rem)] flex-col overflow-hidden rounded-2xl border-2 border-amber-200/60 bg-[#faf8f5] p-0 shadow-2xl sm:h-[90vh] sm:max-w-3xl sm:rounded-3xl">
+                <DialogHeader className="shrink-0 border-b border-amber-100/90 bg-gradient-to-b from-white to-[#faf8f5] px-5 py-5 print:hidden sm:px-6">
+                    <DialogTitle className="text-lg font-extrabold tracking-tight text-slate-900 sm:text-2xl">{t("studentAccessCodes")}</DialogTitle>
+                    <DialogDescription className="mt-2 text-sm font-medium leading-relaxed text-slate-700 sm:text-base">
                         {t("accessCodesDesc")}
                     </DialogDescription>
                 </DialogHeader>
-                {/* Printable Area */}
-                <div className="overflow-y-auto p-4 md:p-6 flex-1 bg-slate-50/50">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 print-area w-full mx-auto">
+                <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/40 p-4 sm:p-6">
+                    <div className="print-area mx-auto grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6">
                         {students.map((student) => (
-                            <div key={student.id} className="border border-slate-200 p-5 md:p-6 rounded-2xl flex flex-col items-center justify-center text-center bg-white shadow-sm relative overflow-hidden group hover:border-indigo-300 transition-colors">
-                                {/* Decorative top border */}
-                                <div 
-                                    className={`absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r ${getThemeBgClass(theme)} opacity-70 group-hover:opacity-100 transition-opacity`}
+                            <div key={student.id} className="group relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-4 text-center shadow-sm transition-colors hover:border-indigo-300 print:break-inside-avoid sm:p-5">
+                                <div
+                                    className={`absolute left-0 top-0 h-1.5 w-full bg-gradient-to-r ${getThemeBgClass(theme)} opacity-70 transition-opacity group-hover:opacity-100`}
                                     style={getThemeBgStyle(theme)}
-                                ></div>
-                                
-                                <h3 className="font-bold text-lg md:text-xl text-slate-800 mb-4 w-full px-2 truncate">{student.name}</h3>
-                                
-                                <div className="bg-slate-50 py-4 px-2 shrink-0 rounded-xl w-full mb-4 border border-slate-100 flex flex-col items-center justify-center min-h-[100px] overflow-hidden">
-                                    <span className={`text-[11px] md:text-xs font-bold block mb-2 uppercase whitespace-nowrap bg-gradient-to-r ${theme || 'from-indigo-500 to-purple-500'} bg-clip-text text-transparent`}>{t("accessCode")}</span>
-                                    <span className={`font-mono text-2xl tracking-[0.2em] font-black select-all w-full text-center bg-gradient-to-r ${theme || 'from-indigo-500 to-purple-500'} bg-clip-text text-transparent`}>
-                                        {student.loginCode || 'N/A'}
+                                />
+
+                                <h3 className="mb-3 w-full px-1 text-base font-bold text-slate-900 sm:text-lg">{student.name}</h3>
+
+                                <div className="mb-3 flex min-h-[5.5rem] w-full shrink-0 flex-col items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-slate-50/90 px-2 py-3 sm:min-h-[6rem]">
+                                    <span className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-indigo-700 sm:text-xs">{t("accessCode")}</span>
+                                    <span className="w-full break-all select-all text-center font-mono text-base font-black leading-tight tracking-[0.08em] text-indigo-900 sm:text-lg sm:tracking-[0.1em]">
+                                        {student.loginCode?.toUpperCase() || "N/A"}
                                     </span>
                                 </div>
-                                
-                                <div className="text-[10px] md:text-xs text-slate-500 bg-slate-50 px-3 py-2 rounded-full border border-slate-100 w-full truncate font-medium">
-                                    {t("joinAt", { url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/student` })}
+
+                                <div className="w-full rounded-xl border border-slate-200/80 bg-amber-50/40 px-3 py-2.5 text-left text-[11px] font-medium leading-snug text-slate-800 sm:text-xs">
+                                    <p className="break-all">{t("joinAt", { url: joinUrl || "/student" })}</p>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                <div className="p-4 md:p-6 border-t border-slate-100 bg-white print:hidden shrink-0 flex justify-end">
-                    <Button onClick={handlePrint} className={`flex items-center gap-2 bg-gradient-to-r ${theme || 'from-indigo-600 to-indigo-600'} text-white shadow-sm rounded-xl hover:opacity-90 transition-opacity border-0`}>
-                        <Printer className="w-4 h-4" />
+                <div className="flex shrink-0 justify-end border-t border-slate-100 bg-white p-4 print:hidden md:p-6">
+                    <Button onClick={handlePrint} className={`flex items-center gap-2 rounded-xl border-0 bg-gradient-to-r ${theme || "from-indigo-600 to-indigo-600"} text-white shadow-sm transition-opacity hover:opacity-90`}>
+                        <Printer className="h-4 w-4" />
                         {t("printCards")}
                     </Button>
                 </div>

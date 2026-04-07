@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { db } from "@/lib/db";
-
-type StudentIdOnly = {
-    id: string
-};
+import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import { logAuditEvent } from "@/lib/security/audit-log";
+import { resetClassroomPoints } from "@/lib/services/classroom-points/reset-classroom-points";
 
 export async function POST(
     req: Request,
@@ -14,63 +12,39 @@ export async function POST(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
     try {
-        const classroom = await db.classroom.findUnique({
-            where: {
-                id,
-                teacherId: session.user.id
-            }
+        const result = await resetClassroomPoints({
+            classroomId: id,
+            teacherId: session.user.id,
         });
 
-        if (!classroom) {
-            return new NextResponse("Unauthorized", { status: 401 });
+        if (!result.ok) {
+            return createAppErrorResponse("AUTH_REQUIRED", result.message, result.status);
         }
 
-        // 1. Get all student IDs in this classroom
-        const students = await db.student.findMany({
-            where: { classId: id },
-            select: { id: true }
+        logAuditEvent({
+            actorUserId: session.user.id,
+            action: "classroom.points.reset",
+            targetType: "classroom",
+            targetId: id,
+            metadata: {
+                studentsResetCount: result.studentsResetCount,
+                activitiesDeletedCount: result.activitiesDeletedCount,
+            },
         });
 
-        const studentIds = students.map((s: StudentIdOnly) => s.id);
-
-        if (studentIds.length === 0) {
-             return NextResponse.json({ 
-                success: true, 
-                studentsResetCount: 0,
-                activitiesDeletedCount: 0
-            });
-        }
-
-        // 2. Perform the transaction with direct IDs
-        const [deletedActivities, , resetStudents] = await db.$transaction([
-            db.pointHistory.deleteMany({
-                where: {
-                    studentId: { in: studentIds }
-                }
-            }),
-            db.assignmentSubmission.deleteMany({
-                where: {
-                    studentId: { in: studentIds }
-                }
-            }),
-            db.student.updateMany({
-                where: { classId: id },
-                data: { points: 0 }
-            })
-        ]);
-
-        return NextResponse.json({ 
-            success: true, 
-            studentsResetCount: resetStudents.count,
-            activitiesDeletedCount: deletedActivities.count
+        return NextResponse.json({
+            success: true,
+            classroomId: result.classroomId,
+            studentsResetCount: result.studentsResetCount,
+            activitiesDeletedCount: result.activitiesDeletedCount,
         });
 
     } catch (error) {
         console.error("[POINTS_RESET_POST]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
     }
 }

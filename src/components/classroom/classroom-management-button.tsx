@@ -7,13 +7,14 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/components/providers/language-provider";
 
 interface ClassroomManagementButtonProps {
   classId: string;
@@ -32,6 +33,7 @@ export function ClassroomManagementButton({
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const { t } = useLanguage();
 
   const handleDelete = async () => {
     setLoading(true);
@@ -43,8 +45,8 @@ export function ClassroomManagementButton({
       if (!res.ok) throw new Error("Failed to delete");
 
       toast({
-        title: "ลบห้องเรียนสำเร็จ",
-        description: `${name} ถูกลบออกแล้ว`,
+        title: t("classroomDeleteSuccessTitle"),
+        description: t("classroomDeleteSuccessDesc", { name }),
       });
 
       setOpen(false);
@@ -54,8 +56,8 @@ export function ClassroomManagementButton({
     } catch (error) {
       console.error("Delete error:", error);
       toast({
-        title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถลบห้องเรียนได้",
+        title: t("classroomDeleteFailTitle"),
+        description: t("classroomDeleteFailDesc"),
         variant: "destructive",
       });
     } finally {
@@ -79,7 +81,7 @@ export function ClassroomManagementButton({
         <DialogContent className="sm:max-w-md w-[95vw] rounded-2xl shadow-2xl border-0">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">
-              จัดการห้องเรียน
+              {t("classroomManageTitle")}
             </DialogTitle>
             <DialogDescription className="text-sm text-slate-600 mt-1">
               {name}
@@ -87,31 +89,28 @@ export function ClassroomManagementButton({
           </DialogHeader>
 
           <div className="space-y-3 py-4">
-            {/* Separator */}
             <div className="border-t border-slate-200 my-2" />
 
-            {/* Delete Option */}
             <button
               onClick={() => setShowDeleteConfirm(true)}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 transition-colors text-left"
             >
               <Trash2 className="w-5 h-5 text-red-500" />
               <div>
-                <p className="font-medium text-sm text-red-600">ลบห้องเรียน</p>
-                <p className="text-xs text-slate-500">ลบอย่างถาวร</p>
+                <p className="font-medium text-sm text-red-600">{t("classroomDeleteRowTitle")}</p>
+                <p className="text-xs text-slate-500">{t("classroomDeleteRowHint")}</p>
               </div>
             </button>
           </div>
 
-          {/* Delete Confirmation */}
           {showDeleteConfirm && (
             <div className="space-y-4">
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <p className="text-sm text-red-800 font-medium">
-                  คุณแน่ใจหรือไม่ที่จะลบ &quot;{name}&quot;?
+                  {t("classroomDeleteConfirmQuestion", { name })}
                 </p>
                 <p className="text-xs text-red-700 mt-1">
-                  การกระทำนี้ไม่สามารถเลิกทำได้ นักเรียนและข้อมูลทั้งหมดจะถูกลบอย่างถาวร
+                  {t("classroomDeleteConfirmWarning")}
                 </p>
               </div>
 
@@ -121,14 +120,14 @@ export function ClassroomManagementButton({
                   onClick={() => setShowDeleteConfirm(false)}
                   disabled={loading}
                 >
-                  ยกเลิก
+                  {t("cancel")}
                 </Button>
                 <Button
                   variant="destructive"
                   onClick={handleDelete}
                   disabled={loading}
                 >
-                  ลบ
+                  {t("classroomDeleteButton")}
                 </Button>
               </DialogFooter>
             </div>

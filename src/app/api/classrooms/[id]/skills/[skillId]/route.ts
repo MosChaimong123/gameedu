@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
 export async function DELETE(
     req: Request,
@@ -10,7 +11,7 @@ export async function DELETE(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
@@ -22,13 +23,26 @@ export async function DELETE(
         });
 
         if (!classroom) {
-            return new NextResponse("Unauthorized", { status: 401 });
+            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        }
+
+        const existingSkill = await db.skill.findUnique({
+            where: {
+                id: skillId,
+            },
+            select: {
+                id: true,
+                classId: true,
+            },
+        });
+
+        if (!existingSkill || existingSkill.classId !== id) {
+            return new NextResponse("Skill not found", { status: 404 });
         }
 
         const skill = await db.skill.delete({
             where: {
                 id: skillId,
-                classId: id
             }
         });
 

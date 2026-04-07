@@ -7,9 +7,20 @@ import { Button } from "@/components/ui/button";
 import { X, Users, RefreshCw, Heart, Star, Zap, ThumbsUp, Brain, Trophy, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
 import { cn } from "@/lib/utils";
-import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
+import { getThemeBgStyle, getThemeHorizontalBgClass } from "@/lib/classroom-utils";
 
 // Map icon strings to Lucide components
 const iconMap: Record<string, typeof Heart> = {
@@ -32,6 +43,7 @@ interface GroupMakerProps {
     theme: string;
     onClose: () => void;
     levelConfig?: unknown;
+    onSavedGroupsChange?: (groups: SavedGroupSummary[]) => void;
 }
 
 type ParsedSavedGroup = {
@@ -39,9 +51,45 @@ type ParsedSavedGroup = {
     studentIds?: string[];
 };
 
-export function GroupMaker({ students, skills, theme, onClose, levelConfig: _levelConfig }: GroupMakerProps) {
+export type SavedGroupSummary = {
+    id: string;
+    name: string;
+    studentIds: string[];
+};
+
+function toSavedGroupSummaries(groups: StudentGroup[]): SavedGroupSummary[] {
+    return groups.map((group) => {
+        const studentIds = (group.studentIds as string[]).flatMap((raw) => {
+            try {
+                const parsed = JSON.parse(raw) as ParsedSavedGroup | string[];
+                if (Array.isArray(parsed)) {
+                    return parsed;
+                }
+                return parsed.studentIds ?? [];
+            } catch {
+                return [];
+            }
+        });
+
+        return {
+            id: group.id,
+            name: group.name,
+            studentIds,
+        };
+    });
+}
+
+export function GroupMaker({
+    students,
+    skills,
+    theme,
+    onClose,
+    levelConfig: _levelConfig,
+    onSavedGroupsChange,
+}: GroupMakerProps) {
     void _levelConfig;
     const { t } = useLanguage();
+    const { toast } = useToast();
     const [groupCount, setGroupCount] = useState(4);
     const [groups, setGroups] = useState<Student[][]>([]);
     const [groupSetName, setGroupSetName] = useState(`Group Set ${new Date().toLocaleDateString()}`);
@@ -52,6 +100,7 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
     const [selectedGroupForFeedback, setSelectedGroupForFeedback] = useState<{name: string, studentIds: string[]} | null>(null);
     const [isAwarding, setIsAwarding] = useState(false);
     const [hasSaved, setHasSaved] = useState(false);
+    const [pendingDeleteGroup, setPendingDeleteGroup] = useState<{ id: string; name: string } | null>(null);
 
     // Edit Saved Group state
     const [editingSavedGroupId, setEditingSavedGroupId] = useState<string | null>(null);
@@ -74,13 +123,19 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
                 if (groupsRes.ok) {
                     const data = await groupsRes.json();
                     setSavedGroups(data);
+                    onSavedGroupsChange?.(toSavedGroupSummaries(data as StudentGroup[]));
                 }
             } catch (error) {
                 console.error("Failed to fetch data:", error);
+                toast({
+                    title: t("groupLoadFailTitle"),
+                    description: t("groupLoadFailDesc"),
+                    variant: "destructive",
+                });
             }
         };
         fetchData();
-    }, [students]);
+    }, [students, toast, onSavedGroupsChange, t]);
 
     const handleSaveGroups = async () => {
         if (groups.length === 0 || !students.length) return;
@@ -104,12 +159,27 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
             
             if (res.ok) {
                 const newGroups = await res.json();
-                setSavedGroups(prev => [...newGroups, ...prev]);
+                setSavedGroups(prev => {
+                    const nextGroups = [...newGroups, ...prev];
+                    onSavedGroupsChange?.(toSavedGroupSummaries(nextGroups));
+                    return nextGroups;
+                });
                 setHasSaved(true);
                 setViewMode("saved");
+                toast({
+                    title: t("groupSaveSuccessTitle"),
+                    description: t("groupSaveSuccessDesc"),
+                });
+            } else {
+                throw new Error("Failed to save groups");
             }
         } catch (error) {
             console.error("Save error:", error);
+            toast({
+                title: t("groupSaveFailTitle"),
+                description: t("groupSaveFailDesc"),
+                variant: "destructive",
+            });
         } finally {
             setIsSaving(false);
         }
@@ -120,10 +190,27 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
         const classId = students[0].classId;
         
         try {
-            await fetch(`/api/classrooms/${classId}/groups/${groupId}`, { method: "DELETE" });
-            setSavedGroups(prev => prev.filter(g => g.id !== groupId));
+            const res = await fetch(`/api/classrooms/${classId}/groups/${groupId}`, { method: "DELETE" });
+            if (!res.ok) {
+                throw new Error("Failed to delete group");
+            }
+            setSavedGroups(prev => {
+                const nextGroups = prev.filter(g => g.id !== groupId);
+                onSavedGroupsChange?.(toSavedGroupSummaries(nextGroups));
+                return nextGroups;
+            });
+            setPendingDeleteGroup(null);
+            toast({
+                title: t("groupDeleteSuccessTitle"),
+                description: t("groupDeleteSuccessDesc"),
+            });
         } catch (error) {
             console.error("Delete error:", error);
+            toast({
+                title: t("groupDeleteFailTitle"),
+                description: t("groupDeleteFailDesc"),
+                variant: "destructive",
+            });
         }
     };
 
@@ -183,11 +270,26 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
 
             if (res.ok) {
                 const updatedGroup = await res.json();
-                setSavedGroups(prev => prev.map(g => g.id === groupSet.id ? updatedGroup : g));
+                setSavedGroups(prev => {
+                    const nextGroups = prev.map(g => g.id === groupSet.id ? updatedGroup : g);
+                    onSavedGroupsChange?.(toSavedGroupSummaries(nextGroups));
+                    return nextGroups;
+                });
                 setEditingSavedGroupId(null);
+                toast({
+                    title: t("groupUpdateSuccessTitle"),
+                    description: t("groupUpdateSuccessDesc"),
+                });
+            } else {
+                throw new Error("Failed to update group");
             }
         } catch (error) {
             console.error("Update error:", error);
+            toast({
+                title: t("groupUpdateFailTitle"),
+                description: t("groupUpdateFailDesc"),
+                variant: "destructive",
+            });
         } finally {
             setIsSaving(false);
         }
@@ -201,7 +303,7 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
         try {
             const studentIds = selectedGroupForFeedback.studentIds;
             
-            await fetch(`/api/classrooms/${classId}/points/batch`, {
+            const res = await fetch(`/api/classrooms/${classId}/points/batch`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -209,10 +311,23 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
                     skillId: skillId
                 })
             });
+            if (!res.ok) {
+                throw new Error("Failed to award points");
+            }
             
+            const groupName = selectedGroupForFeedback.name;
             setSelectedGroupForFeedback(null);
+            toast({
+                title: t("groupBehaviorAwardSuccessTitle"),
+                description: t("groupBehaviorAwardSuccessDesc", { groupName }),
+            });
         } catch (error) {
             console.error("Batch points error:", error);
+            toast({
+                title: t("groupBehaviorAwardFailTitle"),
+                description: t("groupBehaviorAwardFailDesc"),
+                variant: "destructive",
+            });
         } finally {
             setIsAwarding(false);
         }
@@ -295,33 +410,45 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-4xl h-[80vh] flex flex-col relative animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 backdrop-blur-sm p-3 sm:p-4">
+            <div className="relative flex h-[min(90dvh,44rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-white/15 bg-white shadow-2xl ring-1 ring-slate-900/5 animate-in zoom-in-95 duration-200 sm:rounded-3xl">
                 <button
+                    type="button"
                     onClick={onClose}
-                    className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+                    className="absolute top-3 right-3 z-10 rounded-full bg-white/90 p-2 text-slate-600 shadow-sm ring-1 ring-slate-200/80 transition-colors hover:bg-white hover:text-slate-900 sm:top-4 sm:right-4"
+                    aria-label={t("close")}
                 >
-                    <X className="w-6 h-6" />
+                    <X className="h-5 w-5 sm:h-6 sm:w-6" />
                 </button>
 
-                <div className="text-center mb-6 shrink-0 mt-2">
-                    <h2 className="text-2xl font-bold text-slate-800 flex items-center justify-center gap-2">
-                        <Users className="w-6 h-6 text-indigo-500" />
+                <div
+                    className={cn(
+                        "shrink-0 border-b border-white/15 px-4 pb-5 pt-6 text-center text-white sm:px-8",
+                        getThemeHorizontalBgClass(theme)
+                    )}
+                    style={getThemeBgStyle(theme)}
+                >
+                    <h2 className="flex items-center justify-center gap-2 text-xl font-extrabold text-white drop-shadow-sm sm:text-2xl">
+                        <Users className="h-6 w-6 shrink-0 text-white/90" aria-hidden />
                         {t("groupMaker")}
                     </h2>
-                    <p className="text-slate-500 mt-1.5 text-sm md:text-base">Divide {students.length} students into groups</p>
+                    <p className="mt-1.5 text-sm font-medium text-white/85 sm:text-base">
+                        {t("divideStudentsSubtitle", { count: students.length })}
+                    </p>
                 </div>
 
-                <div className="flex justify-center mb-6 border-b border-slate-100">
+                <div className="mb-0 flex shrink-0 justify-center overflow-x-auto border-b border-slate-200 bg-slate-50 px-2">
                     <button 
+                        type="button"
                         onClick={() => setViewMode("generated")}
-                        className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${viewMode === "generated" ? "border-indigo-500 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+                        className={`min-w-0 shrink-0 border-b-2 px-4 py-3 text-sm font-bold transition-colors sm:px-6 ${viewMode === "generated" ? "border-indigo-600 text-slate-950" : "border-transparent text-slate-600 hover:text-slate-900"}`}
                     >
                         {t("groupMaker")}
                     </button>
                     <button 
+                        type="button"
                         onClick={() => setViewMode("saved")}
-                        className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 flex items-center gap-2 ${viewMode === "saved" ? "border-indigo-500 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+                        className={`flex min-w-0 shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition-colors sm:px-6 ${viewMode === "saved" ? "border-indigo-600 text-slate-950" : "border-transparent text-slate-600 hover:text-slate-900"}`}
                     >
                         {t("savedGroups")}
                         <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs">{savedGroups.length}</span>
@@ -331,9 +458,9 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
                 {viewMode === "generated" && (
                     <>
                     {/* Controls */}
-                    <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 mb-6 p-4 md:p-5 bg-slate-50 rounded-2xl border border-slate-100 shrink-0">
-                    <div className="flex items-center gap-4">
-                        <Label>{t("numberOfGroups", { count: groupCount })}</Label>
+                    <div className="mx-3 mt-4 mb-4 flex shrink-0 flex-col items-stretch justify-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/90 p-4 shadow-sm sm:mx-6 sm:mb-6 sm:flex-row sm:items-center sm:gap-8 sm:p-5">
+                    <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+                        <Label className="text-sm font-bold text-slate-800">{t("numberOfGroups", { count: groupCount })}</Label>
                         <div className="flex items-center gap-2">
                             <Button
                                 variant="outline" size="icon" className="h-8 w-8"
@@ -355,20 +482,22 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
                         <Button 
                             onClick={createGroups} 
                             size="lg" 
-                            className={`px-8 w-full md:w-auto text-white rounded-xl shadow-sm transition-opacity hover:opacity-90 ${getThemeBgClass(theme)} border-0`}
+                            className={`w-full rounded-xl border-0 px-8 text-white shadow-sm transition-opacity hover:opacity-90 md:w-auto ${getThemeHorizontalBgClass(theme)}`}
                             style={getThemeBgStyle(theme)}
                         >
-                            {groups.length > 0 ? <><RefreshCw className="w-4 h-4 mr-2" /> Reshuffle</> : t("createGroups")}
+                            {groups.length > 0 ? <><RefreshCw className="w-4 h-4 mr-2" /> {t("reshuffleGroups")}</> : t("createGroups")}
                         </Button>
                     </div>
                 </div>
 
                 {/* Groups Display */}
-                <div className="flex-1 overflow-y-auto px-2 pb-4 min-h-[50%] flex flex-col">
-                    {groups.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                            <Users className="w-12 h-12 mb-4 opacity-20" />
-                            <p>Select number of groups and click Create</p>
+                    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-4 pt-2 sm:px-5">
+                        {groups.length === 0 ? (
+                        <div className="flex h-full min-h-[12rem] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50/70 px-4 text-center text-slate-700">
+                            <Users className="mb-3 h-11 w-11 text-slate-300" aria-hidden />
+                            <p className="max-w-sm text-sm font-medium leading-relaxed text-slate-700 sm:text-base">
+                                {t("groupMakerEmptyHint")}
+                            </p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -393,10 +522,10 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
                                             className="font-bold text-slate-700 text-lg border-transparent hover:border-slate-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 h-9 px-2 shadow-none transition-all rounded-lg w-full"
                                             placeholder={`Group ${groupIndex + 1}`}
                                         />
-                                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full transition-colors shrink-0
-                                            ${dragOverGroupIndex === groupIndex ? 'bg-indigo-200 text-indigo-800' : 'bg-indigo-100 text-indigo-700'}
+                                        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold transition-colors
+                                            ${dragOverGroupIndex === groupIndex ? 'bg-indigo-200 text-indigo-800' : 'bg-indigo-100 text-indigo-800'}
                                         `}>
-                                            {group.length} members
+                                            {t("groupMemberCount", { count: group.length })}
                                         </span>
                                     </div>
                                     <div className="flex flex-col gap-2.5 min-h-[60px]">
@@ -432,14 +561,14 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
 
                 {/* Footer Save Section for Generated Groups */}
                 {groups.length > 0 && viewMode === "generated" && (
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-4 p-4 md:p-5 bg-white border-t border-slate-100 shrink-0">
-                        <div className="flex-1 w-full">
-                            <Label className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1.5 block">Group Set Name</Label>
+                    <div className="mt-auto flex shrink-0 flex-col items-stretch gap-4 border-t border-amber-100/90 bg-white/95 p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
+                        <div className="w-full flex-1 min-w-0">
+                            <Label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700">{t("groupSetNameLabel")}</Label>
                             <Input 
                                 value={groupSetName}
                                 onChange={(e) => setGroupSetName(e.target.value)}
-                                className="font-bold text-slate-700 w-full"
-                                placeholder="e.g. Activity Groups"
+                                className="w-full font-bold text-slate-800"
+                                placeholder={t("groupSetNamePlaceholder")}
                             />
                         </div>
                         <Button 
@@ -450,7 +579,7 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
                             className={`px-8 w-full md:w-auto rounded-xl shadow-md h-[42px] transition-all border-0
                                 ${hasSaved 
                                     ? 'bg-emerald-50 text-emerald-600 border-emerald-200 cursor-not-allowed border' 
-                                    : `text-white hover:opacity-90 ${getThemeBgClass(theme)}`}`}
+                                    : `text-white hover:opacity-90 ${getThemeHorizontalBgClass(theme)}`}`}
                             style={hasSaved ? {} : getThemeBgStyle(theme)}
                         >
                             {isSaving ? "Saving..." : hasSaved ? t("groupSavedSuccess") : t("saveGroups")}
@@ -461,11 +590,11 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
                 )}
                 
                 {viewMode === "saved" && (
-                    <div className="flex-1 overflow-y-auto px-2 pb-4">
+                    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-4 pt-2 sm:px-5">
                         {savedGroups.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                                <Users className="w-12 h-12 mb-4 opacity-20" />
-                                <p>No saved groups yet.</p>
+                            <div className="flex h-full min-h-[12rem] flex-col items-center justify-center px-4 text-center text-slate-700">
+                                <Users className="mb-3 h-11 w-11 text-slate-300" aria-hidden />
+                                <p className="max-w-sm text-sm font-medium leading-relaxed">{t("savedGroupsEmpty")}</p>
                             </div>
                         ) : (
                             <div className="flex flex-col gap-6">
@@ -484,13 +613,11 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
                                                             onClick={() => startEditingSavedGroup(groupSet)}
                                                             className="text-slate-400 opacity-0 md:group-hover:opacity-100 hover:text-indigo-600 transition-all bg-white rounded-full px-3 py-1.5 shadow-sm border border-slate-100 flex items-center gap-1.5 text-xs font-bold"
                                                         >
-                                                            Edit
+                                                            {t("edit")}
                                                         </button>
                                                         <button 
                                                             onClick={() => {
-                                                                if (window.confirm(t("deleteConfirm") || "Delete this group set?")) {
-                                                                    handleDeleteSavedGroup(groupSet.id);
-                                                                }
+                                                                setPendingDeleteGroup({ id: groupSet.id, name: groupSet.name });
                                                             }}
                                                             className="text-slate-400 opacity-0 md:group-hover:opacity-100 hover:text-red-500 transition-all bg-white rounded-full p-1.5 shadow-sm border border-slate-100"
                                                         >
@@ -499,8 +626,8 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <Button variant="ghost" size="sm" onClick={() => setEditingSavedGroupId(null)} disabled={isSaving}>Cancel</Button>
-                                                        <Button size="sm" onClick={() => handleSaveEditedGroup(groupSet)} disabled={isSaving} className="bg-indigo-600 hover:bg-indigo-700 text-white">Save</Button>
+                                                        <Button variant="ghost" size="sm" onClick={() => setEditingSavedGroupId(null)} disabled={isSaving}>{t("cancel")}</Button>
+                                                        <Button size="sm" onClick={() => handleSaveEditedGroup(groupSet)} disabled={isSaving} className="bg-indigo-600 hover:bg-indigo-700 text-white">{t("save")}</Button>
                                                     </>
                                                 )}
                                             </div>
@@ -666,6 +793,32 @@ export function GroupMaker({ students, skills, theme, onClose, levelConfig: _lev
                     </div>
                 </div>
             )}
+
+            <AlertDialog open={!!pendingDeleteGroup} onOpenChange={(open) => !open && setPendingDeleteGroup(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{t("groupDeleteConfirmTitle")}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {pendingDeleteGroup
+                                ? t("groupDeleteConfirmDescNamed", { name: pendingDeleteGroup.name })
+                                : t("groupDeleteConfirmDescGeneric")}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(event) => {
+                                event.preventDefault();
+                                if (!pendingDeleteGroup) return;
+                                void handleDeleteSavedGroup(pendingDeleteGroup.id);
+                            }}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            {t("groupDeleteAction")}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

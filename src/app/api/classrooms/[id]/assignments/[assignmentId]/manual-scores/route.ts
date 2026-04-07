@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
+import { parseAndValidateManualScore } from "@/lib/validate-manual-assignment-score";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+
+/** Teachers may still record/edit manual scores after the deadline (class policy); student quiz submission enforces its own rules. */
 
 export async function POST(
     req: Request,
@@ -10,14 +14,15 @@ export async function POST(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
-        const { studentId, score } = await req.json();
+        const body = await req.json() as { studentId?: unknown; score?: unknown };
+        const { studentId, score } = body;
 
-        if (!studentId || score === undefined) {
-            return new NextResponse("Missing data", { status: 400 });
+        if (!studentId || typeof studentId !== "string") {
+            return NextResponse.json({ error: "Missing studentId" }, { status: 400 });
         }
 
         const assignment = await db.assignment.findUnique({
@@ -34,6 +39,25 @@ export async function POST(
             return new NextResponse("Assignment not found or unauthorized", { status: 404 });
         }
 
+        const validated = parseAndValidateManualScore(
+            assignment.type,
+            assignment.maxScore,
+            assignment.checklists,
+            score
+        );
+        if (!validated.ok) {
+            return NextResponse.json({ error: validated.message }, { status: 400 });
+        }
+
+        const student = await db.student.findUnique({
+            where: { id: studentId },
+            select: { id: true, classId: true },
+        });
+
+        if (!student || student.classId !== id) {
+            return new NextResponse("Student not found in classroom", { status: 404 });
+        }
+
         const submission = await db.assignmentSubmission.upsert({
             where: {
                 studentId_assignmentId: {
@@ -42,12 +66,12 @@ export async function POST(
                 }
             },
             update: {
-                score: score
+                score: validated.scoreInt
             },
             create: {
                 studentId,
                 assignmentId,
-                score: score,
+                score: validated.scoreInt,
                 cheatingLogs: []
             }
         });

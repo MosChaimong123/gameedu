@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface AttendanceRecord {
     id: string;
@@ -24,6 +25,7 @@ interface AttendanceHistoryTabProps {
 
 export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
     const { t } = useLanguage();
+    const { toast } = useToast();
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
@@ -63,7 +65,11 @@ export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
         } catch (error) {
             console.error("Failed to update status", error);
             setRecords(previousRecords);
-            alert(t("error") || "Error updating status");
+            toast({
+                title: t("toastAttendanceSaveFailTitle"),
+                description: t("toastAttendanceSaveFailDesc"),
+                variant: "destructive",
+            });
         }
     };
 
@@ -82,8 +88,8 @@ export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
             <Card className="shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                     <div>
-                        <CardTitle>{t("attendanceHistory") || "Attendance History"}</CardTitle>
-                        <CardDescription>{t("attendanceHistoryDesc") || "View past attendance records."}</CardDescription>
+                        <CardTitle>{t("attendanceHistory")}</CardTitle>
+                        <CardDescription>{t("attendanceHistoryDesc")}</CardDescription>
                     </div>
                     <div>
                         <input
@@ -101,7 +107,7 @@ export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
                         </div>
                     ) : records.length === 0 ? (
                         <div className="text-center p-8 text-slate-500">
-                            {t("noAttendanceRecords") || "No attendance records found for this date."}
+                            {t("noAttendanceRecords")}
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -127,10 +133,10 @@ export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
                                                     onChange={(e) => updateStatus(record.id, e.target.value)}
                                                     className={`px-2.5 py-1 rounded-full text-xs font-medium border appearance-none cursor-pointer outline-none focus:ring-2 focus:ring-slate-400 text-center ${getStatusStyle(record.status)}`}
                                                 >
-                                                    <option value="PRESENT">{t("present") || "Present"}</option>
-                                                    <option value="LATE">{t("late") || "Late"}</option>
-                                                    <option value="ABSENT">{t("absent") || "Absent"}</option>
-                                                    <option value="LEFT_EARLY">{t("leftEarly") || "Left Early"}</option>
+                                                    <option value="PRESENT">{t("present")}</option>
+                                                    <option value="LATE">{t("late")}</option>
+                                                    <option value="ABSENT">{t("absent")}</option>
+                                                    <option value="LEFT_EARLY">{t("leftEarly")}</option>
                                                 </select>
                                             </td>
                                         </tr>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
 type StudentGroupPatchData = {
     name?: string
@@ -15,7 +16,7 @@ export async function DELETE(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
@@ -27,7 +28,7 @@ export async function DELETE(
         });
 
         if (!classroom) {
-            return new NextResponse("Unauthorized", { status: 401 });
+            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
         }
 
         const group = await db.studentGroup.findUnique({
@@ -61,7 +62,7 @@ export async function PATCH(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
@@ -76,7 +77,7 @@ export async function PATCH(
         });
 
         if (!classroom) {
-            return new NextResponse("Unauthorized", { status: 401 });
+            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
         }
 
         const group = await db.studentGroup.findUnique({
@@ -92,7 +93,25 @@ export async function PATCH(
 
         const updatedData: StudentGroupPatchData = {};
         if (name !== undefined) updatedData.name = name;
-        if (studentIds !== undefined) updatedData.studentIds = studentIds;
+        if (studentIds !== undefined) {
+            const students = await db.student.findMany({
+                where: {
+                    id: {
+                        in: studentIds,
+                    },
+                },
+                select: {
+                    id: true,
+                    classId: true,
+                },
+            });
+
+            if (students.length !== studentIds.length || students.some((student) => student.classId !== id)) {
+                return new NextResponse("Student not found in classroom", { status: 404 });
+            }
+
+            updatedData.studentIds = studentIds;
+        }
 
         const updatedGroup = await db.studentGroup.update({
             where: { id: groupId },

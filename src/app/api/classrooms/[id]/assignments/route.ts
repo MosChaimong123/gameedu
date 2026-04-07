@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { sendNotification } from "@/lib/notifications";
+import { parseQuizReviewModeFromRequest } from "@/lib/quiz-review-policy";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
 type AssignmentChecklist = {
     text?: string;
@@ -18,6 +20,8 @@ type AssignmentRequestBody = {
     deadline?: string | null;
     quizSetId?: string | null;
     quizData?: unknown;
+    /** Quiz only: "end_only" | "never" | null — null = inherit classroom / env */
+    quizReviewMode?: string | null;
 };
 
 export async function POST(
@@ -28,7 +32,7 @@ export async function POST(
     const resolvedParams = await params;
 
     if (!session || !session.user || !session.user.id) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
@@ -37,6 +41,10 @@ export async function POST(
 
         if (!name) {
             return new NextResponse("Name is required", { status: 400 });
+        }
+
+        if (type === "quiz" && !quizSetId) {
+            return new NextResponse("Quiz requires a question set", { status: 400 });
         }
 
         const classroom = await db.classroom.findUnique({
@@ -48,7 +56,7 @@ export async function POST(
         });
 
         if (!classroom || classroom.teacherId !== session.user.id) {
-            return new NextResponse("Unauthorized", { status: 401 });
+            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
         }
 
         let quizData = body.quizData || null;
@@ -57,11 +65,24 @@ export async function POST(
         if (quizSetId && type === "quiz") {
             const questionSet = await db.questionSet.findUnique({
                 where: { id: quizSetId },
-                select: { questions: true }
+                select: { questions: true, creatorId: true }
             });
+            if (!questionSet || questionSet.creatorId !== session.user.id) {
+                return new NextResponse("Question set not found", { status: 404 });
+            }
             if (questionSet) {
                 quizData = { questions: questionSet.questions };
             }
+        }
+
+        const effectiveType = String(type || "score").toLowerCase();
+        let quizReviewMode: string | null | undefined;
+        if (effectiveType === "quiz" && body.quizReviewMode !== undefined) {
+            const parsed = parseQuizReviewModeFromRequest(body.quizReviewMode);
+            if (!parsed.ok) {
+                return new NextResponse("Invalid quizReviewMode", { status: 400 });
+            }
+            quizReviewMode = parsed.value === undefined ? null : parsed.value;
         }
 
         const assignment = await db.assignment.create({
@@ -76,19 +97,44 @@ export async function POST(
                 deadline: deadline ? new Date(deadline) : null,
                 quizSetId: quizSetId || null,
                 quizData,
-                order: classroom.assignments.length
+                order: classroom.assignments.length,
+                ...(effectiveType === "quiz" && quizReviewMode !== undefined
+                    ? { quizReviewMode }
+                    : {}),
             }
         });
 
-        // Notify all students
+        const assignmentType = String(assignment.type || type || "score").toLowerCase();
+        const notifyLink =
+            assignmentType === "quiz"
+                ? (student: { loginCode: string }) =>
+                      `/student/${student.loginCode}/quiz/${assignment.id}`
+                : (student: { loginCode: string }) => `/student/${student.loginCode}`;
+
+        const dueStr = assignment.deadline
+            ? assignment.deadline.toLocaleString("en-US", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+              })
+            : null;
+
         await Promise.all(
-            classroom.students.map((student) => 
+            classroom.students.map((student) =>
                 sendNotification({
                     studentId: student.id,
-                    title: "มีงานใหม่!",
-                    message: `คุณได้รับงานใหม่: ${name}`,
                     type: "ASSIGNMENT",
-                    link: `/student/${student.loginCode}`
+                    link: notifyLink(student),
+                    i18n: dueStr
+                        ? {
+                              titleKey: "notifNewAssignmentTitle",
+                              messageKey: "notifNewAssignmentBodyDue",
+                              params: { name, due: dueStr },
+                          }
+                        : {
+                              titleKey: "notifNewAssignmentTitle",
+                              messageKey: "notifNewAssignmentBody",
+                              params: { name },
+                          },
                 })
             )
         );
@@ -108,7 +154,7 @@ export async function PATCH(
     const resolvedParams = await params;
 
     if (!session?.user?.id) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
@@ -117,10 +163,25 @@ export async function PATCH(
         });
 
         if (!classroom) {
-            return new NextResponse("Unauthorized", { status: 401 });
+            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
         }
 
         const items = await req.json() as Array<{ id: string; order: number }>;
+        const assignments = await db.assignment.findMany({
+            where: {
+                id: {
+                    in: items.map((item) => item.id),
+                },
+            },
+            select: {
+                id: true,
+                classId: true,
+            },
+        });
+
+        if (assignments.length !== items.length || assignments.some((assignment) => assignment.classId !== resolvedParams.id)) {
+            return new NextResponse("Assignment Not Found", { status: 404 });
+        }
 
         await Promise.all(
             items.map((item) =>

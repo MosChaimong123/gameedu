@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
 export async function PATCH(
     req: Request,
@@ -10,12 +11,20 @@ export async function PATCH(
         const session = await auth();
         const { id, studentId } = await params;
 
-        if (!session?.user?.id) return new NextResponse("Unauthorized", { status: 401 });
+        if (!session?.user?.id) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
 
         const classroom = await db.classroom.findUnique({ where: { id, teacherId: session.user.id } });
-        if (!classroom) return new NextResponse("Unauthorized", { status: 401 });
+        if (!classroom) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
 
         const body = await req.json();
+        const existingStudent = await db.student.findUnique({
+            where: { id: studentId },
+            select: { id: true, classId: true },
+        });
+
+        if (!existingStudent || existingStudent.classId !== id) {
+            return new NextResponse("Student not found", { status: 404 });
+        }
 
         const student = await db.student.update({
             where: { id: studentId },
@@ -42,10 +51,19 @@ export async function DELETE(
         const session = await auth();
         const { id, studentId } = await params;
 
-        if (!session?.user?.id) return new NextResponse("Unauthorized", { status: 401 });
+        if (!session?.user?.id) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
 
         const classroom = await db.classroom.findUnique({ where: { id, teacherId: session.user.id } });
-        if (!classroom) return new NextResponse("Unauthorized", { status: 401 });
+        if (!classroom) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+
+        const existingStudent = await db.student.findUnique({
+            where: { id: studentId },
+            select: { id: true, classId: true },
+        });
+
+        if (!existingStudent || existingStudent.classId !== id) {
+            return new NextResponse("Student not found", { status: 404 });
+        }
 
         await db.student.delete({ where: { id: studentId } });
 

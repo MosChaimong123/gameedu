@@ -120,7 +120,7 @@ export function ClassroomDashboardContent({
                 assignments={classroom.assignments as AssignmentWithChecklist[]}
                 levelConfig={classroom.levelConfig as LevelConfigInput}
                 isAttendanceMode={isAttendanceMode}
-                onStudentClick={onStudentClick}
+                onStudentClick={(student) => onStudentClick(student as never)}
                 highlightAssignmentId={highlightAssignmentId}
             />
         </div>

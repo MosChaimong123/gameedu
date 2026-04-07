@@ -1,50 +1,65 @@
-export const PLUS_PLANS = [
+export type PlanId = "FREE" | "PLUS" | "PRO";
+
+export type PlanColor = "slate" | "indigo" | "emerald";
+
+export type PlusPlanDef = {
+    id: PlanId;
+    name: string;
+    /** Shown as ฿{price} when `priceLabelKey` is unset */
+    price: string;
+    /** When set, `price` is ignored and this translation key is shown (no ฿ prefix). */
+    priceLabelKey?: string;
+    unitKey?: string;
+    descriptionKey: string;
+    featureKeys: readonly string[];
+    buttonTextKey: string;
+    highlight: boolean;
+    color: PlanColor;
+};
+
+export const PLUS_PLANS: readonly PlusPlanDef[] = [
     {
         id: "FREE",
         name: "Free",
         price: "0",
-        description: "สำหรับครูที่เพิ่งเริ่มต้นใช้งาน",
-        features: [
-            "สร้างชุดคำถามได้ไม่จำกัด (Mock)",
-            "ผู้เล่นสูงสุด 50 คนต่อห้อง",
-            "ใช้ Monster พื้นฐานได้ทั้งหมด",
-            "ระบบรายงานผลพื้นฐาน"
-        ],
-        buttonText: "ปัจจุบัน",
+        descriptionKey: "planFreeDescription",
+        featureKeys: ["planFreeFeat0", "planFreeFeat1", "planFreeFeat2", "planFreeFeat3"],
+        buttonTextKey: "planFreeButton",
         highlight: false,
-        color: "slate"
+        color: "slate",
     },
     {
         id: "PLUS",
         name: "GameEdu Plus",
         price: "199",
-        unit: "เดือน",
-        description: "ยกระดับห้องเรียนให้น่าตื่นเต้นยิ่งขึ้น",
-        features: [
-            "ทุกอย่างในแผน Free",
-            "สร้างชุดคำถามด้วย AI ไม่จำกัด",
-            "ปลดล็อค Monster ระดับ Epic & Legend",
-            "ปรับแต่ง Rank Card ได้อย่างอิสระ",
-            "ระบบสุ่มชื่อและจัดกลุ่มขั้นสูง"
+        unitKey: "planPlusUnit",
+        descriptionKey: "planPlusDescription",
+        featureKeys: [
+            "planPlusFeat0",
+            "planPlusFeat1",
+            "planPlusFeat2",
+            "planPlusFeat3",
+            "planPlusFeat4",
         ],
-        buttonText: "อัปเกรดเป็นพลัส",
+        buttonTextKey: "planPlusButton",
         highlight: true,
-        color: "indigo"
+        color: "indigo",
     },
     {
         id: "PRO",
         name: "School Pro",
-        price: "Contact",
-        description: "สำหรับห้องเรียนขนาดใหญ่หรือโรงเรียน",
-        features: [
-            "ทุกอย่างในแผน Plus",
-            "ระบบวิเคราะห์ผลการเรียนภาพรวม",
-            "พื้นที่จัดเก็บไฟล์งานไม่จำกัด",
-            "การสนับสนุนลำดับความสำคัญ (24/7)",
-            "Workshop แนะนำการใช้งานสำหรับครู"
+        price: "",
+        priceLabelKey: "planProContactPrice",
+        descriptionKey: "planProDescription",
+        featureKeys: [
+            "planProFeat0",
+            "planProFeat1",
+            "planProFeat2",
+            "planProFeat3",
+            "planProFeat4",
         ],
-        buttonText: "ติดต่อเรา",
+        buttonTextKey: "planProButton",
         highlight: false,
-        color: "emerald"
-    }
-]
+        color: "emerald",
+    },
+];

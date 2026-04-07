@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { db } from "@/lib/db";
+import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    saveClassroomAttendance,
+    type AttendanceUpdateInput,
+} from "@/lib/services/classroom-attendance/save-classroom-attendance";
 
 export async function POST(
     req: Request,
@@ -10,53 +14,40 @@ export async function POST(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
     try {
         const body = await req.json();
-        const { updates } = body; // Array of { studentId, status }
+        const updates = body.updates as AttendanceUpdateInput[] | undefined;
 
-        if (!updates || !Array.isArray(updates)) {
-            return new NextResponse("Invalid data", { status: 400 });
+        if (!updates) {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Invalid data", 400);
         }
 
-        // Verify Class Ownership
-        const classroom = await db.classroom.findUnique({
-            where: {
-                id,
-                teacherId: session.user.id
-            }
+        const result = await saveClassroomAttendance({
+            classroomId: id,
+            teacherId: session.user.id,
+            updates,
         });
 
-        if (!classroom) {
-            return new NextResponse("Unauthorized", { status: 401 });
+        if (!result.ok) {
+            const code = result.status === 400
+                ? "INVALID_PAYLOAD"
+                : result.status === 404
+                    ? "NOT_FOUND"
+                    : "AUTH_REQUIRED";
+            return createAppErrorResponse(code, result.message, result.status);
         }
 
-        const now = new Date();
-
-        // Transactional update using Prisma transaction array
-        await db.$transaction(
-            updates.flatMap((update: { studentId: string; status: string }) => [
-                db.student.update({
-                    where: { id: update.studentId },
-                    data: { attendance: update.status }
-                }),
-                db.attendanceRecord.create({
-                    data: {
-                        studentId: update.studentId,
-                        classId: id,
-                        status: update.status,
-                        date: now
-                    }
-                })
-            ])
-        );
-
-        return NextResponse.json({ success: true });
+        return NextResponse.json({
+            success: true,
+            classroomId: result.classroomId,
+            savedCount: result.savedCount,
+        });
 
     } catch (error) {
         console.error("[ATTENDANCE_POST]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
     }
 }

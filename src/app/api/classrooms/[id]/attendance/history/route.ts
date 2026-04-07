@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
 
 type AttendanceRecordWithStudent = Awaited<ReturnType<typeof db.attendanceRecord.findMany>>[number];
 type GroupedAttendanceRecords = Record<string, AttendanceRecordWithStudent[]>;
@@ -13,7 +14,7 @@ export async function GET(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
     try {
@@ -25,7 +26,7 @@ export async function GET(
         });
 
         if (!classroom) {
-            return new NextResponse("Unauthorized", { status: 401 });
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
         }
 
         const url = new URL(req.url);
@@ -79,6 +80,6 @@ export async function GET(
 
     } catch (error) {
         console.error("[ATTENDANCE_HISTORY_GET]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
     }
 }

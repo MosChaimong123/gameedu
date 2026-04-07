@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { db } from "@/lib/db";
-import { sendNotification } from "@/lib/notifications";
+import { awardSingleClassroomPoint } from "@/lib/services/classroom-points/award-classroom-points";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+
 export async function POST(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -10,7 +11,7 @@ export async function POST(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
@@ -21,61 +22,23 @@ export async function POST(
             return new NextResponse("Missing data", { status: 400 });
         }
 
-        // Verify Class Ownership
-        const classroom = await db.classroom.findUnique({
-            where: {
-                id,
-                teacherId: session.user.id
-            }
+        const result = await awardSingleClassroomPoint({
+            classroomId: id,
+            teacherId: session.user.id,
+            studentId,
+            skillId,
         });
 
-        if (!classroom) {
-            return new NextResponse("Unauthorized", { status: 401 });
+        if (!result.ok) {
+            return new NextResponse(result.message, { status: result.status });
         }
 
-        const student = await db.student.findUnique({
-            where: { id: studentId },
-            select: { id: true, classId: true, loginCode: true }
+        return NextResponse.json({
+            success: true,
+            classroomId: result.classroomId,
+            skillWeight: result.skillWeight,
+            updatedStudents: result.updatedStudents,
         });
-
-        if (!student || student.classId !== classroom.id) {
-            return new NextResponse("Student not found", { status: 404 });
-        }
-
-        // Get Skill details
-        const skill = await db.skill.findUnique({
-            where: { id: skillId }
-        });
-
-        if (!skill) {
-            return new NextResponse("Skill not found", { status: 404 });
-        }
-
-        // Update Student Points
-        const updatedStudent = await db.student.update({
-            where: { id: student.id },
-            data: {
-                points: { increment: skill.weight },
-                history: {
-                    create: {
-                        skillId: skill.id,
-                        reason: skill.name,
-                        value: skill.weight
-                    }
-                }
-            }
-        });
- 
-        // Send Notification to Student
-        await sendNotification({
-            studentId: student.id,
-            title: skill.weight > 0 ? "ได้รับคะแนน!" : "โดนหักคะแนน!",
-            message: `คุณได้รับ ${skill.weight} คะแนน ในทักษะ: ${skill.name}`,
-            type: "POINT",
-            link: `/student/${student.loginCode ?? updatedStudent.loginCode}`
-        });
-
-        return NextResponse.json(updatedStudent);
 
     } catch (error) {
         console.error("[POINTS_POST]", error);

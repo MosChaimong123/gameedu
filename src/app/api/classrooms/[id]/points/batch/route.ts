@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { db } from "@/lib/db";
-import { sendNotification } from "@/lib/notifications";
-type StudentMembership = {
-    id: string;
-    classId: string;
-};
+import { awardBatchClassroomPoints } from "@/lib/services/classroom-points/award-classroom-points";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
 export async function POST(
     req: Request,
@@ -15,7 +11,7 @@ export async function POST(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
@@ -26,77 +22,23 @@ export async function POST(
             return new NextResponse("Missing data", { status: 400 });
         }
 
-        // Verify Class Ownership
-        const classroom = await db.classroom.findUnique({
-            where: {
-                id,
-                teacherId: session.user.id
-            }
+        const result = await awardBatchClassroomPoints({
+            classroomId: id,
+            teacherId: session.user.id,
+            studentIds,
+            skillId,
         });
 
-        if (!classroom) {
-            return new NextResponse("Unauthorized", { status: 401 });
+        if (!result.ok) {
+            return new NextResponse(result.message, { status: result.status });
         }
 
-        const students = await db.student.findMany({
-            where: {
-                id: { in: studentIds },
-            },
-            select: {
-                id: true,
-                classId: true,
-            }
+        return NextResponse.json({
+            success: true,
+            classroomId: result.classroomId,
+            skillWeight: result.skillWeight,
+            updatedStudents: result.updatedStudents,
         });
-
-        const validStudentIds = students
-            .filter((student: StudentMembership) => student.classId === classroom.id)
-            .map((student: StudentMembership) => student.id);
-
-        if (validStudentIds.length !== studentIds.length) {
-            return new NextResponse("One or more students were not found in this classroom", { status: 404 });
-        }
-
-        // Get Skill details
-        const skill = await db.skill.findUnique({
-            where: { id: skillId }
-        });
-
-        if (!skill) {
-            return new NextResponse("Skill not found", { status: 404 });
-        }
-
-        // Apply Points to all students in a transaction
-        await db.$transaction(
-            validStudentIds.map((studentId: string) => 
-                db.student.update({
-                    where: { id: studentId },
-                    data: {
-                        points: { increment: skill.weight },
-                        history: {
-                            create: {
-                                skillId: skill.id,
-                                reason: skill.name,
-                                value: skill.weight
-                            }
-                        }
-                    }
-                })
-            )
-        );
-
-        // Notify all students in parallel
-        await Promise.all(
-            validStudentIds.map((studentId: string) => 
-                sendNotification({
-                    studentId,
-                    title: skill.weight > 0 ? "ทั้งชั้นเรียนได้รับคะแนน!" : "ทั้งชั้นเรียนโดนหักคะแนน!",
-                    message: `ทุกคนได้รับ ${skill.weight} คะแนน ในทักษะ: ${skill.name}`,
-                    type: "POINT",
-                })
-            )
-        );
-
-        return NextResponse.json({ success: true, count: validStudentIds.length });
 
     } catch (error) {
         console.error("[POINTS_BATCH_POST]", error);

@@ -1,38 +1,61 @@
 import { NextResponse } from "next/server";
+import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 import { db } from "@/lib/db";
+import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
+import {
+    buildRateLimitKey,
+    consumeRateLimit,
+    createRateLimitResponse,
+    getRequestClientIdentifier,
+} from "@/lib/security/rate-limit";
+
+const avatarSeedPattern = /^[a-z0-9-]{1,64}$/i;
 
 export async function PATCH(
     req: Request,
     { params }: { params: Promise<{ id: string; studentId: string }> }
 ) {
     const { id, studentId } = await params;
+    const rateLimit = consumeRateLimit({
+        bucket: "student-avatar:patch",
+        key: buildRateLimitKey(getRequestClientIdentifier(req), id, studentId),
+        limit: 10,
+        windowMs: 60_000,
+    });
+
+    if (!rateLimit.allowed) {
+        return createRateLimitResponse(rateLimit.retryAfterSeconds);
+    }
 
     try {
-        const { avatar, loginCode } = await req.json();
+        const { avatar, loginCode } = await req.json() as {
+            avatar?: unknown;
+            loginCode?: unknown;
+        };
+        const normalizedLoginCode = typeof loginCode === "string" ? loginCode.trim().toUpperCase() : "";
 
-        // Verify the student belongs to this classroom + loginCode matches (public route — no session)
         const student = await db.student.findUnique({
             where: { id: studentId, classId: id },
             select: { loginCode: true }
         });
 
-        if (!student || student.loginCode !== loginCode) {
-            return new NextResponse("Unauthorized", { status: 401 });
+        if (!student || !getStudentLoginCodeVariants(normalizedLoginCode).includes(student.loginCode)) {
+            return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
         }
 
-        if (!avatar || typeof avatar !== "string") {
-            return new NextResponse("Invalid avatar", { status: 400 });
+        if (!avatar || typeof avatar !== "string" || !avatarSeedPattern.test(avatar.trim())) {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Invalid avatar", 400);
         }
 
         const updated = await db.student.update({
             where: { id: studentId },
-            data: { avatar },
+            data: { avatar: avatar.trim() },
             select: { id: true, avatar: true }
         });
 
         return NextResponse.json(updated);
     } catch (error) {
         console.error("[AVATAR_PATCH]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
     }
 }

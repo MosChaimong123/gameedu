@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
 export async function PATCH(
     req: Request,
@@ -10,7 +11,7 @@ export async function PATCH(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
@@ -30,13 +31,27 @@ export async function PATCH(
         });
 
         if (!classroom) {
-            return new NextResponse("Unauthorized", { status: 401 });
+            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        }
+
+        const existingRecord = await db.attendanceRecord.findUnique({
+            where: {
+                id: recordId,
+            },
+            select: {
+                id: true,
+                classId: true,
+                studentId: true,
+            },
+        });
+
+        if (!existingRecord || existingRecord.classId !== id) {
+            return new NextResponse("Attendance record not found", { status: 404 });
         }
 
         const updatedRecord = await db.attendanceRecord.update({
             where: {
                 id: recordId,
-                classId: id
             },
             data: {
                 status

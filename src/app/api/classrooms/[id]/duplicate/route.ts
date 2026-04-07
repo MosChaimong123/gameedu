@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { logAuditEvent } from "@/lib/security/audit-log";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
 type OriginalSkill = {
     name: string;
@@ -22,7 +24,7 @@ export async function POST(
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {
-        return new NextResponse("Unauthorized", { status: 401 });
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
     try {
@@ -64,6 +66,7 @@ export async function POST(
                 grade: originalClassroom.grade,
                 gamifiedSettings: originalClassroom.gamifiedSettings,
                 levelConfig: originalClassroom.levelConfig,
+                quizReviewMode: originalClassroom.quizReviewMode ?? null,
                 // Copy skills
                 skills: {
                     create: sourceSkills.map((skill) => ({
@@ -86,6 +89,17 @@ export async function POST(
                 skills: true,
                 assignments: true
             }
+        });
+
+        logAuditEvent({
+            actorUserId: session.user.id,
+            action: "classroom.duplicated",
+            targetType: "classroom",
+            targetId: duplicatedClassroom.id,
+            metadata: {
+                sourceClassroomId: id,
+                duplicatedName: duplicatedClassroom.name,
+            },
         });
 
         return NextResponse.json({

@@ -74,7 +74,9 @@ describe("sets and folders role authorization", () => {
       { params: Promise.resolve({ id: "set-1" }) }
     );
 
-    expect(response).toBeDefined();
+    if (!response) {
+      throw new Error("PATCH /api/sets/[id] returned no response");
+    }
     expect(response.status).toBe(200);
     expect(mockQuestionSetUpdate).toHaveBeenCalledTimes(1);
   });

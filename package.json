@@ -6,17 +6,27 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "ts-node -r tsconfig-paths/register --project tsconfig.server.json server.ts",
+    "predev": "prisma generate && tsc --project tsconfig.server.json",
+    "dev": "node run-server.cjs",
     "clean": "rimraf .next dist",
     "build": "npm run clean && npx prisma generate && next build && tsc --project tsconfig.server.json",
     "postinstall": "prisma generate",
-    "start": "node dist/server.js",
+    "start": "node run-server.cjs",
     "lint": "eslint",
     "test": "node ./node_modules/vitest/vitest.mjs run --configLoader native --config vitest.config.mts --pool threads",
+    "test:unit": "node ./node_modules/vitest/vitest.mjs run --configLoader native --config vitest.config.mts --pool threads --exclude src/lib/socket/__tests__/**/*.integration.test.ts",
+    "test:integration": "node ./node_modules/vitest/vitest.mjs run --configLoader native --config vitest.integration.config.mts --pool threads",
     "test:watch": "node ./node_modules/vitest/vitest.mjs --configLoader native --config vitest.config.mts --pool threads",
+    "test:e2e:asn": "playwright test -c playwright.asn.config.ts",
+    "test:e2e:asn:headed": "playwright test -c playwright.asn.config.ts --headed",
+    "test:e2e:asn:install": "playwright install chromium",
+    "governance:check": "node scripts/check-governance.mjs",
+    "smoke:build": "node scripts/smoke-build.mjs",
+    "pr:body:asn": "node scripts/pr-body-asn-prepare.mjs",
     "db:seed": "npx prisma db seed",
     "db:push": "npx prisma db push",
-    "db:cleanup-rpg": "node scripts/cleanup-rpg-data.mjs"
+    "db:cleanup-rpg": "node scripts/cleanup-rpg-data.mjs",
+    "db:cleanup-rpg:dry-run": "node scripts/cleanup-rpg-data.mjs --dry-run"
   },
   "prisma": {
     "seed": "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
@@ -76,6 +86,7 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.19.29",

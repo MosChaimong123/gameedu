@@ -1,7 +1,10 @@
 "use client"
 
+import { AssignmentCommandCenter } from "@/components/dashboard/assignment-command-center"
 import { QuickActions } from "@/components/dashboard/quick-actions"
+import { TeacherCommandCenter } from "@/components/dashboard/teacher-command-center"
 import { TopInsights } from "@/components/dashboard/top-insights"
+import { isTeacherOrAdmin } from "@/lib/role-guards"
 
 import { motion } from "framer-motion"
 
@@ -24,7 +27,13 @@ export function DashboardContent({ role }: { role: string }) {
                 />
             </div>
 
-            <div className="relative z-10 max-w-[1600px] mx-auto space-y-8 p-6 md:p-8 lg:p-12">
+            <div className="relative z-10 mx-auto w-full max-w-[1600px] space-y-8">
+                {isTeacherOrAdmin(role) ? (
+                    <>
+                        <TeacherCommandCenter />
+                        <AssignmentCommandCenter />
+                    </>
+                ) : null}
                 <TopInsights role={role} />
                 <QuickActions role={role} />
             </div>

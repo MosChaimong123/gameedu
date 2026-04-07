@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Check, Shuffle } from "lucide-react";
+import { useLanguage } from "@/components/providers/language-provider";
 
 // 24 curated bottts seeds
 const AVATAR_SEEDS = [
@@ -34,6 +35,7 @@ export function AvatarPickerModal({
     currentAvatar, onSaved, theme
 }: AvatarPickerModalProps) {
     void theme;
+    const { t } = useLanguage();
     const [selected, setSelected] = useState(currentAvatar);
     const [loading, setLoading] = useState(false);
     const [customSeeds, setCustomSeeds] = useState<string[]>([]);
@@ -66,8 +68,8 @@ export function AvatarPickerModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[600px] w-[96vw] rounded-2xl border-0 shadow-2xl p-0 overflow-hidden gap-0">
                 <DialogHeader className="px-6 py-5 bg-gradient-to-r from-indigo-500 to-purple-600">
-                    <DialogTitle className="text-white text-xl font-bold">เลือก Avatar ของคุณ</DialogTitle>
-                    <p className="text-white/70 text-sm mt-1">คลิกเพื่อเลือก monster ที่ชอบ</p>
+                    <DialogTitle className="text-white text-xl font-bold">{t("avatarPickerTitle")}</DialogTitle>
+                    <p className="text-white/70 text-sm mt-1">{t("avatarPickerSubtitle")}</p>
                 </DialogHeader>
 
                 <div className="p-5 bg-[#F4F6FB]">
@@ -77,7 +79,7 @@ export function AvatarPickerModal({
                             <div className="w-28 h-28 rounded-2xl bg-white border-4 border-indigo-400 shadow-xl overflow-hidden">
                                 <Image
                                     src={`https://api.dicebear.com/7.x/bottts/svg?seed=${selected}&backgroundColor=transparent`}
-                                    alt="selected"
+                                    alt={t("avatarPickerImageAltSelected")}
                                     fill
                                     sizes="112px"
                                     unoptimized
@@ -85,7 +87,7 @@ export function AvatarPickerModal({
                                 />
                             </div>
                             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-xs px-3 py-0.5 rounded-full font-semibold whitespace-nowrap shadow">
-                                ตัวที่เลือก
+                                {t("avatarPickerSelectedBadge")}
                             </div>
                         </div>
                     </div>
@@ -106,7 +108,7 @@ export function AvatarPickerModal({
                                 >
                                     <Image
                                         src={`https://api.dicebear.com/7.x/bottts/svg?seed=${seed}&backgroundColor=transparent`}
-                                        alt={seed}
+                                        alt={`${t("avatarPickerImageAltOption")} ${seed}`}
                                         fill
                                         sizes="64px"
                                         unoptimized
@@ -128,20 +130,20 @@ export function AvatarPickerModal({
                         onClick={handleShuffle}
                         className="mt-3 w-full py-2 rounded-xl border-2 border-dashed border-indigo-300 text-indigo-600 hover:bg-indigo-50 transition-colors text-sm font-semibold flex items-center justify-center gap-2"
                     >
-                        <Shuffle className="w-4 h-4" /> สร้าง Random Avatar ใหม่
+                        <Shuffle className="w-4 h-4" /> {t("avatarPickerRandomButton")}
                     </button>
                 </div>
 
                 <div className="px-5 py-4 bg-white border-t border-slate-100 flex gap-3">
                     <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 rounded-xl border-2" disabled={loading}>
-                        ยกเลิก
+                        {t("avatarPickerCancel")}
                     </Button>
                     <Button
                         onClick={handleSave}
                         disabled={loading}
                         className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
                     >
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "บันทึก Avatar"}
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : t("avatarPickerSave")}
                     </Button>
                 </div>
             </DialogContent>

@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Backpack, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
+import { useLanguage } from "@/components/providers/language-provider";
 
 export function StudentLoginForm({ isLoggedIn }: { isLoggedIn: boolean }) {
     const [code, setCode] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
+    const { t } = useLanguage();
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
@@ -29,15 +31,15 @@ export function StudentLoginForm({ isLoggedIn }: { isLoggedIn: boolean }) {
                 </div>
                 
                 <div className="space-y-2">
-                    <h1 className="text-3xl font-black text-slate-800 tracking-tight">Student Login</h1>
-                    <p className="text-slate-500">ป้อนรหัส 6 หลักจากคุณครูเพื่อเข้าสู่ชั้นเรียน</p>
+                    <h1 className="text-3xl font-black text-slate-800 tracking-tight">{t("studentPortalTitle")}</h1>
+                    <p className="text-slate-500">{t("studentPortalSubtitle")}</p>
                 </div>
 
                 {isLoggedIn && (
                     <Link href="/student/home" 
                         className="w-full py-4 bg-indigo-50 text-indigo-700 rounded-2xl font-bold flex items-center justify-center gap-2 border border-indigo-100 hover:bg-indigo-100 transition-all mb-2">
                         <LayoutDashboard className="w-5 h-5" />
-                        ไปที่แดชบอร์ดของคุณ
+                        {t("studentPortalGoDashboard")}
                     </Link>
                 )}
 
@@ -45,7 +47,7 @@ export function StudentLoginForm({ isLoggedIn }: { isLoggedIn: boolean }) {
                     <div className="space-y-2">
                         <Input 
                             type="text" 
-                            placeholder="รหัส 6 หลัก" 
+                            placeholder={t("studentPortalCodePlaceholder")}
                             value={code}
                             onChange={(e) => setCode(e.target.value)}
                             className="text-center text-2xl tracking-widest font-mono py-6 uppercase placeholder:normal-case placeholder:tracking-normal placeholder:text-sm"
@@ -58,12 +60,12 @@ export function StudentLoginForm({ isLoggedIn }: { isLoggedIn: boolean }) {
                         className="w-full py-6 text-lg font-bold bg-indigo-600 hover:bg-indigo-700 shadow-md transition-all rounded-2xl"
                         disabled={isLoading || code.length < 5}
                     >
-                        {isLoading ? "กำลังเข้าสู่ระบบ..." : "เข้าเรียนเลย!"}
+                        {isLoading ? t("studentPortalSubmitLoading") : t("studentPortalSubmit")}
                     </Button>
                 </form>
 
                 <div className="pt-6 border-t border-slate-100 w-full text-xs text-slate-400">
-                    <p>หากคุณใช้ Gmail ระบบจะจำห้องเรียนของคุณไว้อัตโนมัติเมื่อเข้าสู่ระบบ</p>
+                    <p>{t("studentPortalGmailHint")}</p>
                 </div>
             </div>
         </div>

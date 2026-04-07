@@ -340,7 +340,7 @@ export function ClassroomDashboard({
                 <div className="flex-1 min-h-0 w-full animate-in slide-in-from-bottom-2">
                     <ClassroomTable 
                         classId={classroom.id}
-                        students={classroom.students}
+                        students={classroom.students as never}
                         assignments={classroom.assignments as AssignmentWithChecklist[]}
                         levelConfig={classroom.levelConfig as LevelConfigInput}
                         isAttendanceMode={isAttendanceMode}

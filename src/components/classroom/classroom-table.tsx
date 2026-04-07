@@ -1,6 +1,6 @@
 "use client";
 
-import { Student, Assignment, AssignmentSubmission } from "@prisma/client";
+import { Assignment } from "@prisma/client";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import { assignmentFormTypeLabel } from "@/lib/assignment-form-type-label";
 import { formatDeadlineDisplayTh, isAssignmentDeadlinePast } from "@/lib/datetime-local";
 import { shouldFlagIntegrityForTeacher } from "@/lib/quiz-integrity";
 import { checklistCheckedScore } from "@/lib/academic-score";
+import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
 
 type ChecklistItem = string | { text?: string; points?: number };
 
@@ -27,10 +28,7 @@ export type AssignmentWithChecklist = Assignment & {
 
 type StudentScoreMap = Record<string, Record<string, number>>;
 
-type StudentWithSubmissions = Student & {
-    submissions: AssignmentSubmission[];
-    nickname?: string | null;
-};
+type StudentWithSubmissions = ClassroomDashboardViewModel["students"][number];
 
 interface ClassroomTableProps {
     classId: string;
@@ -38,7 +36,7 @@ interface ClassroomTableProps {
     assignments: AssignmentWithChecklist[];
     levelConfig: unknown;
     isAttendanceMode?: boolean;
-    onStudentClick?: (student: Student) => void;
+    onStudentClick?: (student: StudentWithSubmissions) => void;
     /** Scroll to and briefly highlight this assignment (desktop column or mobile card block). */
     highlightAssignmentId?: string | null;
 }
@@ -617,11 +615,12 @@ export function ClassroomTable({
                                                                         {sub.score}
                                                                     </span>
                                                                     {flagged ? (
-                                                                        <AlertTriangle
-                                                                            className="h-3.5 w-3.5 text-amber-600"
-                                                                            aria-label={t("classroomTableIntegrityShort")}
-                                                                            title={t("classroomTableIntegrityTooltip")}
-                                                                        />
+                                                                        <span title={t("classroomTableIntegrityTooltip")}>
+                                                                            <AlertTriangle
+                                                                                className="h-3.5 w-3.5 text-amber-600"
+                                                                                aria-label={t("classroomTableIntegrityShort")}
+                                                                            />
+                                                                        </span>
                                                                     ) : null}
                                                                 </span>
                                                                 <span className="text-[9px] text-slate-400">

@@ -91,18 +91,21 @@ export function useTeacherAssignmentOverview(fallbackError: string) {
         if (!gate.isLatest(requestId)) {
             return;
         }
-        if (result.ok) {
+        if ("ok" in result && result.ok) {
             setData(result.data);
         } else {
             setData(null);
-            setError(result.error);
+            setError("error" in result ? result.error : fallbackError);
         }
         setLoading(false);
     }, [rangeDays, fallbackError, gate]);
 
     useEffect(() => {
-        void load();
+        const timer = setTimeout(() => {
+            void load();
+        }, 0);
         return () => {
+            clearTimeout(timer);
             abortRef.current?.abort();
         };
     }, [load]);

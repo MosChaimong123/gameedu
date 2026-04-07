@@ -62,6 +62,7 @@ describe("folder and set authorization", () => {
       { params: Promise.resolve({ id: "set-1" }) }
     );
 
+    expect(response).toBeDefined();
     expect(response.status).toBe(404);
     expect(mockQuestionSetUpdate).not.toHaveBeenCalled();
   });

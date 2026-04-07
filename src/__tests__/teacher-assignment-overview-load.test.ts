@@ -76,7 +76,7 @@ describe("loadTeacherAssignmentOverview", () => {
             json: async () => {
                 throw new Error("bad json");
             },
-        } as Response);
+        } as unknown as Response);
 
         const result = await loadTeacherAssignmentOverview(14, FALLBACK, { fetchImpl });
 

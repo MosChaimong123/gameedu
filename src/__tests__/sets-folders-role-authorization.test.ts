@@ -74,6 +74,7 @@ describe("sets and folders role authorization", () => {
       { params: Promise.resolve({ id: "set-1" }) }
     );
 
+    expect(response).toBeDefined();
     expect(response.status).toBe(200);
     expect(mockQuestionSetUpdate).toHaveBeenCalledTimes(1);
   });

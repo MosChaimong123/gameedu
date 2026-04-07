@@ -41,8 +41,7 @@ export async function handleClassroomLeaderboardGet(
         id: true,
         name: true,
         avatar: true,
-        behaviorPoints: true,
-        gold: true,
+        points: true,
       },
     });
 
@@ -51,8 +50,8 @@ export async function handleClassroomLeaderboardGet(
         id: student.id,
         name: student.name,
         avatar: student.avatar,
-        behaviorPoints: student.behaviorPoints,
-        gold: student.gold ?? 0,
+        behaviorPoints: student.points,
+        gold: 0,
       }))
       .sort((a, b) => b.behaviorPoints - a.behaviorPoints)
       .map((student, index) => ({ ...student, rank: index + 1 }));

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useLanguage } from "@/components/providers/language-provider";
 
 export function CreateClassroomDialog() {
     const [open, setOpen] = useState(false);
@@ -16,6 +17,7 @@ export function CreateClassroomDialog() {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
     const { toast } = useToast();
+    const { t } = useLanguage();
 
     const onSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -33,16 +35,16 @@ export function CreateClassroomDialog() {
             await res.json();
 
             toast({
-                title: "Success",
-                description: "Classroom created successfully!",
+                title: t("classroomCreateSuccessTitle"),
+                description: t("classroomCreateSuccessDesc"),
             });
 
             setOpen(false);
             router.refresh(); // Refresh server components
         } catch {
             toast({
-                title: "Error",
-                description: "Something went wrong.",
+                title: t("classroomCreateFailTitle"),
+                description: t("classroomCreateFailDesc"),
                 variant: "destructive"
             });
         } finally {
@@ -55,47 +57,47 @@ export function CreateClassroomDialog() {
             <DialogTrigger asChild>
                 <Button>
                     <Plus className="w-4 h-4 mr-2" />
-                    New Class
+                    {t("classroomDialogNewButton")}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Create a Classroom</DialogTitle>
+                    <DialogTitle>{t("classroomDialogTitle")}</DialogTitle>
                     <DialogDescription>
-                        Create a new space for your students.
+                        {t("classroomDialogDesc")}
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={onSubmit}>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="name" className="text-right">
-                                Name
+                                {t("classroomFieldName")}
                             </Label>
                             <Input
                                 id="name"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 className="col-span-3"
-                                placeholder="e.g. Science 101"
+                                placeholder={t("classroomNamePlaceholder")}
                                 required
                             />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="grade" className="text-right">
-                                Grade
+                                {t("classroomFieldGrade")}
                             </Label>
                             <Input
                                 id="grade"
                                 value={grade}
                                 onChange={(e) => setGrade(e.target.value)}
                                 className="col-span-3"
-                                placeholder="e.g. 5th Grade"
+                                placeholder={t("classroomGradePlaceholder")}
                             />
                         </div>
                     </div>
                     <DialogFooter>
                         <Button type="submit" disabled={loading}>
-                            {loading ? "Creating..." : "Create Class"}
+                            {loading ? t("classroomCreating") : t("classroomCreateSubmit")}
                         </Button>
                     </DialogFooter>
                 </form>

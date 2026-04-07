@@ -14,7 +14,7 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
-  role          String    @default("USER") // "USER", "ADMIN", "TEACHER"
+  role          String    @default("USER") // "USER" = generic authenticated account, "STUDENT" = linked student portal account, plus "TEACHER" and "ADMIN"
   accounts      Account[]
   sessions      Session[]
   classrooms    Classroom[]
@@ -131,22 +131,59 @@ model Classroom {
   boards      Board[]
   omrQuizzes  OMRQuiz[]
   gamifiedSettings Json?   // events, customAchievements, etc.
+  /// Quiz result review: "end_only" | "never". null = follow QUIZ_REVIEW_MODE env default
+  quizReviewMode String?
+  battleSessions BattleSession[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+}
+
+model BattleSession {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  classId      String   @db.ObjectId
+  classroom    Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  challengerId String   @db.ObjectId  // Student.id
+  defenderId   String   @db.ObjectId  // Student.id
+  /// Snapshot of both fighters + full turn log (BattleResult JSON)
+  result       Json
+  winnerId     String   @db.ObjectId
+  goldReward   Int      @default(30)
+  createdAt    DateTime @default(now())
 }
 
 model Student {
   id          String                 @id @default(auto()) @map("_id") @db.ObjectId
   name        String
   nickname    String?                // ชื่อเล่น
-  avatar      String?                // Monster Seed/ID
+  avatar      String?                // Avatar seed/identifier for generated student profile images
   order       Int                    @default(0) // เลขที่ / position
   classId     String                 @db.ObjectId
   classroom   Classroom              @relation(fields: [classId], references: [id], onDelete: Cascade)
   userId      String?                @db.ObjectId // Optional link to a Gmail/credentials User account
   user        User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
   loginCode   String                 @unique @default(cuid()) // Unique code for student portal login
-  points      Int                    @default(0)
+  /// แต้มพฤติกรรม / progression รวม (ครูให้-หัก, ทักษะ, EXP Negamon จากงาน+แมตช์สด ฯลฯ) — ใน BSON ยังใช้ key เดิมว่า "points"
+  behaviorPoints Int                 @default(0) @map("points")
+  /// ทองสะสมจาก passive income (goldRate × เวลา ตาม rank)
+  gold          Int                  @default(0)
+  /// ครั้งล่าสุดที่ระบบ accrue gold ให้นักเรียนคนนี้
+  lastGoldAt    DateTime?
+  /// วันที่ check-in ประจำวันล่าสุด
+  lastCheckIn   DateTime?
+  /// จำนวนวันต่อเนื่องที่ check-in (streak)
+  streak        Int                  @default(0)
+  /// รายการ item ID ที่ซื้อจาก shop แล้ว
+  inventory     String[]             @default([])
+  /// frame ID ที่กำลังใช้งานอยู่
+  equippedFrame String?
+  /// passive skill IDs ที่ unlock ด้วย gold แล้ว
+  negamonSkills String[]             @default([])
+  /// daily quest claims: { date: "YYYY-MM-DD", claimed: ["quest_id", ...] }
+  dailyQuestsClaimed    Json?
+  /// weekly quest claims: { weekKey: "YYYY-WNN", claimed: ["wq_id", ...] }
+  weeklyQuestsClaimed   Json?
+  /// challenge quest claims (one-time, never resets): ["cq_id", ...]
+  challengeQuestsClaimed Json?
   attendance  String                 @default("PRESENT") // PRESENT, ABSENT, LATE, LEFT_EARLY
   history     PointHistory[]
   submissions AssignmentSubmission[]
@@ -201,6 +238,9 @@ model Assignment {
   
   quizSetId   String?  @db.ObjectId
   quizSet     QuestionSet? @relation(fields: [quizSetId], references: [id], onDelete: SetNull)
+
+  /// Quiz only: "end_only" | "never". null = inherit from classroom / env
+  quizReviewMode String?
   
   submissions AssignmentSubmission[]
   createdAt   DateTime @default(now())
@@ -246,17 +286,20 @@ model AttendanceRecord {
 }
 
 model Notification {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  studentId String?  @db.ObjectId
-  student   Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  userId    String?  @db.ObjectId
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  message   String
-  type      String   @default("INFO") // INFO, SUCCESS, WARNING, DANGER
-  isRead    Boolean  @default(false)
-  link      String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId  String?  @db.ObjectId
+  student    Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  userId     String?  @db.ObjectId
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  message    String
+  titleKey   String?
+  messageKey String?
+  i18nParams Json?
+  type       String   @default("INFO") // INFO, SUCCESS, WARNING, DANGER
+  isRead     Boolean  @default(false)
+  link       String?
+  createdAt  DateTime @default(now())
 }
 
 model Board {

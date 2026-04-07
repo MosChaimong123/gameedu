@@ -5,6 +5,7 @@ import type { StudentDashboardClientProps } from "@/components/student/StudentDa
 
 const mockUseLanguage = vi.fn();
 const mockHeaderSpy = vi.fn();
+const mockAssignmentsTabSpy = vi.fn();
 
 vi.mock("@/components/providers/language-provider", () => ({
   useLanguage: mockUseLanguage,
@@ -18,6 +19,17 @@ vi.mock("@/components/student/student-dashboard-header", () => ({
   StudentDashboardHeader: (props: unknown) => {
     mockHeaderSpy(props);
     return React.createElement("div", { "data-testid": "student-dashboard-header" });
+  },
+}));
+
+vi.mock("@/components/student/student-dashboard-tab-nav", () => ({
+  StudentDashboardTabNav: () => null,
+}));
+
+vi.mock("@/components/student/student-dashboard-assignments-tab", () => ({
+  StudentDashboardAssignmentsTab: (props: unknown) => {
+    mockAssignmentsTabSpy(props);
+    return React.createElement("div", { "data-testid": "student-dashboard-assignments-tab" });
   },
 }));
 
@@ -169,5 +181,15 @@ describe("student dashboard client", () => {
     expect(headerProps.classroom.id).toBe("class-1");
     expect(headerProps.student.id).toBe("student-1");
     expect(headerProps.currentUserId).toBe("user-1");
+
+    expect(mockAssignmentsTabSpy).toHaveBeenCalledTimes(1);
+    const assignmentsProps = mockAssignmentsTabSpy.mock.calls[0][0] as {
+      code: string;
+      assignmentFilter: string;
+      assignmentSort: string;
+    };
+    expect(assignmentsProps.code).toBe("ABC123");
+    expect(assignmentsProps.assignmentFilter).toBe("all");
+    expect(assignmentsProps.assignmentSort).toBe("default");
   });
 });

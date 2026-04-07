@@ -31,20 +31,20 @@ export async function POST(
     }
 
     // Fetch classroom + both students
-    const classroom = await (db.classroom as any).findUnique({
+    const classroom = await db.classroom.findUnique({
         where: { id: classId },
         select: { id: true, gamifiedSettings: true, levelConfig: true },
     });
     if (!classroom) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
     // Verify challenger owns this loginCode
-    const challenger = await (db.student as any).findFirst({
+    const challenger = await db.student.findFirst({
         where: { id: challengerId, classId, loginCode: studentCode },
         select: { id: true, name: true, behaviorPoints: true, inventory: true },
     });
     if (!challenger) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 
-    const defender = await (db.student as any).findFirst({
+    const defender = await db.student.findFirst({
         where: { id: defenderId, classId },
         select: { id: true, name: true, behaviorPoints: true, inventory: true },
     });
@@ -81,7 +81,7 @@ export async function POST(
     const result = resolveBattle(f1, f2);
 
     // Store session
-    const session = await (db as any).battleSession.create({
+    const session = await db.battleSession.create({
         data: {
             classId,
             challengerId,
@@ -93,7 +93,7 @@ export async function POST(
     });
 
     // Award gold to winner
-    await (db.student as any).update({
+    await db.student.update({
         where: { id: result.winnerId },
         data: { gold: { increment: result.goldReward } },
     });
@@ -114,7 +114,7 @@ export async function GET(
         where.OR = [{ challengerId: studentId }, { defenderId: studentId }];
     }
 
-    const sessions = await (db as any).battleSession.findMany({
+    const sessions = await db.battleSession.findMany({
         where,
         orderBy: { createdAt: "desc" },
         take: 30,
@@ -130,7 +130,7 @@ export async function GET(
     )];
 
     const students = studentIds.length > 0
-        ? await (db.student as any).findMany({
+        ? await db.student.findMany({
             where: { id: { in: studentIds } },
             select: { id: true, name: true },
         })

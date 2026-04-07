@@ -5,6 +5,7 @@ import { CryptoHackPlayer, CryptoReward } from "@/lib/types/game";
 import { CryptoHackGameHeader } from "./game-header";
 import { CryptoBoxSelection } from "./box-selection";
 import { getPlayerSession } from "@/lib/player-session";
+import { useLanguage } from "@/components/providers/language-provider";
 
 type Props = {
     socket: Socket | null;
@@ -26,6 +27,7 @@ type Props = {
 }
 
 export function CryptoHackClient({ socket, player, otherPlayers, onNavigate, view, endTime, cryptoGoal, passwordOptions, hackHint, hackResult, boxReveal }: Props) {
+    const { t } = useLanguage();
     const [isWaiting, setIsWaiting] = useState(false);
 
     // Handlers
@@ -85,7 +87,7 @@ export function CryptoHackClient({ socket, player, otherPlayers, onNavigate, vie
                                 <div className="inline-block p-8 border-4 border-green-500/50 bg-green-950/30 backdrop-blur-md rounded-xl relative overflow-hidden">
                                     <div className="absolute top-0 left-0 w-full h-1 bg-green-500 animate-progress-indeterminate" />
                                     <h2 className="text-3xl md:text-5xl font-black text-green-400 uppercase tracking-widest mb-4 glow-text">
-                                        PASSWORD LOCKED
+                                        {t("cryptoClientPasswordLocked")}
                                     </h2>
                                     <div className="text-xl text-green-600 font-mono tracking-[0.5em] animate-pulse mb-6">
                                         [ * * * * * * ]
@@ -95,14 +97,14 @@ export function CryptoHackClient({ socket, player, otherPlayers, onNavigate, vie
                                         <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce delay-100" />
                                         <div className="w-3 h-3 bg-green-500 rounded-full animate-bounce delay-200" />
                                     </div>
-                                    <p className="mt-4 text-green-700 font-bold uppercase tracking-widest text-sm">Waiting for other nodes...</p>
+                                    <p className="mt-4 text-green-700 font-bold uppercase tracking-widest text-sm">{t("cryptoClientWaitingNodes")}</p>
                                 </div>
                             </div>
                         ) : (
                             <div className="flex flex-col h-full w-full max-h-full">
                                 <div className="mb-4 text-center shrink-0">
                                     <h1 className="text-3xl md:text-5xl font-black text-green-500 mb-2 uppercase tracking-tighter glitch-text">
-                                        INITIALIZE DEFENSE
+                                        {t("cryptoClientInitializeDefense")}
                                     </h1>
                                     <p className="text-green-800 text-sm md:text-lg uppercase tracking-[0.5em] animate-pulse">
                                         &gt; SELECT_PASSWORD_PROTOCOL
@@ -126,7 +128,7 @@ export function CryptoHackClient({ socket, player, otherPlayers, onNavigate, vie
                                 </div>
                                 {passwordOptions.length === 0 && (
                                     <div className="text-green-900 animate-pulse mt-8 font-mono text-center shrink-0">
-                                        [ CONNECTING_TO_MAINFRAME... ]
+                                        {t("cryptoClientConnectingMainframe")}
                                     </div>
                                 )}
                             </div>
@@ -142,7 +144,7 @@ export function CryptoHackClient({ socket, player, otherPlayers, onNavigate, vie
                     <div className="w-full max-w-6xl mx-auto flex flex-col items-center h-full">
                         <div className="mb-6 text-center shrink-0">
                             <h1 className="text-3xl md:text-5xl font-black text-red-500 mb-2 uppercase tracking-tighter drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]">
-                                TARGET ACQUISITION
+                                {t("cryptoClientTargetAcquisition")}
                             </h1>
                             <p className="text-red-900 text-sm md:text-lg uppercase tracking-[0.3em] animate-pulse">
                                 &gt; SELECT_VICTIM_NODE
@@ -174,7 +176,7 @@ export function CryptoHackClient({ socket, player, otherPlayers, onNavigate, vie
                             onClick={() => onNavigate("QUESTION")}
                             className="mt-4 mb-4 text-slate-500 hover:text-white hover:bg-slate-800 px-6 py-2 rounded uppercase text-xs tracking-widest transition-colors border border-transparent hover:border-slate-600 shrink-0"
                         >
-                            [ ABORT_SEQUENCE ]
+                            {t("cryptoClientAbortSequence")}
                         </button>
                     </div>
                 )}
@@ -193,12 +195,12 @@ export function CryptoHackClient({ socket, player, otherPlayers, onNavigate, vie
                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 animate-in fade-in duration-300">
                     <div className={`p-8 rounded-2xl border-4 ${hackResult.success ? "border-green-500 bg-green-950/50" : "border-red-500 bg-red-950/50"} max-w-lg w-full text-center shadow-[0_0_50px_rgba(0,0,0,0.8)] transform scale-100`}>
                         <h2 className={`text-6xl font-black mb-4 uppercase tracking-tighter ${hackResult.success ? "text-green-400 drop-shadow-[0_0_15px_rgba(74,222,128,0.8)]" : "text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]"}`}>
-                            {hackResult.success ? "ACCESS GRANTED" : "ACCESS DENIED"}
+                            {hackResult.success ? t("cryptoClientAccessGranted") : t("cryptoClientAccessDenied")}
                         </h2>
                         <div className={`text-2xl font-bold mb-6 ${hackResult.success ? "text-green-200" : "text-red-200"}`}>
                             {hackResult.success
-                                ? `Successfully drained ₿${hackResult.amount?.toLocaleString()} from ${hackResult.targetName}`
-                                : `Firewall detected! ${hackResult.targetName} blocked your attempt.`
+                                ? t("cryptoClientHackSuccess", { amount: hackResult.amount?.toLocaleString() || 0, target: hackResult.targetName || "-" })
+                                : t("cryptoClientHackBlocked", { target: hackResult.targetName || "-" })
                             }
                         </div>
                         {hackResult.success && (
@@ -254,7 +256,7 @@ function PasswordGuessView({ passwordOptions, hackHint, handleAttemptHack }: { p
             {hackHint && (
                 <div className="bg-blue-950/30 text-blue-300 px-8 py-4 mb-4 border-l-4 border-blue-500 w-full max-w-xl backdrop-blur-sm relative overflow-hidden shrink-0">
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-10" />
-                    <div className="text-xs font-bold text-blue-600 mb-1 uppercase tracking-widest">Decrypted Fragment</div>
+                    <div className="text-xs font-bold text-blue-600 mb-1 uppercase tracking-widest">{t("cryptoClientDecryptedFragment")}</div>
                     <span className="font-mono font-black text-3xl tracking-[0.5em] text-white glow-text truncate block">
                         {hackHint}
                         <span className="text-blue-800 opacity-50">*****</span>

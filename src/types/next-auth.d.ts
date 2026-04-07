@@ -1,9 +1,10 @@
 import type { DefaultSession } from "next-auth";
 import type { JWT as DefaultJWT } from "next-auth/jwt";
+import type { AppRole } from "@/lib/roles";
 
 type AppUserFields = {
   id?: string;
-  role?: string;
+  role?: AppRole;
   school?: string | null;
   settings?: unknown;
   plan?: string | null;

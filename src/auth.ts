@@ -4,6 +4,12 @@ import Credentials from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { db } from "@/lib/db"
 import { authConfig } from "./auth.config"
+import { isAppRole, type AppRole } from "@/lib/roles"
+import {
+    buildRateLimitKey,
+    consumeRateLimitWithStore,
+    getRequestClientIdentifier,
+} from "@/lib/security/rate-limit"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     ...authConfig,
@@ -20,13 +26,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 email: { label: "Email", type: "email" },
                 password: { label: "Password", type: "password" },
             },
-            authorize: async (credentials) => {
+            authorize: async (credentials, request) => {
                 if (!credentials?.email || !credentials?.password) {
                     return null
                 }
 
                 const email = credentials.email as string
                 const password = credentials.password as string
+                const rateLimit = await consumeRateLimitWithStore({
+                    bucket: "auth-credentials:authorize",
+                    key: buildRateLimitKey(
+                        getRequestClientIdentifier(request),
+                        email.toLowerCase()
+                    ),
+                    limit: 10,
+                    windowMs: 60_000,
+                })
+
+                if (!rateLimit.allowed) {
+                    throw new Error("Too many login attempts. Please wait and try again.")
+                }
 
                 const user = await db.user.findUnique({
                     where: {
@@ -50,7 +69,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     name: user.name,
                     email: user.email,
                     image: user.image,
-                    role: user.role,
+                    role: isAppRole(user.role) ? user.role : ("USER" satisfies AppRole),
                     school: user.school,
                 }
             },
@@ -79,7 +98,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     if (freshUser) {
                         if (freshUser.name !== undefined) token.name = freshUser.name
                         token.picture = freshUser.image
-                        token.role = freshUser.role
+                        token.role = isAppRole(freshUser.role) ? freshUser.role : ("USER" satisfies AppRole)
                         token.school = freshUser.school
                         token.settings = freshUser.settings
                         token.plan = freshUser.plan

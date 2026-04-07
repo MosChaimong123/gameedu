@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 // 1. Polyfill AsyncLocalStorage on globalThis before Next.js loads its require-hook,
 //    so Next.js uses real async storage instead of FakeAsyncLocalStorage.
 const { AsyncLocalStorage } = require('node:async_hooks');

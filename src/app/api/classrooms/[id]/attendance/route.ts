@@ -16,6 +16,9 @@ export async function POST(
     if (!session || !session.user) {
         return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
+    if (!session.user.id) {
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
 
     try {
         const body = await req.json();

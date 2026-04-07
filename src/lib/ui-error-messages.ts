@@ -111,9 +111,10 @@ export function getLocalizedMessageFromApiErrorBody(
 
     if (err && typeof err === "object" && err !== null && "code" in err) {
         const rawCode = (err as { code: unknown }).code;
+        const errRecord = err as Record<string, unknown>;
         const msg =
-            typeof (err as { message?: string }).message === "string"
-                ? (err as { message: string }).message
+            typeof errRecord.message === "string"
+                ? errRecord.message
                 : fallback;
         if (typeof rawCode === "string" && rawCode in DEFAULT_THAI_ERROR_MESSAGES) {
             return getLocalizedAppErrorMessage(rawCode as AppErrorCode, msg, t);

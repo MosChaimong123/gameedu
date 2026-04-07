@@ -241,6 +241,7 @@ export function CryptoHackClient({ socket, player, otherPlayers, onNavigate, vie
 }
 
 function PasswordGuessView({ passwordOptions, hackHint, handleAttemptHack }: { passwordOptions: string[], hackHint: string | null, handleAttemptHack: (pwd: string) => void }) {
+    const { t } = useLanguage();
     return (
         <div className="w-full max-w-6xl mx-auto flex flex-col items-center animate-in fade-in slide-in-from-bottom-5 h-full">
             <div className="mb-4 text-center shrink-0">

@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Delete, Check } from "lucide-react"
+import { useLanguage } from "@/components/providers/language-provider"
 
 type Props = {
     open: boolean
@@ -70,6 +71,7 @@ const SYMBOLS = {
 }
 
 export function MathKeyboard({ open, onOpenChange, onInsert }: Props) {
+    const { t } = useLanguage()
     const [input, setInput] = useState("")
 
     const handleInsertSymbol = (val: string) => {

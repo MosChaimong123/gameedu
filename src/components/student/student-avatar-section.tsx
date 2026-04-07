@@ -134,7 +134,10 @@ export function StudentAvatarSection({
     // Frame styling
     const frameItem = useMemo(() => equippedFrame ? getItemById(equippedFrame) : null, [equippedFrame]);
     const avatarBorderStyle: React.CSSProperties = frameItem
-        ? { borderColor: frameItem.preview.borderColor, boxShadow: frameItem.preview.shadow }
+        ? {
+            borderColor: frameItem.preview?.borderColor,
+            boxShadow: frameItem.preview?.shadow,
+        }
         : {};
 
     async function handleCheckIn() {

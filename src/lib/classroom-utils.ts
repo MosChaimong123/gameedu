@@ -376,6 +376,7 @@ export function getActiveGoldMultiplier(gamifiedSettings: unknown): number {
         const m = Number(event.multiplier) || 1;
         if (m <= 1) return false;
 
+        if (!event.startAt || !event.endAt) return false;
         const start = new Date(event.startAt);
         const end = new Date(event.endAt);
         

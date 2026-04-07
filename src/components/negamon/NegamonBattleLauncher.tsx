@@ -35,12 +35,13 @@ export function NegamonBattleLauncher({ classroomId }: NegamonBattleLauncherProp
 
     useEffect(() => {
         if (!open) return;
-        setLoading(true);
+        const timer = window.setTimeout(() => setLoading(true), 0);
         fetch("/api/sets")
             .then((r) => r.json())
             .then((data: QuestionSet[]) => setSets(Array.isArray(data) ? data : []))
             .catch(() => setSets([]))
             .finally(() => setLoading(false));
+        return () => window.clearTimeout(timer);
     }, [open]);
 
     const handleLaunch = () => {

@@ -604,7 +604,7 @@ export function BattleHistoryPanel({
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        setLoading(true);
+        const timer = window.setTimeout(() => setLoading(true), 0);
         void fetch(`/api/classrooms/${classId}/battle?studentId=${myStudentId}`)
             .then((r) => r.json())
             .then((d: { sessions?: BattleSessionEntry[]; studentNames?: Record<string, string> }) => {
@@ -613,6 +613,7 @@ export function BattleHistoryPanel({
             })
             .catch(() => setSessions([]))
             .finally(() => setLoading(false));
+        return () => window.clearTimeout(timer);
     }, [classId, myStudentId, refreshKey]);
 
     if (loading) {

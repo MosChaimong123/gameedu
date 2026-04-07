@@ -6,6 +6,8 @@ import type { StudentDashboardClientProps } from "@/components/student/StudentDa
 const mockUseLanguage = vi.fn();
 const mockHeaderSpy = vi.fn();
 const mockAssignmentsTabSpy = vi.fn();
+const mockHistoryTabSpy = vi.fn();
+const mockMonsterTabSpy = vi.fn();
 
 vi.mock("@/components/providers/language-provider", () => ({
   useLanguage: mockUseLanguage,
@@ -30,6 +32,20 @@ vi.mock("@/components/student/student-dashboard-assignments-tab", () => ({
   StudentDashboardAssignmentsTab: (props: unknown) => {
     mockAssignmentsTabSpy(props);
     return React.createElement("div", { "data-testid": "student-dashboard-assignments-tab" });
+  },
+}));
+
+vi.mock("@/components/student/student-dashboard-history-tab", () => ({
+  StudentDashboardHistoryTab: (props: unknown) => {
+    mockHistoryTabSpy(props);
+    return React.createElement("div", { "data-testid": "student-dashboard-history-tab" });
+  },
+}));
+
+vi.mock("@/components/student/student-dashboard-monster-tab", () => ({
+  StudentDashboardMonsterTab: (props: unknown) => {
+    mockMonsterTabSpy(props);
+    return React.createElement("div", { "data-testid": "student-dashboard-monster-tab" });
   },
 }));
 
@@ -141,7 +157,7 @@ const baseProps: StudentDashboardClientProps = {
   rankEntry: {
     name: "Bronze",
     icon: "🥉",
-    minPoints: 0,
+    minScore: 0,
     color: "#999",
     goldRate: 1,
   },
@@ -191,5 +207,21 @@ describe("student dashboard client", () => {
     expect(assignmentsProps.code).toBe("ABC123");
     expect(assignmentsProps.assignmentFilter).toBe("all");
     expect(assignmentsProps.assignmentSort).toBe("default");
+
+    expect(mockHistoryTabSpy).toHaveBeenCalledTimes(1);
+    const historyProps = mockHistoryTabSpy.mock.calls[0][0] as {
+      totalPositive: number;
+      totalNegative: number;
+    };
+    expect(historyProps.totalPositive).toBe(50);
+    expect(historyProps.totalNegative).toBe(-10);
+
+    expect(mockMonsterTabSpy).toHaveBeenCalledTimes(1);
+    const monsterProps = mockMonsterTabSpy.mock.calls[0][0] as {
+      student: { id: string };
+      classroom: { id: string };
+    };
+    expect(monsterProps.student.id).toBe("student-1");
+    expect(monsterProps.classroom.id).toBe("class-1");
   });
 });

@@ -352,15 +352,22 @@ export function formatAmount(num: number): string {
  * Returns the highest gold multiplier from active classroom events.
  * Returns 1 if no gold boost event is active.
  */
-export function getActiveGoldMultiplier(gamifiedSettings: any): number {
+type GoldBoostEvent = {
+    type?: string;
+    multiplier?: number | string;
+    startAt?: string;
+    endAt?: string;
+};
+
+export function getActiveGoldMultiplier(gamifiedSettings: unknown): number {
     if (!gamifiedSettings || typeof gamifiedSettings !== "object") return 1;
-    
-    const events = (gamifiedSettings.events as any[]) || [];
+
+    const events = (gamifiedSettings as { events?: unknown }).events;
     if (!Array.isArray(events)) return 1;
 
     const now = new Date();
 
-    const activeGoldBoosts = events.filter(event => {
+    const activeGoldBoosts = (events as GoldBoostEvent[]).filter((event) => {
         // Match gold boost types or CUSTOM boost
         const isGoldBoost = event.type === "GOLD_BOOST" || event.type === "GOLD_BOOST_3" || event.type === "CUSTOM";
         if (!isGoldBoost) return false;
@@ -369,6 +376,7 @@ export function getActiveGoldMultiplier(gamifiedSettings: any): number {
         const m = Number(event.multiplier) || 1;
         if (m <= 1) return false;
 
+        if (!event.startAt || !event.endAt) return false;
         const start = new Date(event.startAt);
         const end = new Date(event.endAt);
         

@@ -48,6 +48,38 @@ export interface GoldQuestPlayer extends BasePlayer {
     streak: number; // For feedback/visuals
 }
 
+/** Negamon Battle — HP แบบเรียลไทม์ (โหมดห้องสด) */
+export interface NegamonBattlePlayer extends BasePlayer {
+    battleHp: number;
+    maxHp: number;
+    eliminated: boolean;
+    /** timestamp (ms) เมื่อถูก KO — ใช้ tiebreak ranking ผู้แพ้ (แพ้หลัง = อันดับดีกว่า) */
+    eliminatedAt?: number;
+}
+
+/** ค่าสมดุล Negamon Battle — รวมใน GameSettings เมื่อสร้างห้องโหมดนี้ */
+export type NegamonBattleTuning = {
+    startHp: number;
+    /** วินาทีต่อรอบคำถาม */
+    roundSeconds: number;
+    /** วินาทีพักหลังสรุปดาเมจ */
+    betweenSeconds: number;
+    /** ตอบภายในกี่วินาทีนับจากเริ่มรอบ = โจมตีเร็ว (ตัวคูณใน calcDamage) */
+    fastAnswerSeconds: number;
+    movePower: number;
+    attackerAtk: number;
+    defenderDef: number;
+};
+
+export const DEFAULT_NEGAMON_BATTLE_TUNING: NegamonBattleTuning = {
+    startHp: 100,
+    roundSeconds: 22,
+    betweenSeconds: 4,
+    fastAnswerSeconds: 5,
+    movePower: 42,
+    attackerAtk: 52,
+    defenderDef: 34,
+};
 
 export type GameSettings = {
     winCondition: "TIME" | "GOLD";
@@ -57,6 +89,11 @@ export type GameSettings = {
     showInstructions: boolean;
     useRandomNames: boolean;
     allowStudentAccounts: boolean;
+    negamonBattle?: Partial<NegamonBattleTuning>;
+    /**
+     * ตั้งโดยเซิร์ฟเวอร์เท่านั้น — เมื่อจบ Negamon Battle จะให้ EXP กับนักเรียนที่จับคู่ชื่อในเกมกับ name/nickname ในห้อง
+     */
+    negamonRewardClassroomId?: string;
 };
 
 export interface GoldQuestSession extends GameSession {

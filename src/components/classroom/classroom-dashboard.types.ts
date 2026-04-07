@@ -26,5 +26,5 @@ export type DashboardToastFn = (input: {
 
 export type DashboardTranslateFn = (
     key: string,
-    params?: Record<string, unknown>
+    params?: Record<string, string | number>
 ) => string;

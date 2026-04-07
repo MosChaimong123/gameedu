@@ -80,7 +80,7 @@ async function runTests() {
             await prisma.student.update({
                 where: { id: bob.id },
                 data: {
-                    points: { increment: skill.weight },
+                    behaviorPoints: { increment: skill.weight },
                     history: {
                         create: {
                             skillId: skill.id,
@@ -93,7 +93,7 @@ async function runTests() {
             
             const pointHistory = await prisma.pointHistory.findFirst({ where: { studentId: bob.id } });
             const finalBob = await prisma.student.findUnique({ where: { id: bob.id }});
-            console.log(`✅ การให้คะแนนสำเร็จ: Bob ได้คะแนนเพิ่ม ${pointHistory?.value} คะแนน (ยอดรวม = ${finalBob?.points})`);
+            console.log(`✅ การให้คะแนนสำเร็จ: Bob ได้คะแนนเพิ่ม ${pointHistory?.value} คะแนน (ยอดรวม = ${finalBob?.behaviorPoints})`);
         }
 
         console.log("🎉 การทดสอบ Backend สำเร็จทุกขั้นตอน! ระบบข้อมูลทำงานได้ถูกต้อง!");

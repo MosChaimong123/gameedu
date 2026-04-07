@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Delete, Check } from "lucide-react"
+import { useLanguage } from "@/components/providers/language-provider"
 
 type Props = {
     open: boolean
@@ -70,6 +71,7 @@ const SYMBOLS = {
 }
 
 export function MathKeyboard({ open, onOpenChange, onInsert }: Props) {
+    const { t } = useLanguage()
     const [input, setInput] = useState("")
 
     const handleInsertSymbol = (val: string) => {
@@ -87,7 +89,7 @@ export function MathKeyboard({ open, onOpenChange, onInsert }: Props) {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl bg-white select-none">
                 <DialogHeader>
-                    <DialogTitle className="text-center text-purple-600 font-bold text-xl drop-shadow-sm">Equation Editor</DialogTitle>
+                    <DialogTitle className="text-center text-purple-600 font-bold text-xl drop-shadow-sm">{t("equationEditorTitle")}</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-4">
@@ -97,7 +99,7 @@ export function MathKeyboard({ open, onOpenChange, onInsert }: Props) {
                             className="h-16 text-2xl font-mono text-center bg-slate-50 border-2 border-purple-200 focus-visible:ring-purple-500"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder="Type or click symbols..."
+                            placeholder={t("equationEditorPlaceholder")}
                         />
                         {input && (
                             <button
@@ -112,9 +114,9 @@ export function MathKeyboard({ open, onOpenChange, onInsert }: Props) {
                     {/* Keyboard Tabs */}
                     <Tabs defaultValue="basic" className="w-full">
                         <TabsList className="grid w-full grid-cols-3 bg-purple-100 p-1 rounded-xl">
-                            <TabsTrigger value="basic" className="data-[state=active]:bg-white data-[state=active]:text-purple-700 font-bold rounded-lg">Basic</TabsTrigger>
-                            <TabsTrigger value="greek" className="data-[state=active]:bg-white data-[state=active]:text-purple-700 font-bold rounded-lg">Greek</TabsTrigger>
-                            <TabsTrigger value="advanced" className="data-[state=active]:bg-white data-[state=active]:text-purple-700 font-bold rounded-lg">Advanced</TabsTrigger>
+                            <TabsTrigger value="basic" className="data-[state=active]:bg-white data-[state=active]:text-purple-700 font-bold rounded-lg">{t("equationEditorTabBasic")}</TabsTrigger>
+                            <TabsTrigger value="greek" className="data-[state=active]:bg-white data-[state=active]:text-purple-700 font-bold rounded-lg">{t("equationEditorTabGreek")}</TabsTrigger>
+                            <TabsTrigger value="advanced" className="data-[state=active]:bg-white data-[state=active]:text-purple-700 font-bold rounded-lg">{t("equationEditorTabAdvanced")}</TabsTrigger>
                         </TabsList>
 
                         <div className="bg-slate-100 p-4 rounded-xl mt-2 min-h-[250px] border border-slate-200">

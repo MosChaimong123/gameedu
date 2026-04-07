@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Skill } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { Heart, Star, Zap, ThumbsUp, Brain, Trophy, AlertCircle } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
@@ -15,11 +14,23 @@ interface PointMenuProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     studentName: string;
-    skills: Skill[];
+    skills: Array<{
+        id: string;
+        name: string;
+        type: string;
+        weight: number;
+        icon?: string | null;
+    }>;
     onSelectSkill: (skillId: string, weight: number) => void;
     loading?: boolean;
     classId: string;
-    onSkillsChanged?: (skills: Skill[]) => void;
+    onSkillsChanged?: (skills: Array<{
+        id: string;
+        name: string;
+        type: string;
+        weight: number;
+        icon?: string | null;
+    }>) => void;
     /** Matches classroom theme for skill manager header */
     theme?: string;
 }
@@ -56,7 +67,7 @@ export function PointMenu({
     const positiveSkills = skills.filter(s => s.type === "POSITIVE");
     const needsWorkSkills = skills.filter(s => s.type === "NEEDS_WORK");
 
-    const renderSkillButton = (skill: Skill, isPositive: boolean, index: number) => {
+    const renderSkillButton = (skill: PointMenuProps["skills"][number], isPositive: boolean, index: number) => {
         const Icon = (skill.icon && iconMap[skill.icon as keyof typeof iconMap]) || (isPositive ? iconMap["default"] : AlertCircle);
         const stableKey = skill.id || `${isPositive ? "pos" : "nw"}-${index}-${skill.name}`;
         return (

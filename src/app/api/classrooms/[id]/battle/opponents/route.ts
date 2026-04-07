@@ -17,7 +17,7 @@ export async function GET(
     const { id: classId } = await params;
     const studentId = new URL(req.url).searchParams.get("studentId") ?? "";
 
-    const classroom = await (db.classroom as any).findUnique({
+    const classroom = await db.classroom.findUnique({
         where: { id: classId },
         select: { gamifiedSettings: true, levelConfig: true },
     });
@@ -32,7 +32,7 @@ export async function GET(
     );
     if (assignedIds.length === 0) return NextResponse.json([]);
 
-    const students = await (db.student as any).findMany({
+    const students = await db.student.findMany({
         where: { classId, id: { in: assignedIds } },
         select: { id: true, name: true, behaviorPoints: true },
     });

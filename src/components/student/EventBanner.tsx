@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Zap, Clock, X } from "lucide-react";
+import { useLanguage } from "@/components/providers/language-provider";
 
 interface ClassEvent {
   id: string;
@@ -17,11 +18,13 @@ interface ClassEvent {
 }
 
 export function EventBanner({ classId }: { classId: string }) {
+  const { t, language } = useLanguage();
   const [events, setEvents] = useState<ClassEvent[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const dateLocale = language === "th" ? "th-TH" : "en-US";
 
   useEffect(() => {
-    fetch(`/api/classroom/${classId}/events`)
+    fetch(`/api/classrooms/${classId}/events`)
       .then(r => r.json())
       .then(d => setEvents(Array.isArray(d) ? d.filter((e: ClassEvent) => e.active) : []));
   }, [classId]);
@@ -61,7 +64,13 @@ export function EventBanner({ classId }: { classId: string }) {
                 <div className="flex items-center gap-1 mt-1">
                   <Clock className="w-3 h-3 text-amber-500" />
                   <span className="text-[10px] text-amber-600 font-bold">
-                    สิ้นสุด {new Date(event.endAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    {t("eventEndsPrefix")}{" "}
+                    {new Date(event.endAt).toLocaleDateString(dateLocale, {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </span>
                 </div>
               </div>

@@ -34,7 +34,9 @@ export function normalizeClassroomPageQuery(searchParams?: {
 }): ClassroomPageQuery {
     const tabParam = searchParams?.tab;
     const allowedTabs = new Set(["classroom", "attendance", "analytics", "board"]);
-    const defaultTab = tabParam && allowedTabs.has(tabParam) ? tabParam : "classroom";
+    const defaultTab = (
+        tabParam && allowedTabs.has(tabParam) ? tabParam : "classroom"
+    ) as ClassroomPageQuery["defaultTab"];
 
     const focusParam = searchParams?.focus;
     const classFocus = focusParam === "assignments" ? "assignments" : null;

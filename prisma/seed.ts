@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { randomUUID } from "node:crypto";
 
 const prisma = new PrismaClient();
 
@@ -85,8 +86,8 @@ async function main() {
             data: {
                 name,
                 classId: classroom.id,
-                avatar: Math.random().toString(36).substring(7),
-                points: Math.floor(Math.random() * 10),
+                avatar: `student-${randomUUID()}`,
+                behaviorPoints: Math.floor(Math.random() * 10),
             },
         });
     }

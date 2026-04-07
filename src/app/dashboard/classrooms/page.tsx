@@ -5,10 +5,17 @@ import { ClassroomCard } from "@/components/classroom/classroom-card";
 import { ClassroomDashboardHeader } from "@/components/classroom/classroom-dashboard-header";
 import { CreateClassroomDialog } from "./create-classroom-dialog";
 import { Users } from "lucide-react";
+import { formatTranslation } from "@/lib/format-translation";
+import { getRequestLanguage } from "@/lib/request-language";
 
 export default async function MyClassroomsPage() {
     const session = await auth();
     if (!session?.user) return redirect("/");
+    if (session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+        return redirect("/dashboard");
+    }
+    const lang = await getRequestLanguage();
+    const t = (key: string, params?: Record<string, string | number>) => formatTranslation(lang, key, params);
 
     const classrooms = await db.classroom.findMany({
         where: {
@@ -25,7 +32,7 @@ export default async function MyClassroomsPage() {
     });
 
     return (
-        <div className="space-y-8 p-8">
+        <div className="mx-auto w-full max-w-[1600px] space-y-8">
             <ClassroomDashboardHeader />
 
             {classrooms.length === 0 ? (
@@ -33,9 +40,9 @@ export default async function MyClassroomsPage() {
                     <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
                         <Users className="w-8 h-8" />
                     </div>
-                    <h3 className="text-lg font-medium text-slate-900">No classes yet</h3>
+                    <h3 className="text-lg font-medium text-slate-900">{t("classroomsEmptyTitle")}</h3>
                     <p className="text-slate-500 max-w-sm mx-auto mt-2 mb-6">
-                        Create your first classroom to start tracking student progress and awarding points.
+                        {t("classroomsEmptyDesc")}
                     </p>
                     <CreateClassroomDialog />
                 </div>

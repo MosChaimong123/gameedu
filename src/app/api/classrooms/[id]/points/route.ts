@@ -13,6 +13,9 @@ export async function POST(
     if (!session || !session.user) {
         return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
+    if (!session.user.id) {
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+    }
 
     try {
         const body = await req.json();

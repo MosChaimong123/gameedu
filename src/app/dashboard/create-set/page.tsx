@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,10 +13,13 @@ import { Loader2, Lock, Globe, FileText, Database } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { ImageUpload } from "@/components/image-upload"
 import { PageBackLink } from "@/components/ui/page-back-link"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function CreateSetPage() {
     const router = useRouter()
+    const { data: session, status } = useSession()
     const { t } = useLanguage()
+    const { toast } = useToast()
     const [loading, setLoading] = useState(false)
 
     // Form state
@@ -24,6 +28,24 @@ export default function CreateSetPage() {
     const [coverImage, setCoverImage] = useState("")
     const [isPublic, setIsPublic] = useState(true)
     const [creationMethod, setCreationMethod] = useState<"manual" | "csv">("manual")
+
+    useEffect(() => {
+        if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+            router.replace("/dashboard")
+        }
+    }, [router, session, status])
+
+    if (status === "loading") {
+        return (
+            <div className="flex min-h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+            </div>
+        )
+    }
+
+    if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+        return null
+    }
 
     const handleSubmit = async () => {
         if (!title.trim()) return
@@ -43,6 +65,13 @@ export default function CreateSetPage() {
 
             if (res.ok) {
                 const set = await res.json()
+                toast({
+                    title: t("createSetSuccessTitle"),
+                    description:
+                        creationMethod === "csv"
+                            ? t("createSetSuccessDescCsv")
+                            : t("createSetSuccessDescManual"),
+                })
                 if (creationMethod === "csv") {
                     router.push(`/dashboard/edit-set/${set.id}?openImport=true`)
                 } else {
@@ -51,25 +80,33 @@ export default function CreateSetPage() {
                 router.refresh()
             } else {
                 const msg = await res.text()
-                alert(`Failed to create set: ${msg}`)
+                toast({
+                    title: t("createSetFailTitle"),
+                    description: msg || t("createSetFailTryAgain"),
+                    variant: "destructive",
+                })
             }
         } catch (error) {
             console.error(error)
-            alert("Something went wrong")
+            toast({
+                title: t("createSetFailTitle"),
+                description: t("createSetFailGeneric"),
+                variant: "destructive",
+            })
         } finally {
             setLoading(false)
         }
     }
 
     return (
-        <div className="max-w-5xl mx-auto space-y-6 pb-10">
+        <div className="mx-auto w-full max-w-5xl space-y-6 pb-10">
             {/* Header */}
             <div className="space-y-4">
-                <PageBackLink href="/dashboard/my-sets" label="ชุดคำถามของฉัน" />
+                <PageBackLink href="/dashboard/my-sets" labelKey="navBackMySets" />
                 <div className="flex items-center space-x-2">
                     <h1 className="text-2xl font-bold text-slate-800">{t("questionSetCreator")}</h1>
                     <div className="rounded-full bg-slate-200 p-1 text-slate-500 cursor-help">
-                        <span className="sr-only">Help</span>
+                        <span className="sr-only">{t("help")}</span>
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>

@@ -11,27 +11,27 @@ const NEWS_ITEMS = [
         tag: "NEW",
         tagColor: "bg-indigo-500",
         icon: <Zap className="w-4 h-4" />,
-        title: "Season 4 Details Released!",
-        description: "ค้นพบ Blooks ใหม่, โหมดเกมที่ปรับปรุงใหม่ เช่น Gold Quest และรางวัลสำหรับการล็อคอินรายวันที่น่าตื่นเต้นกว่าเดิม",
-        date: "2h ago"
+        titleKey: "newsFeedTitleSeason4Details",
+        descriptionKey: "newsFeedDescSeason4Details",
+        dateKey: "newsFeedDate2hAgo"
     },
     {
         id: "2",
         tag: "UPD",
         tagColor: "bg-orange-500",
         icon: <Trophy className="w-4 h-4" />,
-        title: "ระบบ Ranking ใหม่",
-        description: "ตอนนี้ครูสามารถปรับแต่งยศ (Rank) ของนักเรียนได้ตามคะแนนที่กำหนด พร้อมไอคอนธงที่สวยงามกว่าเดิม",
-        date: "Yesterday"
+        titleKey: "newsFeedTitleRankingUpdate",
+        descriptionKey: "newsFeedDescRankingUpdate",
+        dateKey: "newsFeedDateYesterday"
     },
     {
         id: "3",
         tag: "INFO",
         tagColor: "bg-blue-500",
         icon: <Megaphone className="w-4 h-4" />,
-        title: "Maintenance Schedule",
-        description: "เซิร์ฟเวอร์จะมีการปิดปรับปรุงชั่วคราวในวันศุกร์นี้ เวลา 22:00 น. เพื่ออัปเกรดระบบฐานข้อมูล",
-        date: "2 days ago"
+        titleKey: "newsFeedTitleMaintenanceSchedule",
+        descriptionKey: "newsFeedDescMaintenanceSchedule",
+        dateKey: "newsFeedDate2DaysAgo"
     }
 ]
 
@@ -43,10 +43,10 @@ export function NewsFeed() {
             <div className="flex items-center justify-between">
                 <h2 className="text-xl font-black text-foreground flex items-center gap-2">
                     <Newspaper className="w-5 h-5 text-indigo-500" />
-                    {t("newsAndUpdates") || "ข่าวสารและอัปเดต"}
+                    {t("newsAndUpdates")}
                 </h2>
                 <button className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
-                    ดูทั้งหมด <ChevronRight className="w-3 h-3" />
+                    {t("insightsSeeAll")} <ChevronRight className="w-3 h-3" />
                 </button>
             </div>
 
@@ -71,13 +71,13 @@ export function NewsFeed() {
                                             <span className={`text-[9px] font-black px-1.5 py-0.5 rounded text-white ${item.tagColor}`}>
                                                 {item.tag}
                                             </span>
-                                            <span className="text-[10px] text-slate-400 font-bold">{item.date}</span>
+                                            <span className="text-[10px] text-slate-400 font-bold">{t(item.dateKey)}</span>
                                         </div>
                                         <h4 className="font-bold text-foreground truncate group-hover:text-indigo-600 transition-colors">
-                                            {item.title}
+                                            {t(item.titleKey)}
                                         </h4>
                                         <p className="text-xs text-slate-500 line-clamp-1">
-                                            {item.description}
+                                            {t(item.descriptionKey)}
                                         </p>
                                     </div>
                                     <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition-colors shrink-0" />

@@ -84,8 +84,8 @@ export function AssignmentCreateModal({
 
             if (res.ok) {
                 toast({
-                    title: t("assignmentCreated") || "การบ้านถูกสร้างแล้ว",
-                    description: t("assignmentCreatedDesc") || "นักเรียนของคุณสามารถเริ่มทำได้ทันที",
+                    title: t("assignmentCreated"),
+                    description: t("assignmentCreatedDesc"),
                 });
                 onOpenChange(false);
             } else {
@@ -95,7 +95,7 @@ export function AssignmentCreateModal({
             toast({
                 title: t("error"),
                 variant: "destructive",
-                description: t("failedToCreateAssignment") || "ไม่สามารถสร้างการบ้านได้",
+                description: t("failedToCreateAssignment"),
             });
         } finally {
             setLoading(false);
@@ -111,7 +111,7 @@ export function AssignmentCreateModal({
                             <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm border border-white/30">
                                 <BookOpen className="w-5 h-5 text-white" />
                             </div>
-                            มอบหมายการบ้าน (Assign)
+                            {t("assignmentModalTitle")}
                         </DialogTitle>
                     </DialogHeader>
                 </div>
@@ -121,11 +121,11 @@ export function AssignmentCreateModal({
                     <div className="space-y-2">
                         <Label className="text-sm font-bold text-slate-600 flex items-center gap-2">
                             <School className="w-4 h-4 text-purple-500" />
-                            เลือกห้องเรียนที่ต้องการมอบหมาย
+                            {t("assignmentSelectClassLabel")}
                         </Label>
                         <Select value={selectedClassId} onValueChange={setSelectedClassId}>
                             <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-white">
-                                <SelectValue placeholder="เลือกห้องเรียน..." />
+                                <SelectValue placeholder={t("assignmentSelectClassPlaceholder")} />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl border-slate-200">
                                 {fetchingClasses ? (
@@ -134,7 +134,7 @@ export function AssignmentCreateModal({
                                     </div>
                                 ) : classrooms.length === 0 ? (
                                     <div className="p-4 text-center text-sm text-slate-500">
-                                        ยังไม่มีห้องเรียน กรุณาสร้างห้องเรียนก่อน
+                                        {t("assignmentNoClassroomsHint")}
                                     </div>
                                 ) : (
                                     classrooms.map((c) => (
@@ -154,23 +154,23 @@ export function AssignmentCreateModal({
                     <div className="space-y-2">
                         <Label className="text-sm font-bold text-slate-600 flex items-center gap-2">
                             <Target className="w-4 h-4 text-purple-500" />
-                            หัวข้องาน
+                            {t("assignmentNameLabel")}
                         </Label>
                         <Input
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="ระบุชื่อการบ้าน..."
+                            placeholder={t("assignmentNamePlaceholder")}
                             className="h-12 rounded-xl border-slate-200 bg-white font-medium"
                         />
                     </div>
 
                     {/* Description */}
                     <div className="space-y-2">
-                        <Label className="text-sm font-bold text-slate-600">คำสั่งหรือคำอธิบายเพิ่มเติม</Label>
+                        <Label className="text-sm font-bold text-slate-600">{t("assignmentDescriptionLabel")}</Label>
                         <Textarea
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            placeholder="เช่น กรุณาทำให้เสร็จก่อนสอบ..."
+                            placeholder={t("assignmentDescriptionPlaceholder")}
                             className="rounded-xl border-slate-200 bg-white min-h-[100px]"
                         />
                     </div>
@@ -179,7 +179,7 @@ export function AssignmentCreateModal({
                     <div className="space-y-2">
                         <Label className="text-sm font-bold text-slate-600 flex items-center gap-2">
                             <CalendarIcon className="w-4 h-4 text-purple-500" />
-                            กำหนดส่ง (Deadline) - ไม่บังคับ
+                            {t("assignmentDeadlineLabel")}
                         </Label>
                         <Input
                             type="datetime-local"
@@ -197,7 +197,7 @@ export function AssignmentCreateModal({
                             onClick={() => onOpenChange(false)}
                             className="flex-1 h-12 rounded-xl text-slate-600 font-bold border-2"
                         >
-                            ยกเลิก
+                            {t("cancel")}
                         </Button>
                         <Button
                             onClick={handleCreate}
@@ -207,7 +207,7 @@ export function AssignmentCreateModal({
                             {loading ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />
                             ) : (
-                                "ยืนยันการมอบหมาย"
+                                t("assignmentConfirmButton")
                             )}
                         </Button>
                     </div>

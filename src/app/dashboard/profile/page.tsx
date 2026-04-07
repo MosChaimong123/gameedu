@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/dialog"
 import { User, Mail, Shield, Camera, Save, Loader2, CheckCircle2, Upload } from "lucide-react"
 import { PageBackLink } from "@/components/ui/page-back-link"
+import { useToast } from "@/components/ui/use-toast"
+import { getLocalizedMessageFromApiErrorBody } from "@/lib/ui-error-messages"
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
 const DEFAULT_AVATARS = [
     "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix",
@@ -35,6 +38,7 @@ const DEFAULT_AVATARS = [
 export default function ProfilePage() {
     const { data: session, update } = useSession()
     const { t } = useLanguage()
+    const { toast } = useToast()
     
     const [name, setName] = useState("")
     const [email, setEmail] = useState("")
@@ -54,19 +58,16 @@ export default function ProfilePage() {
         }
     }, [session, hasInitialized])
  
-    const getTranslation = (key: string, fallback: string) => {
-        const val = t(key)
-        // If translation is missing or returns the key itself, use fallback
-        if (!val || val === key) return fallback
-        return val
-    }
- 
     const handleSave = async (newImage?: string) => {
         const imageToSave = newImage !== undefined ? newImage : image
         
         // Validation: Name cannot be empty
         if (!name.trim()) {
-            alert("Name cannot be empty")
+            toast({
+                title: t("profileNameRequiredTitle"),
+                description: t("profileNameRequiredDesc"),
+                variant: "destructive",
+            })
             return
         }
 
@@ -83,6 +84,10 @@ export default function ProfilePage() {
             if (res.ok) {
                 console.log("[PROFILE_PAGE] Save successful, updating session...")
                 setSuccess(true)
+                toast({
+                    title: t("profileSaveSuccessTitle"),
+                    description: t("profileSaveSuccessDesc"),
+                })
                 
                 // Trigger session refresh
                 try {
@@ -95,13 +100,34 @@ export default function ProfilePage() {
                     window.location.href = "/dashboard/profile?done=" + Date.now()
                 }, 1000)
             } else {
-                const err = await res.text()
-                alert("Error: " + err)
+                const text = (await res.text()).trim()
+                let description = t("profileSaveTryAgain")
+                if (text) {
+                    try {
+                        const body = JSON.parse(text) as unknown
+                        description = getLocalizedMessageFromApiErrorBody(body, t, {
+                            fallbackTranslationKey: "profileSaveTryAgain",
+                        })
+                    } catch {
+                        if (text === AUTH_REQUIRED_MESSAGE) description = t("profileApiUnauthorized")
+                        else if (text === "Internal Error") description = t("profileApiInternalError")
+                        else description = text
+                    }
+                }
+                toast({
+                    title: t("profileSaveFailTitle"),
+                    description,
+                    variant: "destructive",
+                })
             }
         } catch (error: unknown) {
             console.error("Error in handleSave:", error)
-            const message = error instanceof Error ? error.message : "Unknown error"
-            alert("Fetch Error: " + message)
+            const message = error instanceof Error ? error.message.trim() : ""
+            toast({
+                title: t("profileErrorTitle"),
+                description: message ? message : t("profileUnknownError"),
+                variant: "destructive",
+            })
         } finally {
             setLoading(false)
         }
@@ -121,14 +147,14 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
+        <div className="mx-auto w-full max-w-4xl space-y-8 animate-in fade-in duration-500">
             <div className="space-y-4">
-                <PageBackLink href="/dashboard" label="แดชบอร์ด" />
+                <PageBackLink href="/dashboard" labelKey="navBackDashboard" />
                 <div>
                     <h1 className="text-3xl font-black text-foreground tracking-tight">
-                        {getTranslation("profileSettings", "ตั้งค่าโปรไฟล์")}
+                        {t("profileSettings")}
                     </h1>
-                    <p className="text-slate-500">{getTranslation("manageProfileDesc", "จัดการข้อมูลส่วนตัวและรูปประจำตัวของคุณ")}</p>
+                    <p className="text-slate-500">{t("manageProfileDesc")}</p>
                 </div>
             </div>
 
@@ -154,8 +180,8 @@ export default function ProfilePage() {
                                     </DialogTrigger>
                                     <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl bg-white/90 backdrop-blur-xl">
                                         <DialogHeader>
-                                            <DialogTitle className="text-xl font-black text-foreground">Choose Avatar</DialogTitle>
-                                            <DialogDescription>Select a cartoon avatar or upload your own image</DialogDescription>
+                                            <DialogTitle className="text-xl font-black text-foreground">{t("profileChooseAvatarTitle")}</DialogTitle>
+                                            <DialogDescription>{t("profileChooseAvatarDesc")}</DialogDescription>
                                         </DialogHeader>
                                         
                                         <div className="grid grid-cols-3 gap-4 mt-4">
@@ -174,7 +200,7 @@ export default function ProfilePage() {
                                             
                                             <label className="relative rounded-2xl overflow-hidden aspect-square border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition-all group">
                                                 <Upload className="w-6 h-6 text-slate-400 group-hover:text-indigo-500" />
-                                                <span className="text-[10px] font-black text-slate-400 mt-1 uppercase group-hover:text-indigo-500">Upload</span>
+                                                <span className="text-[10px] font-black text-slate-400 mt-1 uppercase group-hover:text-indigo-500">{t("profileUploadLabel")}</span>
                                                 <input 
                                                     type="file" 
                                                     className="hidden" 
@@ -194,14 +220,14 @@ export default function ProfilePage() {
 
                             <div className="mt-6 w-full pt-6 border-t border-slate-100 space-y-3">
                                 <div className="flex items-center justify-between text-xs">
-                                    <span className="text-slate-400 font-bold uppercase tracking-wider">บทบาท (Role)</span>
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">{t("profileRoleLabel")}</span>
                                     <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-black border border-indigo-100 uppercase tracking-tighter">
                                         {session?.user?.role || "STUDENT"}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between text-xs">
-                                    <span className="text-slate-400 font-bold uppercase tracking-wider">สถานะ (Status)</span>
-                                    <span className="px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-black border border-green-100 uppercase tracking-tighter">ใช้งาน (Active)</span>
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">{t("profileStatusLabel")}</span>
+                                    <span className="px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-black border border-green-100 uppercase tracking-tighter">{t("profileStatusActive")}</span>
                                 </div>
                             </div>
                         </CardContent>
@@ -214,27 +240,27 @@ export default function ProfilePage() {
                         <CardHeader className="p-8 pb-4">
                             <CardTitle className="text-2xl font-black text-foreground flex items-center gap-2">
                                 <User className="w-6 h-6 text-indigo-500" />
-                                ข้อมูลส่วนตัว (Personal Info)
+                                {t("profilePersonalInfoTitle")}
                             </CardTitle>
-                            <CardDescription>Update your name and profile details below</CardDescription>
+                            <CardDescription>{t("profileCardDescUpdate")}</CardDescription>
                         </CardHeader>
                         <CardContent className="p-8 pt-4 space-y-6">
                             <div className="space-y-4">
                                 <div className="space-y-2">
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <User className="w-3 h-3" /> Full Name
+                                        <User className="w-3 h-3" /> {t("profileFullNameLabel")}
                                     </label>
                                     <Input 
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
                                         className="h-12 px-4 rounded-xl border-slate-200 focus:ring-indigo-500 focus:border-indigo-500 font-bold"
-                                        placeholder="Enter your name"
+                                        placeholder={t("profileNamePlaceholder")}
                                     />
                                 </div>
 
                                 <div className="space-y-2 opacity-60">
                                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <Mail className="w-3 h-3" /> Email Address
+                                        <Mail className="w-3 h-3" /> {t("profileEmailLabel")}
                                     </label>
                                     <Input 
                                         value={email}
@@ -243,7 +269,7 @@ export default function ProfilePage() {
                                         placeholder="your.email@example.com"
                                     />
                                     <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                                        <Shield className="w-3 h-3" /> Email cannot be changed for security reasons
+                                        <Shield className="w-3 h-3" /> {t("profileEmailLockedHint")}
                                     </p>
                                 </div>
                             </div>
@@ -256,7 +282,7 @@ export default function ProfilePage() {
                                         className="flex items-center gap-2 text-green-600 font-black text-sm"
                                     >
                                         <CheckCircle2 className="w-4 h-4" />
-                                        Changes Saved!
+                                        {t("profileChangesSaved")}
                                     </motion.div>
                                 )}
                                 <Button 
@@ -267,12 +293,12 @@ export default function ProfilePage() {
                                     {loading ? (
                                         <>
                                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                            Saving...
+                                            {t("profileSaving")}
                                         </>
                                     ) : (
                                         <>
                                             <Save className="w-4 h-4 mr-2" />
-                                            Save Changes
+                                            {t("saveChanges")}
                                         </>
                                     )}
                                 </Button>
@@ -284,4 +310,3 @@ export default function ProfilePage() {
         </div>
     )
 }
-

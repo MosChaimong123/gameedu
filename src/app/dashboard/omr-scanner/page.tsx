@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { OMRScanner } from "@/components/omr/omr-scanner"
 import { Button } from "@/components/ui/button"
 import { Camera, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
@@ -9,6 +11,9 @@ import { PageBackLink } from "@/components/ui/page-back-link"
 import { OpenCVProvider } from "@/components/omr/opencv-provider"
 import { processOMR } from "@/lib/omr-logic"
 import { motion } from "framer-motion"
+import { getLocalizedOmrErrorMessageFromResponse } from "@/lib/omr-ui-messages"
+import { tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages"
+import { useLanguage } from "@/components/providers/language-provider"
 
 type OMRResultItem = {
     question: number
@@ -30,6 +35,9 @@ type OMRQuizSet = {
 }
 
 export default function OMRInferencePage() {
+    const router = useRouter()
+    const { data: session, status } = useSession()
+    const { t, language } = useLanguage()
     const [showScanner, setShowScanner] = useState(false)
     const [capturedImage, setCapturedImage] = useState<string | null>(null)
     const [isProcessing, setIsProcessing] = useState(false)
@@ -37,20 +45,55 @@ export default function OMRInferencePage() {
     const [selectedSet, setSelectedSet] = useState<OMRQuizSet | null>(null)
     const [score, setScore] = useState<{ correct: number, total: number } | null>(null)
 
+    useEffect(() => {
+        if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+            router.replace("/dashboard")
+        }
+    }, [router, session, status])
+
     // Fetch OMR Quiz on load if ID provided
     useEffect(() => {
+        if (status !== "authenticated" || (session.user.role !== "TEACHER" && session.user.role !== "ADMIN")) {
+            return
+        }
         const searchParams = new URLSearchParams(window.location.search)
         const quizId = searchParams.get("quizId")
         
         if (quizId) {
             fetch(`/api/omr/quizzes/${quizId}`)
-                .then(res => res.json())
+                .then(async (res) => {
+                    if (!res.ok) {
+                        throw new Error(
+                            await getLocalizedOmrErrorMessageFromResponse(res, "omrLoadQuizError", t, language)
+                        )
+                    }
+                    return res.json()
+                })
                 .then(data => {
                     setSelectedSet(data)
                     setShowScanner(true)
                 })
+                .catch((error: unknown) => {
+                    const raw = error instanceof Error ? error.message : null
+                    const net = tryLocalizeFetchNetworkFailureMessage(raw, t)
+                    const message = net ?? (error instanceof Error ? error.message : t("omrLoadQuizError"))
+                    setResult({ success: false, message })
+                })
         }
-    }, [])
+        // `t` omitted — not referentially stable from LanguageProvider.
+    }, [session, status, language, t])
+
+    if (status === "loading") {
+        return (
+            <div className="flex min-h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            </div>
+        )
+    }
+
+    if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+        return null
+    }
 
     const handleCapture = async (imageData: string) => {
         setCapturedImage(imageData)
@@ -89,7 +132,7 @@ export default function OMRInferencePage() {
                     setScore(scoreData)
 
                     // Auto-save result if it's a valid scan
-                    await fetch(`/api/omr/quizzes/${selectedSet.id}/results`, {
+                    const saveRes = await fetch(`/api/omr/quizzes/${selectedSet.id}/results`, {
                         method: "POST",
                         body: JSON.stringify({
                             score: correctCount,
@@ -98,9 +141,19 @@ export default function OMRInferencePage() {
                             studentName: `Student ${new Date().toLocaleTimeString()}` // Placeholder
                         })
                     })
+
+                    if (!saveRes.ok) {
+                        const message = await getLocalizedOmrErrorMessageFromResponse(
+                            saveRes,
+                            "omrSaveResultError",
+                            t,
+                            language
+                        )
+                        setResult({ success: false, message, data: res.data })
+                    }
                 }
             } catch {
-                setResult({ success: false, message: "เกิดข้อผิดพลาดในการประมวลผล" })
+                setResult({ success: false, message: t("omrProcessingError") })
             } finally {
                 setIsProcessing(false)
             }
@@ -109,15 +162,17 @@ export default function OMRInferencePage() {
 
     return (
         <OpenCVProvider>
-            <div className="min-h-screen bg-slate-900 p-4 md:p-8 flex flex-col items-center">
+            <div className="flex min-h-[calc(100dvh-6rem)] w-full flex-col items-center rounded-2xl bg-slate-900 p-4 md:p-8">
                 <div className="w-full max-w-4xl">
                     <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-4">
-                            <PageBackLink href="/dashboard/omr" label="ระบบ OMR" variant="inverse" />
+                            <PageBackLink href="/dashboard/omr" labelKey="navBackOmr" variant="inverse" />
                             <div>
-                                <h1 className="text-2xl font-black text-white tracking-tight">ระบบสแกนอัตโนมัติ</h1>
+                                <h1 className="text-2xl font-black text-white tracking-tight">{t("omrScannerTitle")}</h1>
                                 <p className="text-purple-400 font-bold uppercase tracking-widest text-[10px]">
-                                    {selectedSet ? `กำลังตรวจ: ${selectedSet.title}` : "โปรดรอสักครู่..."}
+                                    {selectedSet
+                                        ? t("omrScannerChecking", { title: selectedSet.title })
+                                        : t("omrScannerWait")}
                                 </p>
                             </div>
                         </div>
@@ -128,7 +183,7 @@ export default function OMRInferencePage() {
                                 className="bg-white text-slate-900 rounded-2xl h-12 px-6 font-black hover:bg-purple-600 hover:text-white transition-all shadow-xl shadow-white/5"
                             >
                                 <Camera className="mr-2 w-5 h-5" />
-                                สแกนแผ่นถัดไป
+                                {t("omrScannerScanNext")}
                             </Button>
                         )}
                     </div>
@@ -142,7 +197,7 @@ export default function OMRInferencePage() {
                                     {isProcessing && (
                                         <div className="absolute inset-0 bg-black/80 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center text-white">
                                             <Loader2 className="w-12 h-12 animate-spin mb-4 text-purple-400" />
-                                            <p className="font-black text-xl tracking-tight">กำลังประมวลผลคำตอบ...</p>
+                                            <p className="font-black text-xl tracking-tight">{t("omrScannerProcessing")}</p>
                                         </div>
                                     )}
                                 </div>
@@ -159,9 +214,13 @@ export default function OMRInferencePage() {
                                                     <div className="absolute top-0 right-0 p-4 opacity-10">
                                                         <CheckCircle2 className="w-24 h-24 rotate-12" />
                                                     </div>
-                                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] mb-2 opacity-60">สรุปคะแนนนักเรียน</p>
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] mb-2 opacity-60">
+                                                        {t("omrScannerStudentScoreSummary")}
+                                                    </p>
                                                     <h2 className="text-7xl font-black leading-none mb-2 tabular-nums">{score.correct}<span className="text-3xl opacity-40">/{score.total}</span></h2>
-                                                    <p className="font-bold text-sm text-white/80 shrink-0 truncate">บันทึกข้อมูลเรียบร้อยแล้ว ✅</p>
+                                                    <p className="font-bold text-sm text-white/80 shrink-0 truncate">
+                                                        {t("omrScannerDataSaved")}
+                                                    </p>
                                                 </div>
                                             )}
 
@@ -171,7 +230,7 @@ export default function OMRInferencePage() {
                                                 </div>
                                                 <div>
                                                     <h3 className={`font-black text-lg ${result.success ? "text-emerald-400" : "text-red-400"}`}>
-                                                        {result.success ? "สแกนสมบูรณ์!" : "สแกนไม่สำเร็จ"}
+                                                        {result.success ? t("omrScanComplete") : t("omrScanFailed")}
                                                     </h3>
                                                     <p className="text-white/60 text-xs font-bold uppercase tracking-wider">{result.message}</p>
                                                 </div>
@@ -208,8 +267,10 @@ export default function OMRInferencePage() {
                                 <div className="w-32 h-32 rounded-full border-4 border-dashed border-white flex items-center justify-center mb-8 rotate-12 group-hover:rotate-0 transition-transform duration-500">
                                     <Camera className="w-12 h-12 text-white" />
                                 </div>
-                                <h3 className="text-3xl font-black text-white mb-2">ยังไม่มีการสแกน</h3>
-                                <p className="text-white font-bold uppercase tracking-[0.3em] text-[10px]">Awaiting Initial Capture</p>
+                                <h3 className="text-3xl font-black text-white mb-2">{t("omrScannerNoScanYet")}</h3>
+                                <p className="text-white font-bold uppercase tracking-[0.3em] text-[10px]">
+                                    {t("omrAwaitingCapture")}
+                                </p>
                             </div>
                         )}
                     </div>

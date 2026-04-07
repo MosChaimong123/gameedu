@@ -1,20 +1,22 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { 
-    Play, 
-    BarChart, 
-    Users, 
-    ShoppingBag, 
+import {
+    Play,
+    BarChart,
+    Users,
     Settings,
     Gamepad2,
     Trophy,
-    Search,
     History as HistoryIcon,
-    Camera
+    Camera,
+    BookOpen,
+    UserCircle,
+    Sparkles,
 } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { motion, Variants } from "framer-motion"
+import { cn } from "@/lib/utils"
 
 interface QuickActionsProps {
     role?: string
@@ -47,74 +49,75 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
         }
     }
 
+    /** Shared gradient vocabulary: emerald (insights), rose (people), cyan (tools), indigo (library), violet (history), slate (settings), amber (upgrade CTA). */
     const teacherActions = [
         {
             key: "viewReports",
             icon: BarChart,
-            color: "from-emerald-400 to-green-600",
+            color: "from-emerald-500 to-teal-600",
             textColor: "text-emerald-100",
             path: "/dashboard/reports",
-            descKey: "checkProgress"
+            descKey: "checkProgress",
         },
         {
             key: "activeClasses",
             icon: Users,
-            color: "from-pink-500 to-rose-500",
-            textColor: "text-pink-100",
+            color: "from-rose-500 to-pink-600",
+            textColor: "text-rose-100",
             path: "/dashboard/classrooms",
-            descKey: "manageStudents"
+            descKey: "manageStudents",
         },
         {
             key: "omrScanner",
             icon: Camera,
-            color: "from-cyan-400 to-blue-600",
+            color: "from-cyan-500 to-blue-600",
             textColor: "text-cyan-100",
             path: "/dashboard/omr",
-            descKey: "scanAnswers"
+            descKey: "scanAnswers",
         },
         {
-            key: "market",
-            icon: ShoppingBag,
-            color: "from-amber-400 to-orange-500",
-            textColor: "text-amber-100",
-            path: "/dashboard/market",
-            descKey: "buyItems"
-        }
+            key: "mySets",
+            icon: BookOpen,
+            color: "from-indigo-500 to-violet-600",
+            textColor: "text-indigo-100",
+            path: "/dashboard/my-sets",
+            descKey: "manageSetsDesc",
+        },
     ]
 
     const studentActions = [
         {
-            key: "discover",
-            icon: Search,
-            color: "from-teal-400 to-emerald-500",
-            textColor: "text-teal-100",
-            path: "/dashboard/discover",
-            descKey: "findPublicGames"
-        },
-        {
-            key: "market",
-            icon: ShoppingBag,
-            color: "from-amber-400 to-orange-500",
-            textColor: "text-amber-100",
-            path: "/dashboard/market",
-            descKey: "buyItems"
+            key: "profile",
+            icon: UserCircle,
+            color: "from-indigo-500 to-violet-600",
+            textColor: "text-indigo-100",
+            path: "/dashboard/profile",
+            descKey: "profileQuickDesc",
         },
         {
             key: "history",
             icon: HistoryIcon,
-            color: "from-violet-400 to-purple-600",
+            color: "from-violet-500 to-purple-700",
             textColor: "text-violet-100",
             path: "/dashboard/history",
-            descKey: "pastGames"
+            descKey: "pastGames",
         },
         {
             key: "settings",
             icon: Settings,
-            color: "from-slate-400 to-slate-600",
+            color: "from-slate-500 to-slate-700",
             textColor: "text-slate-100",
             path: "/dashboard/settings",
-            descKey: "preferences"
-        }
+            descKey: "preferences",
+        },
+        {
+            key: "upgradeToPlus",
+            icon: Sparkles,
+            color: "from-amber-500 to-orange-600",
+            textColor: "text-amber-100",
+            path: "/dashboard/upgrade",
+            descKey: "getMoreTokens",
+        },
     ]
 
     const actions = isStudent ? studentActions : teacherActions
@@ -167,7 +170,12 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
             </motion.div>
 
             {/* Other Actions Grid */}
-            <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-${actions.length === 3 ? '3' : '4'} gap-6`}>
+            <div
+                className={cn(
+                    "grid grid-cols-1 gap-6 sm:grid-cols-2",
+                    actions.length <= 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"
+                )}
+            >
                 {actions.map((action) => (
                     <motion.div
                         key={action.key}

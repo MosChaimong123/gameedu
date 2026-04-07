@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Loader2, Plus, Save, Globe, Lock, PenSquare, FileText, Image as ImageIcon, Sparkles } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
@@ -11,6 +12,17 @@ import { EditorDialog, type EditableQuestion } from "@/components/set-editor/edi
 import { ImportSpreadsheetDialog } from "@/components/set-editor/import-spreadsheet-dialog"
 import { AIGeneratorDialog, type GeneratedQuestion } from "@/components/set-editor/ai-generator-dialog"
 import { PageBackLink } from "@/components/ui/page-back-link"
+import { useToast } from "@/components/ui/use-toast"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // Types matching Prisma Schema
 // TODO: Move to a shared types file
@@ -46,8 +58,10 @@ type ImportedQuestionInput = {
 export default function EditSetPage() {
     const params = useParams()
     const router = useRouter()
+    const { data: session, status } = useSession()
     const setId = params.id as string
     const { t } = useLanguage()
+    const { toast } = useToast()
 
     const [set, setSet] = useState<QuestionSet | null>(null)
     const [loading, setLoading] = useState(true)
@@ -59,8 +73,15 @@ export default function EditSetPage() {
     const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false)
     const [isAIDialogOpen, setIsAIDialogOpen] = useState(false)
     const [isSpreadsheetOpen, setIsSpreadsheetOpen] = useState(false)
+    const [pendingDeleteQuestionId, setPendingDeleteQuestionId] = useState<string | null>(null)
 
     const searchParams = useSearchParams()
+
+    useEffect(() => {
+        if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+            router.replace("/dashboard")
+        }
+    }, [router, session, status])
 
     useEffect(() => {
         if (searchParams.get("openImport") === "true") {
@@ -69,6 +90,10 @@ export default function EditSetPage() {
     }, [searchParams])
 
     useEffect(() => {
+        if (status !== "authenticated" || (session.user.role !== "TEACHER" && session.user.role !== "ADMIN")) {
+            return
+        }
+
         async function fetchSet() {
             try {
                 const res = await fetch(`/api/sets/${setId}`)
@@ -85,7 +110,19 @@ export default function EditSetPage() {
             }
         }
         fetchSet()
-    }, [setId, router])
+    }, [setId, router, session, status])
+
+    if (status === "loading") {
+        return (
+            <div className="flex min-h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            </div>
+        )
+    }
+
+    if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+        return null
+    }
 
     const handleSaveSet = async () => {
         if (!set) return
@@ -97,10 +134,18 @@ export default function EditSetPage() {
                 body: JSON.stringify(set),
             })
             if (!res.ok) throw new Error("Failed to save")
+            toast({
+                title: t("editSetSaveSuccessTitle"),
+                description: t("editSetSaveSuccessDesc"),
+            })
             router.push("/dashboard/my-sets")
             // Optional: Show happiness/success toast
         } catch {
-            alert("Error saving set")
+            toast({
+                title: t("editSetSaveFailTitle"),
+                description: t("editSetSaveFailDesc"),
+                variant: "destructive",
+            })
         } finally {
             setSaving(false)
         }
@@ -181,9 +226,9 @@ export default function EditSetPage() {
 
     const deleteQuestion = (qId: string) => {
         if (!set) return
-        if (!confirm(t("deleteConfirm"))) return
         const updatedQuestions = set.questions.filter((q) => q.id !== qId)
         setSet({ ...set, questions: updatedQuestions })
+        setPendingDeleteQuestionId(null)
     }
 
     const handleUpdateSettings = (data: { title: string; description: string; coverImage: string; isPublic: boolean }) => {
@@ -192,17 +237,21 @@ export default function EditSetPage() {
     }
 
     if (loading) {
-        return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-purple-600 h-8 w-8" /></div>
+        return (
+            <div className="flex h-[calc(100dvh-6rem)] min-h-[12rem] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            </div>
+        )
     }
 
     if (!set) return <div>{t("noSetsTitle")}</div>
 
     return (
-        <div className="flex h-screen bg-slate-50 overflow-hidden">
+        <div className="flex h-[calc(100dvh-6rem)] min-h-0 overflow-hidden rounded-xl bg-slate-50">
             {/* Left Sidebar - Fixed Layout */}
             <div className="w-80 bg-white border-r flex-shrink-0 flex flex-col h-full overflow-y-auto">
                 <div className="p-6 space-y-6">
-                    <PageBackLink href="/dashboard/my-sets" label="ชุดคำถามของฉัน" />
+                    <PageBackLink href="/dashboard/my-sets" labelKey="navBackMySets" />
                     {/* Cover Image & Title Block */}
                     <div className="space-y-4">
                         <div className="aspect-[4/3] rounded-xl bg-slate-100 overflow-hidden border-2 border-slate-100 shadow-sm relative group">
@@ -260,7 +309,7 @@ export default function EditSetPage() {
                             onClick={() => setIsAIDialogOpen(true)}
                         >
                             <Sparkles className="w-8 h-8 mb-1" />
-                            <span className="text-xs">สร้างด้วย AI ✨</span>
+                            <span className="text-xs">{t("editSetAiCreate")}</span>
                         </Button>
                         <Button
                             variant="outline"
@@ -289,7 +338,7 @@ export default function EditSetPage() {
                     questions={set.questions}
                     onAddQuestion={addNewQuestion}
                     onEditQuestion={editQuestion}
-                    onDeleteQuestion={deleteQuestion}
+                    onDeleteQuestion={setPendingDeleteQuestionId}
                 />
             </div>
 
@@ -336,6 +385,28 @@ export default function EditSetPage() {
                 onOpenChange={setIsAIDialogOpen}
                 onImport={handleImportQuestions}
             />
+
+            <AlertDialog open={!!pendingDeleteQuestionId} onOpenChange={(open) => !open && setPendingDeleteQuestionId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{t("editSetDeleteQTitle")}</AlertDialogTitle>
+                        <AlertDialogDescription>{t("editSetDeleteQDesc")}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(event) => {
+                                event.preventDefault()
+                                if (!pendingDeleteQuestionId) return
+                                deleteQuestion(pendingDeleteQuestionId)
+                            }}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            {t("editSetDeleteQAction")}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

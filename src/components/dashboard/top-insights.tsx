@@ -14,22 +14,22 @@ const NEWS_ITEMS = [
         tag: "NEW",
         tagColor: "bg-indigo-500",
         icon: <Zap className="w-3 h-3" />,
-        title: "Season 4 Is Here!",
-        date: "2h ago"
+        titleKey: "topInsightsNewsTitleSeason4",
+        dateKey: "topInsightsNewsDate2hAgo"
     },
     {
         id: "2",
         tag: "INFO",
         tagColor: "bg-blue-500",
         icon: <Megaphone className="w-3 h-3" />,
-        title: "Server Update",
-        date: "Today"
+        titleKey: "topInsightsNewsTitleServerUpdate",
+        dateKey: "topInsightsNewsDateToday"
     }
 ]
 
 const TEACHER_MISSIONS = [
-    { id: 1, title: "Create 1 Question Set", completed: false, reward: 50 },
-    { id: 2, title: "Host a Live Session", completed: true, reward: 100 }
+    { id: 1, titleKey: "topInsightsMissionCreateSet", completed: false, reward: 50 },
+    { id: 2, titleKey: "topInsightsMissionHostSession", completed: true, reward: 100 }
 ]
 
 export function TopInsights({ role }: TopInsightsProps) {
@@ -48,10 +48,10 @@ export function TopInsights({ role }: TopInsightsProps) {
                     <div className="relative z-10 flex items-center justify-between mb-4">
                         <h3 className="text-xl font-black text-white flex items-center gap-2">
                             <Newspaper className="w-5 h-5 text-indigo-300" />
-                            {t("newsAndUpdates") || "News & Updates"}
+                            {t("newsAndUpdates")}
                         </h3>
                         <button className="text-[10px] font-bold text-white/60 hover:text-white transition-colors flex items-center gap-1 uppercase tracking-wider">
-                            See All <ChevronRight className="w-3 h-3" />
+                            {t("insightsSeeAll")} <ChevronRight className="w-3 h-3" />
                         </button>
                     </div>
 
@@ -63,9 +63,9 @@ export function TopInsights({ role }: TopInsightsProps) {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-0.5">
-                                        <span className="text-[9px] font-black text-white/50">{item.date}</span>
+                                        <span className="text-[9px] font-black text-white/50">{t(item.dateKey)}</span>
                                     </div>
-                                    <h4 className="text-sm font-bold text-white truncate">{item.title}</h4>
+                                    <h4 className="text-sm font-bold text-white truncate">{t(item.titleKey)}</h4>
                                 </div>
                             </div>
                         ))}
@@ -85,7 +85,7 @@ export function TopInsights({ role }: TopInsightsProps) {
                 <div className="relative h-full w-full overflow-hidden rounded-[1.9rem] bg-slate-900/10 p-6 backdrop-blur-xl">
                     <h3 className="text-xl font-black text-white flex items-center gap-2 mb-4 relative z-10">
                         <Trophy className="w-5 h-5 text-purple-300" />
-                        {t("dailyMissions") || "Teacher Quests"}
+                        {t("dailyMissions")}
                     </h3>
 
                     <div className="space-y-3 relative z-10">
@@ -96,9 +96,11 @@ export function TopInsights({ role }: TopInsightsProps) {
                                 </div>
                                 <div className="flex-1">
                                     <p className={`text-xs font-bold leading-none mb-1 ${mission.completed ? "text-white/40 line-through" : "text-white"}`}>
-                                        {mission.title}
+                                        {t(mission.titleKey)}
                                     </p>
-                                    <span className="text-[10px] font-black text-amber-400">+{mission.reward} Tokens</span>
+                                    <span className="text-[10px] font-black text-amber-400">
+                                        +{mission.reward} {t("tokenLabel")}
+                                    </span>
                                 </div>
                             </div>
                         ))}

@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -28,6 +29,7 @@ import { Plus, BookOpen, Clock, Loader2, MoreVertical, Search, Trash2, ArrowLeft
 import { AssignmentCreateModal } from "@/components/dashboard/assignment-create-modal"
 import { PageBackLink } from "@/components/ui/page-back-link"
 import { cn } from "@/lib/utils"
+import { getLocalizedErrorMessageFromResponse, tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages"
 
 type QuestionSet = {
     id: string
@@ -48,16 +50,19 @@ type Folder = {
     createdAt: string
 }
 
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useLanguage } from "@/components/providers/language-provider"
 import { Folder as FolderIcon, MoreHorizontal, FolderPlus } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
 export default function MySetsPage() {
     const router = useRouter()
+    const { data: session, status } = useSession()
+    const searchParams = useSearchParams()
     const [sets, setSets] = useState<QuestionSet[]>([])
     const [folders, setFolders] = useState<Folder[]>([])
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const [searchQuery, setSearchQuery] = useState("")
     const [setToDelete, setSetToDelete] = useState<string | null>(null)
     const [folderToDelete, setFolderToDelete] = useState<string | null>(null)
@@ -92,39 +97,96 @@ export default function MySetsPage() {
     const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
     const [newFolderName, setNewFolderName] = useState("")
 
-    const { t } = useLanguage()
+    const { t, language } = useLanguage()
 
-    const fetchAll = async () => {
+    const linkedClassroomId = searchParams.get("classroomId")?.trim() ?? ""
+    const hostQuerySuffix = linkedClassroomId
+        ? `?classroomId=${encodeURIComponent(linkedClassroomId)}`
+        : ""
+
+    useEffect(() => {
+        if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+            router.replace("/dashboard")
+        }
+    }, [router, session, status])
+
+    const fetchAll = useCallback(async () => {
         setLoading(true)
+        setError(null)
         try {
             const [setsRes, foldersRes] = await Promise.all([
                 fetch("/api/sets"),
                 fetch("/api/folders")
             ])
-            
-            if (setsRes.ok) {
-                const setsData = await setsRes.json()
-                setSets(setsData)
+
+            if (!setsRes.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        setsRes,
+                        "mySetsErrLoadSets",
+                        t,
+                        language
+                    )
+                )
             }
-            if (foldersRes.ok) {
-                const foldersData = await foldersRes.json()
-                setFolders(foldersData)
+
+            if (!foldersRes.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        foldersRes,
+                        "mySetsErrLoadFolders",
+                        t,
+                        language
+                    )
+                )
             }
+
+            const [setsData, foldersData] = await Promise.all([
+                setsRes.json(),
+                foldersRes.json(),
+            ])
+            setSets(setsData)
+            setFolders(foldersData)
         } catch (error) {
             console.error("Failed to fetch data", error)
+            const raw = error instanceof Error ? error.message : null
+            const net = tryLocalizeFetchNetworkFailureMessage(raw, t)
+            setError(net ?? (error instanceof Error ? error.message : t("mySetsErrLoadGeneric")))
         } finally {
             setLoading(false)
         }
-    }
+    }, [language, t])
 
     useEffect(() => {
+        if (status !== "authenticated" || (session.user.role !== "TEACHER" && session.user.role !== "ADMIN")) {
+            return
+        }
         fetchAll()
-    }, [])
+        // Intentionally omit `t` — it is not referentially stable from LanguageProvider.
+    }, [fetchAll, session, status])
+
+    useEffect(() => {
+        const q = searchParams.get("q")
+        if (q) setSearchQuery(q)
+    }, [searchParams])
+
+    if (status === "loading") {
+        return (
+            <div className="flex min-h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            </div>
+        )
+    }
+
+    if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+        return null
+    }
 
     const handleCreateFolder = async () => {
         if (!newFolderName.trim()) return
 
         try {
+            setError(null)
             const response = await fetch("/api/folders", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -134,14 +196,26 @@ export default function MySetsPage() {
                 })
             })
 
-            if (response.ok) {
-                const folder = await response.json()
-                setFolders([folder, ...folders])
-                setIsCreateFolderOpen(false)
-                setNewFolderName("")
+            if (!response.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        response,
+                        "mySetsErrCreateFolder",
+                        t,
+                        language
+                    )
+                )
             }
+
+            const folder = await response.json()
+            setFolders([folder, ...folders])
+            setIsCreateFolderOpen(false)
+            setNewFolderName("")
         } catch (error) {
             console.error("Failed to create folder", error)
+            const raw = error instanceof Error ? error.message : null
+            const net = tryLocalizeFetchNetworkFailureMessage(raw, t)
+            setError(net ?? (error instanceof Error ? error.message : t("mySetsErrCreateFolder")))
         }
     }
 
@@ -149,15 +223,28 @@ export default function MySetsPage() {
         if (!setToDelete) return
 
         try {
+            setError(null)
             const response = await fetch(`/api/sets/${setToDelete}`, {
                 method: "DELETE",
             })
 
-            if (response.ok) {
-                setSets(sets.filter((s) => s.id !== setToDelete))
+            if (!response.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        response,
+                        "mySetsErrDeleteSet",
+                        t,
+                        language
+                    )
+                )
             }
+
+            setSets(sets.filter((s) => s.id !== setToDelete))
         } catch (error) {
             console.error("Failed to delete set", error)
+            const raw = error instanceof Error ? error.message : null
+            const net = tryLocalizeFetchNetworkFailureMessage(raw, t)
+            setError(net ?? (error instanceof Error ? error.message : t("mySetsErrDeleteSet")))
         } finally {
             setSetToDelete(null)
         }
@@ -165,17 +252,30 @@ export default function MySetsPage() {
 
     const handleMoveToFolder = async (setId: string, folderId: string | null) => {
         try {
+            setError(null)
             const response = await fetch(`/api/sets/${setId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ folderId })
             })
 
-            if (response.ok) {
-                setSets(sets.map((s) => s.id === setId ? { ...s, folderId } : s))
+            if (!response.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        response,
+                        "mySetsErrMoveSet",
+                        t,
+                        language
+                    )
+                )
             }
+
+            setSets(sets.map((s) => s.id === setId ? { ...s, folderId } : s))
         } catch (error) {
             console.error("Failed to move set", error)
+            const raw = error instanceof Error ? error.message : null
+            const net = tryLocalizeFetchNetworkFailureMessage(raw, t)
+            setError(net ?? (error instanceof Error ? error.message : t("mySetsErrMoveSet")))
         }
     }
 
@@ -183,19 +283,32 @@ export default function MySetsPage() {
         if (!folderToDelete) return
 
         try {
+            setError(null)
             const response = await fetch(`/api/folders/${folderToDelete}`, {
                 method: "DELETE",
             })
 
-            if (response.ok) {
-                setFolders(folders.filter((f) => f.id !== folderToDelete))
-                // If we are currently inside the deleted folder, go back
-                if (currentFolderId === folderToDelete) {
-                    setCurrentFolderId(null)
-                }
+            if (!response.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        response,
+                        "mySetsErrDeleteFolder",
+                        t,
+                        language
+                    )
+                )
+            }
+
+            setFolders(folders.filter((f) => f.id !== folderToDelete))
+            // If we are currently inside the deleted folder, go back
+            if (currentFolderId === folderToDelete) {
+                setCurrentFolderId(null)
             }
         } catch (error) {
             console.error("Failed to delete folder", error)
+            const raw = error instanceof Error ? error.message : null
+            const net = tryLocalizeFetchNetworkFailureMessage(raw, t)
+            setError(net ?? (error instanceof Error ? error.message : t("mySetsErrDeleteFolder")))
         } finally {
             setFolderToDelete(null)
         }
@@ -211,13 +324,13 @@ export default function MySetsPage() {
             <AlertDialog open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>{t("createFolder") || "Create New Folder"}</AlertDialogTitle>
+                        <AlertDialogTitle>{t("createFolder")}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {t("enterFolderName") || "Please enter a name for your new folder."}
+                            {t("enterFolderName")}
                         </AlertDialogDescription>
                         <div className="py-4">
                             <Input 
-                                placeholder={t("folderName") || "Folder Name"}
+                                placeholder={t("folderName")}
                                 value={newFolderName}
                                 onChange={(e) => setNewFolderName(e.target.value)}
                                 autoFocus
@@ -237,7 +350,7 @@ export default function MySetsPage() {
                             disabled={!newFolderName.trim()}
                             className="bg-indigo-600 hover:bg-indigo-700"
                         >
-                            {t("create") || "Create"}
+                            {t("create")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -249,7 +362,7 @@ export default function MySetsPage() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>{t("areYouSure")}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {t("deleteFolderWarning") || "Are you sure you want to delete this folder? All sets inside will be moved to the main library."}
+                            {t("deleteFolderWarning")}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -264,7 +377,7 @@ export default function MySetsPage() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                     <PageBackLink
-                        label={currentFolderId ? "กลับไปคลังชุดคำถาม" : "กลับแดชบอร์ด"}
+                        labelKey={currentFolderId ? "mySetsBackLibrary" : "mySetsBackDashboard"}
                         onClick={() => (currentFolderId ? setCurrentFolderId(null) : router.push("/dashboard"))}
                         className={cn(
                             "shrink-0 shadow-md shadow-slate-200/50",
@@ -291,7 +404,7 @@ export default function MySetsPage() {
                         onClick={() => setIsCreateFolderOpen(true)}
                     >
                         <FolderPlus className="mr-2 h-4 w-4" />
-                        {t("createFolder") || "Create Folder"}
+                        {t("createFolder")}
                     </Button>
                     <Link href="/dashboard/create-set">
                         <Button className="bg-purple-600 hover:bg-purple-700">
@@ -305,12 +418,25 @@ export default function MySetsPage() {
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
-                    placeholder={t("searchSetsPlaceholder") || "Search your sets..."}
+                    placeholder={t("searchSetsPlaceholder")}
                     className="pl-10 max-w-sm"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
+
+            {linkedClassroomId ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm font-medium text-emerald-950 shadow-sm">
+                    <span className="font-black text-emerald-900">{t("mySetsClassroomSyncTitle")}</span>
+                    <span className="mt-1 block text-emerald-900/90">{t("mySetsClassroomSyncBody")}</span>
+                </div>
+            ) : null}
+
+            {error ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                    {error}
+                </div>
+            ) : null}
 
             {loading ? (
                 <div className="flex h-32 items-center justify-center">
@@ -328,7 +454,7 @@ export default function MySetsPage() {
                     {!searchQuery && (
                         <div className="flex items-center gap-2">
                              <Button onClick={() => setIsCreateFolderOpen(true)} variant="outline">
-                                {t("createFolder") || "Create Folder"}
+                                {t("createFolder")}
                             </Button>
                             <Link href="/dashboard/create-set">
                                 <Button>{t("createFirstSet")}</Button>
@@ -384,7 +510,7 @@ export default function MySetsPage() {
                                     </div>
                                     <h3 className="text-lg font-bold text-slate-800 text-center line-clamp-1">{folder.name}</h3>
                                     <p className="text-xs text-slate-400 mt-1">
-                                        {sets.filter((s) => s.folderId === folder.id).length} {t("items") || "Items"}
+                                        {sets.filter((s) => s.folderId === folder.id).length} {t("items")}
                                     </p>
                                 </motion.div>
                             ))}
@@ -430,15 +556,15 @@ export default function MySetsPage() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-56">
-                                            <DropdownMenuLabel>{t("actions") || "Actions"}</DropdownMenuLabel>
+                                            <DropdownMenuLabel>{t("actions")}</DropdownMenuLabel>
                                             <DropdownMenuSeparator />
                                             {folders.length > 0 && (
                                                 <>
-                                                    <DropdownMenuLabel className="text-[10px] uppercase text-slate-400 font-bold">{t("moveToFolder") || "Move to Folder"}</DropdownMenuLabel>
+                                                    <DropdownMenuLabel className="text-[10px] uppercase text-slate-400 font-bold">{t("moveToFolder")}</DropdownMenuLabel>
                                                     {set.folderId && (
                                                         <DropdownMenuItem onClick={() => handleMoveToFolder(set.id, null)}>
                                                             <ArrowLeft className="mr-2 h-4 w-4 text-slate-400" />
-                                                            <span>{t("moveToMain") || "Move to Main Library"}</span>
+                                                            <span>{t("moveToMain")}</span>
                                                         </DropdownMenuItem>
                                                     )}
                                                     {folders.filter((f) => f.id !== set.folderId).map((folder) => (
@@ -481,7 +607,7 @@ export default function MySetsPage() {
 
                             <CardFooter className="p-4 pt-0 mt-auto">
                                 <div className="flex w-full items-center gap-2">
-                                    <Link href={`/host/${set.id}`} className="flex-[1.5]">
+                                    <Link href={`/host/${set.id}${hostQuerySuffix}`} className="flex-[1.5]">
                                         <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm transition-all hover:-translate-y-0.5" size="sm">
                                             {t("host")}
                                         </Button>
@@ -495,7 +621,7 @@ export default function MySetsPage() {
                                         size="sm"
                                     >
                                         <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
-                                        Assign
+                                        {t("mySetsAssignBtn")}
                                     </Button>
                                     <Link href={`/dashboard/edit-set/${set.id}`} className="flex-[1.5]">
                                         <Button variant="outline" className="w-full border-2 border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-600 font-bold transition-all" size="sm">

@@ -23,8 +23,8 @@ export function StudentProgress() {
                             <CheckCircle2 className="w-3 h-3" />
                         </div>
                         <div>
-                            <p className="text-slate-700"><span className="font-semibold">John D.</span> {t("completed")} <span className="text-indigo-600">Algebra HW</span></p>
-                            <span className="text-xs text-slate-400">10 mins ago • {t("score")}: 95%</span>
+                            <p className="text-slate-700"><span className="font-semibold">{t("studentProgressNameJohn")}</span> {t("completed")} <span className="text-indigo-600">{t("studentProgressTaskAlgebraHw")}</span></p>
+                            <span className="text-xs text-slate-400">{t("studentProgressTime10MinAgo")} • {t("score")}: 95%</span>
                         </div>
                     </div>
                     <div className="flex gap-3 text-sm">
@@ -32,8 +32,8 @@ export function StudentProgress() {
                             <CheckCircle2 className="w-3 h-3" />
                         </div>
                         <div>
-                            <p className="text-slate-700"><span className="font-semibold">Sarah M.</span> {t("completed")} <span className="text-indigo-600">Algebra HW</span></p>
-                            <span className="text-xs text-slate-400">1 hour ago • {t("score")}: 88%</span>
+                            <p className="text-slate-700"><span className="font-semibold">{t("studentProgressNameSarah")}</span> {t("completed")} <span className="text-indigo-600">{t("studentProgressTaskAlgebraHw")}</span></p>
+                            <span className="text-xs text-slate-400">{t("studentProgressTime1HourAgo")} • {t("score")}: 88%</span>
                         </div>
                     </div>
                 </CardContent>
@@ -51,15 +51,15 @@ export function StudentProgress() {
                     <div className="flex items-start gap-3 text-sm">
                         <div className="h-2 w-2 rounded-full bg-red-400 mt-2" />
                         <div>
-                            <p className="text-slate-700 font-medium">Bob Smith</p>
-                            <p className="text-xs text-slate-500">{t("strugglingWith")} &quot;Fractions&quot; (Avg: 45%)</p>
+                            <p className="text-slate-700 font-medium">{t("studentProgressNameBob")}</p>
+                            <p className="text-xs text-slate-500">{t("strugglingWith")} &quot;{t("studentProgressTopicFractions")}&quot; (Avg: 45%)</p>
                         </div>
                     </div>
                     <div className="flex items-start gap-3 text-sm">
                         <div className="h-2 w-2 rounded-full bg-orange-400 mt-2" />
                         <div>
-                            <p className="text-slate-700 font-medium">Emma W.</p>
-                            <p className="text-xs text-slate-500">{t("inactiveFor")} 1 week</p>
+                            <p className="text-slate-700 font-medium">{t("studentProgressNameEmma")}</p>
+                            <p className="text-xs text-slate-500">{t("inactiveFor")} {t("studentProgressOneWeek")}</p>
                         </div>
                     </div>
                 </CardContent>

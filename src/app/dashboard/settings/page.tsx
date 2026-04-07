@@ -27,17 +27,10 @@ type SettingsState = UserSettings & {
     highPerformance: boolean
 }
 
-type LanguageOption = {
-    id: SettingsState["language"]
-    name: string
-    sub: string
-    flag: string
-}
-
-const LANGUAGE_OPTIONS = [
-    { id: "th", name: "ภาษาไทย", sub: "Thai Language", flag: "🇹🇭" },
-    { id: "en", name: "English", sub: "Global Version", flag: "🇺🇸" }
-] satisfies LanguageOption[]
+const LANGUAGE_DEFS = [
+    { id: "th" as const, nameKey: "userSettingsLangTh", subKey: "userSettingsLangThSub", flag: "🇹🇭" },
+    { id: "en" as const, nameKey: "userSettingsLangEn", subKey: "userSettingsLangEnSub", flag: "🇺🇸" },
+] as const
 
 export default function SettingsPage() {
     const { data: session, update } = useSession()
@@ -101,9 +94,9 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] bg-slate-50/50 pb-20">
-            <div className="container max-w-4xl py-12 px-6 space-y-10 mx-auto animate-in fade-in slide-in-from-bottom-6 duration-700">
-                <PageBackLink href="/dashboard" label="แดชบอร์ด" />
+        <div className="min-h-[calc(100vh-4rem)] bg-slate-50/50 pb-12">
+            <div className="mx-auto w-full max-w-4xl space-y-10 py-2 animate-in fade-in slide-in-from-bottom-6 duration-700 sm:py-4">
+                <PageBackLink href="/dashboard" labelKey="navBackDashboard" />
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border pb-10">
                     <div className="space-y-2">
@@ -114,12 +107,8 @@ export default function SettingsPage() {
                         >
                             <Settings className="w-8 h-8 animate-pulse" />
                         </motion.div>
-                        <h1 className="text-4xl font-black tracking-tight text-foreground leading-none">
-                            {t("settings") || "การตั้งค่า"}
-                        </h1>
-                        <p className="text-muted-foreground text-lg font-medium max-w-md leading-relaxed">
-                            {t("settingsDesc") || "ปรับแต่งห้องเรียนของคุณให้เข้ากับสไตล์การเรียนรู้ที่ใช่"}
-                        </p>
+                        <h1 className="text-4xl font-black tracking-tight text-foreground leading-none">{t("settings")}</h1>
+                        <p className="text-muted-foreground text-lg font-medium max-w-md leading-relaxed">{t("settingsDesc")}</p>
                     </div>
                     
                     <div className="flex items-center gap-3">
@@ -135,7 +124,7 @@ export default function SettingsPage() {
                                     <AnimatePresence>
                                         <motion.div animate={{ rotate: [0, 10, -10, 0] }}>✅</motion.div>
                                     </AnimatePresence>
-                                    {t("saved") || "บันทึกสำเร็จ"}
+                                    {t("saved")}
                                 </motion.div>
                             ) : (
                                 <Button 
@@ -149,7 +138,7 @@ export default function SettingsPage() {
                                     ) : (
                                         <>
                                             <Save className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                                            {t("saveChanges") || "บันทึกข้อมูล"}
+                                            {t("saveChanges")}
                                         </>
                                     )}
                                 </Button>
@@ -162,10 +151,10 @@ export default function SettingsPage() {
                     <div className="flex justify-center">
                         <TabsList className="bg-white p-2 rounded-3xl h-16 border border-slate-200 shadow-xl shadow-slate-200/50 gap-2">
                             <TabsTrigger value="language" className="rounded-2xl px-8 font-black data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all gap-2">
-                                <Languages className="w-4 h-4" /> {t("language") || "ภาษา"}
+                                <Languages className="w-4 h-4" /> {t("userSettingsLanguageTab")}
                             </TabsTrigger>
                             <TabsTrigger value="audio" className="rounded-2xl px-8 font-black data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all gap-2">
-                                <Volume2 className="w-4 h-4" /> {t("audio") || "เสียง"}
+                                <Volume2 className="w-4 h-4" /> {t("audio")}
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -179,13 +168,15 @@ export default function SettingsPage() {
                                     <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
                                         <Globe className="w-8 h-8" />
                                     </div>
-                                    ภาษาที่ต้องการใช้งาน
+                                    {t("userSettingsLanguageTitle")}
                                 </CardTitle>
-                                <CardDescription className="text-lg font-medium text-muted-foreground">เปลี่ยนภาษาของระบบทั้งหมดได้ที่นี่</CardDescription>
+                                <CardDescription className="text-lg font-medium text-muted-foreground">
+                                    {t("userSettingsLanguageSubtitle")}
+                                </CardDescription>
                             </CardHeader>
                             <CardContent className="p-10 pt-6">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                                    {LANGUAGE_OPTIONS.map((lang) => (
+                                    {LANGUAGE_DEFS.map((lang) => (
                                         <motion.button 
                                             key={lang.id}
                                             whileHover={{ y: -5, scale: 1.02 }}
@@ -196,8 +187,8 @@ export default function SettingsPage() {
                                             <div className="flex flex-col gap-4 relative z-10">
                                                 <span className="text-5xl group-hover:scale-110 transition-transform origin-left block">{lang.flag}</span>
                                                 <div>
-                                                    <h4 className={`font-black text-2xl leading-none ${settings.language === lang.id ? 'text-indigo-600' : 'text-foreground'}`}>{lang.name}</h4>
-                                                    <p className="text-sm text-muted-foreground uppercase font-black tracking-widest mt-2">{lang.sub}</p>
+                                                    <h4 className={`font-black text-2xl leading-none ${settings.language === lang.id ? 'text-indigo-600' : 'text-foreground'}`}>{t(lang.nameKey)}</h4>
+                                                    <p className="text-sm text-muted-foreground uppercase font-black tracking-widest mt-2">{t(lang.subKey)}</p>
                                                 </div>
                                             </div>
                                             {settings.language === lang.id && (
@@ -226,8 +217,8 @@ export default function SettingsPage() {
                                             <Volume2 className="w-8 h-8" />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label className="text-2xl font-black italic text-foreground leading-none">Sound Effects (SFX)</Label>
-                                            <p className="text-sm text-muted-foreground font-black uppercase tracking-widest mt-1">เสียงโต้ตอบในตัวเกม</p>
+                                            <Label className="text-2xl font-black italic text-foreground leading-none">{t("userSettingsSfxTitle")}</Label>
+                                            <p className="text-sm text-muted-foreground font-black uppercase tracking-widest mt-1">{t("userSettingsSfxHint")}</p>
                                         </div>
                                     </div>
                                     <Switch 
@@ -243,8 +234,8 @@ export default function SettingsPage() {
                                             <Globe className="w-8 h-8" />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label className="text-2xl font-black italic text-foreground leading-none">Background Music</Label>
-                                            <p className="text-sm text-muted-foreground font-black uppercase tracking-widest mt-1">เพลงประกอบบรรยากาศ</p>
+                                            <Label className="text-2xl font-black italic text-foreground leading-none">{t("userSettingsBgmTitle")}</Label>
+                                            <p className="text-sm text-muted-foreground font-black uppercase tracking-widest mt-1">{t("userSettingsBgmHint")}</p>
                                         </div>
                                     </div>
                                     <Switch 
@@ -273,14 +264,14 @@ export default function SettingsPage() {
                                             <Shield className="w-10 h-10" />
                                         </div>
                                         <div className="space-y-1">
-                                            <h2 className="text-4xl font-black italic leading-none">Administrator</h2>
-                                            <p className="text-indigo-100 text-lg font-bold">จัดการการตั้งค่าฝั่งเซิร์ฟเวอร์และระบบส่วนกลาง</p>
+                                            <h2 className="text-4xl font-black italic leading-none">{t("userSettingsAdminCardTitle")}</h2>
+                                            <p className="text-indigo-100 text-lg font-bold">{t("userSettingsAdminCardSubtitle")}</p>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
-                                        <Button variant="secondary" className="h-16 rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-all">แผงควบคุมสมาชิก</Button>
-                                        <Button variant="secondary" className="h-16 rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-all">สถานะระบบการศึกษา</Button>
-                                        <Button className="h-16 rounded-2xl font-black text-lg bg-slate-900 text-white hover:bg-black shadow-xl hover:scale-105 transition-all">โหมดปิดปรับปรุง</Button>
+                                        <Button variant="secondary" className="h-16 rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-all">{t("userSettingsAdminBtnMembers")}</Button>
+                                        <Button variant="secondary" className="h-16 rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-all">{t("userSettingsAdminBtnStatus")}</Button>
+                                        <Button className="h-16 rounded-2xl font-black text-lg bg-slate-900 text-white hover:bg-black shadow-xl hover:scale-105 transition-all">{t("userSettingsAdminBtnMaintenance")}</Button>
                                     </div>
                                 </div>
                             </Card>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SocketProvider } from "@/components/providers/socket-provider";
@@ -7,6 +8,8 @@ import { AccessibilityProvider } from "@/components/providers/accessibility-prov
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { SoundProvider } from "@/hooks/use-sound";
 import { Toaster } from "@/components/ui/toaster";
+import { LANGUAGE_COOKIE_NAME } from "@/lib/language-cookie";
+import type { Language } from "@/lib/translations";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,19 +28,23 @@ export const metadata: Metadata = {
 
 
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const cookieLang = cookieStore.get(LANGUAGE_COOKIE_NAME)?.value;
+  const initialLanguage: Language = cookieLang === "th" ? "th" : "en";
+
   return (
-    <html lang="en">
+    <html lang={initialLanguage}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
             <AccessibilityProvider>
-              <LanguageProvider>
+              <LanguageProvider initialLanguage={initialLanguage}>
                 <SocketProvider>
                   <SoundProvider>
                     {children}

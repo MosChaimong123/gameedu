@@ -39,7 +39,7 @@ interface ClassroomDashboardToolbarProps {
     onOpenGroupMaker: () => void;
     onStudentsAdded: (students: ClassroomDashboardViewModel["students"]) => void;
     onOpenStudentManager: () => void;
-    onRankSettingsSaved: (classroom: ClassroomDashboardViewModel) => void;
+    onRankSettingsSaved: (classroom: unknown) => void;
     onOpenNegamonSettings: () => void;
     onEnterAttendanceMode: () => void;
     onToggleSelectMultiple: () => void;
@@ -231,7 +231,7 @@ export function ClassroomDashboardToolbar({
                                 classId={classroom.id}
                                 theme={classroom.theme || ""}
                                 onStudentAdded={(students) =>
-                                    onStudentsAdded(students as ClassroomDashboardViewModel["students"])
+                                    onStudentsAdded(students as never)
                                 }
                             />
                         </div>

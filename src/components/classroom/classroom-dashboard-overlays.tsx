@@ -106,9 +106,7 @@ export function ClassroomDashboardOverlays({
                 onSelectSkill={onSelectSkill}
                 loading={loading}
                 classId={classroom.id}
-                onSkillsChanged={(skills) =>
-                    onSkillsChanged(skills as ClassroomDashboardViewModel["skills"])
-                }
+                onSkillsChanged={(skills) => onSkillsChanged(skills as never)}
                 theme={classroom.theme || ""}
             />
 
@@ -154,16 +152,14 @@ export function ClassroomDashboardOverlays({
                 theme={classroom.theme || ""}
                 open={showStudentManager}
                 onOpenChange={setShowStudentManager}
-                onChanged={(students) =>
-                    onStudentsChanged(students as ClassroomDashboardViewModel["students"])
-                }
-                students={classroom.students}
+                onChanged={(students) => onStudentsChanged(students as never)}
+                students={classroom.students as never}
             />
 
             {showTimer && <TimerWidget onClose={() => setShowTimer(false)} />}
             {showRandomPicker && (
                 <RandomPicker
-                    students={classroom.students}
+                    students={classroom.students as never}
                     theme={classroom.theme || ""}
                     levelConfig={classroom.levelConfig}
                     onClose={() => setShowRandomPicker(false)}
@@ -171,7 +167,7 @@ export function ClassroomDashboardOverlays({
             )}
             {showGroupMaker && (
                 <GroupMaker
-                    students={classroom.students}
+                    students={classroom.students as never}
                     skills={classroom.skills}
                     theme={classroom.theme || ""}
                     levelConfig={classroom.levelConfig}
@@ -192,7 +188,7 @@ export function ClassroomDashboardOverlays({
                 classroom={classroom}
                 open={showSettings}
                 onOpenChange={setShowSettings}
-                onSaved={onSavedClassroom}
+                onSaved={onSavedClassroom as never}
                 onPointsReset={onPointsReset}
             />
 

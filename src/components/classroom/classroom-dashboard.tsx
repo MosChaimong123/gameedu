@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import type { Student } from "@prisma/client";
 import { StudentAvatar } from "./student-avatar";
 import { AddStudentDialog } from "./add-student-dialog";
 import { PointMenu } from "./point-menu";
@@ -58,7 +57,7 @@ export function ClassroomDashboard({
     highlightAssignmentId = null,
 }: ClassroomDashboardProps) {
     const { t } = useLanguage();
-    const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+    const [selectedStudent, setSelectedStudent] = useState<ClassroomDashboardViewModel["students"][number] | null>(null);
     const { toast } = useToast();
     const { socket, isConnected } = useSocket();
     const {
@@ -117,7 +116,16 @@ export function ClassroomDashboard({
         setClassroom,
         toast,
         t,
-    });
+    }) as unknown as {
+        isAttendanceMode: boolean;
+        setIsAttendanceMode: React.Dispatch<React.SetStateAction<boolean>>;
+        hasChanges: boolean;
+        enterAttendanceMode: () => void;
+        cycleStudentAttendance: (studentId: string) => void;
+        restoreAttendanceSnapshot: () => void;
+        exitAttendanceMode: () => void;
+        saveAttendance: () => Promise<boolean>;
+    };
     const {
         isSelectMultiple,
         setIsSelectMultiple,
@@ -140,7 +148,7 @@ export function ClassroomDashboard({
     const [playThud] = useSound("/sounds/thud.mp3");
     const { awardPoints, resetPoints } = useClassroomPointsFlow({
         classroomId: classroom.id,
-        selectedStudent,
+        selectedStudent: selectedStudent as never,
         selectedStudentIds,
         isSelectMultiple,
         socket,
@@ -153,7 +161,7 @@ export function ClassroomDashboard({
         t,
     });
 
-    const handleStudentClick = (student: Student) => {
+    const handleStudentClick = (student: ClassroomDashboardViewModel["students"][number]) => {
         if (isAttendanceMode) {
             cycleStudentAttendance(student.id);
         } else if (isSelectMultiple) {
@@ -228,9 +236,9 @@ export function ClassroomDashboard({
                     onOpenTimer={() => setShowTimer(true)}
                     onOpenRandomPicker={() => setShowRandomPicker(true)}
                     onOpenGroupMaker={() => setShowGroupMaker(true)}
-                    onStudentsAdded={appendStudents}
+                    onStudentsAdded={appendStudents as never}
                     onOpenStudentManager={() => setShowStudentManager(true)}
-                    onRankSettingsSaved={updateClassroomBasics}
+                    onRankSettingsSaved={updateClassroomBasics as never}
                     onOpenNegamonSettings={() => setShowNegamonSettings(true)}
                     onEnterAttendanceMode={() => {
                         enterAttendanceMode();
@@ -292,9 +300,7 @@ export function ClassroomDashboard({
                         <AddStudentDialog
                             classId={classroom.id}
                             theme={classroom.theme || ''}
-                            onStudentAdded={(students) =>
-                                appendStudents(students as ClassroomDashboardViewModel["students"])
-                            }
+                            onStudentAdded={(students) => appendStudents(students as never)}
                         />
                     </div>
                 ) : (
@@ -324,7 +330,7 @@ export function ClassroomDashboard({
                 <div className="min-h-0 flex-1 w-full animate-in slide-in-from-bottom-2 rounded-xl border border-dashed border-violet-100 bg-violet-50/20 p-4 sm:p-6">
                     <NegamonClassroomOverview
                         classroomId={classroom.id}
-                        students={classroom.students}
+                        students={classroom.students as never}
                         levelConfig={classroom.levelConfig as LevelConfigInput}
                         gamifiedSettings={classroom.gamifiedSettings}
                         onOpenSettings={() => setShowNegamonSettings(true)}
@@ -338,7 +344,7 @@ export function ClassroomDashboard({
                         assignments={classroom.assignments as AssignmentWithChecklist[]}
                         levelConfig={classroom.levelConfig as LevelConfigInput}
                         isAttendanceMode={isAttendanceMode}
-                        onStudentClick={handleStudentClick}
+                        onStudentClick={handleStudentClick as never}
                         highlightAssignmentId={highlightAssignmentId}
                     />
                 </div>
@@ -352,9 +358,7 @@ export function ClassroomDashboard({
                 onSelectSkill={handleAwardPoint}
                 loading={loading}
                 classId={classroom.id}
-                onSkillsChanged={(skills) =>
-                    updateSkills(skills as ClassroomDashboardViewModel["skills"])
-                }
+                onSkillsChanged={(skills) => updateSkills(skills as never)}
                 theme={classroom.theme || ""}
             />
 
@@ -392,17 +396,15 @@ export function ClassroomDashboard({
                 theme={classroom.theme || ''}
                 open={showStudentManager}
                 onOpenChange={setShowStudentManager}
-                onChanged={(students) =>
-                    updateStudents(students as ClassroomDashboardViewModel["students"])
-                }
-                students={classroom.students}
+                onChanged={(students) => updateStudents(students as never)}
+                students={classroom.students as never}
             />
 
             {/* Widgets */}
             {showTimer && <TimerWidget onClose={() => setShowTimer(false)} />}
             {showRandomPicker && (
                 <RandomPicker
-                    students={classroom.students}
+                    students={classroom.students as never}
                     theme={classroom.theme || ''}
                     levelConfig={classroom.levelConfig}
                     onClose={() => setShowRandomPicker(false)}
@@ -410,7 +412,7 @@ export function ClassroomDashboard({
             )}
             {showGroupMaker && (
                 <GroupMaker
-                    students={classroom.students}
+                    students={classroom.students as never}
                     skills={classroom.skills}
                     theme={classroom.theme || ''}
                     levelConfig={classroom.levelConfig}
@@ -431,7 +433,7 @@ export function ClassroomDashboard({
                 classroom={classroom}
                 open={showSettings}
                 onOpenChange={setShowSettings}
-                onSaved={updateClassroomBasics}
+                onSaved={updateClassroomBasics as never}
                 onPointsReset={resetLocalBehaviorPoints}
             />
 
@@ -451,7 +453,7 @@ export function ClassroomDashboard({
                 onSaved={(settings, gamifiedSettings) => {
                     setClassroom((prev) => ({
                         ...prev,
-                        gamifiedSettings:
+                        gamifiedSettings: (
                             gamifiedSettings ?? {
                                 ...(prev.gamifiedSettings &&
                                 typeof prev.gamifiedSettings === "object" &&
@@ -459,7 +461,8 @@ export function ClassroomDashboard({
                                     ? (prev.gamifiedSettings as Record<string, unknown>)
                                     : {}),
                                 negamon: settings,
-                            },
+                            }
+                        ) as ClassroomDashboardViewModel["gamifiedSettings"],
                     }));
                 }}
             />

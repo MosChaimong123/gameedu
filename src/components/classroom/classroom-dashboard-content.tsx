@@ -59,9 +59,7 @@ export function ClassroomDashboardContent({
                         <AddStudentDialog
                             classId={classroom.id}
                             theme={classroom.theme || ""}
-                            onStudentAdded={(students) =>
-                                onStudentsAdded(students as ClassroomDashboardViewModel["students"])
-                            }
+                            onStudentAdded={(students) => onStudentsAdded(students as never)}
                         />
                     </div>
                 ) : (
@@ -105,7 +103,7 @@ export function ClassroomDashboardContent({
             <div className="min-h-0 flex-1 w-full animate-in slide-in-from-bottom-2 rounded-xl border border-dashed border-violet-100 bg-violet-50/20 p-4 sm:p-6">
                 <NegamonClassroomOverview
                     classroomId={classroom.id}
-                    students={classroom.students}
+                    students={classroom.students as never}
                     levelConfig={classroom.levelConfig as LevelConfigInput}
                     gamifiedSettings={classroom.gamifiedSettings}
                     onOpenSettings={onOpenNegamonSettings}
@@ -118,7 +116,7 @@ export function ClassroomDashboardContent({
         <div className="min-h-0 w-full flex-1 animate-in slide-in-from-bottom-2">
             <ClassroomTable
                 classId={classroom.id}
-                students={classroom.students}
+                students={classroom.students as never}
                 assignments={classroom.assignments as AssignmentWithChecklist[]}
                 levelConfig={classroom.levelConfig as LevelConfigInput}
                 isAttendanceMode={isAttendanceMode}

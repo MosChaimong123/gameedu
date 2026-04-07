@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
@@ -8,10 +8,11 @@ import {
 import { motion } from "framer-motion";
 import {
   TrendingUp, Users, Star, Trophy,
-  FileSpreadsheet, Loader2, BarChart3, Award
+  FileSpreadsheet, Loader2, BarChart3, Award,
+  ClipboardList, CheckCircle2, AlertCircle, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import * as XLSX from "xlsx";
+import { useLanguage } from "@/components/providers/language-provider";
 
 type AnalyticsHistoryEntry = {
   createdAt?: string;
@@ -22,12 +23,38 @@ type AnalyticsHistoryEntry = {
 type AnalyticsStudentStat = {
   name: string;
   nickname?: string | null;
-  points: number;
+  behaviorPoints: number;
   totalPositive: number;
   totalNeedsWork: number;
   achievementCount: number;
   attendance: string;
 };
+
+type AssignmentStat = {
+  id: string;
+  name: string;
+  type: string | null;
+  maxScore: number;
+  passScore: number | null;
+  submittedCount: number;
+  totalStudents: number;
+  submissionRate: number;
+  avgScore: number;
+  passCount: number | null;
+  notSubmitted: { id: string; name: string }[];
+};
+
+function attendanceSegmentLabel(
+  t: (key: string, params?: Record<string, string | number>) => string,
+  status?: string,
+  legacyName?: string
+) {
+  if (status === "PRESENT") return t("present");
+  if (status === "LATE") return t("late");
+  if (status === "ABSENT") return t("absent");
+  if (status === "LEFT_EARLY") return t("leftEarly");
+  return legacyName ?? status ?? "";
+}
 
 interface AnalyticsData {
   summary: { name: string; value: number; fill: string }[];
@@ -35,17 +62,21 @@ interface AnalyticsData {
   skillDistribution: { name: string; count: number }[];
   recentHistory: AnalyticsHistoryEntry[];
   studentStats: AnalyticsStudentStat[];
-  attendanceSummary: { name: string; value: number; fill: string }[];
+  attendanceSummary: { status?: string; name?: string; value: number; fill: string }[];
   achievementSummary: {
     total: number;
     avgPerStudent: number;
   };
   achievementDistribution: { id: string; count: number }[];
+  assignmentStats: AssignmentStat[];
 }
 
 export function AnalyticsDashboard({ classId }: { classId: string }) {
+  const { t } = useLanguage();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [expandedAssignment, setExpandedAssignment] = useState<string | null>(null);
+  const [assignmentSearch, setAssignmentSearch] = useState("");
 
   useEffect(() => {
     fetch(`/api/classrooms/${classId}/analytics`)
@@ -54,37 +85,61 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
       .catch(() => setLoading(false));
   }, [classId]);
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!data) return;
+    const XLSX = await import("xlsx");
     const wb = XLSX.utils.book_new();
     const studentsData = [
-      ["ชื่อ", "คะแนนพฤติกรรม", "ได้รับ", "หักออก", "รางวัลจากครู", "การเข้าเรียน"],
-      ...data.studentStats.sort((a, b) => b.points - a.points).map(s => [
-        s.name, s.points, s.totalPositive, s.totalNeedsWork, s.achievementCount, s.attendance
+      [
+        t("studentName"),
+        t("analyticsTableBehaviorColumn"),
+        t("analyticsExportEarnedSum"),
+        t("analyticsExportDeductedSum"),
+        t("analyticsTeacherRewardsTotalLabel"),
+        t("attendance"),
+      ],
+      ...data.studentStats.sort((a, b) => b.behaviorPoints - a.behaviorPoints).map(s => [
+        s.name, s.behaviorPoints, s.totalPositive, s.totalNeedsWork, s.achievementCount, s.attendance
       ])
     ];
     const ws = XLSX.utils.aoa_to_sheet(studentsData);
     ws["!cols"] = [{wch:20},{wch:14},{wch:10},{wch:10},{wch:12},{wch:12}];
-    XLSX.utils.book_append_sheet(wb, ws, "นักเรียน");
+    XLSX.utils.book_append_sheet(wb, ws, t("analyticsExcelSheetStudents"));
     XLSX.writeFile(wb, `analytics_${new Date().toLocaleDateString("th-TH").replace(/\//g,"-")}.xlsx`);
   };
+
+  const totalStud = data?.studentStats.length ?? 0;
+  const avgPoints = totalStud > 0 ? Math.round((data?.studentStats ?? []).reduce((s, st) => s + st.behaviorPoints, 0) / totalStud) : 0;
+
+  const filteredAssignments = useMemo(() => {
+    const q = assignmentSearch.toLowerCase();
+    return (data?.assignmentStats ?? []).filter((a) =>
+      !q || a.name.toLowerCase().includes(q)
+    );
+  }, [data?.assignmentStats, assignmentSearch]);
+
+  const attendancePieData = useMemo(() => {
+    if (!data) return [];
+    return data.attendanceSummary.map((e) => ({
+      ...e,
+      name: attendanceSegmentLabel(t, e.status, e.name),
+    }));
+  }, [data, t]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64 text-slate-300">
       <Loader2 className="w-10 h-10 animate-spin" />
     </div>
   );
-  if (!data) return <div className="p-8 text-center text-red-500">โหลดข้อมูลไม่ได้</div>;
+  if (!data) return <div className="p-8 text-center text-red-500">{t("analyticsLoadFailed")}</div>;
 
-  const totalStud = data.studentStats.length;
-  const avgPoints = totalStud > 0 ? Math.round(data.studentStats.reduce((s, st) => s + st.points, 0) / totalStud) : 0;
   const barData = [...data.studentStats]
-    .sort((a, b) => b.points - a.points)
+    .sort((a, b) => b.behaviorPoints - a.behaviorPoints)
     .slice(0, 12)
     .map(s => ({
       name: s.nickname || s.name.split(" ")[0] || s.name,
-      ได้รับ: s.totalPositive,
-      หักออก: s.totalNeedsWork,
+      earned: s.totalPositive,
+      deducted: s.totalNeedsWork,
     }));
 
   return (
@@ -92,22 +147,22 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
 
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-black text-slate-800">Analytics Dashboard</h2>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">ภาพรวมห้องเรียน</p>
+          <h2 className="text-2xl font-black text-slate-800">{t("analyticsPageTitle")}</h2>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{t("analyticsPageSubtitle")}</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={handleExportExcel} size="sm" className="gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black">
-            <FileSpreadsheet className="w-4 h-4" /> Export Excel
+            <FileSpreadsheet className="w-4 h-4" /> {t("analyticsExportExcelButton")}
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { icon: <Users className="w-5 h-5 text-indigo-500" />, label: "นักเรียนทั้งหมด", value: `${totalStud} คน`, bg: "bg-indigo-50", border: "border-indigo-100" },
-          { icon: <Star className="w-5 h-5 text-emerald-500" />, label: "คะแนนเฉลี่ย", value: `${avgPoints} แต้ม`, bg: "bg-emerald-50", border: "border-emerald-100" },
-          { icon: <Award className="w-5 h-5 text-amber-500" />, label: "รางวัลจากครู (รวม)", value: `${data.achievementSummary.total}`, bg: "bg-amber-50", border: "border-amber-100" },
-          { icon: <Trophy className="w-5 h-5 text-purple-500" />, label: "เฉลี่ยรางวัล/คน", value: `${data.achievementSummary.avgPerStudent}`, bg: "bg-purple-50", border: "border-purple-100" },
+          { icon: <Users className="w-5 h-5 text-indigo-500" />, label: t("analyticsAllStudentsLabel"), value: t("studentsCount", { count: totalStud }), bg: "bg-indigo-50", border: "border-indigo-100" },
+          { icon: <Star className="w-5 h-5 text-emerald-500" />, label: t("analyticsAvgBehaviorPoints"), value: String(avgPoints), bg: "bg-emerald-50", border: "border-emerald-100" },
+          { icon: <Award className="w-5 h-5 text-amber-500" />, label: t("analyticsTeacherRewardsTotalLabel"), value: `${data.achievementSummary.total}`, bg: "bg-amber-50", border: "border-amber-100" },
+          { icon: <Trophy className="w-5 h-5 text-purple-500" />, label: t("analyticsAvgTeacherRewardPerStudentLabel"), value: `${data.achievementSummary.avgPerStudent}`, bg: "bg-purple-50", border: "border-purple-100" },
         ].map((card, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
             className={`rounded-2xl border-2 ${card.border} ${card.bg} p-4 flex items-center gap-3 shadow-sm`}>
@@ -126,8 +181,8 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <p className="font-black text-slate-800 mb-1 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-indigo-500" /> ความเคลื่อนไหวคะแนน (14 วัน)</p>
-              <p className="text-xs text-slate-400 mb-4">จำนวนคะแนนที่บันทึกแต่ละวัน</p>
+              <p className="font-black text-slate-800 mb-1 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-indigo-500" /> {t("analyticsGrowthTitle")}</p>
+              <p className="text-xs text-slate-400 mb-4">{t("analyticsGrowthSubtitle")}</p>
               <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={data.growthData}>
@@ -148,18 +203,24 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <p className="font-black text-slate-800 mb-1">การเข้าเรียนวันนี้</p>
-              <p className="text-xs text-slate-400 mb-4">สัดส่วนสถานะการมาเรียน</p>
+              <p className="font-black text-slate-800 mb-1">{t("analyticsAttendanceTodayTitle")}</p>
+              <p className="text-xs text-slate-400 mb-4">{t("analyticsAttendanceTodaySubtitle")}</p>
               {data.attendanceSummary.length === 0 ? (
-                <div className="h-56 flex items-center justify-center text-slate-300 text-sm">ยังไม่เช็คชื่อ</div>
+                <div className="h-56 flex items-center justify-center text-slate-300 text-sm">{t("analyticsNoAttendanceYet")}</div>
               ) : (
                 <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={data.attendanceSummary} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value">
-                        {data.attendanceSummary.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                      <Pie data={attendancePieData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value">
+                        {attendancePieData.map((e, i) => <Cell key={i} fill={e.fill} />)}
                       </Pie>
-                      <Tooltip contentStyle={{ borderRadius: "12px", border: "none" }} formatter={(v) => [`${v} คน`, "จำนวน"]} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: "12px", border: "none" }}
+                        formatter={(v) => [
+                          t("analyticsTooltipPeopleCount", { count: Number(v) }),
+                          t("analyticsTooltipAmountLabel"),
+                        ]}
+                      />
                       <Legend verticalAlign="bottom" height={30} />
                     </PieChart>
                   </ResponsiveContainer>
@@ -170,8 +231,8 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <p className="font-black text-slate-800 mb-1 flex items-center gap-2"><Star className="w-4 h-4 text-amber-400" /> คะแนนนักเรียน (Top 12)</p>
-              <p className="text-xs text-slate-400 mb-4">เขียวคือได้รับ แดงคือหักออก</p>
+              <p className="font-black text-slate-800 mb-1 flex items-center gap-2"><Star className="w-4 h-4 text-amber-400" /> {t("analyticsStudentBehaviorTop")}</p>
+              <p className="text-xs text-slate-400 mb-4">{t("analyticsStudentBehaviorBarsHint")}</p>
               <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={barData} margin={{ top: 0, right: 10, left: -20, bottom: 10 }}>
@@ -179,19 +240,19 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
                     <XAxis dataKey="name" tick={{ fontSize: 9 }} angle={-30} textAnchor="end" interval={0} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={{ borderRadius: "12px", border: "none" }} />
-                    <Bar dataKey="ได้รับ" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="หักออก" fill="#f87171" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="earned" name={t("analyticsTableEarnedHeader")} fill="#22c55e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="deducted" name={t("analyticsTableDeductedHeader")} fill="#f87171" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <p className="font-black text-slate-800 mb-1 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-indigo-400" /> ทักษะที่ใช้บ่อย</p>
-              <p className="text-xs text-slate-400 mb-4">จำนวนครั้งที่บันทึกคะแนนแยกตามหมวด</p>
+              <p className="font-black text-slate-800 mb-1 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-indigo-400" /> {t("analyticsTopSkillsTitle")}</p>
+              <p className="text-xs text-slate-400 mb-4">{t("analyticsSkillUsesSubtitle")}</p>
               <div className="h-56">
                 {data.skillDistribution.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-slate-300 text-sm">ยังไม่มีข้อมูล</div>
+                  <div className="h-full flex items-center justify-center text-slate-300 text-sm">{t("analyticsNoDataYet")}</div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart layout="vertical" data={data.skillDistribution} margin={{ left: 50, right: 20 }}>
@@ -209,7 +270,7 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
 
           {data.achievementDistribution.length > 0 && (
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-              <p className="font-black text-slate-800 mb-1 flex items-center gap-2"><Trophy className="w-4 h-4 text-purple-500" /> รางวัลจากครูที่มอบบ่อย</p>
+              <p className="font-black text-slate-800 mb-1 flex items-center gap-2"><Trophy className="w-4 h-4 text-purple-500" /> {t("analyticsTeacherRewardsFrequentTitle")}</p>
               <div className="h-48 mt-2">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data.achievementDistribution.slice(0, 10)} margin={{ left: 8, right: 8 }}>
@@ -217,34 +278,137 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
                     <XAxis dataKey="id" tick={{ fontSize: 9 }} interval={0} angle={-25} textAnchor="end" height={60} />
                     <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
                     <Tooltip />
-                    <Bar dataKey="count" fill="#a855f7" radius={[4, 4, 0, 0]} name="ครั้ง" />
+                    <Bar dataKey="count" fill="#a855f7" radius={[4, 4, 0, 0]} name={t("analyticsChartTimesUnit")} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
           )}
 
+          {/* Assignment Submission Analytics */}
+          {(data.assignmentStats ?? []).length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 flex-wrap gap-3">
+                <p className="font-black text-slate-800 flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-indigo-500" /> {t("analyticsAssignmentReportTitle")}
+                </p>
+                <input
+                  type="text"
+                  placeholder={t("analyticsSearchAssignmentsPlaceholder")}
+                  value={assignmentSearch}
+                  onChange={(e) => setAssignmentSearch(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-300 w-40"
+                />
+              </div>
+              <div className="divide-y divide-slate-50">
+                {filteredAssignments.map((a) => {
+                  const isExpanded = expandedAssignment === a.id;
+                  const rateColor =
+                    a.submissionRate >= 80 ? "bg-emerald-500"
+                    : a.submissionRate >= 50 ? "bg-amber-400"
+                    : "bg-red-400";
+                  return (
+                    <div key={a.id}>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedAssignment(isExpanded ? null : a.id)}
+                        className="w-full text-left px-5 py-3.5 hover:bg-slate-50 transition-colors flex items-center gap-4"
+                      >
+                        {/* Submission rate bar */}
+                        <div className="shrink-0 w-24">
+                          <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${rateColor}`}
+                              style={{ width: `${a.submissionRate}%` }}
+                            />
+                          </div>
+                          <p className="text-[10px] font-black text-slate-400 mt-0.5 tabular-nums">
+                            {t("analyticsSubmissionRateLabel", { rate: a.submissionRate })}
+                          </p>
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-black text-slate-800 truncate">{a.name}</p>
+                          <p className="text-[10px] text-slate-400">
+                            {t("analyticsSubmittedOfStudents", { submitted: a.submittedCount, total: a.totalStudents })}
+                            {a.avgScore > 0
+                              ? t("analyticsAvgScoreSnippet", { avg: a.avgScore, max: a.maxScore })
+                              : ""}
+                            {a.passCount !== null
+                              ? t("analyticsPassCountSnippet", { count: a.passCount })
+                              : ""}
+                          </p>
+                        </div>
+
+                        <div className="shrink-0 flex items-center gap-2">
+                          {a.notSubmitted.length > 0 && (
+                            <span className="flex items-center gap-1 rounded-lg bg-red-50 border border-red-200 px-2 py-0.5 text-[10px] font-black text-red-600">
+                              <AlertCircle className="w-3 h-3" />
+                              {t("analyticsNotSubmittedBadge", { count: a.notSubmitted.length })}
+                            </span>
+                          )}
+                          {a.notSubmitted.length === 0 && a.submittedCount > 0 && (
+                            <span className="flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-black text-emerald-600">
+                              <CheckCircle2 className="w-3 h-3" /> {t("analyticsAllSubmittedBadge")}
+                            </span>
+                          )}
+                          {isExpanded
+                            ? <ChevronUp className="w-4 h-4 text-slate-400" />
+                            : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                        </div>
+                      </button>
+
+                      {/* Expanded: who hasn't submitted */}
+                      {isExpanded && a.notSubmitted.length > 0 && (
+                        <div className="px-5 pb-4 pt-1 bg-red-50/40 border-t border-red-100/60">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-red-400 mb-2">
+                            {t("analyticsNotSubmittedListTitle", { count: a.notSubmitted.length })}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {a.notSubmitted.map((s) => (
+                              <span key={s.id} className="rounded-full border border-red-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-red-700">
+                                {s.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {isExpanded && a.notSubmitted.length === 0 && (
+                        <div className="px-5 pb-3 pt-1 bg-emerald-50/40 border-t border-emerald-100/60">
+                          <p className="text-xs font-bold text-emerald-600">✓ {t("analyticsEveryoneSubmitted")}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {filteredAssignments.length === 0 && (
+                  <p className="px-5 py-6 text-sm text-slate-400 text-center">{t("analyticsNoMatchingAssignments")}</p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100">
-              <p className="font-black text-slate-800">รายงานรายนักเรียน</p>
+              <p className="font-black text-slate-800">{t("analyticsStudentReportTitle")}</p>
             </div>
             <div className="overflow-x-auto scrollbar-hide">
               <table className="w-full text-sm text-slate-600 divide-y divide-slate-50 min-w-[640px]">
                 <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
                   <tr>
-                    <th className="px-4 py-3 text-left">ชื่อ</th>
-                    <th className="px-4 py-3 text-center">คะแนน</th>
-                    <th className="px-4 py-3 text-center text-emerald-600">ได้รับ</th>
-                    <th className="px-4 py-3 text-center text-red-500">หักออก</th>
-                    <th className="px-4 py-3 text-center text-purple-600">รางวัลจากครู</th>
-                    <th className="px-4 py-3 text-center">เข้าเรียน</th>
+                    <th className="px-4 py-3 text-left">{t("analyticsTableNameHeader")}</th>
+                    <th className="px-4 py-3 text-center">{t("analyticsTableBehaviorColumn")}</th>
+                    <th className="px-4 py-3 text-center text-emerald-600">{t("analyticsTableEarnedHeader")}</th>
+                    <th className="px-4 py-3 text-center text-red-500">{t("analyticsTableDeductedHeader")}</th>
+                    <th className="px-4 py-3 text-center text-purple-600">{t("analyticsTableRewardsHeader")}</th>
+                    <th className="px-4 py-3 text-center">{t("analyticsTableAttendanceHeader")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {[...data.studentStats].sort((a, b) => b.points - a.points).map((s, rowIdx) => (
+                  {[...data.studentStats].sort((a, b) => b.behaviorPoints - a.behaviorPoints).map((s, rowIdx) => (
                     <tr key={`${s.name}-${rowIdx}`} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 font-bold text-slate-800">{s.name}</td>
-                      <td className="px-4 py-3 text-center font-black text-indigo-600">{s.points}</td>
+                      <td className="px-4 py-3 text-center font-black text-indigo-600">{s.behaviorPoints}</td>
                       <td className="px-4 py-3 text-center font-bold text-emerald-600">+{s.totalPositive}</td>
                       <td className="px-4 py-3 text-center font-bold text-red-500">-{s.totalNeedsWork}</td>
                       <td className="px-4 py-3 text-center font-bold text-purple-600">🏆 {s.achievementCount}</td>
@@ -255,7 +419,13 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
                           s.attendance === "ABSENT" ? "bg-red-50 text-red-700 border-red-200" :
                           "bg-orange-50 text-orange-700 border-orange-200"
                         }`}>
-                          {s.attendance === "PRESENT" ? "มาเรียน" : s.attendance === "LATE" ? "สาย" : s.attendance === "ABSENT" ? "ขาด" : "ออกก่อน"}
+                          {s.attendance === "PRESENT"
+                            ? t("present")
+                            : s.attendance === "LATE"
+                              ? t("late")
+                              : s.attendance === "ABSENT"
+                                ? t("absent")
+                                : t("leftEarly")}
                         </span>
                       </td>
                     </tr>

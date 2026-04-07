@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, TrendingUp, TrendingDown, Star, Clock } from "lucide-react";
-import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
+import { getThemeBgStyle, getThemeHorizontalBgClass } from "@/lib/classroom-utils";
 import { ResponsiveContainer, AreaChart, Area } from "recharts";
 import { isToday, isYesterday, format } from "date-fns";
+import { enUS, th as thLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/providers/language-provider";
+import { formatPointHistoryReason } from "@/lib/point-history-reason";
 
 interface PointRecord {
     id: string;
@@ -21,7 +24,7 @@ interface StudentHistoryData {
     id: string;
     name: string;
     nickname?: string | null;
-    points: number;
+    behaviorPoints: number;
     avatar?: string | null;
     history: PointRecord[];
 }
@@ -41,6 +44,8 @@ export function StudentHistoryModal({
     onOpenChange,
     theme,
 }: StudentHistoryModalProps) {
+    const { t, language } = useLanguage();
+    const dfLocale = language === "th" ? thLocale : enUS;
     const [data, setData] = useState<StudentHistoryData | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -75,9 +80,9 @@ export function StudentHistoryModal({
             const date = new Date(record.timestamp);
             let dateKey = "";
             
-            if (isToday(date)) dateKey = "วันนี้";
-            else if (isYesterday(date)) dateKey = "เมื่อวาน";
-            else dateKey = format(date, "d MMMM yyyy");
+            if (isToday(date)) dateKey = t("dateLabelToday");
+            else if (isYesterday(date)) dateKey = t("dateLabelYesterday");
+            else dateKey = format(date, "d MMMM yyyy", { locale: dfLocale });
             
             if (!groups[dateKey]) groups[dateKey] = [];
             groups[dateKey].push(record);
@@ -93,10 +98,10 @@ export function StudentHistoryModal({
             <DialogContent className="sm:max-w-[560px] w-[95vw] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl border-0 shadow-2xl">
                 {/* Header */}
                 <DialogHeader
-                    className={`px-6 py-5 shrink-0 ${getThemeBgClass(theme)}`}
+                    className={`shrink-0 px-6 py-5 text-white ${getThemeHorizontalBgClass(theme)}`}
                     style={getThemeBgStyle(theme)}
                 >
-                    <DialogTitle className="text-white text-xl font-bold flex items-center gap-3">
+                    <DialogTitle className="flex items-center gap-3 text-xl font-bold text-white">
                         {data ? (
                             <>
                                 <div className="w-12 h-12 rounded-full overflow-hidden bg-white/20 border-2 border-white/30 shrink-0">
@@ -117,7 +122,7 @@ export function StudentHistoryModal({
                                 </div>
                             </>
                         ) : (
-                            <span>ประวัติคะแนน</span>
+                            <span>{t("behaviorHistoryModalTitle")}</span>
                         )}
                     </DialogTitle>
 
@@ -126,15 +131,15 @@ export function StudentHistoryModal({
                         <div className="flex flex-col gap-5 mt-4">
                             <div className="flex gap-4">
                                 <div className="bg-white rounded-2xl p-3 flex-1 flex flex-col items-center border-2 border-white/50 shadow-xl">
-                                    <p className="text-slate-500 text-[10px] uppercase font-black mb-1">Total</p>
-                                    <p className="text-slate-900 font-black text-2xl tracking-tighter">{data.points}</p>
+                                    <p className="text-slate-500 text-[10px] uppercase font-black mb-1">{t("behaviorHistoryTotalLabel")}</p>
+                                    <p className="text-slate-900 font-black text-2xl tracking-tighter">{data.behaviorPoints}</p>
                                 </div>
                                 <div className="bg-emerald-50 rounded-2xl p-3 flex-1 flex flex-col items-center border-2 border-emerald-200 shadow-xl">
-                                    <p className="text-emerald-600 text-[10px] uppercase font-black mb-1">Earned</p>
+                                    <p className="text-emerald-600 text-[10px] uppercase font-black mb-1">{t("behaviorHistoryEarnedLabel")}</p>
                                     <p className="text-emerald-700 font-black text-2xl tracking-tighter">+{totalPositive}</p>
                                 </div>
                                 <div className="bg-rose-50 rounded-2xl p-3 flex-1 flex flex-col items-center border-2 border-rose-200 shadow-xl">
-                                    <p className="text-rose-600 text-[10px] uppercase font-black mb-1">Deducted</p>
+                                    <p className="text-rose-600 text-[10px] uppercase font-black mb-1">{t("behaviorHistoryDeductedLabel")}</p>
                                     <p className="text-rose-700 font-black text-2xl tracking-tighter">-{totalNegative}</p>
                                 </div>
                             </div>
@@ -173,7 +178,7 @@ export function StudentHistoryModal({
                             <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center">
                                 <Star className="w-8 h-8 opacity-50" />
                             </div>
-                            <p className="text-center">ยังไม่มีประวัติคะแนน<br /><span className="text-sm">คะแนนจะแสดงที่นี่เมื่อนักเรียนได้รับหรือถูกหักคะแนน</span></p>
+                            <p className="text-center">{t("behaviorHistoryEmptyTitle")}<br /><span className="text-sm">{t("behaviorHistoryEmptyHint")}</span></p>
                         </div>
                     )}
 
@@ -208,7 +213,7 @@ export function StudentHistoryModal({
                                                         <div className="flex justify-between items-center gap-4">
                                                             <div className="flex-1 min-w-0">
                                                                 <p className="font-bold text-slate-800 text-lg leading-tight tracking-tight group-hover:text-indigo-600 transition-colors">
-                                                                    {record.reason}
+                                                                    {formatPointHistoryReason(record.reason, t)}
                                                                 </p>
                                                                 <div className="flex items-center gap-3 mt-3">
                                                                     <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-lg border border-slate-200">
@@ -219,7 +224,7 @@ export function StudentHistoryModal({
                                                                         "text-[10px] px-3 py-1 rounded-lg font-black uppercase tracking-wider border-2 shadow-sm",
                                                                         isPositive ? "bg-emerald-100 border-emerald-200 text-emerald-700" : "bg-rose-100 border-rose-200 text-rose-700"
                                                                     )}>
-                                                                        {isPositive ? 'Reward' : 'Infraction'}
+                                                                        {isPositive ? t("behaviorHistoryTagPositive") : t("behaviorHistoryTagNegative")}
                                                                     </div>
                                                                 </div>
                                                             </div>

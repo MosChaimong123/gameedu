@@ -12,8 +12,7 @@ interface StudentAvatarProps {
     id: string;
     name: string;
     avatarSeed: string;
-    points: number;
-    behaviorPoints?: number;
+    behaviorPoints: number;
     academicPoints?: number;
     onClick?: () => void;
     onContextMenu?: (e: React.MouseEvent) => void;
@@ -30,8 +29,7 @@ export function StudentAvatar({
     id,
     name,
     avatarSeed,
-    points,
-    behaviorPoints = 0,
+    behaviorPoints,
     academicPoints = 0,
     onClick,
     onContextMenu,
@@ -41,7 +39,6 @@ export function StudentAvatar({
     isSelected = false,
     isAttendanceMode = false
 }: StudentAvatarProps) {
-    void points;
     const { t } = useLanguage();
 
     // Styles based on attendance
@@ -69,7 +66,7 @@ export function StudentAvatar({
             whileHover={{ scale: 1.05, y: -5 }}
             whileTap={{ scale: 0.95 }}
             className={cn(
-                "flex flex-col items-center justify-center p-4 cursor-pointer relative transition-all rounded-[2.5rem] bg-white border border-slate-100 group hover:shadow-2xl hover:border-indigo-100 shadow-sm",
+                "relative flex flex-col items-center justify-center rounded-[2rem] border border-slate-100 bg-white p-4 shadow-sm transition-all cursor-pointer group hover:border-indigo-100 hover:shadow-2xl sm:p-5",
                 isAbsent && "opacity-60 grayscale bg-slate-50",
                 isSelected && "bg-indigo-50 ring-4 ring-indigo-500/30 shadow-xl",
                 className
@@ -79,14 +76,14 @@ export function StudentAvatar({
         >
             {/* Top Right Score Badges (Side Stack) */}
             {!isAbsent && (
-                <div className="absolute top-4 right-2 flex flex-col gap-1.5 z-20 items-end">
-                    <div className="bg-emerald-500 text-white font-black px-2.5 py-1 rounded-lg flex items-center justify-center border border-white/20 shadow-lg transition-transform hover:scale-110 origin-right" title="พฤติกรรม">
+                <div className="absolute right-2 top-3 z-20 flex flex-col items-end gap-1.5 sm:right-3 sm:top-4">
+                    <div className="flex items-center justify-center rounded-lg border border-white/20 bg-emerald-500 px-2.5 py-1 font-black text-white shadow-lg origin-right transition-transform hover:scale-110" title={t("tooltipBehaviorPointsBadge")}>
                         <Star className="w-3.5 h-3.5 mr-1 fill-current" />
-                        <span className="text-[10px] leading-none mb-0.5">{behaviorPoints}</span>
+                        <span className="mb-0.5 text-xs leading-none">{behaviorPoints}</span>
                     </div>
-                    <div className="bg-blue-600 text-white font-black px-2.5 py-1 rounded-lg flex items-center justify-center border border-white/20 shadow-lg transition-transform hover:scale-110 origin-right delay-75" title="คะแนนเก็บ">
+                    <div className="delay-75 flex items-center justify-center rounded-lg border border-white/20 bg-blue-600 px-2.5 py-1 font-black text-white shadow-lg origin-right transition-transform hover:scale-110" title={t("tooltipAcademicPointsBadge")}>
                         <BookOpen className="w-3.5 h-3.5 mr-1 fill-current" />
-                        <span className="text-[10px] leading-none mb-0.5">{academicPoints}</span>
+                        <span className="mb-0.5 text-xs leading-none">{academicPoints}</span>
                     </div>
                 </div>
             )}
@@ -95,8 +92,8 @@ export function StudentAvatar({
             {onContextMenu && !isAttendanceMode && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onContextMenu(e); }}
-                    className="absolute top-3 left-3 bg-indigo-600 text-white rounded-xl p-1.5 shadow-lg border-2 border-white z-30 hover:bg-indigo-700 transition-all active:scale-90"
-                    title="ดูประวัติคะแนน"
+                    className="absolute left-3 top-3 z-30 rounded-xl border-2 border-white bg-indigo-600 p-1.5 text-white shadow-lg transition-all hover:bg-indigo-700 active:scale-90"
+                    title={t("tooltipOpenBehaviorHistory")}
                 >
                     <History className="w-4 h-4" />
                 </button>
@@ -123,7 +120,7 @@ export function StudentAvatar({
 
             {/* Avatar Image using DiceBear (Bottts or Monsters) */}
             <div className={cn(
-                "w-28 h-28 bg-slate-50 rounded-[2rem] p-3 mb-4 shadow-inner border border-slate-100 overflow-hidden relative group-hover:bg-indigo-50/50 transition-colors",
+                "relative mb-4 h-24 w-24 overflow-hidden rounded-[1.75rem] border border-slate-100 bg-slate-50 p-3 shadow-inner transition-colors group-hover:bg-indigo-50/50 sm:h-28 sm:w-28",
                 isLate && "ring-4 ring-yellow-400 ring-offset-2",
                 isLeftEarly && "ring-4 ring-orange-400 ring-offset-2"
             )}>
@@ -132,7 +129,7 @@ export function StudentAvatar({
                     src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatarSeed || id}`}
                     alt={name}
                     fill
-                    sizes="112px"
+                    sizes="(max-width: 640px) 96px, 112px"
                     unoptimized
                     className="object-contain drop-shadow-md group-hover:scale-110 transition-transform duration-500"
                 />
@@ -141,12 +138,12 @@ export function StudentAvatar({
             {/* Name Label & Rank */}
             <div className="flex flex-col items-center w-full">
                 <div className={cn(
-                    "text-[10px] uppercase font-black px-4 py-1 rounded-full mb-2 border-2 border-white shadow-md bg-gradient-to-br tracking-wider",
+                    "mb-2 rounded-full border-2 border-white bg-gradient-to-br px-4 py-1 text-xs font-black uppercase tracking-wide shadow-md",
                     rankStyle
                 )}>
                     {rank}
                 </div>
-                <div className="bg-slate-800 text-white px-4 py-2 rounded-2xl border-2 border-white/10 shadow-xl text-xs font-bold w-full leading-tight text-center tracking-tight min-h-[40px] flex items-center justify-center">
+                <div className="flex min-h-[44px] w-full items-center justify-center rounded-2xl border-2 border-white/10 bg-slate-800 px-4 py-2 text-center text-sm font-bold leading-snug tracking-tight text-white shadow-xl">
                     {name}
                 </div>
             </div>

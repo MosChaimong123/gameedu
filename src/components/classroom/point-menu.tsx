@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { Heart, Star, Zap, ThumbsUp, Brain, Trophy, AlertCircle } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { motion, AnimatePresence } from "framer-motion";
-import { SkillManagementModal } from "./skill-management-modal";
+import { SkillManagementPanel } from "./skill-management-panel";
 
 interface PointMenuProps {
     open: boolean;
@@ -19,7 +19,9 @@ interface PointMenuProps {
     onSelectSkill: (skillId: string, weight: number) => void;
     loading?: boolean;
     classId: string;
-    onSkillsChanged?: () => void;
+    onSkillsChanged?: (skills: Skill[]) => void;
+    /** Matches classroom theme for skill manager header */
+    theme?: string;
 }
 
 // Map icon strings to Lucide components
@@ -45,15 +47,14 @@ export function PointMenu({
     onSelectSkill,
     loading,
     classId,
-    onSkillsChanged
+    onSkillsChanged,
+    theme = "",
 }: PointMenuProps) {
     const { t } = useLanguage();
-    const [isManagementOpen, setIsManagementOpen] = useState(false);
+    const [manageMode, setManageMode] = useState(false);
 
     const positiveSkills = skills.filter(s => s.type === "POSITIVE");
     const needsWorkSkills = skills.filter(s => s.type === "NEEDS_WORK");
-
-
 
     const renderSkillButton = (skill: Skill, isPositive: boolean, index: number) => {
         const Icon = (skill.icon && iconMap[skill.icon as keyof typeof iconMap]) || (isPositive ? iconMap["default"] : AlertCircle);
@@ -61,42 +62,41 @@ export function PointMenu({
         return (
             <motion.div 
                 key={stableKey} 
-                className="relative group h-full"
+                className="group relative h-full"
                 whileHover={{ y: -5, scale: 1.02 }}
                 whileTap={{ scale: 0.95 }}
             >
                 <div
                     className={cn(
-                        "h-full flex flex-col items-center gap-4 px-8 py-7 transition-all w-full cursor-pointer rounded-[3rem] border-2 bg-white shadow-sm relative group-hover:shadow-xl",
+                        "relative flex h-full w-full cursor-pointer flex-col items-center gap-4 rounded-[3rem] border-2 bg-white px-8 py-7 shadow-sm transition-all group-hover:shadow-xl",
                         isPositive 
-                            ? "hover:border-emerald-400 border-slate-100" 
-                            : "hover:border-rose-400 border-slate-100",
+                            ? "border-slate-100 hover:border-emerald-400" 
+                            : "border-slate-100 hover:border-rose-400",
                         loading && "pointer-events-none opacity-80"
                     )}
                     onClick={() => onSelectSkill(skill.id, skill.weight)}
                 >
-                    {/* Background decoration */}
                     <div className={cn(
-                        "absolute -top-4 -right-4 w-16 h-16 rounded-full blur-2xl opacity-0 group-hover:opacity-20 transition-opacity",
+                        "absolute -right-4 -top-4 h-16 w-16 rounded-full blur-2xl opacity-0 transition-opacity group-hover:opacity-20",
                         isPositive ? "bg-emerald-500" : "bg-rose-500"
                     )} />
 
                     <div className={cn(
-                        "p-4 rounded-full shadow-inner relative z-10", 
+                        "relative z-10 rounded-full p-4 shadow-inner", 
                         isPositive ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
                     )}>
-                        <Icon className="w-8 h-8 drop-shadow-sm" />
+                        <Icon className="h-8 w-8 drop-shadow-sm" />
                     </div>
                     
-                    <span className="font-bold text-[13px] text-slate-700 text-center leading-tight min-h-[40px] flex items-center justify-center px-1">
+                    <span className="flex min-h-[40px] items-center justify-center px-1 text-center text-[13px] font-bold leading-tight text-slate-700">
                         {skill.name}
                     </span>
 
                     <div className={cn(
-                        "mt-auto text-[14px] font-black px-4 py-1.5 rounded-2xl shadow-md border-b-4 transition-transform group-hover:scale-110", 
+                        "mt-auto rounded-2xl border-b-4 px-4 py-1.5 text-[14px] font-black shadow-md transition-transform group-hover:scale-110", 
                         isPositive 
-                            ? "bg-emerald-500 text-white border-emerald-700 shadow-emerald-200" 
-                            : "bg-rose-500 text-white border-rose-700 shadow-rose-200"
+                            ? "border-emerald-700 bg-emerald-500 text-white shadow-emerald-200" 
+                            : "border-rose-700 bg-rose-500 text-white shadow-rose-200"
                     )}>
                         {isPositive ? `+${skill.weight}` : skill.weight}
                     </div>
@@ -106,91 +106,103 @@ export function PointMenu({
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="w-[min(98vw,1920px)] max-w-[min(98vw,1920px)] sm:max-w-[min(98vw,1920px)] p-0 overflow-hidden bg-slate-50 border-0 shadow-[0_32px_128px_-16px_rgba(0,0,0,0.4)] rounded-[4rem] h-[min(95vh,1080px)] flex flex-col">
+        <Dialog
+            open={open}
+            onOpenChange={(next) => {
+                if (!next) setManageMode(false);
+                onOpenChange(next);
+            }}
+        >
+            <DialogContent className="flex h-[min(95vh,1080px)] w-[min(98vw,1920px)] max-w-[min(98vw,1920px)] flex-col overflow-hidden rounded-[4rem] border-0 bg-slate-50 p-0 shadow-[0_32px_128px_-16px_rgba(0,0,0,0.4)] sm:max-w-[min(98vw,1920px)]">
+                {manageMode ? (
+                    <SkillManagementPanel
+                        classId={classId}
+                        skills={skills}
+                        theme={theme}
+                        onSkillsChanged={onSkillsChanged}
+                        onBack={() => setManageMode(false)}
+                    />
+                ) : (
+                    <>
+                        <DialogHeader className="relative z-20 flex-shrink-0 border-b-2 border-slate-100 bg-white/70 p-8 pb-6 backdrop-blur-xl sm:p-10 lg:p-12 sm:pb-8">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                <DialogTitle className="text-2xl font-black tracking-tighter text-slate-800 sm:text-3xl">
+                                    {t("giveFeedbackTo")}{" "}
+                                    <span className="ml-0 inline-block rounded-2xl border-2 border-indigo-100/50 bg-indigo-50 px-3 py-1 text-indigo-600 sm:ml-2">
+                                        {studentName}
+                                    </span>
+                                </DialogTitle>
+                                <Button 
+                                    type="button"
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="rounded-xl border-2 bg-white py-6 font-black text-slate-600 transition-all hover:text-indigo-600 px-6"
+                                    onClick={() => setManageMode(true)}
+                                >
+                                    {t("editSkills")}
+                                </Button>
+                            </div>
+                        </DialogHeader>
 
-                <DialogHeader className="p-8 sm:p-10 lg:p-12 pb-6 sm:pb-8 relative z-20 bg-white/70 backdrop-blur-xl border-b-2 border-slate-100 flex-shrink-0">
-                    <div className="flex justify-between items-center">
-                        <DialogTitle className="text-3xl font-black tracking-tighter text-slate-800">
-                            {t("giveFeedbackTo")} <span className="text-indigo-600 bg-indigo-50 px-4 py-1 rounded-2xl ml-2 inline-block border-2 border-indigo-100/50">{studentName}</span>
-                        </DialogTitle>
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="rounded-xl border-2 font-black transition-all bg-white text-slate-600 hover:text-indigo-600 py-6 px-6"
-                            onClick={() => setIsManagementOpen(true)}
-                        >
-                            {t("editSkills") || "จัดการทักษะ"}
-                        </Button>
-                    </div>
-                </DialogHeader>
+                        <Tabs defaultValue="positive" className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-10 sm:px-10 lg:px-14">
+                            <TabsList className="mb-6 grid h-auto w-full grid-cols-2 rounded-[2.5rem] border-2 border-slate-100/50 bg-slate-200/50 p-2">
+                                <TabsTrigger 
+                                    value="positive" 
+                                    className="rounded-[2rem] py-4 text-lg font-bold text-slate-500 transition-all data-[state=active]:bg-white data-[state=active]:font-black data-[state=active]:text-emerald-600 data-[state=active]:shadow-lg"
+                                >
+                                    {t("positiveFeedback")}
+                                </TabsTrigger>
+                                <TabsTrigger 
+                                    value="needs_work" 
+                                    className="rounded-[2rem] py-4 text-lg font-bold text-slate-500 transition-all data-[state=active]:bg-white data-[state=active]:font-black data-[state=active]:text-rose-600 data-[state=active]:shadow-lg"
+                                >
+                                    {t("needsWorkFeedback")}
+                                </TabsTrigger>
+                            </TabsList>
 
-                <Tabs defaultValue="positive" className="flex-1 flex flex-col overflow-hidden px-6 sm:px-10 lg:px-14 pb-10">
+                            <AnimatePresence mode="wait">
+                                <TabsContent key="tab-positive" value="positive" className="custom-scrollbar flex-1 overflow-y-auto pr-2 focus-visible:outline-none">
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -20 }}
+                                        className="grid grid-cols-2 gap-6 p-2 sm:grid-cols-3 sm:gap-8 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+                                    >
+                                        {positiveSkills.map((skill, i) => renderSkillButton(skill, true, i))}
+                                        {positiveSkills.length === 0 && (
+                                            <div className="col-span-full flex flex-col items-center justify-center rounded-[3rem] border-2 border-dashed border-slate-200 bg-white/50 py-20 text-center">
+                                                <Star className="mb-4 h-12 w-12 text-slate-300" />
+                                                <p className="text-lg font-bold italic text-slate-400">
+                                                    {t("noSkillsConfigured")}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </motion.div>
+                                </TabsContent>
 
-                    <TabsList className="grid w-full grid-cols-2 p-2 bg-slate-200/50 rounded-[2.5rem] h-auto mb-6 border-2 border-slate-100/50">
-                        <TabsTrigger 
-                            value="positive" 
-                            className="rounded-[2rem] py-4 data-[state=active]:bg-white data-[state=active]:text-emerald-600 data-[state=active]:shadow-lg data-[state=active]:font-black text-slate-500 font-bold text-lg transition-all"
-                        >
-                            {t("positiveFeedback")}
-                        </TabsTrigger>
-                        <TabsTrigger 
-                            value="needs_work" 
-                            className="rounded-[2rem] py-4 data-[state=active]:bg-white data-[state=active]:text-rose-600 data-[state=active]:shadow-lg data-[state=active]:font-black text-slate-500 font-bold text-lg transition-all"
-                        >
-                            {t("needsWorkFeedback")}
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <AnimatePresence mode="wait">
-                        <TabsContent key="tab-positive" value="positive" className="flex-1 overflow-y-auto pr-2 custom-scrollbar focus-visible:outline-none">
-                            <motion.div 
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6 sm:gap-8 p-2"
-                            >
-                                {positiveSkills.map((skill, i) => renderSkillButton(skill, true, i))}
-                                {positiveSkills.length === 0 && (
-                                    <div className="col-span-full text-center py-20 bg-white/50 rounded-[3rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center">
-                                        <Star className="w-12 h-12 text-slate-300 mb-4" />
-                                        <p className="text-slate-400 font-bold italic text-lg">
-                                            {t("noSkillsConfigured")}
-                                        </p>
-                                    </div>
-                                )}
-                            </motion.div>
-                        </TabsContent>
-
-                        <TabsContent key="tab-needs-work" value="needs_work" className="flex-1 overflow-y-auto pr-2 custom-scrollbar focus-visible:outline-none">
-                            <motion.div 
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6 sm:gap-8 p-2"
-                            >
-                                {needsWorkSkills.map((skill, i) => renderSkillButton(skill, false, i))}
-                                {needsWorkSkills.length === 0 && (
-                                    <div className="col-span-full text-center py-20 bg-white/50 rounded-[3rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center">
-                                        <AlertCircle className="w-12 h-12 text-slate-300 mb-4" />
-                                        <p className="text-slate-400 font-bold italic text-lg">
-                                            {t("noSkillsConfigured")}
-                                        </p>
-                                    </div>
-                                )}
-                            </motion.div>
-                        </TabsContent>
-                    </AnimatePresence>
-                </Tabs>
+                                <TabsContent key="tab-needs-work" value="needs_work" className="custom-scrollbar flex-1 overflow-y-auto pr-2 focus-visible:outline-none">
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -20 }}
+                                        className="grid grid-cols-2 gap-6 p-2 sm:grid-cols-3 sm:gap-8 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+                                    >
+                                        {needsWorkSkills.map((skill, i) => renderSkillButton(skill, false, i))}
+                                        {needsWorkSkills.length === 0 && (
+                                            <div className="col-span-full flex flex-col items-center justify-center rounded-[3rem] border-2 border-dashed border-slate-200 bg-white/50 py-20 text-center">
+                                                <AlertCircle className="mb-4 h-12 w-12 text-slate-300" />
+                                                <p className="text-lg font-bold italic text-slate-400">
+                                                    {t("noSkillsConfigured")}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </motion.div>
+                                </TabsContent>
+                            </AnimatePresence>
+                        </Tabs>
+                    </>
+                )}
             </DialogContent>
-            
-            <SkillManagementModal 
-                open={isManagementOpen}
-                onOpenChange={setIsManagementOpen}
-                classId={classId}
-                skills={skills}
-                onSkillsChanged={onSkillsChanged}
-            />
         </Dialog>
     );
 }

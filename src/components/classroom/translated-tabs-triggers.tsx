@@ -5,12 +5,14 @@ import { TabsTrigger } from "@/components/ui/tabs";
 
 export function TranslatedTabsTriggers() {
     const { t } = useLanguage();
+    const triggerClassName =
+        "min-h-10 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm";
     return (
         <>
-            <TabsTrigger value="classroom" suppressHydrationWarning>{t("classroomOverview") || "Classroom"}</TabsTrigger>
-            <TabsTrigger value="attendance" suppressHydrationWarning>{t("attendanceHistory") || "Attendance"}</TabsTrigger>
-            <TabsTrigger value="board" suppressHydrationWarning>{t("ideaBoard") || "Idea Board"}</TabsTrigger>
-            <TabsTrigger value="analytics" suppressHydrationWarning>{t("analytics") || "Analytics"}</TabsTrigger>
+            <TabsTrigger className={triggerClassName} value="classroom" suppressHydrationWarning>{t("dashboardTabClassroom")}</TabsTrigger>
+            <TabsTrigger className={triggerClassName} value="attendance" suppressHydrationWarning>{t("dashboardTabAttendance")}</TabsTrigger>
+            <TabsTrigger className={triggerClassName} value="board" suppressHydrationWarning>{t("ideaBoard")}</TabsTrigger>
+            <TabsTrigger className={triggerClassName} value="analytics" suppressHydrationWarning>{t("dashboardTabAnalytics")}</TabsTrigger>
         </>
     );
 }

@@ -16,7 +16,7 @@ services:
     branch: main
     buildCommand: npm ci && npm run build
     startCommand: npm run start
-    healthCheckPath: /
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
@@ -34,6 +34,8 @@ services:
         sync: false
       - key: NEXT_PUBLIC_SOCKET_URL
         sync: false
+      - key: SOCKET_IO_CORS_ORIGIN
+        sync: false
       - key: ADMIN_SECRET
         sync: false
       - key: GOOGLE_CLIENT_ID
@@ -42,3 +44,9 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      - key: RATE_LIMIT_STORE
+        value: auto
+      - key: AUDIT_LOG_SINK
+        value: auto
+      - key: HEALTHCHECK_DB_TIMEOUT_MS
+        value: "3000"

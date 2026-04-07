@@ -24,6 +24,7 @@ import { LeaderboardTab } from "./LeaderboardTab";
 import { EventBanner } from "./EventBanner";
 import { SyncAccountButton } from "./sync-account-button";
 import { StudentDashboardHeader } from "./student-dashboard-header";
+import { StudentDashboardTabNav } from "./student-dashboard-tab-nav";
 import dynamic from "next/dynamic";
 const NotificationTray = dynamic(
     () => import("@/components/dashboard/notification-tray").then(m => m.NotificationTray),
@@ -356,36 +357,7 @@ export function StudentDashboardClient({
                         <EventBanner classId={student.classId} />
 
                         <Tabs id="student-dashboard-tabs" value={activeTab} onValueChange={setActiveTab} className="w-full" suppressHydrationWarning>
-                            {mode === "learn" ? (
-                                <TabsList className="w-full rounded-3xl border border-slate-200 bg-white p-1.5 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.45)] grid grid-cols-3 gap-1 sm:gap-1.5 mb-6">
-                                    {[
-                                        { value: "assignments", icon: <LayoutDashboard className="w-4 h-4 shrink-0" />, label: t("tabStudentAssignments"), color: "data-[state=active]:text-indigo-600 data-[state=active]:bg-indigo-50 data-[state=active]:border-indigo-200" },
-                                        { value: "board",       icon: <MessageSquare   className="w-4 h-4 shrink-0" />, label: t("tabStudentBoard"),       color: "data-[state=active]:text-purple-600 data-[state=active]:bg-purple-50 data-[state=active]:border-purple-200" },
-                                        { value: "history",     icon: <Trophy          className="w-4 h-4 shrink-0" />, label: t("tabStudentHistory"),     color: "data-[state=active]:text-amber-600 data-[state=active]:bg-amber-50 data-[state=active]:border-amber-200" },
-                                    ].map(({ value, icon, label, color }) => (
-                                        <TabsTrigger key={value} value={value}
-                                            className={`h-11 rounded-2xl px-1 sm:px-4 py-2.5 flex items-center justify-center gap-1.5 font-black text-slate-500 text-xs sm:text-sm border border-transparent transition-all duration-200 data-[state=active]:shadow-sm ${color}`}>
-                                            {icon}<span className="hidden sm:inline">{label}</span>
-                                        </TabsTrigger>
-                                    ))}
-                                </TabsList>
-                            ) : (
-                                <TabsList className="w-full rounded-[2rem] border-4 border-amber-300 bg-amber-50 p-1.5 shadow-[0_6px_0_0_rgba(217,119,6,0.35),0_10px_24px_-8px_rgba(217,119,6,0.25)] grid grid-cols-6 gap-0.5 mb-6">
-                                    {[
-                                        { value: "leaderboard",  icon: "🏆", label: t("tabStudentLeaderboard"),  active: "data-[state=active]:bg-yellow-400 data-[state=active]:text-yellow-900 data-[state=active]:shadow-[0_4px_0_0_rgba(161,98,7,0.4)]"    },
-                                        { value: "quests",       icon: "📋", label: t("tabStudentQuests"),        active: "data-[state=active]:bg-amber-500 data-[state=active]:text-white    data-[state=active]:shadow-[0_4px_0_0_rgba(180,83,9,0.4)]"    },
-                                        { value: "monster",      icon: "🐾", label: t("tabStudentMonster"),       active: "data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-[0_4px_0_0_rgba(4,120,87,0.4)]"   },
-                                        { value: "battle",       icon: "⚔️", label: t("battleTabTitle"),          active: "data-[state=active]:bg-rose-500 data-[state=active]:text-white     data-[state=active]:shadow-[0_4px_0_0_rgba(190,18,60,0.4)]"    },
-                                        { value: "gamehistory",  icon: "📜", label: t("tabGameHistory"),          active: "data-[state=active]:bg-sky-500 data-[state=active]:text-white     data-[state=active]:shadow-[0_4px_0_0_rgba(14,165,233,0.4)]"   },
-                                    ].map(({ value, icon, label, active }) => (
-                                        <TabsTrigger key={value} value={value}
-                                            className={`h-12 rounded-[1.25rem] px-0.5 sm:px-2 py-2 flex items-center justify-center gap-1 font-black text-[10px] sm:text-xs text-amber-700 border-0 transition-all duration-150 active:scale-95 ${active}`}>
-                                            <span className="text-base leading-none">{icon}</span>
-                                            <span className="hidden sm:inline">{label}</span>
-                                        </TabsTrigger>
-                                    ))}
-                                </TabsList>
-                            )}
+                            <StudentDashboardTabNav t={t} mode={mode} />
 
                             <TabsContent value="assignments" className="mt-0 border-none p-0 outline-hidden">
                                 <div className="space-y-4">
@@ -812,4 +784,5 @@ export function StudentDashboardClient({
         </div>
     );
 }
+
 

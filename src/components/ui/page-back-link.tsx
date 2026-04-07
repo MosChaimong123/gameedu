@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
+import { useLanguage } from "@/components/providers/language-provider"
 
 export type PageBackLinkProps = {
     /** เป้าหมายเมื่อใช้เป็นลิงก์ */
@@ -13,6 +14,8 @@ export type PageBackLinkProps = {
     onClick?: () => void
     /** ข้อความกำกับ (บนมือถือซ่อนแต่ยังอ่านด้วย screen reader ได้) */
     label?: string
+    /** แปลจาก `translations` — ใช้แทน `label` เมื่อต้องการ i18n */
+    labelKey?: string
     variant?: "default" | "inverse" | "minimal"
     className?: string
     iconClassName?: string
@@ -27,13 +30,16 @@ export function PageBackLink({
     href,
     onClick,
     label,
+    labelKey,
     variant = "default",
     className,
     iconClassName,
     dragZoneProps,
 }: PageBackLinkProps) {
-    const a11y = label ?? "กลับ"
-    const aria = label ? undefined : a11y
+    const { t } = useLanguage()
+    const resolvedLabel = label ?? (labelKey ? t(labelKey) : undefined)
+    const a11y = resolvedLabel ?? t("pageBackDefault")
+    const aria = resolvedLabel ? undefined : a11y
 
     const inner = (
         <>
@@ -45,14 +51,14 @@ export function PageBackLink({
                 )}
                 aria-hidden
             />
-            {label ? (
+            {resolvedLabel ? (
                 <span
                     className={cn(
                         "text-sm font-semibold tracking-tight max-sm:sr-only",
                         variant === "inverse" ? "text-white/95" : "text-slate-700"
                     )}
                 >
-                    {label}
+                    {resolvedLabel}
                 </span>
             ) : null}
         </>
@@ -67,7 +73,7 @@ export function PageBackLink({
             "border border-white/25 bg-white/10 px-4 py-2.5 text-white shadow-lg shadow-black/15 backdrop-blur-md hover:border-white/35 hover:bg-white/18",
         variant === "minimal" &&
             "border-0 bg-transparent px-2 py-2 text-slate-600 shadow-none hover:bg-slate-100/90",
-        !label && "px-3",
+        !resolvedLabel && "px-3",
         className
     )
 

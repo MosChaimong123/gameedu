@@ -4,8 +4,9 @@
 # หลัง commit + push แล้ว สร้าง Blueprint จาก repo:
 #   https://dashboard.render.com/blueprint/new?repo=<HTTPS_URL_ของ_repo>
 #
-# ฐานข้อมูล: ใช้ MongoDB Atlas (หรือที่อื่น) แล้วใส่ connection string ใน DATABASE_URL
-# หลัง deploy ครั้งแรก อาจต้องรัน schema ครั้งหนึ่ง (เช่น npx prisma db push) ผ่าน Render Shell
+# ฐานข้อมูล: Prisma ใช้ MongoDB — สร้าง cluster ที่ Atlas แล้วใส่ connection string ใน DATABASE_URL
+# หลัง deploy ครั้งแรก: เปิด Render Shell แล้วรัน `npx prisma db push` (และถ้าต้องการ seed: `npm run db:seed`)
+# ลิงก์สร้าง Blueprint: https://dashboard.render.com/blueprint/new?repo=https://github.com/MosChaimong123/gameedu
 
 services:
   - type: web
@@ -44,6 +45,8 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      - key: AUTH_TRUST_HOST
+        value: "true"
       - key: RATE_LIMIT_STORE
         value: auto
       - key: AUDIT_LOG_SINK

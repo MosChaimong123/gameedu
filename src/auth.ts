@@ -11,15 +11,22 @@ import {
     getRequestClientIdentifier,
 } from "@/lib/security/rate-limit"
 
+const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim()
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim()
+const googleProvider =
+    googleClientId && googleClientSecret
+        ? Google({
+              clientId: googleClientId,
+              clientSecret: googleClientSecret,
+          })
+        : null
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
     ...authConfig,
     adapter: PrismaAdapter(db),
     session: { strategy: "jwt" },
     providers: [
-        Google({
-            clientId: process.env.GOOGLE_CLIENT_ID!,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        }),
+        ...(googleProvider ? [googleProvider] : []),
         Credentials({
             // ... (keep credentials as is)
             credentials: {

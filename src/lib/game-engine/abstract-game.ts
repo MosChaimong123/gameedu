@@ -139,6 +139,8 @@ export abstract class AbstractGameEngine {
 
     // --- Persistence Flags ---
     public hasArchived: boolean = false;
+    /** หลัง sync EXP เข้าห้องเรียน (Negamon + negamonRewardClassroomId) สำเร็จ */
+    public negamonClassroomRewardsSynced: boolean = false;
 
 
     // Called every second by the Manager

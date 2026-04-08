@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import { GraduationCap, School } from "lucide-react"
+import { useLanguage } from "@/components/providers/language-provider"
 
 interface RoleSelectionProps {
     onSelect: (role: "STUDENT" | "TEACHER") => void
@@ -9,6 +10,8 @@ interface RoleSelectionProps {
 }
 
 export function RoleSelection({ onSelect, selected }: RoleSelectionProps) {
+    const { t } = useLanguage()
+
     return (
         <div className="grid grid-cols-2 gap-4">
             <button
@@ -22,8 +25,8 @@ export function RoleSelection({ onSelect, selected }: RoleSelectionProps) {
                 )}
             >
                 <GraduationCap className={cn("w-10 h-10 mb-3", selected === "STUDENT" ? "text-green-600" : "text-slate-400")} />
-                <span className="font-bold">Student</span>
-                <span className="text-xs text-center mt-1 opacity-80">Join games & learn</span>
+                <span className="font-bold">{t("signupRoleStudent")}</span>
+                <span className="text-xs text-center mt-1 opacity-80">{t("roleSelectionStudentDescShort")}</span>
             </button>
 
             <button
@@ -37,8 +40,8 @@ export function RoleSelection({ onSelect, selected }: RoleSelectionProps) {
                 )}
             >
                 <School className={cn("w-10 h-10 mb-3", selected === "TEACHER" ? "text-purple-600" : "text-slate-400")} />
-                <span className="font-bold">Teacher</span>
-                <span className="text-xs text-center mt-1 opacity-80">Host games & create</span>
+                <span className="font-bold">{t("signupRoleTeacher")}</span>
+                <span className="text-xs text-center mt-1 opacity-80">{t("roleSelectionTeacherDescShort")}</span>
             </button>
         </div>
     )

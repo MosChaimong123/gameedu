@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { SetList } from "./set-list";
 import { BookOpen } from "lucide-react";
 import { PageBackLink } from "@/components/ui/page-back-link";
+import { AdminSectionHeader } from "@/components/admin/admin-section-header";
 
 export default async function SetManagementPage() {
     const session = await auth();
@@ -15,10 +16,14 @@ export default async function SetManagementPage() {
 
     const sets = await db.questionSet.findMany({
         orderBy: { createdAt: "desc" },
-        include: {
+        select: {
+            id: true,
+            title: true,
+            description: true,
+            createdAt: true,
             creator: {
                 select: { name: true, email: true }
-            }
+            },
         }
     });
 
@@ -27,14 +32,13 @@ export default async function SetManagementPage() {
             <div className="max-w-6xl mx-auto space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <PageBackLink href="/admin" label="แอดมิน" />
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <BookOpen className="w-5 h-5 text-orange-600" />
-                                <h1 className="text-2xl font-black text-slate-800">จัดการชุดคำถาม</h1>
-                            </div>
-                            <p className="text-slate-500 text-sm">ตรวจสอบและจัดการเนื้อหาคำถามทั้งหมดในแพลตฟอร์ม</p>
-                        </div>
+                        <PageBackLink href="/admin" labelKey="navBackAdmin" />
+                        <AdminSectionHeader
+                            titleKey="adminSetsTitle"
+                            descKey="adminSetsDesc"
+                            icon={BookOpen}
+                            iconClassName="text-orange-600"
+                        />
                     </div>
                 </div>
 

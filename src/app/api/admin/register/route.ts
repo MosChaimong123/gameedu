@@ -1,19 +1,33 @@
+import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
 export async function POST(req: Request) {
     try {
         const { email, password, adminSecret } = await req.json();
 
-        if (!email || !password || !adminSecret) {
+        if (!email || !password) {
             return new NextResponse("Missing credentials", { status: 400 });
         }
 
-        // Validate the admin secret
-        const validSecret = process.env.ADMIN_SECRET;
-        if (!validSecret || adminSecret !== validSecret) {
-            return new NextResponse("Invalid admin secret", { status: 403 });
+        const session = await auth();
+        const isAdminSession = session?.user?.role === "ADMIN";
+
+        if (!isAdminSession) {
+            const adminCount = await db.user.count({
+                where: { role: "ADMIN" },
+            });
+
+            if (adminCount > 0) {
+                return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 403 });
+            }
+
+            const validSecret = process.env.ADMIN_SECRET;
+            if (!adminSecret || !validSecret || adminSecret !== validSecret) {
+                return new NextResponse("Invalid admin secret", { status: 403 });
+            }
         }
 
         // Find or create admin user

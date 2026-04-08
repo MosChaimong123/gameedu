@@ -1,6 +1,14 @@
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
+import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
+import {
+    buildRateLimitKey,
+    consumeRateLimitWithStore,
+    createRateLimitResponse,
+    getRequestClientIdentifier,
+} from "@/lib/security/rate-limit"
+import { logAuditEvent } from "@/lib/security/audit-log"
 
 type GeminiContentPart =
     | { text: string }
@@ -21,21 +29,69 @@ type GeneratedQuestion = {
 // Initialize inside the handler for better environment variable reliability
 
 export async function POST(req: Request) {
+    let actorUserId: string | undefined
     try {
         const session = await auth()
         if (!session?.user?.id) {
-            return new NextResponse("Unauthorized", { status: 401 })
+            logAuditEvent({
+                action: "auth.ai_generate.denied",
+                category: "auth",
+                status: "rejected",
+                reason: "auth_required",
+                targetType: "aiGenerate",
+            })
+            return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401)
+        }
+        actorUserId = session.user.id
+        if (session.user.role === "STUDENT") {
+            logAuditEvent({
+                actorUserId,
+                action: "auth.ai_generate.denied",
+                category: "auth",
+                status: "rejected",
+                reason: "forbidden_role",
+                targetType: "aiGenerate",
+                metadata: { role: session.user.role },
+            })
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403)
+        }
+
+        const rateLimit = await consumeRateLimitWithStore({
+            bucket: "ai-generate:post",
+            key: buildRateLimitKey(getRequestClientIdentifier(req), session.user.id),
+            limit: 10,
+            windowMs: 60_000,
+        })
+
+        if (!rateLimit.allowed) {
+            logAuditEvent({
+                actorUserId,
+                action: "auth.ai_generate.denied",
+                category: "auth",
+                status: "rejected",
+                reason: "rate_limited",
+                targetType: "aiGenerate",
+            })
+            return createRateLimitResponse(rateLimit.retryAfterSeconds)
         }
 
         const { content, count = 10, language = "th", difficulty = "MEDIUM", pdfData } = await req.json()
 
         if (!content && !pdfData) {
-            return new NextResponse("Content or PDF data is required", { status: 400 })
+            logAuditEvent({
+                actorUserId,
+                action: "auth.ai_generate.denied",
+                category: "auth",
+                status: "rejected",
+                reason: "missing_content",
+                targetType: "aiGenerate",
+            })
+            return createAppErrorResponse("INVALID_PAYLOAD", "Content or PDF data is required", 400)
         }
 
         if (!process.env.GEMINI_API_KEY) {
             console.error("[AI_GENERATE] GEMINI_API_KEY is missing in .env")
-            return new NextResponse("Gemini API Key missing in server environment", { status: 500 })
+            return createAppErrorResponse("INTERNAL_ERROR", "Gemini API Key missing in server environment", 500)
         }
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
@@ -97,9 +153,29 @@ export async function POST(req: Request) {
             explanation: q.explanation || "",
         }))
 
+        logAuditEvent({
+            actorUserId,
+            action: "auth.ai_generate.succeeded",
+            category: "auth",
+            status: "success",
+            targetType: "aiGenerate",
+            metadata: { questionCount: questions.length, hasPdf: Boolean(pdfData) },
+        })
+
         return NextResponse.json(questions)
     } catch (error) {
         console.error("[AI_GENERATE_POST]", error)
-        return new NextResponse("Internal Error during AI generation", { status: 500 })
+        logAuditEvent({
+            actorUserId,
+            action: "auth.ai_generate.failed",
+            category: "auth",
+            status: "error",
+            reason: "internal_error",
+            targetType: "aiGenerate",
+            metadata: {
+                message: error instanceof Error ? error.message : "unknown_error",
+            },
+        })
+        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error during AI generation", 500)
     }
 }

@@ -57,7 +57,7 @@ export function EditorDialog({ open, onOpenChange, activeQuestion, setActiveQues
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogContent className="sm:max-w-none w-[95vw] md:w-[90vw] lg:w-[85vw] h-[90vh] p-0 gap-0 bg-slate-100 overflow-hidden border-none outline-none flex flex-col">
-                    <DialogTitle className="sr-only">Question Editor</DialogTitle>
+                    <DialogTitle className="sr-only">{t("questionEditorTitle")}</DialogTitle>
 
                     {/* Purple Header Bar */}
                     <div className="bg-purple-600 h-20 flex items-center justify-between px-6 text-white shadow-md flex-shrink-0 z-10 transition-all">

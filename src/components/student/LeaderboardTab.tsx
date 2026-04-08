@@ -7,7 +7,6 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/providers/language-provider";
-import Image from "next/image";
 
 interface LeaderEntry {
   id: string;

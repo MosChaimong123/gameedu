@@ -7,7 +7,7 @@ import type {
     ClassroomRecord,
     DashboardStudent,
     StudentDashboardTranslateFn,
-} from "./StudentDashboardClient";
+} from "@/lib/services/student-dashboard/student-dashboard.types";
 
 interface StudentDashboardMonsterTabProps {
     t: StudentDashboardTranslateFn;
@@ -37,10 +37,12 @@ export function StudentDashboardMonsterTab({
     onOpenStarterSelection,
 }: StudentDashboardMonsterTabProps) {
     return (
-        <div className="rounded-[2rem] border-4 border-emerald-200 bg-gradient-to-b from-emerald-50 to-teal-50 p-5 shadow-[0_6px_0_0_rgba(16,185,129,0.25)]">
-            <div className="mb-4 flex items-center gap-2">
-                <span className="text-2xl">🐣</span>
-                <h3 className="text-base font-black text-emerald-900">
+        <div className="rounded-2xl border border-stone-200/90 bg-gradient-to-b from-stone-100/95 to-stone-200/40 p-4 shadow-inner sm:p-5">
+            <div className="mb-3 flex items-center gap-2 sm:mb-4">
+                <span className="text-2xl" aria-hidden>
+                    🐣
+                </span>
+                <h3 className="text-base font-black tracking-tight text-stone-800">
                     {t("tabStudentMonster")}
                 </h3>
             </div>

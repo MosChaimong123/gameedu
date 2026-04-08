@@ -10,7 +10,7 @@ import type { LevelConfigInput } from "@/lib/classroom-utils";
 import type { AssignmentWithChecklist } from "./classroom-table";
 import type {
     ClassroomDashboardViewModel,
-} from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
+} from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 import type { DashboardTranslateFn } from "./classroom-dashboard.types";
 
 interface ClassroomDashboardContentProps {

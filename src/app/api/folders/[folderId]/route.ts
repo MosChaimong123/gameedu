@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { db } from "@/lib/db"
+import { AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error";
+
+function canManageQuestionSets(role?: string | null) {
+    return role === "TEACHER" || role === "ADMIN"
+}
 
 export async function PATCH(
     req: Request,
@@ -8,7 +13,11 @@ export async function PATCH(
 ) {
     const session = await auth()
     if (!session?.user?.id) {
-        return new NextResponse("Unauthorized", { status: 401 })
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
+    }
+
+    if (!canManageQuestionSets(session.user.role)) {
+        return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
     }
 
     try {
@@ -28,7 +37,7 @@ export async function PATCH(
         return NextResponse.json(folder)
     } catch (error) {
         console.error("Failed to update folder", error)
-        return new NextResponse("Internal Server Error", { status: 500 })
+        return new NextResponse(INTERNAL_ERROR_MESSAGE, { status: 500 })
     }
 }
 
@@ -38,7 +47,11 @@ export async function DELETE(
 ) {
     const session = await auth()
     if (!session?.user?.id) {
-        return new NextResponse("Unauthorized", { status: 401 })
+        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
+    }
+
+    if (!canManageQuestionSets(session.user.role)) {
+        return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
     }
 
     try {
@@ -65,6 +78,6 @@ export async function DELETE(
         return new NextResponse("Folder deleted successfully", { status: 200 })
     } catch (error) {
         console.error("Failed to delete folder", error)
-        return new NextResponse("Internal Server Error", { status: 500 })
+        return new NextResponse(INTERNAL_ERROR_MESSAGE, { status: 500 })
     }
 }

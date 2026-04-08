@@ -8,11 +8,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { SoundController } from "@/components/game/sound-controller"
 import { useSound } from "@/hooks/use-sound"
 import { clearPlayerSession, getPlayerSession } from "@/lib/player-session"
+import { useToast } from "@/components/ui/use-toast"
+import { useLanguage } from "@/components/providers/language-provider"
 
 export default function PlayerLobbyPage() {
     const router = useRouter()
     const { socket } = useSocket()
     const { play, stopBGM } = useSound()
+    const { toast } = useToast()
+    const { t, language } = useLanguage()
     const initialPlayerSession = getPlayerSession()
 
     const [name] = useState<string | null>(initialPlayerSession?.name ?? null)
@@ -53,7 +57,11 @@ export default function PlayerLobbyPage() {
             })
 
             socket.on("host-disconnected", () => {
-                alert("Host disconnected")
+                toast({
+                    title: t("playLobbyHostDisconnectedTitle"),
+                    description: t("playLobbyHostDisconnectedDesc"),
+                    variant: "destructive",
+                })
                 router.push("/play")
             })
 
@@ -69,25 +77,25 @@ export default function PlayerLobbyPage() {
                 socket.off("host-disconnected")
             }
         }
-    }, [router, socket, stopBGM])
+    }, [router, socket, stopBGM, toast, language, t])
 
     if (!name) return null
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-4 relative overflow-hidden">
+        <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-slate-950 p-4 text-white sm:p-6">
             {/* Audio Toggle */}
             {/* Audio Toggle */}
             <SoundController className="absolute top-4 right-4" />
 
             {/* Background Decorations */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 opacity-20 pointer-events-none">
-                <div className="absolute top-10 left-10 w-32 h-32 bg-purple-500 rounded-full blur-3xl animate-pulse"></div>
-                <div className="absolute bottom-10 right-10 w-48 h-48 bg-blue-500 rounded-full blur-3xl animate-pulse delay-1000"></div>
+            <div className="pointer-events-none absolute left-0 top-0 z-0 h-full w-full overflow-hidden opacity-25">
+                <div className="absolute left-10 top-10 h-32 w-32 animate-pulse rounded-full bg-indigo-500 blur-3xl" />
+                <div className="absolute bottom-10 right-10 h-48 w-48 animate-pulse rounded-full bg-violet-600 blur-3xl delay-1000" />
             </div>
 
             <div className="z-10 flex flex-col items-center space-y-8 animate-in zoom-in-90 duration-500">
                 <div className="text-center space-y-2">
-                    <p className="text-slate-400 font-medium">WAITING FOR HOST</p>
+                    <p className="text-sm font-medium uppercase tracking-wide text-slate-400">{t("playLobbyWaitingHost")}</p>
                     <div className="flex items-center justify-center space-x-2">
                         <span className="h-3 w-3 bg-green-500 rounded-full animate-bounce"></span>
                         <span className="h-3 w-3 bg-green-500 rounded-full animate-bounce delay-100"></span>
@@ -106,13 +114,11 @@ export default function PlayerLobbyPage() {
                 <div className="text-center">
                     <h1 className="text-4xl font-black tracking-tight">{name}</h1>
                     <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-sm text-slate-400">
-                        PIN: {pin}
+                        {t("playLobbyPinPrefix")} {pin}
                     </div>
                 </div>
 
-                <p className="text-slate-500 text-sm max-w-xs text-center">
-                    You&apos;re in! wait for the host to start the game.
-                </p>
+                <p className="text-slate-500 text-sm max-w-xs text-center">{t("playLobbyWaitBody")}</p>
 
                 <button
                     onClick={() => {
@@ -124,7 +130,7 @@ export default function PlayerLobbyPage() {
                     }}
                     className="text-red-500 hover:text-red-400 text-sm font-bold hover:underline transition-colors"
                 >
-                    Leave Game
+                    {t("playLobbyLeaveGame")}
                 </button>
             </div>
         </div>

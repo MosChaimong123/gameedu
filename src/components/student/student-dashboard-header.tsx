@@ -10,7 +10,7 @@ import type {
     DashboardStudent,
     StudentDashboardMode,
     StudentDashboardTranslateFn,
-} from "./StudentDashboardClient";
+} from "@/lib/services/student-dashboard/student-dashboard.types";
 
 interface StudentDashboardHeaderProps {
     t: StudentDashboardTranslateFn;

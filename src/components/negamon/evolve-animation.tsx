@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, TrendingUp } from "lucide-react";
 import type { MonsterForm, MonsterStats } from "@/lib/types/negamon";
 import { useLanguage } from "@/components/providers/language-provider";
+import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 
 interface EvolveAnimationProps {
     oldForm: MonsterForm;
@@ -99,9 +100,16 @@ export function EvolveAnimation({
                             <motion.div
                                 animate={{ opacity: [1, 0.3, 1] }}
                                 transition={{ duration: 0.6, repeat: 2 }}
-                                className="text-4xl opacity-40"
+                                className="opacity-40"
                             >
-                                {oldForm.icon}
+                                <NegamonFormIcon
+                                    icon={oldForm.icon}
+                                    label={oldForm.name}
+                                    emojiClassName="text-4xl"
+                                    width={48}
+                                    height={48}
+                                    imageClassName="h-12 w-12 object-contain"
+                                />
                             </motion.div>
                             <motion.div
                                 animate={{ x: [-4, 4, -4] }}
@@ -114,9 +122,15 @@ export function EvolveAnimation({
                                 initial={{ scale: 0.5, opacity: 0 }}
                                 animate={{ scale: [1.3, 1], opacity: 1 }}
                                 transition={{ delay: 0.3, type: "spring" }}
-                                className="text-5xl"
                             >
-                                {newForm.icon}
+                                <NegamonFormIcon
+                                    icon={newForm.icon}
+                                    label={newForm.name}
+                                    emojiClassName="text-5xl"
+                                    width={56}
+                                    height={56}
+                                    imageClassName="h-14 w-14 object-contain"
+                                />
                             </motion.div>
                         </div>
 

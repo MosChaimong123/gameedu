@@ -1,14 +1,22 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Swords, Trophy, Coins, RotateCcw, ChevronRight } from "lucide-react";
+import { Coins, RotateCcw, ChevronRight } from "lucide-react";
 import { getBattleItemById } from "@/lib/shop-items";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/providers/language-provider";
 import type { BattleFighter, BattleResult, TurnEvent } from "@/lib/battle-engine";
+import { makePRNG, resolveOneTurn, calcGoldReward } from "@/lib/battle-engine";
 import { BattleField } from "@/components/negamon/BattleField";
 import { PlayerHud, OpponentHud } from "@/components/negamon/PokemonHud";
+import { DialogueBox, type DialogueLine } from "@/components/negamon/DialogueBox";
+import { ActionMenu } from "@/components/negamon/ActionMenu";
+import { BattleResultScreen, type BattleStats } from "@/components/negamon/BattleResultScreen";
+import { OpponentPicker } from "@/components/negamon/OpponentPicker";
+import { BattleHistoryPanel } from "@/components/negamon/BattleHistoryPanel";
+import type { BattleTabProps, Opponent } from "@/components/negamon/battle-tab.types";
+import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 
 // ── HP Bar ───────────────────────────────────────────────────
 
@@ -41,6 +49,8 @@ function HpBar({
 
 // ── Fighter card ─────────────────────────────────────────────
 
+// Reserved for future alternate battle card layouts.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function FighterCard({
     fighter, side, isAttacking, isHurt,
 }: {
@@ -66,9 +76,17 @@ function FighterCard({
             <motion.div
                 animate={{ scale: [1, 1.06, 1] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                className="flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-slate-100 bg-gradient-to-b from-slate-50 to-white text-3xl shadow-sm"
+                className="flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-slate-100 bg-gradient-to-b from-slate-50 to-white shadow-sm"
             >
-                {fighter.formIcon}
+                <NegamonFormIcon
+                    icon={fighter.formIcon}
+                    label={fighter.formName}
+                    className="h-full w-full"
+                    emojiClassName="text-3xl"
+                    width={56}
+                    height={56}
+                    imageClassName="h-full w-full object-contain"
+                />
             </motion.div>
 
             {/* Name */}
@@ -196,6 +214,8 @@ function skipMsg(effect: string | undefined, actorName: string | undefined): str
     }
 }
 
+// Reserved for future compact event log rendering.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function EventRow({ event, fighters }: { event: TurnEvent; fighters: [BattleFighter, BattleFighter] }) {
     const { t } = useLanguage();
     const actor  = fighters.find((f) => f.studentId === event.actorId);
@@ -261,63 +281,21 @@ function EventRow({ event, fighters }: { event: TurnEvent; fighters: [BattleFigh
 
 // ── Opponent picker ───────────────────────────────────────────
 
-interface Opponent {
-    id: string;
-    name: string;
-    formIcon: string;
-    formName: string;
-    rankIndex: number;
-}
-
-function OpponentPicker({
-    opponents,
-    onChallenge,
-    challenging,
-}: {
-    opponents: Opponent[];
-    onChallenge: (id: string) => void;
-    challenging: string | null;
-}) {
-    const { t } = useLanguage();
-    if (opponents.length === 0) {
-        return (
-            <div className="flex flex-col items-center gap-3 py-10 text-center">
-                <Swords className="h-10 w-10 text-slate-200" />
-                <p className="text-sm font-black text-slate-400">{t("battleNoOpponents")}</p>
-            </div>
-        );
-    }
-    return (
-        <div className="space-y-2">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t("battlePickOpponent")}</p>
-            {opponents.map((op) => (
-                <motion.div
-                    key={op.id}
-                    whileTap={{ scale: 0.97 }}
-                    className="flex items-center gap-3 rounded-2xl border-2 border-slate-100 bg-white/80 p-3"
-                >
-                    <span className="text-2xl">{op.formIcon}</span>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-xs font-black text-slate-800">{op.name}</p>
-                        <p className="text-[10px] text-slate-400">{op.formName} · Rank {op.rankIndex + 1}</p>
-                    </div>
-                    <button
-                        type="button"
-                        disabled={!!challenging}
-                        onClick={() => onChallenge(op.id)}
-                        className="flex items-center gap-1 rounded-xl border-b-2 border-rose-600 bg-gradient-to-b from-rose-400 to-rose-500 px-3 py-1.5 text-[11px] font-black text-white shadow-sm transition active:translate-y-px active:border-b-0 disabled:opacity-50"
-                    >
-                        {challenging === op.id ? "..." : <><Swords className="h-3 w-3" /> {t("battleChallenge")}</>}
-                    </button>
-                </motion.div>
-            ))}
-        </div>
-    );
-}
-
-// ── Battle replay ─────────────────────────────────────────────
-
 const TURN_DELAY_MS = 900;
+
+function createBattleSeed(...parts: Array<string | number>): number {
+    const raw = parts.join(":");
+    let hash = 2166136261;
+    for (let i = 0; i < raw.length; i += 1) {
+        hash ^= raw.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+}
+
+function cloneBattleFighter(fighter: BattleFighter): BattleFighter {
+    return JSON.parse(JSON.stringify(fighter)) as BattleFighter;
+}
 
 /** Reconstruct live HP for both fighters up to turnIndex (exclusive) */
 function computeHpAtTurn(
@@ -348,6 +326,67 @@ function computeHpAtTurn(
     return [hp0, hp1];
 }
 
+// ── Event → Dialogue lines ────────────────────────────────────
+
+function eventToDialogueLines(
+    event: TurnEvent,
+    fighters: [BattleFighter, BattleFighter]
+): DialogueLine[] {
+    const actor  = fighters.find((f) => f.studentId === event.actorId);
+    const target = fighters.find((f) => f.studentId === event.targetId);
+    const aName  = actor?.studentName  ?? "?";
+    const tName  = target?.studentName ?? "?";
+
+    switch (event.kind) {
+        case "move_used": {
+            const badges: DialogueLine["badges"] = [];
+            if (event.priorityOverride) badges.push({ label: "⚡ ก่อนเลย!", color: "bg-sky-100 text-sky-700" });
+            return [{ text: `${aName} ใช้ ${event.moveName ?? "?"}!`, badges }];
+        }
+        case "damage": {
+            const badges: DialogueLine["badges"] = [];
+            if (event.crit)                        badges.push({ label: "⚡ CRIT!",      color: "bg-red-100 text-red-600" });
+            if (event.stab)                        badges.push({ label: "💥 STAB",       color: "bg-amber-100 text-amber-700" });
+            if (event.effectiveness === "super")   badges.push({ label: "ได้ผลมาก!",    color: "bg-orange-100 text-orange-600" });
+            if (event.effectiveness === "weak")    badges.push({ label: "ได้ผลน้อย...", color: "bg-slate-100 text-slate-500" });
+            return [{ text: `${tName} โดน ${event.value ?? 0} ดาเมจ!`, badges }];
+        }
+        case "miss":
+            return [{ text: `${aName} พลาด! 💨` }];
+        case "heal":
+            return [{ text: `${aName} ฟื้นคืน ${event.value ?? 0} HP! 💚` }];
+        case "faint":
+            return [{ text: `${aName} สลบแล้ว! 💀` }];
+        case "status_apply":
+            return [{ text: statusApplyMsg(event.effect, tName || aName) }];
+        case "status_tick":
+            return [{ text: statusTickMsg(event.effect, aName, event.value) }];
+        case "status_end":
+            return [{ text: `${STATUS_LABEL[event.effect ?? ""] ?? event.effect} ของ ${aName} หายแล้ว ✅` }];
+        case "skip_turn":
+            return [{ text: skipMsg(event.effect, aName) }];
+        case "confusion_hit":
+            return [{ text: `😵 ${aName} สับสน ตีตัวเอง ${event.value ?? 0} ดาเมจ!` }];
+        case "freeze_thaw":
+            return [{ text: `❄️ ${aName} ละลายออกจากน้ำแข็ง!` }];
+        case "ability_trigger": {
+            const tgt = fighters.find((f) => f.studentId === event.targetId);
+            let text = `🌟 ${event.abilityName ?? "Ability"} ทำงาน!`;
+            switch (event.abilityId) {
+                case "flame_body":     text = `🌟 ${event.abilityName} — ${tgt?.studentName} ถูกจุดไฟ! 🔥`; break;
+                case "static":         text = `🌟 ${event.abilityName} — ${tgt?.studentName} อัมพาต! ⚡`;  break;
+                case "rage_mode":      text = `🌟 ${event.abilityName} — ${aName} ATK พุ่งขึ้น! 😡`;       break;
+                case "guardian_scale": text = `🌟 ${event.abilityName} — ${aName} ฟื้น ${event.value ?? 0} HP! 🛡️`; break;
+            }
+            return [{ text }];
+        }
+        default:
+            return [];
+    }
+}
+
+// ── Battle replay ─────────────────────────────────────────────
+
 function BattleReplay({
     result,
     myId,
@@ -365,8 +404,8 @@ function BattleReplay({
     const [flashId, setFlashId] = useState<string | null>(null);
     const [faintedId, setFaintedId] = useState<string | null>(null);
     const [floatingDmg, setFloatingDmg] = useState<{ id: string; value: number; crit?: boolean } | null>(null);
+    const [dialogueLines, setDialogueLines] = useState<DialogueLine[]>([]);
     const fighters = result.fighters;
-    const logRef = useRef<HTMLDivElement>(null);
 
     const isWinner = result.winnerId === myId;
     const allDone = shownTurns >= result.turns.length;
@@ -410,10 +449,19 @@ function BattleReplay({
             const faintEvt = turnEvents.find((e) => e.kind === "faint");
             if (faintEvt) setFaintedId(faintEvt.actorId);
 
+            // Append dialogue lines for this turn
+            const newLines: DialogueLine[] = turnEvents.flatMap((evt) =>
+                eventToDialogueLines(evt, fighters)
+            );
+            if (newLines.length > 0) {
+                setDialogueLines((prev) => [...prev, ...newLines]);
+            }
+
             setShownTurns((n) => n + 1);
-            logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
         }, TURN_DELAY_MS);
         return () => clearTimeout(timer);
+        // Replay animation is keyed by replay state and turn stream; `fighters` is immutable replay input here.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [playing, shownTurns, allDone, result.turns]);
 
     // Active statuses at current turn
@@ -513,25 +561,19 @@ function BattleReplay({
                 )}
             </AnimatePresence>
 
-            {/* Turn log */}
-            <div
-                ref={logRef}
-                className="max-h-48 overflow-y-auto rounded-2xl border border-slate-100 bg-white/80 p-3 space-y-0.5"
-            >
-                {result.turns.slice(0, shownTurns).map((turn, ti) => (
-                    <div key={ti}>
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 mt-2 mb-0.5">
-                            Turn {ti + 1}
-                        </p>
-                        {turn.map((evt, ei) => (
-                            <EventRow key={ei} event={evt} fighters={fighters} />
-                        ))}
-                    </div>
-                ))}
-                {!allDone && playing && (
-                    <div className="py-2 text-center text-[10px] text-slate-400 animate-pulse">กำลังต่อสู้...</div>
-                )}
-            </div>
+            {/* Dialogue box */}
+            {dialogueLines.length > 0 && (
+                <DialogueBox
+                    lines={dialogueLines}
+                    cps={38}
+                    autoAdvanceMs={allDone ? 0 : 1300}
+                />
+            )}
+            {!allDone && playing && dialogueLines.length === 0 && (
+                <div className="rounded-2xl border-[3px] border-slate-800 bg-white px-4 py-3 shadow-[3px_3px_0px_0px_rgba(15,23,42,0.35)] min-h-[64px] flex items-center">
+                    <p className="text-sm font-bold text-slate-400 animate-pulse">กำลังเริ่มต่อสู้...</p>
+                </div>
+            )}
 
             {/* Controls */}
             <div className="flex gap-2">
@@ -547,7 +589,13 @@ function BattleReplay({
                 {!allDone && (
                     <button
                         type="button"
-                        onClick={() => setShownTurns(result.turns.length)}
+                        onClick={() => {
+                            const allLines = result.turns.flatMap((turn) =>
+                                turn.flatMap((evt) => eventToDialogueLines(evt, fighters))
+                            );
+                            setDialogueLines(allLines);
+                            setShownTurns(result.turns.length);
+                        }}
                         className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2 text-xs font-black text-slate-600 flex items-center justify-center gap-1"
                     >
                         <ChevronRight className="h-3.5 w-3.5" /> ข้ามไปผล
@@ -567,144 +615,337 @@ function BattleReplay({
     );
 }
 
-// ── Battle History ────────────────────────────────────────────
+// ── Interactive Battle (Phase 3 / 4) ─────────────────────────
 
-interface BattleSessionEntry {
-    id: string;
+const ANIM_DELAY_MS = 1600; // ms between turn events during animation phase
+
+type IBPhase = "picking" | "animating" | "result";
+
+interface InteractiveBattleProps {
+    /** Player's initialized fighter (mutable — will be updated in place via ref) */
+    initialPlayer: BattleFighter;
+    /** Opponent's initialized fighter */
+    initialOpponent: BattleFighter;
+    myId: string;
+    classId: string;
     challengerId: string;
     defenderId: string;
-    winnerId: string;
-    goldReward: number;
-    createdAt: string;
+    studentCode: string;
+    onFinish: (winnerId: string, goldReward: number) => void;
+    onReset: () => void;
 }
 
-function timeAgo(iso: string): string {
-    const diff = Date.now() - new Date(iso).getTime();
-    const m = Math.floor(diff / 60000);
-    if (m < 1) return "เมื่อกี้";
-    if (m < 60) return `${m} นาทีที่แล้ว`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `${h} ชั่วโมงที่แล้ว`;
-    const d = Math.floor(h / 24);
-    return `${d} วันที่แล้ว`;
-}
-
-export function BattleHistoryPanel({
+function InteractiveBattle({
+    initialPlayer,
+    initialOpponent,
+    myId,
     classId,
-    myStudentId,
-    refreshKey = 0,
-}: {
-    classId: string;
-    myStudentId: string;
-    refreshKey?: number;
-}) {
-    const { t } = useLanguage();
-    const [sessions, setSessions] = useState<BattleSessionEntry[]>([]);
-    const [names, setNames] = useState<Record<string, string>>({});
-    const [loading, setLoading] = useState(true);
+    challengerId,
+    defenderId,
+    studentCode,
+    onFinish,
+    onReset,
+}: InteractiveBattleProps) {
+    // Deep-copy fighters into refs so we can mutate them across turns
+    const playerRef   = useRef<BattleFighter>(JSON.parse(JSON.stringify(initialPlayer)));
+    const opponentRef = useRef<BattleFighter>(JSON.parse(JSON.stringify(initialOpponent)));
+    const rngRef      = useRef(makePRNG(createBattleSeed(myId, classId, challengerId, defenderId, studentCode)));
+    const turnRef     = useRef(0);
+    const savedRef    = useRef(false);
 
-    useEffect(() => {
-        const timer = window.setTimeout(() => setLoading(true), 0);
-        void fetch(`/api/classrooms/${classId}/battle?studentId=${myStudentId}`)
-            .then((r) => r.json())
-            .then((d: { sessions?: BattleSessionEntry[]; studentNames?: Record<string, string> }) => {
-                setSessions(Array.isArray(d.sessions) ? d.sessions : []);
-                setNames(d.studentNames ?? {});
-            })
-            .catch(() => setSessions([]))
-            .finally(() => setLoading(false));
-        return () => window.clearTimeout(timer);
-    }, [classId, myStudentId, refreshKey]);
+    // Derive player/opponent from myId
+    const isChallenger = myId === challengerId;
+    const player   = isChallenger ? playerRef.current   : opponentRef.current;
+    const opponent  = isChallenger ? opponentRef.current : playerRef.current;
+    const [renderFighters, setRenderFighters] = useState(() => ({
+        player: cloneBattleFighter(isChallenger ? initialPlayer : initialOpponent),
+        opponent: cloneBattleFighter(isChallenger ? initialOpponent : initialPlayer),
+    }));
 
-    if (loading) {
-        return (
-            <div className="space-y-2 pt-1">
-                {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-16 animate-pulse rounded-2xl bg-rose-100" />
-                ))}
-            </div>
+    const [phase, setPhase]           = useState<IBPhase>("picking");
+    const [turnIndex, setTurnIndex]   = useState(0);
+    const [dialogueLines, setDialogue] = useState<DialogueLine[]>([]);
+    const [faintedId, setFaintedId]   = useState<string | null>(null);
+    const [winnerId, setWinnerId]     = useState<string | null>(null);
+    const [goldReward, setGoldReward] = useState(0);
+
+    // Battle stats
+    const statsRef = useRef<BattleStats>({
+        damageDealt: 0, damageReceived: 0, healsUsed: 0, critCount: 0, turnCount: 0,
+    });
+    const [finalStats, setFinalStats] = useState<BattleStats | null>(null);
+
+    // Flash / hurt animation state
+    const [flashId, setFlashId]       = useState<string | null>(null);
+    const [hurtId, setHurtId]         = useState<string | null>(null);
+    const [attackingId, setAttackingId] = useState<string | null>(null);
+    const [floatingDmg, setFloatingDmg] = useState<{ id: string; value: number; crit?: boolean } | null>(null);
+
+    function getStatuses(fighter: BattleFighter): string[] {
+        return fighter.effects.map((e) => e.effect).filter((e) =>
+            ["BURN","POISON","BADLY_POISON","PARALYZE","SLEEP","FREEZE","CONFUSE"].includes(e)
         );
     }
 
-    if (sessions.length === 0) {
-        return (
-            <div className="flex flex-col items-center gap-3 py-10 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border-4 border-rose-100 bg-white text-3xl shadow">⚔️</div>
-                <p className="text-sm font-black text-rose-400">{t("battleHistoryEmpty")}</p>
-            </div>
-        );
+    const syncRenderFighters = useCallback(() => {
+        setRenderFighters({
+            player: cloneBattleFighter(isChallenger ? playerRef.current : opponentRef.current),
+            opponent: cloneBattleFighter(isChallenger ? opponentRef.current : playerRef.current),
+        });
+    }, [isChallenger]);
+
+    const renderPlayer = renderFighters.player;
+    const renderOpponent = renderFighters.opponent;
+
+    async function saveResult(wId: string, gold: number) {
+        if (savedRef.current) return;
+        savedRef.current = true;
+        try {
+            await fetch(`/api/classrooms/${classId}/battle`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    challengerId, defenderId, studentCode,
+                    mode: "save",
+                    winnerId: wId,
+                    goldReward: gold,
+                    totalTurns: turnRef.current,
+                }),
+            });
+        } catch { /* non-critical */ }
     }
+
+    function handleMoveSelect(moveId: string) {
+        if (phase !== "picking") return;
+        setPhase("animating");
+
+        // Resolve this turn immediately (synchronous, engine mutates refs)
+        const { events, faintedId: fId } = resolveOneTurn(
+            player,
+            opponent,
+            moveId,
+            rngRef.current
+        );
+        turnRef.current += 1;
+
+        // Accumulate battle stats
+        for (const evt of events) {
+            if (evt.kind === "damage") {
+                if (evt.actorId === player.studentId) {
+                    statsRef.current.damageDealt += evt.value ?? 0;
+                } else {
+                    statsRef.current.damageReceived += evt.value ?? 0;
+                }
+                if (evt.crit) statsRef.current.critCount += 1;
+            }
+            if (evt.kind === "heal" && evt.actorId === player.studentId) {
+                statsRef.current.healsUsed += evt.value ?? 0;
+            }
+            if (evt.kind === "confusion_hit" && evt.actorId === player.studentId) {
+                statsRef.current.damageReceived += evt.value ?? 0;
+            }
+        }
+        statsRef.current.turnCount = turnRef.current;
+
+        // Convert events to dialogue
+        const newLines: DialogueLine[] = events.flatMap((evt) =>
+            eventToDialogueLines(evt, [playerRef.current, opponentRef.current])
+        );
+
+        // Trigger animations based on events
+        const dmgEvt = events.find((e) => e.kind === "damage");
+        if (dmgEvt) {
+            setAttackingId(dmgEvt.actorId);
+            setFlashId(dmgEvt.targetId ?? null);
+            setHurtId(dmgEvt.targetId ?? null);
+            setFloatingDmg({ id: dmgEvt.targetId ?? "", value: dmgEvt.value ?? 0, crit: dmgEvt.crit });
+            setTimeout(() => {
+                setAttackingId(null); setHurtId(null); setFlashId(null); setFloatingDmg(null);
+            }, 500);
+        }
+
+        syncRenderFighters();
+
+        // Append dialogue
+        setDialogue((prev) => [...prev, ...newLines]);
+        setTurnIndex((i) => i + 1);
+
+        // Handle faint / end-of-battle
+        if (fId) {
+            setFaintedId(fId);
+            const winner = player.currentHp > 0 ? player : opponent;
+            const loser  = player.currentHp > 0 ? opponent : player;
+            const gold   = calcGoldReward(winner, loser);
+            setWinnerId(winner.studentId);
+            setGoldReward(gold);
+
+            // Delay to show faint animation + dialogue before result screen
+            setTimeout(async () => {
+                await saveResult(winner.studentId, gold);
+                setFinalStats({ ...statsRef.current });
+                setPhase("result");
+                onFinish(winner.studentId, gold);
+            }, ANIM_DELAY_MS * 2);
+        } else if (turnRef.current >= 20) {
+            // Turn limit — determine winner by HP%
+            const pHpPct = player.currentHp   / player.maxHp;
+            const oHpPct = opponent.currentHp / opponent.maxHp;
+            const winner = pHpPct >= oHpPct ? player : opponent;
+            const loser  = pHpPct >= oHpPct ? opponent : player;
+            const gold   = calcGoldReward(winner, loser);
+            setWinnerId(winner.studentId);
+            setGoldReward(gold);
+            setTimeout(async () => {
+                await saveResult(winner.studentId, gold);
+                setFinalStats({ ...statsRef.current });
+                setPhase("result");
+                onFinish(winner.studentId, gold);
+            }, ANIM_DELAY_MS);
+        } else {
+            // Back to picking after animation
+            setTimeout(() => setPhase("picking"), ANIM_DELAY_MS);
+        }
+    }
+
+    const isWinner = winnerId === myId;
 
     return (
-        <div className="space-y-2.5">
-            {sessions.map((s) => {
-                const isChallenger = s.challengerId === myStudentId;
-                const opponentId = isChallenger ? s.defenderId : s.challengerId;
-                const opponentName = names[opponentId] ?? "?";
-                const won = s.winnerId === myStudentId;
+        <div className="space-y-3">
+            {/* ── Battle Scene ── */}
+            <div className="relative">
+                <BattleField
+                    player={{
+                        studentId: renderPlayer.studentId,
+                        formIcon:  renderPlayer.formIcon,
+                        formName:  renderPlayer.formName,
+                        type:      renderPlayer.type,
+                        currentHp: renderPlayer.currentHp,
+                        maxHp:     renderPlayer.maxHp,
+                    }}
+                    opponent={{
+                        studentId: renderOpponent.studentId,
+                        formIcon:  renderOpponent.formIcon,
+                        formName:  renderOpponent.formName,
+                        type:      renderOpponent.type,
+                        currentHp: renderOpponent.currentHp,
+                        maxHp:     renderOpponent.maxHp,
+                    }}
+                    attackingId={attackingId}
+                    hurtId={hurtId}
+                    flashId={flashId}
+                    faintedId={faintedId}
+                    floatingDmg={floatingDmg}
+                />
 
-                return (
+                {/* Opponent HUD — top-left */}
+                <div className="absolute top-2 left-2">
+                    <OpponentHud
+                        name={renderOpponent.studentName}
+                        formName={renderOpponent.formName}
+                        rankIndex={renderOpponent.rankIndex}
+                        currentHp={renderOpponent.currentHp}
+                        maxHp={renderOpponent.maxHp}
+                        activeStatuses={getStatuses(renderOpponent)}
+                        abilityName={renderOpponent.abilityName}
+                    />
+                </div>
+
+                {/* Player HUD — bottom-right */}
+                <div className="absolute bottom-2 right-2">
+                    <PlayerHud
+                        name={renderPlayer.studentName}
+                        formName={renderPlayer.formName}
+                        rankIndex={renderPlayer.rankIndex}
+                        currentHp={renderPlayer.currentHp}
+                        maxHp={renderPlayer.maxHp}
+                        activeStatuses={getStatuses(renderPlayer)}
+                        abilityName={renderPlayer.abilityName}
+                        activeItemIcons={renderPlayer.activeItems.map((id) => {
+                            const item = getBattleItemById(id);
+                            return item?.icon ?? "";
+                        }).filter(Boolean)}
+                    />
+                </div>
+
+                {/* Turn counter */}
+                <div className="absolute top-2 right-2 rounded-full bg-black/30 backdrop-blur-sm px-2 py-0.5 text-[10px] font-black text-white/80">
+                    T{turnIndex}/20
+                </div>
+            </div>
+
+            {/* ── Dialogue box ── */}
+            {dialogueLines.length > 0 ? (
+                <DialogueBox
+                    lines={dialogueLines}
+                    cps={42}
+                    autoAdvanceMs={phase === "animating" ? 1100 : 0}
+                />
+            ) : (
+                <div className="flex min-h-[64px] items-center rounded-2xl border-[3px] border-slate-800 bg-white px-4 py-3 shadow-[3px_3px_0px_0px_rgba(15,23,42,0.35)]">
+                    <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-600">
+                        <NegamonFormIcon
+                            icon={renderOpponent.formIcon}
+                            label={renderOpponent.studentName}
+                            className="h-8 w-8 shrink-0"
+                            emojiClassName="text-2xl leading-none"
+                            width={32}
+                            height={32}
+                            imageClassName="h-full w-full object-contain"
+                        />
+                        <span>
+                            {renderOpponent.studentName} ท้าทายคุณ! — เลือกท่าได้เลย!
+                        </span>
+                    </p>
+                </div>
+            )}
+
+            {/* ── Result screen (Phase 5) ── */}
+            <AnimatePresence>
+                {phase === "result" && finalStats && (
                     <motion.div
-                        key={s.id}
-                        initial={{ opacity: 0, y: 6 }}
+                        key="result"
+                        initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className={cn(
-                            "flex items-center gap-3 rounded-2xl border-2 px-4 py-3",
-                            won
-                                ? "border-yellow-200 bg-gradient-to-r from-yellow-50 to-amber-50"
-                                : "border-slate-200 bg-gradient-to-r from-slate-50 to-gray-50"
-                        )}
+                        exit={{ opacity: 0 }}
                     >
-                        {/* Result icon */}
-                        <div className={cn(
-                            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 text-xl",
-                            won ? "border-yellow-300 bg-yellow-100" : "border-slate-200 bg-slate-100"
-                        )}>
-                            {won ? "🏆" : "💀"}
-                        </div>
-
-                        {/* Info */}
-                        <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                                <span className="truncate text-sm font-black text-slate-800">
-                                    {opponentName}
-                                </span>
-                                <span className={cn(
-                                    "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black",
-                                    isChallenger
-                                        ? "bg-rose-100 text-rose-600"
-                                        : "bg-sky-100 text-sky-600"
-                                )}>
-                                    {isChallenger ? t("battleRoleChallenger") : t("battleRoleDefender")}
-                                </span>
-                            </div>
-                            <p className="text-[11px] font-bold text-slate-400">{timeAgo(s.createdAt)}</p>
-                        </div>
-
-                        {/* Gold */}
-                        <div className={cn(
-                            "shrink-0 text-sm font-black tabular-nums",
-                            won ? "text-yellow-600" : "text-slate-400"
-                        )}>
-                            {won ? `+${s.goldReward}G` : "แพ้"}
-                        </div>
+                        <BattleResultScreen
+                            isWinner={isWinner}
+                            goldReward={goldReward}
+                            stats={finalStats}
+                            playerName={renderPlayer.studentName}
+                            playerFormIcon={renderPlayer.formIcon}
+                            opponentName={renderOpponent.studentName}
+                            opponentFormIcon={renderOpponent.formIcon}
+                            onRematch={onReset}
+                        />
                     </motion.div>
-                );
-            })}
+                )}
+            </AnimatePresence>
+
+            {/* ── Action Menu (Phase 3) ── */}
+            <AnimatePresence>
+                {phase !== "result" && (
+                    <motion.div
+                        key="menu"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 12 }}
+                    >
+                        <ActionMenu
+                            player={renderPlayer}
+                            turnIndex={turnIndex}
+                            maxTurns={20}
+                            disabled={phase === "animating"}
+                            onMoveSelect={handleMoveSelect}
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
 
-// ── Main BattleTab ────────────────────────────────────────────
-
-interface BattleTabProps {
-    classId: string;
-    myStudentId: string;
-    myStudentCode: string;
-    myMonster: { formIcon: string; formName: string; rankIndex: number } | null;
-    currentGold?: number;
-    onGoldChange?: (newGold: number) => void;
-}
+// ── Battle History ────────────────────────────────────────────
 
 type BattleView = "fight" | "history";
 
@@ -722,6 +963,11 @@ export function BattleTab({
     const [loadingOpponents, setLoadingOpponents] = useState(true);
     const [challenging, setChallenging] = useState<string | null>(null);
     const [result, setResult] = useState<BattleResult | null>(null);
+    const [interactiveFighters, setInteractiveFighters] = useState<{
+        player: BattleFighter;
+        opponent: BattleFighter;
+        defenderId: string;
+    } | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
@@ -744,30 +990,39 @@ export function BattleTab({
                     challengerId: myStudentId,
                     defenderId,
                     studentCode: myStudentCode,
+                    mode: "init",
                 }),
             });
-            const data = await res.json() as { result?: BattleResult; error?: string };
-            if (!res.ok || !data.result) {
+            const data = await res.json() as {
+                player?: BattleFighter;
+                opponent?: BattleFighter;
+                error?: string;
+            };
+            if (!res.ok || !data.player || !data.opponent) {
                 const msgKey =
-                    data.error === "NO_MONSTER"  ? "battleErrNoMonster" :
-                    data.error === "NO_MOVES"    ? "battleErrNoMoves" :
+                    data.error === "NO_MONSTER"       ? "battleErrNoMonster" :
+                    data.error === "NO_MOVES"         ? "battleErrNoMoves" :
                     data.error === "NEGAMON_DISABLED" ? "battleErrDisabled" :
                     "battleErrGeneric";
                 setError(t(msgKey as Parameters<typeof t>[0]));
                 return;
             }
-            setResult(data.result);
-            setHistoryRefreshKey((k) => k + 1);
-            if (data.result.winnerId === myStudentId) {
-                onGoldChange?.(currentGold + data.result.goldReward);
-            }
+            setInteractiveFighters({ player: data.player, opponent: data.opponent, defenderId });
         } finally {
             setChallenging(null);
         }
     }
 
+    function handleInteractiveFinish(winnerId: string, goldReward: number) {
+        setHistoryRefreshKey((k) => k + 1);
+        if (winnerId === myStudentId) {
+            onGoldChange?.(currentGold + goldReward);
+        }
+    }
+
     function handleReset() {
         setResult(null);
+        setInteractiveFighters(null);
         setView("fight");
     }
 
@@ -836,7 +1091,19 @@ export function BattleTab({
                         exit={{ opacity: 0, x: -10 }}
                         transition={{ duration: 0.15 }}
                     >
-                        {result ? (
+                        {interactiveFighters ? (
+                            <InteractiveBattle
+                                initialPlayer={interactiveFighters.player}
+                                initialOpponent={interactiveFighters.opponent}
+                                myId={myStudentId}
+                                classId={classId}
+                                challengerId={myStudentId}
+                                defenderId={interactiveFighters.defenderId}
+                                studentCode={myStudentCode}
+                                onFinish={handleInteractiveFinish}
+                                onReset={handleReset}
+                            />
+                        ) : result ? (
                             <BattleReplay result={result} myId={myStudentId} onReset={handleReset} />
                         ) : loadingOpponents ? (
                             <div className="space-y-2">
@@ -871,3 +1138,5 @@ export function BattleTab({
         </div>
     );
 }
+
+

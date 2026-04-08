@@ -17,7 +17,6 @@
         }
     },
     "include": [
-        "server.ts",
-        "src/**/*.ts"
+        "server.ts"
     ]
 }

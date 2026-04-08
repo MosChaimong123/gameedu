@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { db as prisma } from "@/lib/db"
+import { isTeacherOrAdmin } from "@/lib/role-guards"
+import { AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
 
 interface IParams {
     quizId: string
@@ -14,7 +16,8 @@ export async function POST(
     try {
         const { quizId } = await params
         const session = await auth()
-        if (!session?.user?.id) return new NextResponse("Unauthorized", { status: 401 })
+        if (!session?.user?.id) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
+        if (!isTeacherOrAdmin(session.user.role)) return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
         const body = await req.json()
         const { studentId, studentName, score, total, answers } = body
 
@@ -23,7 +26,7 @@ export async function POST(
             where: { id: quizId, teacherId: session.user.id }
         })
 
-        if (!quiz) return new NextResponse("Forbidden", { status: 403 })
+        if (!quiz) return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
 
         const result = await prisma.oMRResult.create({
             data: {

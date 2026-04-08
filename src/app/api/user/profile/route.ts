@@ -1,23 +1,33 @@
-import { auth } from "@/auth"
 import { db } from "@/lib/db"
+import { requireSessionUser } from "@/lib/auth-guards"
 import { NextResponse } from "next/server"
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
 export async function PATCH(req: Request) {
     try {
-        const session = await auth()
-        if (!session?.user?.id) {
-            return new NextResponse("Unauthorized", { status: 401 })
+        const user = await requireSessionUser()
+        if (!user?.id) {
+            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
         }
 
-        const { name, image } = await req.json()
-        console.log(`[API_PROFILE] Updating user ${session.user.id}:`, { name, hasImage: !!image })
-
+        const body = await req.json() as {
+            name?: unknown
+            image?: unknown
+        }
+        const name = typeof body.name === "string" ? body.name.trim() : undefined
+        const image = typeof body.image === "string" ? body.image.trim() : undefined
         const updatedUser = await db.user.update({
-            where: { id: session.user.id },
-            data: { name, image }
+            where: { id: user.id },
+            data: { name, image },
+            select: {
+                id: true,
+                name: true,
+                image: true,
+                email: true,
+                role: true,
+            },
         })
 
-        console.log("[API_PROFILE] Update success")
         return NextResponse.json(updatedUser)
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : "Internal Error"

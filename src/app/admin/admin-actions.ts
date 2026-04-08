@@ -3,24 +3,35 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { logAuditEvent } from "@/lib/security/audit-log";
+import type { Session } from "next-auth";
 
 type UserRole = "ADMIN" | "TEACHER" | "STUDENT";
 
-async function ensureAdmin() {
+async function ensureAdmin(): Promise<Session> {
     const session = await auth();
     const role = session?.user?.role;
-    if (role !== "ADMIN") {
+    if (!session?.user || role !== "ADMIN") {
         throw new Error("Unauthorized: Admin access required");
     }
+
+    return session;
 }
 
 export async function updateUserRole(userId: string, newRole: UserRole) {
-    await ensureAdmin();
+    const session = await ensureAdmin();
     
     try {
         await db.user.update({
             where: { id: userId },
             data: { role: newRole }
+        });
+        logAuditEvent({
+            actorUserId: session.user.id,
+            action: "admin.user.role_updated",
+            targetType: "user",
+            targetId: userId,
+            metadata: { newRole },
         });
         revalidatePath("/admin");
         revalidatePath("/admin/users");
@@ -32,12 +43,18 @@ export async function updateUserRole(userId: string, newRole: UserRole) {
 }
 
 export async function deleteUser(userId: string) {
-    await ensureAdmin();
+    const session = await ensureAdmin();
     
     try {
         // Note: In a real app, we might want to handle cascading deletes or soft deletes
         await db.user.delete({
             where: { id: userId }
+        });
+        logAuditEvent({
+            actorUserId: session.user.id,
+            action: "admin.user.deleted",
+            targetType: "user",
+            targetId: userId,
         });
         revalidatePath("/admin");
         revalidatePath("/admin/users");
@@ -49,11 +66,17 @@ export async function deleteUser(userId: string) {
 }
 
 export async function deleteSet(setId: string) {
-    await ensureAdmin();
+    const session = await ensureAdmin();
     
     try {
         await db.questionSet.delete({
             where: { id: setId }
+        });
+        logAuditEvent({
+            actorUserId: session.user.id,
+            action: "admin.question_set.deleted",
+            targetType: "questionSet",
+            targetId: setId,
         });
         revalidatePath("/admin");
         revalidatePath("/admin/sets");

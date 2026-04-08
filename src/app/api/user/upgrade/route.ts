@@ -1,33 +1,16 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/auth"
-import { db } from "@/lib/db"
+import { requireSessionUser } from "@/lib/auth-guards"
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
 export async function POST(req: Request) {
     try {
-        const session = await auth()
-        if (!session?.user?.id) {
-            return new NextResponse("Unauthorized", { status: 401 })
+        const user = await requireSessionUser()
+        if (!user?.id) {
+            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
         }
 
-        const { plan } = await req.json()
-        if (!["PLUS", "PRO"].includes(plan)) {
-            return new NextResponse("Invalid Plan", { status: 400 })
-        }
-
-        // Simulating 30 days of Plus
-        const expiryDate = new Date()
-        expiryDate.setDate(expiryDate.getDate() + 30)
-
-        const updatedUser = await db.user.update({
-            where: { id: session.user.id },
-            data: {
-                plan: plan,
-                planStatus: "ACTIVE",
-                planExpiry: expiryDate,
-            }
-        })
-
-        return NextResponse.json(updatedUser)
+        await req.json().catch(() => null)
+        return new NextResponse("Direct plan upgrades are disabled", { status: 403 })
     } catch (error) {
         console.error("[UPGRADE_POST]", error)
         return new NextResponse("Internal Error", { status: 500 })

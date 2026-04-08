@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useRef, useState, useMemo, useCallback } from "react"
+import React, { createContext, useContext, useEffect, useRef, useState, useMemo, useCallback, startTransition } from "react"
 import { useSession } from "next-auth/react"
 
 import { useAccessibility } from "@/components/providers/accessibility-provider"
@@ -44,10 +44,14 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
     const { reducedSound } = useAccessibility()
     const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map())
     const bgmRef = useRef<HTMLAudioElement | null>(null)
-    const [isMuted, setIsMuted] = useState(() => {
-        if (typeof window === "undefined") return false
-        return localStorage.getItem("gamedu-muted") === "true"
-    })
+    // Must match SSR (false) on first paint; read localStorage after mount to avoid hydration mismatch.
+    const [isMuted, setIsMuted] = useState(false)
+
+    useEffect(() => {
+        startTransition(() => {
+            setIsMuted(localStorage.getItem("gamedu-muted") === "true")
+        })
+    }, [])
 
     const userSettings = useMemo(
         () => parseUserSettings((session?.user as { settings?: unknown } | undefined)?.settings),

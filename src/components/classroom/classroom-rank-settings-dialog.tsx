@@ -15,7 +15,16 @@ import { Input } from "@/components/ui/input";
 import { Crown, Info } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
-import { parseLevelConfigToEntries, type RankEntry, type LevelConfigInput, DEFAULT_RANK_ENTRIES } from "@/lib/classroom-utils";
+import {
+    parseLevelConfigToEntries,
+    type RankEntry,
+    type LevelConfigInput,
+    DEFAULT_RANK_ENTRIES,
+    getThemeBgStyle,
+    getThemeHorizontalBgClass,
+} from "@/lib/classroom-utils";
+import { cn } from "@/lib/utils";
+import { gamificationToolbarButtonClassName } from "./gamification-toolbar-styles";
 
 const RANK_NAME_TO_KEY: Record<string, string> = {
     Common: "rankLabelCommon",
@@ -62,6 +71,8 @@ export function ClassroomRankSettingsDialog({
         return key ? t(key) : name;
     };
 
+    const theme = classroom.theme || "";
+
     const onSave = async () => {
         setLoading(true);
         try {
@@ -90,28 +101,31 @@ export function ClassroomRankSettingsDialog({
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="secondary" size="sm" className="h-9 bg-blue-500 hover:bg-blue-600 text-white border-0 font-semibold shadow backdrop-blur-sm">
-                    <Crown className="w-4 h-4 mr-1.5" />
+                <Button variant="default" size="sm" className={gamificationToolbarButtonClassName}>
+                    <Crown className="mr-1.5 h-4 w-4 shrink-0 opacity-95" />
                     {t("rankSettingsTrigger")}
                 </Button>
             </DialogTrigger>
 
             <DialogContent className="sm:max-w-[700px] w-[96vw] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl shadow-2xl border-0 bg-[#F4F6FB]">
-                <div className="px-6 py-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shrink-0">
+                <div
+                    className={cn("shrink-0 px-6 py-5 text-white", getThemeHorizontalBgClass(theme))}
+                    style={getThemeBgStyle(theme)}
+                >
                     <DialogHeader>
-                        <DialogTitle className="text-xl font-bold flex items-center gap-3 text-white">
-                            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center border border-white/30 shadow-inner">
-                                <Crown className="w-5 h-5" />
+                        <DialogTitle className="flex items-center gap-3 text-xl font-bold text-white">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/20 shadow-inner">
+                                <Crown className="h-5 w-5" />
                             </div>
                             {t("rankSettingsTitle")}
                         </DialogTitle>
-                        <p className="text-white/80 text-sm mt-1">{t("rankSettingsSubtitle")}</p>
+                        <p className="mt-1 text-sm text-white/80">{t("rankSettingsSubtitle")}</p>
                     </DialogHeader>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-800 font-medium flex gap-3 items-start">
-                        <Info className="w-5 h-5 shrink-0 mt-0.5" />
+                    <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-700">
+                        <Info className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
                         <div>
                             {t("rankSettingsInfo")}
                             <p className="text-xs opacity-70 mt-1">{t("rankSettingsInfoNote")}</p>
@@ -139,7 +153,7 @@ export function ClassroomRankSettingsDialog({
 
                                     <div className="flex flex-col">
                                         <span className="font-bold text-slate-700">{rank.name}</span>
-                                        <span className="text-xs text-indigo-500 font-medium">({rankTranslatedLabel(rank.name)})</span>
+                                        <span className="text-xs font-medium text-slate-500">({rankTranslatedLabel(rank.name)})</span>
                                     </div>
 
                                     <Input
@@ -174,7 +188,11 @@ export function ClassroomRankSettingsDialog({
                     <Button
                         onClick={onSave}
                         disabled={loading}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 shadow-md"
+                        className={cn(
+                            "border-0 px-8 font-bold text-white shadow-md transition-opacity hover:opacity-90",
+                            getThemeHorizontalBgClass(theme)
+                        )}
+                        style={getThemeBgStyle(theme)}
                     >
                         {loading ? t("rankSettingsSaving") : t("rankSettingsSave")}
                     </Button>

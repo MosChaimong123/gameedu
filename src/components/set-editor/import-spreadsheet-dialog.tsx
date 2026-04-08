@@ -15,6 +15,12 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import {
+    getCsvInvalidFileMessage,
+    getCsvMissingColumnsMessage,
+    getCsvNoValidQuestionsMessage,
+    getCsvParseErrorMessage,
+} from "@/lib/set-editor-messages"
 
 type ImportedQuestion = {
     id: string
@@ -44,7 +50,7 @@ export function ImportSpreadsheetDialog({ open, onOpenChange, onImport }: Props)
 
     const handleFile = (file: File) => {
         if (file.type !== "text/csv" && !file.name.endsWith(".csv")) {
-            setError(t("pleaseUploadCsv"))
+            setError(getCsvInvalidFileMessage(t("pleaseUploadCsv")))
             return
         }
         setError(null)
@@ -64,7 +70,7 @@ export function ImportSpreadsheetDialog({ open, onOpenChange, onImport }: Props)
                 const hasTh = thRequired.every(f => headers.includes(f))
 
                 if (!hasEn && !hasTh) {
-                    setError(t("missingColumns").replace("{columns}", language === 'th' ? thRequired.join(", ") : enRequired.join(", ")))
+                    setError(getCsvMissingColumnsMessage(language === "th" ? "th" : "en", t("missingColumns")))
                     setParsedData([])
                     return
                 }
@@ -101,13 +107,13 @@ export function ImportSpreadsheetDialog({ open, onOpenChange, onImport }: Props)
                 }).filter(q => q.question && q.answers.length > 0)
 
                 if (questions.length === 0) {
-                    setError(t("noValidQuestions"))
+                    setError(getCsvNoValidQuestionsMessage(t("noValidQuestions")))
                 } else {
                     setParsedData(questions)
                 }
             },
             error: (err) => {
-                setError(t("csvParseError").replace("{error}", err.message))
+                setError(getCsvParseErrorMessage(t("csvParseError"), err.message))
             }
         })
     }
@@ -133,7 +139,7 @@ export function ImportSpreadsheetDialog({ open, onOpenChange, onImport }: Props)
         const url = URL.createObjectURL(blob)
         const link = document.createElement("a")
         link.href = url
-        link.setAttribute("download", "question_template.csv")
+        link.setAttribute("download", t("csvTemplateDownloadFilename"))
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)

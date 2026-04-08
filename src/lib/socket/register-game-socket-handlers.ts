@@ -1,7 +1,10 @@
 import type { Server, Socket } from "socket.io";
+import type { ClassroomSocketEventType } from "@/lib/authorization/resource-access";
 import type { GameQuestion, GameSettings } from "../types/game";
+import { logAuditEvent } from "@/lib/security/audit-log";
+import { consumeRateLimit, consumeRateLimitWithStore } from "@/lib/security/rate-limit";
 
-type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK";
+type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE";
 
 type SocketPlayerPayload = {
   id?: string;
@@ -54,6 +57,12 @@ type DbLike = {
   questionSet: {
     findUnique: (args: { where: { id: string } }) => Promise<{ questions: unknown } | null>;
   };
+  classroom: {
+    findFirst: (args: {
+      where: { id: string; teacherId: string };
+      select: { id: true };
+    }) => Promise<{ id: string } | null>;
+  };
 };
 
 type RegisterHandlersDeps = {
@@ -61,8 +70,20 @@ type RegisterHandlersDeps = {
   gameManager: GameManagerLike;
   randomId?: () => string;
   resolveSocketUserId?: (socket: Socket) => Promise<string | null>;
+  canHostQuestionSet?: (userId: string, setId: string) => Promise<boolean>;
   canAccessClassroom?: (userId: string, classId: string) => Promise<boolean>;
+  canPublishClassroomEvent?: (
+    userId: string,
+    classId: string,
+    eventType: ClassroomSocketEventType
+  ) => Promise<boolean>;
+  auditLog?: typeof logAuditEvent;
 };
+
+const allowedClassroomEventTypes = new Set<ClassroomSocketEventType>([
+  "BOARD_UPDATE",
+  "POINT_UPDATE",
+]);
 
 const defaultSettings: GameSettings = {
   winCondition: "TIME",
@@ -74,60 +95,144 @@ const defaultSettings: GameSettings = {
   allowStudentAccounts: true,
 } satisfies GameSettings;
 
+const SOCKET_ERR_UNAUTHORIZED = "Unauthorized";
+const SOCKET_ERR_UNAUTHORIZED_CLASSROOM_ACCESS = "Unauthorized classroom access";
+const SOCKET_ERR_UNAUTHORIZED_CLASSROOM_EVENT = "Unauthorized classroom event";
+const SOCKET_ERR_UNAUTHORIZED_QUESTION_SET = "Unauthorized question set access";
+
 export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDeps): void {
   const {
     db,
     gameManager,
     randomId = () => crypto.randomUUID(),
     resolveSocketUserId = async () => null,
+    canHostQuestionSet = async () => false,
     canAccessClassroom = async () => false,
+    canPublishClassroomEvent = async () => false,
+    auditLog = logAuditEvent,
   } = deps;
 
   io.on("connection", (socket) => {
-    socket.on("create-game", async ({ setId, settings, mode }) => {
-      const hostId = await resolveSocketUserId(socket);
-      if (!hostId) {
-        socket.emit("error", { message: "Unauthorized" });
-        return;
-      }
+    const joinedClassrooms = new Set<string>();
 
-      let pin = Math.floor(100000 + Math.random() * 900000).toString();
-      let attempts = 0;
-      while (gameManager.getGame(pin) && attempts < 10) {
-        pin = Math.floor(100000 + Math.random() * 900000).toString();
-        attempts++;
-      }
-
-      db.questionSet.findUnique({
-        where: { id: setId },
-      }).then((set) => {
-        if (!set) {
-          socket.emit("error", { message: "Set not found" });
+    socket.on(
+      "create-game",
+      async ({
+        setId,
+        settings,
+        mode,
+        rewardClassroomId,
+      }: {
+        setId?: string;
+        settings?: Partial<GameSettings>;
+        mode?: string;
+        /** เฉพาะ Negamon — เซิร์ฟเวอร์ตรวจว่า host เป็นเจ้าของห้องก่อนเก็บใน settings */
+        rewardClassroomId?: string;
+      }) => {
+        if (typeof setId !== "string" || setId.length === 0) {
+          socket.emit("error", { message: "Invalid question set" });
           return;
         }
 
-        const rawMode = (mode || "GOLD_QUEST") as string;
-        const normalizedMode: GameMode =
-          rawMode === "CRYPTO_HACK" ? "CRYPTO_HACK" : "GOLD_QUEST";
+        const hostId = await resolveSocketUserId(socket);
+        if (!hostId) {
+          auditLog({
+            action: "socket.game.create.denied",
+            targetType: "questionSet",
+            targetId: setId,
+            metadata: { reason: "unauthorized_host", socketId: socket.id },
+          });
+          socket.emit("error", { message: SOCKET_ERR_UNAUTHORIZED });
+          return;
+        }
 
-        const game = gameManager.createGame(
-          normalizedMode,
-          pin,
-          hostId,
-          setId,
-          settings || defaultSettings,
-          set.questions as GameQuestion[],
-          io
-        );
-        const hostReconnectToken = randomId();
-        game.registerHostConnection(socket.id, hostReconnectToken);
+        if (!(await canHostQuestionSet(hostId, setId))) {
+          auditLog({
+            actorUserId: hostId,
+            action: "socket.game.create.denied",
+            targetType: "questionSet",
+            targetId: setId,
+            metadata: { reason: "unauthorized_question_set", socketId: socket.id },
+          });
+          socket.emit("error", { message: SOCKET_ERR_UNAUTHORIZED_QUESTION_SET });
+          return;
+        }
 
-        socket.join(pin);
-        socket.emit("game-created", { pin, hostReconnectToken });
-      }).catch(() => {
-        socket.emit("error", { message: "Failed to load questions" });
-      });
-    });
+        let pin = Math.floor(100000 + Math.random() * 900000).toString();
+        let attempts = 0;
+        while (gameManager.getGame(pin) && attempts < 10) {
+          pin = Math.floor(100000 + Math.random() * 900000).toString();
+          attempts++;
+        }
+
+        try {
+          const set = await db.questionSet.findUnique({
+            where: { id: setId },
+          });
+          if (!set) {
+            socket.emit("error", { message: "Set not found" });
+            return;
+          }
+
+          const rawMode = (mode || "GOLD_QUEST") as string;
+          const normalizedMode: GameMode =
+            rawMode === "CRYPTO_HACK"
+              ? "CRYPTO_HACK"
+              : rawMode === "NEGAMON_BATTLE"
+                ? "NEGAMON_BATTLE"
+                : "GOLD_QUEST";
+
+          const sanitized: Partial<GameSettings> =
+            settings && typeof settings === "object" ? { ...settings } : {};
+          delete (sanitized as Record<string, unknown>).negamonRewardClassroomId;
+
+          let gameSettings: GameSettings = { ...defaultSettings, ...sanitized };
+
+          if (
+            normalizedMode === "NEGAMON_BATTLE" &&
+            typeof rewardClassroomId === "string" &&
+            rewardClassroomId.trim().length > 0
+          ) {
+            const classroom = await db.classroom.findFirst({
+              where: { id: rewardClassroomId.trim(), teacherId: hostId },
+              select: { id: true },
+            });
+            if (classroom) {
+              gameSettings = { ...gameSettings, negamonRewardClassroomId: classroom.id };
+            }
+          }
+
+          const game = gameManager.createGame(
+            normalizedMode,
+            pin,
+            hostId,
+            setId,
+            gameSettings,
+            set.questions as GameQuestion[],
+            io
+          );
+          const hostReconnectToken = randomId();
+          game.registerHostConnection(socket.id, hostReconnectToken);
+          auditLog({
+            actorUserId: hostId,
+            action: "socket.game.created",
+            targetType: "game",
+            targetId: pin,
+            metadata: {
+              setId,
+              gameMode: normalizedMode,
+              socketId: socket.id,
+              negamonRewardClassroomId: gameSettings.negamonRewardClassroomId ?? null,
+            },
+          });
+
+          socket.join(pin);
+          socket.emit("game-created", { pin, hostReconnectToken });
+        } catch {
+          socket.emit("error", { message: "Failed to load questions" });
+        }
+      }
+    );
 
     socket.on("reconnect-host", ({ pin, reconnectToken }) => {
       const game = gameManager.getGame(pin);
@@ -173,6 +278,18 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
       }
 
       const existingPlayer = game.players.find((player) => player.name === nickname);
+
+      if (
+        game.status === "PLAYING" &&
+        !existingPlayer &&
+        game.gameMode === "NEGAMON_BATTLE"
+      ) {
+        socket.emit("error", {
+          message: "Negamon Battle already started — new players cannot join mid-match",
+        });
+        return;
+      }
+
       if (existingPlayer) {
         if (!game.canReconnectPlayer(nickname, reconnectToken)) {
           socket.emit("error", { message: "Nickname already in use" });
@@ -299,36 +416,147 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
       const game = gameManager.findGameBySocket(socket.id);
       if (game) game.handleEvent("task-complete", payload, socket);
     });
+    socket.on("submit-negamon-answer", (payload) => {
+      const game = gameManager.findGameBySocket(socket.id);
+      if (!game || game.gameMode !== "NEGAMON_BATTLE") return;
+
+      const pin = payload?.pin;
+      if (typeof pin !== "string" || pin.length === 0 || pin !== game.pin) {
+        auditLog({
+          action: "socket.negamon.answer.denied",
+          targetType: "game",
+          targetId: game.pin,
+          status: "rejected",
+          metadata: { reason: "invalid_pin", socketId: socket.id },
+        });
+        socket.emit("error", { message: "Invalid game code" });
+        return;
+      }
+
+      const rateLimitOpts = {
+        bucket: "negamon_submit_answer",
+        key: socket.id,
+        limit: 24,
+        windowMs: 60_000,
+      } as const;
+
+      void (async () => {
+        let rate: { allowed: boolean };
+        try {
+          rate = await consumeRateLimitWithStore(rateLimitOpts);
+        } catch (err) {
+          console.error("[socket] negamon_submit_answer rate limit store failed", err);
+          rate = consumeRateLimit(rateLimitOpts);
+        }
+
+        if (!rate.allowed) {
+          auditLog({
+            action: "socket.negamon.answer.denied",
+            targetType: "game",
+            targetId: game.pin,
+            status: "rejected",
+            metadata: { reason: "rate_limited", socketId: socket.id },
+          });
+          socket.emit("error", { message: "Too many submissions. Slow down." });
+          return;
+        }
+
+        const still = gameManager.findGameBySocket(socket.id);
+        if (!still || still.gameMode !== "NEGAMON_BATTLE" || still.pin !== game.pin) return;
+
+        still.handleEvent("submit-negamon-answer", payload, socket);
+      })();
+    });
     socket.on("use-interaction", (payload) => {
       const game = gameManager.findGameBySocket(socket.id);
       if (game) game.handleEvent("use-interaction", payload, socket);
     });
 
     socket.on("join-classroom", async (classId) => {
-      if (!classId) return;
+      if (typeof classId !== "string" || classId.length === 0) return;
 
       const userId = await resolveSocketUserId(socket);
       if (!userId || !(await canAccessClassroom(userId, classId))) {
-        socket.emit("error", { message: "Unauthorized classroom access" });
+        auditLog({
+          actorUserId: userId,
+          action: "socket.classroom.join.denied",
+          targetType: "classroom",
+          targetId: classId,
+          metadata: { socketId: socket.id },
+        });
+        socket.emit("error", { message: SOCKET_ERR_UNAUTHORIZED_CLASSROOM_ACCESS });
         return;
       }
 
       socket.join(`classroom-${classId}`);
+      joinedClassrooms.add(classId);
+      auditLog({
+        actorUserId: userId,
+        action: "socket.classroom.joined",
+        targetType: "classroom",
+        targetId: classId,
+        metadata: { socketId: socket.id },
+      });
     });
 
     socket.on("leave-classroom", (classId) => {
-      if (classId) {
+      if (typeof classId === "string" && classId.length > 0) {
         socket.leave(`classroom-${classId}`);
+        joinedClassrooms.delete(classId);
       }
     });
 
     socket.on("classroom-update", async (payload) => {
       const { classId, type } = payload || {};
-      if (!classId || !type) return;
+      if (typeof classId !== "string" || classId.length === 0 || typeof type !== "string") {
+        return;
+      }
+
+      if (!allowedClassroomEventTypes.has(type as ClassroomSocketEventType)) {
+        auditLog({
+          action: "socket.classroom.update.denied",
+          targetType: "classroom",
+          targetId: classId,
+          metadata: { reason: "invalid_event_type", type, socketId: socket.id },
+        });
+        socket.emit("error", { message: "Invalid classroom event" });
+        return;
+      }
 
       const userId = await resolveSocketUserId(socket);
       if (!userId || !(await canAccessClassroom(userId, classId))) {
-        socket.emit("error", { message: "Unauthorized classroom access" });
+        auditLog({
+          actorUserId: userId,
+          action: "socket.classroom.update.denied",
+          targetType: "classroom",
+          targetId: classId,
+          metadata: { reason: "unauthorized_classroom_access", type, socketId: socket.id },
+        });
+        socket.emit("error", { message: SOCKET_ERR_UNAUTHORIZED_CLASSROOM_ACCESS });
+        return;
+      }
+
+      if (!joinedClassrooms.has(classId)) {
+        auditLog({
+          actorUserId: userId,
+          action: "socket.classroom.update.denied",
+          targetType: "classroom",
+          targetId: classId,
+          metadata: { reason: "not_joined", type, socketId: socket.id },
+        });
+        socket.emit("error", { message: "Join the classroom before sending updates" });
+        return;
+      }
+
+      if (!(await canPublishClassroomEvent(userId, classId, type as ClassroomSocketEventType))) {
+        auditLog({
+          actorUserId: userId,
+          action: "socket.classroom.update.denied",
+          targetType: "classroom",
+          targetId: classId,
+          metadata: { reason: "unauthorized_event", type, socketId: socket.id },
+        });
+        socket.emit("error", { message: SOCKET_ERR_UNAUTHORIZED_CLASSROOM_EVENT });
         return;
       }
 
@@ -339,6 +567,13 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         );
 
       socket.to(`classroom-${classId}`).emit("classroom-event", { type, data });
+      auditLog({
+        actorUserId: userId,
+        action: "socket.classroom.updated",
+        targetType: "classroom",
+        targetId: classId,
+        metadata: { type, socketId: socket.id },
+      });
     });
   });
 }

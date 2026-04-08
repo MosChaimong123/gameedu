@@ -13,6 +13,7 @@ const NEWS_ITEMS = [
         id: "1",
         tag: "NEW",
         tagColor: "bg-indigo-500",
+        mascot: "🚀",
         icon: <Zap className="w-3 h-3" />,
         titleKey: "topInsightsNewsTitleSeason4",
         dateKey: "topInsightsNewsDate2hAgo"
@@ -21,6 +22,7 @@ const NEWS_ITEMS = [
         id: "2",
         tag: "INFO",
         tagColor: "bg-blue-500",
+        mascot: "🛠️",
         icon: <Megaphone className="w-3 h-3" />,
         titleKey: "topInsightsNewsTitleServerUpdate",
         dateKey: "topInsightsNewsDateToday"
@@ -28,8 +30,8 @@ const NEWS_ITEMS = [
 ]
 
 const TEACHER_MISSIONS = [
-    { id: 1, titleKey: "topInsightsMissionCreateSet", completed: false, reward: 50 },
-    { id: 2, titleKey: "topInsightsMissionHostSession", completed: true, reward: 100 }
+    { id: 1, titleKey: "topInsightsMissionCreateSet", completed: false, reward: 50, mascot: "✍️" },
+    { id: 2, titleKey: "topInsightsMissionHostSession", completed: true, reward: 100, mascot: "🎤" }
 ]
 
 export function TopInsights({ role }: TopInsightsProps) {
@@ -64,6 +66,7 @@ export function TopInsights({ role }: TopInsightsProps) {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-0.5">
                                         <span className="text-[9px] font-black text-white/50">{t(item.dateKey)}</span>
+                                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/80">{item.mascot}</span>
                                     </div>
                                     <h4 className="text-sm font-bold text-white truncate">{t(item.titleKey)}</h4>
                                 </div>
@@ -93,6 +96,9 @@ export function TopInsights({ role }: TopInsightsProps) {
                             <div key={mission.id} className="flex items-center gap-3 bg-white/10 p-3 rounded-2xl border border-white/10 group">
                                 <div className={mission.completed ? "text-green-400" : "text-white/30"}>
                                     {mission.completed ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
+                                </div>
+                                <div className="rounded-full bg-white/10 px-2.5 py-1 text-sm shadow-sm">
+                                    {mission.mascot}
                                 </div>
                                 <div className="flex-1">
                                     <p className={`text-xs font-bold leading-none mb-1 ${mission.completed ? "text-white/40 line-through" : "text-white"}`}>

@@ -1,12 +1,14 @@
-import type { CSSProperties } from "react";
 import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getThemeBgStyle, getRankEntry, type LevelConfigInput } from "@/lib/classroom-utils";
 import { sumAcademicTotal } from "@/lib/academic-score";
 import type {
     ClassroomRecord,
+    DashboardStudent,
     HistoryRecord,
-} from "@/components/student/StudentDashboardClient";
+    StudentDashboardViewModel,
+    SubmissionRecord,
+} from "./student-dashboard.types";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
 
 type StudentSubmission = {
@@ -33,23 +35,6 @@ type StudentHistory = {
     reason: string;
 };
 
-export type DashboardStudentRecord = {
-    id: string;
-    classId: string;
-    loginCode: string;
-    name: string;
-    nickname: string | null;
-    avatar: string | null;
-    userId: string | null;
-    behaviorPoints: number;
-    gold: number;
-    streak: number;
-    lastCheckIn: string | null;
-    inventory: string[];
-    equippedFrame: string | null;
-    negamonSkills: string[];
-};
-
 type StudentClassroomRecord = {
     id: string;
     name: string;
@@ -62,20 +47,7 @@ type StudentClassroomRecord = {
     assignments: ClassroomAssignment[];
 };
 
-export type StudentDashboardData = {
-    student: DashboardStudentRecord;
-    classroom: ClassroomRecord;
-    history: HistoryRecord[];
-    submissions: StudentSubmission[];
-    academicTotal: number;
-    totalPositive: number;
-    totalNegative: number;
-    rankEntry: ReturnType<typeof getRankEntry>;
-    themeClass: string;
-    themeStyle: CSSProperties;
-    classIcon: string | null;
-    isImageIcon: boolean;
-};
+export type StudentDashboardData = StudentDashboardViewModel;
 
 type StudentDashboardDeps = {
     db: PrismaClient;
@@ -180,7 +152,7 @@ export async function getStudentDashboard(
         inventory: (student.inventory as string[]) ?? [],
         equippedFrame: student.equippedFrame ?? null,
         negamonSkills,
-    } satisfies DashboardStudentRecord;
+    } satisfies DashboardStudent;
 
     const theme = classroom.theme || "from-indigo-500 to-purple-600";
     const isCustomTheme = theme.startsWith("custom:");
@@ -221,7 +193,7 @@ export async function getStudentDashboard(
         student: studentRecord,
         classroom: classroomRecord,
         history: historyRecords,
-        submissions,
+        submissions: submissions as SubmissionRecord[],
         academicTotal,
         totalPositive,
         totalNegative,

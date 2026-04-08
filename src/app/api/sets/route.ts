@@ -1,13 +1,22 @@
 import { auth } from "@/auth"
 import { db } from "@/lib/db"
 import { NextResponse } from "next/server"
+import { AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
+
+function canManageQuestionSets(role?: string | null) {
+    return role === "TEACHER" || role === "ADMIN"
+}
 
 export async function GET() {
     try {
         const session = await auth()
 
         if (!session || !session.user) {
-            return new NextResponse("Unauthorized", { status: 401 })
+            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
+        }
+
+        if (!canManageQuestionSets(session.user.role)) {
+            return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
         }
 
         // Fetch sets created by the current user
@@ -39,7 +48,11 @@ export async function POST(req: Request) {
         const session = await auth()
 
         if (!session || !session.user) {
-            return new NextResponse("Unauthorized", { status: 401 })
+            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
+        }
+
+        if (!canManageQuestionSets(session.user.role)) {
+            return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
         }
 
         const body = await req.json() as CreateSetRequest

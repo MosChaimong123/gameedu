@@ -31,7 +31,7 @@ import type {
     ClassroomRecord,
     StudentDashboardTranslateFn,
     SubmissionRecord,
-} from "./StudentDashboardClient";
+} from "@/lib/services/student-dashboard/student-dashboard.types";
 
 interface StudentDashboardAssignmentsTabProps {
     t: StudentDashboardTranslateFn;

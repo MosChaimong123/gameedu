@@ -1,5 +1,9 @@
 # RPG Character Art Prompts
 
+Legacy reference document.
+
+This file is kept only as an archived art-prompt reference from the earlier RPG/avatar experimentation phase. It is not part of the active classroom, auth, or student portal data model.
+
 ไฟล์ prompt หลักสำหรับใช้งานจริงอยู่ที่:
 
 - [src/lib/game/rpg-art-prompts.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game/rpg-art-prompts.ts)

@@ -55,11 +55,13 @@ Manual QA checklist for the Assignment Command Center teacher flow.
 Prerequisites:
 
 - app running at `PLAYWRIGHT_BASE_URL` (default `http://127.0.0.1:3000`)
-- teacher-auth storage state file (optional but recommended):
-  - set `PLAYWRIGHT_STORAGE_STATE=<path-to-json>`
-- sample IDs for targeted deep-link checks:
-  - `ASN_E2E_CLASS_ID=<class ObjectId>`
-  - `ASN_E2E_ASSIGNMENT_ID=<assignment ObjectId>`
+- **Always-on check:** one test calls `GET /api/health` (no class/assignment env needed). If the dev server is down, this fails fast.
+- **Deep-link URL checks** (skipped until env set):
+  - teacher-auth storage state file (recommended, or you may be redirected to login and assertions fail):
+    - set `PLAYWRIGHT_STORAGE_STATE=<path-to-json>`
+  - sample IDs:
+    - `ASN_E2E_CLASS_ID=<class ObjectId>`
+    - `ASN_E2E_ASSIGNMENT_ID=<assignment ObjectId>`
 
 Commands:
 

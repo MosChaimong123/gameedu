@@ -1,12 +1,20 @@
-# GameEdu — Render Blueprint
-# Docs: https://render.com/docs/blueprint-spec
+# GameEdu Render Blueprint
+# Create the Blueprint from:
+# https://dashboard.render.com/blueprint/new?repo=https://github.com/MosChaimong123/gameedu
 #
-# หลัง commit + push แล้ว สร้าง Blueprint จาก repo:
-#   https://dashboard.render.com/blueprint/new?repo=<HTTPS_URL_ของ_repo>
+# This app runs as a single Node web service with:
+# - Next.js 16
+# - custom Node server (`server.ts` -> `dist/server.js`)
+# - Socket.IO over the same origin
+# - Prisma with MongoDB (bring your own Mongo Atlas cluster)
 #
-# ฐานข้อมูล: Prisma ใช้ MongoDB — สร้าง cluster ที่ Atlas แล้วใส่ connection string ใน DATABASE_URL
-# หลัง deploy ครั้งแรก: เปิด Render Shell แล้วรัน `npx prisma db push` (และถ้าต้องการ seed: `npm run db:seed`)
-# ลิงก์สร้าง Blueprint: https://dashboard.render.com/blueprint/new?repo=https://github.com/MosChaimong123/gameedu
+# First deploy checklist:
+# 1. Create a MongoDB Atlas cluster and allow Render outbound access.
+# 2. Fill all `sync: false` secrets in Render before the first boot.
+# 3. After the first successful deploy, open Render Shell and run:
+#    npx prisma db push
+# 4. Optional seed:
+#    npm run db:seed
 
 services:
   - type: web
@@ -17,7 +25,7 @@ services:
     branch: main
     buildCommand: npm ci && npm run build
     startCommand: npm run start
-    healthCheckPath: /api/health
+    healthCheckPath: /api/ready
     envVars:
       - key: NODE_ENV
         value: production

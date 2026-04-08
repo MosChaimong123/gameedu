@@ -3,7 +3,7 @@ import { z } from "zod";
 const appEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
-  AUTH_SECRET: z.string().min(1, "AUTH_SECRET is required"),
+  AUTH_SECRET: z.string().min(1, "AUTH_SECRET or NEXTAUTH_SECRET is required"),
   NEXTAUTH_URL: z.string().url().optional(),
   NEXT_PUBLIC_APP_URL: z.string().url().optional(),
   PORT: z.coerce.number().int().positive().default(3000),
@@ -16,6 +16,11 @@ export type AppEnv = z.infer<typeof appEnvSchema>;
 
 let cachedEnv: AppEnv | null = null;
 
+export function resolveAuthSecret(env: NodeJS.ProcessEnv = process.env) {
+  const secret = env.AUTH_SECRET?.trim() || env.NEXTAUTH_SECRET?.trim();
+  return secret || undefined;
+}
+
 export function getAppEnv(env: NodeJS.ProcessEnv = process.env): AppEnv {
   if (env === process.env && cachedEnv) {
     return cachedEnv;
@@ -24,7 +29,7 @@ export function getAppEnv(env: NodeJS.ProcessEnv = process.env): AppEnv {
   const parsed = appEnvSchema.parse({
     NODE_ENV: env.NODE_ENV,
     DATABASE_URL: env.DATABASE_URL,
-    AUTH_SECRET: env.AUTH_SECRET,
+    AUTH_SECRET: resolveAuthSecret(env),
     NEXTAUTH_URL: env.NEXTAUTH_URL,
     NEXT_PUBLIC_APP_URL: env.NEXT_PUBLIC_APP_URL,
     PORT: env.PORT,

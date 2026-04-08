@@ -75,10 +75,10 @@ export const DEFAULT_NEGAMON_BATTLE_TUNING: NegamonBattleTuning = {
     startHp: 100,
     roundSeconds: 22,
     betweenSeconds: 4,
-    fastAnswerSeconds: 5,
-    movePower: 42,
+    fastAnswerSeconds: 4,
+    movePower: 40,
     attackerAtk: 52,
-    defenderDef: 34,
+    defenderDef: 36,
 };
 
 export type GameSettings = {

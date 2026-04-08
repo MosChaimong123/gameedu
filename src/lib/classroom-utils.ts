@@ -40,6 +40,78 @@ export function getThemeBgStyle(theme?: string | null): { backgroundImage?: stri
     return { backgroundImage: `linear-gradient(to right, ${color1}, ${color2})` };
 }
 
+/** Maps first gradient hue (from-*-*) to a solid accent for borders, text, and rings. */
+const THEME_HUE_TO_HEX: Record<string, string> = {
+    blue: "#3b82f6",
+    indigo: "#6366f1",
+    violet: "#8b5cf6",
+    purple: "#a855f7",
+    fuchsia: "#d946ef",
+    pink: "#ec4899",
+    rose: "#f43f5e",
+    red: "#ef4444",
+    orange: "#f97316",
+    amber: "#f59e0b",
+    yellow: "#eab308",
+    lime: "#84cc16",
+    green: "#22c55e",
+    emerald: "#10b981",
+    teal: "#14b8a6",
+    cyan: "#06b6d4",
+    sky: "#0ea5e9",
+    slate: "#64748b",
+    stone: "#78716c",
+    neutral: "#737373",
+    zinc: "#71717a",
+    gray: "#6b7280",
+};
+
+/**
+ * Solid accent color derived from classroom theme (preset `from-hue-shade` or `custom:#,#`).
+ * Used for toolbar outline hovers, focus rings, and small UI accents.
+ */
+export function getThemeAccentColor(theme?: string | null): string {
+    if (theme == null || theme === "") {
+        return "#1863dc";
+    }
+    const trimmed = theme.trim();
+    if (trimmed.startsWith("custom:")) {
+        const first = trimmed.slice("custom:".length).split(",")[0]?.trim() ?? "";
+        if (first.startsWith("#") && /^#[0-9a-fA-F]{3,8}$/.test(first)) {
+            return first.length === 4 || first.length === 5
+                ? first
+                : first.slice(0, 7);
+        }
+        if (/^[0-9a-fA-F]{6}$/.test(first)) {
+            return `#${first}`;
+        }
+        return "#6366f1";
+    }
+    const m = trimmed.match(/from-([a-z]+)-/);
+    if (m?.[1] && THEME_HUE_TO_HEX[m[1]]) {
+        return THEME_HUE_TO_HEX[m[1]];
+    }
+    return "#1863dc";
+}
+
+/** RGBA string from theme accent (for light fills). */
+export function getThemeAccentRgba(theme: string | null | undefined, alpha: number): string {
+    let hex = getThemeAccentColor(theme).replace("#", "");
+    if (hex.length === 3) {
+        hex = hex
+            .split("")
+            .map((c) => c + c)
+            .join("");
+    }
+    if (hex.length !== 6 || Number.isNaN(parseInt(hex, 16))) {
+        return `rgba(24, 99, 220, ${alpha})`;
+    }
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+}
+
 export function getClassroomTheme(theme?: string | null) {
     return {
         themeClass: getThemeBgClass(theme),

@@ -8,7 +8,6 @@ import { getThemeBgStyle } from "@/lib/classroom-utils";
 import {
     assignmentTypeBadgeClassName,
     dbAssignmentTypeToFormType,
-    type AssignmentFormType,
 } from "@/lib/assignment-type";
 import { useLanguage } from "@/components/providers/language-provider";
 import { assignmentFormTypeLabel } from "@/lib/assignment-form-type-label";

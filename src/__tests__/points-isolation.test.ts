@@ -3,7 +3,7 @@
  *
  * **Validates: Requirements P2**
  * ∀ classroom C, ∀ student s ∉ targetStudents:
- *   awardPoints(C, targetStudents, delta).students[s].points === C.students[s].points
+ *   awardPoints(C, targetStudents, delta).students[s].behaviorPoints === C.students[s].behaviorPoints
  */
 
 import { describe, expect, test } from "vitest";
@@ -14,20 +14,20 @@ import fc from "fast-check";
 //   - src/app/api/classrooms/[id]/points/route.ts (single student)
 //   - src/app/api/classrooms/[id]/points/batch/route.ts (multiple students)
 function applyPointDelta(
-  students: { id: string; points: number }[],
+  students: { id: string; behaviorPoints: number }[],
   targetIds: string[],
   delta: number
-): { id: string; points: number }[] {
+): { id: string; behaviorPoints: number }[] {
   const targetSet = new Set(targetIds);
   return students.map((s) =>
-    targetSet.has(s.id) ? { ...s, points: s.points + delta } : { ...s }
+    targetSet.has(s.id) ? { ...s, behaviorPoints: s.behaviorPoints + delta } : { ...s }
   );
 }
 
 // Arbitraries
 const studentArb = fc.record({
   id: fc.uuid(),
-  points: fc.integer({ min: 0, max: 1000 }),
+  behaviorPoints: fc.integer({ min: 0, max: 1000 }),
 });
 
 describe("Points Award Isolation Properties", () => {
@@ -46,7 +46,7 @@ describe("Points Award Isolation Properties", () => {
 
           // All non-targeted students must be unchanged
           students.slice(1).forEach((s) => {
-            expect(result.find((r) => r.id === s.id)?.points).toBe(s.points);
+            expect(result.find((r) => r.id === s.id)?.behaviorPoints).toBe(s.behaviorPoints);
           });
         }
       )
@@ -72,13 +72,13 @@ describe("Points Award Isolation Properties", () => {
 
           // Non-targeted students must be unchanged
           nonTargets.forEach((s) => {
-            expect(result.find((r) => r.id === s.id)?.points).toBe(s.points);
+            expect(result.find((r) => r.id === s.id)?.behaviorPoints).toBe(s.behaviorPoints);
           });
 
           // Targeted students must have received the delta
           students.slice(0, half).forEach((s) => {
-            expect(result.find((r) => r.id === s.id)?.points).toBe(
-              s.points + delta
+            expect(result.find((r) => r.id === s.id)?.behaviorPoints).toBe(
+              s.behaviorPoints + delta
             );
           });
         }

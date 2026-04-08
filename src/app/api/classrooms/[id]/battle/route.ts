@@ -23,8 +23,16 @@ export async function POST(
         challengerId: string;
         defenderId: string;
         studentCode: string;
+        /** "init"  → return fighter data only (no battle run/save)
+         *  "save"  → save a pre-computed interactive result
+         *  default → run full battle + save */
+        mode?: "init" | "save";
+        // For mode === "save":
+        winnerId?: string;
+        goldReward?: number;
+        totalTurns?: number;
     };
-    const { challengerId, defenderId, studentCode } = body;
+    const { challengerId, defenderId, studentCode, mode } = body;
 
     if (!challengerId || !defenderId || challengerId === defenderId) {
         return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });
@@ -73,11 +81,38 @@ export async function POST(
         return NextResponse.json({ error: "NO_MOVES" }, { status: 400 });
     }
 
-    // Resolve battle — pass inventory so held items take effect
     const challengerInventory = Array.isArray(challenger.inventory) ? challenger.inventory as string[] : [];
     const defenderInventory   = Array.isArray(defender.inventory)   ? defender.inventory   as string[] : [];
     const f1 = initBattleFighter(challengerMonster, challengerId, challenger.name, challengerInventory);
     const f2 = initBattleFighter(defenderMonster,   defenderId,   defender.name,  defenderInventory);
+
+    // ── mode: "init" — return fighter data only (no battle run/save) ──
+    if (mode === "init") {
+        return NextResponse.json({ player: f1, opponent: f2 });
+    }
+
+    // ── mode: "save" — save a pre-computed interactive result ──
+    if (mode === "save") {
+        const { winnerId, goldReward = 30, totalTurns = 0 } = body;
+        if (!winnerId || (winnerId !== challengerId && winnerId !== defenderId)) {
+            return NextResponse.json({ error: "INVALID_WINNER" }, { status: 400 });
+        }
+        const session = await db.battleSession.create({
+            data: {
+                classId, challengerId, defenderId,
+                result: { mode: "interactive", totalTurns },
+                winnerId,
+                goldReward,
+            },
+        });
+        await db.student.update({
+            where: { id: winnerId },
+            data: { gold: { increment: goldReward } },
+        });
+        return NextResponse.json({ sessionId: session.id, winnerId, goldReward });
+    }
+
+    // ── default — resolve full battle + save ──
     const result = resolveBattle(f1, f2);
 
     // Store session

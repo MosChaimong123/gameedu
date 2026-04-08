@@ -42,35 +42,68 @@ if (!url) {
 }
 
 const client = new MongoClient(url);
+const dryRun = process.argv.includes("--dry-run");
+const legacyCollections = ["StudentItem", "Material", "StudentBattle", "Item"];
+const legacyStudentFields = {
+  gameStats: "",
+  questProgress: "",
+  jobClass: "",
+  jobTier: "",
+  advanceClass: "",
+  jobSkills: "",
+  jobSelectedAt: "",
+  stamina: "",
+  maxStamina: "",
+  mana: "",
+  lastStaminaRefill: "",
+  lastSyncTime: "",
+};
+
 try {
   await client.connect();
   const db = client.db();
 
-  for (const coll of ["StudentItem", "Material", "StudentBattle", "Item"]) {
-    const r = await db.collection(coll).deleteMany({});
-    console.log(`${coll}: deleted ${r.deletedCount}`);
+  console.log(
+    dryRun
+      ? "Running RPG cleanup in dry-run mode. No data will be modified."
+      : "Running RPG cleanup. Legacy RPG data will be removed."
+  );
+
+  for (const coll of legacyCollections) {
+    const count = await db.collection(coll).countDocuments({});
+    if (dryRun) {
+      console.log(`${coll}: would delete ${count} document(s)`);
+      continue;
+    }
+
+    const result = await db.collection(coll).deleteMany({});
+    console.log(`${coll}: deleted ${result.deletedCount} document(s)`);
   }
 
-  await db.collection("Student").updateMany(
-    {},
-    {
-      $unset: {
-        gameStats: "",
-        questProgress: "",
-        jobClass: "",
-        jobTier: "",
-        advanceClass: "",
-        jobSkills: "",
-        jobSelectedAt: "",
-        stamina: "",
-        maxStamina: "",
-        mana: "",
-        lastStaminaRefill: "",
-        lastSyncTime: "",
-      },
-    }
-  );
-  console.log("Student: unset legacy RPG fields (if present)");
+  const studentLegacyFilter = {
+    $or: Object.keys(legacyStudentFields).map((field) => ({ [field]: { $exists: true } })),
+  };
+  const studentLegacyCount = await db
+    .collection("Student")
+    .countDocuments(studentLegacyFilter);
+
+  if (dryRun) {
+    console.log(
+      `Student: would unset legacy RPG fields on ${studentLegacyCount} document(s)`
+    );
+  } else if (studentLegacyCount > 0) {
+    await db.collection("Student").updateMany(
+      studentLegacyFilter,
+      {
+        $unset: legacyStudentFields,
+      }
+    );
+    console.log(
+      `Student: unset legacy RPG fields on ${studentLegacyCount} document(s)`
+    );
+  } else {
+    console.log("Student: no legacy RPG fields found");
+  }
 } finally {
   await client.close();
 }

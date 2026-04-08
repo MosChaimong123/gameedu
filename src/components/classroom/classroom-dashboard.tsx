@@ -41,7 +41,7 @@ import { useClassroomDashboardUiState } from "./use-classroom-dashboard-ui-state
 import { useClassroomPointsFlow } from "./use-classroom-points-flow";
 import { useClassroomSelectionFlow } from "./use-classroom-selection-flow";
 import type { AssignmentWithChecklist } from "./classroom-table";
-import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
+import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 
 interface ClassroomDashboardProps {
     classroom: ClassroomDashboardViewModel;
@@ -103,11 +103,9 @@ export function ClassroomDashboard({
     });
     const {
         isAttendanceMode,
-        setIsAttendanceMode,
         hasChanges,
         enterAttendanceMode,
         cycleStudentAttendance,
-        restoreAttendanceSnapshot,
         exitAttendanceMode,
         saveAttendance,
     } = useClassroomAttendanceFlow({
@@ -116,16 +114,7 @@ export function ClassroomDashboard({
         setClassroom,
         toast,
         t,
-    }) as unknown as {
-        isAttendanceMode: boolean;
-        setIsAttendanceMode: React.Dispatch<React.SetStateAction<boolean>>;
-        hasChanges: boolean;
-        enterAttendanceMode: () => void;
-        cycleStudentAttendance: (studentId: string) => void;
-        restoreAttendanceSnapshot: () => void;
-        exitAttendanceMode: () => void;
-        saveAttendance: () => Promise<boolean>;
-    };
+    });
     const {
         isSelectMultiple,
         setIsSelectMultiple,
@@ -242,7 +231,6 @@ export function ClassroomDashboard({
                     onOpenNegamonSettings={() => setShowNegamonSettings(true)}
                     onEnterAttendanceMode={() => {
                         enterAttendanceMode();
-                        setIsAttendanceMode(true);
                         setViewMode("grid");
                     }}
                     onToggleSelectMultiple={() => setIsSelectMultiple((value) => !value)}
@@ -255,7 +243,7 @@ export function ClassroomDashboard({
                     theme={classroom.theme || ""}
                     hasChanges={hasChanges}
                     loading={loading}
-                    onCancel={restoreAttendanceSnapshot}
+                    onCancel={exitAttendanceMode}
                     onSave={handleSaveAttendance}
                 />
             )}
@@ -291,12 +279,12 @@ export function ClassroomDashboard({
 
             {/* Grid Area */}
             {viewMode === "grid" ? (
-                <div className={`min-h-0 flex-1 overflow-y-auto rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-4 transition-all sm:p-6 ${isAttendanceMode ? "border-indigo-300 bg-indigo-50/30" : ""}`}>
+                <div className={`min-h-0 flex-1 overflow-y-auto rounded-[22px] border p-4 transition-all sm:p-6 ${isAttendanceMode ? "border-blue-200 bg-blue-50/20" : "border-[#f2f2f2] bg-[#fafafa]"}`}>
                     {classroom.students.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                    <div className="h-full flex flex-col items-center justify-center text-[#93939f]">
                         <Users className="w-16 h-16 mb-4 opacity-20" />
-                        <h3 className="text-xl font-medium text-slate-600">{t("emptyClassTitle")}</h3>
-                        <p className="mb-6">{t("emptyClassDesc")}</p>
+                        <h3 className="text-xl font-medium text-[#212121]">{t("emptyClassTitle")}</h3>
+                        <p className="mb-6 text-[#93939f]">{t("emptyClassDesc")}</p>
                         <AddStudentDialog
                             classId={classroom.id}
                             theme={classroom.theme || ''}
@@ -327,7 +315,7 @@ export function ClassroomDashboard({
                 )}
                 </div>
             ) : viewMode === "negamon" ? (
-                <div className="min-h-0 flex-1 w-full animate-in slide-in-from-bottom-2 rounded-xl border border-dashed border-violet-100 bg-violet-50/20 p-4 sm:p-6">
+                <div className="min-h-0 flex-1 w-full animate-in slide-in-from-bottom-2 rounded-[22px] border border-[#f2f2f2] bg-[#fafafa] p-4 sm:p-6">
                     <NegamonClassroomOverview
                         classroomId={classroom.id}
                         students={classroom.students as never}
@@ -384,6 +372,7 @@ export function ClassroomDashboard({
 
             <AddAssignmentDialog 
                 classId={classroom.id}
+                theme={classroom.theme || ""}
                 classroomQuizReviewMode={classroom.quizReviewMode}
                 open={showAddAssignment}
                 onOpenChange={setShowAddAssignment}

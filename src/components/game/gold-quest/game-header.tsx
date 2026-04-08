@@ -1,6 +1,7 @@
 import { GoldQuestPlayer } from "@/lib/types/game"
 import { useEffect, useState } from "react"
 import { Clock, Goal } from "lucide-react"
+import { useLanguage } from "@/components/providers/language-provider"
 
 type Props = {
     player: GoldQuestPlayer
@@ -14,6 +15,7 @@ function getTimeRemaining(endTime: number | null) {
 }
 
 export function GameHeader({ player, endTime, goldGoal }: Props) {
+    const { t } = useLanguage()
     const [timeLeft, setTimeLeft] = useState(() => getTimeRemaining(endTime))
 
     useEffect(() => {
@@ -39,7 +41,7 @@ export function GameHeader({ player, endTime, goldGoal }: Props) {
         <div className="bg-slate-800 p-4 shadow-md z-10 flex justify-between items-center text-white border-b-4 border-slate-700 w-full relative">
             {/* Timer - Centered potentially, or layout adjusted */}
             <div className="flex flex-col items-start w-24">
-                <span className="text-xs font-bold text-slate-400 uppercase">Rank</span>
+                <span className="text-xs font-bold text-slate-400 uppercase">{t("gameHeaderRank")}</span>
                 <span className="text-2xl font-black text-white leading-none">
                     #{player.score || "-"}
                 </span>
@@ -58,7 +60,7 @@ export function GameHeader({ player, endTime, goldGoal }: Props) {
                 <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center w-1/3 max-w-[200px]">
                     <div className="flex items-center gap-2 mb-1">
                         <Goal className="w-4 h-4 text-amber-400" />
-                        <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Goal: {goldGoal.toLocaleString()}</span>
+                        <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">{t("gameHeaderGoal", { value: goldGoal.toLocaleString() })}</span>
                     </div>
                     <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
                         <div

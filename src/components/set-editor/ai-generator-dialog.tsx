@@ -10,6 +10,15 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useRef } from "react"
+import { getLocalizedErrorMessageFromResponse, tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages"
+import type { AppErrorCode } from "@/lib/api-error"
+
+const AI_TOOL_ERROR_KEYS: Partial<Record<AppErrorCode, string>> = {
+    AUTH_REQUIRED: "aiToolErrAuthRequired",
+    FORBIDDEN: "aiToolErrForbidden",
+    INVALID_PAYLOAD: "aiToolErrInvalidPayload",
+    NO_FILE: "aiToolErrNoFile",
+}
 
 interface AIGeneratorDialogProps {
     open: boolean
@@ -32,7 +41,7 @@ export type GeneratedQuestion = {
 }
 
 export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorDialogProps) {
-    useLanguage()
+    const { t, language } = useLanguage()
     const [step, setStep] = useState<Step>("INPUT")
     const [inputType, setInputType] = useState<"TEXT" | "FILE">("TEXT")
     const [content, setContent] = useState("")
@@ -45,10 +54,12 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [fileName, setFileName] = useState<string | null>(null)
     const [isParsing, setIsParsing] = useState(false)
+    const [error, setError] = useState<string | null>(null)
 
     const handleGenerate = async () => {
         if (!content.trim() && !pdfData) return
         
+        setError(null)
         setLoading(true)
         setStep("GENERATING")
         setProgress(10)
@@ -65,18 +76,26 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                 body: JSON.stringify({ content, count, difficulty, pdfData, fileName })
             })
 
-            const data = await res.json()
-            
             if (res.ok) {
+                const data = await res.json()
                 setGeneratedQuestions(data)
                 setStep("PREVIEW")
                 setProgress(100)
             } else {
-                throw new Error(data.message || "Failed to generate")
+                const message = await getLocalizedErrorMessageFromResponse(
+                    res,
+                    "aiGenerateFailFallback",
+                    t,
+                    language,
+                    { overrideTranslationKeys: AI_TOOL_ERROR_KEYS }
+                )
+                throw new Error(message)
             }
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการสร้างคำถามด้วย AI"
-            alert(message)
+            const raw = error instanceof Error ? error.message : null
+            const net = tryLocalizeFetchNetworkFailureMessage(raw, t)
+            const message = net ?? (error instanceof Error ? error.message : t("aiGenerateFailFallback"))
+            setError(message)
             setStep("INPUT")
         } finally {
             clearInterval(interval)
@@ -90,6 +109,7 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
 
         setFileName(file.name)
         setIsParsing(true)
+        setError(null)
         
         try {
             const formData = new FormData()
@@ -107,10 +127,20 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                     setPdfData(data.pdfData)
                 }
             } else {
-                throw new Error("Failed to parse file")
+                const message = await getLocalizedErrorMessageFromResponse(
+                    res,
+                    "aiParseFileFailFallback",
+                    t,
+                    language,
+                    { overrideTranslationKeys: AI_TOOL_ERROR_KEYS }
+                )
+                throw new Error(message)
             }
-        } catch {
-            alert("ไม่สามารถอ่านหรือแปลงไฟล์ได้ โปรดลองใหม่")
+        } catch (error: unknown) {
+            const raw = error instanceof Error ? error.message : null
+            const net = tryLocalizeFetchNetworkFailureMessage(raw, t)
+            const message = net ?? (error instanceof Error ? error.message : t("aiParseFileFailFallback"))
+            setError(message)
             setFileName(null)
             setPdfData(null)
         } finally {
@@ -122,6 +152,7 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
         setFileName(null)
         setContent("")
         setPdfData(null)
+        setError(null)
     }
 
     const handleImportAll = () => {
@@ -150,12 +181,8 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center mb-4 shadow-lg shadow-purple-200">
                                     <Sparkles className="w-6 h-6 text-white" />
                                 </div>
-                                <DialogTitle className="text-3xl font-black text-slate-800">
-                                    สร้างคำถามด้วย AI
-                                </DialogTitle>
-                                <DialogDescription className="text-slate-500 font-medium">
-                                    วางข้อความบทเรียน หรืออัปโหลดไฟล์ แล้วให้ Gemini AI สร้างคำถามปรนัย พร้อมตัวเลือกและเฉลยโดยอัตโนมัติ
-                                </DialogDescription>
+                                <DialogTitle className="text-3xl font-black text-slate-800">{t("aiGenDialogTitle")}</DialogTitle>
+                                <DialogDescription className="text-slate-500 font-medium">{t("aiGenDialogDesc")}</DialogDescription>
                             </DialogHeader>
 
                             <div className="grid grid-cols-2 gap-4 my-8">
@@ -164,18 +191,23 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                                     className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${inputType === "TEXT" ? "bg-white border-purple-600 shadow-xl shadow-purple-50" : "bg-slate-100 border-transparent hover:bg-white"}`}
                                 >
                                     <Type className={`w-8 h-8 ${inputType === "TEXT" ? "text-purple-600" : "text-slate-400"}`} />
-                                    <span className="text-sm font-black text-slate-700">พิมพ์ข้อความ</span>
+                                    <span className="text-sm font-black text-slate-700">{t("aiGenInputTypeText")}</span>
                                 </button>
                                 <button
                                     onClick={() => setInputType("FILE")}
                                     className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${inputType === "FILE" ? "bg-white border-blue-500 shadow-xl shadow-blue-50" : "bg-slate-100 border-transparent hover:bg-white"}`}
                                 >
                                     <FileText className={`w-8 h-8 ${inputType === "FILE" ? "text-blue-500" : "text-slate-400"}`} />
-                                    <span className="text-sm font-black text-slate-700">อัปโหลดไฟล์</span>
+                                    <span className="text-sm font-black text-slate-700">{t("aiGenInputTypeFile")}</span>
                                 </button>
                             </div>
 
                             <div className="space-y-4 flex-1 overflow-auto px-1">
+                                {error ? (
+                                    <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                                        {error}
+                                    </div>
+                                ) : null}
                                 {inputType === "FILE" ? (
                                     <div 
                                         onClick={() => fileInputRef.current?.click()}
@@ -192,7 +224,7 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                                         {isParsing ? (
                                             <div className="flex flex-col items-center">
                                                 <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-                                                <p className="text-lg font-bold text-emerald-700">กำลังอ่านและแปลงไฟล์...</p>
+                                                <p className="text-lg font-bold text-emerald-700">{t("aiGenParsingFile")}</p>
                                             </div>
                                         ) : fileName ? (
                                             <div className="flex flex-col items-center">
@@ -204,20 +236,20 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                                                     onClick={(e) => { e.stopPropagation(); clearFile(); }}
                                                     className="mt-2 text-xs font-black text-emerald-600 uppercase tracking-widest hover:underline"
                                                 >
-                                                    ลบไฟล์
+                                                    {t("aiGenRemoveFile")}
                                                 </button>
                                             </div>
                                         ) : (
                                             <>
                                                 <Upload className="w-10 h-10 text-slate-300 mb-4" />
-                                                <p className="text-lg font-bold text-slate-600">ลากไฟล์มาวางหรือคลิกเพื่ออัปโหลด (PDF/TXT)</p>
-                                                <p className="text-sm text-slate-400 font-medium mt-1">AI จะอ่านข้อความจากไฟล์แล้วสร้างคำถามให้</p>
+                                                <p className="text-lg font-bold text-slate-600">{t("aiGenDropzoneTitle")}</p>
+                                                <p className="text-sm text-slate-400 font-medium mt-1">{t("aiGenDropzoneHint")}</p>
                                             </>
                                         )}
                                     </div>
                                 ) : (
                                     <Textarea
-                                        placeholder="วางเนื้อหาบทเรียน บทความ หรือสรุปที่ต้องการให้แปลงเป็นคำถามได้ที่นี่..."
+                                        placeholder={t("aiGenContentPlaceholder")}
                                         value={content}
                                         onChange={(e) => setContent(e.target.value)}
                                         className="min-h-[200px] rounded-2xl border-slate-200 focus:ring-purple-500 text-lg"
@@ -226,7 +258,7 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="flex flex-col gap-2 bg-white p-4 rounded-2xl border border-slate-100">
-                                        <span className="font-bold text-slate-600 text-sm">จำนวนคำถาม</span>
+                                        <span className="font-bold text-slate-600 text-sm">{t("aiGenQuestionCount")}</span>
                                         <div className="flex gap-2">
                                             {[5, 10, 15, 20].map(n => (
                                                 <button
@@ -241,19 +273,19 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                                     </div>
 
                                     <div className="flex flex-col gap-2 bg-white p-4 rounded-2xl border border-slate-100">
-                                        <span className="font-bold text-slate-600 text-sm">ระดับความยาก</span>
+                                        <span className="font-bold text-slate-600 text-sm">{t("aiGenDifficulty")}</span>
                                         <div className="flex gap-2">
                                             {([
-                                                { label: "ง่าย", value: "EASY", color: "text-emerald-500", bg: "bg-emerald-50", active: "bg-emerald-500" },
-                                                { label: "ปานกลาง", value: "MEDIUM", color: "text-amber-500", bg: "bg-amber-50", active: "bg-amber-500" },
-                                                { label: "ยาก", value: "HARD", color: "text-red-500", bg: "bg-red-50", active: "bg-red-500" }
-                                              ] satisfies { label: string; value: "EASY" | "MEDIUM" | "HARD"; color: string; bg: string; active: string }[]).map(d => (
+                                                { labelKey: "aiGenDiffEasy", value: "EASY" as const, color: "text-emerald-500", bg: "bg-emerald-50", active: "bg-emerald-500" },
+                                                { labelKey: "aiGenDiffMedium", value: "MEDIUM" as const, color: "text-amber-500", bg: "bg-amber-50", active: "bg-amber-500" },
+                                                { labelKey: "aiGenDiffHard", value: "HARD" as const, color: "text-red-500", bg: "bg-red-50", active: "bg-red-500" },
+                                              ] as const).map((d) => (
                                                 <button
                                                     key={d.value}
                                                     onClick={() => setDifficulty(d.value)}
                                                     className={`flex-1 h-10 rounded-xl font-black text-xs transition-all ${difficulty === d.value ? `${d.active} text-white shadow-lg` : `${d.bg} ${d.color} hover:opacity-80`}`}
                                                 >
-                                                    {d.label}
+                                                    {t(d.labelKey)}
                                                 </button>
                                             ))}
                                         </div>
@@ -268,7 +300,7 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                                     className="w-full h-14 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-lg font-black shadow-xl"
                                 >
                                     {loading ? <Loader2 className="animate-spin mr-2" /> : <Wand2 className="mr-2" />}
-                                    สร้างคำถามด้วย AI!
+                                    {t("aiGenSubmitButton")}
                                 </Button>
                             </DialogFooter>
                         </motion.div>
@@ -292,13 +324,15 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                                 </div>
                             </div>
                             <div className="space-y-4">
-                                <DialogTitle className="sr-only">กำลังสร้างคำถามด้วย AI</DialogTitle>
-                                <h3 className="text-2xl font-black text-slate-800">Gemini กำลังสร้างคำถาม...</h3>
-                                <p className="text-slate-500 font-medium italic">&quot;กำลังวิเคราะห์เนื้อหาและจัดรูปแบบคำถามให้เหมาะกับระดับความยากที่คุณเลือก&quot;</p>
+                                <DialogTitle className="sr-only">{t("aiGenGeneratingSrTitle")}</DialogTitle>
+                                <h3 className="text-2xl font-black text-slate-800">{t("aiGenGeneratingTitle")}</h3>
+                                <p className="text-slate-500 font-medium italic">{t("aiGenGeneratingSubtitle")}</p>
                             </div>
                             <div className="w-full max-w-sm space-y-2">
                                 <Progress value={progress} className="h-2 bg-slate-100 rounded-full" />
-                                <p className="text-xs font-black text-slate-400 tracking-widest uppercase">{Math.round(progress)}% COMPLETE</p>
+                                <p className="text-xs font-black text-slate-400 tracking-widest uppercase">
+                                    {t("aiGenProgressLabel", { pct: Math.round(progress) })}
+                                </p>
                             </div>
                         </motion.div>
                     )}
@@ -312,16 +346,18 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                         >
                             <div className="p-8 border-b bg-white flex items-center justify-between shrink-0">
                                 <div>
-                                    <DialogTitle className="text-3xl font-black text-slate-800">ตรวจสอบคำถามที่สร้างได้ ({generatedQuestions.length} ข้อ)</DialogTitle>
-                                    <p className="text-slate-500 font-medium">แก้ไขข้อความหรือตัวเลือกก่อนนำเข้า คลิกไอคอน ✓ เพื่อกำหนดข้อที่ถูกต้อง</p>
+                                    <DialogTitle className="text-3xl font-black text-slate-800">
+                                        {t("aiGenPreviewTitle", { count: generatedQuestions.length })}
+                                    </DialogTitle>
+                                    <p className="text-slate-500 font-medium">{t("aiGenPreviewHint")}</p>
                                 </div>
                                 <div className="flex gap-2">
                                     <Button variant="outline" onClick={() => setStep("INPUT")} className="h-12 rounded-xl font-bold border-2">
-                                        กลับไปแก้ไข
+                                        {t("aiGenBackEdit")}
                                     </Button>
                                     <Button onClick={handleImportAll} className="h-12 px-8 rounded-xl bg-teal-500 hover:bg-teal-600 text-white font-black shadow-lg">
                                         <CheckCircle2 className="mr-2 w-5 h-5" />
-                                        นำเข้าทั้งหมด
+                                        {t("aiGenImportAll")}
                                     </Button>
                                 </div>
                             </div>
@@ -351,7 +387,7 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                                                     {i + 1}
                                                 </div>
                                                 <div className="flex-1 space-y-2">
-                                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest">คำถาม</label>
+                                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest">{t("aiGenFieldQuestion")}</label>
                                                     <Textarea 
                                                         value={q.question}
                                                         onChange={(e) => {
@@ -369,8 +405,8 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                                                     <div key={idx} className="space-y-2">
                                                         <div className="flex items-center justify-between px-1">
                                                             <label className={`text-[10px] font-black uppercase tracking-tighter ${idx === q.correctAnswer ? "text-emerald-500" : "text-slate-400"}`}>
-                                                                ตัวเลือก {idx + 1}
-                                                                {idx === q.correctAnswer && " (ข้อถูก)"}
+                                                                {t("aiGenOptionLabel", { n: idx + 1 })}
+                                                                {idx === q.correctAnswer ? ` ${t("aiGenCorrectSuffix")}` : ""}
                                                             </label>
                                                         </div>
                                                         <div className="relative group/opt">
@@ -409,7 +445,7 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                                             <div className="pl-12 space-y-2">
                                                 <label className="text-xs font-black text-amber-600 uppercase tracking-widest flex items-center gap-2">
                                                     <span className="w-5 h-5 rounded-lg bg-amber-100 flex items-center justify-center text-xs">💡</span>
-                                                    คำอธิบาย (ไม่บังคับ)
+                                                    {t("aiGenExplanationOptional")}
                                                 </label>
                                                 <Textarea 
                                                     value={q.explanation || ""}
@@ -429,10 +465,15 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                                         onClick={() => {
                                             setGeneratedQuestions([...generatedQuestions, {
                                                 id: crypto.randomUUID(),
-                                                question: "พิมพ์คำถามใหม่ที่นี่...",
+                                                question: t("aiGenNewQuestionPlaceholder"),
                                                 image: null,
                                                 timeLimit: 20,
-                                                options: ["ตัวเลือก 1", "ตัวเลือก 2", "ตัวเลือก 3", "ตัวเลือก 4"],
+                                                options: [
+                                                    t("aiGenDefaultOption", { n: 1 }),
+                                                    t("aiGenDefaultOption", { n: 2 }),
+                                                    t("aiGenDefaultOption", { n: 3 }),
+                                                    t("aiGenDefaultOption", { n: 4 }),
+                                                ],
                                                 optionTypes: ["TEXT", "TEXT", "TEXT", "TEXT"],
                                                 questionType: "MULTIPLE_CHOICE",
                                                 correctAnswer: 0,
@@ -441,7 +482,7 @@ export function AIGeneratorDialog({ open, onOpenChange, onImport }: AIGeneratorD
                                         }}
                                         className="w-full h-20 border-2 border-dashed border-slate-200 rounded-[2rem] text-slate-400 hover:text-purple-600 hover:border-purple-200 hover:bg-purple-50 transition-all font-black text-lg"
                                     >
-                                        + เพิ่มคำถามเปล่า 1 ข้อ
+                                        {t("aiGenAddBlankQuestion")}
                                     </Button>
                                 </div>
                             </ScrollArea>

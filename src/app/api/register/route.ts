@@ -1,6 +1,13 @@
 import { db } from "@/lib/db"
+import { createAppErrorResponse } from "@/lib/api-error"
 import { NextResponse } from "next/server"
 import { ZodError, z } from "zod"
+import {
+    consumeRateLimitWithStore,
+    createRateLimitResponse,
+    getRequestClientIdentifier,
+} from "@/lib/security/rate-limit"
+import { logAuditEvent } from "@/lib/security/audit-log"
 
 const registerSchema = z.object({
     name: z.string().min(2),
@@ -12,9 +19,44 @@ const registerSchema = z.object({
 
 const PUBLIC_REGISTRATION_ROLE = "STUDENT" as const
 
+function maskEmail(email: string) {
+    const [localPart = "", domain = ""] = email.split("@")
+    const visibleLocal = localPart.slice(0, 2)
+    const maskedLocal = `${visibleLocal}${"*".repeat(Math.max(0, localPart.length - visibleLocal.length))}`
+    return domain ? `${maskedLocal}@${domain}` : maskedLocal
+}
+
+function maskIdentifier(value: string) {
+    const trimmed = value.trim()
+    if (!trimmed) return ""
+    const visiblePrefix = trimmed.slice(0, 2)
+    const visibleSuffix = trimmed.length > 4 ? trimmed.slice(-2) : ""
+    const maskedMiddle = "*".repeat(Math.max(0, trimmed.length - visiblePrefix.length - visibleSuffix.length))
+    return `${visiblePrefix}${maskedMiddle}${visibleSuffix}`
+}
+
 export async function POST(req: Request) {
     let step = "init";
     try {
+        const rateLimit = await consumeRateLimitWithStore({
+            bucket: "register:post",
+            key: getRequestClientIdentifier(req),
+            limit: 10,
+            windowMs: 60_000,
+        })
+
+        if (!rateLimit.allowed) {
+            logAuditEvent({
+                action: "auth.register.denied",
+                category: "auth",
+                status: "rejected",
+                reason: "rate_limited",
+                targetType: "register",
+                metadata: { client: getRequestClientIdentifier(req) },
+            })
+            return createRateLimitResponse(rateLimit.retryAfterSeconds)
+        }
+
         step = "parse_body";
         const body = await req.json()
         const { name, username, email, password, school } = registerSchema.parse(body)
@@ -22,12 +64,28 @@ export async function POST(req: Request) {
         step = "check_uniqueness";
         const existingEmail = await db.user.findUnique({ where: { email } })
         if (existingEmail) {
-            return new NextResponse("Email already exists", { status: 400 })
+            logAuditEvent({
+                action: "auth.register.denied",
+                category: "auth",
+                status: "rejected",
+                reason: "email_exists",
+                targetType: "register",
+                metadata: { emailMasked: maskEmail(email) },
+            })
+            return createAppErrorResponse("INVALID_PAYLOAD", "Email already exists", 400)
         }
 
         const existingUsername = await db.user.findUnique({ where: { username } })
         if (existingUsername) {
-            return new NextResponse("Username already taken", { status: 400 })
+            logAuditEvent({
+                action: "auth.register.denied",
+                category: "auth",
+                status: "rejected",
+                reason: "username_taken",
+                targetType: "register",
+                metadata: { usernameMasked: maskIdentifier(username) },
+            })
+            return createAppErrorResponse("INVALID_PAYLOAD", "Username already taken", 400)
         }
 
         step = "hash_password";
@@ -47,6 +105,16 @@ export async function POST(req: Request) {
             },
         })
 
+        logAuditEvent({
+            actorUserId: user.id,
+            action: "auth.register.succeeded",
+            category: "auth",
+            status: "success",
+            targetType: "user",
+            targetId: user.id,
+            metadata: { role: user.role },
+        })
+
         return NextResponse.json({
             user: { name: user.name, email: user.email, role: user.role }
         })
@@ -55,10 +123,26 @@ export async function POST(req: Request) {
 
         if (error instanceof ZodError) {
             const errors = error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join(', ')
-            return new NextResponse(`Invalid data: ${errors}`, { status: 400 })
+            logAuditEvent({
+                action: "auth.register.denied",
+                category: "auth",
+                status: "rejected",
+                reason: "invalid_payload",
+                targetType: "register",
+                metadata: { step, errors },
+            })
+            return createAppErrorResponse("INVALID_PAYLOAD", `Invalid data: ${errors}`, 400)
         }
 
         const message = error instanceof Error ? error.message : "Unknown"
-        return new NextResponse(`Internal Error (${step}): ${message}`, { status: 500 })
+        logAuditEvent({
+            action: "auth.register.failed",
+            category: "auth",
+            status: "error",
+            reason: "internal_error",
+            targetType: "register",
+            metadata: { step, message },
+        })
+        return createAppErrorResponse("INTERNAL_ERROR", "Internal error", 500)
     }
 }

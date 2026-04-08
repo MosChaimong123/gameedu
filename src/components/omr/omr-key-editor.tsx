@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { useLanguage } from "@/components/providers/language-provider"
 
 interface OMRKeyEditorProps {
     questionCount: number
@@ -9,6 +10,7 @@ interface OMRKeyEditorProps {
 }
 
 export function OMRKeyEditor({ questionCount, answerKey, onKeyChange }: OMRKeyEditorProps) {
+    const { t } = useLanguage()
     const handleSetAnswer = (qNum: string, answer: string) => {
         const newKey = { ...answerKey, [qNum]: answer }
         onKeyChange(newKey)
@@ -36,7 +38,7 @@ export function OMRKeyEditor({ questionCount, answerKey, onKeyChange }: OMRKeyEd
                                 className="flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-slate-100 hover:border-purple-200 transition-all hover:shadow-md"
                             >
                                 <div className="flex flex-col min-w-10">
-                                    <span className="font-black text-slate-300 text-[10px] uppercase tracking-tighter leading-none mb-1">Q-Num</span>
+                                    <span className="font-black text-slate-300 text-[10px] uppercase tracking-tighter leading-none mb-1">{t("omrQuestionNumberShort")}</span>
                                     <span className="font-black text-slate-800 text-lg leading-none">#{q}</span>
                                 </div>
                                 <div className="flex gap-1">

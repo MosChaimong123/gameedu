@@ -3,17 +3,32 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { GameSettings } from "@/lib/types/game"
+import {
+    DEFAULT_NEGAMON_BATTLE_TUNING,
+    type GameSettings,
+    type NegamonBattleTuning,
+} from "@/lib/types/game"
 import { cn } from "@/lib/utils"
 import { Check, Clock, Coins } from "lucide-react"
 import { PageBackLink } from "@/components/ui/page-back-link"
+import { useLanguage } from "@/components/providers/language-provider"
 
 interface GoldQuestSettingsProps {
     onHost: (settings: GameSettings) => void;
     onBack: () => void;
+    /** โหมด Negamon Battle — ซ่อนเงื่อนไข Gold และอธิบายกฎจบเกม */
+    forNegamonBattle?: boolean;
+    /** จาก query `?classroomId=` — แสดงว่าหลังจบแมตช์จะซิงค์ EXP เข้าห้อง (เมื่อ Negamon เปิดในห้อง) */
+    linkedClassroomId?: string | null;
 }
 
-export function GoldQuestSettings({ onHost, onBack }: GoldQuestSettingsProps) {
+export function GoldQuestSettings({
+    onHost,
+    onBack,
+    forNegamonBattle = false,
+    linkedClassroomId = null,
+}: GoldQuestSettingsProps) {
+    const { t } = useLanguage()
     const [winCondition, setWinCondition] = useState<"TIME" | "GOLD">("TIME")
     const [timeMinutes, setTimeMinutes] = useState(7)
     const [goldGoal, setGoldGoal] = useState(1000000)
@@ -23,17 +38,24 @@ export function GoldQuestSettings({ onHost, onBack }: GoldQuestSettingsProps) {
     const [allowLateJoin, setAllowLateJoin] = useState(true)
     const [useRandomNames, setUseRandomNames] = useState(false)
     const [allowStudentAccounts, setAllowStudentAccounts] = useState(true)
+    const [negamonTune, setNegamonTune] = useState<NegamonBattleTuning>({
+        ...DEFAULT_NEGAMON_BATTLE_TUNING,
+    })
 
     const handleHost = () => {
-        onHost({
-            winCondition,
+        const base: GameSettings = {
+            winCondition: forNegamonBattle ? "TIME" : winCondition,
             timeLimitMinutes: timeMinutes,
             goldGoal,
             showInstructions,
             allowLateJoin,
             useRandomNames,
-            allowStudentAccounts
-        })
+            allowStudentAccounts,
+        }
+        if (forNegamonBattle) {
+            base.negamonBattle = { ...negamonTune }
+        }
+        onHost(base)
     }
 
     return (
@@ -43,32 +65,58 @@ export function GoldQuestSettings({ onHost, onBack }: GoldQuestSettingsProps) {
 
                 <PageBackLink
                     onClick={onBack}
-                    label="เลือกโหมดเกม"
+                    labelKey="hostBackSelectMode"
                     variant="minimal"
                     className="absolute left-3 top-3 z-10 border border-slate-200 bg-white/95 shadow-sm backdrop-blur-sm [&>span]:max-sm:sr-only"
                 />
 
                 {/* Header */}
                 <div className="bg-purple-700 w-full py-6 text-center shadow-lg mb-6">
-                    <h1 className="text-3xl font-black text-white drop-shadow-md">Gold Quest</h1>
+                    <h1 className="text-3xl font-black text-white drop-shadow-md">
+                        {forNegamonBattle ? t("hostNegamonBattleTitle") : t("hostGoldQuestTitle")}
+                    </h1>
+                    {forNegamonBattle && (
+                        <p className="mt-2 px-4 text-sm font-semibold text-white/90">{t("hostNegamonSettingsSubtitle")}</p>
+                    )}
                 </div>
 
                 <div className="px-8 pb-8 w-full flex flex-col gap-6">
 
                     {/* Host Button */}
                     <div className="w-full">
-                        <div className="text-slate-400 text-xs font-bold uppercase tracking-widest text-center mb-2">Ready to Play?</div>
+                        <div className="text-slate-400 text-xs font-bold uppercase tracking-widest text-center mb-2">
+                            {t("hostReadyToPlay")}
+                        </div>
                         <Button
                             onClick={handleHost}
                             className="w-full py-8 text-2xl font-black bg-cyan-500 hover:bg-cyan-600 text-white shadow-[0_4px_0_rgb(8,145,178)] active:translate-y-1 active:shadow-none rounded-xl transition-all"
                         >
-                            Host Now
+                            {t("hostHostNow")}
                         </Button>
                     </div>
 
                     <hr className="border-slate-200" />
 
+                    {forNegamonBattle && linkedClassroomId ? (
+                        <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/90 p-4 text-sm font-semibold leading-relaxed text-emerald-950">
+                            <p className="font-black text-emerald-900">{t("hostSyncExpTitle")}</p>
+                            <p className="mt-2 text-emerald-900/90">{t("hostSyncExpBody")}</p>
+                        </div>
+                    ) : null}
+
+                    {forNegamonBattle ? (
+                        <div className="rounded-xl border-2 border-violet-200 bg-violet-50/80 p-4 text-sm leading-relaxed text-violet-950">
+                            <p className="font-bold text-violet-900">{t("hostNegamonRulesTitle")}</p>
+                            <ul className="mt-2 list-inside list-disc space-y-1 text-violet-900/90">
+                                <li>{t("hostNegamonRule1")}</li>
+                                <li>{t("hostNegamonRule2")}</li>
+                                <li>{t("hostNegamonRule3")}</li>
+                            </ul>
+                        </div>
+                    ) : null}
+
                     {/* Win Condition Selector */}
+                    {!forNegamonBattle ? (
                     <div className="flex gap-4">
                         <div
                             onClick={() => setWinCondition("TIME")}
@@ -80,7 +128,7 @@ export function GoldQuestSettings({ onHost, onBack }: GoldQuestSettingsProps) {
                             )}
                         >
                             <Clock className="w-8 h-8" />
-                            <span className="font-bold text-lg">Time</span>
+                            <span className="font-bold text-lg">{t("hostWinConditionTime")}</span>
                         </div>
                         <div
                             onClick={() => setWinCondition("GOLD")}
@@ -92,15 +140,18 @@ export function GoldQuestSettings({ onHost, onBack }: GoldQuestSettingsProps) {
                             )}
                         >
                             <Coins className="w-8 h-8" />
-                            <span className="font-bold text-lg">Gold</span>
+                            <span className="font-bold text-lg">{t("hostWinConditionGold")}</span>
                         </div>
                     </div>
+                    ) : null}
 
                     {/* Condition Input */}
                     <div className="bg-slate-50 p-4 rounded-xl border-2 border-slate-200">
-                        {winCondition === "TIME" ? (
+                        {forNegamonBattle || winCondition === "TIME" ? (
                             <div className="flex items-center justify-between">
-                                <label className="font-bold text-slate-600">Time (minutes)</label>
+                                <label className="font-bold text-slate-600">
+                                    {forNegamonBattle ? t("hostTimeMinutesNegamon") : t("hostTimeMinutes")}
+                                </label>
                                 <Input
                                     type="number"
                                     value={timeMinutes}
@@ -111,7 +162,7 @@ export function GoldQuestSettings({ onHost, onBack }: GoldQuestSettingsProps) {
                             </div>
                         ) : (
                             <div className="flex items-center justify-between">
-                                <label className="font-bold text-slate-600">Gold Goal</label>
+                                <label className="font-bold text-slate-600">{t("hostGoldGoal")}</label>
                                 <Input
                                     type="number"
                                     value={goldGoal}
@@ -122,18 +173,162 @@ export function GoldQuestSettings({ onHost, onBack }: GoldQuestSettingsProps) {
                             </div>
                         )}
                         <p className="text-xs text-slate-400 mt-2 text-center">
-                            {winCondition === "TIME"
-                                ? "The game ends after the set time has passed."
-                                : "The game ends after a player reaches the gold goal."}
+                            {forNegamonBattle
+                                ? t("hostHintTimeEndsNegamon")
+                                : winCondition === "TIME"
+                                  ? t("hostHintTimeEnds")
+                                  : t("hostHintGoldEnds")}
                         </p>
                     </div>
 
+                    {forNegamonBattle ? (
+                        <div className="space-y-3 rounded-xl border-2 border-violet-100 bg-violet-50/60 p-4">
+                            <p className="text-sm font-bold text-violet-900">{t("hostNegamonBalanceTitle")}</p>
+                            <p className="text-xs text-violet-800/80">{t("hostNegamonBalanceBody")}</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="col-span-2 flex flex-col gap-1">
+                                    <span className="text-xs font-bold text-slate-600">{t("hostNegamonStartHp")}</span>
+                                    <Input
+                                        type="number"
+                                        min={10}
+                                        max={500}
+                                        value={negamonTune.startHp}
+                                        onChange={(e) =>
+                                            setNegamonTune((prev) => ({
+                                                ...prev,
+                                                startHp: Number(e.target.value),
+                                            }))
+                                        }
+                                        className="font-bold"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-xs font-bold text-slate-600">{t("hostNegamonRoundSeconds")}</span>
+                                    <Input
+                                        type="number"
+                                        min={5}
+                                        max={120}
+                                        value={negamonTune.roundSeconds}
+                                        onChange={(e) =>
+                                            setNegamonTune((prev) => ({
+                                                ...prev,
+                                                roundSeconds: Number(e.target.value),
+                                            }))
+                                        }
+                                        className="font-bold"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-xs font-bold text-slate-600">{t("hostNegamonBetweenSeconds")}</span>
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        max={30}
+                                        value={negamonTune.betweenSeconds}
+                                        onChange={(e) =>
+                                            setNegamonTune((prev) => ({
+                                                ...prev,
+                                                betweenSeconds: Number(e.target.value),
+                                            }))
+                                        }
+                                        className="font-bold"
+                                    />
+                                </div>
+                                <div className="col-span-2 flex flex-col gap-1">
+                                    <span className="text-xs font-bold text-slate-600">{t("hostNegamonFastAnswerWindow")}</span>
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        max={30}
+                                        value={negamonTune.fastAnswerSeconds}
+                                        onChange={(e) =>
+                                            setNegamonTune((prev) => ({
+                                                ...prev,
+                                                fastAnswerSeconds: Number(e.target.value),
+                                            }))
+                                        }
+                                        className="font-bold"
+                                    />
+                                </div>
+                            </div>
+                            <p className="pt-1 text-xs font-bold text-slate-500">{t("hostNegamonDamageAdvanced")}</p>
+                            <div className="grid grid-cols-3 gap-2">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] font-bold text-slate-500">{t("hostStatPower")}</span>
+                                    <Input
+                                        type="number"
+                                        min={5}
+                                        max={200}
+                                        value={negamonTune.movePower}
+                                        onChange={(e) =>
+                                            setNegamonTune((prev) => ({
+                                                ...prev,
+                                                movePower: Number(e.target.value),
+                                            }))
+                                        }
+                                        className="text-center text-sm font-bold"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] font-bold text-slate-500">{t("hostStatAtk")}</span>
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        max={200}
+                                        value={negamonTune.attackerAtk}
+                                        onChange={(e) =>
+                                            setNegamonTune((prev) => ({
+                                                ...prev,
+                                                attackerAtk: Number(e.target.value),
+                                            }))
+                                        }
+                                        className="text-center text-sm font-bold"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] font-bold text-slate-500">{t("hostStatDef")}</span>
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        max={200}
+                                        value={negamonTune.defenderDef}
+                                        onChange={(e) =>
+                                            setNegamonTune((prev) => ({
+                                                ...prev,
+                                                defenderDef: Number(e.target.value),
+                                            }))
+                                        }
+                                        className="text-center text-sm font-bold"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    ) : null}
+
                     {/* Toggles List */}
                     <div className="space-y-3">
-                        <ToggleItem label="Show Instructions" checked={showInstructions} onChange={setShowInstructions} />
-                        <ToggleItem label="Allow Late Joining" checked={allowLateJoin} onChange={setAllowLateJoin} />
-                        <ToggleItem label="Use Random Names" checked={useRandomNames} onChange={setUseRandomNames} />
-                        <ToggleItem label="Allow Student Accounts" checked={allowStudentAccounts} onChange={setAllowStudentAccounts} description="Disabling limits account creation." />
+                        <ToggleItem
+                            label={t("hostToggleShowInstructions")}
+                            checked={showInstructions}
+                            onChange={setShowInstructions}
+                        />
+                        <ToggleItem
+                            label={t("hostToggleLateJoin")}
+                            checked={allowLateJoin}
+                            onChange={setAllowLateJoin}
+                            description={forNegamonBattle ? t("hostNegamonLateJoinHint") : undefined}
+                        />
+                        <ToggleItem
+                            label={t("hostToggleRandomNames")}
+                            checked={useRandomNames}
+                            onChange={setUseRandomNames}
+                        />
+                        <ToggleItem
+                            label={t("hostToggleStudentAccounts")}
+                            checked={allowStudentAccounts}
+                            onChange={setAllowStudentAccounts}
+                            description={t("hostToggleStudentAccountsDesc")}
+                        />
                     </div>
 
                 </div>

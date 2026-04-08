@@ -7,7 +7,7 @@ import { formatPointHistoryReason } from "@/lib/point-history-reason";
 import type {
     HistoryRecord,
     StudentDashboardTranslateFn,
-} from "./StudentDashboardClient";
+} from "@/lib/services/student-dashboard/student-dashboard.types";
 
 interface StudentDashboardHistoryTabProps {
     t: StudentDashboardTranslateFn;

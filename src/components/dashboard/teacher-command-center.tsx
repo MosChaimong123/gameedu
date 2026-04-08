@@ -17,9 +17,9 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { Button } from "@/components/ui/button";
 import type { TeacherOverviewPayload } from "@/lib/services/teacher/get-teacher-overview";
 import {
+    buildAssignmentClassroomHref,
     buildAttendanceTabHref,
     buildClassroomAssignmentsHref,
-    buildAssignmentClassroomHref,
 } from "./assignment-command-center.helpers";
 
 function StatChip({
@@ -46,7 +46,9 @@ function StatChip({
         <div
             className={`flex items-center gap-3 rounded-2xl border bg-gradient-to-br px-4 py-3 shadow-sm ${ring}`}
         >
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-md ${iconBg}`}>
+            <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-md ${iconBg}`}
+            >
                 <Icon className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -156,7 +158,9 @@ export function TeacherCommandCenter() {
         >
             <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                    <h2 className="text-xl font-black tracking-tight text-slate-900">{t("teacherCommandCenterTitle")}</h2>
+                    <h2 className="text-xl font-black tracking-tight text-slate-900">
+                        {t("teacherCommandCenterTitle")}
+                    </h2>
                     <p className="mt-1 text-sm text-slate-500">{t("teacherCommandCenterSubtitle")}</p>
                 </div>
                 <Button
@@ -218,13 +222,18 @@ export function TeacherCommandCenter() {
                                     <p className="truncate font-bold text-slate-900">{c.name}</p>
                                     <p className="text-xs text-slate-500">
                                         {t("studentsCount").replace("{count}", String(c.studentCount))}
-                                        {c.grade ? ` · ${c.grade}` : ""}
+                                        {c.grade ? ` • ${c.grade}` : ""}
                                     </p>
                                 </div>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                                 {c.missingAttendanceToday ? (
-                                    <Button asChild size="sm" variant="outline" className="h-8 border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100">
+                                    <Button
+                                        asChild
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                                    >
                                         <Link href={buildAttendanceTabHref(c.id)}>
                                             {t("teacherCommandOpenAttendance")}
                                             <ArrowRight className="ml-1 h-3 w-3" />
@@ -232,7 +241,12 @@ export function TeacherCommandCenter() {
                                     </Button>
                                 ) : null}
                                 {c.missingSubmissionSlots > 0 ? (
-                                    <Button asChild size="sm" variant="outline" className="h-8 border-rose-200 bg-rose-50/80 text-rose-900 hover:bg-rose-100">
+                                    <Button
+                                        asChild
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 border-rose-200 bg-rose-50/80 text-rose-900 hover:bg-rose-100"
+                                    >
                                         <Link href={buildClassroomAssignmentsHref(c.id)}>
                                             {t("teacherCommandOpenAssignments")}
                                             <ArrowRight className="ml-1 h-3 w-3" />
@@ -269,14 +283,19 @@ export function TeacherCommandCenter() {
                                     <p className="text-xs text-slate-500">
                                         {a.classroomName}
                                         {a.deadline
-                                            ? ` · ${t("teacherCommandDue")} ${new Date(a.deadline).toLocaleDateString()}`
+                                            ? ` • ${t("teacherCommandDue")} ${new Date(
+                                                  a.deadline
+                                              ).toLocaleDateString()}`
                                             : ""}
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {a.missingSubmissions > 0 ? (
                                         <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-bold text-rose-800">
-                                            {t("teacherCommandMissingSlotsBadge").replace("{count}", String(a.missingSubmissions))}
+                                            {t("teacherCommandMissingSlotsBadge").replace(
+                                                "{count}",
+                                                String(a.missingSubmissions)
+                                            )}
                                         </span>
                                     ) : null}
                                     <Button asChild size="sm" variant="secondary" className="h-8">

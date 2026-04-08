@@ -12,9 +12,11 @@ type Props = {
         image?: string | null;
     };
     onAnswer: (index: number) => void;
+    /** ปิดการเลือกข้อ (เช่น หลังส่งคำตอบใน Negamon Battle) */
+    locked?: boolean;
 }
 
-export function QuestionCard({ question, onAnswer }: Props) {
+export function QuestionCard({ question, onAnswer, locked = false }: Props) {
     const colors = [
         "bg-red-500 border-red-700",
         "bg-blue-500 border-blue-700",
@@ -49,14 +51,17 @@ export function QuestionCard({ question, onAnswer }: Props) {
                 {question.options.map((option, index) => (
                     <motion.button
                         key={index}
+                        type="button"
+                        disabled={locked}
                         initial={{ scale: 0.8, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ delay: index * 0.1 }}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={locked ? undefined : { scale: 1.02 }}
+                        whileTap={locked ? undefined : { scale: 0.95 }}
                         className={cn(
                             "h-32 rounded-xl text-white font-bold p-4 flex flex-col items-center justify-center shadow-md border-b-4 text-center relative overflow-hidden group",
-                            colors[index % 4]
+                            colors[index % 4],
+                            locked && "opacity-50 pointer-events-none"
                         )}
                         onClick={() => onAnswer(index)}
                     >

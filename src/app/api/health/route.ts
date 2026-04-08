@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
-import { getAppEnv, resolveAuditLogSink, resolveRateLimitStore } from "@/lib/env";
+import { resolveAuditLogSink, resolveRateLimitStore } from "@/lib/env";
 
 export async function GET() {
-  const env = getAppEnv();
+  const nodeEnv =
+    process.env.NODE_ENV === "production"
+      ? "production"
+      : process.env.NODE_ENV === "test"
+        ? "test"
+        : "development";
 
   return NextResponse.json({
     ok: true,
     status: "healthy",
-    nodeEnv: env.NODE_ENV,
+    nodeEnv,
     rateLimitStore: resolveRateLimitStore(),
     auditLogSink: resolveAuditLogSink(),
+    uptimeSeconds: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
   });
 }

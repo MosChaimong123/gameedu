@@ -54,8 +54,8 @@ export function PageBackLink({
             {resolvedLabel ? (
                 <span
                     className={cn(
-                        "text-sm font-semibold tracking-tight max-sm:sr-only",
-                        variant === "inverse" ? "text-white/95" : "text-slate-700"
+                        "text-sm font-medium tracking-tight max-sm:sr-only",
+                        variant === "inverse" ? "text-white/95" : "text-[#212121]"
                     )}
                 >
                     {resolvedLabel}
@@ -68,7 +68,7 @@ export function PageBackLink({
         "group inline-flex items-center justify-center gap-2 rounded-full transition-all duration-200",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 focus-visible:ring-offset-2",
         variant === "default" &&
-            "border border-slate-200/90 bg-white/95 px-4 py-2.5 text-slate-700 shadow-sm shadow-slate-200/40 backdrop-blur-sm hover:border-indigo-200 hover:bg-gradient-to-r hover:from-white hover:to-indigo-50/90 hover:shadow-md",
+            "border border-[#d9d9dd] bg-white px-4 py-2.5 text-[#212121] shadow-none hover:border-[#1863dc] hover:text-[#1863dc]",
         variant === "inverse" &&
             "border border-white/25 bg-white/10 px-4 py-2.5 text-white shadow-lg shadow-black/15 backdrop-blur-md hover:border-white/35 hover:bg-white/18",
         variant === "minimal" &&

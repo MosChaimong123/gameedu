@@ -19,7 +19,7 @@ import { StudentHistoryModal } from "./student-history-modal";
 import { ClassroomSettingsDialog } from "./classroom-settings-dialog";
 import { NegamonSettingsDialog } from "@/components/negamon/negamon-settings";
 import { getNegamonSettings } from "@/lib/classroom-utils";
-import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
+import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 import type { DashboardTranslateFn } from "./classroom-dashboard.types";
 
 interface ClassroomDashboardOverlaysProps {
@@ -140,6 +140,7 @@ export function ClassroomDashboardOverlays({
 
             <AddAssignmentDialog
                 classId={classroom.id}
+                theme={classroom.theme || ""}
                 classroomQuizReviewMode={classroom.quizReviewMode}
                 open={showAddAssignment}
                 onOpenChange={setShowAddAssignment}

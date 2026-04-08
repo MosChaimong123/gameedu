@@ -24,7 +24,7 @@ export function StudentLoginsDialog({ students, classId, theme }: { students: St
     return (
         <Dialog>
             <DialogTrigger asChild>
-                <Button variant="secondary" className="hidden h-9 whitespace-nowrap border-0 bg-transparent font-medium text-white shadow-none transition-colors print:hidden md:flex" size="sm">
+                <Button variant="outline" className="hidden h-9 whitespace-nowrap rounded-full border-[#d9d9dd] bg-white font-medium text-[#212121] shadow-none transition-colors hover:border-[#1863dc] hover:text-[#1863dc] print:hidden md:flex" size="sm">
                     <Key className="h-4 w-4 md:mr-1.5" />
                     <span className="hidden xl:inline">{t("studentLogins")}</span>
                 </Button>

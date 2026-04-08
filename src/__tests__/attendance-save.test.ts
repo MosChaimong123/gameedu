@@ -3,7 +3,7 @@
  *
  * **Validates: Requirements P3**
  * ∀ classroom C, ∀ student s:
- *   saveAttendance(C, updates).students[s].points === C.students[s].points
+ *   saveAttendance(C, updates).students[s].behaviorPoints === C.students[s].behaviorPoints
  *   saveAttendance(C, updates).students[s].name === C.students[s].name
  */
 
@@ -12,12 +12,12 @@ import fc from "fast-check";
 
 // Pure logic extracted from src/app/api/classrooms/[id]/attendance/route.ts
 // The route does: db.student.update({ where: { id }, data: { attendance: status } })
-// It only writes the `attendance` field — points and name are never touched.
+// It only writes the `attendance` field — behaviorPoints and name are never touched.
 
 type Student = {
   id: string;
   name: string;
-  points: number;
+  behaviorPoints: number;
   attendance: string;
 };
 
@@ -29,7 +29,7 @@ type AttendanceUpdate = {
 /**
  * Simulates the attendance save logic:
  * for each update, only the `attendance` field of the matching student is changed.
- * points and name are preserved.
+ * behaviorPoints and name are preserved.
  */
 function applyAttendanceSave(
   students: Student[],
@@ -51,7 +51,7 @@ const attendanceStatusArb = fc.constantFrom("present", "absent", "late", "excuse
 const studentArb = fc.record({
   id: fc.uuid(),
   name: fc.string({ minLength: 1, maxLength: 50 }),
-  points: fc.integer({ min: 0, max: 10000 }),
+  behaviorPoints: fc.integer({ min: 0, max: 10000 }),
   attendance: attendanceStatusArb,
 });
 
@@ -60,7 +60,7 @@ describe("Attendance Save Preservation Properties", () => {
    * **Validates: Requirements P3**
    * Test 16.1 — saveAttendance must NOT change student points
    */
-  test("saveAttendance does not change student points", () => {
+  test("saveAttendance does not change student behaviorPoints", () => {
     fc.assert(
       fc.property(
         fc.array(studentArb, { minLength: 1, maxLength: 30 }),
@@ -77,10 +77,10 @@ describe("Attendance Save Preservation Properties", () => {
 
           const result = applyAttendanceSave(students, updates);
 
-          // Every student's points must be unchanged
+          // Every student's behaviorPoints must be unchanged
           students.forEach((s) => {
             const after = result.find((r) => r.id === s.id);
-            expect(after?.points).toBe(s.points);
+            expect(after?.behaviorPoints).toBe(s.behaviorPoints);
           });
         }
       )

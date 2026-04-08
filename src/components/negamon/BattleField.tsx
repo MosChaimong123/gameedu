@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 
 // ── Type chart colors for arena tinting ──────────────────────
 
@@ -78,14 +79,21 @@ function MonsterSprite({ icon, side, isAttacking, isHurt, isFainted, glowColor }
                 <div
                     className={cn(
                         "flex items-center justify-center rounded-full",
-                        isPlayer ? "w-24 h-24 text-6xl" : "w-28 h-28 text-7xl"
+                        isPlayer ? "h-24 w-24" : "h-28 w-28"
                     )}
                     style={{
                         filter: `drop-shadow(0 0 18px ${glowColor ?? "#6366f1"}88)`,
                         transform: isPlayer ? "scaleX(-1)" : undefined,
                     }}
                 >
-                    {icon}
+                    <NegamonFormIcon
+                        icon={icon}
+                        className="h-full w-full"
+                        emojiClassName={isPlayer ? "text-6xl" : "text-7xl"}
+                        width={isPlayer ? 96 : 112}
+                        height={isPlayer ? 96 : 112}
+                        imageClassName="h-full w-full max-h-[90%] max-w-[90%] object-contain"
+                    />
                 </div>
 
                 {/* Ground shadow */}

@@ -15,21 +15,21 @@ export type MonsterType =
 export type MoveCategory = "PHYSICAL" | "SPECIAL" | "STATUS" | "HEAL";
 
 export type StatusEffect =
-    | "BURN"          // เสีย 5% HP ต่อตา (3 ตา)
+    | "BURN"          // เสีย 3% HP ต่อตา (3 ตา)
     | "PARALYZE"      // 50% โอกาสข้ามตา (2 ตา)
     | "SLEEP"         // ข้ามตา (1-2 ตา)
-    | "POISON"        // เสีย 3% HP ต่อตา (ตลอดเกม)
-    | "BADLY_POISON"  // เสีย n×3% HP ต่อตา สะสมขึ้น (ตลอดเกม)
+    | "POISON"        // เสีย 1.25% HP ต่อตา (ตลอดเกม)
+    | "BADLY_POISON"  // เสีย +0.8% HP ต่อตา สะสมจนถึง 8%
     | "FREEZE"        // ข้ามตา, 20%/ตา ละลายเอง
     | "CONFUSE"       // 33% โอกาสตีตัวเอง (3 ตา)
-    | "BOOST_ATK"     // ATK +30% (2 ตา)
-    | "BOOST_DEF"     // DEF +30% (2 ตา)
-    | "BOOST_SPD"     // SPD +30% (2 ตา)
-    | "BOOST_WATER_DMG" // Water move +50% (2 ตา)
-    | "LOWER_ATK"     // ลด ATK opponent -20%
-    | "LOWER_ATK_ALL" // ลด ATK ทุกคน -20% (AoE)
-    | "LOWER_DEF"     // ลด DEF opponent -20%
-    | "HEAL_25"       // ฟื้น HP 25%
+    | "BOOST_ATK"     // ATK +25% (2 ตา)
+    | "BOOST_DEF"     // DEF +25% (2 ตา)
+    | "BOOST_SPD"     // SPD +25% (2 ตา)
+    | "BOOST_WATER_DMG" // Water move +35% (2 ตา)
+    | "LOWER_ATK"     // ลด ATK opponent -15%
+    | "LOWER_ATK_ALL" // ลด ATK ทุกคน -15% (AoE)
+    | "LOWER_DEF"     // ลด DEF opponent -15%
+    | "HEAL_25"       // ฟื้น HP 20%
     | "IGNORE_DEF";   // ไม่คิด DEF ของ opponent
 
 export type MonsterBaseStats = {
@@ -64,12 +64,12 @@ export type MonsterForm = {
 
 export type PassiveAbilityId =
     | "acid_rain"       // นาค: POISON ติดไม่หาย (-1 turns ตลอดเกม)
-    | "flame_body"      // ครุฑ: 20% โดนตี → ผู้โจมตีติด BURN
+    | "flame_body"      // ครุฑ: 10% โดนตี → ผู้โจมตีติด BURN
     | "iron_shell"      // สิงห์: รับ dmg -10% ถาวร
     | "tailwind"        // กินรี: SPD ×1.1 ตลอดเกม
-    | "rage_mode"       // ทศกัณฑ์: HP < 50% → ATK ×1.3 (ครั้งเดียว)
+    | "rage_mode"       // ทศกัณฑ์: HP < 50% → ATK ×1.25 (ครั้งเดียว)
     | "aerial_strike"   // หนุมาน: Priority move +20% dmg
-    | "static"          // เมขลา: 30% โดนตี → ผู้โจมตีติด PARALYZE
+    | "static"          // เมขลา: 15% โดนตี → ผู้โจมตีติด PARALYZE
     | "guardian_scale"; // สุพรรณมัจฉา: HP < 30% → Heal 15% ครั้งเดียว
 
 export type PassiveAbility = {

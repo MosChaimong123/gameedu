@@ -7,7 +7,7 @@ import { format, isToday, isYesterday } from "date-fns";
 import { enUS, th } from "date-fns/locale";
 import { useLanguage } from "@/components/providers/language-provider";
 import { formatPointHistoryReason } from "@/lib/point-history-reason";
-import type { HistoryRecord } from "@/components/student/StudentDashboardClient";
+import type { HistoryRecord } from "@/lib/services/student-dashboard/student-dashboard.types";
 
 interface GameHistoryTabProps {
     history: HistoryRecord[];

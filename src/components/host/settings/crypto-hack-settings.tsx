@@ -7,6 +7,7 @@ import { GameSettings } from "@/lib/types/game"
 import { cn } from "@/lib/utils"
 import { Check, Clock, Bitcoin } from "lucide-react"
 import { PageBackLink } from "@/components/ui/page-back-link"
+import { useLanguage } from "@/components/providers/language-provider"
 
 interface CryptoHackSettingsProps {
     onHost: (settings: GameSettings) => void;
@@ -14,6 +15,7 @@ interface CryptoHackSettingsProps {
 }
 
 export function CryptoHackSettings({ onHost, onBack }: CryptoHackSettingsProps) {
+    const { t } = useLanguage()
     const [winCondition, setWinCondition] = useState<"TIME" | "GOLD">("TIME") // Reuse GOLD type for now, semantics mapping GOLD -> CRYPTO
     const [timeMinutes, setTimeMinutes] = useState(7)
     const [cryptoGoal, setCryptoGoal] = useState(10000) // Lower default for crypto maybe? Or high if "satoshis"? Matches image 10M? Let's stick to 10k for now.
@@ -43,26 +45,28 @@ export function CryptoHackSettings({ onHost, onBack }: CryptoHackSettingsProps) 
 
                 <PageBackLink
                     onClick={onBack}
-                    label="เลือกโหมดเกม"
+                    labelKey="hostBackSelectMode"
                     variant="minimal"
                     className="absolute left-3 top-3 z-10 border border-slate-200 bg-white/95 shadow-sm backdrop-blur-sm [&>span]:max-sm:sr-only"
                 />
 
                 {/* Header */}
                 <div className="bg-slate-900 w-full py-6 text-center shadow-lg mb-6">
-                    <h1 className="text-3xl font-black text-green-400 drop-shadow-md">Crypto Hack</h1>
+                    <h1 className="text-3xl font-black text-green-400 drop-shadow-md">{t("hostCryptoHackTitle")}</h1>
                 </div>
 
                 <div className="px-8 pb-8 w-full flex flex-col gap-6">
 
                     {/* Host Button */}
                     <div className="w-full">
-                        <div className="text-slate-400 text-xs font-bold uppercase tracking-widest text-center mb-2">Ready to Play?</div>
+                        <div className="text-slate-400 text-xs font-bold uppercase tracking-widest text-center mb-2">
+                            {t("hostReadyToPlay")}
+                        </div>
                         <Button
                             onClick={handleHost}
                             className="w-full py-8 text-2xl font-black bg-green-500 hover:bg-green-600 text-white shadow-[0_4px_0_rgb(21,128,61)] active:translate-y-1 active:shadow-none rounded-xl transition-all"
                         >
-                            Host Now
+                            {t("hostHostNow")}
                         </Button>
                     </div>
 
@@ -80,8 +84,8 @@ export function CryptoHackSettings({ onHost, onBack }: CryptoHackSettingsProps) 
                             )}
                         >
                             <Clock className="w-8 h-8" />
-                            <span className="font-bold text-lg">Time</span>
-                            <span className="text-xs text-center opacity-80">Game ends after time</span>
+                            <span className="font-bold text-lg">{t("hostWinConditionTime")}</span>
+                            <span className="text-xs text-center opacity-80">{t("hostCryptoTimeSub")}</span>
                         </div>
                         <div
                             onClick={() => setWinCondition("GOLD")}
@@ -93,8 +97,8 @@ export function CryptoHackSettings({ onHost, onBack }: CryptoHackSettingsProps) 
                             )}
                         >
                             <Bitcoin className="w-8 h-8" />
-                            <span className="font-bold text-lg">Crypto</span>
-                            <span className="text-xs text-center opacity-80">Game ends at goal</span>
+                            <span className="font-bold text-lg">{t("hostWinConditionCrypto")}</span>
+                            <span className="text-xs text-center opacity-80">{t("hostCryptoGoalSub")}</span>
                         </div>
                     </div>
 
@@ -102,7 +106,7 @@ export function CryptoHackSettings({ onHost, onBack }: CryptoHackSettingsProps) 
                     <div className="bg-slate-50 p-4 rounded-xl border-2 border-slate-200">
                         {winCondition === "TIME" ? (
                             <div className="flex items-center justify-between">
-                                <label className="font-bold text-slate-600">Time (minutes)</label>
+                                <label className="font-bold text-slate-600">{t("hostTimeMinutes")}</label>
                                 <Input
                                     type="number"
                                     value={timeMinutes}
@@ -113,7 +117,7 @@ export function CryptoHackSettings({ onHost, onBack }: CryptoHackSettingsProps) 
                             </div>
                         ) : (
                             <div className="flex items-center justify-between">
-                                <label className="font-bold text-slate-600">Crypto Goal</label>
+                                <label className="font-bold text-slate-600">{t("hostCryptoGoal")}</label>
                                 <Input
                                     type="number"
                                     value={cryptoGoal}
@@ -127,10 +131,27 @@ export function CryptoHackSettings({ onHost, onBack }: CryptoHackSettingsProps) 
 
                     {/* Toggles List */}
                     <div className="space-y-3">
-                        <ToggleItem label="Show Instructions" checked={showInstructions} onChange={setShowInstructions} />
-                        <ToggleItem label="Allow Late Joining" checked={allowLateJoin} onChange={setAllowLateJoin} />
-                        <ToggleItem label="Use Random Names" checked={useRandomNames} onChange={setUseRandomNames} />
-                        <ToggleItem label="Allow Student Accounts" checked={allowStudentAccounts} onChange={setAllowStudentAccounts} description="Disabling limits account creation." />
+                        <ToggleItem
+                            label={t("hostToggleShowInstructions")}
+                            checked={showInstructions}
+                            onChange={setShowInstructions}
+                        />
+                        <ToggleItem
+                            label={t("hostToggleLateJoin")}
+                            checked={allowLateJoin}
+                            onChange={setAllowLateJoin}
+                        />
+                        <ToggleItem
+                            label={t("hostToggleRandomNames")}
+                            checked={useRandomNames}
+                            onChange={setUseRandomNames}
+                        />
+                        <ToggleItem
+                            label={t("hostToggleStudentAccounts")}
+                            checked={allowStudentAccounts}
+                            onChange={setAllowStudentAccounts}
+                            description={t("hostToggleStudentAccountsDesc")}
+                        />
                     </div>
 
                 </div>

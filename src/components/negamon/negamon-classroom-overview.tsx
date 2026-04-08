@@ -22,6 +22,7 @@ import {
     type NegamonTableProgressHint,
 } from "@/lib/classroom-utils";
 import { useLanguage } from "@/components/providers/language-provider";
+import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 
 function formatNegamonProgressHint(
     t: (key: string, params?: Record<string, string | number>) => string,
@@ -151,9 +152,15 @@ export function NegamonClassroomOverview({
                                     <TableCell className="align-middle">
                                         {monster ? (
                                             <div className="flex items-center gap-3">
-                                                <span className="text-2xl leading-none" aria-hidden>
-                                                    {monster.form.icon}
-                                                </span>
+                                                <NegamonFormIcon
+                                                    icon={monster.form.icon}
+                                                    label={monster.form.name}
+                                                    className="h-9 w-9 shrink-0"
+                                                    emojiClassName="text-2xl"
+                                                    width={36}
+                                                    height={36}
+                                                    imageClassName="h-full w-full"
+                                                />
                                                 <div className="min-w-0">
                                                     <p className="truncate text-sm font-black text-slate-800">
                                                         {monster.form.name}

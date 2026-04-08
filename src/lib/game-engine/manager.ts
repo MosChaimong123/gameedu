@@ -4,11 +4,13 @@ import type { Prisma } from "@prisma/client";
 import { AbstractGameEngine, type GameQuestion } from "./abstract-game";
 import { GoldQuestEngine } from "./gold-quest-engine";
 import { CryptoHackEngine } from "./crypto-hack-engine";
+import { NegamonBattleEngine } from "./negamon-battle-engine";
 import { db } from "../db";
 import type { GameSettings } from "../types/game";
 import { toPrismaJson } from "../prisma-json";
+import { syncNegamonBattleRewardsToClassroom } from "../negamon/sync-negamon-battle-rewards";
 
-type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK";
+type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE";
 
 type PersistedGameRecord = {
     pin: string;
@@ -81,6 +83,8 @@ class GameManager {
             game = new GoldQuestEngine(pin, hostId, setId, settings, questions, io);
         } else if (mode === "CRYPTO_HACK") {
             game = new CryptoHackEngine(pin, hostId, setId, settings, questions, io);
+        } else if (mode === "NEGAMON_BATTLE") {
+            game = new NegamonBattleEngine(pin, hostId, setId, settings, questions, io);
         } else {
             // CLASSIC or unknown → Gold Quest
             game = new GoldQuestEngine(pin, hostId, setId, settings, questions, io);
@@ -221,6 +225,15 @@ class GameManager {
                         parseQuestions(record.questions),
                         null as unknown as Server
                     );
+                } else if (record.gameMode === "NEGAMON_BATTLE") {
+                    game = new NegamonBattleEngine(
+                        record.pin,
+                        record.hostId,
+                        "",
+                        parseSettings(record.settings),
+                        parseQuestions(record.questions),
+                        null as unknown as Server
+                    );
                 } else {
                     // Default to Gold Quest
                     game = new GoldQuestEngine(
@@ -277,17 +290,33 @@ class GameManager {
                     console.error(`[GameManager] Error ticking game ${pin}`, e);
                 }
 
-                // 2. Check for End & Archive
+                // 2. Negamon live battle → classroom EXP (once, if host linked a classroom)
+                // ตั้ง flag ก่อน call async เพื่อป้องกัน tick ถัดไป trigger ซ้ำ (race condition)
+                if (
+                    game.status === "ENDED" &&
+                    game.gameMode === "NEGAMON_BATTLE" &&
+                    game.settings.negamonRewardClassroomId &&
+                    !game.negamonClassroomRewardsSynced
+                ) {
+                    game.negamonClassroomRewardsSynced = true;
+                    void syncNegamonBattleRewardsToClassroom(game)
+                        .catch((err) => {
+                            console.error(`[GameManager] Negamon classroom rewards failed for ${game.pin}`, err);
+                            // ไม่ reset flag — EXP อาจบันทึกบางส่วนแล้ว การ retry จะทำให้ double EXP
+                        });
+                }
+
+                // 3. Check for End & Archive
                 if (game.status === "ENDED" && !game.hasArchived) {
                     this.saveGameToHistory(game);
                 }
 
-                // 3. Cleanup Stale Games
+                // 4. Cleanup Stale Games
                 if (game.status === "ENDED" && game.endTime && (now - game.endTime > 5 * 60 * 1000)) {
                     this.removeGame(pin);
                 }
 
-                // 4. Persistence Snapshot (Every 5 seconds)
+                // 5. Persistence Snapshot (Every 5 seconds)
                 if (tickCount % 5 === 0 && game.status === "PLAYING") {
                     this.saveGame(game);
                 }

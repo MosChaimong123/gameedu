@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { th } from "date-fns/locale";
+import { enUS, th } from "date-fns/locale";
 import { 
     Heart, MessageCircle, Trash2, MoreVertical, ExternalLink, 
     BarChart3, ChevronRight, X,
@@ -16,9 +16,21 @@ import {
     DropdownMenuItem, 
     DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toggleBoardReaction, deleteBoardPost, addBoardComment, voteBoardPoll, togglePollStatus } from "@/lib/actions/board-actions";
+import { formatBoardActionErrorMessage } from "@/lib/board-action-error-messages";
 import { useToast } from "@/components/ui/use-toast";
+import { useLanguage } from "@/components/providers/language-provider";
 
 type BoardAuthor = {
     name: string | null;
@@ -93,6 +105,8 @@ const COLOR_MAP: Record<string, string> = {
 };
 
 export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }: PostCardProps) {
+    const { t, language } = useLanguage();
+    const dateLocale = language === "th" ? th : enUS;
     const [isReacting, setIsReacting] = useState(false);
     const [showComments, setShowComments] = useState(false);
     const [commentText, setCommentText] = useState("");
@@ -100,10 +114,12 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
     const [isVoting, setIsVoting] = useState(false);
     const [previewGallery, setPreviewGallery] = useState<string[] | null>(null);
     const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const { toast } = useToast();
 
     const author = post.authorStudent || post.authorUser;
-    const authorName = author?.nickname || author?.name || "ไม่ทราบชื่อ";
+    const authorName = author?.nickname || author?.name || t("boardPostUnknownAuthor");
     const authorImage = post.authorUser?.image || (post.authorStudent?.avatar ? `https://api.dicebear.com/7.x/bottts/svg?seed=${post.authorStudent.avatar}&backgroundColor=transparent` : null);
     
     const reactionCount = post.reactions.length;
@@ -125,13 +141,17 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
     };
 
     const handleDelete = async () => {
-        if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบโพสต์นี้?")) return;
+        if (isDeleting) return;
+        setIsDeleting(true);
         try {
             await deleteBoardPost(post.id);
-            toast({ title: "ลบสำเร็จ", description: "ลบโพสต์เรียบร้อยแล้ว" });
+            setIsDeleteDialogOpen(false);
+            toast({ title: t("boardPostDeleteSuccessTitle"), description: t("boardPostDeleteSuccessDesc") });
             if (onUpdate) onUpdate();
         } catch {
-            toast({ variant: "destructive", title: "ผิดพลาด", description: "ไม่สามารถลบโพสต์ได้" });
+            toast({ variant: "destructive", title: t("boardPostErrorShort"), description: t("boardPostDeleteFailDesc") });
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -148,7 +168,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
             setCommentText("");
             if (onUpdate) onUpdate();
         } catch {
-             toast({ variant: "destructive", title: "ผิดพลาด", description: "ไม่สามารถส่งคอมเมนต์ได้" });
+             toast({ variant: "destructive", title: t("boardPostErrorShort"), description: t("boardPostCommentFailDesc") });
         } finally {
             setIsCommenting(false);
         }
@@ -164,8 +184,9 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
             });
             if (onUpdate) onUpdate();
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "ไม่สามารถโหวตได้";
-            toast({ variant: "destructive", title: "ผิดพลาด", description: message });
+            const raw = error instanceof Error ? error.message : "";
+            const message = raw ? formatBoardActionErrorMessage(raw, t) : t("boardPostVoteFailDesc");
+            toast({ variant: "destructive", title: t("boardPostErrorShort"), description: message });
         } finally {
             setIsVoting(false);
         }
@@ -174,13 +195,13 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
     const handleTogglePoll = async () => {
         try {
             await togglePollStatus(post.id);
-            toast({ 
-                title: post.pollClosed ? "เปิดโหวตแล้ว" : "ปิดโหวตแล้ว", 
-                description: post.pollClosed ? "นักเรียนสามารถกลับมาโหวตได้" : "นักเรียนจะไม่สามารถโหวตเพิ่มได้" 
+            toast({
+                title: post.pollClosed ? t("boardPostPollOpenedTitle") : t("boardPostPollClosedTitle"),
+                description: post.pollClosed ? t("boardPostPollOpenedDesc") : t("boardPostPollClosedDesc"),
             });
             if (onUpdate) onUpdate();
         } catch {
-            toast({ variant: "destructive", title: "ผิดพลาด", description: "ไม่สามารถเปลี่ยนสถานะโพลได้" });
+            toast({ variant: "destructive", title: t("boardPostErrorShort"), description: t("boardPostPollToggleFail") });
         }
     };
 
@@ -242,7 +263,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                     <div>
                         <p className="text-xs font-black text-slate-800 leading-none">{authorName}</p>
                         <p className="text-[10px] text-slate-400 mt-0.5">
-                            {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true, locale: th })}
+                            {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true, locale: dateLocale })}
                         </p>
                     </div>
                 </div>
@@ -255,18 +276,18 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="text-red-500 font-bold" onClick={handleDelete}>
-                                <Trash2 className="w-4 h-4 mr-2" /> ลบโพสต์
+                            <DropdownMenuItem className="text-red-500 font-bold" onClick={() => setIsDeleteDialogOpen(true)}>
+                                <Trash2 className="w-4 h-4 mr-2" /> {t("boardPostDeletePost")}
                             </DropdownMenuItem>
                             {isTeacher && post.type === "poll" && (
                                 <DropdownMenuItem onClick={handleTogglePoll}>
                                     {post.pollClosed ? (
                                         <>
-                                            <Unlock className="w-4 h-4 mr-2" /> เปิดการโหวต
+                                            <Unlock className="w-4 h-4 mr-2" /> {t("boardPostOpenVoting")}
                                         </>
                                     ) : (
                                         <>
-                                            <Lock className="w-4 h-4 mr-2" /> ปิดการโหวต
+                                            <Lock className="w-4 h-4 mr-2" /> {t("boardPostCloseVoting")}
                                         </>
                                     )}
                                 </DropdownMenuItem>
@@ -305,7 +326,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-xs font-black text-slate-800 truncate">{post.linkUrl}</p>
-                                <p className="text-[10px] text-slate-400">คลิกเพื่อเปิดลิงก์</p>
+                                <p className="text-[10px] text-slate-400">{t("boardPostLinkOpenHint")}</p>
                             </div>
                         </div>
                     </a>
@@ -345,8 +366,8 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                                 );
                             })()}
                             <div className="flex-1 min-w-0">
-                                <p className="text-xs font-black text-slate-800 truncate">{post.fileName || "ไฟล์แนบ"}</p>
-                                <p className="text-[10px] text-slate-400">คลิกเพื่อดาวน์โหลด</p>
+                                <p className="text-xs font-black text-slate-800 truncate">{post.fileName || t("boardDefaultFileName")}</p>
+                                <p className="text-[10px] text-slate-400">{t("boardPostDownloadHint")}</p>
                             </div>
                         </div>
                     </a>
@@ -390,11 +411,11 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                         <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
                                 <BarChart3 className="w-4 h-4 text-indigo-600" />
-                                <p className="text-xs font-black text-slate-800">{post.pollQuestion || "ร่วมโหวต"}</p>
+                                <p className="text-xs font-black text-slate-800">{post.pollQuestion || t("boardPostPollDefaultQuestion")}</p>
                             </div>
                             {post.pollClosed && (
                                 <span className="bg-red-100 text-red-600 text-[9px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                                    <Lock className="w-2 h-2" /> ปิดโพลแล้ว
+                                    <Lock className="w-2 h-2" /> {t("boardPostPollClosedBadge")}
                                 </span>
                             )}
                         </div>
@@ -432,7 +453,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                                 );
                             })}
                         </div>
-                        <p className="text-[9px] text-slate-400 text-center font-bold">โหวตแล้วทั้งหมด {totalVotes} คน</p>
+                        <p className="text-[9px] text-slate-400 text-center font-bold">{t("boardPostTotalVotes", { count: totalVotes })}</p>
                     </div>
                 )}
             </div>
@@ -464,11 +485,11 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                 <div className="px-4 pb-4 space-y-3 bg-black/5 pt-3 animate-in slide-in-from-top-2">
                     <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                         {post.comments.length === 0 && (
-                            <p className="text-[10px] text-slate-400 text-center italic py-2">ยังไม่มีความคิดเห็น</p>
+                            <p className="text-[10px] text-slate-400 text-center italic py-2">{t("boardPostNoComments")}</p>
                         )}
                         {post.comments.map((comment) => {
                             const cAuthor = comment.authorStudent || comment.authorUser;
-                            const cName = cAuthor?.nickname || cAuthor?.name || "ไม่ทราบชื่อ";
+                            const cName = cAuthor?.nickname || cAuthor?.name || t("boardPostUnknownAuthor");
                             return (
                                 <div key={comment.id} className="text-xs bg-white p-2 rounded-xl shadow-sm border border-black/5">
                                     <span className="font-black text-slate-800 mr-1">{cName}:</span>
@@ -491,7 +512,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                             disabled={isCommenting || !commentText.trim()}
                             className="bg-purple-600 text-white rounded-xl px-3 py-1.5 text-[10px] font-bold disabled:opacity-50"
                         >
-                            ส่ง
+                            {t("boardPostSend")}
                         </button>
                     </form>
                 </div>
@@ -501,7 +522,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
             <Dialog open={!!previewGallery} onOpenChange={(open) => !open && setPreviewGallery(null)}>
                 <DialogContent className="max-w-4xl border-none bg-transparent shadow-none p-0 flex items-center justify-center h-auto">
                     <DialogHeader className="sr-only">
-                        <DialogTitle>Image Preview</DialogTitle>
+                        <DialogTitle>{t("boardImagePreviewSrTitle")}</DialogTitle>
                     </DialogHeader>
                     {previewGallery && (
                         <div className="relative w-full h-full flex items-center justify-center p-4">
@@ -547,6 +568,30 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                     )}
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{t("boardPostDeleteConfirmTitle")}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {t("boardPostDeleteConfirmDesc")}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>{t("cancel")}</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(event) => {
+                                event.preventDefault();
+                                void handleDelete();
+                            }}
+                            disabled={isDeleting}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            {isDeleting ? t("boardPostDeleting") : t("boardPostDeletePost")}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

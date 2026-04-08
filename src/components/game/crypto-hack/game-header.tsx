@@ -1,6 +1,7 @@
 import { CryptoHackPlayer } from "@/lib/types/game"
 import { useEffect, useState } from "react"
 import { Clock, Bitcoin } from "lucide-react"
+import { useLanguage } from "@/components/providers/language-provider"
 
 type Props = {
     player: CryptoHackPlayer
@@ -14,6 +15,7 @@ function getTimeRemaining(endTime: number | null) {
 }
 
 export function CryptoHackGameHeader({ player, endTime, cryptoGoal }: Props) {
+    const { t } = useLanguage()
     const [timeLeft, setTimeLeft] = useState(() => getTimeRemaining(endTime))
 
     useEffect(() => {
@@ -42,7 +44,7 @@ export function CryptoHackGameHeader({ player, endTime, cryptoGoal }: Props) {
         <div className="bg-black/90 backdrop-blur-md p-4 z-50 flex justify-between items-center text-green-100 border-b border-green-500/50 w-full relative font-mono shadow-[0_0_20px_rgba(34,197,94,0.1)]">
             {/* Rank */}
             <div className="flex flex-col items-start w-24">
-                <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest">Rank</span>
+                <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest">{t("gameHeaderRank")}</span>
                 <span className="text-3xl font-black text-green-400 leading-none drop-shadow-sm">
                     #{player.score || "-"}
                 </span>
@@ -61,7 +63,7 @@ export function CryptoHackGameHeader({ player, endTime, cryptoGoal }: Props) {
                 <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center w-1/3 max-w-[240px]">
                     <div className="flex items-center gap-2 mb-1">
                         <Bitcoin className="w-3 h-3 text-green-500" />
-                        <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest">Target: {cryptoGoal.toLocaleString()}</span>
+                        <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest">{t("gameHeaderTarget", { value: cryptoGoal.toLocaleString() })}</span>
                     </div>
                     <div className="w-full h-1 bg-green-900/30 overflow-hidden">
                         <div

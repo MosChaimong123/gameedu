@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   clearCachedEnvForTests,
   getAppEnv,
+  resolveAuthSecret,
   resolveAuditLogSink,
   resolveRateLimitStore,
 } from "@/lib/env";
@@ -31,5 +32,19 @@ describe("env helpers", () => {
     expect(env.DATABASE_URL).toContain("mongodb://");
     expect(env.AUTH_SECRET).toBe("secret");
     expect(env.NODE_ENV).toBe("production");
+  });
+
+  it("accepts NEXTAUTH_SECRET as a fallback for AUTH_SECRET", () => {
+    const env = getAppEnv({
+      NODE_ENV: "production",
+      DATABASE_URL: "mongodb://localhost:27017/gamedu",
+      NEXTAUTH_SECRET: "fallback-secret",
+      NEXT_PUBLIC_APP_URL: "https://example.com",
+    });
+
+    expect(env.AUTH_SECRET).toBe("fallback-secret");
+    expect(resolveAuthSecret({ NEXTAUTH_SECRET: "fallback-secret" } as NodeJS.ProcessEnv)).toBe(
+      "fallback-secret"
+    );
   });
 });

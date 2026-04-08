@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react"
 import Script from "next/script"
 import { Button } from "@/components/ui/button"
+import { useLanguage } from "@/components/providers/language-provider"
 
 export function OpenCVProvider({ children }: { children: React.ReactNode }) {
+    const { t } = useLanguage()
     const [cvStatus, setCvStatus] = useState<"loading" | "loaded" | "error">("loading")
 
     useEffect(() => {
@@ -71,7 +73,7 @@ export function OpenCVProvider({ children }: { children: React.ReactNode }) {
                     </div>
                     
                     <h2 className="text-2xl font-black mb-2">
-                        {cvStatus === "error" ? "โหลดระบบ AI ไม่สำเร็จ" : "กำลังเตรียมระบบ AI..."}
+                        {cvStatus === "error" ? t("omrCvLoadError") : t("omrCvLoading")}
                     </h2>
                     <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mb-8">
                         {cvStatus === "error" ? "Connection Timeout or CDN Error" : "Loading Computer Vision Library (Large File)"}
@@ -80,7 +82,7 @@ export function OpenCVProvider({ children }: { children: React.ReactNode }) {
                     {cvStatus === "error" && (
                         <div className="flex flex-col gap-3 w-full max-w-xs">
                             <Button variant="outline" onClick={() => window.location.reload()} className="h-14 rounded-2xl border-2 font-black text-slate-800 bg-white">
-                                ลองใหม่อีกครั้ง (Reload)
+                                {t("omrCvRetryReload")}
                             </Button>
                             <p className="text-[10px] text-slate-500 text-center font-medium uppercase tracking-widest">
                                 * OpenCV.js has a large file size (8MB+).<br/>Please check your internet connection.

@@ -26,6 +26,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
+import { cn } from "@/lib/utils";
+import {
+    getThemeAccentColor,
+    getThemeAccentRgba,
+    getThemeBgStyle,
+    getThemeHorizontalBgClass,
+} from "@/lib/classroom-utils";
+import { gamificationToolbarButtonClassName } from "./gamification-toolbar-styles";
 
 interface ClassEvent {
   id: string;
@@ -47,8 +55,9 @@ const EVENT_TYPE_DEFS = [
   { value: "CUSTOM", labelKey: "classroomEventTypeCustom", multiplier: 1 },
 ] as const;
 
-export function EventManagerButton({ classId }: { classId: string }) {
+export function EventManagerButton({ classId, theme = "" }: { classId: string; theme?: string | null }) {
   const { t, language } = useLanguage();
+  const accent = getThemeAccentColor(theme);
   const dateLocale = language === "th" ? "th-TH" : "en-US";
   const [open, setOpen] = useState(false);
   const [events, setEvents] = useState<ClassEvent[]>([]);
@@ -59,7 +68,7 @@ export function EventManagerButton({ classId }: { classId: string }) {
 
   const eventTypes = useMemo(
     () => EVENT_TYPE_DEFS.map((item) => ({ ...item, label: t(item.labelKey) })),
-    [t, language],
+    [t],
   );
 
   const [form, setForm] = useState({
@@ -161,19 +170,23 @@ export function EventManagerButton({ classId }: { classId: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="flex h-9 items-center gap-1.5 border-0 bg-purple-500/80 font-semibold text-white shadow backdrop-blur-sm hover:bg-purple-500"
-        >
-          <Zap className="h-4 w-4" />
+        <Button variant="default" size="sm" className={cn(gamificationToolbarButtonClassName, "gap-1.5")}>
+          <Zap className="h-4 w-4 shrink-0 opacity-95" />
           {t("classroomEventSpecialButton")}
         </Button>
       </DialogTrigger>
       <DialogContent className="flex max-h-[90vh] w-[95vw] flex-col overflow-y-auto rounded-3xl border-0 bg-[#F8FAFC] p-6 shadow-2xl sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-black text-slate-800">
-            <Zap className="h-5 w-5 fill-purple-400 text-purple-500" />
+          <DialogTitle className="flex items-center gap-3 font-black text-slate-800">
+            <span
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white shadow-inner",
+                getThemeHorizontalBgClass(theme)
+              )}
+              style={getThemeBgStyle(theme)}
+            >
+              <Zap className="h-5 w-5" />
+            </span>
             {t("classroomEventManageTitle")}
           </DialogTitle>
         </DialogHeader>
@@ -181,7 +194,11 @@ export function EventManagerButton({ classId }: { classId: string }) {
         <div className="space-y-5">
           <Button
             onClick={() => setShowForm((value) => !value)}
-            className="flex w-full items-center gap-2 rounded-xl bg-purple-500 text-sm font-black text-white hover:bg-purple-600"
+            className={cn(
+              "flex w-full items-center gap-2 rounded-xl border-0 text-sm font-black text-white shadow-md transition-opacity hover:opacity-90",
+              getThemeHorizontalBgClass(theme)
+            )}
+            style={getThemeBgStyle(theme)}
           >
             <Plus className="h-4 w-4" />
             {t("classroomEventCreateNew")}
@@ -190,13 +207,31 @@ export function EventManagerButton({ classId }: { classId: string }) {
           <AnimatePresence>
             {showForm && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-                <GlassCard className="space-y-4 border-purple-200/50 bg-purple-50/30 p-4">
+                <GlassCard
+                  className="space-y-4 border p-4"
+                  style={{
+                    borderColor: getThemeAccentRgba(theme, 0.28),
+                    backgroundColor: getThemeAccentRgba(theme, 0.06),
+                  }}
+                >
                   <div className="flex flex-wrap gap-2">
                     {EVENT_ICONS.map((icon) => (
                       <button
                         key={icon}
+                        type="button"
                         onClick={() => setForm((current) => ({ ...current, icon }))}
-                        className={`rounded-xl border-2 p-1.5 text-xl transition-all ${form.icon === icon ? "scale-110 border-purple-400 bg-purple-50" : "border-transparent hover:border-slate-200"}`}
+                        className={cn(
+                          "rounded-xl border-2 p-1.5 text-xl transition-all",
+                          form.icon === icon ? "scale-110" : "border-transparent hover:border-slate-200"
+                        )}
+                        style={
+                          form.icon === icon
+                            ? {
+                                borderColor: accent,
+                                backgroundColor: getThemeAccentRgba(theme, 0.12),
+                              }
+                            : undefined
+                        }
                       >
                         {icon}
                       </button>
@@ -209,8 +244,20 @@ export function EventManagerButton({ classId }: { classId: string }) {
                       {eventTypes.map((item) => (
                         <button
                           key={item.value}
+                          type="button"
                           onClick={() => handleTypeChange(item.value)}
-                          className={`rounded-xl border-2 p-2 text-xs font-black transition-all ${form.type === item.value ? "border-purple-400 bg-purple-50" : "border-slate-100 bg-white hover:border-slate-200"}`}
+                          className={cn(
+                            "rounded-xl border-2 p-2 text-xs font-black transition-all",
+                            form.type === item.value ? "" : "border-slate-100 bg-white hover:border-slate-200"
+                          )}
+                          style={
+                            form.type === item.value
+                              ? {
+                                  borderColor: accent,
+                                  backgroundColor: getThemeAccentRgba(theme, 0.1),
+                                }
+                              : undefined
+                          }
                         >
                           {item.label}
                         </button>
@@ -276,7 +323,11 @@ export function EventManagerButton({ classId }: { classId: string }) {
                     <Button
                       onClick={handleCreate}
                       disabled={saving || !form.title.trim()}
-                      className="rounded-xl bg-purple-500 text-xs font-black text-white hover:bg-purple-600"
+                      className={cn(
+                        "rounded-xl border-0 text-xs font-black text-white transition-opacity hover:opacity-90",
+                        getThemeHorizontalBgClass(theme)
+                      )}
+                      style={getThemeBgStyle(theme)}
                     >
                       {saving ? t("classroomEventCreating") : t("classroomEventCreateSubmit")}
                     </Button>
@@ -298,7 +349,10 @@ export function EventManagerButton({ classId }: { classId: string }) {
               events.map((event) => (
                 <GlassCard key={event.id} className="flex items-center justify-between gap-4 p-4">
                   <div className="flex min-w-0 items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 text-2xl">
+                    <div
+                      className="flex h-12 w-12 items-center justify-center rounded-2xl text-2xl"
+                      style={{ backgroundColor: getThemeAccentRgba(theme, 0.14) }}
+                    >
                       {event.icon}
                     </div>
                     <div className="min-w-0">
@@ -316,7 +370,13 @@ export function EventManagerButton({ classId }: { classId: string }) {
                           <Calendar className="h-3.5 w-3.5" />
                           {new Date(event.startAt).toLocaleString(dateLocale)} - {new Date(event.endAt).toLocaleString(dateLocale)}
                         </span>
-                        <span className="rounded-full bg-purple-100 px-2 py-0.5 text-purple-700">
+                        <span
+                          className="rounded-full px-2 py-0.5 font-bold"
+                          style={{
+                            backgroundColor: getThemeAccentRgba(theme, 0.16),
+                            color: accent,
+                          }}
+                        >
                           x{event.multiplier}
                         </span>
                       </div>

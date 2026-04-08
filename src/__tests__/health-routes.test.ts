@@ -2,12 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockValidateServerEnv = vi.fn();
 const mockPingOperationalDb = vi.fn();
-const mockGetAppEnv = vi.fn();
 const mockResolveRateLimitStore = vi.fn();
 const mockResolveAuditLogSink = vi.fn();
 
 vi.mock("@/lib/env", () => ({
-  getAppEnv: mockGetAppEnv,
   validateServerEnv: mockValidateServerEnv,
   resolveRateLimitStore: mockResolveRateLimitStore,
   resolveAuditLogSink: mockResolveAuditLogSink,
@@ -20,7 +18,7 @@ vi.mock("@/lib/ops/mongo-admin", () => ({
 describe("health and readiness routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetAppEnv.mockReturnValue({ NODE_ENV: "test" });
+    process.env.NODE_ENV = "test";
     mockResolveRateLimitStore.mockReturnValue("memory");
     mockResolveAuditLogSink.mockReturnValue("console");
     mockValidateServerEnv.mockReturnValue({ HEALTHCHECK_DB_TIMEOUT_MS: 1000 });
@@ -41,6 +39,28 @@ describe("health and readiness routes", () => {
         nodeEnv: "test",
         rateLimitStore: "memory",
         auditLogSink: "console",
+        uptimeSeconds: expect.any(Number),
+      })
+    );
+  });
+
+  it("keeps liveness healthy even when critical server env is missing", async () => {
+    process.env.NODE_ENV = "production";
+    mockResolveRateLimitStore.mockReturnValue("mongo");
+    mockResolveAuditLogSink.mockReturnValue("both");
+
+    const { GET } = await import("@/app/api/health/route");
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual(
+      expect.objectContaining({
+        ok: true,
+        status: "healthy",
+        nodeEnv: "production",
+        rateLimitStore: "mongo",
+        auditLogSink: "both",
       })
     );
   });

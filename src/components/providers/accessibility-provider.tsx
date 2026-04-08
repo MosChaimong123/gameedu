@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, startTransition } from "react";
 import { useSession } from "next-auth/react";
 
 import { parseUserSettings } from "@/lib/user-settings";
@@ -56,21 +56,24 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
     (session?.user as { settings?: unknown } | undefined)?.settings
   );
 
-  // Always start with server-safe defaults (null / false) so SSR and client
-  // initial render produce identical HTML. Browser state is synced in useEffect
-  // after hydration — this is the only correct fix for this hydration mismatch.
-  const initialState = getInitialAccessibilityState();
-  const [motionOverride, setMotionOverride] = useState<boolean | null>(initialState.motionOverride);
-  const [soundOverride, setSoundOverride] = useState<boolean | null>(initialState.soundOverride);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(initialState.prefersReducedMotion);
+  // SSR + first client paint must match: do not read window/localStorage in useState.
+  const [motionOverride, setMotionOverride] = useState<boolean | null>(null);
+  const [soundOverride, setSoundOverride] = useState<boolean | null>(null);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
   const reducedMotion =
     motionOverride ?? sessionSettings.accessibility?.reducedMotion ?? prefersReducedMotion;
   const reducedSound =
     soundOverride ?? sessionSettings.accessibility?.reducedSound ?? false;
 
-  // Sync browser-only values after mount (safe — runs client-side only)
+  // After hydration, apply localStorage + prefers-reduced-motion (client-only)
   useEffect(() => {
+    const next = getInitialAccessibilityState();
+    startTransition(() => {
+      setMotionOverride(next.motionOverride);
+      setSoundOverride(next.soundOverride);
+      setPrefersReducedMotion(next.prefersReducedMotion);
+    });
     hydratedRef.current = true;
   }, []);
 

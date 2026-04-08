@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { HackTask } from "@/lib/types/game";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/providers/language-provider";
 
 type Props = {
     task: HackTask;
@@ -15,6 +16,7 @@ type Card = {
 }
 
 export function MemoryTask({ onComplete }: Props) {
+    const { t } = useLanguage();
     const [cards, setCards] = useState<Card[]>(() => {
         const pairs = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6];
         for (let i = pairs.length - 1; i > 0; i--) {
@@ -89,9 +91,9 @@ export function MemoryTask({ onComplete }: Props) {
     return (
         <div className="flex flex-col items-center gap-6 w-full max-w-md select-none animate-in zoom-in duration-300">
             <h2 className="text-2xl font-black text-blue-400 uppercase tracking-widest animate-pulse">
-                DATA RECOVERY
+                {t("cryptoTaskMemoryTitle")}
             </h2>
-            <div className="text-slate-400 text-sm">Find all matching pairs</div>
+            <div className="text-slate-400 text-sm">{t("cryptoTaskMemorySubtitle")}</div>
 
             <div className="grid grid-cols-4 gap-3 w-full aspect-[4/3]">
                 {cards.map((card) => (

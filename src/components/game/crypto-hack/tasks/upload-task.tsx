@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { HackTask } from "@/lib/types/game";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/providers/language-provider";
 
 
 type Props = {
@@ -9,6 +10,7 @@ type Props = {
 }
 
 export function UploadTask({ task, onComplete }: Props) {
+    const { t } = useLanguage();
     const isUploadTask = task.type === "UPLOAD_DATA";
     const [progress, setProgress] = useState(0);
     const [isHolding, setIsHolding] = useState(false);
@@ -47,9 +49,9 @@ export function UploadTask({ task, onComplete }: Props) {
     return (
         <div className="flex flex-col items-center gap-6 w-full max-w-md select-none">
             <h2 className="text-2xl font-bold text-blue-400 uppercase tracking-widest animate-pulse">
-                Uploading Virus Patch...
+                {t("cryptoTaskUploadTitle")}
             </h2>
-            <div className="text-slate-400 text-sm">Hold the button to upload</div>
+            <div className="text-slate-400 text-sm">{t("cryptoTaskUploadSubtitle")}</div>
 
             {/* Progress Bar Container */}
             <div className="w-full h-12 bg-slate-900 rounded-full border-2 border-slate-700 overflow-hidden relative shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
@@ -85,7 +87,7 @@ export function UploadTask({ task, onComplete }: Props) {
                     {isHolding ? "⬆️" : "☁️"}
                 </div>
             </button>
-            <div className="text-xs text-slate-500 font-mono">Size: {task.payload.size} MB</div>
+            <div className="text-xs text-slate-500 font-mono">{t("cryptoTaskUploadSizeLabel", { size: task.payload.size })}</div>
         </div>
     )
 }

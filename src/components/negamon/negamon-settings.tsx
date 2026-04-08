@@ -23,6 +23,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 
 const UNASSIGNED_VALUE = "__negamon_unassigned__";
 
@@ -366,10 +367,18 @@ export function NegamonSettingsDialog({
                                                             "w-12 h-12 flex items-center justify-center shrink-0 rounded-xl border-2 transition-all",
                                                             selected ? "bg-white border-purple-200 shadow-sm" : "bg-slate-50 border-slate-100"
                                                         )}>
-                                                            <span className="text-3xl">{rankFiveForm?.icon ?? s.forms[1].icon}</span>
+                                                            <NegamonFormIcon
+                                                                icon={rankFiveForm?.icon ?? s.forms[1].icon}
+                                                                label={s.name}
+                                                                className="h-full w-full"
+                                                                emojiClassName="text-3xl"
+                                                                width={48}
+                                                                height={48}
+                                                                imageClassName="h-full w-full object-contain"
+                                                            />
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className={cn("font-black text-sm truncate uppercase tracking-tight", selected ? "text-purple-900" : "text-slate-700")}>{s.name}</p>
+                                                            <p className={cn("font-black text-sm truncate tracking-tight", selected ? "text-purple-900" : "text-slate-700")}>{s.name}</p>
                                                             <div className="flex gap-1 mt-1 overflow-x-hidden">
                                                                 <Badge className={cn("text-[8px] font-black px-1.5 py-0 border leading-tight uppercase", TYPE_COLORS[s.type])}>
                                                                     {t(`monsterType_${s.type as MonsterType}`).replace(/.*\s/, "")}
@@ -436,7 +445,14 @@ export function NegamonSettingsDialog({
                                                             isExpanded ? "bg-slate-800 text-white" : "bg-slate-50 hover:bg-slate-100 text-slate-700"
                                                         )}
                                                     >
-                                                        <span className="text-xl">{species.forms[1]?.icon ?? species.forms[0].icon}</span>
+                                                        <NegamonFormIcon
+                                                            icon={species.forms[1]?.icon ?? species.forms[0].icon}
+                                                            label={species.name}
+                                                            emojiClassName="text-xl"
+                                                            width={28}
+                                                            height={28}
+                                                            imageClassName="max-h-7 max-w-7 object-contain"
+                                                        />
                                                         <span className="flex-1 text-sm">{species.name}</span>
                                                         {speciesDisabled > 0 && (
                                                             <span className={cn(
@@ -591,7 +607,14 @@ export function NegamonSettingsDialog({
                                                                     <div className="flex items-center gap-2">
                                                                         {selectedSp ? (
                                                                             <>
-                                                                                <span className="text-lg">{selectedSp.forms[1]?.icon ?? selectedSp.forms[0].icon}</span>
+                                                                                <NegamonFormIcon
+                                                                                    icon={selectedSp.forms[1]?.icon ?? selectedSp.forms[0].icon}
+                                                                                    label={selectedSp.name}
+                                                                                    emojiClassName="text-lg"
+                                                                                    width={24}
+                                                                                    height={24}
+                                                                                    imageClassName="h-6 w-6 object-contain"
+                                                                                />
                                                                                 <SelectValue />
                                                                             </>
                                                                         ) : (
@@ -608,7 +631,14 @@ export function NegamonSettingsDialog({
                                                                     ).map((sp) => (
                                                                         <SelectItem key={sp.id} value={sp.id}>
                                                                             <span className="flex items-center gap-2 py-0.5">
-                                                                                <span className="text-2xl">{sp.forms[1]?.icon ?? sp.forms[0].icon}</span>
+                                                                                <NegamonFormIcon
+                                                                                    icon={sp.forms[1]?.icon ?? sp.forms[0].icon}
+                                                                                    label={sp.name}
+                                                                                    emojiClassName="text-2xl"
+                                                                                    width={32}
+                                                                                    height={32}
+                                                                                    imageClassName="h-8 w-8 object-contain"
+                                                                                />
                                                                                 <span className="font-black text-slate-700">{sp.name}</span>
                                                                             </span>
                                                                         </SelectItem>

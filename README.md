@@ -38,6 +38,7 @@ What is now treated as legacy:
 - Flaky test triage checklist: [docs/flaky-test-triage-checklist.md](/C:/Users/IHCK/GAMEEDU/gamedu/docs/flaky-test-triage-checklist.md)
 - Security PR review checklist: [docs/security-pr-review-checklist.md](/C:/Users/IHCK/GAMEEDU/gamedu/docs/security-pr-review-checklist.md)
 - Route pattern guide: [docs/route-pattern-guide.md](/C:/Users/IHCK/GAMEEDU/gamedu/docs/route-pattern-guide.md)
+- Architecture conventions: [docs/architecture-conventions.md](/C:/Users/IHCK/GAMEEDU/gamedu/docs/architecture-conventions.md)
 - Route authorization test template: [docs/route-authorization-test-template.md](/C:/Users/IHCK/GAMEEDU/gamedu/docs/route-authorization-test-template.md)
 - Socket review checklist: [docs/socket-review-checklist.md](/C:/Users/IHCK/GAMEEDU/gamedu/docs/socket-review-checklist.md)
 - Page data exposure checklist: [docs/page-data-exposure-checklist.md](/C:/Users/IHCK/GAMEEDU/gamedu/docs/page-data-exposure-checklist.md)
@@ -64,3 +65,4 @@ npm run db:cleanup-rpg
 - Treat `USER` as a generic authenticated account, not as a synonym for `STUDENT`.
 - Prefer canonical plural classroom API paths such as `/api/classrooms/...`.
 - Prefer shared auth and role helpers when adding new protected routes or pages.
+

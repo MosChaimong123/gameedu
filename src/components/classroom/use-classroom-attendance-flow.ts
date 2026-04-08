@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { saveClassroomAttendance } from "@/lib/classroom-dashboard-actions";
-import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
+import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 import type { DashboardToastFn, DashboardTranslateFn } from "./classroom-dashboard.types";
 
 type UseClassroomAttendanceFlowArgs = {
@@ -20,15 +20,18 @@ export function useClassroomAttendanceFlow({
     toast,
     t,
 }: UseClassroomAttendanceFlowArgs) {
-    const attendanceSnapshotRef = useRef<ClassroomDashboardViewModel["students"] | null>(null);
+    const [attendanceSnapshot, setAttendanceSnapshot] =
+        useState<ClassroomDashboardViewModel["students"] | null>(null);
+    const [isAttendanceMode, setIsAttendanceMode] = useState(false);
 
-    const enterAttendanceMode = () => {
-        attendanceSnapshotRef.current = students;
-    };
+    const enterAttendanceMode = useCallback(() => {
+        setAttendanceSnapshot(students);
+        setIsAttendanceMode(true);
+    }, [students]);
 
     const cycleStudentAttendance = (studentId: string) => {
-        if (!attendanceSnapshotRef.current) {
-            attendanceSnapshotRef.current = students;
+        if (!attendanceSnapshot) {
+            setAttendanceSnapshot(students);
         }
 
         const statuses = ["PRESENT", "ABSENT", "LATE", "LEFT_EARLY"];
@@ -45,15 +48,29 @@ export function useClassroomAttendanceFlow({
         }));
     };
 
-    const restoreAttendanceSnapshot = () => {
-        if (!attendanceSnapshotRef.current) return;
+    const restoreAttendanceSnapshot = useCallback(() => {
+        if (!attendanceSnapshot) return;
 
         setClassroom((prev) => ({
             ...prev,
-            students: attendanceSnapshotRef.current ?? prev.students,
+            students: attendanceSnapshot ?? prev.students,
         }));
-        attendanceSnapshotRef.current = null;
-    };
+        setAttendanceSnapshot(null);
+    }, [attendanceSnapshot, setClassroom]);
+
+    const exitAttendanceMode = useCallback(() => {
+        restoreAttendanceSnapshot();
+        setIsAttendanceMode(false);
+    }, [restoreAttendanceSnapshot]);
+
+    const hasChanges = useMemo(() => {
+        if (!isAttendanceMode || !attendanceSnapshot) return false;
+        const snap = attendanceSnapshot;
+        return students.some((s) => {
+            const orig = snap.find((x) => x.id === s.id);
+            return !orig || (s.attendance || "PRESENT") !== (orig.attendance || "PRESENT");
+        });
+    }, [attendanceSnapshot, students, isAttendanceMode]);
 
     const saveAttendance = async () => {
         const updates = students.map((student) => ({
@@ -70,7 +87,7 @@ export function useClassroomAttendanceFlow({
                 title: t("toastAttendanceSaveSuccessTitle"),
                 description: t("toastAttendanceSaveSuccessDesc"),
             });
-            attendanceSnapshotRef.current = null;
+            setAttendanceSnapshot(null);
             return true;
         } catch {
             toast({
@@ -83,9 +100,13 @@ export function useClassroomAttendanceFlow({
     };
 
     return {
+        isAttendanceMode,
+        setIsAttendanceMode,
+        hasChanges,
         enterAttendanceMode,
         cycleStudentAttendance,
         restoreAttendanceSnapshot,
+        exitAttendanceMode,
         saveAttendance,
     };
 }

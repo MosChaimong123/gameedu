@@ -4,6 +4,13 @@ const classId = process.env.ASN_E2E_CLASS_ID;
 const assignmentId = process.env.ASN_E2E_ASSIGNMENT_ID;
 
 test.describe("ASN assignment command center smoke", () => {
+  test("health endpoint responds", async ({ request }) => {
+    const res = await request.get("/api/health");
+    expect(res.ok(), `GET /api/health failed: ${res.status()}`).toBeTruthy();
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: true, status: "healthy" });
+  });
+
   test("deep-link keeps assignment focus query", async ({ page }) => {
     test.skip(!classId, "Set ASN_E2E_CLASS_ID to enable this smoke check.");
 

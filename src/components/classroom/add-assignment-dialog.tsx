@@ -35,6 +35,7 @@ import {
     toDatetimeLocalValue,
 } from "@/lib/datetime-local";
 import { cn } from "@/lib/utils";
+import { getThemeBgStyle, getThemeHorizontalBgClass } from "@/lib/classroom-utils";
 import {
     DndContext,
     closestCenter,
@@ -55,6 +56,8 @@ import { CSS } from "@dnd-kit/utilities";
 
 interface AddAssignmentDialogProps {
     classId: string;
+    /** Classroom theme gradient (preset Tailwind stops or custom:hex,hex). */
+    theme?: string | null;
     /** Classroom default quiz review (shown on "follow classroom" option). */
     classroomQuizReviewMode?: string | null;
     open: boolean;
@@ -105,7 +108,7 @@ function SortableItem({
         <div
             ref={setNodeRef}
             style={style}
-            className={`flex items-center bg-white p-3 md:p-4 rounded-xl shadow-sm border gap-3 md:gap-4 transition-all hover:border-indigo-300 hover:shadow-md group ${
+            className={`flex items-center bg-white p-3 md:p-4 rounded-xl shadow-sm border gap-3 md:gap-4 transition-all hover:border-slate-300 hover:shadow-md group ${
                 !a.visible ? "opacity-60 border-dashed border-slate-200" : "border-slate-200"
             }`}
         >
@@ -205,6 +208,7 @@ const QUIZ_REVIEW_INHERIT = "inherit";
 
 export function AddAssignmentDialog({
     classId,
+    theme = "",
     classroomQuizReviewMode,
     open,
     onOpenChange,
@@ -521,13 +525,16 @@ export function AddAssignmentDialog({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
-                className="flex h-[min(92dvh,52rem)] w-[min(96vw,88rem)] max-w-[min(96vw,88rem)] flex-col overflow-hidden rounded-none border-2 border-amber-200/50 bg-[#faf8f5] p-0 shadow-2xl sm:h-[90vh] sm:max-w-[min(96vw,88rem)] sm:rounded-2xl md:rounded-3xl max-sm:fixed max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:border-x-0 max-sm:border-b-0"
+                className="flex h-[min(92dvh,52rem)] w-[min(96vw,88rem)] max-w-[min(96vw,88rem)] flex-col overflow-hidden rounded-none border-2 border-slate-200/80 bg-white p-0 shadow-2xl sm:h-[90vh] sm:max-w-[min(96vw,88rem)] sm:rounded-2xl md:rounded-3xl max-sm:fixed max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:border-x-0 max-sm:border-b-0"
             >
                 {/* Header */}
-                <DialogHeader className="sticky top-0 z-20 flex shrink-0 flex-row items-center justify-between border-b border-amber-100/90 bg-gradient-to-r from-[#faf8f5] to-white px-4 py-3 backdrop-blur-sm sm:px-8 sm:py-5">
-                    <DialogTitle className="flex min-w-0 items-center gap-2 pr-10 text-lg font-black tracking-tight text-[#5c3d24] sm:gap-3 sm:text-2xl">
-                        <div className="rounded-xl bg-[#7B462C]/15 p-2">
-                            <Settings2 className="h-5 w-5 rotate-45 text-[#7B462C] sm:h-6 sm:w-6" />
+                <DialogHeader
+                    className={`sticky top-0 z-20 flex shrink-0 flex-row items-center justify-between border-b border-white/10 px-4 py-3 text-white shadow-sm backdrop-blur-sm sm:px-8 sm:py-5 ${getThemeHorizontalBgClass(theme)}`}
+                    style={getThemeBgStyle(theme)}
+                >
+                    <DialogTitle className="flex min-w-0 items-center gap-2 pr-10 text-lg font-black tracking-tight text-white drop-shadow-sm sm:gap-3 sm:text-2xl">
+                        <div className="rounded-xl border border-white/30 bg-white/20 p-2 shadow-inner">
+                            <Settings2 className="h-5 w-5 rotate-45 sm:h-6 sm:w-6" />
                         </div>
                         <span className="leading-snug break-words">
                             {t("assignmentDialogTitle")} (ASSIGNMENTS)
@@ -589,14 +596,13 @@ export function AddAssignmentDialog({
                         <form onSubmit={handleSubmit} className="flex flex-col h-full">
                             <div className="p-6 pb-2 shrink-0">
                                 <div
-                                    className={`text-white p-4 font-bold text-lg flex items-center gap-3 rounded-t-xl shadow-md ${
-                                        editId ? "bg-amber-600" : "bg-[#8B5E34]"
-                                    }`}
+                                    className={`flex items-center gap-3 rounded-t-xl p-4 text-lg font-bold text-white shadow-md ${getThemeHorizontalBgClass(theme)}`}
+                                    style={getThemeBgStyle(theme)}
                                 >
                                     {editId ? (
-                                        <><Edit className="w-6 h-6 text-yellow-200" /> {t("assignmentFormEditTitle")}</>
+                                        <><Edit className="h-6 w-6 shrink-0 text-white/90" /> {t("assignmentFormEditTitle")}</>
                                     ) : (
-                                        <><Plus className="w-6 h-6 text-yellow-300 stroke-[3]" /> {t("assignmentFormCreateTitle")}</>
+                                        <><Plus className="h-6 w-6 shrink-0 stroke-[3] text-white/90" /> {t("assignmentFormCreateTitle")}</>
                                     )}
                                 </div>
                             </div>
@@ -657,7 +663,7 @@ export function AddAssignmentDialog({
                                         placeholder={t("assignmentNamePlaceholder")}
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
-                                        className="h-12 text-base font-medium focus-visible:ring-[#3b82f6] border-slate-200 shadow-sm"
+                                        className="h-12 border-slate-200 text-base font-medium shadow-sm focus-visible:ring-2 focus-visible:ring-slate-400"
                                     />
                                 </div>
 
@@ -668,7 +674,7 @@ export function AddAssignmentDialog({
                                         value={description}
                                         onChange={(e) => setDescription(e.target.value)}
                                         rows={3}
-                                        className="resize-y min-h-[4.5rem] border-slate-200 text-base focus-visible:ring-[#3b82f6]"
+                                        className="min-h-[4.5rem] resize-y border-slate-200 text-base focus-visible:ring-2 focus-visible:ring-slate-400"
                                     />
                                 </div>
 
@@ -678,7 +684,7 @@ export function AddAssignmentDialog({
                                         type="datetime-local"
                                         value={deadlineLocal}
                                         onChange={(e) => setDeadlineLocal(e.target.value)}
-                                        className="h-12 border-slate-200 font-medium focus-visible:ring-[#3b82f6]"
+                                        className="h-12 border-slate-200 font-medium focus-visible:ring-2 focus-visible:ring-slate-400"
                                     />
                                     <p className="text-[11px] text-slate-500">{t("assignmentDeadlineHint")}</p>
                                 </div>
@@ -692,7 +698,7 @@ export function AddAssignmentDialog({
                                                 min="1"
                                                 value={maxScore}
                                                 onChange={(e) => setMaxScore(parseInt(e.target.value) || 0)}
-                                                className="h-12 text-xl font-bold text-center border-slate-200 focus-visible:ring-[#3b82f6] shadow-sm"
+                                                className="h-12 border-slate-200 text-center text-xl font-bold shadow-sm focus-visible:ring-2 focus-visible:ring-slate-400"
                                             />
                                         </div>
                                         <div className="space-y-2">
@@ -835,11 +841,12 @@ export function AddAssignmentDialog({
                                 <Button
                                     type="submit"
                                     disabled={loading}
-                                    className={`w-full h-14 text-white font-bold text-lg rounded-xl shadow-lg hover:-translate-y-0.5 transition-all ${
-                                        editId
-                                            ? "bg-amber-500 hover:bg-amber-600 shadow-[0_4px_14px_0_rgba(245,158,11,0.39)]"
-                                            : "bg-[#3b82f6] hover:bg-blue-600 shadow-[0_4px_14px_0_rgba(59,130,246,0.39)]"
-                                    }`}
+                                    size="lg"
+                                    className={cn(
+                                        "h-14 w-full rounded-xl border-0 text-lg font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:opacity-90",
+                                        getThemeHorizontalBgClass(theme)
+                                    )}
+                                    style={getThemeBgStyle(theme)}
                                 >
                                     {editId ? (
                                         <><Save className="w-5 h-5 mr-2" />{t("assignmentSubmitSaveEdit")}</>

@@ -4,13 +4,16 @@ import React, { useRef } from "react"
 import { Download } from "lucide-react"
 import html2canvas from "html2canvas"
 import { Button } from "@/components/ui/button"
+import { useLanguage } from "@/components/providers/language-provider"
 
 interface OMRPrintableSheetProps {
     type: "20" | "50" | "80"
     quizTitle?: string
 }
 
-export function OMRPrintableSheet({ type, quizTitle = "General Quiz" }: OMRPrintableSheetProps) {
+export function OMRPrintableSheet({ type, quizTitle }: OMRPrintableSheetProps) {
+    const { t, language } = useLanguage()
+    const resolvedTitle = quizTitle ?? t("omrPrintableDefaultQuizTitle")
     const sheetRef = useRef<HTMLDivElement>(null)
 
     const downloadImage = async () => {
@@ -75,7 +78,8 @@ export function OMRPrintableSheet({ type, quizTitle = "General Quiz" }: OMRPrint
         const imgData = canvas.toDataURL("image/png", 1.0)
         const link = document.createElement('a')
         link.href = imgData
-        link.download = `OMR_Sheet_${type}q_${quizTitle}.png`
+        const safeName = resolvedTitle.replace(/[/\\?%*:|"<>]/g, "-").slice(0, 80)
+        link.download = `OMR_Sheet_${type}q_${safeName}.png`
         link.click()
     }
 
@@ -180,7 +184,7 @@ export function OMRPrintableSheet({ type, quizTitle = "General Quiz" }: OMRPrint
                     className="h-14 px-10 rounded-[2rem] bg-slate-900 text-white font-black text-lg shadow-xl hover:bg-purple-600 transition-all hover:scale-105"
                 >
                     <Download className="mr-2 w-6 h-6" />
-                    Download PNG Image
+                    {t("omrPrintableDownloadPng")}
                 </Button>
             </div>
 
@@ -190,6 +194,7 @@ export function OMRPrintableSheet({ type, quizTitle = "General Quiz" }: OMRPrint
                     ref={sheetRef}
                     id="printable-omr-sheet"
                     className="w-[210mm] h-[297mm] min-h-[297mm] bg-white p-[10mm] relative flex flex-col font-sans"
+                    lang={language === "th" ? "th" : "en"}
                     style={{ 
                         boxShadow: "0 0 20px rgba(0,0,0,0.05)",
                         scale: "0.65",
@@ -201,7 +206,7 @@ export function OMRPrintableSheet({ type, quizTitle = "General Quiz" }: OMRPrint
                 >
                     {/* A4 Dimension Indicator (Requested by User) */}
                     <div className="absolute top-1 left-1/2 -translate-x-1/2 text-[8px] text-slate-300 font-mono pointer-events-none">
-                        A4 Paper Size: 210mm x 297mm
+                        {t("omrPrintableA4Hint")}
                     </div>
                     {/* Perspective Markers (Squares) */}
                     {/* Perspective Markers (Absolute edges of A4) */}
@@ -220,13 +225,13 @@ export function OMRPrintableSheet({ type, quizTitle = "General Quiz" }: OMRPrint
                             <div className="flex-1">
                                 <div className="w-full border-[3px] rounded-xl overflow-hidden shadow-sm" style={{ borderColor: 'rgb(0, 0, 0)' }}>
                                     <div className="flex border-b-[3px]" style={{ borderBottomColor: 'rgb(0, 0, 0)' }}>
-                                        <div className="px-4 py-2.5 font-black text-base border-r-[3px] min-w-32 bg-slate-50 omr-label" style={{ backgroundColor: 'rgb(241, 245, 249)', borderColor: 'rgb(0, 0, 0)' }}>ชื่อ - สกุล</div>
+                                        <div className="px-4 py-2.5 font-black text-base border-r-[3px] min-w-[8.5rem] bg-slate-50 omr-label whitespace-nowrap" style={{ backgroundColor: 'rgb(241, 245, 249)', borderColor: 'rgb(0, 0, 0)' }}>{t("omrSheetLabelFullName")}</div>
                                         <div className="flex-1"></div>
                                     </div>
                                     <div className="flex text-sm">
-                                        <div className="px-4 py-1.5 font-black border-r-[3px] min-w-32 bg-slate-50 omr-label" style={{ backgroundColor: 'rgb(241, 245, 249)', borderColor: 'rgb(0, 0, 0)' }}>ชั้น</div>
+                                        <div className="px-4 py-1.5 font-black border-r-[3px] min-w-[8.5rem] bg-slate-50 omr-label whitespace-nowrap" style={{ backgroundColor: 'rgb(241, 245, 249)', borderColor: 'rgb(0, 0, 0)' }}>{t("omrSheetLabelClass")}</div>
                                         <div className="flex-1 border-r-[3px]" style={{ borderRightColor: 'rgb(0, 0, 0)' }}></div>
-                                        <div className="px-4 py-1.5 font-black min-w-32 bg-slate-50 omr-label" style={{ backgroundColor: 'rgb(241, 245, 249)' }}>เลขที่</div>
+                                        <div className="px-4 py-1.5 font-black min-w-[8.5rem] bg-slate-50 omr-label whitespace-nowrap" style={{ backgroundColor: 'rgb(241, 245, 249)' }}>{t("omrSheetLabelSeatNo")}</div>
                                         <div className="flex-1"></div>
                                     </div>
                                 </div>
@@ -234,7 +239,12 @@ export function OMRPrintableSheet({ type, quizTitle = "General Quiz" }: OMRPrint
 
                             {/* Student ID Grid (Ultra Compact Header Row) */}
                             <div className="flex flex-col border-[2px] p-1.5 rounded-xl w-fit shrink-0 bg-white" style={{ borderColor: 'rgb(0, 0, 0)' }}>
-                                <span className="text-[8px] font-black uppercase mb-1 text-center tracking-widest omr-label" style={{ color: 'rgb(0, 0, 0)' }}>Student ID</span>
+                                <span
+                                    className={`text-[8px] font-black mb-1 text-center tracking-widest omr-label max-w-[5.5rem] leading-tight ${language === "en" ? "uppercase" : ""}`}
+                                    style={{ color: "rgb(0, 0, 0)" }}
+                                >
+                                    {t("omrSheetStudentId")}
+                                </span>
                                 <div className="flex gap-1.5">
                                     {Array.from({ length: 5 }).map((_, i) => (
                                         <div key={i} className="flex flex-col gap-0.5">
@@ -261,8 +271,12 @@ export function OMRPrintableSheet({ type, quizTitle = "General Quiz" }: OMRPrint
                         <div className="mt-auto pt-6 flex items-end justify-end">
                             <div className="flex items-center gap-6">
                                 <div className="flex flex-col items-end">
-                                    <div className="font-black text-lg italic leading-none">GameEdu | Project</div>
-                                    <div className="text-[10px] font-black uppercase tracking-[0.2em] mt-1">OMR PAPER</div>
+                                    <div className="font-black text-lg italic leading-none">{t("omrSheetBrandLine")}</div>
+                                    <div
+                                        className={`text-[10px] font-black tracking-[0.2em] mt-1 ${language === "en" ? "uppercase" : ""}`}
+                                    >
+                                        {t("omrSheetBrandSub")}
+                                    </div>
                                 </div>
                             </div>
                         </div>

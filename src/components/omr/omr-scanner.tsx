@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, X, ScanLine } from "lucide-react"
 import { motion } from "framer-motion"
+import { useLanguage } from "@/components/providers/language-provider"
 
 interface OMRScannerProps {
     onCapture: (imageData: string) => void
@@ -11,6 +12,7 @@ interface OMRScannerProps {
 }
 
 export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
+    const { t } = useLanguage()
     const videoRef = useRef<HTMLVideoElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const [stream, setStream] = useState<MediaStream | null>(null)
@@ -31,9 +33,9 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
             setError(null)
         } catch (err) {
             console.error("Error accessing camera:", err)
-            setError("ไม่สามารถเข้าถึงกล้องได้ กรุณาตรวจสอบสิทธิ์การใช้งาน")
+            setError(t("omrCameraError"))
         }
-    }, [])
+    }, [t])
 
     const stopCamera = useCallback(() => {
         if (stream) {
@@ -76,8 +78,10 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
                         <ScanLine className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                        <h2 className="text-white font-black text-lg">OMR Scanner</h2>
-                        <p className="text-purple-300 text-xs font-bold uppercase tracking-widest">Alignment Mode</p>
+                        <h2 className="text-white font-black text-lg">{t("omrScannerHeader")}</h2>
+                        <p className="text-purple-300 text-xs font-bold uppercase tracking-widest">
+                            {t("omrScannerAlignmentMode")}
+                        </p>
                     </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/10 rounded-full">
@@ -90,7 +94,9 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
                 {error ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
                         <p className="text-red-400 font-bold text-lg mb-4">{error}</p>
-                        <Button onClick={startCamera} className="bg-white text-black font-black">ลองใหม่อีกครั้ง</Button>
+                        <Button onClick={startCamera} className="bg-white text-black font-black">
+                            {t("omrRetryButton")}
+                        </Button>
                     </div>
                 ) : (
                     <>
@@ -120,7 +126,7 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
                         {/* Status Label */}
                         <div className="absolute bottom-12 left-0 right-0 text-center">
                             <span className="bg-black/60 backdrop-blur-md text-white px-4 py-2 rounded-full text-xs font-black tracking-widest uppercase border border-white/10">
-                                วางกระดาษให้ตรงรอยหยัก 4 มุม
+                                {t("omrAlignCornersHint")}
                             </span>
                         </div>
                     </>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Assignment } from "@prisma/client";
-import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
+import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 import type { ClassroomBasicsPatch, UpdatedStudentPoints } from "./classroom-dashboard.types";
 
 export function useClassroomDashboardState(

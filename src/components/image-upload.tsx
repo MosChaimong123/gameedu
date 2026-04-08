@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Image as ImageIcon, Upload, Link as LinkIcon, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/components/providers/language-provider"
+import { useToast } from "@/components/ui/use-toast"
 
 interface ImageUploadProps {
     value?: string
@@ -17,6 +18,7 @@ interface ImageUploadProps {
 
 export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
     const { t } = useLanguage()
+    const { toast } = useToast()
     const [isDragOver, setIsDragOver] = useState(false)
     const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false)
     const [linkUrl, setLinkUrl] = useState("")
@@ -51,12 +53,20 @@ export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
 
     const processFile = (file: File) => {
         if (!file.type.startsWith("image/")) {
-            alert("Please upload an image file")
+            toast({
+                title: t("error"),
+                description: t("toastSettingsImageTypeError"),
+                variant: "destructive",
+            })
             return
         }
 
         if (file.size > 2 * 1024 * 1024) { // 2MB limit
-            alert("Image size should be less than 2MB")
+            toast({
+                title: t("error"),
+                description: t("toastSettingsImageSizeError"),
+                variant: "destructive",
+            })
             return
         }
 
@@ -174,9 +184,9 @@ export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
                     </DialogHeader>
                     <div className="space-y-4 py-2">
                         <div className="space-y-2">
-                            <Label>Image URL</Label>
+                            <Label>{t("imageUploadUrlLabel")}</Label>
                             <Input
-                                placeholder="https://example.com/image.png"
+                                placeholder={t("imageUploadUrlPlaceholder")}
                                 value={linkUrl}
                                 disabled={disabled}
                                 onChange={(e) => setLinkUrl(e.target.value)}
@@ -184,8 +194,8 @@ export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsLinkDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleLinkSubmit} disabled={disabled}>Import</Button>
+                        <Button variant="outline" onClick={() => setIsLinkDialogOpen(false)}>{t("cancel")}</Button>
+                        <Button onClick={handleLinkSubmit} disabled={disabled}>{t("imageUploadImport")}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

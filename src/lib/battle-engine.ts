@@ -89,8 +89,17 @@ export type BattleResult = {
 
 const MAX_TURNS = 20;
 const GOLD_REWARD_BASE = 30;
-/** Gold bonus per rank above opponent */
-const GOLD_RANK_BONUS = 5;
+const BURN_DOT_RATE = 0.03;
+const POISON_DOT_RATE = 0.0125;
+const BADLY_POISON_STEP_RATE = 0.008;
+const BADLY_POISON_MAX_RATE = 0.08;
+const BOOST_STAT_MULTIPLIER = 1.25;
+const LOWER_STAT_MULTIPLIER = 0.85;
+const WATER_DAMAGE_BOOST_MULTIPLIER = 1.35;
+const HEAL_FRACTION = 0.20;
+const FLAME_BODY_TRIGGER_RATE = 0.10;
+const STATIC_TRIGGER_RATE = 0.15;
+const FREEZE_THAW_RATE = 0.20;
 
 // ── Initialisation ────────────────────────────────────────────
 
@@ -179,7 +188,7 @@ function calcDamageValue(
     isPriorityMove = false
 ): { dmg: number; effectiveness: "super" | "normal" | "weak"; stab: boolean; crit: boolean } {
     const atkStat = effectiveStat(attacker.baseStats.atk, attacker.statStages.atk);
-    const defStat = defender.statStages.ignoreDef
+    const defStat = attacker.statStages.ignoreDef
         ? 1
         : effectiveStat(defender.baseStats.def, defender.statStages.def);
 
@@ -219,7 +228,7 @@ function calcDamageValue(
 }
 
 /** Simple seeded pseudo-RNG (mulberry32) */
-function makePRNG(seed: number) {
+export function makePRNG(seed: number) {
     let s = seed;
     return () => {
         s |= 0; s = s + 0x6d2b79f5 | 0;
@@ -336,24 +345,23 @@ function processEndOfTurn(
     for (const entry of fighter.effects) {
         switch (entry.effect) {
             case "BURN": {
-                // 4% maxHp per turn × 3 turns = 12% total — ปานกลาง
-                const dmg = Math.max(1, Math.floor(fighter.maxHp * 0.04));
+                // 3% maxHp per turn × 3 turns = 9% total
+                const dmg = Math.max(1, Math.floor(fighter.maxHp * BURN_DOT_RATE));
                 fighter.currentHp = Math.max(0, fighter.currentHp - dmg);
                 events.push({ kind: "status_tick", actorId: fighter.studentId, value: dmg, effect: "BURN" });
                 break;
             }
             case "POISON": {
-                // 1.5% maxHp ตลอดเกม (~18 ตา = 27% รวม)
-                const dmg = Math.max(1, Math.floor(fighter.maxHp * 0.015));
+                // 1.25% maxHp ต่อ turn ตลอดเกม
+                const dmg = Math.max(1, Math.floor(fighter.maxHp * POISON_DOT_RATE));
                 fighter.currentHp = Math.max(0, fighter.currentHp - dmg);
                 events.push({ kind: "status_tick", actorId: fighter.studentId, value: dmg, effect: "POISON" });
                 break;
             }
             case "BADLY_POISON": {
-                // Escalating: tick×1%, capped at 12% (~ตา 12+ = cap)
-                // ตา 1-12: 1+2+3+...+12 = 78% รวม — ยังน่ากลัวแต่ไม่ instant KO
+                // Escalating: +0.8% maxHp per tick, capped at 8%
                 fighter.badlyPoisonTick++;
-                const pct = Math.min(0.12, fighter.badlyPoisonTick * 0.01);
+                const pct = Math.min(BADLY_POISON_MAX_RATE, fighter.badlyPoisonTick * BADLY_POISON_STEP_RATE);
                 const dmg = Math.max(1, Math.floor(fighter.maxHp * pct));
                 fighter.currentHp = Math.max(0, fighter.currentHp - dmg);
                 events.push({ kind: "status_tick", actorId: fighter.studentId, value: dmg, effect: "BADLY_POISON" });
@@ -377,9 +385,9 @@ function processEndOfTurn(
         if (eff === "BADLY_POISON")    fighter.badlyPoisonTick = 0;
     }
 
-    // Passive: rage_mode — HP drops below 50% → ATK ×1.3 (once)
+    // Passive: rage_mode — HP drops below 50% → ATK ×1.25 (once)
     if (fighter.ability === "rage_mode" && !fighter.abilityUsed && fighter.currentHp / fighter.maxHp < 0.5) {
-        fighter.statStages.atk *= 1.3;
+        fighter.statStages.atk *= BOOST_STAT_MULTIPLIER;
         fighter.abilityUsed = true;
         events.push({ kind: "ability_trigger", actorId: fighter.studentId, abilityId: "rage_mode", abilityName: fighter.abilityName });
     }
@@ -418,7 +426,7 @@ function executeMove(
 
     // Heal move
     if (move.category === "HEAL") {
-        const healAmt = Math.max(1, Math.floor(attacker.maxHp * 0.25));
+        const healAmt = Math.max(1, Math.floor(attacker.maxHp * HEAL_FRACTION));
         attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + healAmt);
         events.push({ kind: "heal", actorId: attacker.studentId, value: healAmt });
         return;
@@ -427,7 +435,7 @@ function executeMove(
     // Status-only move
     if (move.category === "STATUS") {
         if (move.effect) {
-            applyEffect(move.effect, attacker, defender, events, rng);
+            applyEffect(move.effect, attacker, defender, events);
         }
         return;
     }
@@ -450,17 +458,17 @@ function executeMove(
     if (move.effect) {
         const chance = move.effectChance ?? 100;
         if (rng() * 100 < chance) {
-            applyEffect(move.effect, attacker, defender, events, rng);
+            applyEffect(move.effect, attacker, defender, events);
         }
     }
 
-    // Passive: flame_body — defender has 20% chance to burn attacker on contact
-    if (defender.ability === "flame_body" && !hasEffect(attacker, "BURN") && rng() < 0.20) {
+    // Passive: flame_body — defender has 10% chance to burn attacker on hit
+    if (defender.ability === "flame_body" && !hasEffect(attacker, "BURN") && rng() < FLAME_BODY_TRIGGER_RATE) {
         addEffect(attacker, "BURN", 3);
         events.push({ kind: "ability_trigger", actorId: defender.studentId, targetId: attacker.studentId, effect: "BURN", abilityId: "flame_body", abilityName: defender.abilityName });
     }
-    // Passive: static — defender has 30% chance to paralyze attacker on contact
-    if (defender.ability === "static" && !hasEffect(attacker, "PARALYZE") && rng() < 0.30) {
+    // Passive: static — defender has 15% chance to paralyze attacker on hit
+    if (defender.ability === "static" && !hasEffect(attacker, "PARALYZE") && rng() < STATIC_TRIGGER_RATE) {
         addEffect(attacker, "PARALYZE", 2);
         events.push({ kind: "ability_trigger", actorId: defender.studentId, targetId: attacker.studentId, effect: "PARALYZE", abilityId: "static", abilityName: defender.abilityName });
     }
@@ -473,8 +481,7 @@ function applyEffect(
     eff: StatusEffect,
     attacker: BattleFighter,
     defender: BattleFighter,
-    events: TurnEvent[],
-    _rng: () => number
+    events: TurnEvent[]
 ) {
     switch (eff) {
         case "BURN":         addEffect(defender, "BURN",         3);  break;
@@ -486,33 +493,33 @@ function applyEffect(
         case "CONFUSE":      addEffect(defender, "CONFUSE",      3);  break;
 
         case "BOOST_ATK":
-            attacker.statStages.atk = 1.3;
+            attacker.statStages.atk = BOOST_STAT_MULTIPLIER;
             addEffect(attacker, "BOOST_ATK", 2);
             break;
         case "BOOST_DEF":
-            attacker.statStages.def = 1.3;
+            attacker.statStages.def = BOOST_STAT_MULTIPLIER;
             addEffect(attacker, "BOOST_DEF", 2);
             break;
         case "BOOST_SPD":
-            attacker.statStages.spd = 1.3;
+            attacker.statStages.spd = BOOST_STAT_MULTIPLIER;
             addEffect(attacker, "BOOST_SPD", 2);
             break;
         case "BOOST_WATER_DMG":
-            attacker.statStages.waterDmg = 1.5;
+            attacker.statStages.waterDmg = WATER_DAMAGE_BOOST_MULTIPLIER;
             addEffect(attacker, "BOOST_WATER_DMG", 2);
             break;
 
         case "LOWER_ATK":
-            defender.statStages.atk = Math.max(0.2, defender.statStages.atk * 0.8);
+            defender.statStages.atk = Math.max(0.2, defender.statStages.atk * LOWER_STAT_MULTIPLIER);
             break;
         case "LOWER_ATK_ALL": // In 1v1 affects only defender
-            defender.statStages.atk = Math.max(0.2, defender.statStages.atk * 0.8);
+            defender.statStages.atk = Math.max(0.2, defender.statStages.atk * LOWER_STAT_MULTIPLIER);
             break;
         case "LOWER_DEF":
-            defender.statStages.def = Math.max(0.2, defender.statStages.def * 0.8);
+            defender.statStages.def = Math.max(0.2, defender.statStages.def * LOWER_STAT_MULTIPLIER);
             break;
         case "HEAL_25": {
-            const amt = Math.max(1, Math.floor(attacker.maxHp * 0.25));
+            const amt = Math.max(1, Math.floor(attacker.maxHp * HEAL_FRACTION));
             attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + amt);
             events.push({ kind: "heal", actorId: attacker.studentId, value: amt });
             return; // no status_apply event needed
@@ -543,7 +550,7 @@ function checkSkip(
     }
     const freezeEntry = fighter.effects.find((e) => e.effect === "FREEZE");
     if (freezeEntry) {
-        if (rng() < 0.20) {
+        if (rng() < FREEZE_THAW_RATE) {
             // Thaw — remove FREEZE and continue to move this turn
             fighter.effects = fighter.effects.filter((e) => e.effect !== "FREEZE");
             events.push({ kind: "freeze_thaw", actorId: fighter.studentId, effect: "FREEZE" });
@@ -658,16 +665,14 @@ export function resolveBattle(
         turns.push(events);
     }
 
-    // Determine winner (most HP remaining, or first in arg order on draw)
+    // Determine winner (most HP remaining; on exact draw, use seeded RNG to avoid challenger bias)
     const winnerId =
         f1.currentHp > f2.currentHp  ? f1.studentId :
         f2.currentHp > f1.currentHp  ? f2.studentId :
-        f1.studentId; // draw → challenger wins
+        (rng() < 0.5 ? f1.studentId : f2.studentId);
 
     const winner = winnerId === f1.studentId ? f1 : f2;
-    const loser  = winnerId === f1.studentId ? f2 : f1;
-    const rankDiff = Math.max(0, winner.rankIndex - loser.rankIndex);
-    const goldReward = GOLD_REWARD_BASE + rankDiff * GOLD_RANK_BONUS + winner.goldBonus;
+    const goldReward = GOLD_REWARD_BASE + winner.goldBonus;
 
     return {
         fighters: [f1, f2],
@@ -677,3 +682,99 @@ export function resolveBattle(
         totalTurns: turns.length,
     };
 }
+
+// ── Interactive (single-turn) API ─────────────────────────────
+
+export type OneTurnResult = {
+    events: TurnEvent[];
+    faintedId: string | null;
+};
+
+/**
+ * Resolve one turn with the player's explicit move choice.
+ * Mutates `player` and `opponent` in-place (same as resolveBattle internals).
+ * Returns the events for this turn and the ID of the fainted fighter (if any).
+ */
+export function resolveOneTurn(
+    player: BattleFighter,
+    opponent: BattleFighter,
+    playerMoveId: string,
+    rng: () => number
+): OneTurnResult {
+    const events: TurnEvent[] = [];
+
+    const playerMove  = player.moves.find((m) => m.id === playerMoveId) ?? player.moves[0];
+    const opponentMove = selectMove(opponent, rng, player);
+
+    if (!playerMove) return { events, faintedId: null };
+
+    const p1 = playerMove?.priority  ?? 0;
+    const p2 = opponentMove?.priority ?? 0;
+    const playerSpd   = effectiveStat(player.baseStats.spd,   player.statStages.spd);
+    const opponentSpd = effectiveStat(opponent.baseStats.spd, opponent.statStages.spd);
+
+    const playerFirst =
+        p1 !== p2      ? p1 > p2 :
+        playerSpd !== opponentSpd ? playerSpd > opponentSpd :
+        rng() < 0.5;
+
+    const [first, firstMove, second, secondMove] = playerFirst
+        ? [player, playerMove, opponent, opponentMove]
+        : [opponent, opponentMove, player, playerMove];
+
+    const firstPriorityOverride =
+        (firstMove?.priority ?? 0) > (secondMove?.priority ?? 0) &&
+        effectiveStat(first.baseStats.spd,  first.statStages.spd) <
+        effectiveStat(second.baseStats.spd, second.statStages.spd);
+
+    // First actor
+    if (!checkSkip(first, events, rng) && !checkConfusion(first, events, rng)) {
+        if (firstMove) executeMove(first, second, firstMove, events, rng, firstPriorityOverride);
+    }
+
+    // Faint check after first action
+    const faintedFirst = first.currentHp <= 0 ? first : second.currentHp <= 0 ? second : null;
+    if (faintedFirst) {
+        events.push({ kind: "faint", actorId: faintedFirst.studentId });
+        return { events, faintedId: faintedFirst.studentId };
+    }
+
+    // Second actor
+    if (!checkSkip(second, events, rng) && !checkConfusion(second, events, rng)) {
+        if (secondMove) executeMove(second, first, secondMove, events, rng, false);
+    }
+
+    // Faint check after second action
+    if (first.currentHp <= 0) {
+        events.push({ kind: "faint", actorId: first.studentId });
+        return { events, faintedId: first.studentId };
+    }
+    if (second.currentHp <= 0) {
+        events.push({ kind: "faint", actorId: second.studentId });
+        return { events, faintedId: second.studentId };
+    }
+
+    // End-of-turn: status DoT + passive abilities
+    processEndOfTurn(first, events);
+    if (first.currentHp <= 0) {
+        events.push({ kind: "faint", actorId: first.studentId });
+        return { events, faintedId: first.studentId };
+    }
+    processEndOfTurn(second, events);
+    if (second.currentHp <= 0) {
+        events.push({ kind: "faint", actorId: second.studentId });
+        return { events, faintedId: second.studentId };
+    }
+
+    return { events, faintedId: null };
+}
+
+/** Compute the gold reward for a completed interactive battle */
+export function calcGoldReward(winner: BattleFighter, loser: BattleFighter): number {
+    void loser;
+    return GOLD_REWARD_BASE + winner.goldBonus;
+}
+
+
+
+

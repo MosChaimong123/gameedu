@@ -1,38 +1,46 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { Button } from "@/components/ui/button"
+import * as React from "react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
 import {
     Form,
     FormControl,
+    FormDescription,
     FormField,
     FormItem,
     FormLabel,
     FormMessage,
-    FormDescription,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Loader2 } from "lucide-react"
-import { RoleSelection } from "@/components/auth/role-selection"
-
-const formSchema = z.object({
-    role: z.enum(["STUDENT", "TEACHER"]),
-    name: z.string().min(2, "Name must be at least 2 characters"),
-    username: z.string()
-        .min(3, "Username must be at least 3 chars")
-        .regex(/^[a-zA-Z0-9_\-\.]+$/, "Only letters, numbers, -, _, . allowed"),
-    email: z.string().email("Invalid email address"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
-})
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
+import { RoleSelection } from "@/components/auth/role-selection";
+import { getLocalizedErrorMessageFromResponse, tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages";
+import { useLanguage } from "@/components/providers/language-provider";
 
 export default function RegisterForm() {
-    const router = useRouter()
-    const [loading, setLoading] = React.useState(false)
-    const [error, setError] = React.useState("")
+    const router = useRouter();
+    const { language, t } = useLanguage();
+    const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState("");
+
+    const formSchema = React.useMemo(
+        () =>
+            z.object({
+                role: z.enum(["STUDENT", "TEACHER"]),
+                name: z.string().min(2, t("registerValidationNameMin")),
+                username: z
+                    .string()
+                    .min(3, t("registerValidationUsernameMin"))
+                    .regex(/^[a-zA-Z0-9_\-\.]+$/, t("registerValidationUsernameChars")),
+                email: z.string().email(t("authValidationEmail")),
+                password: z.string().min(6, t("authValidationPasswordMin")),
+            }),
+        [t]
+    );
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -43,45 +51,50 @@ export default function RegisterForm() {
             email: "",
             password: "",
         },
-    })
+    });
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
-        setLoading(true)
-        setError("")
+        setLoading(true);
+        setError("");
 
         try {
             const res = await fetch("/api/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(values)
-            })
+                body: JSON.stringify(values),
+            });
 
             if (!res.ok) {
-                const text = await res.text()
-                throw new Error(text || "Registration failed")
+                const message = await getLocalizedErrorMessageFromResponse(
+                    res,
+                    "registerErrorFailed",
+                    t,
+                    language,
+                    { overrideTranslationKeys: { INVALID_PAYLOAD: "registerErrorInvalidPayload" } }
+                );
+                throw new Error(message);
             }
 
-            // On success, redirect to login
-            router.push("/login?registered=true")
+            router.push("/login?registered=true");
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : "Registration failed")
+            const raw = err instanceof Error ? err.message : null;
+            const net = tryLocalizeFetchNetworkFailureMessage(raw, t);
+            setError(net ?? (err instanceof Error ? err.message : t("registerErrorFailed")));
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
     }
 
     return (
-        <div className="grid gap-6">
+        <div key={language} className="grid gap-6">
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-
-                    {/* Role Selection */}
                     <FormField
                         control={form.control}
                         name="role"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>I am a...</FormLabel>
+                                <FormLabel>{t("registerFormRoleLabel")}</FormLabel>
                                 <FormControl>
                                     <RoleSelection
                                         onSelect={(role) => form.setValue("role", role)}
@@ -99,11 +112,11 @@ export default function RegisterForm() {
                             name="username"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Username</FormLabel>
+                                    <FormLabel>{t("registerLabelUsername")}</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="CoolStudent123" {...field} />
+                                        <Input placeholder={t("registerPlaceholderUsername")} {...field} />
                                     </FormControl>
-                                    <FormDescription>Unique name for your profile</FormDescription>
+                                    <FormDescription>{t("registerDescUsername")}</FormDescription>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -114,9 +127,9 @@ export default function RegisterForm() {
                             name="name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Full Name</FormLabel>
+                                    <FormLabel>{t("registerLabelFullName")}</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="John Doe" {...field} />
+                                        <Input placeholder={t("registerPlaceholderFullName")} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -127,9 +140,9 @@ export default function RegisterForm() {
                             name="email"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Email</FormLabel>
+                                    <FormLabel>{t("registerLabelEmail")}</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="name@example.com" {...field} />
+                                        <Input placeholder={t("registerPlaceholderEmail")} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -140,9 +153,9 @@ export default function RegisterForm() {
                             name="password"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Password</FormLabel>
+                                    <FormLabel>{t("registerLabelPassword")}</FormLabel>
                                     <FormControl>
-                                        <Input type="password" placeholder="••••••••" {...field} />
+                                        <Input type="password" placeholder={t("registerPlaceholderPassword")} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -150,14 +163,14 @@ export default function RegisterForm() {
                         />
                     </div>
 
-                    {error && <div className="text-sm text-red-500 font-medium bg-red-50 p-3 rounded-md">{error}</div>}
+                    {error && <div className="rounded-md bg-red-50 p-3 text-sm font-medium text-red-500">{error}</div>}
 
-                    <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 h-11 text-base" disabled={loading}>
+                    <Button type="submit" className="h-11 w-full bg-purple-600 text-base hover:bg-purple-700" disabled={loading}>
                         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Create Account
+                        {t("registerSubmitCreateAccount")}
                     </Button>
                 </form>
             </Form>
         </div>
-    )
+    );
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useSocket } from "@/components/providers/socket-provider"
 import { useSession } from "next-auth/react"
@@ -12,15 +12,35 @@ import { GoldQuestSettings } from "@/components/host/settings/gold-quest-setting
 import { CryptoHackSettings } from "@/components/host/settings/crypto-hack-settings"
 import { GoldQuestHostView } from "@/components/game/gold-quest/host-view"
 import { CryptoHackHostView } from "@/components/game/crypto-hack/host-view"
-import { GoldQuestPlayer, CryptoHackPlayer, GameSettings } from "@/lib/types/game"
+import { NegamonBattleHostView } from "@/components/game/negamon/negamon-battle-host-view"
+import {
+    GoldQuestPlayer,
+    CryptoHackPlayer,
+    NegamonBattlePlayer,
+    GameSettings,
+} from "@/lib/types/game"
 import { cn } from "@/lib/utils"
 
 import { useSound } from "@/hooks/use-sound"
 import { SoundController } from "@/components/game/sound-controller"
+import { useToast } from "@/components/ui/use-toast"
+import { useLanguage } from "@/components/providers/language-provider"
+import { isTeacherOrAdmin } from "@/lib/role-guards"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { formatSocketErrorMessage } from "@/app/play/game/play-game-types"
 
 type HostView = "SELECT_MODE" | "SETTINGS" | "LOBBY" | "PLAYING" | "ENDED"
-type GameMode = "GOLD_QUEST" | "CRYPTO_HACK"
-type HostPlayer = GoldQuestPlayer | CryptoHackPlayer
+type GameMode = "GOLD_QUEST" | "CRYPTO_HACK" | "NEGAMON_BATTLE"
+type HostPlayer = GoldQuestPlayer | CryptoHackPlayer | NegamonBattlePlayer
 
 type HostEvent = {
     source: string
@@ -32,7 +52,8 @@ type HostEvent = {
 type HostGameStartedPayload = {
     startTime: number
     settings?: GameSettings
-    mode?: Extract<GameMode, "GOLD_QUEST" | "CRYPTO_HACK">
+    mode?: Extract<GameMode, "GOLD_QUEST" | "CRYPTO_HACK" | "NEGAMON_BATTLE">
+    gameMode?: GameMode
     timeLimit?: number
 }
 
@@ -40,17 +61,39 @@ function isCryptoHackPlayer(player: HostPlayer): player is CryptoHackPlayer {
     return "crypto" in player
 }
 
+function isNegamonBattlePlayer(player: HostPlayer): player is NegamonBattlePlayer {
+    return "battleHp" in player && typeof (player as NegamonBattlePlayer).battleHp === "number"
+}
+
+/** True only in the browser after hydration — matches SSR snapshot (false) to avoid hydration mismatches. */
+function useIsClient() {
+    return useSyncExternalStore(
+        () => () => {},
+        () => true,
+        () => false
+    )
+}
+
 export default function HostLobbyPage() {
     const params = useParams()
     const setId = params.setId as string
     const { socket, isConnected } = useSocket()
-    const { data: session } = useSession()
+    const { data: session, status: sessionStatus } = useSession()
     const { play, stopBGM } = useSound()
     const router = useRouter()
+    const { toast } = useToast()
+    const { t } = useLanguage()
+    const toastRef = useRef(toast)
+    const tRef = useRef(t)
+    useEffect(() => {
+        toastRef.current = toast
+        tRef.current = t
+    }, [toast, t])
 
     const [pin, setPin] = useState<string | null>(null)
     const [players, setPlayers] = useState<HostPlayer[]>([])
-    const [loading, setLoading] = useState(true)
+    /** True only while waiting for `game-created` after emitting `create-game` */
+    const [creatingGame, setCreatingGame] = useState(false)
     const [view, setView] = useState<HostView>("SELECT_MODE")
     const [gameEvents, setGameEvents] = useState<HostEvent[]>([])
     const [gameSettings, setGameSettings] = useState<GameSettings | null>(null)
@@ -59,7 +102,42 @@ export default function HostLobbyPage() {
     // Timer State
     const [timeLeft, setTimeLeft] = useState(0)
     const [endTime, setEndTime] = useState<number | null>(null)
+    const [isCancelLobbyDialogOpen, setIsCancelLobbyDialogOpen] = useState(false)
     const hostTokenStorageKey = `host_reconnect_token_${setId}`
+    /** จาก `?classroomId=` — ส่งตอน create-game เพื่อซิงค์ EXP หลังจบ Negamon */
+    const [rewardClassroomFromQuery, setRewardClassroomFromQuery] = useState<string | null>(null)
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        const timer = window.setTimeout(() => {
+            const params = new URLSearchParams(window.location.search)
+            const rawClassroom = params.get("classroomId")
+            setRewardClassroomFromQuery(rawClassroom?.trim() || null)
+
+            // Pre-select game mode from ?mode= query param (e.g. from NegamonBattleLauncher)
+            const rawMode = params.get("mode") as GameMode | null
+            if (rawMode === "NEGAMON_BATTLE" || rawMode === "GOLD_QUEST" || rawMode === "CRYPTO_HACK") {
+                setSelectedMode(rawMode)
+                setView("SETTINGS")
+            }
+        }, 0)
+        return () => window.clearTimeout(timer)
+    }, [])
+
+    const [negamonHostMeta, setNegamonHostMeta] = useState<{
+        phase: "QUESTION" | "BETWEEN"
+        roundIndex: number
+        preview: string | null
+    } | null>(null)
+    const [negamonBattleLogs, setNegamonBattleLogs] = useState<string[]>([])
+
+    const isClient = useIsClient()
+
+    useEffect(() => {
+        if (sessionStatus === "authenticated" && !isTeacherOrAdmin(session?.user?.role)) {
+            router.replace("/dashboard")
+        }
+    }, [router, session?.user?.role, sessionStatus])
 
     // BGM Management
     useEffect(() => {
@@ -90,18 +168,9 @@ export default function HostLobbyPage() {
             socket.emit("reconnect-host", { pin: savedPin, reconnectToken: savedHostToken })
             window.requestAnimationFrame(() => {
                 setPin(savedPin)
-                setLoading(false)
                 // View update will trigger BGM change
                 setView("LOBBY") // Or PLAYING if server tells us
             })
-        } else {
-            // New Session: Wait for user to select mode
-            window.requestAnimationFrame(() => {
-                setLoading(false)
-            })
-            if (view === "SELECT_MODE") {
-                // Do nothing, just show selector
-            }
         }
 
         // Listeners
@@ -109,13 +178,19 @@ export default function HostLobbyPage() {
             setPin(data.pin)
             sessionStorage.setItem(`host_pin_${setId}`, data.pin)
             sessionStorage.setItem(hostTokenStorageKey, data.hostReconnectToken)
-            setLoading(false)
+            setCreatingGame(false)
             setView("LOBBY")
         })
 
-        socket.on("host-reconnected", (data: { status: "LOBBY" | "PLAYING" | "ENDED" }) => {
-            setView(data.status === "LOBBY" ? "LOBBY" : data.status)
-        })
+        socket.on(
+            "host-reconnected",
+            (data: { status: "LOBBY" | "PLAYING" | "ENDED"; gameMode?: GameMode }) => {
+                setView(data.status === "LOBBY" ? "LOBBY" : data.status)
+                if (data.gameMode === "NEGAMON_BATTLE") setSelectedMode("NEGAMON_BATTLE")
+                else if (data.gameMode === "CRYPTO_HACK") setSelectedMode("CRYPTO_HACK")
+                else if (data.gameMode === "GOLD_QUEST") setSelectedMode("GOLD_QUEST")
+            }
+        )
 
         socket.on("player-joined", (data: { players: HostPlayer[] }) => {
             console.log("Host Received Players Update:", data.players);
@@ -127,7 +202,14 @@ export default function HostLobbyPage() {
             console.log("Game Started Data:", data);
             setView("PLAYING")
 
-            if (data.mode) setSelectedMode(data.mode);
+            const incomingMode = data.gameMode ?? data.mode
+            if (incomingMode === "NEGAMON_BATTLE") {
+                setSelectedMode("NEGAMON_BATTLE")
+                setNegamonBattleLogs([])
+                setNegamonHostMeta(null)
+            } else if (incomingMode === "CRYPTO_HACK") setSelectedMode("CRYPTO_HACK")
+            else setSelectedMode("GOLD_QUEST")
+
             if (data.settings) setGameSettings(data.settings);
 
             if (data.settings) {
@@ -157,6 +239,26 @@ export default function HostLobbyPage() {
             setPlayers(data.players)
         })
 
+        socket.on(
+            "negamon-battle-state",
+            (data: {
+                phase: "QUESTION" | "BETWEEN"
+                roundIndex: number
+                currentQuestion: { question: string } | null
+            }) => {
+                setNegamonHostMeta({
+                    phase: data.phase,
+                    roundIndex: data.roundIndex,
+                    preview: data.currentQuestion?.question ?? null,
+                })
+            }
+        )
+
+        socket.on("negamon-round-result", (data: { logs: string[] }) => {
+            const logs = Array.isArray(data?.logs) ? data.logs : []
+            setNegamonBattleLogs((prev) => [...prev, ...logs].slice(-40))
+        })
+
         socket.on("interaction-effect", (event: HostEvent) => {
             setGameEvents(prev => [...prev, event])
             if (event.type === "SWAP") play("swap")
@@ -170,13 +272,23 @@ export default function HostLobbyPage() {
             sessionStorage.removeItem(hostTokenStorageKey);
         })
 
-        socket.on("error", (err: { message: string }) => {
+        socket.on("error", (err: { message?: string }) => {
             console.error("Socket Error:", err);
-            if (err.message === "Game not found" || err.message === "Game is locked" || err.message === "Host reconnection denied") {
-                // Clear invalid session and retry
+            setCreatingGame(false)
+            const raw = typeof err?.message === "string" ? err.message : ""
+            if (raw === "Game not found" || raw === "Game is locked" || raw === "Host reconnection denied") {
                 sessionStorage.removeItem(`host_pin_${setId}`);
                 sessionStorage.removeItem(hostTokenStorageKey);
                 window.location.reload();
+                return
+            }
+            if (raw) {
+                const tr = tRef.current
+                toastRef.current({
+                    title: tr("playToastActionFailed"),
+                    description: formatSocketErrorMessage(raw, tr),
+                    variant: "destructive",
+                })
             }
         })
 
@@ -187,11 +299,27 @@ export default function HostLobbyPage() {
             socket.off("player-joined")
             socket.off("game-started")
             socket.off("game-state-update")
+            socket.off("negamon-battle-state")
+            socket.off("negamon-round-result")
             socket.off("interaction-effect")
             socket.off("game-over")
             socket.off("error")
         }
-    }, [socket, isConnected, session, setId, hostTokenStorageKey, play, stopBGM, view])
+    }, [socket, isConnected, session, setId, hostTokenStorageKey, play, stopBGM])
+
+    // If create-game hangs (server not responding), release the UI
+    useEffect(() => {
+        if (!creatingGame) return
+        const timeoutId = window.setTimeout(() => {
+            setCreatingGame(false)
+            toast({
+                title: t("hostCreateRoomTimeoutTitle"),
+                description: t("hostCreateRoomTimeoutDesc"),
+                variant: "destructive",
+            })
+        }, 45_000)
+        return () => window.clearTimeout(timeoutId)
+    }, [creatingGame, toast, t])
 
     // Timer Interval
     // ... (keep existing) ...
@@ -223,19 +351,33 @@ export default function HostLobbyPage() {
         } else if (modeId === "crypto-hack") {
             setSelectedMode("CRYPTO_HACK");
             setView("SETTINGS");
+        } else if (modeId === "negamon-battle") {
+            setSelectedMode("NEGAMON_BATTLE");
+            setView("SETTINGS");
         }
     }
 
     const handleHostGame = (settings: GameSettings) => {
-        if (socket && session?.user) {
-            setLoading(true)
-            socket.emit("create-game", {
-                setId,
-                hostId: session.user.id,
-                settings,
-                mode: selectedMode
+        if (!session?.user) return
+        if (!socket || !isConnected) {
+            toast({
+                title: t("hostSocketNotConnectedTitle"),
+                description: t("hostSocketNotConnectedDesc"),
+                variant: "destructive",
             })
+            return
         }
+        setCreatingGame(true)
+        socket.emit("create-game", {
+            setId,
+            hostId: session.user.id,
+            settings,
+            mode: selectedMode,
+            rewardClassroomId:
+                selectedMode === "NEGAMON_BATTLE" && rewardClassroomFromQuery
+                    ? rewardClassroomFromQuery
+                    : undefined,
+        })
     }
 
     const startGame = () => {
@@ -246,12 +388,37 @@ export default function HostLobbyPage() {
         }
     }
 
-    if (!session) return <div className="p-8 text-center">Please login to host.</div>
+    const sessionLoadingShell = (
+        <div className="flex h-screen flex-col items-center justify-center gap-4">
+            <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
+            <p className="text-slate-500">{t("hostLoading")}</p>
+        </div>
+    )
 
-    if (loading) return <div className="flex h-screen items-center justify-center flex-col gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
-        <p className="text-slate-500">Loading...</p>
-    </div>
+    if (!isClient) {
+        return sessionLoadingShell
+    }
+
+    if (sessionStatus === "loading") {
+        return sessionLoadingShell
+    }
+
+    if (sessionStatus === "unauthenticated" || !session?.user) {
+        return <div className="p-8 text-center">{t("hostPleaseLogin")}</div>
+    }
+
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return null
+    }
+
+    if (creatingGame) {
+        return (
+            <div className="flex h-screen flex-col items-center justify-center gap-4">
+                <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
+                <p className="text-slate-500">{t("hostCreatingRoom")}</p>
+            </div>
+        )
+    }
 
     if (view === "SELECT_MODE") {
         // Audio Toggle
@@ -273,7 +440,12 @@ export default function HostLobbyPage() {
         return (
             <>
                 <SoundController className="fixed top-4 right-4" />
-                <GoldQuestSettings onHost={handleHostGame} onBack={() => setView("SELECT_MODE")} />
+                <GoldQuestSettings
+                    onHost={handleHostGame}
+                    onBack={() => setView("SELECT_MODE")}
+                    forNegamonBattle={selectedMode === "NEGAMON_BATTLE"}
+                    linkedClassroomId={rewardClassroomFromQuery}
+                />
             </>
         )
     }
@@ -285,9 +457,36 @@ export default function HostLobbyPage() {
         }
     }
 
+    const handleCancelLobby = () => {
+        handleEndGame()
+        sessionStorage.removeItem(`host_pin_${setId}`)
+        sessionStorage.removeItem(hostTokenStorageKey)
+        setPin(null)
+        setPlayers([])
+        setView("SELECT_MODE")
+        setIsCancelLobbyDialogOpen(false)
+    }
+
     // Render Game View if Playing
     // Render Game View if Playing
     if (view === "PLAYING") {
+        if (selectedMode === "NEGAMON_BATTLE") {
+            return (
+                <>
+                    <SoundController className="fixed bottom-6 left-6 z-[60]" />
+                    <NegamonBattleHostView
+                        players={players.filter(isNegamonBattlePlayer)}
+                        timeLeft={timeLeft}
+                        onEndGame={handleEndGame}
+                        pin={pin || ""}
+                        battlePhase={negamonHostMeta?.phase}
+                        roundIndex={negamonHostMeta?.roundIndex}
+                        currentQuestionPreview={negamonHostMeta?.preview ?? null}
+                        battleLogs={negamonBattleLogs}
+                    />
+                </>
+            )
+        }
         if (selectedMode === "CRYPTO_HACK") {
             return <>
                 <SoundController className="fixed bottom-6 left-6 z-[60]" />
@@ -304,7 +503,7 @@ export default function HostLobbyPage() {
         return <>
             <SoundController className="fixed bottom-6 left-6 z-[60]" />
             <GoldQuestHostView
-                players={players.filter((player): player is GoldQuestPlayer => !isCryptoHackPlayer(player))}
+                players={players.filter((player): player is GoldQuestPlayer => !isCryptoHackPlayer(player) && !isNegamonBattlePlayer(player))}
                 events={gameEvents}
                 timeLeft={timeLeft}
                 onEndGame={handleEndGame}
@@ -321,10 +520,10 @@ export default function HostLobbyPage() {
                 <SoundController className="fixed top-6 right-6" />
                 {/* ... rest of game over ... */}
                 {/* ... rest of game over ... */}
-                <h1 className="text-6xl font-black text-amber-500 mb-8 drop-shadow-[0_4px_0_rgba(0,0,0,0.5)]">GAME OVER</h1>
+                <h1 className="text-6xl font-black text-amber-500 mb-8 drop-shadow-[0_4px_0_rgba(0,0,0,0.5)]">{t("hostGameOverTitle")}</h1>
 
                 <div className="bg-slate-800 p-8 rounded-3xl w-full max-w-2xl border-4 border-slate-700 shadow-2xl mb-8">
-                    <h2 className="text-2xl font-bold text-center mb-6 uppercase tracking-widest text-slate-400">Final Standings</h2>
+                    <h2 className="text-2xl font-bold text-center mb-6 uppercase tracking-widest text-slate-400">{t("hostFinalStandings")}</h2>
                     <div className="space-y-4">
                         {players.slice(0, 3).map((player, index) => (
                             <div key={player.id} className={cn(
@@ -336,7 +535,9 @@ export default function HostLobbyPage() {
                                 <div className="font-black text-3xl w-12 text-center mr-4">#{index + 1}</div>
                                 <div className="flex-1 font-bold text-xl">{player.name}</div>
                                 <div className="font-black text-2xl">
-                                    {("crypto" in player) ?
+                                    {isNegamonBattlePlayer(player)
+                                        ? `${player.battleHp} HP`
+                                        : ("crypto" in player) ?
                                         `₿ ${(player as CryptoHackPlayer).crypto.toLocaleString()}` :
                                         (player as GoldQuestPlayer).gold?.toLocaleString() || "0"}
                                 </div>
@@ -350,7 +551,7 @@ export default function HostLobbyPage() {
                     onClick={() => router.push("/dashboard")}
                     className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xl px-12 py-6 rounded-full shadow-[0_4px_0_rgb(107,33,168)] active:translate-y-1 transition-all"
                 >
-                    Back to My Question Sets
+                    {t("hostBackToMyQuestionSets")}
                 </Button>
             </div>
         )
@@ -363,7 +564,7 @@ export default function HostLobbyPage() {
             {/* Top Bar */}
             <div className="p-6 flex justify-between items-center border-b border-slate-800">
                 <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
-                    Blooket Clone
+                    {t("appName")}
                 </h1>
                 <div className="flex items-center space-x-4">
                     <div className="bg-slate-800 px-4 py-2 rounded-lg flex items-center space-x-2">
@@ -378,7 +579,7 @@ export default function HostLobbyPage() {
 
                 {/* PIN Display */}
                 <div className="text-center space-y-2 animate-in zoom-in-50 duration-500">
-                    <p className="text-slate-400 uppercase tracking-widest text-sm font-semibold">Join with Game Code</p>
+                    <p className="text-slate-400 uppercase tracking-widest text-sm font-semibold">{t("hostJoinWithGameCode")}</p>
                     <div className="relative group cursor-pointer" onClick={copyPin}>
                         <h1 className="text-8xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(168,85,247,0.5)]">
                             {pin}
@@ -387,7 +588,7 @@ export default function HostLobbyPage() {
                             <Copy className="h-6 w-6 text-slate-500" />
                         </div>
                     </div>
-                    <p className="text-slate-500">Go to <span className="text-purple-400 font-bold">gameedu-app.onrender.com/play</span></p>
+                    <p className="text-slate-500">{t("hostGoToPlayPrefix")} <span className="text-purple-400 font-bold">gameedu-app.onrender.com/play</span></p>
                 </div>
 
                 {/* Player Grid */}
@@ -401,7 +602,7 @@ export default function HostLobbyPage() {
                     </div>
                     {players.length === 0 && (
                         <div className="text-center text-slate-600 mt-12 animate-pulse">
-                            Waiting for players to join...
+                            {t("hostWaitingForPlayers")}
                         </div>
                     )}
                 </div>
@@ -413,18 +614,9 @@ export default function HostLobbyPage() {
                     variant="destructive"
                     size="lg"
                     className="font-bold text-xl px-8 py-8 rounded-xl"
-                    onClick={() => {
-                        if (confirm("End this game and return to menu?")) {
-                            handleEndGame();
-                            sessionStorage.removeItem(`host_pin_${setId}`);
-                            sessionStorage.removeItem(hostTokenStorageKey);
-                            setPin(null);
-                            setPlayers([]);
-                            setView("SELECT_MODE");
-                        }
-                    }}
+                    onClick={() => setIsCancelLobbyDialogOpen(true)}
                 >
-                    Cancel Lobby
+                    {t("hostCancelLobby")}
                 </Button>
                 <Button
                     size="lg"
@@ -432,9 +624,32 @@ export default function HostLobbyPage() {
                     onClick={startGame}
                     disabled={players.length === 0}
                 >
-                    Start Game <Play className="ml-3 h-6 w-6 fill-current" />
+                    {t("hostStartGame")} <Play className="ml-3 h-6 w-6 fill-current" />
                 </Button>
             </div>
+
+            <AlertDialog open={isCancelLobbyDialogOpen} onOpenChange={setIsCancelLobbyDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{t("hostEndLobbyTitle")}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {t("hostEndLobbyDesc")}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>{t("hostKeepLobby")}</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(event) => {
+                                event.preventDefault()
+                                handleCancelLobby()
+                            }}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            {t("hostEndLobby")}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

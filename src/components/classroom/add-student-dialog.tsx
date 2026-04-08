@@ -89,7 +89,7 @@ export function AddStudentDialog({ classId, theme, onStudentAdded }: AddStudentD
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className="h-9 bg-white/15 hover:bg-white/25 text-white border-0 font-semibold shadow backdrop-blur-sm" size="sm">
+                <Button variant="outline" className="h-9 min-h-[44px] rounded-full border-[#d9d9dd] bg-white font-medium text-[#212121] shadow-none hover:border-[#1863dc] hover:text-[#1863dc] lg:min-h-0" size="sm">
                     <UserPlus className="w-4 h-4 mr-1.5" />
                     {t("addStudents")}
                 </Button>

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { GoldQuestPlayer } from "@/lib/types/game"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { useLanguage } from "@/components/providers/language-provider"
 
 type Props = {
     players: GoldQuestPlayer[];
@@ -15,6 +16,7 @@ type Props = {
 }
 
 export function GoldQuestHostView({ players, events = [], timeLeft, onEndGame, goldGoal, pin }: Props) {
+    const { t } = useLanguage()
     const sortedPlayers = [...players].sort((a, b) => b.gold - a.gold);
 
     const formatTime = (seconds: number) => {
@@ -45,7 +47,7 @@ export function GoldQuestHostView({ players, events = [], timeLeft, onEndGame, g
                         </div>
 
                         <h2 className="text-amber-400 font-extrabold uppercase tracking-widest text-xs mb-2">
-                            {goldGoal ? "GOLD GOAL" : "TIME REMAINING"}
+                            {goldGoal ? t("goldQuestHostGoldGoal") : t("goldQuestHostTimeRemaining")}
                         </h2>
 
                         <div className="flex items-baseline gap-2">
@@ -62,7 +64,7 @@ export function GoldQuestHostView({ players, events = [], timeLeft, onEndGame, g
                                         />
                                     </div>
                                     <div className="mt-3 text-xs font-bold text-amber-200/80 flex justify-between uppercase tracking-wider">
-                                        <span>Current Top</span>
+                                        <span>{t("goldQuestHostCurrentTop")}</span>
                                         <span className="text-white">{sortedPlayers[0]?.gold.toLocaleString() || 0}</span>
                                     </div>
                                 </div>
@@ -78,7 +80,7 @@ export function GoldQuestHostView({ players, events = [], timeLeft, onEndGame, g
                     <div className="flex-1 bg-black/40 backdrop-blur-xl border-4 border-amber-500/30 rounded-3xl p-6 shadow-2xl flex flex-col overflow-hidden">
                         <h2 className="text-blue-300 font-extrabold uppercase tracking-widest text-xs mb-4 flex items-center gap-2 border-b border-white/10 pb-2">
                             <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse box-content border-2 border-blue-400/30" />
-                            Live Activity
+                            {t("goldQuestHostLiveActivity")}
                         </h2>
                         <div className="flex-1 overflow-hidden relative space-y-3 mask-linear-fade">
                             <AnimatePresence mode="popLayout">
@@ -96,7 +98,7 @@ export function GoldQuestHostView({ players, events = [], timeLeft, onEndGame, g
                                                 "text-[10px] font-black uppercase px-1.5 py-0.5 rounded",
                                                 event.type === "STEAL" ? "bg-red-500/20 text-red-300" : "bg-blue-500/20 text-blue-300"
                                             )}>
-                                                {event.type === "STEAL" ? "stole" : "swapped"}
+                                                {event.type === "STEAL" ? t("goldQuestHostEventStole") : t("goldQuestHostEventSwapped")}
                                             </span>
                                             <span className="font-bold text-white/90">{event.target}</span>
                                         </div>
@@ -105,7 +107,7 @@ export function GoldQuestHostView({ players, events = [], timeLeft, onEndGame, g
                             </AnimatePresence>
                             {events.length === 0 && (
                                 <div className="text-amber-500/50 text-center text-sm italic mt-10 font-medium">
-                                    Waiting for gold movements...
+                                    {t("goldQuestHostWaitingMovements")}
                                 </div>
                             )}
                         </div>
@@ -116,7 +118,7 @@ export function GoldQuestHostView({ players, events = [], timeLeft, onEndGame, g
                 <div className="col-span-6 flex flex-col">
                     <div className="text-center mb-8">
                         <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-amber-500 to-amber-700 drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] stroke-text-gold tracking-tighter transform -rotate-1">
-                            LEADERBOARD
+                            {t("goldQuestHostLeaderboard")}
                         </h1>
                     </div>
 
@@ -177,7 +179,7 @@ export function GoldQuestHostView({ players, events = [], timeLeft, onEndGame, g
                 <div className="col-span-3 flex flex-col gap-6">
                     {/* Game Code */}
                     <div className="bg-black/40 backdrop-blur-xl border-4 border-purple-500/50 rounded-3xl p-8 text-center shadow-[0_0_30px_rgba(168,85,247,0.3)] transform hover:scale-105 transition-transform duration-300">
-                        <div className="text-sm font-black uppercase text-purple-300 tracking-[0.3em] mb-4">Join Code</div>
+                        <div className="text-sm font-black uppercase text-purple-300 tracking-[0.3em] mb-4">{t("goldQuestHostJoinCode")}</div>
                         <div className="text-7xl font-black text-white tracking-widest drop-shadow-[0_0_10px_rgba(168,85,247,0.8)]">
                             {pin}
                         </div>
@@ -186,7 +188,7 @@ export function GoldQuestHostView({ players, events = [], timeLeft, onEndGame, g
                     {/* Total Gold */}
                     <div className="bg-gradient-to-br from-amber-600 to-amber-800 rounded-3xl p-1 shadow-2xl">
                         <div className="bg-black/30 backdrop-blur-sm rounded-[1.3rem] p-6 text-center h-full border border-amber-400/30">
-                            <div className="text-xs font-bold uppercase text-amber-200 tracking-widest mb-2">Total Loot</div>
+                            <div className="text-xs font-bold uppercase text-amber-200 tracking-widest mb-2">{t("goldQuestHostTotalLoot")}</div>
                             <div className="text-5xl font-black text-white drop-shadow-md">
                                 {totalGold.toLocaleString()}
                             </div>
@@ -200,7 +202,7 @@ export function GoldQuestHostView({ players, events = [], timeLeft, onEndGame, g
                         onClick={onEndGame}
                         className="w-full bg-red-600 hover:bg-red-700 text-white font-black text-2xl py-10 rounded-3xl shadow-[0_8px_0_rgb(153,27,27)] active:shadow-none active:translate-y-2 transition-all uppercase tracking-wider border-2 border-red-400"
                     >
-                        End Game
+                        {t("hostEndGame")}
                     </Button>
                 </div>
 

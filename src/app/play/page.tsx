@@ -6,8 +6,11 @@ import { useSocket } from "@/components/providers/socket-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, ArrowRight, Gamepad2 } from "lucide-react"
+import { Loader2, ArrowRight } from "lucide-react"
 import { getPlayerReconnectToken, savePlayerSession } from "@/lib/player-session"
+import { PublicBrandMark } from "@/components/layout/public-brand-mark"
+import { useLanguage } from "@/components/providers/language-provider"
+import { formatSocketErrorMessage } from "@/app/play/game/play-game-types"
 
 type JoinedSuccessPayload = {
     pin: string
@@ -22,6 +25,7 @@ type ErrorPayload = {
 export default function PlayPage() {
     const router = useRouter()
     const { socket, isConnected } = useSocket()
+    const { t } = useLanguage()
 
     const [pin, setPin] = useState("")
     const [name, setName] = useState("")
@@ -30,11 +34,11 @@ export default function PlayPage() {
 
     const handleJoin = () => {
         if (!socket || !isConnected) {
-            setError("Connection lost. Retrying...")
+            setError(t("playErrorConnectionLost"))
             return
         }
         if (!pin || !name) {
-            setError("Please fill in all fields.")
+            setError(t("playErrorFillAllFields"))
             return
         }
 
@@ -59,31 +63,33 @@ export default function PlayPage() {
         })
 
         socket.once("error", (err: ErrorPayload) => {
-            setError(err.message || "Failed to join")
+            const raw = typeof err?.message === "string" ? err.message.trim() : ""
+            setError(raw ? formatSocketErrorMessage(raw, t) : t("playErrorFailedToJoin"))
             setJoining(false)
         })
     }
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-purple-600 to-blue-600 p-4">
-            <Card className="w-full max-w-md shadow-2xl border-none">
-                <CardHeader className="text-center pb-2">
-                    <div className="mx-auto bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mb-4">
-                        <Gamepad2 className="h-8 w-8 text-purple-600" />
-                    </div>
-                    <CardTitle className="text-3xl font-black text-slate-900">Join Game</CardTitle>
+        <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-slate-100 via-white to-indigo-50/80 px-4 py-8 sm:px-6">
+            <div className="mb-8">
+                <PublicBrandMark href="/" size="md" />
+            </div>
+            <Card className="w-full max-w-md border border-slate-200/80 shadow-2xl shadow-indigo-200/40">
+                <CardHeader className="pb-2 text-center">
+                    <CardTitle className="text-3xl font-black text-slate-900">{t("playJoinTitle")}</CardTitle>
+                    <p className="text-sm font-medium text-slate-500">{t("playJoinSubtitle")}</p>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
                         <Input
-                            placeholder="Game ID (PIN)"
+                            placeholder={t("playPlaceholderPin")}
                             className="text-center text-lg h-12 font-bold tracking-widest uppercase placeholder:normal-case placeholder:font-normal placeholder:tracking-normal"
                             maxLength={6}
                             value={pin}
                             onChange={(e) => setPin(e.target.value)}
                         />
                         <Input
-                            placeholder="Nickname"
+                            placeholder={t("playPlaceholderNickname")}
                             className="text-center text-lg h-12 font-bold"
                             maxLength={15}
                             value={name}
@@ -98,11 +104,17 @@ export default function PlayPage() {
                     )}
 
                     <Button
-                        className="w-full h-12 text-lg font-bold bg-green-500 hover:bg-green-600 shadow-[0_4px_0_rgb(21,128,61)] active:shadow-none active:translate-y-1 transition-all"
+                        className="h-12 w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-lg font-bold text-white shadow-md shadow-indigo-200/50 transition-all hover:from-indigo-700 hover:to-purple-700 active:translate-y-0.5"
                         onClick={handleJoin}
                         disabled={joining || !isConnected}
                     >
-                        {joining ? <Loader2 className="animate-spin" /> : <>Enter <ArrowRight className="ml-2 w-5 h-5" /></>}
+                        {joining ? (
+                            <Loader2 className="animate-spin" />
+                        ) : (
+                            <>
+                                {t("playEnterGame")} <ArrowRight className="ml-2 w-5 h-5" />
+                            </>
+                        )}
                     </Button>
                 </CardContent>
             </Card>

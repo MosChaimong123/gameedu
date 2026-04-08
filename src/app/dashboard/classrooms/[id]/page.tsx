@@ -73,7 +73,7 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
                 defaultValue={defaultTab}
                 className="flex w-full flex-1 flex-col"
             >
-                <TabsList className="mb-4 h-auto w-full justify-start gap-1 overflow-x-auto overflow-y-hidden rounded-2xl border border-slate-200 bg-slate-50 p-1.5 text-slate-700 shadow-sm">
+                <TabsList className="mb-4 h-auto w-full justify-start gap-0.5 overflow-x-auto overflow-y-hidden rounded-full border border-[#e5e7eb] bg-white p-1 text-[#212121] shadow-none">
                     <TranslatedTabsTriggers />
                 </TabsList>
 

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { GoldQuestPlayer, ChestReward } from "@/lib/types/game"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useLanguage } from "@/components/providers/language-provider"
 
 type Props = {
     player: GoldQuestPlayer;
@@ -16,6 +17,7 @@ type Props = {
 }
 
 export function GoldQuestPlayerView({ player, otherPlayers = [], onOpenChest, onInteraction, currentReward, isChestOpen }: Props) {
+    const { t } = useLanguage()
     void player;
     // Mock chest visuals
     const chests = [0, 1, 2];
@@ -30,10 +32,16 @@ export function GoldQuestPlayerView({ player, otherPlayers = [], onOpenChest, on
             <div className="z-40 w-full max-w-4xl flex flex-col items-center">
                 <div className="text-center mb-12">
                     <h2 className="text-5xl md:text-6xl font-black text-white drop-shadow-[0_4px_0_rgba(0,0,0,0.5)] tracking-tight mb-4">
-                        {isChestOpen ? (isInteraction ? "เลือกเหยื่อ!" : "เปิดหีบสำเร็จ!") : "เลือกหีบสมบัติ"}
+                        {isChestOpen
+                            ? isInteraction
+                                ? t("goldQuestChestPickTarget")
+                                : t("goldQuestChestOpened")
+                            : t("goldQuestChooseChest")}
                     </h2>
                     {!isChestOpen && (
-                        <p className="text-xl text-amber-200 font-bold animate-pulse tracking-widest uppercase">เลือกหีบเพื่อลุ้นรับรางวัล</p>
+                        <p className="text-xl text-amber-200 font-bold animate-pulse tracking-widest uppercase">
+                            {t("goldQuestChestPickRewardLine")}
+                        </p>
                     )}
                 </div>
 
@@ -98,7 +106,7 @@ export function GoldQuestPlayerView({ player, otherPlayers = [], onOpenChest, on
                             />
 
                             <div className="text-slate-400 font-bold uppercase tracking-widest text-sm mb-2">
-                                {isInteraction ? "แกล้งเพื่อน!" : "คุณได้รับ"}
+                                {isInteraction ? t("goldQuestRewardPrankFriend") : t("goldQuestRewardYouGot")}
                             </div>
                             <motion.div
                                 initial={{ scale: 0 }}
@@ -109,11 +117,12 @@ export function GoldQuestPlayerView({ player, otherPlayers = [], onOpenChest, on
                                 {currentReward.label}
                             </motion.div>
                             <div className="text-slate-500 font-bold mb-6">
-                                {currentReward.type === "GOLD" && "เหรียญถูกเพิ่มในกระเป๋าแล้ว!"}
-                                {currentReward.type === "LOSE_GOLD" && "แย่จัง! คุณเสียเหรียญไปบางส่วน"}
-                                {currentReward.type === "MULTIPLIER" && `หีบสมบัติถัดไปจะคูณ x${currentReward.value}!`}
-                                {currentReward.type === "NOTHING" && "โชคดีครั้งหน้านะ!"}
-                                {isInteraction && "เลือกเพื่อนที่จะแกล้ง:"}
+                                {currentReward.type === "GOLD" && t("goldQuestRewardGoldAdded")}
+                                {currentReward.type === "LOSE_GOLD" && t("goldQuestRewardLoseGold")}
+                                {currentReward.type === "MULTIPLIER" &&
+                                    t("goldQuestRewardMultiplierNext", { value: currentReward.value })}
+                                {currentReward.type === "NOTHING" && t("goldQuestRewardNothing")}
+                                {isInteraction && t("goldQuestPickFriendPrompt")}
                             </div>
 
                             {/* Interaction List */}
@@ -158,7 +167,7 @@ export function GoldQuestPlayerView({ player, otherPlayers = [], onOpenChest, on
                                     }
                                 }}
                             >
-                                {isInteraction ? "ยืนยัน" : "ไปต่อ"}
+                                {isInteraction ? t("goldQuestConfirm") : t("goldQuestContinue")}
                             </Button>
                         </motion.div>
                     </motion.div>

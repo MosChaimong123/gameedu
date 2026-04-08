@@ -18,7 +18,7 @@ import { assignmentFormTypeLabel } from "@/lib/assignment-form-type-label";
 import { formatDeadlineDisplayTh, isAssignmentDeadlinePast } from "@/lib/datetime-local";
 import { shouldFlagIntegrityForTeacher } from "@/lib/quiz-integrity";
 import { checklistCheckedScore } from "@/lib/academic-score";
-import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
+import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 
 type ChecklistItem = string | { text?: string; points?: number };
 

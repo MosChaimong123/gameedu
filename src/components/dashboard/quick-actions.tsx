@@ -54,6 +54,7 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
         {
             key: "viewReports",
             icon: BarChart,
+            mascot: "🕵️",
             color: "from-emerald-500 to-teal-600",
             textColor: "text-emerald-100",
             path: "/dashboard/reports",
@@ -62,6 +63,7 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
         {
             key: "activeClasses",
             icon: Users,
+            mascot: "🧑‍🏫",
             color: "from-rose-500 to-pink-600",
             textColor: "text-rose-100",
             path: "/dashboard/classrooms",
@@ -70,6 +72,7 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
         {
             key: "omrScanner",
             icon: Camera,
+            mascot: "🤖",
             color: "from-cyan-500 to-blue-600",
             textColor: "text-cyan-100",
             path: "/dashboard/omr",
@@ -78,6 +81,7 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
         {
             key: "mySets",
             icon: BookOpen,
+            mascot: "🧙",
             color: "from-indigo-500 to-violet-600",
             textColor: "text-indigo-100",
             path: "/dashboard/my-sets",
@@ -89,6 +93,7 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
         {
             key: "profile",
             icon: UserCircle,
+            mascot: "🧑",
             color: "from-indigo-500 to-violet-600",
             textColor: "text-indigo-100",
             path: "/dashboard/profile",
@@ -97,6 +102,7 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
         {
             key: "history",
             icon: HistoryIcon,
+            mascot: "🧭",
             color: "from-violet-500 to-purple-700",
             textColor: "text-violet-100",
             path: "/dashboard/history",
@@ -105,6 +111,7 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
         {
             key: "settings",
             icon: Settings,
+            mascot: "👨‍🔧",
             color: "from-slate-500 to-slate-700",
             textColor: "text-slate-100",
             path: "/dashboard/settings",
@@ -113,6 +120,7 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
         {
             key: "upgradeToPlus",
             icon: Sparkles,
+            mascot: "🧚",
             color: "from-amber-500 to-orange-600",
             textColor: "text-amber-100",
             path: "/dashboard/upgrade",
@@ -141,6 +149,12 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
                     {/* Animated background shapes */}
                     <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl animate-pulse" />
                     <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-64 h-64 bg-pink-500/20 rounded-full blur-3xl animate-pulse delay-700" />
+                    <div className="absolute right-8 top-8 hidden rounded-full border border-white/20 bg-white/10 px-4 py-2 text-2xl shadow-xl backdrop-blur-md md:flex">
+                        {isStudent ? "🎒" : "👑"}
+                    </div>
+                    <div className="absolute bottom-6 right-32 hidden rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm font-bold text-white/80 shadow-lg backdrop-blur-md lg:flex">
+                        {isStudent ? "พร้อมลุยด่าน" : "พร้อมเปิดเกม"}
+                    </div>
 
                     <div className="relative z-10 flex flex-col items-center md:items-start gap-6 text-center md:text-left">
                         <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 shadow-xl backdrop-blur-md ring-1 ring-white/20 transition-transform group-hover:scale-110 group-hover:rotate-3">
@@ -189,6 +203,9 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
                         <div className="relative h-full w-full overflow-hidden rounded-[1.95rem] bg-slate-900/10 p-6 backdrop-blur-md">
                             {/* Animated Background Gem */}
                             <div className={`absolute -right-4 -top-4 h-32 w-32 rounded-full bg-white/10 blur-2xl transition-transform group-hover:scale-150 group-hover:bg-white/20`} />
+                            <div className="absolute bottom-4 right-4 rounded-full border border-white/20 bg-white/15 px-3 py-1 text-xl shadow-lg backdrop-blur-md transition-all duration-300 group-hover:scale-110 group-hover:-rotate-6">
+                                {action.mascot}
+                            </div>
                             
                             <div className="absolute right-2 top-2 opacity-5 transition-all group-hover:opacity-15 group-hover:scale-110 group-hover:rotate-12">
                                 <action.icon className="h-24 w-24" />
@@ -199,7 +216,12 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
                                     <action.icon className="h-7 w-7 text-white" />
                                 </div>
                                 <div>
-                                    <h3 className="text-2xl font-black tracking-tight text-white mb-1 leading-none">{t(action.key)}</h3>
+                                    <div className="mb-1 flex items-center gap-2">
+                                        <h3 className="text-2xl font-black tracking-tight text-white leading-none">{t(action.key)}</h3>
+                                        <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white/85 shadow-sm">
+                                            {action.mascot}
+                                        </span>
+                                    </div>
                                     <p className={`text-sm ${action.textColor} font-medium opacity-80 line-clamp-1`}>
                                         {t(action.descKey)}
                                     </p>

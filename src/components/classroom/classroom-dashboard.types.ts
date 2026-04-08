@@ -1,6 +1,6 @@
 "use client";
 
-import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
+import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 
 export type UpdatedStudentPoints = {
     id: string;

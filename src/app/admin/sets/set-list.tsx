@@ -1,122 +1,161 @@
-"use client"
+"use client";
 
 import * as React from "react";
-import { 
-    BookOpen, 
-    Trash2, 
-    Search, 
-    ExternalLink,
-    Clock,
-    User as UserIcon,
-    Loader2
-} from "lucide-react";
+import Link from "next/link";
+import { BookOpen, Clock, ExternalLink, Loader2, Search, Trash2, User as UserIcon } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { deleteSet } from "../admin-actions";
-import Link from "next/link";
+import { useLanguage } from "@/components/providers/language-provider";
 
 type AdminSet = {
-    id: string;
-    title: string;
-    description: string | null;
-    createdAt: Date;
-    creator: {
-        name: string | null;
-        email: string | null;
-    };
+  id: string;
+  title: string;
+  description: string | null;
+  createdAt: Date;
+  creator: {
+    name: string | null;
+    email: string | null;
+  };
 };
 
 export function SetList({ initialSets }: { initialSets: AdminSet[] }) {
-    const [sets, setSets] = React.useState(initialSets);
-    const [searchTerm, setSearchTerm] = React.useState("");
-    const [isDeleting, setIsDeleting] = React.useState<string | null>(null);
-    const { toast } = useToast();
+  const [sets, setSets] = React.useState(initialSets);
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [isDeleting, setIsDeleting] = React.useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<AdminSet | null>(null);
+  const { toast } = useToast();
+  const { t } = useLanguage();
 
-    const filteredSets = sets.filter((set) => 
-        set.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        set.creator.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        set.creator.email?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const filteredSets = sets.filter(
+    (set) =>
+      set.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      set.creator.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      set.creator.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-    const handleDelete = async (setId: string) => {
-        if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบชุดคำถามนี้? การกระทำนี้ไม่สามารถย้อนกลับได้ และอาจส่งผลกระทบต่อเกมหรือการบ้านที่ใช้อยู่")) return;
-        
-        setIsDeleting(setId);
-        const result = await deleteSet(setId);
-        setIsDeleting(null);
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
 
-        if (result.success) {
-            setSets(prev => prev.filter((set) => set.id !== setId));
-            toast({ title: "ลบชุดคำถามแล้ว", description: "ลบชุดคำถามสำเร็จ" });
-        } else {
-            toast({ title: "เกิดข้อผิดพลาด", description: result.error, variant: "destructive" });
-        }
-    };
+    setIsDeleting(deleteTarget.id);
+    const result = await deleteSet(deleteTarget.id);
+    setIsDeleting(null);
 
-    return (
-        <div className="space-y-4">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input 
-                    placeholder="ค้นหาชื่อชุดคำถาม หรือผู้สร้าง..." 
-                    className="pl-10 h-11 rounded-xl border-slate-200"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
+    if (result.success) {
+      setSets((prev) => prev.filter((set) => set.id !== deleteTarget.id));
+      toast({
+        title: t("adminSetDeleteSuccessTitle"),
+        description: t("adminSetDeleteSuccessDesc", { title: deleteTarget.title }),
+      });
+    } else {
+      toast({
+        title: t("adminSetDeleteFailTitle"),
+        description: result.error,
+        variant: "destructive",
+      });
+    }
+
+    setDeleteTarget(null);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Input
+          placeholder={t("adminSetSearchPlaceholder")}
+          className="h-11 rounded-xl border-slate-200 pl-10"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {filteredSets.map((set) => (
+          <div key={set.id} className="group space-y-4 rounded-2xl border border-slate-200 bg-white p-5 transition-shadow hover:shadow-md">
+            <div className="flex items-start justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50">
+                <BookOpen className="h-5 w-5 text-orange-600" />
+              </div>
+              <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild title={t("adminSetViewTitle")}>
+                  <Link href={`/dashboard/my-sets/preview/${set.id}`}>
+                    <ExternalLink className="h-4 w-4 text-slate-400" />
+                  </Link>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                  onClick={() => setDeleteTarget(set)}
+                  disabled={isDeleting === set.id}
+                  title={t("adminSetDeleteTitle")}
+                >
+                  {isDeleting === set.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredSets.map((set) => (
-                    <div key={set.id} className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 hover:shadow-md transition-shadow group">
-                        <div className="flex justify-between items-start">
-                            <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center">
-                                <BookOpen className="w-5 h-5 text-orange-600" />
-                            </div>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild title="View Set">
-                                    <Link href={`/dashboard/my-sets/preview/${set.id}`}>
-                                        <ExternalLink className="w-4 h-4 text-slate-400" />
-                                    </Link>
-                                </Button>
-                                <Button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                                    onClick={() => handleDelete(set.id)}
-                                    disabled={isDeleting === set.id}
-                                    title="Delete Set"
-                                >
-                                    {isDeleting === set.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                </Button>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 className="font-bold text-slate-800 line-clamp-1">{set.title}</h3>
-                            <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{set.description || "ไม่มีคำอธิบาย"}</p>
-                        </div>
-
-                        <div className="pt-2 flex flex-wrap gap-3 border-t border-slate-50">
-                            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                                <Clock className="w-3 h-3" />
-                                {new Date(set.createdAt).toLocaleDateString("th-TH")}
-                            </div>
-                            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                                <UserIcon className="w-3 h-3" />
-                                {set.creator.name || set.creator.email?.split("@")[0]}
-                            </div>
-                        </div>
-                    </div>
-                ))}
-                
-                {filteredSets.length === 0 && (
-                    <div className="col-span-full py-20 text-center bg-white rounded-2xl border border-dashed border-slate-200">
-                        <BookOpen className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                        <p className="text-slate-400 font-medium">ไม่พบชุดคำถามที่ค้นหา</p>
-                    </div>
-                )}
+            <div>
+              <h3 className="line-clamp-1 font-bold text-slate-800">{set.title}</h3>
+              <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{set.description || t("noDescription")}</p>
             </div>
-        </div>
-    );
+
+            <div className="flex flex-wrap gap-3 border-t border-slate-50 pt-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                <Clock className="h-3 w-3" />
+                {new Date(set.createdAt).toLocaleDateString("th-TH")}
+              </div>
+              <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                <UserIcon className="h-3 w-3" />
+                {set.creator.name || set.creator.email?.split("@")[0]}
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {filteredSets.length === 0 && (
+          <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white py-20 text-center">
+            <BookOpen className="mx-auto mb-3 h-12 w-12 text-slate-200" />
+            <p className="font-medium text-slate-400">{t("adminSetNoResults")}</p>
+          </div>
+        )}
+      </div>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("adminSetDeleteConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("adminSetDeleteConfirmDesc", { title: deleteTarget?.title ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!isDeleting}>{t("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDelete();
+              }}
+              disabled={!!isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting === deleteTarget?.id ? t("adminSetDeletePending") : t("adminSetDeleteAction")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
 }

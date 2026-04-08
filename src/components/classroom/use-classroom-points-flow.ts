@@ -7,7 +7,7 @@ import {
     awardBehaviorPoints,
     resetBehaviorPoints,
 } from "@/lib/classroom-dashboard-actions";
-import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
+import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 import type {
     DashboardToastFn,
     DashboardTranslateFn,

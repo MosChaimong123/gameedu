@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation";
 import { useLanguage } from "@/components/providers/language-provider";
 import { getLocalizedMessageFromApiErrorBody } from "@/lib/ui-error-messages";
 import type { MonsterType } from "@/lib/types/negamon";
+import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 
 interface StarterSelectionModalProps {
     loginCode: string;
@@ -138,8 +139,16 @@ export function StarterSelectionModal({ loginCode, isOpen, onOpenChange, allowed
                                                 <CheckCircle2 className="w-6 h-6 fill-white" />
                                             </div>
                                         )}
-                                        <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center text-3xl mb-3 border border-slate-100">
-                                            {rank1.icon}
+                                        <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-100 bg-white shadow-sm">
+                                            <NegamonFormIcon
+                                                icon={rank1.icon}
+                                                label={species.name}
+                                                className="h-full w-full"
+                                                emojiClassName="text-3xl"
+                                                width={64}
+                                                height={64}
+                                                imageClassName="h-full w-full object-contain"
+                                            />
                                         </div>
                                         <h4 className="font-black text-slate-800 text-sm mb-1">{species.name}</h4>
                                         <Badge className={cn("text-[8px] font-black px-1.5 py-0 rounded-md border scale-90", TYPE_COLORS[species.type])}>
@@ -161,8 +170,16 @@ export function StarterSelectionModal({ loginCode, isOpen, onOpenChange, allowed
                                 >
                                     <div className="flex flex-col items-center md:items-start">
                                         <div className="flex items-center gap-4 mb-4">
-                                            <div className="w-20 h-20 rounded-[1.5rem] bg-white shadow-xl flex items-center justify-center text-5xl border-2 border-indigo-100">
-                                                {selectedSpecies.forms[1]?.icon || "🥚"}
+                                            <div className="flex h-20 w-20 items-center justify-center rounded-[1.5rem] border-2 border-indigo-100 bg-white shadow-xl">
+                                                <NegamonFormIcon
+                                                    icon={selectedSpecies.forms[1]?.icon || "🥚"}
+                                                    label={selectedSpecies.name}
+                                                    className="h-full w-full"
+                                                    emojiClassName="text-5xl"
+                                                    width={80}
+                                                    height={80}
+                                                    imageClassName="h-full w-full object-contain"
+                                                />
                                             </div>
                                             <div>
                                                 <h3 className="text-2xl font-black text-slate-800">{selectedSpecies.name}</h3>

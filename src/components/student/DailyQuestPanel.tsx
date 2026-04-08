@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/providers/language-provider";
 import { msUntilWeekReset } from "@/lib/quest-system";
-import type { QuestStatus, QuestId } from "@/lib/daily-quests";
+import type { QuestStatus } from "@/lib/daily-quests";
 
 type QuestType = "daily" | "weekly" | "challenge";
 

@@ -9,6 +9,12 @@ export default defineConfig({
   fullyParallel: false,
   retries: 0,
   reporter: [["list"]],
+  webServer: {
+    command: "npm run dev",
+    url: baseURL,
+    reuseExistingServer: true,
+    timeout: 180_000,
+  },
   use: {
     baseURL,
     trace: "retain-on-failure",

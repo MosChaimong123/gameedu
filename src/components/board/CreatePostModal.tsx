@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useLanguage } from "@/components/providers/language-provider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,9 @@ import { Image as ImageIcon, Send, X, Link as LinkIcon, FileText, Youtube, ListT
 import { createBoardPost } from "@/lib/actions/board-actions";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
+import { getLocalizedErrorMessageFromResponse } from "@/lib/ui-error-messages";
+import { formatBoardActionErrorMessage } from "@/lib/board-action-error-messages";
+import type { AppErrorCode } from "@/lib/api-error";
 
 type CreatedPost = {
     id: string;
@@ -52,9 +56,17 @@ const COLORS = [
 
 type PostType = "link" | "file" | "video" | "youtube" | "poll" | "album";
 
+const BOARD_UPLOAD_ERR_KEYS: Partial<Record<AppErrorCode, string>> = {
+    AUTH_REQUIRED: "boardUploadErrAuth",
+    NO_FILE: "boardUploadErrNoFile",
+    UNSUPPORTED_FILE_TYPE: "boardUploadErrUnsupported",
+    FILE_TOO_LARGE: "boardUploadErrTooLarge",
+};
+
 export function CreatePostModal({
     open, onOpenChange, boardId, onPostCreated
 }: CreatePostModalProps) {
+    const { t, language } = useLanguage();
     const [type, setType] = useState<PostType>("file");
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
@@ -93,7 +105,16 @@ export function CreatePostModal({
             method: "POST",
             body: formData
         });
-        if (!res.ok) throw new Error("Upload failed");
+        if (!res.ok) {
+            const message = await getLocalizedErrorMessageFromResponse(
+                res,
+                "boardUploadFail",
+                t,
+                language,
+                { overrideTranslationKeys: BOARD_UPLOAD_ERR_KEYS }
+            );
+            throw new Error(message);
+        }
         return await res.json();
     };
 
@@ -118,9 +139,9 @@ export function CreatePostModal({
                     data.fileName = uploadRes.fileName;
                 } else {
                     data.fileUrl = fileUrl.trim();
-                    data.fileName = "ไฟล์แนบ";
+                    data.fileName = t("boardDefaultFileName");
                 }
-                if (!data.fileUrl) throw new Error("กรุณาอัปโหลดไฟล์หรือใส่ลิงก์");
+                if (!data.fileUrl) throw new Error(t("boardNeedFileOrLink"));
             }
             if (type === "video") {
                 if (selectedVideo) {
@@ -129,9 +150,9 @@ export function CreatePostModal({
                     data.videoName = uploadRes.fileName;
                 } else {
                     data.videoUrl = videoUrl.trim();
-                    data.videoName = "วิดีโอ";
+                    data.videoName = t("boardDefaultVideoName");
                 }
-                if (!data.videoUrl) throw new Error("กรุณาอัปโหลดวิดีโอหรือใส่ลิงก์");
+                if (!data.videoUrl) throw new Error(t("boardNeedVideoOrLink"));
             }
             if (type === "youtube") {
                 const youtubeId = extractYoutubeId(youtubeUrl);
@@ -176,14 +197,20 @@ export function CreatePostModal({
             if (onPostCreated) onPostCreated(post);
             
             toast({
-                title: "โพสต์สำเร็จ!",
-                description: "โพสต์ของคุณถูกแชร์ลงกระดานแล้ว",
+                title: t("boardPostSuccessTitle"),
+                description: t("boardPostSuccessDesc"),
             });
-        } catch {
+        } catch (error: unknown) {
+            const raw = error instanceof Error ? error.message.trim() : "";
+            let description = t("boardPostCreateFail");
+            if (raw) {
+                const mapped = formatBoardActionErrorMessage(raw, t);
+                description = mapped !== raw ? mapped : raw;
+            }
             toast({
                 variant: "destructive",
-                title: "เกิดข้อผิดพลาด",
-                description: "ไม่สามารถสร้างโพสต์ได้ในขณะนี้",
+                title: t("error"),
+                description,
             });
         } finally {
             setIsSubmitting(false);
@@ -202,39 +229,39 @@ export function CreatePostModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[550px] overflow-hidden flex flex-col max-h-[90vh]">
                 <DialogHeader>
-                    <DialogTitle className="text-xl font-black text-slate-800">✨ แชร์อะไรดีวันนี้?</DialogTitle>
+                    <DialogTitle className="text-xl font-black text-slate-800">{t("boardCreateTitle")}</DialogTitle>
                 </DialogHeader>
                 
                 {/* Type Selection */}
                 <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl mb-2">
                     {[
-                        { id: 'file', icon: FileText, label: 'ไฟล์' },
-                        { id: 'album', icon: ImageIcon, label: 'อัลบั้ม' },
-                        { id: 'video', label: 'วิดีโอ', icon: Video, color: 'text-purple-500', bgColor: 'bg-purple-50' },
-                        { id: 'youtube', label: 'YouTube', icon: Youtube, color: 'text-red-500', bgColor: 'bg-red-50' },
-                        { id: 'poll', icon: ListTodo, label: 'โพล' },
-                        { id: 'link', icon: LinkIcon, label: 'ลิงก์' }
-                    ].map((t) => (
+                        { id: "file" as const, icon: FileText, labelKey: "boardPostTypeFile" },
+                        { id: "album" as const, icon: ImageIcon, labelKey: "boardPostTypeAlbum" },
+                        { id: "video" as const, labelKey: "boardPostTypeVideo", icon: Video, color: "text-purple-500", bgColor: "bg-purple-50" },
+                        { id: "youtube" as const, labelKey: "boardPostTypeYoutube", icon: Youtube, color: "text-red-500", bgColor: "bg-red-50" },
+                        { id: "poll" as const, icon: ListTodo, labelKey: "boardPostTypePoll" },
+                        { id: "link" as const, icon: LinkIcon, labelKey: "boardPostTypeLink" },
+                    ].map((tab) => (
                         <button
-                            key={t.id}
+                            key={tab.id}
                             type="button"
-                            onClick={() => setType(t.id as PostType)}
+                            onClick={() => setType(tab.id)}
                             className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-xl transition-all ${
-                                type === t.id ? "bg-white shadow-sm text-indigo-600 scale-105" : "text-slate-400 hover:text-slate-600"
+                                type === tab.id ? "bg-white shadow-sm text-indigo-600 scale-105" : "text-slate-400 hover:text-slate-600"
                             }`}
                         >
-                            <t.icon className="w-5 h-5" />
-                            <span className="text-[10px] font-black">{t.label}</span>
+                            <tab.icon className="w-5 h-5" />
+                            <span className="text-[10px] font-black">{t(tab.labelKey)}</span>
                         </button>
                     ))}
                 </div>
 
                 <div className="flex-1 overflow-y-auto pr-2 space-y-4 py-2 custom-scrollbar">
                     <div className="space-y-2">
-                        <Label htmlFor="title" className="text-xs font-bold uppercase tracking-wider text-slate-400">หัวข้อ (เลือกได้)</Label>
+                        <Label htmlFor="title" className="text-xs font-bold uppercase tracking-wider text-slate-400">{t("boardFieldTitleOptional")}</Label>
                         <Input 
                             id="title"
-                            placeholder="ใส่หัวข้อที่นี่..."
+                            placeholder={t("boardTitlePlaceholder")}
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             className="rounded-xl border-slate-200 focus:ring-purple-500"
@@ -242,10 +269,10 @@ export function CreatePostModal({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="content" className="text-xs font-bold uppercase tracking-wider text-slate-400">เนื้อหา / คำอธิบาย</Label>
+                        <Label htmlFor="content" className="text-xs font-bold uppercase tracking-wider text-slate-400">{t("boardFieldContent")}</Label>
                         <Textarea 
                             id="content"
-                            placeholder="เขียนข้อความประกอบ..."
+                            placeholder={t("boardContentPlaceholder")}
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
                             className="rounded-xl border-slate-200 focus:ring-purple-500 min-h-[80px] resize-none"
@@ -256,7 +283,7 @@ export function CreatePostModal({
                     {type === "link" && (
                         <div className="space-y-2 animate-in slide-in-from-left-2">
                             <Label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                                <LinkIcon className="w-3 h-3" /> ลิงก์ที่ต้องการแชร์
+                                <LinkIcon className="w-3 h-3" /> {t("boardLinkShareLabel")}
                             </Label>
                             <Input 
                                 placeholder="https://..."
@@ -270,7 +297,7 @@ export function CreatePostModal({
                     {type === "file" && (
                         <div className="space-y-3 animate-in slide-in-from-left-2">
                             <div className="space-y-2">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-slate-400">เลือกไฟล์จากเครื่อง</Label>
+                                <Label className="text-xs font-bold uppercase tracking-wider text-slate-400">{t("boardPickFileLabel")}</Label>
                                 <input 
                                     type="file"
                                     ref={fileInputRef}
@@ -299,7 +326,7 @@ export function CreatePostModal({
                                     ) : (
                                         <>
                                             <Upload className="w-6 h-6 text-slate-300 mb-1" />
-                                            <span className="text-xs text-slate-400 font-bold">คลิกที่นี่เพื่ออัปโหลดไฟล์</span>
+                                            <span className="text-xs text-slate-400 font-bold">{t("boardUploadFileHint")}</span>
                                         </>
                                     )}
                                 </div>
@@ -343,7 +370,7 @@ export function CreatePostModal({
                                                 e.stopPropagation();
                                                 setSelectedVideo(null);
                                             }}
-                                        >ยกเลิก</Button>
+                                            >{t("cancel")}</Button>
                                     </>
                                 ) : (
                                     <>
@@ -351,8 +378,8 @@ export function CreatePostModal({
                                             <Upload className="w-6 h-6" />
                                         </div>
                                         <div className="text-center">
-                                            <p className="text-sm font-bold text-slate-500">คลิกเพื่ออัปโหลดวิดีโอ</p>
-                                            <p className="text-[10px] text-slate-400">MP4, MOV, WEBM (ขนาดไม่เกิน 50MB)</p>
+                                            <p className="text-sm font-bold text-slate-500">{t("boardVideoUploadTitle")}</p>
+                                            <p className="text-[10px] text-slate-400">{t("boardVideoUploadHint")}</p>
                                         </div>
                                     </>
                                 )}
@@ -363,7 +390,7 @@ export function CreatePostModal({
                     {type === "youtube" && (
                         <div className="space-y-2 animate-in slide-in-from-left-2">
                             <Label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                                <Youtube className="w-3 h-3" /> ลิงก์ YouTube
+                                <Youtube className="w-3 h-3" /> {t("boardYoutubeLinkLabel")}
                             </Label>
                             <Input 
                                 placeholder="https://www.youtube.com/watch?v=..."
@@ -377,20 +404,20 @@ export function CreatePostModal({
                     {type === "poll" && (
                         <div className="space-y-3 animate-in slide-in-from-left-2">
                             <div className="space-y-1">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-slate-400">คำถาม</Label>
+                                <Label className="text-xs font-bold uppercase tracking-wider text-slate-400">{t("boardPollQuestionLabel")}</Label>
                                 <Input 
-                                    placeholder="เลือกอะไรดี?"
+                                    placeholder={t("boardPollQuestionPlaceholder")}
                                     value={pollQuestion}
                                     onChange={(e) => setPollQuestion(e.target.value)}
                                     className="rounded-xl border-slate-200"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-slate-400">ตัวเลือก</Label>
+                                <Label className="text-xs font-bold uppercase tracking-wider text-slate-400">{t("boardPollOptionsLabel")}</Label>
                                 {pollOptions.map((opt, i) => (
                                     <div key={i} className="flex gap-2">
                                         <Input 
-                                            placeholder={`ตัวเลือกที่ ${i + 1}`}
+                                            placeholder={t("boardPollOptionPlaceholder", { n: i + 1 })}
                                             value={opt}
                                             onChange={(e) => updatePollOption(i, e.target.value)}
                                             className="rounded-xl border-slate-200"
@@ -409,7 +436,7 @@ export function CreatePostModal({
                                     onClick={addPollOption}
                                     className="w-full rounded-xl border-dashed border-slate-300 text-slate-500 text-xs py-1 h-8"
                                 >
-                                    <PlusIcon className="w-3 h-3 mr-1" /> เพิ่มตัวเลือก
+                                    <PlusIcon className="w-3 h-3 mr-1" /> {t("boardPollAddOption")}
                                 </Button>
                             </div>
                         </div>
@@ -418,7 +445,7 @@ export function CreatePostModal({
                     {type === "album" && (
                         <div className="space-y-3 animate-in slide-in-from-left-2">
                             <Label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                                <ImageIcon className="w-3 h-3" /> รวมรูปภาพจากเครื่อง
+                                <ImageIcon className="w-3 h-3" /> {t("boardAlbumFromDevice")}
                             </Label>
                             
                             <input 
@@ -457,14 +484,14 @@ export function CreatePostModal({
                                     className="aspect-square border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:border-indigo-400 hover:text-indigo-400 transition-all bg-slate-50"
                                 >
                                     <PlusIcon className="w-5 h-5" />
-                                    <span className="text-[10px] font-bold">เพิ่มรูป</span>
+                                    <span className="text-[10px] font-bold">{t("boardAddPhoto")}</span>
                                 </button>
                             </div>
                         </div>
                     )}
 
                     <div className="space-y-2 pt-2 border-t border-slate-100">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-slate-400">สีของการ์ด</Label>
+                        <Label className="text-xs font-bold uppercase tracking-wider text-slate-400">{t("boardCardColorLabel")}</Label>
                         <div className="flex flex-wrap gap-2">
                             {COLORS.map((color) => (
                                 <button
@@ -487,7 +514,7 @@ export function CreatePostModal({
                         onClick={() => onOpenChange(false)}
                         className="rounded-xl"
                     >
-                        ยกเลิก
+                        {t("cancel")}
                     </Button>
                     <Button 
                         onClick={handleSubmit} 
@@ -497,11 +524,11 @@ export function CreatePostModal({
                         {isSubmitting ? (
                             <div className="flex items-center gap-2">
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                <span>กำลังส่ง...</span>
+                                <span>{t("boardSubmitting")}</span>
                             </div>
                         ) : (
                             <div className="flex items-center gap-2">
-                                <span>แชร์เลย!</span>
+                                <span>{t("boardSubmitShare")}</span>
                                 <Send className="w-4 h-4" />
                             </div>
                         )}

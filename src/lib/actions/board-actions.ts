@@ -2,6 +2,7 @@
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
 type BoardPollOptionInput = {
     id: string;
@@ -42,7 +43,7 @@ async function requireSessionUserId() {
     const userId = session?.user?.id;
 
     if (!userId) {
-        throw new Error("Unauthorized");
+        throw new Error(AUTH_REQUIRED_MESSAGE);
     }
 
     return userId;
@@ -85,7 +86,7 @@ async function resolveClassroomActor(classId: string, userId: string): Promise<B
         };
     }
 
-    throw new Error("Unauthorized");
+    throw new Error(AUTH_REQUIRED_MESSAGE);
 }
 
 async function resolveBoardActor(boardId: string, userId: string) {
@@ -165,7 +166,7 @@ function mapBoard(board: NonNullable<BoardRecord>) {
 
 function assertTeacher(actor: BoardActor) {
     if (!actor.isTeacher) {
-        throw new Error("Unauthorized");
+        throw new Error(AUTH_REQUIRED_MESSAGE);
     }
 }
 
@@ -250,7 +251,7 @@ export async function deleteBoardPost(postId: string) {
         (actor.isTeacher && post.authorUserId === actor.authorUserId);
 
     if (!isAuthor && post.board.classroom.teacherId !== userId) {
-        throw new Error("Unauthorized");
+        throw new Error(AUTH_REQUIRED_MESSAGE);
     }
 
     await db.boardPost.delete({ where: { id: postId } });

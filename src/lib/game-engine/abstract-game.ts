@@ -1,0 +1,232 @@
+import { Server, Socket } from "socket.io";
+import { BasePlayer, GameSettings } from "../types/game";
+
+export type GameQuestion = {
+    id: string;
+    question: string;
+    options: string[];
+    correctAnswer: number;
+    timeLimit?: number;
+    image?: string;
+};
+
+export abstract class AbstractGameEngine {
+    public abstract gameMode: string; // Enforce game mode definition
+    public pin: string;
+    public hostId: string;
+    public setId: string;
+    public status: "LOBBY" | "PLAYING" | "ENDED";
+    public players: BasePlayer[];
+    public settings: Partial<GameSettings>;
+    public startTime?: number;
+    public endTime?: number;
+    public questions: GameQuestion[];
+    protected io: Server;
+    private hostSocketId?: string;
+    private hostReconnectToken?: string;
+    private playerReconnectTokens: Map<string, string>;
+
+    constructor(
+        pin: string,
+        hostId: string,
+        setId: string,
+        settings: Partial<GameSettings>,
+        questions: GameQuestion[],
+        io: Server
+    ) {
+        this.pin = pin;
+        this.hostId = hostId;
+        this.setId = setId;
+        this.status = "LOBBY";
+        this.players = [];
+        this.settings = settings;
+        this.questions = questions;
+        this.io = io;
+        this.playerReconnectTokens = new Map();
+    }
+
+    public setIO(io: Server) {
+        this.io = io;
+    }
+
+    // --- Player Management ---
+
+    public addPlayer(player: BasePlayer, socket: Socket): void {
+        void socket;
+        this.players.push(player);
+        this.statusUpdate();
+    }
+
+    public removePlayer(socketId: string): void {
+        const removedPlayer = this.players.find((p) => p.id === socketId);
+        if (removedPlayer) {
+            this.playerReconnectTokens.delete(removedPlayer.name);
+        }
+        this.players = this.players.filter(p => p.id !== socketId);
+        this.statusUpdate();
+    }
+
+    public getPlayer(socketId: string): BasePlayer | undefined {
+        return this.players.find(p => p.id === socketId);
+    }
+
+    public handleReconnection(player: BasePlayer, socket: Socket): void {
+        player.id = socket.id;
+        player.isConnected = true;
+        this.statusUpdate();
+    }
+
+    public registerHostConnection(socketId: string, reconnectToken: string): void {
+        this.hostSocketId = socketId;
+        this.hostReconnectToken = reconnectToken;
+    }
+
+    public reconnectHost(socketId: string, reconnectToken: string): boolean {
+        if (!this.hostReconnectToken || reconnectToken !== this.hostReconnectToken) {
+            return false;
+        }
+
+        this.hostSocketId = socketId;
+        return true;
+    }
+
+    public isHostSocket(socketId: string): boolean {
+        return this.hostSocketId === socketId;
+    }
+
+    public registerPlayerReconnectToken(playerName: string, reconnectToken: string): void {
+        this.playerReconnectTokens.set(playerName, reconnectToken);
+    }
+
+    public getPlayerReconnectToken(playerName: string): string | undefined {
+        return this.playerReconnectTokens.get(playerName);
+    }
+
+    public canReconnectPlayer(playerName: string, reconnectToken?: string): boolean {
+        if (!reconnectToken) return false;
+        return this.playerReconnectTokens.get(playerName) === reconnectToken;
+    }
+
+    public handleDisconnect(socketId: string): void {
+        const player = this.getPlayer(socketId);
+        if (player) {
+            player.isConnected = false;
+            // Don't auto-remove, allow for reconnect
+            // But maybe notify host?
+        }
+    }
+
+    // --- Game Cycle ---
+
+    public startGame(): void {
+        this.status = "PLAYING";
+        this.startTime = Date.now();
+        this.io.to(this.pin).emit("game-started", {
+            startTime: this.startTime,
+            settings: this.settings,
+            gameMode: this.gameMode
+        });
+    }
+
+    public endGame(): void {
+        this.status = "ENDED";
+        this.endTime = Date.now();
+        this.io.to(this.pin).emit("game-over", {
+            players: this.players
+        });
+        // History saving is now handled by GameManager
+    }
+
+    // --- Persistence Flags ---
+    public hasArchived: boolean = false;
+    /** หลัง sync EXP เข้าห้องเรียน (Negamon + negamonRewardClassroomId) สำเร็จ */
+    public negamonClassroomRewardsSynced: boolean = false;
+
+
+    // Called every second by the Manager
+    public tick(): void {
+        if (this.status !== "PLAYING") return;
+
+        // Base Time Limit Check
+        if (this.settings.winCondition === "TIME" && this.startTime && this.settings.timeLimitMinutes) {
+            const now = Date.now();
+            const elapsed = (now - this.startTime) / 1000;
+            if (elapsed >= this.settings.timeLimitMinutes * 60) {
+                this.endGame();
+            }
+        }
+    }
+
+    // Abstract methods to be implemented by specific derived classes
+    public abstract handleEvent(eventName: string, payload: unknown, _socket: Socket): void;
+
+    // Helper to broadcast updates
+    protected statusUpdate(): void {
+        this.io.to(this.pin).emit("player-joined", { players: this.players });
+        if (this.status === "PLAYING") {
+            this.io.to(this.pin).emit("game-state-update", { players: this.players });
+        }
+    }
+
+    // --- Serialization for Persistence ---
+
+    public serialize(): {
+        pin: string;
+        hostId: string;
+        setId: string;
+        status: "LOBBY" | "PLAYING" | "ENDED";
+        settings: Partial<GameSettings>;
+        players: BasePlayer[];
+        questions: GameQuestion[];
+        startTime?: number;
+        endTime?: number;
+        state?: unknown;
+    } {
+        return {
+            pin: this.pin,
+            hostId: this.hostId,
+            setId: this.setId,
+            status: this.status,
+            settings: this.settings,
+            players: this.players,
+            questions: this.questions,
+            startTime: this.startTime,
+            endTime: this.endTime,
+            // Derived classes will extend this
+        };
+    }
+
+    public restore(data: {
+        pin: string;
+        hostId: string;
+        setId: string;
+        status: "LOBBY" | "PLAYING" | "ENDED";
+        settings: Partial<GameSettings>;
+        players: BasePlayer[];
+        questions: GameQuestion[];
+        startTime?: number | string;
+        endTime?: number | string;
+        state?: unknown;
+    }): void {
+        this.pin = data.pin;
+        this.hostId = data.hostId;
+        this.setId = data.setId;
+        this.status = data.status;
+        this.settings = data.settings;
+        this.questions = data.questions;
+        this.startTime = data.startTime ? new Date(data.startTime).getTime() : undefined;
+        this.endTime = data.endTime ? new Date(data.endTime).getTime() : undefined;
+
+        // Players handling might need specific derived logic
+        // But base properties are safe to restore here
+        // Note: Socket connections are LOST on restart so isConnected will be false
+        this.players = data.players.map((p) => ({
+            ...p,
+            isConnected: false, // Force disconnect state on restore
+            id: "" // Reset Socket ID as it's invalid
+        }));
+        this.hostSocketId = undefined;
+        this.hostReconnectToken = undefined;
+        this.playerReconnectTokens.clear();
+    }
+}

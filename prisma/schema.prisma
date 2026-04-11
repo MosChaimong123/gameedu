@@ -1,0 +1,481 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          String    @default("USER") // "USER" = generic authenticated account, "STUDENT" = linked student portal account, plus "TEACHER" and "ADMIN"
+  accounts      Account[]
+  sessions      Session[]
+  classrooms    Classroom[]
+  studentProfiles Student[]
+  gameHistories GameHistory[]
+  
+  username      String?   @unique
+  school        String?
+  createdAt     DateTime  @default(now())
+
+  // Back-relations for Board functionality
+  boardPosts    BoardPost[]
+  boardComments BoardComment[]
+  boardReactions BoardReaction[]
+  boardPollVotes BoardPollVote[]
+  notifications Notification[]
+  questionSets  QuestionSet[]
+  folders       Folder[]
+  omrQuizzes    OMRQuiz[]   @relation("TeacherOMRQuizzes")
+
+  // User Preferences & Settings
+  settings      Json?     @default("{\"theme\":\"light\",\"sfxEnabled\":true,\"bgmEnabled\":true,\"language\":\"th\"}")
+
+  // Subscription System
+  plan          String?   @default("FREE")    // "FREE", "PLUS", "PRO"
+  planStatus    String?   @default("INACTIVE") // "ACTIVE", "EXPIRED", "INACTIVE"
+  planExpiry    DateTime?
+  customerId    String?   // Stripe/Payment Provider Customer ID
+}
+
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Gamification Models
+
+model ActiveGame {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  pin       String   @unique
+  gameMode  String   // e.g. "GOLD_QUEST", "CRYPTO_HACK"
+  hostId    String   @db.ObjectId
+  settings  Json     // Serialized game settings
+  players   Json     // Serialized array of players
+  questions Json     // Serialized questions
+  startTime DateTime?
+  state     Json?    // Game specific state (e.g. chests)
+  updatedAt DateTime @updatedAt
+}
+
+model GameHistory {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  hostId    String   @db.ObjectId
+  setId     String?  @db.ObjectId
+  gameMode  String
+  pin       String?
+  startedAt DateTime
+  endedAt   DateTime @default(now())
+  
+  settings  Json
+  players   Json
+  
+  host      User     @relation(fields: [hostId], references: [id])
+}
+
+// Classroom System Models
+
+model Classroom {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  grade       String?
+  image       String?
+  theme       String?      @default("from-blue-400 to-cyan-500")
+  emoji       String?      @default("🛡️")
+  levelConfig Json?        // Stores rank names and min scores
+  teacherId   String       @db.ObjectId
+  teacher     User         @relation(fields: [teacherId], references: [id])
+  students    Student[]
+  skills      Skill[]
+  assignments Assignment[]
+  studentGroups StudentGroup[]
+  attendanceRecords AttendanceRecord[]
+  boards      Board[]
+  omrQuizzes  OMRQuiz[]
+  gamifiedSettings Json?   // events, customAchievements, etc.
+  /// Quiz result review: "end_only" | "never". null = follow QUIZ_REVIEW_MODE env default
+  quizReviewMode String?
+  battleSessions BattleSession[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model BattleSession {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  classId      String   @db.ObjectId
+  classroom    Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  challengerId String   @db.ObjectId  // Student.id
+  defenderId   String   @db.ObjectId  // Student.id
+  /// Snapshot of both fighters + full turn log (BattleResult JSON)
+  result       Json
+  winnerId     String   @db.ObjectId
+  goldReward   Int      @default(30)
+  createdAt    DateTime @default(now())
+}
+
+model Student {
+  id          String                 @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  nickname    String?                // ชื่อเล่น
+  avatar      String?                // Avatar seed/identifier for generated student profile images
+  order       Int                    @default(0) // เลขที่ / position
+  classId     String                 @db.ObjectId
+  classroom   Classroom              @relation(fields: [classId], references: [id], onDelete: Cascade)
+  userId      String?                @db.ObjectId // Optional link to a Gmail/credentials User account
+  user        User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  loginCode   String                 @unique @default(cuid()) // Unique code for student portal login
+  /// แต้มพฤติกรรม / progression รวม (ครูให้-หัก, ทักษะ, EXP Negamon จากงาน+แมตช์สด ฯลฯ) — ใน BSON ยังใช้ key เดิมว่า "points"
+  behaviorPoints Int                 @default(0) @map("points")
+  /// ทองสะสมจาก passive income (goldRate × เวลา ตาม rank)
+  gold          Int                  @default(0)
+  /// ครั้งล่าสุดที่ระบบ accrue gold ให้นักเรียนคนนี้
+  lastGoldAt    DateTime?
+  /// วันที่ check-in ประจำวันล่าสุด
+  lastCheckIn   DateTime?
+  /// จำนวนวันต่อเนื่องที่ check-in (streak)
+  streak        Int                  @default(0)
+  /// รายการ item ID ที่ซื้อจาก shop แล้ว
+  inventory     String[]             @default([])
+  /// frame ID ที่กำลังใช้งานอยู่
+  equippedFrame String?
+  /// passive skill IDs ที่ unlock ด้วย gold แล้ว
+  negamonSkills String[]             @default([])
+  /// daily quest claims: { date: "YYYY-MM-DD", claimed: ["quest_id", ...] }
+  dailyQuestsClaimed    Json?
+  /// weekly quest claims: { weekKey: "YYYY-WNN", claimed: ["wq_id", ...] }
+  weeklyQuestsClaimed   Json?
+  /// challenge quest claims (one-time, never resets): ["cq_id", ...]
+  challengeQuestsClaimed Json?
+  attendance  String                 @default("PRESENT") // PRESENT, ABSENT, LATE, LEFT_EARLY
+  history     PointHistory[]
+  submissions AssignmentSubmission[]
+  attendanceRecords AttendanceRecord[]
+  notifications Notification[]
+  omrResults    OMRResult[]
+  boardPosts    BoardPost[]
+  boardComments BoardComment[]
+  boardReactions BoardReaction[]
+  boardPollVotes BoardPollVote[]
+  achievements  StudentAchievement[]
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+}
+
+model PointHistory {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId String   @db.ObjectId
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  value     Int
+  reason    String
+  skillId   String?  @db.ObjectId
+  timestamp DateTime @default(now())
+}
+
+model Skill {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  icon        String?
+  type        String    @default("POSITIVE") // POSITIVE, NEEDS_WORK
+  weight      Int       @default(1)
+  classId     String    @db.ObjectId
+  classroom   Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+}
+
+model Assignment {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  visible     Boolean  @default(true)
+  type        String   @default("standard") // "standard", "checklist", "quiz"
+  checklists  Json?    // Array of { id, text, points }
+  quizData    Json?    // { questions: [] }
+  maxScore    Int      @default(100)
+  passScore   Int?
+  deadline    DateTime?
+  order       Int      @default(0)
+  
+  classId     String   @db.ObjectId
+  classroom   Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  
+  quizSetId   String?  @db.ObjectId
+  quizSet     QuestionSet? @relation(fields: [quizSetId], references: [id], onDelete: SetNull)
+
+  /// Quiz only: "end_only" | "never". null = inherit from classroom / env
+  quizReviewMode String?
+  
+  submissions AssignmentSubmission[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AssignmentSubmission {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  assignmentId String     @db.ObjectId
+  studentId    String     @db.ObjectId
+  score        Int        @default(0)
+  content      String?    // Optional text/link submission
+  cheatingLogs Json?      // Log of browser tab switches etc
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student      Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  submittedAt  DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([studentId, assignmentId])
+}
+
+model StudentGroup {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  classId   String   @db.ObjectId
+  classroom Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  studentIds String[] @db.ObjectId
+  createdAt DateTime @default(now())
+}
+
+model AttendanceRecord {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  date      DateTime
+  classId   String   @db.ObjectId
+  studentId String   @db.ObjectId
+  status    String   // PRESENT, ABSENT, LATE, LEFT_EARLY
+  classroom Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([date, studentId])
+}
+
+model Notification {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId  String?  @db.ObjectId
+  student    Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  userId     String?  @db.ObjectId
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  message    String
+  titleKey   String?
+  messageKey String?
+  i18nParams Json?
+  type       String   @default("INFO") // INFO, SUCCESS, WARNING, DANGER
+  isRead     Boolean  @default(false)
+  link       String?
+  createdAt  DateTime @default(now())
+}
+
+model Board {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  classId     String      @db.ObjectId
+  classroom   Classroom   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  posts       BoardPost[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model BoardPost {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  content     String
+  images      String[]       // Array of URLs
+  boardId     String         @db.ObjectId
+  board       Board          @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  
+  authorStudentId String?    @db.ObjectId
+  authorStudent   Student?   @relation(fields: [authorStudentId], references: [id], onDelete: SetNull)
+  authorUserId    String?    @db.ObjectId
+  authorUser      User?      @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  
+  // Additional media fields for varied post types
+  type            String?    
+  title           String?    
+  image           String?    
+  color           String?    
+  linkUrl         String?    
+  fileUrl         String?    
+  fileName        String?    
+  videoUrl        String?    
+  videoName       String?    
+  youtubeId       String?    
+  
+  comments    BoardComment[]
+  reactions   BoardReaction[]
+  poll        BoardPoll?
+  pollVotes   BoardPollVote[]
+  pollClosed  Boolean        @default(false)
+  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model BoardPoll {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  question    String
+  options     Json           // Array of { id, text }
+  postId      String         @unique @db.ObjectId
+  post        BoardPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  votes       BoardPollVote[]
+}
+
+model BoardPollVote {
+  id              String      @id @default(auto()) @map("_id") @db.ObjectId
+  optionId        String
+  pollId          String      @db.ObjectId
+  poll            BoardPoll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  
+  postId          String?     @db.ObjectId
+  post            BoardPost?  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  authorStudentId String?     @db.ObjectId
+  authorStudent   Student?    @relation(fields: [authorStudentId], references: [id], onDelete: SetNull)
+  authorUserId    String?     @db.ObjectId
+  authorUser      User?       @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  
+
+  @@unique([pollId, authorStudentId, authorUserId])
+}
+
+model BoardComment {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  content     String
+  postId      String    @db.ObjectId
+  post        BoardPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  authorStudentId String?    @db.ObjectId
+  authorStudent   Student?   @relation(fields: [authorStudentId], references: [id], onDelete: SetNull)
+  authorUserId    String?    @db.ObjectId
+  authorUser      User?      @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime  @default(now())
+}
+
+model BoardReaction {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  type        String    // e.g. "HEART", "STAR", "LIKE"
+  postId      String    @db.ObjectId
+  post        BoardPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  authorStudentId String?    @db.ObjectId
+  authorStudent   Student?   @relation(fields: [authorStudentId], references: [id], onDelete: SetNull)
+  authorUserId    String?    @db.ObjectId
+  authorUser      User?      @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@unique([postId, authorStudentId, authorUserId, type])
+}
+
+model StudentAchievement {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId      String   @db.ObjectId
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  achievementId  String   // e.g. "BOSS_SLAYER", "FIRST_ITEM"
+  goldRewarded   Int      @default(0)
+  unlockedAt     DateTime @default(now())
+
+  @@unique([studentId, achievementId])
+}
+
+model QuestionSet {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  isPublic    Boolean  @default(false)
+  coverImage  String?
+  creatorId   String   @db.ObjectId
+  creator     User     @relation(fields: [creatorId], references: [id])
+  folderId    String?  @db.ObjectId
+  folder      Folder?  @relation(fields: [folderId], references: [id])
+  questions   Json     // Array of questions
+  assignments Assignment[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Folder {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  
+  creatorId   String   @db.ObjectId
+  creator     User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  
+  parentFolderId String? @db.ObjectId
+  // Note: Nested folders can be added later if needed by self-referencing
+  
+  questionSets QuestionSet[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model OMRQuiz {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  questionCount Int    @default(20)
+  answerKey   Json     // Map of question numbers to correct answers { "1": "A", "2": "B" ... }
+  
+  classId     String?  @db.ObjectId
+  classroom   Classroom? @relation(fields: [classId], references: [id])
+  
+  teacherId   String   @db.ObjectId
+  teacher     User     @relation("TeacherOMRQuizzes", fields: [teacherId], references: [id])
+  
+  results     OMRResult[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model OMRResult {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  quizId      String   @db.ObjectId
+  quiz        OMRQuiz  @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  
+  studentId   String?  @db.ObjectId
+  student     Student? @relation(fields: [studentId], references: [id])
+  
+  studentName String?  // Fallback for anonymous scanning
+  score       Int
+  total       Int
+  answers     Json     // The student's detected answers
+  
+  scannedAt   DateTime @default(now())
+}

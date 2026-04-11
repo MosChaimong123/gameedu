@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx prisma:*)",
+      "WebSearch",
+      "Bash(npm run:*)",
+      "Bash(npx vitest:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npx next:*)",
+      "Bash(ls public/assets/mobs/*.*)",
+      "Bash(find c:UsersIHCKGAMEEDUgamedusrcappapistudent -type f -name *.ts)",
+      "Bash(find c:UsersIHCKGAMEEDUgamedusrccomponentsstudent -type f -name *.tsx)",
+      "Bash(find c:UsersIHCKGAMEEDUgamedusrcappapiclassrooms[id] -type f -name *.ts)",
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(grep -n \"gameStats\\\\.\" /c/Users/IHCK/GAMEEDU/gamedu/src/components/student/*.tsx)",
+      "Bash(mkdir -p \"c:/Users/IHCK/GAMEEDU/gamedu/src/app/api/student/[code]/materials\")",
+      "Bash(mkdir -p \"c:/Users/IHCK/GAMEEDU/gamedu/src/app/api/student/[code]/transmute\")",
+      "Bash(grep -r \"DAILY_LOGIN\\\\|daily.*login\\\\|login.*event\" c:UsersIHCKGAMEEDUgamedusrc --include=*.ts --include=*.tsx -l)",
+      "Bash(grep -v \"^$\")"
+    ]
+  }
+}

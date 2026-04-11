@@ -1,0 +1,70 @@
+"use client"
+
+import { useLanguage } from "@/components/providers/language-provider"
+
+interface OMRSheetProps {
+    questionsCount: number
+    studentName?: string
+    quizTitle?: string
+}
+
+export function OMRSheet({ questionsCount = 20, studentName = "..................................................", quizTitle = "แบบทดสอบรายวิชา" }: OMRSheetProps) {
+    const { t } = useLanguage()
+    // Generate numbers for the grid
+    const questions = Array.from({ length: questionsCount }, (_, i) => i + 1)
+    
+    // Calculate columns based on question count to fit A4
+    const cols = questionsCount <= 20 ? 1 : questionsCount <= 60 ? 3 : 4
+    // Scalability for more questions
+    const bubbleSize = questionsCount > 60 ? "w-6 h-6 text-xs" : "w-8 h-8 text-sm"
+    const gapSize = questionsCount > 60 ? "gap-4" : "gap-8"
+    const rowGap = questionsCount > 60 ? "gap-1" : "gap-3"
+
+    return (
+        <div className="bg-white p-8 max-w-[210mm] min-h-[297mm] mx-auto shadow-2xl relative omr-sheet-container print:shadow-none print:p-0 print:m-0">
+            {/* Perspective Calibration Squares (Crucial for Scan) */}
+            <div className="absolute top-4 left-4 w-6 h-6 bg-black" id="marker-tl"></div>
+            <div className="absolute top-4 right-4 w-6 h-6 bg-black" id="marker-tr"></div>
+            <div className="absolute bottom-4 left-4 w-6 h-6 bg-black" id="marker-bl"></div>
+            <div className="absolute bottom-4 right-4 w-6 h-6 bg-black" id="marker-br"></div>
+
+            {/* Header */}
+            <div className="border-b-2 border-black pb-4 mb-8 pt-8 px-4">
+                <h1 className="text-2xl font-black text-center uppercase tracking-tighter">{t("omrSheetTitle")}</h1>
+                <div className="mt-4 flex justify-between text-sm font-bold">
+                    <span className="truncate mr-4">{t("omrSheetStudentNameLabel")}: {studentName}</span>
+                    <span className="shrink-0">{t("omrSheetSubjectLabel")}: {quizTitle}</span>
+                </div>
+            </div>
+
+            {/* Bubbles Grid */}
+            <div 
+                className={`px-4 grid grid-cols-${cols} gap-x-8 ${rowGap}`}
+                style={{ 
+                    gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` 
+                }}
+            >
+                {questions.map((q) => (
+                    <div key={q} className="flex items-center gap-2 border-b border-dotted border-slate-200 py-1">
+                        <div className="w-6 font-black text-sm">{q}.</div>
+                        <div className={`flex ${gapSize}`}>
+                            {['A', 'B', 'C', 'D'].map((label) => (
+                                <div key={label} className="flex flex-col items-center gap-0.5">
+                                    <div className={`${bubbleSize} rounded-full border-2 border-black flex items-center justify-center font-black`}>
+                                        {label}
+                                    </div>
+                                    <span className="text-[8px] font-black text-slate-300">{label}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Footer / QR or Info */}
+            <div className="absolute bottom-12 left-0 right-0 text-center text-[10px] font-medium text-slate-400">
+                {t("omrSheetFooterLegacy", { count: questionsCount })}
+            </div>
+        </div>
+    )
+}

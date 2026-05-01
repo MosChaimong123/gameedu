@@ -16,13 +16,10 @@ export default async function StudentNegamonProfilePage(props: { params: Promise
     return (
         <NegamonMyProfileClient
             code={code}
-            loginCode={dashboard.student.loginCode}
             studentId={dashboard.student.id}
             behaviorPoints={dashboard.student.behaviorPoints}
             levelConfig={dashboard.classroom.levelConfig as LevelConfigInput}
             gamifiedSettings={dashboard.classroom.gamifiedSettings}
-            gold={dashboard.student.gold}
-            negamonSkills={dashboard.student.negamonSkills ?? []}
         />
     );
 }

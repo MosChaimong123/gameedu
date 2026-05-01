@@ -29,9 +29,10 @@ vi.mock("@/app/admin/users/user-table", () => ({
   }),
 }));
 
-vi.mock("lucide-react", () => ({
-  Users: "UsersIcon",
-}));
+vi.mock("lucide-react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("lucide-react")>();
+  return { ...actual };
+});
 
 vi.mock("@/components/ui/page-back-link", () => ({
   PageBackLink: () => null,
@@ -66,6 +67,9 @@ describe("admin users page", () => {
           name: true,
           email: true,
           role: true,
+          plan: true,
+          planStatus: true,
+          planExpiry: true,
           createdAt: true,
         },
       })

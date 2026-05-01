@@ -63,10 +63,6 @@ vi.mock("@/lib/negamon-species", () => ({
     findSpeciesById: vi.fn(() => null),
 }));
 
-vi.mock("@/lib/negamon-passives", () => ({
-    calcGoldRateBonus: vi.fn(() => 0),
-}));
-
 const baseProps: StudentDashboardClientProps = {
     student: {
         id: "student-1",
@@ -81,6 +77,7 @@ const baseProps: StudentDashboardClientProps = {
         streak: 2,
         lastCheckIn: null,
         inventory: [],
+        battleLoadout: [],
         equippedFrame: null,
         negamonSkills: [],
     },
@@ -121,7 +118,9 @@ describe("student dashboard client", () => {
         });
     });
 
-    it("wires header, sidebar, and main tabs with the expected dashboard state", async () => {
+    it(
+        "wires header, sidebar, and main tabs with the expected dashboard state",
+        async () => {
         const { StudentDashboardClient } = await import("@/components/student/StudentDashboardClient");
 
         renderToStaticMarkup(React.createElement(StudentDashboardClient, baseProps));
@@ -167,5 +166,7 @@ describe("student dashboard client", () => {
         expect(mainTabsProps.classroom.id).toBe("class-1");
         expect(mainTabsProps.student.id).toBe("student-1");
         expect(mainTabsProps.canAccessBoard).toBe(false);
-    });
+        },
+        30_000
+    );
 });

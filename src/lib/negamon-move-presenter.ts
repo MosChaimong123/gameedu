@@ -11,6 +11,7 @@ export type NegamonTranslateFn = (
 
 /** Tailwind classes for move type pill */
 export const NEGAMON_MOVE_TYPE_BADGE: Record<string, string> = {
+    NORMAL: "bg-slate-100 text-slate-600 border-slate-300",
     FIRE: "bg-orange-100 text-orange-700 border-orange-200",
     WATER: "bg-sky-100 text-sky-700 border-sky-200",
     EARTH: "bg-green-100 text-green-700 border-green-200",
@@ -18,7 +19,6 @@ export const NEGAMON_MOVE_TYPE_BADGE: Record<string, string> = {
     THUNDER: "bg-yellow-100 text-yellow-700 border-yellow-200",
     LIGHT: "bg-amber-100 text-amber-700 border-amber-200",
     DARK: "bg-purple-100 text-purple-700 border-purple-200",
-    PSYCHIC: "bg-pink-100 text-pink-700 border-pink-200",
 };
 
 /** Tailwind classes for move category pill */
@@ -30,6 +30,7 @@ export const NEGAMON_MOVE_CATEGORY_BADGE: Record<string, string> = {
 };
 
 export const NEGAMON_TYPE_GLYPH: Record<string, string> = {
+    NORMAL: "○",
     FIRE: "🔥",
     WATER: "💧",
     EARTH: "🌿",
@@ -37,7 +38,6 @@ export const NEGAMON_TYPE_GLYPH: Record<string, string> = {
     THUNDER: "⚡",
     LIGHT: "✨",
     DARK: "🌑",
-    PSYCHIC: "🔮",
 };
 
 export function negamonTypeGlyph(type: MonsterType | string): string {

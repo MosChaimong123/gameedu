@@ -2,7 +2,12 @@ import { auth } from "@/auth"
 import { db } from "@/lib/db"
 import { Prisma } from "@prisma/client"
 import { NextResponse } from "next/server"
-import { AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
+import { countQuestionsInJson, getLimitsForUser } from "@/lib/plan/plan-access";
 
 function canManageQuestionSets(role?: string | null) {
     return role === "TEACHER" || role === "ADMIN"
@@ -82,6 +87,19 @@ export async function PATCH(
 
         if (!existingSet) {
             return new NextResponse("Not Found", { status: 404 })
+        }
+
+        const limits = getLimitsForUser(session.user.role, session.user.plan)
+        const nextQuestionCount =
+            questions !== undefined
+                ? countQuestionsInJson(questions)
+                : countQuestionsInJson(existingSet.questions)
+        if (Number.isFinite(limits.maxQuestionsPerSet) && nextQuestionCount > limits.maxQuestionsPerSet) {
+            return createAppErrorResponse(
+                "PLAN_LIMIT_QUESTIONS_PER_SET",
+                "Too many questions in this set for your plan",
+                403
+            )
         }
 
         if (folderId) {

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, ArrowRight } from "lucide-react"
-import { getPlayerReconnectToken, savePlayerSession } from "@/lib/player-session"
+import { getPlayerReconnectToken, getStoredStudentCode, getStoredStudentId, savePlayerSession } from "@/lib/player-session"
 import { PublicBrandMark } from "@/components/layout/public-brand-mark"
 import { useLanguage } from "@/components/providers/language-provider"
 import { formatSocketErrorMessage } from "@/app/play/game/play-game-types"
@@ -16,6 +16,8 @@ type JoinedSuccessPayload = {
     pin: string
     nickname: string
     reconnectToken?: string
+    studentId?: string
+    studentCode?: string
 }
 
 type ErrorPayload = {
@@ -29,6 +31,7 @@ export default function PlayPage() {
 
     const [pin, setPin] = useState("")
     const [name, setName] = useState("")
+    const [studentCode, setStudentCode] = useState(() => getStoredStudentCode())
     const [joining, setJoining] = useState(false)
     const [error, setError] = useState("")
 
@@ -46,8 +49,21 @@ export default function PlayPage() {
         setError("")
 
         const reconnectToken = getPlayerReconnectToken(pin, name)
+        const studentId = getStoredStudentId()
+        const storedStudentCode = getStoredStudentCode()
+        const cleanStudentCode = studentCode.trim()
+        const matchingStoredIdentity =
+            cleanStudentCode &&
+            storedStudentCode &&
+            cleanStudentCode.toLowerCase() === storedStudentCode.toLowerCase()
 
-        socket.emit("join-game", { pin, nickname: name, reconnectToken: reconnectToken ?? undefined })
+        socket.emit("join-game", {
+            pin,
+            nickname: name,
+            reconnectToken: reconnectToken ?? undefined,
+            studentId: matchingStoredIdentity ? studentId || undefined : undefined,
+            studentCode: cleanStudentCode || undefined,
+        })
 
         // Listen for one-time response
         socket.once("joined-success", (data: JoinedSuccessPayload) => {
@@ -58,6 +74,8 @@ export default function PlayPage() {
                 pin: data.pin,
                 name: data.nickname,
                 reconnectToken: data.reconnectToken,
+                studentId: data.studentId,
+                studentCode: data.studentCode,
             })
             router.push("/play/lobby")
         })
@@ -95,6 +113,16 @@ export default function PlayPage() {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                         />
+                        <Input
+                            placeholder={t("playPlaceholderStudentCode")}
+                            className="text-center text-lg h-12 font-bold tracking-widest uppercase placeholder:normal-case placeholder:font-normal placeholder:tracking-normal"
+                            maxLength={32}
+                            value={studentCode}
+                            onChange={(e) => setStudentCode(e.target.value.trim().toUpperCase())}
+                        />
+                        <p className="px-1 text-center text-xs font-medium text-slate-400">
+                            {t("playStudentCodeHint")}
+                        </p>
                     </div>
 
                     {error && (

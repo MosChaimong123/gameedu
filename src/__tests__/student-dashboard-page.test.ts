@@ -56,6 +56,7 @@ describe("student dashboard page", () => {
       lastCheckIn: null,
       streak: 2,
       inventory: [],
+      battleLoadout: [],
       equippedFrame: null,
       negamonSkills: [],
       classroom: {
@@ -103,6 +104,7 @@ describe("student dashboard page", () => {
         lastCheckIn: true,
         streak: true,
         inventory: true,
+        battleLoadout: true,
         equippedFrame: true,
         negamonSkills: true,
         classroom: {

@@ -13,6 +13,7 @@ import {
 import { NegamonMoveInlineDescription } from "@/components/negamon/negamon-move-inline-description";
 import { useLanguage } from "@/components/providers/language-provider";
 import { getMoveEnergyCost } from "@/lib/negamon-energy";
+import { isNegamonBasicAttackMoveId } from "@/lib/negamon-basic-move";
 
 export type NegamonMovesGridProps = {
     speciesId: string;
@@ -79,7 +80,7 @@ export function NegamonMovesGrid({ speciesId, moves, variant }: NegamonMovesGrid
                             >
                                 {negamonMoveCategoryLabel(t, move.category)}
                             </span>
-                            {codex ? (
+                            {codex && !isNegamonBasicAttackMoveId(move.id) ? (
                                 <span className="rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[9px] font-black text-violet-800">
                                     {t("negamonInfoLearnRankShort", { rank: move.learnRank })}
                                 </span>

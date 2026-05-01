@@ -1,4 +1,5 @@
 import type { MonsterMove } from "@/lib/types/negamon";
+import { isNegamonBasicAttackMoveId } from "@/lib/negamon-basic-move";
 
 export type EnergyProfile = {
     maxEnergy: number;
@@ -32,6 +33,10 @@ export function getEnergyProfileForSpecies(speciesId: string): EnergyProfile {
 }
 
 export function getMoveEnergyCost(move: MonsterMove, speciesId: string): number {
+    if (isNegamonBasicAttackMoveId(move.id)) {
+        return 0;
+    }
+
     const profile = getEnergyProfileForSpecies(speciesId);
     let baseCost = 0;
 

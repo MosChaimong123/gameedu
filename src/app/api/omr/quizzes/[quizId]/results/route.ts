@@ -2,7 +2,12 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { db as prisma } from "@/lib/db"
 import { isTeacherOrAdmin } from "@/lib/role-guards"
-import { AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
+import { getLimitsForUser } from "@/lib/plan/plan-access";
 
 interface IParams {
     quizId: string
@@ -27,6 +32,26 @@ export async function POST(
         })
 
         if (!quiz) return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
+
+        const limits = getLimitsForUser(session.user.role, session.user.plan)
+        if (Number.isFinite(limits.maxOmrScansPerMonth)) {
+            const start = new Date()
+            start.setDate(1)
+            start.setHours(0, 0, 0, 0)
+            const used = await prisma.oMRResult.count({
+                where: {
+                    scannedAt: { gte: start },
+                    quiz: { teacherId: session.user.id },
+                },
+            })
+            if (used >= limits.maxOmrScansPerMonth) {
+                return createAppErrorResponse(
+                    "PLAN_LIMIT_OMR_MONTHLY",
+                    "Monthly OMR scan limit reached for your plan",
+                    403
+                )
+            }
+        }
 
         const result = await prisma.oMRResult.create({
             data: {

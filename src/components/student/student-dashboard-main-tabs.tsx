@@ -52,6 +52,8 @@ interface StudentDashboardMainTabsProps {
     onAssignmentSortToggle: () => void;
     onOpenStarterSelection: () => void;
     onGoldChange: (value: number | undefined) => void;
+    onBattleConsumablesSpent?: (consumedItemIds: string[]) => void;
+    onBattleLoadoutSaved?: (battleLoadout: string[]) => void;
 }
 
 export function StudentDashboardMainTabs({
@@ -80,6 +82,8 @@ export function StudentDashboardMainTabs({
     onAssignmentSortToggle,
     onOpenStarterSelection,
     onGoldChange,
+    onBattleConsumablesSpent,
+    onBattleLoadoutSaved,
 }: StudentDashboardMainTabsProps) {
     return (
         <div className="md:col-span-3 space-y-8">
@@ -146,7 +150,6 @@ export function StudentDashboardMainTabs({
                         levelConfigResolved={levelConfigResolved}
                         negamonSettings={negamonSettings}
                         studentMonsterState={studentMonsterState}
-                        questGold={questGold}
                         onOpenStarterSelection={onOpenStarterSelection}
                     />
                 </TabsContent>
@@ -157,6 +160,8 @@ export function StudentDashboardMainTabs({
                     loginCode={student.loginCode}
                     questGold={questGold}
                     currentGold={student.gold}
+                    inventory={student.inventory}
+                    battleLoadout={student.battleLoadout}
                     myMonster={studentMonsterState ? {
                         formIcon: studentMonsterState.form.icon,
                         formName: studentMonsterState.form.name,
@@ -164,6 +169,8 @@ export function StudentDashboardMainTabs({
                     } : null}
                     history={history}
                     onGoldChange={onGoldChange}
+                    onBattleConsumablesSpent={onBattleConsumablesSpent}
+                    onBattleLoadoutSaved={onBattleLoadoutSaved}
                 />
             </Tabs>
         </div>

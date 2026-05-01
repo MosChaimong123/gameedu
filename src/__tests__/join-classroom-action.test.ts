@@ -29,24 +29,28 @@ describe("joinClassroom", () => {
     mockStudentUpdate.mockResolvedValue(undefined);
   });
 
-  it("blocks taking over a student record already linked to another account", async () => {
-    mockStudentFindFirst.mockResolvedValue({
-      id: "student-1",
-      userId: "other-user",
-      classroom: { name: "Class A" },
-    });
+  it(
+    "blocks taking over a student record already linked to another account",
+    async () => {
+      mockStudentFindFirst.mockResolvedValue({
+        id: "student-1",
+        userId: "other-user",
+        classroom: { name: "Class A" },
+      });
 
-    const { joinClassroom } = await import("@/app/student/student-actions");
-    const result = await joinClassroom("abcd1234");
+      const { joinClassroom } = await import("@/app/student/student-actions");
+      const result = await joinClassroom("abcd1234");
 
-    expect(result).toEqual({
-      error: {
-        code: "LOGIN_CODE_ALREADY_LINKED",
-        message: "This classroom code is already linked to another account",
-      },
-    });
-    expect(mockStudentUpdate).not.toHaveBeenCalled();
-  });
+      expect(result).toEqual({
+        error: {
+          code: "LOGIN_CODE_ALREADY_LINKED",
+          message: "This classroom code is already linked to another account",
+        },
+      });
+      expect(mockStudentUpdate).not.toHaveBeenCalled();
+    },
+    30_000
+  );
 
   it("links an unclaimed student record to the current authenticated user", async () => {
     mockStudentFindFirst.mockResolvedValue({

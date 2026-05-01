@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { encodeNegamonLiveBattleReason, formatPointHistoryReason } from "@/lib/point-history-reason";
+import {
+    encodeNegamonLiveBattleReason,
+    encodeNegamonLiveBattleRewardReason,
+    formatPointHistoryReason,
+} from "@/lib/point-history-reason";
 
 function fakeT(key: string, params?: Record<string, string | number>) {
     if (key === "negamonPointHistoryLiveBattle" && params) {
@@ -12,6 +16,11 @@ describe("formatPointHistoryReason", () => {
     it("decodes v1 encoded negamon live battle reasons", () => {
         const raw = encodeNegamonLiveBattleReason(2, 80, 100);
         expect(formatPointHistoryReason(raw, fakeT)).toBe("LIVE 2/80/100");
+    });
+
+    it("decodes v2 idempotent negamon live battle reward reasons", () => {
+        const raw = encodeNegamonLiveBattleRewardReason("123456", 1, 95, 100);
+        expect(formatPointHistoryReason(raw, fakeT)).toBe("LIVE 1/95/100");
     });
 
     it("recognizes legacy Thai rows", () => {

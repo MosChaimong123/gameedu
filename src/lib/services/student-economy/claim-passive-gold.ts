@@ -2,9 +2,10 @@ import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { sumAcademicTotal } from "@/lib/academic-score";
 import { getRankEntry, type LevelConfigInput } from "@/lib/classroom-utils";
-import { calcGoldRateBonus } from "@/lib/negamon-passives";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
 import { getActiveGoldMultiplier } from "@/lib/classroom-utils";
+import { getFrameGoldRateMultiplierById } from "@/lib/shop-items";
+import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
 
 type ClaimPassiveGoldDeps = {
 
@@ -36,10 +37,11 @@ export async function claimPassiveGold(
         },
         select: {
             id: true,
+            classId: true,
             gold: true,
+            equippedFrame: true,
             createdAt: true,
             lastGoldAt: true,
-            negamonSkills: true,
             classroom: {
                 select: {
                     levelConfig: true,
@@ -68,14 +70,13 @@ export async function claimPassiveGold(
 
     const academicTotal = sumAcademicTotal(student.classroom.assignments, student.submissions);
     const rankEntry = getRankEntry(academicTotal, student.classroom.levelConfig as LevelConfigInput);
-    const negamonSkills = (student.negamonSkills as string[]) ?? [];
-    
-    // Base rate from rank + bonuses
-    const baseGoldRate = (rankEntry.goldRate ?? 0) + calcGoldRateBonus(negamonSkills);
+    // Base rate from rank, then boosted by equipped frame rarity %.
+    const baseGoldRate = rankEntry.goldRate ?? 0;
+    const frameMult = getFrameGoldRateMultiplierById(student.equippedFrame);
     
     // Multiplier from Active Events
     const multiplier = getActiveGoldMultiplier(student.classroom.gamifiedSettings);
-    const goldRate = baseGoldRate * multiplier;
+    const goldRate = baseGoldRate * frameMult * multiplier;
 
     if (goldRate <= 0) {
         return {
@@ -107,24 +108,69 @@ export async function claimPassiveGold(
         };
     }
 
-    const updated = await deps.db.student.update({
-        where: { id: student.id },
-        data: {
-            gold: { increment: goldEarned },
-            lastGoldAt: now,
-        },
-        select: {
-            gold: true,
-            lastGoldAt: true,
-        },
-    });
+    return deps.db.$transaction(async (tx) => {
+        const updatedCount = await tx.student.updateMany({
+            where: {
+                id: student.id,
+                lastGoldAt: student.lastGoldAt ?? null,
+            },
+            data: {
+                gold: { increment: goldEarned },
+                lastGoldAt: now,
+            },
+        });
 
-    return {
-        ok: true,
-        alreadyClaimed: false,
-        goldEarned,
-        goldRate,
-        newGold: updated.gold,
-        lastGoldAt: updated.lastGoldAt instanceof Date ? updated.lastGoldAt.toISOString() : null,
-    };
+        if (updatedCount.count !== 1) {
+            const fresh = await tx.student.findUnique({
+                where: { id: student.id },
+                select: { gold: true, lastGoldAt: true },
+            });
+
+            return {
+                ok: true,
+                alreadyClaimed: true,
+                goldEarned: 0,
+                goldRate,
+                newGold: fresh?.gold ?? student.gold ?? 0,
+                lastGoldAt: fresh?.lastGoldAt instanceof Date ? fresh.lastGoldAt.toISOString() : null,
+            };
+        }
+
+        const updated = await tx.student.findUniqueOrThrow({
+            where: { id: student.id },
+            select: {
+                gold: true,
+                lastGoldAt: true,
+            },
+        });
+
+        await recordEconomyTransaction(tx, {
+            studentId: student.id,
+            classId: student.classId,
+            type: "earn",
+            source: "passive_gold",
+            amount: goldEarned,
+            balanceBefore: student.gold,
+            balanceAfter: updated.gold,
+            metadata: {
+                goldRate,
+                baseGoldRate,
+                frameMultiplier: frameMult,
+                eventMultiplier: multiplier,
+                hoursSince,
+                cappedHours: hoursSince,
+                lastGoldAt: since.toISOString(),
+                claimedAt: now.toISOString(),
+            },
+        });
+
+        return {
+            ok: true,
+            alreadyClaimed: false,
+            goldEarned,
+            goldRate,
+            newGold: updated.gold,
+            lastGoldAt: updated.lastGoldAt instanceof Date ? updated.lastGoldAt.toISOString() : null,
+        };
+    });
 }

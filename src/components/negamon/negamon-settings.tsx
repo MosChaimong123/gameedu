@@ -15,7 +15,12 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { DEFAULT_NEGAMON_SPECIES } from "@/lib/negamon-species";
 import type { MonsterType, NegamonSettings } from "@/lib/types/negamon";
+import type { PlanId } from "@/constants/pricing";
 import { useLanguage } from "@/components/providers/language-provider";
+import { getLocalizedErrorMessageFromResponse } from "@/lib/ui-error-messages";
+import { PLAN_LIMITS } from "@/constants/plan-limits";
+import { getAllowedNegamonSpeciesIdsForPlan } from "@/lib/plan/plan-access";
+import { useSession } from "next-auth/react";
 import {
     Select,
     SelectContent,
@@ -37,7 +42,6 @@ const TYPE_COLORS: Record<string, string> = {
     THUNDER: "bg-yellow-100 text-yellow-700 border-yellow-200",
     LIGHT: "bg-amber-100 text-amber-700 border-amber-200",
     DARK: "bg-purple-100 text-purple-700 border-purple-200",
-    PSYCHIC: "bg-pink-100 text-pink-700 border-pink-200",
 };
 
 interface NegamonSettingsDialogProps {
@@ -60,16 +64,41 @@ export function NegamonSettingsDialog({
     onSaved,
 }: NegamonSettingsDialogProps) {
     const { toast } = useToast();
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+    const { data: session, status } = useSession();
     const [isPending, startTransition] = useTransition();
 
     const [enabled, setEnabled] = useState(currentSettings?.enabled ?? false);
     const [allowStudentChoice, setAllowStudentChoice] = useState(currentSettings?.allowStudentChoice ?? true);
     const [expPerPoint, setExpPerPoint] = useState(currentSettings?.expPerPoint ?? 10);
     const [expPerAttendance, setExpPerAttendance] = useState(currentSettings?.expPerAttendance ?? 20);
+    const currentPlan =
+        status === "loading"
+            ? null
+            : ((session?.user?.plan ?? "FREE") as PlanId);
+    const currentPlanLimits = currentPlan ? PLAN_LIMITS[currentPlan] : null;
+    const maxSpeciesAllowed = currentPlanLimits?.maxNegamonSpeciesInClassroom ?? null;
+    const allowedSpeciesIds = currentPlanLimits
+        ? getAllowedNegamonSpeciesIdsForPlan(currentPlanLimits)
+        : new Set(DEFAULT_NEGAMON_SPECIES.map((s) => s.id));
+    const defaultSelectedSpeciesIds = DEFAULT_NEGAMON_SPECIES
+        .map((s) => s.id)
+        .filter((id) => allowedSpeciesIds.has(id));
+    const normalizeSelectedSpeciesIds = (ids: string[] | undefined): string[] => {
+        const source = ids ?? [];
+        const normalized = source.filter((id) => allowedSpeciesIds.has(id));
+        return normalized.length > 0 ? normalized : defaultSelectedSpeciesIds;
+    };
     const [selectedSpeciesIds, setSelectedSpeciesIds] = useState<string[]>(
-        currentSettings?.species.map((s) => s.id) ?? DEFAULT_NEGAMON_SPECIES.map((s) => s.id)
+        normalizeSelectedSpeciesIds(currentSettings?.species?.map((s) => s.id))
     );
+    const disallowedSelectedSpeciesIds = selectedSpeciesIds.filter((id) => !allowedSpeciesIds.has(id));
+    const planLimitExceeded =
+        typeof maxSpeciesAllowed === "number" &&
+        maxSpeciesAllowed !== Number.POSITIVE_INFINITY &&
+        selectedSpeciesIds.length > maxSpeciesAllowed;
+    const planSpeciesInvalid = disallowedSelectedSpeciesIds.length > 0;
+
     const [studentMonsters, setStudentMonsters] = useState<Record<string, string>>(
         () => ({ ...(currentSettings?.studentMonsters ?? {}) })
     );
@@ -88,9 +117,7 @@ export function NegamonSettingsDialog({
         setAllowStudentChoice(s?.allowStudentChoice ?? true);
         setExpPerPoint(s?.expPerPoint ?? 10);
         setExpPerAttendance(s?.expPerAttendance ?? 20);
-        setSelectedSpeciesIds(
-            s?.species?.length ? s.species.map((x) => x.id) : DEFAULT_NEGAMON_SPECIES.map((x) => x.id)
-        );
+        setSelectedSpeciesIds(normalizeSelectedSpeciesIds(s?.species?.map((x) => x.id)));
         setStudentMonsters({ ...(s?.studentMonsters ?? {}) });
         setDisabledMoves([...(s?.disabledMoves ?? [])]);
         setExpandedSpecies(null);
@@ -121,9 +148,28 @@ export function NegamonSettingsDialog({
     }, [classroomId, existingGamifiedSettings, open]);
 
     const toggleSpecies = (id: string) => {
-        setSelectedSpeciesIds((prev) =>
-            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-        );
+        setSelectedSpeciesIds((prev) => {
+            if (prev.includes(id)) {
+                return prev.filter((x) => x !== id);
+            }
+
+            if (
+                typeof maxSpeciesAllowed === "number" &&
+                maxSpeciesAllowed !== Number.POSITIVE_INFINITY &&
+                prev.length >= maxSpeciesAllowed
+            ) {
+                toast({
+                    title: t("negamonSettingsPlanLimitErrorTitle"),
+                    description: t("negamonSettingsPlanLimitErrorDescription", {
+                        limit: maxSpeciesAllowed,
+                    }),
+                    variant: "destructive",
+                });
+                return prev;
+            }
+
+            return [...prev, id];
+        });
     };
 
     const allowedSpeciesSet = new Set(selectedSpeciesIds);
@@ -182,6 +228,31 @@ export function NegamonSettingsDialog({
             return;
         }
 
+        if (planSpeciesInvalid) {
+            const invalidNames = DEFAULT_NEGAMON_SPECIES.filter((s) =>
+                disallowedSelectedSpeciesIds.includes(s.id)
+            ).map((s) => s.name).join(", ");
+            toast({
+                title: t("negamonSettingsPlanDisallowedSpeciesTitle"),
+                description: t("negamonSettingsPlanDisallowedSpeciesDescription", {
+                    species: invalidNames,
+                }),
+                variant: "destructive",
+            });
+            return;
+        }
+
+        if (planLimitExceeded && typeof maxSpeciesAllowed === "number") {
+            toast({
+                title: t("negamonSettingsPlanLimitErrorTitle"),
+                description: t("negamonSettingsPlanLimitErrorDescription", {
+                    limit: maxSpeciesAllowed,
+                }),
+                variant: "destructive",
+            });
+            return;
+        }
+
         const affected = affectedStudentCount();
         if (
             affected > 0 &&
@@ -220,16 +291,24 @@ export function NegamonSettingsDialog({
                     }),
                 });
 
-                if (!res.ok) throw new Error("save failed");
+                if (!res.ok) {
+                    const message = await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "createSetFailTryAgain",
+                        t,
+                        language
+                    );
+                    throw new Error(message);
+                }
 
                 setFetchedGamifiedSettings(nextGamifiedSettings);
                 onSaved(newSettings, nextGamifiedSettings);
                 toast({ title: t("negamonSettingsToastSaved") });
                 onOpenChange(false);
-            } catch {
+            } catch (error) {
+                const message = error instanceof Error ? error.message : t("toastGenericError");
                 toast({
-                    title: t("toastGenericError"),
-                    description: t("createSetFailTryAgain"),
+                    title: message,
                     variant: "destructive",
                 });
             }
@@ -347,18 +426,58 @@ export function NegamonSettingsDialog({
                                                 {selectedSpeciesIds.length} Monsters Selected
                                             </Badge>
                                         </div>
+                                        {currentPlanLimits && maxSpeciesAllowed !== Number.POSITIVE_INFINITY && (
+                                            <div
+                                                className={cn(
+                                                    "rounded-2xl border px-4 py-3 text-sm",
+                                                    planSpeciesInvalid || planLimitExceeded
+                                                        ? "bg-rose-50 border-rose-200 text-rose-700"
+                                                        : "bg-slate-50 border-slate-200 text-slate-600"
+                                                )}
+                                            >
+                                                {planSpeciesInvalid
+                                                    ? t("negamonSettingsPlanDisallowedSpeciesInfo", {
+                                                          plan: currentPlan ?? "FREE",
+                                                          species: DEFAULT_NEGAMON_SPECIES.filter((s) =>
+                                                              disallowedSelectedSpeciesIds.includes(s.id)
+                                                          )
+                                                              .map((s) => s.name)
+                                                              .join(", "),
+                                                      })
+                                                    : planLimitExceeded
+                                                    ? t("negamonSettingsPlanLimitExceeded", {
+                                                          plan: currentPlan ?? "FREE",
+                                                          limit: maxSpeciesAllowed ?? 0,
+                                                          excess: selectedSpeciesIds.length - (maxSpeciesAllowed ?? 0),
+                                                      })
+                                                    : t("negamonSettingsPlanAllowedSpeciesInfo", {
+                                                          plan: currentPlan ?? "FREE",
+                                                          limit: maxSpeciesAllowed ?? 0,
+                                                          species: DEFAULT_NEGAMON_SPECIES.filter((s) =>
+                                                              allowedSpeciesIds.has(s.id)
+                                                          )
+                                                              .slice(0, maxSpeciesAllowed ?? 0)
+                                                              .map((s) => s.name)
+                                                              .join(", "),
+                                                      })}
+                                            </div>
+                                        )}
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             {DEFAULT_NEGAMON_SPECIES.map((s) => {
                                                 const selected = selectedSpeciesIds.includes(s.id);
                                                 const rankFiveForm = s.forms[4];
+                                                const speciesDisabled = !allowedSpeciesIds.has(s.id);
                                                 return (
                                                     <button
                                                         key={s.id}
                                                         type="button"
                                                         onClick={() => toggleSpecies(s.id)}
+                                                        disabled={speciesDisabled}
                                                         className={cn(
                                                             "group relative flex items-center gap-3 rounded-2xl p-3 border-2 transition-all text-left",
-                                                            selected
+                                                            speciesDisabled
+                                                                ? "border-slate-100 bg-slate-100/70 text-slate-400 cursor-not-allowed"
+                                                                : selected
                                                                 ? "border-purple-500 bg-purple-50/50 shadow-md transform scale-[1.02]"
                                                                 : "border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50/50"
                                                         )}
@@ -378,7 +497,14 @@ export function NegamonSettingsDialog({
                                                             />
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className={cn("font-black text-sm truncate tracking-tight", selected ? "text-purple-900" : "text-slate-700")}>{s.name}</p>
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <p className={cn("font-black text-sm truncate tracking-tight", selected ? "text-purple-900" : "text-slate-700")}>{s.name}</p>
+                                                                {speciesDisabled && (
+                                                                    <Badge className="text-[8px] font-black px-1.5 py-0 border border-rose-200 bg-rose-50 text-rose-700 uppercase leading-tight">
+                                                                        {t("negamonSettingsSpeciesNotAllowed")}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
                                                             <div className="flex gap-1 mt-1 overflow-x-hidden">
                                                                 <Badge className={cn("text-[8px] font-black px-1.5 py-0 border leading-tight uppercase", TYPE_COLORS[s.type])}>
                                                                     {t(`monsterType_${s.type as MonsterType}`).replace(/.*\s/, "")}
@@ -668,7 +794,7 @@ export function NegamonSettingsDialog({
                         </Button>
                         <Button
                             onClick={handleSave}
-                            disabled={isPending}
+                            disabled={isPending || planLimitExceeded || planSpeciesInvalid}
                             className="rounded-2xl h-12 px-10 font-black uppercase tracking-tight bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg hover:shadow-purple-200 hover:scale-[1.02] active:scale-[0.98] transition-all"
                         >
                             {isPending ? t("savingChanges") : t("save")}

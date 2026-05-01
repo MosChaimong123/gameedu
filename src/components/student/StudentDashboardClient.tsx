@@ -17,16 +17,19 @@ import {
 import { findSpeciesById } from "@/lib/negamon-species";
 import { useEvolveAnimation } from "@/components/negamon/evolve-animation";
 import { StarterSelectionModal } from "@/components/negamon/StarterSelectionModal";
-import { calcGoldRateBonus } from "@/lib/negamon-passives";
+import { getFrameGoldRateMultiplierById } from "@/lib/shop-items";
 import type {
+    DashboardStudent,
     HistoryRecord,
     StudentDashboardClientProps,
     StudentDashboardMode,
 } from "@/lib/services/student-dashboard/student-dashboard.types";
+import { applyConsumeInventory } from "@/lib/battle-loadout";
 import { StudentDashboardHeader } from "./student-dashboard-header";
 import { StudentDashboardSidebar } from "./student-dashboard-sidebar";
 import { StudentDashboardMainTabs } from "./student-dashboard-main-tabs";
 import { StudentDashboardUrlParamsHandler } from "./student-dashboard-url-params-handler";
+import { saveStudentIdentity } from "@/lib/player-session";
 
 const NotificationTray = dynamic(
     () => import("@/components/dashboard/notification-tray").then((m) => m.NotificationTray),
@@ -59,9 +62,25 @@ export function StudentDashboardClient({
     const [assignmentSort, setAssignmentSort] = useState<"default" | "deadline">("default");
     const [showAccessibility, setShowAccessibility] = useState(false);
     const [questGold, setQuestGold] = useState<number | undefined>(undefined);
+    const [economyPatch, setEconomyPatch] = useState<
+        Partial<Pick<DashboardStudent, "inventory" | "battleLoadout">>
+    >({});
     const [liveEvents, setLiveEvents] = useState<
         Array<{ active?: boolean; type?: string; multiplier?: number | string }>
     >([]);
+
+    const liveStudent = useMemo(
+        () => ({
+            ...student,
+            inventory: economyPatch.inventory ?? student.inventory,
+            battleLoadout: economyPatch.battleLoadout ?? student.battleLoadout,
+        }),
+        [student, economyPatch]
+    );
+
+    useEffect(() => {
+        saveStudentIdentity(liveStudent.id, liveStudent.loginCode);
+    }, [liveStudent.id, liveStudent.loginCode]);
 
     useEffect(() => {
         const fetchEvents = async () => {
@@ -89,7 +108,9 @@ export function StudentDashboardClient({
         });
     }
 
-    const canAccessBoard = Boolean(currentUserId && student.userId && currentUserId === student.userId);
+    const canAccessBoard = Boolean(
+        currentUserId && liveStudent.userId && currentUserId === liveStudent.userId
+    );
     const levelConfigResolved = classroom.levelConfig as LevelConfigInput;
     const negamonSettings = useMemo(
         () => getNegamonSettings(classroom.gamifiedSettings),
@@ -97,7 +118,9 @@ export function StudentDashboardClient({
     );
 
     const totalGoldRate = useMemo(() => {
-        const baseRate = (rankEntry.goldRate ?? 0) + calcGoldRateBonus(student.negamonSkills);
+        const baseRate = rankEntry.goldRate ?? 0;
+        const frameMult = getFrameGoldRateMultiplierById(liveStudent.equippedFrame);
+        const frameAdjustedRate = baseRate * frameMult;
 
         if (liveEvents.length > 0) {
             const multipliers = liveEvents
@@ -105,25 +128,30 @@ export function StudentDashboardClient({
                 .map((event) => Number(event.multiplier) || 1);
 
             if (multipliers.length > 0) {
-                return baseRate * Math.max(...multipliers);
+                return frameAdjustedRate * Math.max(...multipliers);
             }
         }
 
-        return baseRate * getActiveGoldMultiplier(classroom.gamifiedSettings);
-    }, [rankEntry.goldRate, student.negamonSkills, classroom.gamifiedSettings, liveEvents]);
+        return frameAdjustedRate * getActiveGoldMultiplier(classroom.gamifiedSettings);
+    }, [rankEntry.goldRate, liveStudent.equippedFrame, classroom.gamifiedSettings, liveEvents]);
 
     const studentMonsterState = useMemo(() => {
         if (!negamonSettings?.enabled) return null;
-        return getStudentMonsterState(student.id, student.behaviorPoints, levelConfigResolved, negamonSettings);
-    }, [negamonSettings, student.id, student.behaviorPoints, levelConfigResolved]);
+        return getStudentMonsterState(
+            liveStudent.id,
+            liveStudent.behaviorPoints,
+            levelConfigResolved,
+            negamonSettings
+        );
+    }, [negamonSettings, liveStudent.id, liveStudent.behaviorPoints, levelConfigResolved]);
 
     useEffect(() => {
         if (!negamonSettings?.enabled || !negamonSettings.allowStudentChoice || studentMonsterState) return;
-        const dismissed = localStorage.getItem(`negamon_intro_dismissed_${student.id}`);
+        const dismissed = localStorage.getItem(`negamon_intro_dismissed_${liveStudent.id}`);
         if (dismissed) return;
         const timer = window.setTimeout(() => setIsSelectionOpen(true), 0);
         return () => window.clearTimeout(timer);
-    }, [negamonSettings?.enabled, negamonSettings?.allowStudentChoice, studentMonsterState, student.id]);
+    }, [negamonSettings?.enabled, negamonSettings?.allowStudentChoice, studentMonsterState, liveStudent.id]);
 
     const { triggerEvolve, node: evolveNode } = useEvolveAnimation();
     const evolveChecked = useRef(false);
@@ -132,7 +160,7 @@ export function StudentDashboardClient({
         if (evolveChecked.current || !studentMonsterState) return;
         evolveChecked.current = true;
 
-        const storageKey = `negamon_rank_${student.id}`;
+        const storageKey = `negamon_rank_${liveStudent.id}`;
         const lastRank = parseInt(localStorage.getItem(storageKey) ?? "-1", 10);
         const currentRank = studentMonsterState.rankIndex;
 
@@ -152,7 +180,7 @@ export function StudentDashboardClient({
                 );
             }
         }
-    }, [student.id, studentMonsterState, triggerEvolve]);
+    }, [liveStudent.id, studentMonsterState, triggerEvolve]);
 
     const groupedHistory = useMemo(() => {
         const groups: Record<string, HistoryRecord[]> = {};
@@ -183,7 +211,7 @@ export function StudentDashboardClient({
                 <StudentDashboardHeader
                     t={t}
                     classroom={classroom}
-                    student={student}
+                    student={liveStudent}
                     code={code}
                     currentUserId={currentUserId}
                     mode={mode}
@@ -210,7 +238,7 @@ export function StudentDashboardClient({
 
                 <div className="grid md:grid-cols-4 gap-8">
                     <StudentDashboardSidebar
-                        student={student}
+                        student={liveStudent}
                         classId={classroom.id}
                         academicTotal={academicTotal}
                         totalGoldRate={totalGoldRate}
@@ -263,16 +291,28 @@ export function StudentDashboardClient({
                         }
                         onOpenStarterSelection={() => setIsSelectionOpen(true)}
                         onGoldChange={setQuestGold}
+                        onBattleConsumablesSpent={(ids) => {
+                            setEconomyPatch((p) => {
+                                const inv = applyConsumeInventory(p.inventory ?? student.inventory, ids);
+                                const lo = (p.battleLoadout ?? student.battleLoadout).filter(
+                                    (id) => !ids.includes(id)
+                                );
+                                return { ...p, inventory: inv, battleLoadout: lo };
+                            });
+                        }}
+                        onBattleLoadoutSaved={(next) => {
+                            setEconomyPatch((p) => ({ ...p, battleLoadout: next }));
+                        }}
                     />
                 </div>
             </div>
 
             <StarterSelectionModal
-                loginCode={student.loginCode}
+                loginCode={liveStudent.loginCode}
                 isOpen={isSelectionOpen}
                 onOpenChange={setIsSelectionOpen}
                 allowedSpeciesIds={negamonSettings?.species?.map((species) => species.id)}
-                onDismiss={() => localStorage.setItem(`negamon_intro_dismissed_${student.id}`, "1")}
+                onDismiss={() => localStorage.setItem(`negamon_intro_dismissed_${liveStudent.id}`, "1")}
             />
             {evolveNode}
         </div>

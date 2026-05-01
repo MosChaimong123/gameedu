@@ -29,9 +29,10 @@ vi.mock("@/app/admin/sets/set-list", () => ({
   }),
 }));
 
-vi.mock("lucide-react", () => ({
-  BookOpen: "BookOpenIcon",
-}));
+vi.mock("lucide-react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("lucide-react")>();
+  return { ...actual };
+});
 
 vi.mock("@/components/ui/page-back-link", () => ({
   PageBackLink: () => null,

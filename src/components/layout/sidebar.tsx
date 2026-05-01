@@ -2,7 +2,9 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
+import { getEffectivePlan } from "@/lib/plan/plan-access"
 import {
     LayoutDashboard,
     BookOpen,
@@ -32,6 +34,9 @@ const navItems = [
 export function Sidebar({ className }: { className?: string }) {
     const pathname = usePathname()
     const { t } = useLanguage()
+    const { data: session } = useSession()
+    const plan = getEffectivePlan(session?.user?.plan)
+    const hideUpgradeCta = plan === "PRO"
 
     return (
         <div className={cn("flex h-full w-64 flex-col border-r border-slate-200/80 bg-white/95 backdrop-blur-sm", className)}>
@@ -53,6 +58,8 @@ export function Sidebar({ className }: { className?: string }) {
                             ? pathname === "/dashboard"
                             : pathname === item.href || pathname.startsWith(`${item.href}/`)
                     const label = t(item.labelKey)
+                    const isUpgrade = item.href === "/dashboard/upgrade"
+                    const dimmed = isUpgrade && hideUpgradeCta
                     return (
                         <Link
                             key={item.href}
@@ -61,8 +68,10 @@ export function Sidebar({ className }: { className?: string }) {
                                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
                                 isActive
                                     ? "bg-indigo-50 text-indigo-800 shadow-sm ring-1 ring-indigo-100"
-                                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                                dimmed && "opacity-45"
                             )}
+                            title={dimmed ? t("sidebarUpgradeDimmedHint") : undefined}
                         >
                             <item.icon
                                 className={cn(

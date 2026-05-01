@@ -3,12 +3,15 @@ import type { ClassroomSocketEventType } from "@/lib/authorization/resource-acce
 import type { GameQuestion, GameSettings } from "../types/game";
 import { logAuditEvent } from "@/lib/security/audit-log";
 import { consumeRateLimit, consumeRateLimitWithStore } from "@/lib/security/rate-limit";
+import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
 
 type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE";
 
 type SocketPlayerPayload = {
   id?: string;
   name: string;
+  studentId?: string;
+  studentCode?: string;
   avatar?: string;
   isConnected?: boolean;
   score?: number;
@@ -20,7 +23,7 @@ type GameLike = {
   gameMode: string;
   status: "LOBBY" | "PLAYING" | "ENDED";
   settings: Partial<GameSettings>;
-  players: Array<{ id: string; name: string; isConnected?: boolean }>;
+  players: Array<{ id: string; name: string; studentId?: string; studentCode?: string; isConnected?: boolean }>;
   startTime?: number;
   registerHostConnection: (socketId: string, reconnectToken: string) => void;
   reconnectHost: (socketId: string, reconnectToken: string) => boolean;
@@ -63,6 +66,16 @@ type DbLike = {
       select: { id: true };
     }) => Promise<{ id: string } | null>;
   };
+  student?: {
+    findFirst: (args: {
+      where: {
+        id?: string;
+        classId: string;
+        OR: Array<{ loginCode: string }>;
+      };
+      select: { id: true; loginCode: true; name: true; nickname: true };
+    }) => Promise<{ id: string; loginCode: string; name: string; nickname: string | null } | null>;
+  };
 };
 
 type RegisterHandlersDeps = {
@@ -70,6 +83,8 @@ type RegisterHandlersDeps = {
   gameManager: GameManagerLike;
   randomId?: () => string;
   resolveSocketUserId?: (socket: Socket) => Promise<string | null>;
+  /** When set, merged into game settings as `planMaxLivePlayers` at create-game (host subscription cap). */
+  resolveLivePlayerCapForHost?: (hostId: string) => Promise<number>;
   canHostQuestionSet?: (userId: string, setId: string) => Promise<boolean>;
   canAccessClassroom?: (userId: string, classId: string) => Promise<boolean>;
   canPublishClassroomEvent?: (
@@ -99,6 +114,11 @@ const SOCKET_ERR_UNAUTHORIZED = "Unauthorized";
 const SOCKET_ERR_UNAUTHORIZED_CLASSROOM_ACCESS = "Unauthorized classroom access";
 const SOCKET_ERR_UNAUTHORIZED_CLASSROOM_EVENT = "Unauthorized classroom event";
 const SOCKET_ERR_UNAUTHORIZED_QUESTION_SET = "Unauthorized question set access";
+const SOCKET_ERR_INVALID_STUDENT_CODE = "Invalid student code";
+
+function cleanOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
 
 export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDeps): void {
   const {
@@ -106,6 +126,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
     gameManager,
     randomId = () => crypto.randomUUID(),
     resolveSocketUserId = async () => null,
+    resolveLivePlayerCapForHost,
     canHostQuestionSet = async () => false,
     canAccessClassroom = async () => false,
     canPublishClassroomEvent = async () => false,
@@ -188,6 +209,16 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
 
           let gameSettings: GameSettings = { ...defaultSettings, ...sanitized };
 
+          let planMaxLivePlayers = Number.POSITIVE_INFINITY;
+          if (resolveLivePlayerCapForHost) {
+            try {
+              planMaxLivePlayers = await resolveLivePlayerCapForHost(hostId);
+            } catch (err) {
+              console.error("[socket] resolveLivePlayerCapForHost failed", err);
+            }
+          }
+          gameSettings = { ...gameSettings, planMaxLivePlayers };
+
           if (
             normalizedMode === "NEGAMON_BATTLE" &&
             typeof rewardClassroomId === "string" &&
@@ -265,7 +296,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
       }
     });
 
-    socket.on("join-game", ({ pin, nickname, reconnectToken }) => {
+    socket.on("join-game", async ({ pin, nickname, reconnectToken, studentId, studentCode }) => {
       const game = gameManager.getGame(pin);
       if (!game) {
         socket.emit("error", { message: "Game not found" });
@@ -277,7 +308,39 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         return;
       }
 
-      const existingPlayer = game.players.find((player) => player.name === nickname);
+      const cleanStudentId = cleanOptionalString(studentId);
+      const cleanStudentCode = cleanOptionalString(studentCode);
+      let verifiedStudent:
+        | { id: string; loginCode: string; name: string; nickname: string | null }
+        | null = null;
+
+      if (
+        game.gameMode === "NEGAMON_BATTLE" &&
+        game.settings.negamonRewardClassroomId &&
+        cleanStudentCode &&
+        deps.db.student?.findFirst
+      ) {
+        verifiedStudent = await deps.db.student.findFirst({
+          where: {
+            ...(cleanStudentId ? { id: cleanStudentId } : {}),
+            classId: game.settings.negamonRewardClassroomId,
+            OR: getStudentLoginCodeVariants(cleanStudentCode).map((candidate) => ({
+              loginCode: candidate,
+            })),
+          },
+          select: { id: true, loginCode: true, name: true, nickname: true },
+        });
+
+        if (!verifiedStudent) {
+          socket.emit("error", { message: SOCKET_ERR_INVALID_STUDENT_CODE });
+          return;
+        }
+      }
+
+      const joinedNickname = verifiedStudent?.nickname?.trim() || verifiedStudent?.name || nickname;
+      const existingPlayer = verifiedStudent
+        ? game.players.find((player) => player.studentId === verifiedStudent.id || player.name === joinedNickname)
+        : game.players.find((player) => player.name === nickname);
 
       if (
         game.status === "PLAYING" &&
@@ -291,7 +354,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
       }
 
       if (existingPlayer) {
-        if (!game.canReconnectPlayer(nickname, reconnectToken)) {
+        if (!game.canReconnectPlayer(existingPlayer.name, reconnectToken)) {
           socket.emit("error", { message: "Nickname already in use" });
           return;
         }
@@ -300,30 +363,46 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         socket.join(pin);
         socket.emit("joined-success", {
           pin,
-          nickname,
+          nickname: existingPlayer.name,
           gameMode: game.gameMode,
-          reconnectToken: game.getPlayerReconnectToken(nickname),
+          reconnectToken: game.getPlayerReconnectToken(existingPlayer.name),
+          studentId: existingPlayer.studentId,
+          studentCode: existingPlayer.studentCode,
         });
         return;
       }
 
       if (nickname === "HOST") return;
 
+      const capRaw = game.settings.planMaxLivePlayers;
+      const playerCap =
+        typeof capRaw === "number" && Number.isFinite(capRaw) && capRaw > 0
+          ? capRaw
+          : Number.POSITIVE_INFINITY;
+      if (game.players.length >= playerCap) {
+        socket.emit("error", { message: "Lobby is full (plan player limit)" });
+        return;
+      }
+
       const newReconnectToken = randomId();
       socket.join(pin);
-      game.registerPlayerReconnectToken(nickname, newReconnectToken);
+      game.registerPlayerReconnectToken(joinedNickname, newReconnectToken);
       game.addPlayer({
         id: socket.id,
-        name: nickname,
+        name: joinedNickname,
+        studentId: verifiedStudent?.id,
+        studentCode: verifiedStudent?.loginCode,
         isConnected: true,
         score: 0,
       }, socket);
 
       socket.emit("joined-success", {
         pin,
-        nickname,
+        nickname: joinedNickname,
         gameMode: game.gameMode,
         reconnectToken: newReconnectToken,
+        studentId: verifiedStudent?.id,
+        studentCode: verifiedStudent?.loginCode,
       });
 
       if (game.status === "PLAYING") {

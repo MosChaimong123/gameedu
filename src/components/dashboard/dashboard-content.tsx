@@ -1,10 +1,18 @@
 "use client"
 
 import { QuickActions } from "@/components/dashboard/quick-actions"
-import { TopInsights } from "@/components/dashboard/top-insights"
+import { TopInsights, type DashboardInsightMission, type DashboardInsightNews } from "@/components/dashboard/top-insights"
 import { motion } from "framer-motion"
 
-export function DashboardContent({ role }: { role: string }) {
+export function DashboardContent({
+    role,
+    insightsNews,
+    insightsMissions,
+}: {
+    role: string
+    insightsNews: DashboardInsightNews[]
+    insightsMissions: DashboardInsightMission[]
+}) {
     return (
         <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden bg-slate-50/50">
             <div className="absolute top-0 left-0 h-full w-full overflow-hidden pointer-events-none">
@@ -23,7 +31,7 @@ export function DashboardContent({ role }: { role: string }) {
             </div>
 
             <div className="relative z-10 mx-auto w-full max-w-[1600px] space-y-8">
-                <TopInsights role={role} />
+                <TopInsights role={role} news={insightsNews} missions={insightsMissions} />
                 <QuickActions role={role} />
             </div>
         </div>

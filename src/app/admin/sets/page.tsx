@@ -2,7 +2,6 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { SetList } from "./set-list";
-import { BookOpen } from "lucide-react";
 import { PageBackLink } from "@/components/ui/page-back-link";
 import { AdminSectionHeader } from "@/components/admin/admin-section-header";
 
@@ -36,7 +35,7 @@ export default async function SetManagementPage() {
                         <AdminSectionHeader
                             titleKey="adminSetsTitle"
                             descKey="adminSetsDesc"
-                            icon={BookOpen}
+                            icon="bookOpen"
                             iconClassName="text-orange-600"
                         />
                     </div>

@@ -33,21 +33,21 @@ export function NegamonMoveInlineDescription({
     return (
         <div
             className={cn(
-                "mt-1.5 space-y-0.5 border-t border-stone-200/60 pt-1.5 text-[9px] leading-snug",
+                "mt-1.5 space-y-1 border-t border-stone-300/60 pt-2 text-[10px] leading-snug text-stone-700",
                 className
             )}
         >
             {(move.priority ?? 0) > 0 ? (
-                <p className="font-semibold text-sky-800">{t("monsterMoveDetailPriority")}</p>
+                <p className="font-semibold text-sky-300">{t("monsterMoveDetailPriority")}</p>
             ) : null}
             {(move.critBonus ?? 0) > 0 ? (
-                <p className="font-semibold text-rose-800/90">
+                <p className="font-semibold text-rose-300">
                     {t("monsterMoveDetailCritBonus", { crit: move.critBonus ?? 0 })}
                 </p>
             ) : null}
             {effectDesc ? (
-                <p className="font-medium text-emerald-900/95">
-                    <span className="font-bold">{t("monsterMoveDetailRealEffect")}</span> {effectDesc}
+                <p className="font-medium text-emerald-200">
+                    <span className="font-bold text-emerald-100">{t("monsterMoveDetailRealEffect")}</span> {effectDesc}
                     {effectTurns === -1 ? (
                         <> ({t("monsterMoveEffectDurationInfinite")})</>
                     ) : effectTurns && effectTurns > 0 ? (

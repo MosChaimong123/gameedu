@@ -10,11 +10,34 @@ vi.mock("next/image", () => ({
   default: (props: Record<string, unknown>) => React.createElement("img", props),
 }));
 
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: ({ children, ...props }: { children: React.ReactNode }) =>
-      React.createElement("div", props, children),
-  },
+vi.mock("framer-motion", () => {
+  const MotionDiv = ({
+    children,
+    whileHover: _whileHover,
+    whileTap: _whileTap,
+    initial: _initial,
+    animate: _animate,
+    transition: _transition,
+    ...rest
+  }: {
+    children?: React.ReactNode;
+    whileHover?: unknown;
+    whileTap?: unknown;
+    initial?: unknown;
+    animate?: unknown;
+    transition?: unknown;
+  } & Record<string, unknown>) =>
+    React.createElement("div", rest as React.HTMLAttributes<HTMLDivElement>, children);
+
+  return {
+    motion: {
+      div: MotionDiv,
+    },
+  };
+});
+
+vi.mock("@/components/language-toggle", () => ({
+  LanguageToggle: () => React.createElement("span", { "data-testid": "lang-toggle-mock" }),
 }));
 
 vi.mock("@/components/ui/page-back-link", () => ({
@@ -57,6 +80,7 @@ describe("student dashboard header", () => {
           streak: 1,
           lastCheckIn: null,
           inventory: [],
+          battleLoadout: [],
           equippedFrame: null,
           negamonSkills: [],
         },
@@ -100,6 +124,7 @@ describe("student dashboard header", () => {
           streak: 1,
           lastCheckIn: null,
           inventory: [],
+          battleLoadout: [],
           equippedFrame: null,
           negamonSkills: [],
         },

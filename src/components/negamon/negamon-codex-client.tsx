@@ -7,6 +7,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 import { NegamonInfoNav } from "@/components/negamon/negamon-info-nav";
 import { NegamonMovesGrid } from "@/components/negamon/negamon-moves-grid";
+import { buildBasicAttackMove } from "@/lib/negamon-basic-move";
 import { NegamonTypeChart } from "@/components/negamon/negamon-type-chart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,6 @@ const CODEX_TYPE_ORDER: MonsterType[] = [
     "THUNDER",
     "LIGHT",
     "DARK",
-    "PSYCHIC",
 ];
 
 const TYPE_BADGE: Record<string, string> = {
@@ -30,7 +30,6 @@ const TYPE_BADGE: Record<string, string> = {
     THUNDER: "bg-yellow-100 text-yellow-800 border-yellow-200",
     LIGHT: "bg-amber-100 text-amber-800 border-amber-200",
     DARK: "bg-purple-100 text-purple-800 border-purple-200",
-    PSYCHIC: "bg-pink-100 text-pink-800 border-pink-200",
 };
 
 function monsterTypeLabel(
@@ -202,7 +201,10 @@ export function NegamonCodexClient({ code, speciesList, negamonEnabled }: Negamo
                         </p>
                     ) : null}
                     {filtered.map((sp) => {
-                        const moves = [...sp.moves].sort((a, b) => a.learnRank - b.learnRank);
+                        const moves = [
+                            buildBasicAttackMove(),
+                            ...[...sp.moves].sort((a, b) => a.learnRank - b.learnRank),
+                        ];
                         const showcase = sp.forms[Math.min(3, sp.forms.length - 1)] ?? sp.forms[0];
                         return (
                             <details

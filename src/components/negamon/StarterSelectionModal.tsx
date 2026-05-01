@@ -42,7 +42,6 @@ const TYPE_COLORS: Record<string, string> = {
     THUNDER: "bg-yellow-100 text-yellow-700 border-yellow-200",
     LIGHT:   "bg-amber-100 text-amber-700 border-amber-200",
     DARK:    "bg-purple-100 text-purple-700 border-purple-200",
-    PSYCHIC: "bg-pink-100 text-pink-700 border-pink-200",
 };
 
 const STAT_CONFIG = [

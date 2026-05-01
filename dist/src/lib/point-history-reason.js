@@ -1,16 +1,28 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.encodeNegamonLiveBattleReason = encodeNegamonLiveBattleReason;
+exports.encodeNegamonLiveBattleRewardReason = encodeNegamonLiveBattleRewardReason;
 exports.formatPointHistoryReason = formatPointHistoryReason;
 /**
  * Encoded reasons stored on `Student.history.reason` for i18n at display time.
  * Legacy free-text rows (e.g. old Thai copy) are still recognized when possible.
  */
 const NEGAMON_LIVE_BATTLE_V1_PREFIX = "negamon-live-v1|";
+const NEGAMON_LIVE_BATTLE_V2_PREFIX = "negamon-live-v2|";
 function encodeNegamonLiveBattleReason(rank, finalScore, startHp) {
     return `${NEGAMON_LIVE_BATTLE_V1_PREFIX}${rank}|${finalScore}|${startHp}`;
 }
+function encodeNegamonLiveBattleRewardReason(gamePin, rank, finalScore, startHp) {
+    return `${NEGAMON_LIVE_BATTLE_V2_PREFIX}${gamePin}|${rank}|${finalScore}|${startHp}`;
+}
 function formatPointHistoryReason(reason, t) {
+    if (reason.startsWith(NEGAMON_LIVE_BATTLE_V2_PREFIX)) {
+        const rest = reason.slice(NEGAMON_LIVE_BATTLE_V2_PREFIX.length);
+        const [, rank, finalScore, startHp] = rest.split("|");
+        if (rank && finalScore && startHp) {
+            return t("negamonPointHistoryLiveBattle", { rank, finalScore, startHp });
+        }
+    }
     if (reason.startsWith(NEGAMON_LIVE_BATTLE_V1_PREFIX)) {
         const rest = reason.slice(NEGAMON_LIVE_BATTLE_V1_PREFIX.length);
         const [rank, finalScore, startHp] = rest.split("|");

@@ -1,13 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockStudentFindFirst = vi.fn();
-const mockStudentUpdate = vi.fn();
+const mockStudentUpdateMany = vi.fn();
+const mockStudentFindUnique = vi.fn();
+const mockStudentFindUniqueOrThrow = vi.fn();
+const mockEconomyTransactionCreate = vi.fn();
+const mockTransaction = vi.fn(async (fn: (tx: unknown) => unknown) =>
+  fn({
+    student: {
+      updateMany: mockStudentUpdateMany,
+      findUnique: mockStudentFindUnique,
+      findUniqueOrThrow: mockStudentFindUniqueOrThrow,
+    },
+    economyTransaction: {
+      create: mockEconomyTransactionCreate,
+    },
+  })
+);
 
 vi.mock("@/lib/db", () => ({
   db: {
+    $transaction: mockTransaction,
     student: {
       findFirst: mockStudentFindFirst,
-      update: mockStudentUpdate,
     },
   },
 }));
@@ -20,20 +35,24 @@ describe("student passive gold route", () => {
   it("awards passive gold based on elapsed time and updates balance", async () => {
     mockStudentFindFirst.mockResolvedValue({
       id: "student-1",
+      classId: "class-1",
       gold: 10,
+      equippedFrame: null,
       createdAt: new Date("2026-04-05T00:00:00.000Z"),
       lastGoldAt: new Date("2026-04-05T08:00:00.000Z"),
-      negamonSkills: ["gold_flow"],
       classroom: {
         levelConfig: [{ name: "Bronze", minScore: 0, goldRate: 3 }],
+        gamifiedSettings: {},
         assignments: [],
       },
       submissions: [],
     });
-    mockStudentUpdate.mockResolvedValue({
-      gold: 20,
+    mockStudentUpdateMany.mockResolvedValue({ count: 1 });
+    mockStudentFindUniqueOrThrow.mockResolvedValue({
+      gold: 16,
       lastGoldAt: new Date("2026-04-05T10:00:00.000Z"),
     });
+    mockEconomyTransactionCreate.mockResolvedValue({ id: "ledger-1" });
 
     const { POST } = await import("@/app/api/student/[code]/claim-passive-gold/route");
     const RealDate = Date;
@@ -47,11 +66,22 @@ describe("student passive gold route", () => {
     await expect(response.json()).resolves.toMatchObject({
       ok: true,
       alreadyClaimed: false,
-      goldEarned: 10,
-      goldRate: 5,
-      newGold: 20,
+      goldEarned: 6,
+      goldRate: 3,
+      newGold: 16,
     });
-    expect(mockStudentUpdate).toHaveBeenCalledTimes(1);
+    expect(mockStudentUpdateMany).toHaveBeenCalledTimes(1);
+    expect(mockEconomyTransactionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        studentId: "student-1",
+        classId: "class-1",
+        type: "earn",
+        source: "passive_gold",
+        amount: 6,
+        balanceBefore: 10,
+        balanceAfter: 16,
+      }),
+    });
   });
 
   it("returns not found when the student code does not exist", async () => {
@@ -69,6 +99,6 @@ describe("student passive gold route", () => {
         message: "Student not found",
       },
     });
-    expect(mockStudentUpdate).not.toHaveBeenCalled();
+    expect(mockStudentUpdateMany).not.toHaveBeenCalled();
   });
 });

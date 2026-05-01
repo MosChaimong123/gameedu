@@ -9,6 +9,7 @@ import type { BattleSessionEntry } from "@/components/negamon/battle-tab.types";
 interface BattleHistoryPanelProps {
     classId: string;
     myStudentId: string;
+    myStudentCode: string;
     refreshKey?: number;
 }
 
@@ -26,6 +27,7 @@ function timeAgo(iso: string): string {
 export function BattleHistoryPanel({
     classId,
     myStudentId,
+    myStudentCode,
     refreshKey = 0,
 }: BattleHistoryPanelProps) {
     const { t } = useLanguage();
@@ -35,7 +37,11 @@ export function BattleHistoryPanel({
 
     useEffect(() => {
         const timer = window.setTimeout(() => setLoading(true), 0);
-        void fetch(`/api/classrooms/${classId}/battle?studentId=${myStudentId}`)
+        const params = new URLSearchParams({
+            studentId: myStudentId,
+            studentCode: myStudentCode,
+        });
+        void fetch(`/api/classrooms/${classId}/battle?${params.toString()}`)
             .then((r) => r.json())
             .then((d: { sessions?: BattleSessionEntry[]; studentNames?: Record<string, string> }) => {
                 setSessions(Array.isArray(d.sessions) ? d.sessions : []);
@@ -44,7 +50,7 @@ export function BattleHistoryPanel({
             .catch(() => setSessions([]))
             .finally(() => setLoading(false));
         return () => window.clearTimeout(timer);
-    }, [classId, myStudentId, refreshKey]);
+    }, [classId, myStudentCode, myStudentId, refreshKey]);
 
     if (loading) {
         return (

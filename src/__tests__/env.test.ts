@@ -43,8 +43,8 @@ describe("env helpers", () => {
     });
 
     expect(env.AUTH_SECRET).toBe("fallback-secret");
-    expect(resolveAuthSecret({ NEXTAUTH_SECRET: "fallback-secret" } as NodeJS.ProcessEnv)).toBe(
-      "fallback-secret"
-    );
+    expect(
+      resolveAuthSecret({ NEXTAUTH_SECRET: "fallback-secret" } as unknown as NodeJS.ProcessEnv)
+    ).toBe("fallback-secret");
   });
 });

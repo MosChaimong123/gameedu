@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -15,6 +16,11 @@ export interface DialogueBadge {
 export interface DialogueLine {
     text: string;
     badges?: DialogueBadge[];
+    actor?: string;
+    actorIcon?: string;
+    skill?: string;
+    damageText?: string;
+    statusText?: string;
 }
 
 interface DialogueBoxProps {
@@ -26,6 +32,24 @@ interface DialogueBoxProps {
     autoAdvanceMs?: number;
     className?: string;
     onAllRead?: () => void;
+    showHistory?: boolean;
+    historyLimit?: number;
+}
+
+function damageBadgeTone(value: string | undefined): string {
+    const v = (value ?? "").toUpperCase();
+    if (!v) return "bg-slate-100 text-slate-600";
+    if (v.includes("EN ")) return "bg-amber-100 text-amber-700";
+    if (v.includes("+")) return "bg-emerald-100 text-emerald-700";
+    if (v.includes("STATUS") || v.includes("สถานะ")) return "bg-violet-100 text-violet-700";
+    if (v.includes("DMG") || v.includes("HP")) {
+        const m = v.match(/-?(\d+)/);
+        const n = m ? Number(m[1]) : 0;
+        if (n >= 60) return "bg-red-100 text-red-700";
+        if (n >= 25) return "bg-orange-100 text-orange-700";
+        return "bg-sky-100 text-sky-700";
+    }
+    return "bg-slate-100 text-slate-600";
 }
 
 // ── Component ─────────────────────────────────────────────────
@@ -36,10 +60,13 @@ export function DialogueBox({
     autoAdvanceMs = 1400,
     className,
     onAllRead,
+    showHistory = false,
+    historyLimit = 8,
 }: DialogueBoxProps) {
     const [lineIdx, setLineIdx]   = useState(0);
     const [charIdx, setCharIdx]   = useState(0);
     const onAllReadRef = useRef(onAllRead);
+    const historyScrollRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         onAllReadRef.current = onAllRead;
@@ -104,6 +131,17 @@ export function DialogueBox({
 
     const displayedText = fullText.slice(0, charIdx);
     const showBadges    = !isTyping && (currentLine.badges?.length ?? 0) > 0;
+    const hasStructuredLayout = Boolean(currentLine.actor || currentLine.skill || currentLine.damageText || currentLine.statusText);
+    const historyLines = showHistory
+        ? lines.slice(Math.max(0, lineIdx - historyLimit), lineIdx)
+        : [];
+
+    useEffect(() => {
+        if (!showHistory) return;
+        const node = historyScrollRef.current;
+        if (!node) return;
+        node.scrollTop = node.scrollHeight;
+    }, [showHistory, historyLines.length, lineIdx]);
 
     return (
         <motion.div
@@ -116,55 +154,108 @@ export function DialogueBox({
                 className
             )}
         >
-            {/* Progress dots */}
-            {lines.length > 1 && (
-                <div className="absolute top-1.5 left-1/2 -translate-x-1/2 flex gap-1">
-                    {lines.map((_, i) => (
-                        <div
-                            key={i}
-                            className={cn(
-                                "h-1 rounded-full transition-all duration-200",
-                                i < lineIdx  ? "w-1 bg-slate-400" :
-                                i === lineIdx ? "w-3 bg-slate-800" :
-                                               "w-1 bg-slate-200"
-                            )}
-                        />
-                    ))}
+            {/* History list (older lines) */}
+            {showHistory && historyLines.length > 0 && (
+                <div
+                    ref={historyScrollRef}
+                    className="mt-2 max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/80 p-2"
+                >
+                    <div className="space-y-1.5">
+                        {historyLines.map((line, index) => (
+                            <div key={`${line.text}-${index}`} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                                <div className="flex items-center gap-2">
+                                    {line.actorIcon ? (
+                                        <NegamonFormIcon
+                                            icon={line.actorIcon}
+                                            label={line.actor ?? "actor"}
+                                            className="h-5 w-5 shrink-0"
+                                            emojiClassName="text-sm leading-none"
+                                            width={20}
+                                            height={20}
+                                            imageClassName="h-full w-full object-contain"
+                                        />
+                                    ) : (
+                                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-black text-slate-500">
+                                            {line.actor?.charAt(0) ?? "?"}
+                                        </span>
+                                    )}
+                                    <p className="text-xs font-semibold text-slate-700">{line.text}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 
-            {/* Text + badges row */}
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <p className="text-sm font-bold leading-snug text-slate-800">
-                    {displayedText}
-                    {/* Blinking cursor while typing */}
-                    {isTyping && (
-                        <motion.span
-                            animate={{ opacity: [1, 0] }}
-                            transition={{ duration: 0.45, repeat: Infinity, repeatType: "reverse" }}
-                            className="ml-px inline-block h-[13px] w-[2px] translate-y-[1px] bg-slate-700 align-middle"
-                        />
-                    )}
-                </p>
+            {/* Current text + badges row */}
+            <div className="mt-2">
+                {hasStructuredLayout ? (
+                    <div className="space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex items-center gap-1.5">
+                                <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600">
+                                    {currentLine.actor ?? "EVENT"}
+                                </span>
+                                <p className="truncate text-sm font-black text-slate-800">
+                                    {currentLine.skill ?? displayedText}
+                                    {isTyping && (
+                                        <motion.span
+                                            animate={{ opacity: [1, 0] }}
+                                            transition={{ duration: 0.45, repeat: Infinity, repeatType: "reverse" }}
+                                            className="ml-px inline-block h-[13px] w-[2px] translate-y-[1px] bg-slate-700 align-middle"
+                                        />
+                                    )}
+                                </p>
+                            </div>
+                            {(currentLine.damageText || !isTyping) && (
+                                <span
+                                    className={cn(
+                                        "shrink-0 rounded-full px-2 py-0.5 text-xs font-black",
+                                        damageBadgeTone(currentLine.damageText)
+                                    )}
+                                >
+                                    {currentLine.damageText ?? "—"}
+                                </span>
+                            )}
+                        </div>
+                        {currentLine.statusText && (
+                            <p className="text-xs font-semibold text-slate-600">{currentLine.statusText}</p>
+                        )}
+                    </div>
+                ) : (
+                    <p className="text-sm font-bold leading-snug text-slate-800">
+                        {displayedText}
+                        {/* Blinking cursor while typing */}
+                        {isTyping && (
+                            <motion.span
+                                animate={{ opacity: [1, 0] }}
+                                transition={{ duration: 0.45, repeat: Infinity, repeatType: "reverse" }}
+                                className="ml-px inline-block h-[13px] w-[2px] translate-y-[1px] bg-slate-700 align-middle"
+                            />
+                        )}
+                    </p>
+                )}
 
                 {/* Badges pop in after text is done */}
-                <AnimatePresence>
-                    {showBadges &&
-                        currentLine.badges!.map((badge, bi) => (
-                            <motion.span
-                                key={bi}
-                                initial={{ opacity: 0, scale: 0.6, y: 4 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                transition={{ delay: bi * 0.08, type: "spring", stiffness: 400 }}
-                                className={cn(
-                                    "rounded-full px-2 py-0.5 text-[10px] font-black leading-none",
-                                    badge.color
-                                )}
-                            >
-                                {badge.label}
-                            </motion.span>
-                        ))}
-                </AnimatePresence>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <AnimatePresence>
+                        {showBadges &&
+                            currentLine.badges!.map((badge, bi) => (
+                                <motion.span
+                                    key={bi}
+                                    initial={{ opacity: 0, scale: 0.6, y: 4 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    transition={{ delay: bi * 0.08, type: "spring", stiffness: 400 }}
+                                    className={cn(
+                                        "rounded-full px-2 py-0.5 text-[10px] font-black leading-none",
+                                        badge.color
+                                    )}
+                                >
+                                    {badge.label}
+                                </motion.span>
+                            ))}
+                    </AnimatePresence>
+                </div>
             </div>
 
             {/* ▼ next-line indicator */}

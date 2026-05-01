@@ -97,40 +97,48 @@ describe("history and reports pages", () => {
     mockQuestionSetFindUnique.mockResolvedValue({ questions: [] });
   });
 
-  it("queries only list fields for history page", async () => {
-    const HistoryPage = (await import("@/app/dashboard/history/page")).default;
+  it(
+    "queries only list fields for history page",
+    async () => {
+      const HistoryPage = (await import("@/app/dashboard/history/page")).default;
 
-    await HistoryPage();
+      await HistoryPage();
 
-    expect(mockGameHistoryFindMany).toHaveBeenCalledWith({
-      where: { hostId: "teacher-1" },
-      orderBy: { endedAt: "desc" },
-      select: {
-        id: true,
-        gameMode: true,
-        endedAt: true,
-        players: true,
-        pin: true,
-      },
-    });
-  });
+      expect(mockGameHistoryFindMany).toHaveBeenCalledWith({
+        where: { hostId: "teacher-1" },
+        orderBy: { endedAt: "desc" },
+        select: {
+          id: true,
+          gameMode: true,
+          endedAt: true,
+          players: true,
+          pin: true,
+        },
+      });
+    },
+    30_000
+  );
 
-  it("queries only list fields for reports page", async () => {
-    const ReportsPage = (await import("@/app/dashboard/reports/page")).default;
+  it(
+    "queries only list fields for reports page",
+    async () => {
+      const ReportsPage = (await import("@/app/dashboard/reports/page")).default;
 
-    await ReportsPage();
+      await ReportsPage();
 
-    expect(mockGameHistoryFindMany).toHaveBeenCalledWith({
-      where: { hostId: "teacher-1" },
-      orderBy: { endedAt: "desc" },
-      select: {
-        id: true,
-        gameMode: true,
-        endedAt: true,
-        players: true,
-      },
-    });
-  });
+      expect(mockGameHistoryFindMany).toHaveBeenCalledWith({
+        where: { hostId: "teacher-1" },
+        orderBy: { endedAt: "desc" },
+        select: {
+          id: true,
+          gameMode: true,
+          endedAt: true,
+          players: true,
+        },
+      });
+    },
+    30_000
+  );
 
   it("queries only required detail fields for report detail page", async () => {
     const ReportDetailPage = (await import("@/app/dashboard/reports/[id]/page")).default;

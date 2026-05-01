@@ -13,6 +13,7 @@ import { ImportSpreadsheetDialog } from "@/components/set-editor/import-spreadsh
 import { AIGeneratorDialog, type GeneratedQuestion } from "@/components/set-editor/ai-generator-dialog"
 import { PageBackLink } from "@/components/ui/page-back-link"
 import { useToast } from "@/components/ui/use-toast"
+import { getLimitsForUser } from "@/lib/plan/plan-access"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -76,6 +77,10 @@ export default function EditSetPage() {
     const [pendingDeleteQuestionId, setPendingDeleteQuestionId] = useState<string | null>(null)
 
     const searchParams = useSearchParams()
+
+    const planLimits =
+        session?.user != null ? getLimitsForUser(session.user.role, session.user.plan) : null
+    const aiAllowed = planLimits?.aiQuestionGeneration ?? false
 
     useEffect(() => {
         if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
@@ -305,8 +310,10 @@ export default function EditSetPage() {
                             <span className="text-xs">{t("addQuestion")}</span>
                         </Button>
                         <Button
-                            className="h-24 flex flex-col items-center justify-center bg-gradient-to-br from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 p-0 shadow-lg shadow-indigo-100 border-0 transition-all hover:scale-[1.02] active:scale-95 text-white"
-                            onClick={() => setIsAIDialogOpen(true)}
+                            className="h-24 flex flex-col items-center justify-center bg-gradient-to-br from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 p-0 shadow-lg shadow-indigo-100 border-0 transition-all hover:scale-[1.02] active:scale-95 text-white disabled:opacity-40 disabled:pointer-events-none"
+                            disabled={!aiAllowed}
+                            title={!aiAllowed ? t("editSetAiPlanLockedHint") : undefined}
+                            onClick={() => aiAllowed && setIsAIDialogOpen(true)}
                         >
                             <Sparkles className="w-8 h-8 mb-1" />
                             <span className="text-xs">{t("editSetAiCreate")}</span>

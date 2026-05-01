@@ -45,6 +45,8 @@ describe("player-session helpers", () => {
       pin: "123456",
       name: "Alice",
       reconnectToken: "token-1",
+      studentId: undefined,
+      studentCode: undefined,
     });
     expect(getPlayerReconnectToken("123456", "Alice")).toBe("token-1");
   });
@@ -76,6 +78,26 @@ describe("player-session helpers", () => {
       pin: "123456",
       name: "Alice",
       reconnectToken: undefined,
+      studentId: undefined,
+      studentCode: undefined,
+    });
+  });
+
+  it("persists verified student identity with the active player session", () => {
+    savePlayerSession({
+      pin: "123456",
+      name: "Alice",
+      reconnectToken: "token-1",
+      studentId: "student-1",
+      studentCode: "CODE123",
+    });
+
+    expect(getPlayerSession()).toEqual({
+      pin: "123456",
+      name: "Alice",
+      reconnectToken: "token-1",
+      studentId: "student-1",
+      studentCode: "CODE123",
     });
   });
 });

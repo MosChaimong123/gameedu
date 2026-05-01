@@ -29,10 +29,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { deleteUser, updateUserRole } from "../admin-actions";
+import { deleteUser, updateUserRole, updateUserSubscription } from "../admin-actions";
 import { useLanguage } from "@/components/providers/language-provider";
 import type { AppRole } from "@/lib/roles";
 
@@ -42,6 +50,9 @@ interface User {
   email: string | null;
   role: AppRole;
   createdAt: Date;
+  plan: string | null;
+  planStatus: string | null;
+  planExpiry: Date | null;
 }
 
 type UserRole = "ADMIN" | "TEACHER" | "STUDENT";
@@ -51,8 +62,26 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [isPending, setIsPending] = React.useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<User | null>(null);
+  const [subscriptionTarget, setSubscriptionTarget] = React.useState<User | null>(null);
+  const [subPlan, setSubPlan] = React.useState<"FREE" | "PLUS" | "PRO">("FREE");
+  const [subStatus, setSubStatus] = React.useState<"ACTIVE" | "EXPIRED" | "INACTIVE">("INACTIVE");
+  const [subExpiry, setSubExpiry] = React.useState<string>("");
   const { toast } = useToast();
   const { t } = useLanguage();
+
+  React.useEffect(() => {
+    if (!subscriptionTarget) return;
+    const p = subscriptionTarget.plan === "PLUS" || subscriptionTarget.plan === "PRO" ? subscriptionTarget.plan : "FREE";
+    setSubPlan(p);
+    const s = subscriptionTarget.planStatus;
+    setSubStatus(s === "ACTIVE" || s === "EXPIRED" || s === "INACTIVE" ? s : "INACTIVE");
+    if (subscriptionTarget.planExpiry) {
+      const d = new Date(subscriptionTarget.planExpiry);
+      setSubExpiry(Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10));
+    } else {
+      setSubExpiry("");
+    }
+  }, [subscriptionTarget]);
 
   const filteredUsers = users.filter(
     (user) =>
@@ -81,6 +110,40 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
     });
   };
 
+  const handleSaveSubscription = async () => {
+    if (!subscriptionTarget) return;
+    setIsPending(subscriptionTarget.id);
+    const result = await updateUserSubscription(subscriptionTarget.id, {
+      plan: subPlan,
+      planStatus: subStatus,
+      planExpiry: subExpiry.trim() === "" ? null : subExpiry.trim(),
+    });
+    setIsPending(null);
+    if (result.success) {
+      const expiryDate = subExpiry.trim() === "" ? null : new Date(subExpiry.trim());
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === subscriptionTarget.id
+            ? {
+                ...u,
+                plan: subPlan,
+                planStatus: subStatus,
+                planExpiry: expiryDate && !Number.isNaN(expiryDate.getTime()) ? expiryDate : null,
+              }
+            : u
+        )
+      );
+      toast({ title: t("adminSubscriptionUpdateSuccessTitle") });
+      setSubscriptionTarget(null);
+      return;
+    }
+    toast({
+      title: t("adminSubscriptionUpdateFailTitle"),
+      description: "error" in result ? result.error : undefined,
+      variant: "destructive",
+    });
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
 
@@ -99,7 +162,7 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
     } else {
       toast({
         title: t("adminUserDeleteFailTitle"),
-        description: result.error,
+        description: "errorKey" in result ? t(result.errorKey) : t("adminUserDeleteFailDesc"),
         variant: "destructive",
       });
     }
@@ -153,6 +216,7 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500">{t("adminUserColUser")}</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500">{t("adminUserColEmail")}</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500">{t("adminUserColRole")}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500">{t("adminUserColPlan")}</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500">{t("adminUserColJoined")}</th>
                 <th className="px-6 py-4 text-right text-xs font-bold uppercase text-slate-500">{t("adminUserColActions")}</th>
               </tr>
@@ -174,6 +238,18 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
                       {getRoleIcon(user.role)}
                       {getRoleLabel(user.role)}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 text-xs font-bold text-slate-600">
+                    <button
+                      type="button"
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-left hover:bg-slate-100"
+                      onClick={() => setSubscriptionTarget(user)}
+                    >
+                      {user.plan ?? "FREE"}
+                      <span className="ml-1 text-[10px] font-medium text-slate-400">
+                        ({user.planStatus ?? "—"})
+                      </span>
+                    </button>
                   </td>
                   <td className="px-6 py-4 text-xs text-slate-400">
                     {new Date(user.createdAt).toLocaleDateString("th-TH")}
@@ -216,7 +292,7 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
               ))}
               {filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-20 text-center">
+                  <td colSpan={6} className="px-6 py-20 text-center">
                     <Users className="mx-auto mb-3 h-12 w-12 text-slate-200" />
                     <p className="font-medium text-slate-400">{t("adminNoUsersFound")}</p>
                   </td>
@@ -226,6 +302,62 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
           </table>
         </div>
       </div>
+
+      <Dialog open={!!subscriptionTarget} onOpenChange={(open) => !open && setSubscriptionTarget(null)}>
+        <DialogContent className="rounded-2xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("adminSubscriptionDialogTitle")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs font-bold uppercase text-slate-500">{t("adminPlanLabel")}</Label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold"
+                value={subPlan}
+                onChange={(e) => setSubPlan(e.target.value as "FREE" | "PLUS" | "PRO")}
+              >
+                <option value="FREE">FREE</option>
+                <option value="PLUS">PLUS</option>
+                <option value="PRO">PRO</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-bold uppercase text-slate-500">{t("adminPlanStatusLabel")}</Label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold"
+                value={subStatus}
+                onChange={(e) => setSubStatus(e.target.value as "ACTIVE" | "EXPIRED" | "INACTIVE")}
+              >
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="EXPIRED">EXPIRED</option>
+                <option value="INACTIVE">INACTIVE</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-bold uppercase text-slate-500">{t("adminPlanExpiryLabel")}</Label>
+              <Input
+                type="date"
+                className="rounded-xl"
+                value={subExpiry}
+                onChange={(e) => setSubExpiry(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={() => setSubscriptionTarget(null)}>
+              {t("cancel")}
+            </Button>
+            <Button
+              type="button"
+              disabled={!!isPending}
+              onClick={() => void handleSaveSubscription()}
+              className="font-bold"
+            >
+              {isPending === subscriptionTarget?.id ? <Loader2 className="h-4 w-4 animate-spin" /> : t("adminSaveButton")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>

@@ -5,7 +5,11 @@ import type { MonsterMove, MonsterType, StatusEffect, MonsterStats, PassiveAbili
 import type { StudentMonsterState } from "@/lib/types/negamon";
 import { getTypeMultiplier } from "@/lib/classroom-utils";
 import { getBattleItemById } from "@/lib/shop-items";
+import { buildBasicAttackMove, NEGAMON_BASIC_ATTACK_MOVE_ID } from "@/lib/negamon-basic-move";
 import { getEnergyProfileForSpecies, getMoveEnergyCost } from "@/lib/negamon-energy";
+
+/** @deprecated ใช้ NEGAMON_BASIC_ATTACK_MOVE_ID จาก negamon-basic-move */
+export const BASIC_ATTACK_MOVE_ID = NEGAMON_BASIC_ATTACK_MOVE_ID;
 
 // ── In-battle types ──────────────────────────────────────────
 
@@ -42,7 +46,8 @@ export type BattleFighter = {
     badlyPoisonTick: number; // escalating poison counter
     immunities: string[];    // status effects this fighter is immune to
     activeItems: string[];   // item IDs currently providing effects
-    goldBonus: number;       // bonus gold added to reward if this fighter wins
+    goldBonus: number;       // flat bonus gold before multiplier if this fighter wins
+    goldMultiplier: number; // product of item multipliers, capped (applied after flat bonus)
     ability?: PassiveAbilityId;  // passive ability of this species
     abilityUsed: boolean;        // for one-time abilities (rage_mode, guardian_scale)
     abilityName?: string;        // display name
@@ -99,6 +104,8 @@ export type BattleResult = {
 
 const MAX_TURNS = 20;
 const GOLD_REWARD_BASE = 30;
+/** Cap on combined goldMultiplier from battle items (winner payout). */
+export const BATTLE_GOLD_MULT_CAP = 2.5;
 const BURN_DOT_RATE = 0.03;
 const POISON_DOT_RATE = 0.0125;
 const BADLY_POISON_STEP_RATE = 0.008;
@@ -113,18 +120,15 @@ const FREEZE_THAW_RATE = 0.20;
 export const ACTION_METER_THRESHOLD = 100;
 const MAX_ACTIONS_PER_TURN = 4;
 const METER_FILL_ITERATION_GUARD = 32;
-const BASIC_ATTACK_DAMAGE_MULT = 0.02;
-const SKILL_DAMAGE_MULT = 0.018;
-const BASIC_ATTACK_MOVE: MonsterMove = {
-    id: "basic-attack",
-    name: "โจมตีธรรมดา",
-    type: "EARTH",
-    category: "PHYSICAL",
-    power: 24,
-    accuracy: 100,
-    learnRank: 1,
-};
-export const BASIC_ATTACK_MOVE_ID = BASIC_ATTACK_MOVE.id;
+const DAMAGE_LEVEL_SCALE_BASE = 1.1;
+const DAMAGE_LEVEL_SCALE_STEP = 0.07;
+const BASIC_ATTACK_POWER_SCALE = 0.82;
+const SKILL_POWER_SCALE = 0.94;
+const BASIC_ATTACK_FLAT_BONUS = 8;
+const SKILL_FLAT_BONUS = 12;
+const SPEED_CRIT_BONUS_PER_POINT = 0.0006; // +0.06% crit per SPD advantage point
+const SPEED_CRIT_BONUS_MAX = 0.12; // cap speed-derived crit bonus at +12%
+const CRIT_RATE_MAX = 0.5; // hard cap 50%
 
 // ── Initialisation ────────────────────────────────────────────
 
@@ -136,25 +140,31 @@ export function initBattleFighter(
     monster: StudentMonsterState,
     studentId: string,
     studentName: string,
-    inventory: string[] = []
+    /** Battle item IDs equipped for this fight only (consumables / loadout). */
+    battleItemIds: string[] = []
 ): BattleFighter {
     const stages = { ...DEFAULT_STAGES };
     const immunities: string[] = [];
     const activeItems: string[] = [];
     let goldBonus = 0;
+    let goldMultiplier = 1;
 
-    // Apply battle item effects from inventory
-    for (const itemId of inventory) {
+    for (const itemId of battleItemIds) {
         const item = getBattleItemById(itemId);
         if (!item?.battleEffect) continue;
         const eff = item.battleEffect;
         if (eff.statBoost?.atk) stages.atk *= eff.statBoost.atk;
         if (eff.statBoost?.def) stages.def *= eff.statBoost.def;
         if (eff.statBoost?.spd) stages.spd *= eff.statBoost.spd;
-        if (eff.immunity)       immunities.push(...eff.immunity);
-        if (eff.goldBonus)      goldBonus += eff.goldBonus;
+        if (eff.immunity) immunities.push(...eff.immunity);
+        if (eff.goldBonus) goldBonus += eff.goldBonus;
+        if (eff.goldMultiplier && eff.goldMultiplier > 1) {
+            goldMultiplier *= eff.goldMultiplier;
+        }
         activeItems.push(itemId);
     }
+
+    goldMultiplier = Math.min(BATTLE_GOLD_MULT_CAP, Math.max(1, goldMultiplier));
 
     // Apply tailwind ability: SPD ×1.1
     if (monster.ability?.id === "tailwind") {
@@ -177,12 +187,13 @@ export function initBattleFighter(
         baseStats: monster.stats,
         statStages: stages,
         effects: [],
-        moves: monster.unlockedMoves.length > 0 ? monster.unlockedMoves : [],
+        moves: [buildBasicAttackMove(), ...monster.unlockedMoves],
         rankIndex: monster.rankIndex,
         badlyPoisonTick: 0,
         immunities,
         activeItems,
         goldBonus,
+        goldMultiplier,
         ability: monster.ability?.id,
         abilityUsed: false,
         abilityName: monster.ability?.name,
@@ -198,6 +209,17 @@ export function initBattleFighter(
 /** Effective ATK/DEF/SPD after stage multipliers (matches damage/heal calculations). */
 export function effectiveStat(base: number, stage: number) {
     return Math.max(1, Math.floor(base * stage));
+}
+
+/**
+ * Predict who should act next from action meters + speed (no move priority).
+ * Returns true when it's player's actionable turn.
+ */
+export function isPlayerActionTurn(player: BattleFighter, opponent: BattleFighter): boolean {
+    const pSpd = effectiveStat(player.baseStats.spd, player.statStages.spd);
+    const oSpd = effectiveStat(opponent.baseStats.spd, opponent.statStages.spd);
+    if (pSpd !== oSpd) return pSpd > oSpd;
+    return true;
 }
 
 function hasEffect(fighter: BattleFighter, eff: StatusEffect) {
@@ -242,22 +264,33 @@ function calcDamageValue(
     // Passive: iron_shell — defender takes -10% dmg
     const ironShellMult = defender.ability === "iron_shell" ? 0.9 : 1;
 
-    // Critical hit: base 6.25% + move.critBonus
-    const critRate = BASE_CRIT_RATE + (move.critBonus ?? 0) / 100;
+    // Critical hit: base + move bonus + speed advantage bonus (speed archetype identity).
+    const attackerSpd = effectiveStat(attacker.baseStats.spd, attacker.statStages.spd);
+    const defenderSpd = effectiveStat(defender.baseStats.spd, defender.statStages.spd);
+    const spdAdvantage = Math.max(0, attackerSpd - defenderSpd);
+    const speedCritBonus = Math.min(SPEED_CRIT_BONUS_MAX, spdAdvantage * SPEED_CRIT_BONUS_PER_POINT);
+    const critRate = Math.min(
+        CRIT_RATE_MAX,
+        BASE_CRIT_RATE + (move.critBonus ?? 0) / 100 + speedCritBonus
+    );
     const crit = rng() < critRate;
     const critMult = crit ? 1.5 : 1;
 
     // ±10% random variance
     const variance = 0.9 + rng() * 0.2;
 
-    // New model: damage scales from (ATK - DEF) before move power.
-    // Tune with global multipliers so resulting numbers fit HP ranges.
-    const atkDefDelta = Math.max(1, atkStat - Math.max(defStat, 1));
-    const moveClassMult =
-        move.id === BASIC_ATTACK_MOVE_ID ? BASIC_ATTACK_DAMAGE_MULT : SKILL_DAMAGE_MULT;
-    const base = Math.max(1, Math.floor(
-        atkDefDelta * move.power * typeMult * stabMult * moveMult * aerialMult * ironShellMult * critMult * variance * moveClassMult
-    ));
+    const avgRank = (attacker.rankIndex + defender.rankIndex) / 2;
+    const levelScale = DAMAGE_LEVEL_SCALE_BASE + avgRank * DAMAGE_LEVEL_SCALE_STEP;
+    const attackDefenseRatio = atkStat / Math.max(1, defStat);
+    const isBasicAttack = move.id === NEGAMON_BASIC_ATTACK_MOVE_ID;
+    const powerScale = isBasicAttack ? BASIC_ATTACK_POWER_SCALE : SKILL_POWER_SCALE;
+    const flatBonus = isBasicAttack ? BASIC_ATTACK_FLAT_BONUS : SKILL_FLAT_BONUS;
+    const rawBase = move.power * attackDefenseRatio * levelScale * powerScale + flatBonus;
+    const modifiedDamage =
+        rawBase * typeMult * stabMult * moveMult * aerialMult * ironShellMult * critMult * variance;
+    // Keep guaranteed chip so high DEF never creates near-zero stalls.
+    const minDamageFloor = Math.max(1, Math.floor(move.power * (isBasicAttack ? 0.18 : 0.22)));
+    const base = Math.max(minDamageFloor, Math.floor(modifiedDamage));
 
     const effectiveness: "super" | "normal" | "weak" =
         typeMult >= 2 ? "super" : typeMult <= 0.5 ? "weak" : "normal";
@@ -453,10 +486,7 @@ function executeMove(
     priorityOverride = false
 ) {
     const executeBasicAttackFallback = () => {
-        const basicMove: MonsterMove = {
-            ...BASIC_ATTACK_MOVE,
-            type: attacker.type,
-        };
+        const basicMove = buildBasicAttackMove();
         const { dmg, effectiveness, stab, crit } = calcDamageValue(attacker, defender, basicMove, rng, false);
         events.push({
             kind: "move_used",
@@ -532,6 +562,12 @@ function executeMove(
         crit,
     });
 
+    // Consume armor-pierce from a prior setup (e.g. STATUS IGNORE_DEF). Clear before post-hit
+    // effects so a move that grants IGNORE_DEF for the *next* hit still works.
+    if (attacker.statStages.ignoreDef) {
+        attacker.statStages.ignoreDef = false;
+    }
+
     // Side effect on hit
     if (move.effect) {
         const chance = move.effectChance ?? 100;
@@ -550,9 +586,6 @@ function executeMove(
         addEffect(attacker, "PARALYZE", 2);
         events.push({ kind: "ability_trigger", actorId: defender.studentId, targetId: attacker.studentId, effect: "PARALYZE", abilityId: "static", abilityName: defender.abilityName });
     }
-
-    // Reset IGNORE_DEF after use
-    attacker.statStages.ignoreDef = false;
 }
 
 function regenEnergy(fighter: BattleFighter) {
@@ -870,7 +903,8 @@ export function resolveBattle(
         (rng() < 0.5 ? f1.studentId : f2.studentId);
 
     const winner = winnerId === f1.studentId ? f1 : f2;
-    const goldReward = GOLD_REWARD_BASE + winner.goldBonus;
+    const loser = winnerId === f1.studentId ? f2 : f1;
+    const goldReward = calcGoldReward(winner, loser);
 
     return {
         fighters: [f1, f2],
@@ -887,6 +921,141 @@ export type OneTurnResult = {
     events: TurnEvent[];
     faintedId: string | null;
 };
+
+export type ServerOwnedInteractiveTurnResult = OneTurnResult & {
+    actorSide: "player" | "opponent";
+};
+
+function chooseServerOwnedActorByMeter(
+    player: BattleFighter,
+    opponent: BattleFighter,
+    rng: () => number
+): { actor: BattleFighter; defender: BattleFighter; actorSide: "player" | "opponent" } {
+    let guard = METER_FILL_ITERATION_GUARD;
+    while (!isReadyByMeter(player) && !isReadyByMeter(opponent) && guard > 0) {
+        addActionMeter(player);
+        addActionMeter(opponent);
+        guard--;
+    }
+
+    const playerReady = isReadyByMeter(player);
+    const opponentReady = isReadyByMeter(opponent);
+    let actorSide: "player" | "opponent";
+
+    if (playerReady && !opponentReady) {
+        actorSide = "player";
+    } else if (!playerReady && opponentReady) {
+        actorSide = "opponent";
+    } else if (player.actionMeter !== opponent.actionMeter) {
+        actorSide = player.actionMeter > opponent.actionMeter ? "player" : "opponent";
+    } else {
+        const playerSpd = effectiveStat(player.baseStats.spd, player.statStages.spd);
+        const opponentSpd = effectiveStat(opponent.baseStats.spd, opponent.statStages.spd);
+        if (playerSpd !== opponentSpd) {
+            actorSide = playerSpd > opponentSpd ? "player" : "opponent";
+        } else {
+            actorSide = rng() < 0.5 ? "player" : "opponent";
+        }
+    }
+
+    const actor = actorSide === "player" ? player : opponent;
+    const defender = actorSide === "player" ? opponent : player;
+    return { actor, defender, actorSide };
+}
+
+function findPlayerMoveOrBasic(player: BattleFighter, playerMoveId: string | undefined): MonsterMove {
+    const basicMove = buildBasicAttackMove();
+    if (!playerMoveId || playerMoveId === NEGAMON_BASIC_ATTACK_MOVE_ID) return basicMove;
+    return player.moves.find((m) => m.id === playerMoveId) ?? player.moves[0] ?? basicMove;
+}
+
+/**
+ * Server-authoritative interactive action.
+ * The server decides which side acts from action meter/SPD and ignores client move input
+ * whenever the opponent owns the next action.
+ */
+export function resolveServerOwnedInteractiveTurn(
+    player: BattleFighter,
+    opponent: BattleFighter,
+    playerMoveId: string | undefined,
+    rng: () => number
+): ServerOwnedInteractiveTurnResult {
+    const events: TurnEvent[] = [];
+    const { actor, defender, actorSide } = chooseServerOwnedActorByMeter(player, opponent, rng);
+    const move = actorSide === "player"
+        ? findPlayerMoveOrBasic(player, playerMoveId)
+        : (selectMove(opponent, rng, player) ?? buildBasicAttackMove());
+
+    actor.actionMeter = Math.max(0, actor.actionMeter - ACTION_METER_THRESHOLD);
+
+    if (!checkSkip(actor, events, rng) && !checkConfusion(actor, events, rng)) {
+        executeMove(actor, defender, move, events, rng, false);
+    }
+
+    let faintedId: string | null = null;
+    if (player.currentHp <= 0) {
+        events.push({ kind: "faint", actorId: player.studentId });
+        faintedId = player.studentId;
+    } else if (opponent.currentHp <= 0) {
+        events.push({ kind: "faint", actorId: opponent.studentId });
+        faintedId = opponent.studentId;
+    }
+
+    if (!faintedId) {
+        processEndOfTurn(player, events);
+        if (player.currentHp <= 0) {
+            events.push({ kind: "faint", actorId: player.studentId });
+            faintedId = player.studentId;
+        }
+    }
+    if (!faintedId) {
+        processEndOfTurn(opponent, events);
+        if (opponent.currentHp <= 0) {
+            events.push({ kind: "faint", actorId: opponent.studentId });
+            faintedId = opponent.studentId;
+        }
+    }
+
+    if (!faintedId) {
+        regenEnergy(player);
+        regenEnergy(opponent);
+    }
+
+    return { events, faintedId, actorSide };
+}
+
+/**
+ * Resolve exactly one forced action from the chosen actor.
+ * Used by UI turn-lock flows where actor order is controlled outside the meter system.
+ */
+export function resolveForcedAction(
+    actor: BattleFighter,
+    defender: BattleFighter,
+    actorMoveId: string | undefined,
+    rng: () => number
+): OneTurnResult {
+    const events: TurnEvent[] = [];
+    const basicMove = buildBasicAttackMove();
+    const chosenMove = actorMoveId
+        ? (actorMoveId === NEGAMON_BASIC_ATTACK_MOVE_ID
+            ? basicMove
+            : actor.moves.find((m) => m.id === actorMoveId) ?? actor.moves[0] ?? basicMove)
+        : (selectMove(actor, rng, defender) ?? basicMove);
+
+    if (!checkSkip(actor, events, rng) && !checkConfusion(actor, events, rng)) {
+        executeMove(actor, defender, chosenMove, events, rng, false);
+    }
+
+    if (actor.currentHp <= 0) {
+        events.push({ kind: "faint", actorId: actor.studentId });
+        return { events, faintedId: actor.studentId };
+    }
+    if (defender.currentHp <= 0) {
+        events.push({ kind: "faint", actorId: defender.studentId });
+        return { events, faintedId: defender.studentId };
+    }
+    return { events, faintedId: null };
+}
 
 /** Carries state between first and second half of an interactive turn (same RNG stream). */
 export type InteractiveTurnPending = {
@@ -914,12 +1083,9 @@ export function resolveInteractiveTurnFirstHalf(
     rng: () => number
 ): InteractiveFirstHalfResult {
     const events: TurnEvent[] = [];
-    const basicAttackMove: MonsterMove = {
-        ...BASIC_ATTACK_MOVE,
-        type: player.type,
-    };
+    const basicAttackMove = buildBasicAttackMove();
     const playerMove =
-        playerMoveId === BASIC_ATTACK_MOVE_ID
+        playerMoveId === NEGAMON_BASIC_ATTACK_MOVE_ID
             ? basicAttackMove
             : player.moves.find((m) => m.id === playerMoveId) ?? player.moves[0];
     if (!playerMove) return { events, faintedId: null, pending: null };
@@ -1010,7 +1176,9 @@ export function resolveOneTurn(
 /** Compute the gold reward for a completed interactive battle */
 export function calcGoldReward(winner: BattleFighter, loser: BattleFighter): number {
     void loser;
-    return GOLD_REWARD_BASE + winner.goldBonus;
+    const base = GOLD_REWARD_BASE + winner.goldBonus;
+    const mult = Math.min(BATTLE_GOLD_MULT_CAP, Math.max(1, winner.goldMultiplier));
+    return Math.floor(base * mult);
 }
 
 

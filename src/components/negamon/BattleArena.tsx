@@ -8,10 +8,7 @@ import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/providers/language-provider";
 import type { BattleFighter, BattleResult, TurnEvent } from "@/lib/battle-engine";
 import {
-    makePRNG,
-    calcGoldReward,
-    resolveInteractiveTurnFirstHalf,
-    resolveInteractiveTurnSecondHalf,
+    effectiveStat,
 } from "@/lib/battle-engine";
 import { BattleField } from "@/components/negamon/BattleField";
 import { PlayerHud, OpponentHud, type ActiveStatusView } from "@/components/negamon/PokemonHud";
@@ -20,8 +17,12 @@ import { ActionMenu } from "@/components/negamon/ActionMenu";
 import { BattleResultScreen, type BattleStats } from "@/components/negamon/BattleResultScreen";
 import { OpponentPicker } from "@/components/negamon/OpponentPicker";
 import { BattleHistoryPanel } from "@/components/negamon/BattleHistoryPanel";
+import { BattleItemBagPanel, BattlePrepDialog } from "@/components/negamon/battle-inventory-ui";
 import type { BattleTabProps, Opponent } from "@/components/negamon/battle-tab.types";
 import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
+import { buildBasicAttackMove } from "@/lib/negamon-basic-move";
+import { getMoveEnergyCost } from "@/lib/negamon-energy";
+import { sanitizeLoadoutAgainstInventory, validateBattleLoadout } from "@/lib/battle-loadout";
 
 function fighterHudCombatStats(f: BattleFighter) {
     return {
@@ -308,16 +309,6 @@ function EventRow({ event, fighters }: { event: TurnEvent; fighters: [BattleFigh
 
 const TURN_DELAY_MS = 900;
 
-function createBattleSeed(...parts: Array<string | number>): number {
-    const raw = parts.join(":");
-    let hash = 2166136261;
-    for (let i = 0; i < raw.length; i += 1) {
-        hash ^= raw.charCodeAt(i);
-        hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-}
-
 function cloneBattleFighter(fighter: BattleFighter): BattleFighter {
     return JSON.parse(JSON.stringify(fighter)) as BattleFighter;
 }
@@ -366,7 +357,14 @@ function eventToDialogueLines(
         case "move_used": {
             const badges: DialogueLine["badges"] = [];
             if (event.priorityOverride) badges.push({ label: "⚡ ก่อนเลย!", color: "bg-sky-100 text-sky-700" });
-            return [{ text: `${aName} ใช้ ${event.moveName ?? "?"}!`, badges }];
+            return [{
+                text: `${aName} ใช้ ${event.moveName ?? "?"}!`,
+                actor: aName,
+                actorIcon: actor?.formIcon,
+                skill: event.moveName ?? "?",
+                damageText: "เตรียมโจมตี",
+                badges,
+            }];
         }
         case "damage": {
             const badges: DialogueLine["badges"] = [];
@@ -374,18 +372,46 @@ function eventToDialogueLines(
             if (event.stab)                        badges.push({ label: "💥 STAB",       color: "bg-amber-100 text-amber-700" });
             if (event.effectiveness === "super")   badges.push({ label: "ได้ผลมาก!",    color: "bg-orange-100 text-orange-600" });
             if (event.effectiveness === "weak")    badges.push({ label: "ได้ผลน้อย...", color: "bg-slate-100 text-slate-500" });
-            return [{ text: `${tName} โดน ${event.value ?? 0} ดาเมจ!`, badges }];
+            return [{
+                text: `${aName} โจมตี ${tName} ${event.value ?? 0} ดาเมจ`,
+                actor: aName,
+                actorIcon: actor?.formIcon,
+                skill: event.moveName ?? "โจมตี",
+                damageText: `-${event.value ?? 0} HP`,
+                statusText: `เป้าหมาย: ${tName}`,
+                badges,
+            }];
         }
         case "miss":
             return [{ text: `${aName} พลาด! 💨` }];
         case "heal":
-            return [{ text: `${aName} ฟื้นคืน ${event.value ?? 0} HP! 💚` }];
+            return [{
+                text: `${aName} ฟื้นคืน ${event.value ?? 0} HP! 💚`,
+                actor: aName,
+                actorIcon: actor?.formIcon,
+                skill: "ฟื้นฟู",
+                damageText: `+${event.value ?? 0} HP`,
+            }];
         case "faint":
             return [{ text: `${aName} สลบแล้ว! 💀` }];
         case "status_apply":
-            return [{ text: statusApplyMsg(event.effect, tName || aName) }];
+            return [{
+                text: statusApplyMsg(event.effect, tName || aName),
+                actor: aName,
+                actorIcon: actor?.formIcon,
+                skill: event.moveName ?? "เอฟเฟกต์สถานะ",
+                damageText: event.effect ? EFFECT_ICON[event.effect] ?? "สถานะ" : "สถานะ",
+                statusText: statusApplyMsg(event.effect, tName || aName),
+            }];
         case "status_tick":
-            return [{ text: statusTickMsg(event.effect, aName, event.value) }];
+            return [{
+                text: statusTickMsg(event.effect, aName, event.value),
+                actor: aName,
+                actorIcon: actor?.formIcon,
+                skill: "ผลต่อเนื่อง",
+                damageText: `-${event.value ?? 0} HP`,
+                statusText: event.effect ? STATUS_LABEL[event.effect] ?? event.effect : undefined,
+            }];
         case "status_end":
             return [{ text: `${STATUS_LABEL[event.effect ?? ""] ?? event.effect} ของ ${aName} หายแล้ว ✅` }];
         case "skip_turn":
@@ -405,9 +431,56 @@ function eventToDialogueLines(
             }
             return [{ text }];
         }
+        case "no_energy":
+            return [{
+                text: `🔋 EN ไม่พอ! ${aName} ใช้โจมตีธรรมดาแทน`,
+                actor: aName,
+                actorIcon: actor?.formIcon,
+                skill: event.moveName ?? "สกิล",
+                damageText: `EN ${event.currentEnergy ?? 0}/${event.requiredEnergy ?? 0}`,
+                statusText: "พลังงานไม่พอ เปลี่ยนเป็นโจมตีธรรมดาอัตโนมัติ",
+            }];
         default:
             return [];
     }
+}
+
+function pickDamageEventForAnimation(events: TurnEvent[]): TurnEvent | null {
+    // Anchor on the last move_used in this batch, then take the first matching damage after it.
+    // This prevents damage text from jumping to the wrong side when mixed events are present.
+    for (let i = events.length - 1; i >= 0; i -= 1) {
+        const evt = events[i];
+        if (evt.kind !== "move_used") continue;
+        for (let j = i + 1; j < events.length; j += 1) {
+            const cand = events[j];
+            if (cand.kind !== "damage") continue;
+            if (!cand.targetId) continue;
+            if (cand.actorId === evt.actorId) {
+                return cand;
+            }
+        }
+    }
+
+    for (let i = events.length - 1; i >= 0; i -= 1) {
+        const evt = events[i];
+        if (evt.kind === "damage" && evt.targetId) return evt;
+    }
+    return null;
+}
+
+function pickAutoMoveId(fighter: BattleFighter): string {
+    let bestId = fighter.moves[0]?.id ?? buildBasicAttackMove().id;
+    let bestScore = -1;
+    for (const move of fighter.moves) {
+        const energyCost = move.energyCost ?? getMoveEnergyCost(move, fighter.speciesId);
+        if (fighter.currentEnergy < energyCost) continue;
+        const score = (move.power ?? 0) + ((move.critBonus ?? 0) * 0.2);
+        if (score > bestScore) {
+            bestScore = score;
+            bestId = move.id;
+        }
+    }
+    return bestId;
 }
 
 // ── Battle replay ─────────────────────────────────────────────
@@ -428,7 +501,7 @@ function BattleReplay({
     const [hurtId, setHurtId] = useState<string | null>(null);
     const [flashId, setFlashId] = useState<string | null>(null);
     const [faintedId, setFaintedId] = useState<string | null>(null);
-    const [floatingDmg, setFloatingDmg] = useState<{ id: string; value: number; crit?: boolean } | null>(null);
+    const [floatingDmg, setFloatingDmg] = useState<{ id: string; value: number; crit?: boolean; targetLabel?: string } | null>(null);
     const [dialogueLines, setDialogueLines] = useState<DialogueLine[]>([]);
     const fighters = result.fighters;
 
@@ -453,7 +526,7 @@ function BattleReplay({
             const turnEvents = result.turns[shownTurns];
 
             // Trigger animations from events
-            const dmgEvt = turnEvents.find((e) => e.kind === "damage");
+            const dmgEvt = pickDamageEventForAnimation(turnEvents);
             if (dmgEvt) {
                 setAttackingId(dmgEvt.actorId);
                 setFlashId(dmgEvt.targetId ?? null);
@@ -462,12 +535,12 @@ function BattleReplay({
                     id: dmgEvt.targetId ?? "",
                     value: dmgEvt.value ?? 0,
                     crit: dmgEvt.crit,
+                    targetLabel: fighters.find((f) => f.studentId === dmgEvt.targetId)?.studentName ?? "?",
                 });
                 setTimeout(() => {
                     setAttackingId(null);
                     setHurtId(null);
                     setFlashId(null);
-                    setFloatingDmg(null);
                 }, 500);
             }
 
@@ -542,7 +615,6 @@ function BattleReplay({
                         combatStats={fighterHudCombatStats(opponent)}
                         currentEnergy={opponent.currentEnergy}
                         maxEnergy={opponent.maxEnergy}
-                        actionMeter={opponent.actionMeter}
                     />
                 </div>
 
@@ -560,7 +632,6 @@ function BattleReplay({
                         combatStats={fighterHudCombatStats(player)}
                         currentEnergy={player.currentEnergy}
                         maxEnergy={player.maxEnergy}
-                        actionMeter={player.actionMeter}
                     />
                 </div>
 
@@ -654,6 +725,8 @@ function BattleReplay({
 // ── Interactive Battle (Phase 3 / 4) ─────────────────────────
 
 const ANIM_DELAY_MS = 1600; // ms between turn events during animation phase
+const BATTLE_SPEED_STORAGE_KEY = "negamon_battle_speed_multiplier";
+const BATTLE_AUTO_MODE_STORAGE_KEY = "negamon_battle_auto_mode";
 
 type IBPhase = "picking" | "animating" | "result";
 
@@ -667,8 +740,35 @@ interface InteractiveBattleProps {
     challengerId: string;
     defenderId: string;
     studentCode: string;
+    sessionId: string;
     onFinish: (winnerId: string, goldReward: number) => void;
     onReset: () => void;
+}
+
+type InteractiveTurnResponse = {
+    events: TurnEvent[];
+    faintedId: string | null;
+    player: BattleFighter;
+    opponent: BattleFighter;
+    totalTurns: number;
+    actorSide: "player" | "opponent";
+    final: null | {
+        winnerId: string;
+        requestedGoldReward: number;
+        goldReward: number;
+        rewardBlockedReason: string | null;
+    };
+};
+
+type InteractiveTurnFailure = {
+    error: string;
+    actorSide?: "player" | "opponent";
+};
+
+function isInteractiveTurnFailure(
+    turn: InteractiveTurnResponse | InteractiveTurnFailure
+): turn is InteractiveTurnFailure {
+    return "error" in turn;
 }
 
 function InteractiveBattle({
@@ -679,15 +779,14 @@ function InteractiveBattle({
     challengerId,
     defenderId,
     studentCode,
+    sessionId,
     onFinish,
     onReset,
 }: InteractiveBattleProps) {
     // Deep-copy fighters into refs so we can mutate them across turns
     const playerRef   = useRef<BattleFighter>(JSON.parse(JSON.stringify(initialPlayer)));
     const opponentRef = useRef<BattleFighter>(JSON.parse(JSON.stringify(initialOpponent)));
-    const rngRef      = useRef(makePRNG(createBattleSeed(myId, classId, challengerId, defenderId, studentCode)));
     const turnRef     = useRef(0);
-    const savedRef    = useRef(false);
 
     // Derive player/opponent from myId
     const isChallenger = myId === challengerId;
@@ -699,8 +798,13 @@ function InteractiveBattle({
     }));
 
     const [phase, setPhase]           = useState<IBPhase>("picking");
+    const [started, setStarted]       = useState(false);
     const [turnIndex, setTurnIndex]   = useState(0);
     const [subStep, setSubStep]       = useState(1);
+    const [playerCanAct, setPlayerCanAct] = useState(false);
+    const [nextActor, setNextActor] = useState<"player" | "opponent">("player");
+    const [autoMode, setAutoMode] = useState(false);
+    const [speedMultiplier, setSpeedMultiplier] = useState<1 | 2 | 3>(1);
     const [dialogueLines, setDialogue] = useState<DialogueLine[]>([]);
     const [faintedId, setFaintedId]   = useState<string | null>(null);
     const [winnerId, setWinnerId]     = useState<string | null>(null);
@@ -716,7 +820,7 @@ function InteractiveBattle({
     const [flashId, setFlashId]       = useState<string | null>(null);
     const [hurtId, setHurtId]         = useState<string | null>(null);
     const [attackingId, setAttackingId] = useState<string | null>(null);
-    const [floatingDmg, setFloatingDmg] = useState<{ id: string; value: number; crit?: boolean } | null>(null);
+    const [floatingDmg, setFloatingDmg] = useState<{ id: string; value: number; crit?: boolean; targetLabel?: string } | null>(null);
 
     function getStatuses(fighter: BattleFighter): ActiveStatusView[] {
         return fighter.effects.filter((e) =>
@@ -736,23 +840,49 @@ function InteractiveBattle({
 
     const renderPlayer = renderFighters.player;
     const renderOpponent = renderFighters.opponent;
+    const getDelay = useCallback((ms: number) => Math.max(120, Math.floor(ms / speedMultiplier)), [speedMultiplier]);
+    const playerOpeningSpd = effectiveStat(renderPlayer.baseStats.spd, renderPlayer.statStages.spd);
+    const opponentOpeningSpd = effectiveStat(renderOpponent.baseStats.spd, renderOpponent.statStages.spd);
+    const playerOpeningQueue = playerOpeningSpd >= opponentOpeningSpd ? 1 : 2;
+    const openingStarterName = playerOpeningQueue === 1 ? renderPlayer.studentName : renderOpponent.studentName;
 
-    async function saveResult(wId: string, gold: number) {
-        if (savedRef.current) return;
-        savedRef.current = true;
+    function handleStartBattle() {
+        setStarted(true);
+        setNextActor(playerOpeningQueue === 1 ? "player" : "opponent");
+        setPlayerCanAct(playerOpeningQueue === 1);
+        setDialogue([{
+            text:
+                playerOpeningQueue === 1
+                    ? `เริ่มต่อสู้! ${openingStarterName} ได้คิวแรกจาก SPD ที่สูงกว่า`
+                    : `เริ่มต่อสู้! ${openingStarterName} ได้คิวแรกจาก SPD ที่สูงกว่า (${renderPlayer.studentName} ได้คิวที่ 2)`,
+            actor: openingStarterName,
+            actorIcon: playerOpeningQueue === 1 ? renderPlayer.formIcon : renderOpponent.formIcon,
+            skill: "เปิดฉากต่อสู้",
+            damageText: `คิว ${playerOpeningQueue === 1 ? 1 : 2}`,
+            statusText: `SPD คุณ ${playerOpeningSpd} • SPD ฝั่งตรงข้าม ${opponentOpeningSpd}`,
+        }]);
+    }
+
+    async function requestServerTurn(moveId?: string): Promise<InteractiveTurnResponse | InteractiveTurnFailure | null> {
         try {
-            await fetch(`/api/classrooms/${classId}/battle`, {
+            const res = await fetch(`/api/classrooms/${classId}/battle`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    challengerId, defenderId, studentCode,
-                    mode: "save",
-                    winnerId: wId,
-                    goldReward: gold,
-                    totalTurns: turnRef.current,
+                    challengerId,
+                    defenderId,
+                    studentCode,
+                    mode: "turnInteractive",
+                    sessionId,
+                    moveId,
                 }),
             });
-        } catch { /* non-critical */ }
+            const json = await res.json();
+            if (!res.ok) return json as InteractiveTurnFailure;
+            return json as InteractiveTurnResponse;
+        } catch {
+            return null;
+        }
     }
 
     function accumulateBattleStats(events: TurnEvent[]) {
@@ -781,7 +911,7 @@ function InteractiveBattle({
     }
 
     function playHalfTurnAnimations(events: TurnEvent[], onDone: () => void) {
-        const dmgEvt = events.find((e) => e.kind === "damage");
+        const dmgEvt = pickDamageEventForAnimation(events);
         if (dmgEvt) {
             setAttackingId(dmgEvt.actorId);
             setFlashId(dmgEvt.targetId ?? null);
@@ -790,94 +920,195 @@ function InteractiveBattle({
                 id: dmgEvt.targetId ?? "",
                 value: dmgEvt.value ?? 0,
                 crit: dmgEvt.crit,
+                targetLabel:
+                    (dmgEvt.targetId === playerRef.current.studentId
+                        ? playerRef.current.studentName
+                        : dmgEvt.targetId === opponentRef.current.studentId
+                            ? opponentRef.current.studentName
+                            : "?"),
             });
             setTimeout(() => {
                 setAttackingId(null);
                 setHurtId(null);
                 setFlashId(null);
-                setFloatingDmg(null);
                 onDone();
-            }, 500);
+            }, getDelay(500));
         } else {
-            setTimeout(onDone, 350);
+            setTimeout(onDone, getDelay(350));
         }
     }
 
-    function finishRoundAndMaybeEndBattle(faintId: string | null) {
-        turnRef.current += 1;
+    function applyServerFighters(serverPlayer: BattleFighter, serverOpponent: BattleFighter) {
+        if (isChallenger) {
+            playerRef.current = cloneBattleFighter(serverPlayer);
+            opponentRef.current = cloneBattleFighter(serverOpponent);
+        } else {
+            playerRef.current = cloneBattleFighter(serverOpponent);
+            opponentRef.current = cloneBattleFighter(serverPlayer);
+        }
+        syncRenderFighters();
+    }
+
+    function finishRoundAndMaybeEndBattle(
+        faintId: string | null,
+        final: InteractiveTurnResponse["final"] = null,
+        actorSide: InteractiveTurnResponse["actorSide"] = "player"
+    ) {
+        turnRef.current = Math.max(turnRef.current + 1, turnRef.current);
         statsRef.current.turnCount = turnRef.current;
         setTurnIndex((i) => i + 1);
 
-        if (faintId) {
+        if (faintId && final) {
             setFaintedId(faintId);
-            const winner = player.currentHp > 0 ? player : opponent;
-            const loser = player.currentHp > 0 ? opponent : player;
-            const gold = calcGoldReward(winner, loser);
-            setWinnerId(winner.studentId);
-            setGoldReward(gold);
-            setTimeout(async () => {
-                await saveResult(winner.studentId, gold);
+            setWinnerId(final.winnerId);
+            setGoldReward(final.goldReward);
+            if (final.rewardBlockedReason) {
+                setDialogue((prev) => [
+                    ...prev,
+                    {
+                        text:
+                            final.rewardBlockedReason === "daily_cap"
+                                ? "วันนี้รับรางวัลทองจาก Battle ครบโควตาแล้ว"
+                                : "คู่ต่อสู้นี้ยังอยู่ในช่วงคูลดาวน์รางวัลทอง",
+                    },
+                ]);
+            }
+            setTimeout(() => {
                 setFinalStats({ ...statsRef.current });
+                setFloatingDmg(null);
                 setPhase("result");
-                onFinish(winner.studentId, gold);
-            }, ANIM_DELAY_MS * 2);
+                onFinish(final.winnerId, final.goldReward);
+            }, getDelay(ANIM_DELAY_MS * 2));
             return;
         }
 
-        if (turnRef.current >= 20) {
-            const pHpPct = player.currentHp / player.maxHp;
-            const oHpPct = opponent.currentHp / opponent.maxHp;
-            const winner = pHpPct >= oHpPct ? player : opponent;
-            const loser = pHpPct >= oHpPct ? opponent : player;
-            const gold = calcGoldReward(winner, loser);
-            setWinnerId(winner.studentId);
-            setGoldReward(gold);
-            setTimeout(async () => {
-                await saveResult(winner.studentId, gold);
-                setFinalStats({ ...statsRef.current });
-                setPhase("result");
-                onFinish(winner.studentId, gold);
-            }, ANIM_DELAY_MS);
-            return;
-        }
-
-        setTimeout(() => setPhase("picking"), ANIM_DELAY_MS);
+        setTimeout(() => {
+            setFloatingDmg(null);
+            setNextActor(actorSide === "player" ? "opponent" : "player");
+            setPhase("picking");
+        }, getDelay(ANIM_DELAY_MS));
         setSubStep(1);
     }
 
-    function handleMoveSelect(moveId: string) {
-        if (phase !== "picking") return;
+    async function executePlayerAction(moveId: string) {
         setPhase("animating");
         setSubStep(1);
 
-        const h1 = resolveInteractiveTurnFirstHalf(player, opponent, moveId, rngRef.current);
-        accumulateBattleStats(h1.events);
-        appendDialogueForEvents(h1.events);
-        syncRenderFighters();
+        const turn = await requestServerTurn(moveId);
+        if (!turn) {
+            setDialogue((prev) => [...prev, { text: "บันทึกเทิร์นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }]);
+            setPhase("picking");
+            return;
+        }
+        if (isInteractiveTurnFailure(turn)) {
+            setNextActor(turn.actorSide === "opponent" ? "opponent" : "player");
+            setPhase("picking");
+            return;
+        }
+        turnRef.current = turn.totalTurns - 1;
+        accumulateBattleStats(turn.events);
+        appendDialogueForEvents(turn.events);
+        applyServerFighters(turn.player, turn.opponent);
 
-        playHalfTurnAnimations(h1.events, () => {
-            if (h1.faintedId) {
-                finishRoundAndMaybeEndBattle(h1.faintedId);
-                return;
-            }
-            if (!h1.pending) {
-                setPhase("picking");
-                return;
-            }
-
-            setTimeout(() => {
-                setSubStep(2);
-                const h2 = resolveInteractiveTurnSecondHalf(h1.pending!, rngRef.current);
-                accumulateBattleStats(h2.events);
-                appendDialogueForEvents(h2.events);
-                syncRenderFighters();
-
-                playHalfTurnAnimations(h2.events, () => {
-                    finishRoundAndMaybeEndBattle(h2.faintedId);
-                });
-            }, ANIM_DELAY_MS);
+        playHalfTurnAnimations(turn.events, () => {
+            finishRoundAndMaybeEndBattle(turn.faintedId, turn.final, turn.actorSide);
         });
     }
+
+    function handleMoveSelect(moveId: string) {
+        if (phase !== "picking" || !playerCanAct) return;
+        executePlayerAction(moveId);
+    }
+
+    async function handleAutoOpponentAction() {
+        if (phase !== "picking" || !started || nextActor !== "opponent") return;
+        setPhase("animating");
+        setSubStep(1);
+
+        const turn = await requestServerTurn();
+        if (!turn) {
+            setDialogue((prev) => [...prev, { text: "บันทึกเทิร์นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }]);
+            setPhase("picking");
+            return;
+        }
+        if (isInteractiveTurnFailure(turn)) {
+            setNextActor(turn.actorSide === "opponent" ? "opponent" : "player");
+            setPhase("picking");
+            return;
+        }
+        turnRef.current = turn.totalTurns - 1;
+        accumulateBattleStats(turn.events);
+        appendDialogueForEvents(turn.events);
+        applyServerFighters(turn.player, turn.opponent);
+
+        playHalfTurnAnimations(turn.events, () => {
+            finishRoundAndMaybeEndBattle(turn.faintedId, turn.final, turn.actorSide);
+        });
+    }
+
+    function handleResetBattlePreferences() {
+        setAutoMode(false);
+        setSpeedMultiplier(1);
+        try {
+            window.localStorage.removeItem(BATTLE_SPEED_STORAGE_KEY);
+            window.localStorage.removeItem(BATTLE_AUTO_MODE_STORAGE_KEY);
+        } catch {
+            // ignore storage errors
+        }
+    }
+
+    useEffect(() => {
+        try {
+            const raw = window.localStorage.getItem(BATTLE_SPEED_STORAGE_KEY);
+            if (raw === "1" || raw === "2" || raw === "3") {
+                setSpeedMultiplier(Number(raw) as 1 | 2 | 3);
+            }
+            const autoRaw = window.localStorage.getItem(BATTLE_AUTO_MODE_STORAGE_KEY);
+            if (autoRaw === "1") {
+                setAutoMode(true);
+            } else if (autoRaw === "0") {
+                setAutoMode(false);
+            }
+        } catch {
+            // ignore storage errors
+        }
+    }, []);
+
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(BATTLE_SPEED_STORAGE_KEY, String(speedMultiplier));
+        } catch {
+            // ignore storage errors
+        }
+    }, [speedMultiplier]);
+
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(BATTLE_AUTO_MODE_STORAGE_KEY, autoMode ? "1" : "0");
+        } catch {
+            // ignore storage errors
+        }
+    }, [autoMode]);
+
+    useEffect(() => {
+        if (!started || phase !== "picking") return;
+        const canAct = nextActor === "player";
+        setPlayerCanAct(canAct);
+        if (!canAct) {
+            const timer = window.setTimeout(() => {
+                handleAutoOpponentAction();
+            }, getDelay(250));
+            return () => window.clearTimeout(timer);
+        }
+    }, [started, phase, nextActor, getDelay]);
+
+    useEffect(() => {
+        if (!started || phase !== "picking" || !autoMode || !playerCanAct) return;
+        const timer = window.setTimeout(() => {
+            executePlayerAction(pickAutoMoveId(playerRef.current));
+        }, getDelay(300));
+        return () => window.clearTimeout(timer);
+    }, [started, phase, autoMode, playerCanAct, getDelay]);
 
     const isWinner = winnerId === myId;
 
@@ -922,7 +1153,6 @@ function InteractiveBattle({
                         combatStats={fighterHudCombatStats(renderOpponent)}
                         currentEnergy={renderOpponent.currentEnergy}
                         maxEnergy={renderOpponent.maxEnergy}
-                        actionMeter={renderOpponent.actionMeter}
                     />
                 </div>
 
@@ -943,41 +1173,16 @@ function InteractiveBattle({
                         combatStats={fighterHudCombatStats(renderPlayer)}
                         currentEnergy={renderPlayer.currentEnergy}
                         maxEnergy={renderPlayer.maxEnergy}
-                        actionMeter={renderPlayer.actionMeter}
                     />
                 </div>
 
                 {/* Turn counter */}
-                <div className="absolute top-2 right-2 rounded-full bg-black/30 backdrop-blur-sm px-2 py-0.5 text-[10px] font-black text-white/80">
-                    T{turnIndex}/20
-                </div>
+                {started && (
+                    <div className="absolute top-2 right-2 rounded-full bg-black/30 backdrop-blur-sm px-2 py-0.5 text-[10px] font-black text-white/80">
+                        R{turnIndex + 1}
+                    </div>
+                )}
             </div>
-
-            {/* ── Dialogue box ── */}
-            {dialogueLines.length > 0 ? (
-                <DialogueBox
-                    lines={dialogueLines}
-                    cps={42}
-                    autoAdvanceMs={phase === "animating" ? 1100 : 0}
-                />
-            ) : (
-                <div className="flex min-h-[64px] items-center rounded-2xl border-[3px] border-slate-800 bg-white px-4 py-3 shadow-[3px_3px_0px_0px_rgba(15,23,42,0.35)]">
-                    <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-600">
-                        <NegamonFormIcon
-                            icon={renderOpponent.formIcon}
-                            label={renderOpponent.studentName}
-                            className="h-8 w-8 shrink-0"
-                            emojiClassName="text-2xl leading-none"
-                            width={32}
-                            height={32}
-                            imageClassName="h-full w-full object-contain"
-                        />
-                        <span>
-                            {renderOpponent.studentName} ท้าทายคุณ! — เลือกท่าได้เลย!
-                        </span>
-                    </p>
-                </div>
-            )}
 
             {/* ── Result screen (Phase 5) ── */}
             <AnimatePresence>
@@ -1002,23 +1207,122 @@ function InteractiveBattle({
                 )}
             </AnimatePresence>
 
-            {/* ── Action Menu (Phase 3) ── */}
+            {!started && phase !== "result" && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-2xl border-[3px] border-slate-800 bg-white p-4 shadow-[3px_3px_0px_0px_rgba(15,23,42,0.35)]"
+                >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <p className="text-sm font-black text-slate-800">พร้อมเริ่มการต่อสู้</p>
+                            <p className="text-xs font-semibold text-slate-600">
+                                คิวเริ่มจาก SPD: {openingStarterName} เริ่มก่อน
+                                {playerOpeningQueue === 2 ? ` (${renderPlayer.studentName} คิว 2)` : ""}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleStartBattle}
+                            className="rounded-xl border-b-2 border-emerald-700 bg-gradient-to-b from-emerald-400 to-emerald-500 px-4 py-2 text-xs font-black text-white active:translate-y-px active:border-b-0"
+                        >
+                            ▶ เริ่มต่อสู้
+                        </button>
+                    </div>
+                </motion.div>
+            )}
+
+            {/* ── Action menu (left) + dialogue (right) ── */}
             <AnimatePresence>
-                {phase !== "result" && (
+                {phase !== "result" && started && (
                     <motion.div
-                        key="menu"
+                        key="combat-panels"
                         initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 12 }}
+                        className="grid grid-cols-1 gap-3 lg:grid-cols-[1.15fr_0.85fr]"
                     >
-                        <ActionMenu
-                            player={renderPlayer}
-                            turnIndex={turnIndex}
-                            subStep={subStep}
-                            maxTurns={20}
-                            disabled={phase === "animating"}
-                            onMoveSelect={handleMoveSelect}
-                        />
+                        <div>
+                            <div className="mb-2 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-2.5 py-1.5">
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setAutoMode((v) => !v)}
+                                        className={cn(
+                                            "rounded-lg px-2 py-1 text-[11px] font-black",
+                                            autoMode ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-600"
+                                        )}
+                                    >
+                                        {autoMode ? "AUTO ON" : "AUTO OFF"}
+                                    </button>
+                                    <span className="text-[10px] font-bold text-slate-500">
+                                        {playerCanAct ? "คิวคุณ" : "คิวศัตรู"}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    {[1, 2, 3].map((s) => (
+                                        <button
+                                            key={s}
+                                            type="button"
+                                            onClick={() => setSpeedMultiplier(s as 1 | 2 | 3)}
+                                            className={cn(
+                                                "rounded-md px-2 py-0.5 text-[10px] font-black",
+                                                speedMultiplier === s
+                                                    ? "bg-indigo-500 text-white"
+                                                    : "bg-slate-100 text-slate-600"
+                                            )}
+                                        >
+                                            x{s}
+                                        </button>
+                                    ))}
+                                    <button
+                                        type="button"
+                                        onClick={handleResetBattlePreferences}
+                                        className="rounded-md bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-700 hover:bg-slate-300"
+                                    >
+                                        รีเซ็ต
+                                    </button>
+                                </div>
+                            </div>
+                            <ActionMenu
+                                player={renderPlayer}
+                                turnIndex={turnIndex}
+                                subStep={subStep}
+                                maxTurns={999}
+                                playerQueue={playerOpeningQueue}
+                                disabled={phase === "animating" || !playerCanAct}
+                                onMoveSelect={handleMoveSelect}
+                            />
+                        </div>
+                        <div>
+                            {dialogueLines.length > 0 ? (
+                                <DialogueBox
+                                    lines={dialogueLines}
+                                    cps={42}
+                                    autoAdvanceMs={phase === "animating" ? 1100 : 0}
+                                    showHistory
+                                    historyLimit={10}
+                                    className="min-h-[220px]"
+                                />
+                            ) : (
+                                <div className="flex min-h-[64px] items-center rounded-2xl border-[3px] border-slate-800 bg-white px-4 py-3 shadow-[3px_3px_0px_0px_rgba(15,23,42,0.35)]">
+                                    <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-600">
+                                        <NegamonFormIcon
+                                            icon={renderOpponent.formIcon}
+                                            label={renderOpponent.studentName}
+                                            className="h-8 w-8 shrink-0"
+                                            emojiClassName="text-2xl leading-none"
+                                            width={32}
+                                            height={32}
+                                            imageClassName="h-full w-full object-contain"
+                                        />
+                                        <span>
+                                            {renderOpponent.studentName} ท้าทายคุณ! — เลือกท่าได้เลย!
+                                        </span>
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -1030,13 +1334,34 @@ function InteractiveBattle({
 
 type BattleView = "fight" | "history";
 
+function battleStartErrorMessage(
+    error: string | undefined,
+    t: (key: string, params?: Record<string, string | number>) => string,
+    retryAfterSeconds?: number
+) {
+    if (error === "NO_MONSTER") return t("battleErrNoMonster");
+    if (error === "NO_MOVES") return t("battleErrNoMoves");
+    if (error === "NEGAMON_DISABLED") return t("battleErrDisabled");
+    if (error === "INVALID_LOADOUT") return t("battleErrInvalidLoadout");
+    if (error === "BATTLE_RATE_LIMITED") {
+        return t("battleErrRateLimited", { seconds: retryAfterSeconds ?? 60 });
+    }
+    if (error === "INTERACTIVE_SESSION_LIMIT") return t("battleErrSessionLimit");
+    if (error === "INVENTORY_MISMATCH") return t("battleErrInventoryChanged");
+    return t("battleErrGeneric");
+}
+
 export function BattleTab({
     classId,
     myStudentId,
     myStudentCode,
     myMonster,
     currentGold = 0,
+    inventory,
+    battleLoadout,
     onGoldChange,
+    onBattleConsumablesSpent,
+    onBattleLoadoutSaved,
 }: BattleTabProps) {
     const { t } = useLanguage();
     const [view, setView] = useState<BattleView>("fight");
@@ -1048,19 +1373,37 @@ export function BattleTab({
         player: BattleFighter;
         opponent: BattleFighter;
         defenderId: string;
+        sessionId: string;
+        challengerLoadout: string[];
     } | null>(null);
+    const [prepOpen, setPrepOpen] = useState(false);
+    const [prepTargetId, setPrepTargetId] = useState<string | null>(null);
+    const [lastAttackLoadout, setLastAttackLoadout] = useState<string[]>([]);
+    const interactiveRef = useRef(interactiveFighters);
+    interactiveRef.current = interactiveFighters;
     const [error, setError] = useState<string | null>(null);
     const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
     useEffect(() => {
-        void fetch(`/api/classrooms/${classId}/battle/opponents?studentId=${myStudentId}`)
+        const params = new URLSearchParams({
+            studentId: myStudentId,
+            studentCode: myStudentCode,
+        });
+        void fetch(`/api/classrooms/${classId}/battle/opponents?${params.toString()}`)
             .then((r) => r.json())
             .then((d) => setOpponents(Array.isArray(d) ? d as Opponent[] : []))
             .catch(() => setOpponents([]))
             .finally(() => setLoadingOpponents(false));
-    }, [classId, myStudentId]);
+    }, [classId, myStudentCode, myStudentId]);
 
-    async function handleChallenge(defenderId: string) {
+    function handlePickOpponent(defenderId: string) {
+        setPrepTargetId(defenderId);
+        setPrepOpen(true);
+    }
+
+    async function beginFight(challengerLoadout: string[]) {
+        const defenderId = prepTargetId;
+        if (!defenderId) return;
         setChallenging(defenderId);
         setError(null);
         try {
@@ -1071,24 +1414,32 @@ export function BattleTab({
                     challengerId: myStudentId,
                     defenderId,
                     studentCode: myStudentCode,
-                    mode: "init",
+                    mode: "beginInteractive",
+                    challengerLoadout,
                 }),
             });
-            const data = await res.json() as {
+            const data = (await res.json()) as {
+                sessionId?: string;
                 player?: BattleFighter;
                 opponent?: BattleFighter;
                 error?: string;
+                code?: string;
+                retryAfterSeconds?: number;
             };
-            if (!res.ok || !data.player || !data.opponent) {
-                const msgKey =
-                    data.error === "NO_MONSTER"       ? "battleErrNoMonster" :
-                    data.error === "NO_MOVES"         ? "battleErrNoMoves" :
-                    data.error === "NEGAMON_DISABLED" ? "battleErrDisabled" :
-                    "battleErrGeneric";
-                setError(t(msgKey as Parameters<typeof t>[0]));
+            if (!res.ok || !data.player || !data.opponent || !data.sessionId) {
+                setError(battleStartErrorMessage(data.error, t, data.retryAfterSeconds));
                 return;
             }
-            setInteractiveFighters({ player: data.player, opponent: data.opponent, defenderId });
+            setLastAttackLoadout(challengerLoadout);
+            setInteractiveFighters({
+                player: data.player,
+                opponent: data.opponent,
+                defenderId,
+                sessionId: data.sessionId,
+                challengerLoadout,
+            });
+            setPrepOpen(false);
+            setPrepTargetId(null);
         } finally {
             setChallenging(null);
         }
@@ -1096,6 +1447,10 @@ export function BattleTab({
 
     function handleInteractiveFinish(winnerId: string, goldReward: number) {
         setHistoryRefreshKey((k) => k + 1);
+        const lo = interactiveRef.current?.challengerLoadout ?? [];
+        if (lo.length) {
+            onBattleConsumablesSpent?.(lo);
+        }
         if (winnerId === myStudentId) {
             onGoldChange?.(currentGold + goldReward);
         }
@@ -1181,6 +1536,7 @@ export function BattleTab({
                                 challengerId={myStudentId}
                                 defenderId={interactiveFighters.defenderId}
                                 studentCode={myStudentCode}
+                                sessionId={interactiveFighters.sessionId}
                                 onFinish={handleInteractiveFinish}
                                 onReset={handleReset}
                             />
@@ -1193,11 +1549,19 @@ export function BattleTab({
                                 ))}
                             </div>
                         ) : (
-                            <OpponentPicker
-                                opponents={opponents}
-                                onChallenge={handleChallenge}
-                                challenging={challenging}
-                            />
+                            <div className="space-y-4">
+                                <BattleItemBagPanel
+                                    loginCode={myStudentCode}
+                                    inventory={inventory}
+                                    battleLoadout={battleLoadout}
+                                    onLoadoutSaved={onBattleLoadoutSaved}
+                                />
+                                <OpponentPicker
+                                    opponents={opponents}
+                                    onChallenge={handlePickOpponent}
+                                    challenging={challenging}
+                                />
+                            </div>
                         )}
                     </motion.div>
                 ) : (
@@ -1211,11 +1575,31 @@ export function BattleTab({
                         <BattleHistoryPanel
                             classId={classId}
                             myStudentId={myStudentId}
+                            myStudentCode={myStudentCode}
                             refreshKey={historyRefreshKey}
                         />
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <BattlePrepDialog
+                open={prepOpen}
+                onOpenChange={(v) => {
+                    setPrepOpen(v);
+                    if (!v) setPrepTargetId(null);
+                }}
+                inventory={inventory}
+                initialSelection={lastAttackLoadout.length > 0 ? lastAttackLoadout : battleLoadout}
+                onConfirm={(ids) => {
+                    const sanitized = sanitizeLoadoutAgainstInventory(ids, inventory);
+                    const valid = validateBattleLoadout(sanitized, inventory);
+                    if (!valid.ok) {
+                        setError(t("battleErrInvalidLoadout"));
+                        return;
+                    }
+                    void beginFight(valid.normalizedIds);
+                }}
+            />
         </div>
     );
 }

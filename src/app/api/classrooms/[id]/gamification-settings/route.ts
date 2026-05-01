@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { db } from "@/lib/db";
 import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error";
 import {
+    gamificationSettingsSchema,
     getGamificationSettings,
     InvalidGamificationSettingsError,
     normalizeGamificationSettings,
     updateGamificationSettings,
 } from "@/lib/services/classroom-settings/gamification-settings";
+import { getLimitsForUser, validateNegamonSpeciesForPlan } from "@/lib/plan/plan-access";
 
 export async function GET(
     _req: Request,
@@ -42,6 +45,26 @@ export async function PATCH(
     try {
         const body = await req.json() as { gamifiedSettings?: unknown };
         const settings = body.gamifiedSettings ?? body;
+        const parsed = gamificationSettingsSchema.safeParse(settings);
+        if (!parsed.success) {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Invalid gamification settings", 400);
+        }
+        const negamonSpecies = parsed.data.negamon?.species;
+        if (negamonSpecies?.length) {
+            const user = await db.user.findUnique({
+                where: { id: session.user.id },
+                select: { plan: true, role: true },
+            });
+            const limits = getLimitsForUser(user?.role, user?.plan);
+            const violation = validateNegamonSpeciesForPlan(limits, negamonSpecies);
+            if (violation) {
+                return createAppErrorResponse(
+                    "PLAN_LIMIT_NEGAMON_SPECIES",
+                    "Negamon species selection exceeds your plan",
+                    403
+                );
+            }
+        }
         const updated = await updateGamificationSettings(id, session.user.id, settings);
 
         return NextResponse.json({

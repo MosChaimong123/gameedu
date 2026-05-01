@@ -1,15 +1,25 @@
 "use client";
 
+import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { BookOpen, Gamepad2, ScrollText, ShieldCheck, Users } from "lucide-react";
+import { BookOpen, Gamepad2, Loader2, Newspaper, ScrollText, ShieldCheck, Trophy, Users } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import { updateUserSubscription } from "@/app/admin/admin-actions";
 
 export type AdminDashboardRecentUser = {
   id: string;
   name: string | null;
   email: string | null;
   role: string;
+  plan: string | null;
+  planStatus: string | null;
+  planExpiry: string | null;
   createdAt: string;
   image: string | null;
 };
@@ -33,9 +43,56 @@ const roleColors: Record<string, string> = {
   STUDENT: "bg-blue-100 text-blue-700",
 };
 
+const planBadgeColors: Record<string, string> = {
+  FREE: "bg-slate-100 text-slate-700",
+  PLUS: "bg-indigo-100 text-indigo-700",
+  PRO: "bg-emerald-100 text-emerald-800",
+};
+
 export function AdminDashboardClient({ userName, displayInitial, counts, recentUsers }: AdminDashboardClientProps) {
   const { t, language } = useLanguage();
+  const { toast } = useToast();
   const dateLocale = language === "th" ? "th-TH" : "en-US";
+  const [subscriptionTarget, setSubscriptionTarget] = React.useState<AdminDashboardRecentUser | null>(null);
+  const [subPlan, setSubPlan] = React.useState<"FREE" | "PLUS" | "PRO">("FREE");
+  const [subStatus, setSubStatus] = React.useState<"ACTIVE" | "EXPIRED" | "INACTIVE">("INACTIVE");
+  const [subExpiry, setSubExpiry] = React.useState<string>("");
+  const [isSavingSubscription, setIsSavingSubscription] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!subscriptionTarget) return;
+    const p = subscriptionTarget.plan === "PLUS" || subscriptionTarget.plan === "PRO" ? subscriptionTarget.plan : "FREE";
+    setSubPlan(p);
+    const s = subscriptionTarget.planStatus;
+    setSubStatus(s === "ACTIVE" || s === "EXPIRED" || s === "INACTIVE" ? s : "INACTIVE");
+    if (subscriptionTarget.planExpiry) {
+      const d = new Date(subscriptionTarget.planExpiry);
+      setSubExpiry(Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10));
+    } else {
+      setSubExpiry("");
+    }
+  }, [subscriptionTarget]);
+
+  const handleSaveSubscription = async () => {
+    if (!subscriptionTarget) return;
+    setIsSavingSubscription(true);
+    const result = await updateUserSubscription(subscriptionTarget.id, {
+      plan: subPlan,
+      planStatus: subStatus,
+      planExpiry: subExpiry.trim() === "" ? null : subExpiry.trim(),
+    });
+    setIsSavingSubscription(false);
+    if (result.success) {
+      toast({ title: t("adminSubscriptionUpdateSuccessTitle") });
+      setSubscriptionTarget(null);
+      return;
+    }
+    toast({
+      title: t("adminSubscriptionUpdateFailTitle"),
+      description: "error" in result ? result.error : undefined,
+      variant: "destructive",
+    });
+  };
 
   const stats = [
     { labelKey: "adminStatTotalUsers", value: counts.users, icon: Users, bg: "bg-blue-50", text: "text-blue-600" },
@@ -61,6 +118,22 @@ export function AdminDashboardClient({ userName, displayInitial, counts, recentU
       href: "/admin/sets",
       color: "text-orange-600",
       bg: "bg-orange-50 hover:bg-orange-100 border-orange-100",
+    },
+    {
+      labelKey: "adminTeacherNewsPageTitle",
+      descKey: "adminTeacherNewsPageDesc",
+      icon: Newspaper,
+      href: "/admin/teacher-news",
+      color: "text-indigo-600",
+      bg: "bg-indigo-50 hover:bg-indigo-100 border-indigo-100",
+    },
+    {
+      labelKey: "adminTeacherMissionsPageTitle",
+      descKey: "adminTeacherMissionsPageDesc",
+      icon: Trophy,
+      href: "/admin/teacher-missions",
+      color: "text-purple-600",
+      bg: "bg-purple-50 hover:bg-purple-100 border-purple-100",
     },
     {
       labelKey: "adminLinkAuditTitle",
@@ -139,7 +212,9 @@ export function AdminDashboardClient({ userName, displayInitial, counts, recentU
                   <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminDashboardColName")}</th>
                   <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminUserColEmail")}</th>
                   <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminUserColRole")}</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminUserColPlan")}</th>
                   <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminDashboardColJoined")}</th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminUserColActions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -170,6 +245,20 @@ export function AdminDashboardClient({ userName, displayInitial, counts, recentU
                         {user.role}
                       </span>
                     </td>
+                    <td className="px-6 py-3">
+                      <div className="flex flex-col gap-0.5">
+                        <span
+                          className={`w-fit rounded-full px-2.5 py-1 text-xs font-bold ${
+                            planBadgeColors[user.plan || "FREE"] || "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {user.plan || "FREE"}
+                        </span>
+                        {user.planStatus ? (
+                          <span className="text-[10px] font-medium text-slate-400">{user.planStatus}</span>
+                        ) : null}
+                      </div>
+                    </td>
                     <td className="px-6 py-3 text-xs text-slate-400">
                       {new Date(user.createdAt).toLocaleDateString(dateLocale, {
                         day: "2-digit",
@@ -177,12 +266,79 @@ export function AdminDashboardClient({ userName, displayInitial, counts, recentU
                         year: "numeric",
                       })}
                     </td>
+                    <td className="px-6 py-3 text-right">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="rounded-lg border-slate-200"
+                        onClick={() => setSubscriptionTarget(user)}
+                      >
+                        {t("adminSubscriptionDialogTitle")}
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
+
+        <Dialog open={!!subscriptionTarget} onOpenChange={(open) => !open && setSubscriptionTarget(null)}>
+          <DialogContent className="rounded-2xl sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{t("adminSubscriptionDialogTitle")}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold uppercase text-slate-500">{t("adminPlanLabel")}</Label>
+                <select
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold"
+                  value={subPlan}
+                  onChange={(e) => setSubPlan(e.target.value as "FREE" | "PLUS" | "PRO")}
+                >
+                  <option value="FREE">FREE</option>
+                  <option value="PLUS">PLUS</option>
+                  <option value="PRO">PRO</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold uppercase text-slate-500">{t("adminPlanStatusLabel")}</Label>
+                <select
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold"
+                  value={subStatus}
+                  onChange={(e) => setSubStatus(e.target.value as "ACTIVE" | "EXPIRED" | "INACTIVE")}
+                >
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="EXPIRED">EXPIRED</option>
+                  <option value="INACTIVE">INACTIVE</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold uppercase text-slate-500">{t("adminPlanExpiryLabel")}</Label>
+                <Input
+                  type="date"
+                  className="rounded-xl"
+                  value={subExpiry}
+                  onChange={(e) => setSubExpiry(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => setSubscriptionTarget(null)}>
+                {t("cancel")}
+              </Button>
+              <Button
+                type="button"
+                disabled={isSavingSubscription}
+                onClick={() => void handleSaveSubscription()}
+                className="font-bold"
+              >
+                {isSavingSubscription ? <Loader2 className="h-4 w-4 animate-spin" /> : t("adminSaveButton")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {links.map((link) => (

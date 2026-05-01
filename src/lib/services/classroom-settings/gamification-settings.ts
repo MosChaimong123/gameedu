@@ -9,6 +9,7 @@ type GamificationSettingsDeps = {
 };
 
 const monsterTypeSchema = z.enum([
+    "NORMAL",
     "FIRE",
     "WATER",
     "EARTH",
@@ -16,7 +17,6 @@ const monsterTypeSchema = z.enum([
     "THUNDER",
     "LIGHT",
     "DARK",
-    "PSYCHIC",
 ]);
 
 const moveCategorySchema = z.enum(["PHYSICAL", "SPECIAL", "STATUS", "HEAL"]);
@@ -26,6 +26,7 @@ const statusEffectSchema = z.enum([
     "PARALYZE",
     "SLEEP",
     "POISON",
+    "BADLY_POISON",
     "BOOST_ATK",
     "BOOST_DEF",
     "BOOST_SPD",
@@ -104,7 +105,7 @@ const classEventSchema = z.object({
     active: z.boolean().optional(),
 });
 
-const gamificationSettingsSchema = z.object({
+export const gamificationSettingsSchema = z.object({
     negamon: negamonSettingsSchema.optional(),
     customAchievements: z.array(customAchievementSchema).optional(),
     events: z.array(classEventSchema).optional(),

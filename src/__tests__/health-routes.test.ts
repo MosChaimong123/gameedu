@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockValidateServerEnv = vi.fn();
 const mockPingOperationalDb = vi.fn();
@@ -16,9 +16,13 @@ vi.mock("@/lib/ops/mongo-admin", () => ({
 }));
 
 describe("health and readiness routes", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.NODE_ENV = "test";
+    vi.stubEnv("NODE_ENV", "test");
     mockResolveRateLimitStore.mockReturnValue("memory");
     mockResolveAuditLogSink.mockReturnValue("console");
     mockValidateServerEnv.mockReturnValue({ HEALTHCHECK_DB_TIMEOUT_MS: 1000 });
@@ -45,7 +49,7 @@ describe("health and readiness routes", () => {
   });
 
   it("keeps liveness healthy even when critical server env is missing", async () => {
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     mockResolveRateLimitStore.mockReturnValue("mongo");
     mockResolveAuditLogSink.mockReturnValue("both");
 

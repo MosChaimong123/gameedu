@@ -11,6 +11,8 @@ interface StudentDashboardGameTabsProps {
     loginCode: string;
     questGold?: number;
     currentGold: number;
+    inventory: string[];
+    battleLoadout: string[];
     myMonster:
         | {
               formIcon: string;
@@ -20,6 +22,8 @@ interface StudentDashboardGameTabsProps {
         | null;
     history: Array<{ timestamp: string; value: number; reason: string }>;
     onGoldChange: (value: number | undefined) => void;
+    onBattleConsumablesSpent?: (consumedItemIds: string[]) => void;
+    onBattleLoadoutSaved?: (battleLoadout: string[]) => void;
 }
 
 export function StudentDashboardGameTabs({
@@ -28,9 +32,13 @@ export function StudentDashboardGameTabs({
     loginCode,
     questGold,
     currentGold,
+    inventory,
+    battleLoadout,
     myMonster,
     history,
     onGoldChange,
+    onBattleConsumablesSpent,
+    onBattleLoadoutSaved,
 }: StudentDashboardGameTabsProps) {
     return (
         <>
@@ -45,7 +53,11 @@ export function StudentDashboardGameTabs({
                     myStudentCode={loginCode}
                     myMonster={myMonster}
                     currentGold={questGold ?? currentGold}
+                    inventory={inventory}
+                    battleLoadout={battleLoadout}
                     onGoldChange={onGoldChange}
+                    onBattleConsumablesSpent={onBattleConsumablesSpent}
+                    onBattleLoadoutSaved={onBattleLoadoutSaved}
                 />
             </TabsContent>
 

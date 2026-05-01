@@ -89,6 +89,10 @@ export function StudentAvatarSection({
     const [inventory, setInventory] = useState<string[]>(initialInventory);
     const [equippedFrame, setEquippedFrame] = useState<string | null>(initialEquippedFrame);
 
+    useEffect(() => {
+        setInventory(initialInventory);
+    }, [initialInventory]);
+
     // Check-in state
     const [streak, setStreak] = useState(initialStreak);
     const [alreadyCheckedIn, setAlreadyCheckedIn] = useState(() => {

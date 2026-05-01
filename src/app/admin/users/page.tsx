@@ -2,7 +2,6 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { UserTable } from "./user-table";
-import { Users } from "lucide-react";
 import { PageBackLink } from "@/components/ui/page-back-link";
 import { AdminSectionHeader } from "@/components/admin/admin-section-header";
 import { isAppRole, type AppRole } from "@/lib/roles";
@@ -23,6 +22,9 @@ export default async function UserManagementPage() {
             email: true,
             role: true,
             createdAt: true,
+            plan: true,
+            planStatus: true,
+            planExpiry: true,
         },
     });
 
@@ -40,7 +42,7 @@ export default async function UserManagementPage() {
                         <AdminSectionHeader
                             titleKey="adminUsersTitle"
                             descKey="adminUsersDesc"
-                            icon={Users}
+                            icon="users"
                             iconClassName="text-purple-600"
                         />
                     </div>

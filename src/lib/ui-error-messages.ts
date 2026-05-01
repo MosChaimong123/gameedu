@@ -28,11 +28,21 @@ const DEFAULT_THAI_ERROR_MESSAGES: Record<AppErrorCode, string> = {
     NEGAMON_NOT_ENABLED: "ห้องนี้ยังไม่เปิดใช้งาน Negamon",
     NEGAMON_SELECTION_DISABLED: "ครูไม่อนุญาตให้เลือกมอนสเตอร์เอง",
     NEGAMON_INVALID_SPECIES: "มอนสเตอร์นี้ไม่อยู่ในรายการที่อนุญาต",
+    NEGAMON_PASSIVES_DISABLED: "ระบบสกิลพาสซีฟ Negamon ถูกปิดใช้งานแล้ว",
     NEGAMON_PASSIVE_NOT_FOUND: "ไม่พบสกิลนี้",
     NEGAMON_PASSIVE_ALREADY_UNLOCKED: "ปลดล็อกสกิลนี้แล้ว",
+    INVALID_BATTLE_LOADOUT: "ชุดไอเทมต่อสู้ไม่ถูกต้อง",
     NOT_ENOUGH_GOLD: "ทองไม่พอ",
     SHOP_ITEM_NOT_FOUND: "ไม่พบไอเทมนี้",
     SHOP_ALREADY_OWNED: "คุณมีไอเทมนี้แล้ว",
+    PLAN_LIMIT_QUESTION_SETS: "จำนวนชุดคำถามถึงขีดจำกัดของแผนแล้ว",
+    PLAN_LIMIT_QUESTIONS_PER_SET: "จำนวนข้อในชุดเกินขีดจำกัดของแผน",
+    PLAN_LIMIT_OMR_MONTHLY: "ใช้โควต้าสแกน OMR รายเดือนครบแล้ว",
+    PLAN_LIMIT_LIVE_PLAYERS: "ห้องเต็มตามขีดจำกัดผู้เล่นของแผนโฮสต์",
+    PLAN_LIMIT_AI_FEATURE: "ฟีเจอร์ AI ไม่รวมในแผนปัจจุบัน",
+    PLAN_LIMIT_CLASSROOMS: "จำนวนห้องเรียนถึงขีดจำกัดของแผนแล้ว",
+    PLAN_LIMIT_NEGAMON_SPECIES: "การเลือกสายพันธุ์ Negamon เกินขีดจำกัดของแผน",
+    PLAN_LIMIT_AUDIENCE_PLANS: "ต้องเลือกแผนเป้าหมายอย่างน้อยหนึ่งแผน",
 };
 
 const LEGACY_TEXT_ERROR_MESSAGES: Array<[needle: string, message: string]> = [

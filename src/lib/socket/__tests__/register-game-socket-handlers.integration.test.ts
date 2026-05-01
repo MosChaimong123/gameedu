@@ -12,7 +12,7 @@ class FakeGame {
   public gameMode = "GOLD_QUEST";
   public status: "LOBBY" | "PLAYING" | "ENDED" = "LOBBY";
   public settings: Partial<GameSettings>;
-  public players: Array<{ id: string; name: string; isConnected: boolean }> = [];
+  public players: Array<{ id: string; name: string; studentId?: string; studentCode?: string; isConnected: boolean }> = [];
   public startTime?: number;
   private hostSocketId?: string;
   private hostReconnectToken?: string;
@@ -54,10 +54,15 @@ class FakeGame {
     return !!reconnectToken && reconnectToken === this.playerReconnectTokens.get(playerName);
   }
 
-  addPlayer(player: { id?: string; name: string; isConnected?: boolean }, socket: { id: string }): void {
+  addPlayer(
+    player: { id?: string; name: string; studentId?: string; studentCode?: string; isConnected?: boolean },
+    socket: { id: string }
+  ): void {
     const nextPlayer = {
       id: player.id ?? socket.id,
       name: player.name,
+      studentId: player.studentId,
+      studentCode: player.studentCode,
       isConnected: player.isConnected ?? true,
     };
     this.players.push(nextPlayer);
@@ -113,6 +118,10 @@ describe("registerGameSocketHandlers integration", () => {
   let port: number;
   let games: Map<string, FakeGame>;
   let auditEvents: Array<Record<string, unknown>>;
+  /** When set, `join-game` uses this cap (new players) for tests. */
+  let livePlayerCapForTest: number | undefined;
+  let classroomFindFirst: (args: unknown) => Promise<{ id: string } | null>;
+  let studentFindFirst: (args: unknown) => Promise<{ id: string; loginCode: string; name: string; nickname: string | null } | null>;
 
   const connectClient = async (userId?: string): Promise<ClientSocket> =>
     await new Promise((resolve, reject) => {
@@ -130,6 +139,9 @@ describe("registerGameSocketHandlers integration", () => {
   beforeEach(async () => {
     games = new Map();
     auditEvents = [];
+    livePlayerCapForTest = undefined;
+    classroomFindFirst = async () => null;
+    studentFindFirst = async () => null;
     httpServer = createServer();
     io = new Server(httpServer, {
       path: "/socket.io",
@@ -146,7 +158,10 @@ describe("registerGameSocketHandlers integration", () => {
           }),
         },
         classroom: {
-          findFirst: async () => null,
+          findFirst: (args) => classroomFindFirst(args),
+        },
+        student: {
+          findFirst: (args) => studentFindFirst(args),
         },
       },
       gameManager: {
@@ -206,6 +221,8 @@ describe("registerGameSocketHandlers integration", () => {
       auditLog: (event) => {
         auditEvents.push(event as Record<string, unknown>);
       },
+      resolveLivePlayerCapForHost: async () =>
+        livePlayerCapForTest !== undefined ? livePlayerCapForTest : 1_000_000,
     });
 
     await new Promise<void>((resolve) => {
@@ -552,6 +569,151 @@ describe("registerGameSocketHandlers integration", () => {
     player.disconnect();
   });
 
+  it("attaches verified student identity to Negamon Battle players", async () => {
+    classroomFindFirst = async (args) => {
+      const where = (args as { where: { id?: string; teacherId?: string } }).where;
+      return where.id === "class-1" && where.teacherId === "teacher-1"
+        ? { id: "class-1" }
+        : null;
+    };
+    studentFindFirst = async (args) => {
+      const where = (args as { where: { id?: string; classId?: string } }).where;
+      return where.id === "student-1" && where.classId === "class-1"
+        ? {
+            id: "student-1",
+            loginCode: "CODE123",
+            name: "Alice Official",
+            nickname: "Alice",
+          }
+        : null;
+    };
+
+    const host = await connectClient("teacher-1");
+    host.emit("create-game", {
+      setId: "set-1",
+      settings: { allowLateJoin: true },
+      mode: "NEGAMON_BATTLE",
+      rewardClassroomId: "class-1",
+    });
+    const gameCreated = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+
+    const player = await connectClient();
+    player.emit("join-game", {
+      pin: gameCreated.pin,
+      nickname: "Manual Name",
+      studentId: "student-1",
+      studentCode: "CODE123",
+    });
+    const joined = await new Promise<{
+      nickname: string;
+      studentId?: string;
+      studentCode?: string;
+    }>((resolve) => player.once("joined-success", resolve));
+
+    expect(joined).toEqual(
+      expect.objectContaining({
+        nickname: "Alice",
+        studentId: "student-1",
+        studentCode: "CODE123",
+      })
+    );
+    expect(games.get(gameCreated.pin)?.players[0]).toEqual(
+      expect.objectContaining({
+        name: "Alice",
+        studentId: "student-1",
+        studentCode: "CODE123",
+      })
+    );
+
+    host.disconnect();
+    player.disconnect();
+  });
+
+  it("resolves Negamon Battle student identity from student code without a stored student id", async () => {
+    classroomFindFirst = async (args) => {
+      const where = (args as { where: { id?: string; teacherId?: string } }).where;
+      return where.id === "class-1" && where.teacherId === "teacher-1" ? { id: "class-1" } : null;
+    };
+    studentFindFirst = async (args) => {
+      const where = (args as { where: { classId?: string; OR?: Array<{ loginCode: string }> } }).where;
+      const codes = new Set((where.OR ?? []).map((entry) => entry.loginCode));
+      return where.classId === "class-1" && codes.has("CODE123")
+        ? {
+            id: "student-1",
+            loginCode: "CODE123",
+            name: "Alice Official",
+            nickname: null,
+          }
+        : null;
+    };
+
+    const host = await connectClient("teacher-1");
+    host.emit("create-game", {
+      setId: "set-1",
+      settings: { allowLateJoin: true },
+      mode: "NEGAMON_BATTLE",
+      rewardClassroomId: "class-1",
+    });
+    const gameCreated = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+
+    const player = await connectClient();
+    player.emit("join-game", {
+      pin: gameCreated.pin,
+      nickname: "Typed Name",
+      studentCode: "CODE123",
+    });
+    const joined = await new Promise<{ nickname: string; studentId?: string }>((resolve) =>
+      player.once("joined-success", resolve)
+    );
+
+    expect(joined).toEqual(
+      expect.objectContaining({
+        nickname: "Alice Official",
+        studentId: "student-1",
+      })
+    );
+    expect(games.get(gameCreated.pin)?.players[0]).toEqual(
+      expect.objectContaining({
+        name: "Alice Official",
+        studentId: "student-1",
+      })
+    );
+
+    host.disconnect();
+    player.disconnect();
+  });
+
+  it("rejects an invalid student code for a classroom-linked Negamon Battle", async () => {
+    classroomFindFirst = async (args) => {
+      const where = (args as { where: { id?: string; teacherId?: string } }).where;
+      return where.id === "class-1" && where.teacherId === "teacher-1" ? { id: "class-1" } : null;
+    };
+    studentFindFirst = async () => null;
+
+    const host = await connectClient("teacher-1");
+    host.emit("create-game", {
+      setId: "set-1",
+      settings: { allowLateJoin: true },
+      mode: "NEGAMON_BATTLE",
+      rewardClassroomId: "class-1",
+    });
+    const gameCreated = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+
+    const player = await connectClient();
+    player.emit("join-game", {
+      pin: gameCreated.pin,
+      nickname: "Wrong Code",
+      studentCode: "NOPE",
+    });
+
+    const denied = await new Promise<{ message: string }>((resolve) => player.once("error", resolve));
+    expect(denied.message).toBe("Invalid student code");
+    expect(games.get(gameCreated.pin)?.players).toHaveLength(0);
+
+    host.disconnect();
+    player.disconnect();
+  });
+
   it("rejects Negamon submit with wrong pin and emits audit", async () => {
     const host = await connectClient("teacher-1");
     host.emit("create-game", {
@@ -657,5 +819,26 @@ describe("registerGameSocketHandlers integration", () => {
 
     host.disconnect();
     player.disconnect();
+  });
+
+  it("rejects join-game when lobby already at plan player cap", async () => {
+    livePlayerCapForTest = 1;
+    const host = await connectClient("teacher-1");
+    host.emit("create-game", { setId: "set-1", settings: { allowLateJoin: true }, mode: "GOLD_QUEST" });
+    const gameCreated = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+
+    const first = await connectClient();
+    first.emit("join-game", { pin: gameCreated.pin, nickname: "Only" });
+    await new Promise<void>((resolve) => first.once("joined-success", () => resolve()));
+
+    const second = await connectClient();
+    second.emit("join-game", { pin: gameCreated.pin, nickname: "Extra" });
+    const denied = await new Promise<{ message: string }>((resolve) => second.once("error", resolve));
+    expect(denied.message).toBe("Lobby is full (plan player limit)");
+
+    host.disconnect();
+    first.disconnect();
+    second.disconnect();
+    livePlayerCapForTest = undefined;
   });
 });

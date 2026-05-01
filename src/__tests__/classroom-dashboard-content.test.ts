@@ -63,6 +63,7 @@ const baseClassroom: ClassroomDashboardViewModel = {
       lastCheckIn: null,
       streak: 1,
       inventory: [],
+      battleLoadout: [],
       equippedFrame: null,
       negamonSkills: [],
       order: 0,

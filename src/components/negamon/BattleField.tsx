@@ -14,7 +14,6 @@ const TYPE_ARENA: Record<string, { sky: string; ground: string; glow: string }> 
     THUNDER: { sky: "from-yellow-300 via-amber-100 to-yellow-50",  ground: "from-yellow-900 via-amber-700 to-yellow-600",   glow: "#eab308" },
     LIGHT:   { sky: "from-amber-200 via-yellow-100 to-white",      ground: "from-amber-700 via-yellow-600 to-amber-400",    glow: "#f59e0b" },
     DARK:    { sky: "from-purple-900 via-slate-700 to-indigo-800", ground: "from-slate-900 via-purple-900 to-slate-800",    glow: "#7c3aed" },
-    PSYCHIC: { sky: "from-pink-400 via-purple-200 to-pink-100",    ground: "from-pink-900 via-purple-700 to-pink-600",      glow: "#ec4899" },
 };
 
 const DEFAULT_ARENA = {
@@ -143,12 +142,13 @@ function AttackFlash({ active, side, color = "#ffffff" }: AttackFlashProps) {
 
 interface FloatingTextProps {
     text: string;
+    targetLabel?: string;
     side: "player" | "opponent";
     color?: string;
     show: boolean;
 }
 
-export function FloatingText({ text, side, color = "#ef4444", show }: FloatingTextProps) {
+export function FloatingText({ text, targetLabel, side, color = "#ef4444", show }: FloatingTextProps) {
     return (
         <AnimatePresence>
             {show && (
@@ -159,12 +159,21 @@ export function FloatingText({ text, side, color = "#ef4444", show }: FloatingTe
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.8 }}
                     className={cn(
-                        "absolute z-30 font-black text-sm pointer-events-none select-none",
+                        "absolute z-30 pointer-events-none select-none",
                         side === "player" ? "bottom-24 left-12" : "top-24 right-12"
                     )}
-                    style={{ color, textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
+                    style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
                 >
-                    {text}
+                    <div className="rounded-md border border-black/10 bg-black/35 px-2 py-1">
+                        {targetLabel ? (
+                            <p className="text-[10px] font-black leading-none text-white/90">
+                                โดน: {targetLabel}
+                            </p>
+                        ) : null}
+                        <p className="text-sm font-black leading-tight" style={{ color }}>
+                            {text}
+                        </p>
+                    </div>
                 </motion.div>
             )}
         </AnimatePresence>
@@ -190,7 +199,7 @@ interface BattleFieldProps {
     hurtId: string | null;
     faintedId: string | null;
     flashId: string | null;
-    floatingDmg?: { id: string; value: number; crit?: boolean } | null;
+    floatingDmg?: { id: string; value: number; crit?: boolean; targetLabel?: string } | null;
 }
 
 export function BattleField({
@@ -249,6 +258,7 @@ export function BattleField({
                 <>
                     <FloatingText
                         text={floatingDmg.crit ? `💥 ${floatingDmg.value}!!` : `-${floatingDmg.value}`}
+                        targetLabel={floatingDmg.targetLabel}
                         side={floatingDmg.id === player.studentId ? "player" : "opponent"}
                         color={floatingDmg.crit ? "#f59e0b" : "#ef4444"}
                         show

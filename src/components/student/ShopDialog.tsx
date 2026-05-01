@@ -1,7 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { ShoppingBag, Coins, CheckCircle2, Shirt, Swords } from "lucide-react";
+import { useState, type ComponentType } from "react";
+import {
+    ShoppingBag,
+    Coins,
+    CheckCircle2,
+    Shirt,
+    Swords,
+    TrendingUp,
+    Shield,
+    Sparkles,
+} from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -14,8 +23,11 @@ import {
     SHOP_ITEMS,
     BATTLE_ITEMS,
     RARITY_COLOR,
+    FRAME_GOLD_RATE_MULTIPLIER_BY_RARITY,
+    groupBattleItemsByCategory,
     shopItemDescKey,
     shopItemNameKey,
+    type ShopBattleItemCategory,
     type ShopItem,
     type ShopItemRarity,
 } from "@/lib/shop-items";
@@ -27,6 +39,19 @@ const RARITY_I18N_KEY: Record<ShopItemRarity, string> = {
     rare: "shopRarityRare",
     epic: "shopRarityEpic",
     legendary: "shopRarityLegendary",
+};
+
+const FRAME_RARITY_ORDER: Record<ShopItemRarity, number> = {
+    common: 1,
+    rare: 2,
+    epic: 3,
+    legendary: 4,
+};
+
+const BATTLE_CATEGORY_ICON: Record<ShopBattleItemCategory, ComponentType<{ className?: string }>> = {
+    stat_boost: TrendingUp,
+    status: Shield,
+    reward: Sparkles,
 };
 
 interface ShopDialogProps {
@@ -100,12 +125,19 @@ export function ShopDialog({
         }
     }
 
-    const frames = SHOP_ITEMS.filter((i) => i.type === "frame");
+    const frames = [...SHOP_ITEMS.filter((i) => i.type === "frame")].sort((a, b) => {
+        const byRarity = FRAME_RARITY_ORDER[a.rarity] - FRAME_RARITY_ORDER[b.rarity];
+        if (byRarity !== 0) return byRarity;
+        const byPrice = a.price - b.price;
+        if (byPrice !== 0) return byPrice;
+        return a.id.localeCompare(b.id);
+    });
+    const battleItemGroups = groupBattleItemsByCategory(BATTLE_ITEMS);
 
     function renderBuyButton(item: ShopItem) {
         const owned = inventory.includes(item.id);
         const canAfford = gold >= item.price;
-        if (owned) {
+        if (item.type === "frame" && owned) {
             return (
                 <span className="flex items-center gap-1 rounded-xl bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-black text-emerald-700">
                     <CheckCircle2 className="h-3 w-3" /> {t("shopOwned")}
@@ -169,38 +201,61 @@ export function ShopDialog({
                             </div>
                         </div>
 
-                        {BATTLE_ITEMS.map((item) => {
-                            const owned = inventory.includes(item.id);
+                        {battleItemGroups.map(({ category, items }) => {
+                            const CatIcon = BATTLE_CATEGORY_ICON[category];
+                            const titleKey = `shopBattleCategory_${category}` as const;
+                            const hintKey = `shopBattleCategory_${category}_hint` as const;
                             return (
-                                <div
-                                    key={item.id}
-                                    className={cn(
-                                        "flex items-center gap-3 rounded-xl border p-3 transition-all bg-white/80",
-                                        owned ? "border-emerald-200" : "border-slate-100 hover:border-rose-200"
-                                    )}
-                                >
-                                    {/* Item icon */}
-                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-slate-100 bg-white text-2xl shadow-sm">
-                                        {item.icon}
-                                    </div>
-
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-1.5">
-                                            <p className="text-sm font-black text-slate-900">{t(shopItemNameKey(item.id))}</p>
-                                            <span
-                                                className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase"
-                                                style={{
-                                                    backgroundColor: `${RARITY_COLOR[item.rarity]}22`,
-                                                    color: RARITY_COLOR[item.rarity],
-                                                }}
-                                            >
-                                                {t(RARITY_I18N_KEY[item.rarity])}
-                                            </span>
+                                <div key={category} className="space-y-2">
+                                    <div className="flex items-center gap-2 rounded-xl border border-rose-100/80 bg-white/60 px-2.5 py-2">
+                                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-rose-100/90 text-rose-700">
+                                            <CatIcon className="h-3.5 w-3.5" />
+                                        </span>
+                                        <div className="min-w-0">
+                                            <p className="text-[11px] font-black text-rose-900">{t(titleKey)}</p>
+                                            <p className="text-[10px] font-bold leading-tight text-rose-500/90">
+                                                {t(hintKey)}
+                                            </p>
                                         </div>
-                                        <p className="text-[11px] text-slate-500">{t(shopItemDescKey(item.id))}</p>
                                     </div>
+                                    {items.map((item) => {
+                                        const owned = inventory.includes(item.id);
+                                        return (
+                                            <div
+                                                key={item.id}
+                                                className={cn(
+                                                    "flex items-center gap-3 rounded-xl border p-3 transition-all bg-white/80",
+                                                    owned ? "border-emerald-200" : "border-slate-100 hover:border-rose-200"
+                                                )}
+                                            >
+                                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-slate-100 bg-white text-2xl shadow-sm">
+                                                    {item.icon}
+                                                </div>
 
-                                    <div className="shrink-0">{renderBuyButton(item)}</div>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <p className="text-sm font-black text-slate-900">
+                                                            {t(shopItemNameKey(item.id))}
+                                                        </p>
+                                                        <span
+                                                            className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase"
+                                                            style={{
+                                                                backgroundColor: `${RARITY_COLOR[item.rarity]}22`,
+                                                                color: RARITY_COLOR[item.rarity],
+                                                            }}
+                                                        >
+                                                            {t(RARITY_I18N_KEY[item.rarity])}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-500">
+                                                        {t(shopItemDescKey(item.id))}
+                                                    </p>
+                                                </div>
+
+                                                <div className="shrink-0">{renderBuyButton(item)}</div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             );
                         })}
@@ -252,6 +307,13 @@ export function ShopDialog({
                                         </span>
                                     </div>
                                     <p className="mt-0.5 text-xs text-slate-500">{t(shopItemDescKey(item.id))}</p>
+                                    <p className="mt-0.5 text-[11px] font-bold text-emerald-700">
+                                        {t("shopFrameGoldRateBonus", {
+                                            percent: Math.round(
+                                                (FRAME_GOLD_RATE_MULTIPLIER_BY_RARITY[item.rarity] - 1) * 100
+                                            ),
+                                        })}
+                                    </p>
                                 </div>
 
                                 <div className="shrink-0">

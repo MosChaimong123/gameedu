@@ -40,27 +40,48 @@ export function NotificationTray({ studentCode }: NotificationTrayProps) {
         ? `/api/student/${studentCode}/notifications`
         : `/api/notifications`
 
-    const fetchNotifications = useCallback(async () => {
+    const isAbortError = (error: unknown) =>
+        (error instanceof DOMException && error.name === "AbortError") ||
+        (error instanceof Error && error.name === "AbortError")
+
+    const fetchNotifications = useCallback(async (signal?: AbortSignal) => {
         try {
-            const res = await fetch(fetchUrl)
+            const res = await fetch(fetchUrl, { signal, cache: "no-store" })
             if (!res.ok) {
                 const text = await res.text()
-                console.error(`Failed to fetch notifications from ${fetchUrl} with status ${res.status}: ${text}`)
-                throw new Error(`HTTP ${res.status}: ${text}`)
+                if (!signal?.aborted) {
+                    console.warn(`Failed to fetch notifications from ${fetchUrl} with status ${res.status}: ${text}`)
+                }
+                return
             }
             const data = (await res.json()) as ApiNotification[]
-            setNotifications(data)
+            if (!signal?.aborted) {
+                setNotifications(data)
+            }
         } catch (error) {
-            console.error(`Failed to fetch notifications from ${fetchUrl}:`, error)
+            if (isAbortError(error)) return
+            const isNetworkFailure =
+                error instanceof Error &&
+                ["TypeError", "NetworkError"].includes(error.name) &&
+                error.message.toLowerCase().includes("fetch")
+            if (!signal?.aborted && !isNetworkFailure) {
+                console.error(`Failed to fetch notifications from ${fetchUrl}:`, error)
+            }
         } finally {
-            setLoading(false)
+            if (!signal?.aborted) {
+                setLoading(false)
+            }
         }
     }, [fetchUrl])
 
     useEffect(() => {
-        fetchNotifications()
+        const controller = new AbortController()
+        void fetchNotifications(controller.signal)
         const interval = setInterval(fetchNotifications, 30000)
-        return () => clearInterval(interval)
+        return () => {
+            clearInterval(interval)
+            controller.abort()
+        }
     }, [fetchNotifications])
 
     const unreadCount = notifications.filter((n) => !n.isRead).length

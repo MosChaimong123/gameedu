@@ -1,8 +1,8 @@
 import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
-import { calcCheckinBonus, hasStreakShield } from "@/lib/negamon-passives";
 import { getActiveGoldMultiplier } from "@/lib/classroom-utils";
+import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
 
 type CheckInStudentDeps = {
     db: PrismaClient;
@@ -21,12 +21,22 @@ export type CheckInStudentResult =
         newGold: number;
       };
 
-function isSameDay(a: Date, b: Date): boolean {
-    return (
-        a.getFullYear() === b.getFullYear() &&
-        a.getMonth() === b.getMonth() &&
-        a.getDate() === b.getDate()
-    );
+function bangkokDateKey(date: Date): string {
+    const bkk = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+    return bkk.toISOString().slice(0, 10);
+}
+
+function isSameBangkokDay(a: Date, b: Date): boolean {
+    return bangkokDateKey(a) === bangkokDateKey(b);
+}
+
+function bangkokDayNumber(date: Date): number {
+    const [year, month, day] = bangkokDateKey(date).split("-").map(Number);
+    return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
+}
+
+function bangkokCalendarDayDiff(from: Date, to: Date): number {
+    return bangkokDayNumber(to) - bangkokDayNumber(from);
 }
 
 function streakReward(streak: number): number {
@@ -45,9 +55,10 @@ export async function checkInStudent(
         },
         select: {
             id: true,
+            classId: true,
+            gold: true,
             lastCheckIn: true,
             streak: true,
-            negamonSkills: true,
             classroom: {
                 select: {
                     gamifiedSettings: true,
@@ -62,44 +73,70 @@ export async function checkInStudent(
 
     const now = deps.now();
     const last = student.lastCheckIn ? new Date(student.lastCheckIn) : null;
-    const skills = (student.negamonSkills as string[]) ?? [];
-
-    if (last && isSameDay(last, now)) {
+    if (last && isSameBangkokDay(last, now)) {
         return { ok: true, alreadyDone: true };
     }
 
     let newStreak = 1;
     if (last) {
-        const ms = Math.abs(now.getTime() - last.getTime());
-        const days = Math.floor(ms / 86_400_000);
+        const days = bangkokCalendarDayDiff(last, now);
         if (days === 1) {
-            newStreak = (student.streak ?? 0) + 1;
-        } else if (days === 2 && hasStreakShield(skills)) {
             newStreak = (student.streak ?? 0) + 1;
         }
     }
 
     const baseGold = streakReward(newStreak);
-    const bonusGold = calcCheckinBonus(skills);
+    const bonusGold = 0;
     const multiplier = getActiveGoldMultiplier(student.classroom.gamifiedSettings);
     const goldEarned = Math.floor((baseGold + bonusGold) * multiplier);
 
-    const updated = await deps.db.student.update({
-        where: { id: student.id },
-        data: {
-            lastCheckIn: now,
-            streak: newStreak,
-            gold: { increment: goldEarned },
-        },
-        select: { gold: true, streak: true },
-    });
+    return deps.db.$transaction(async (tx) => {
+        const updatedCount = await tx.student.updateMany({
+            where: {
+                id: student.id,
+                lastCheckIn: student.lastCheckIn ?? null,
+            },
+            data: {
+                lastCheckIn: now,
+                streak: newStreak,
+                gold: { increment: goldEarned },
+            },
+        });
 
-    return {
-        ok: true,
-        success: true,
-        goldEarned,
-        bonusGold,
-        streak: updated.streak,
-        newGold: updated.gold,
-    };
+        if (updatedCount.count !== 1) {
+            return { ok: true, alreadyDone: true };
+        }
+
+        const updated = await tx.student.findUniqueOrThrow({
+            where: { id: student.id },
+            select: { gold: true, streak: true },
+        });
+
+        await recordEconomyTransaction(tx, {
+            studentId: student.id,
+            classId: student.classId,
+            type: "earn",
+            source: "checkin",
+            amount: goldEarned,
+            balanceBefore: student.gold,
+            balanceAfter: updated.gold,
+            idempotencyKey: `checkin:${student.id}:${bangkokDateKey(now)}`,
+            metadata: {
+                streak: newStreak,
+                baseGold,
+                bonusGold,
+                eventMultiplier: multiplier,
+                checkInDate: bangkokDateKey(now),
+            },
+        });
+
+        return {
+            ok: true,
+            success: true,
+            goldEarned,
+            bonusGold,
+            streak: updated.streak,
+            newGold: updated.gold,
+        };
+    });
 }

@@ -3,6 +3,10 @@ export type GameStatus = "LOBBY" | "PLAYING" | "ENDED";
 export type BasePlayer = {
     id: string; // Socket ID
     name: string;
+    /** Verified Student.id when the player joins from a classroom/student identity flow. */
+    studentId?: string;
+    /** Student login code used only as a verified join credential; never required for display. */
+    studentCode?: string;
     avatar?: string;
     isConnected: boolean;
     score: number; // Common score field
@@ -112,6 +116,8 @@ export type GameSettings = {
      * ตั้งโดยเซิร์ฟเวอร์เท่านั้น — เมื่อจบ Negamon Battle จะให้ EXP กับนักเรียนที่จับคู่ชื่อในเกมกับ name/nickname ในห้อง
      */
     negamonRewardClassroomId?: string;
+    /** จำกัดจำนวนผู้เล่นในล็อบบี้ตามแผนของโฮสต์ (ตั้งตอน create-game) */
+    planMaxLivePlayers?: number;
 };
 
 export interface GoldQuestSession extends GameSession {

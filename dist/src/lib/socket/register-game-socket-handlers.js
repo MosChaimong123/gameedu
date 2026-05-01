@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerGameSocketHandlers = registerGameSocketHandlers;
 const audit_log_1 = require("@/lib/security/audit-log");
 const rate_limit_1 = require("@/lib/security/rate-limit");
+const student_login_code_1 = require("@/lib/student-login-code");
 const allowedClassroomEventTypes = new Set([
     "BOARD_UPDATE",
     "POINT_UPDATE",
@@ -20,8 +21,12 @@ const SOCKET_ERR_UNAUTHORIZED = "Unauthorized";
 const SOCKET_ERR_UNAUTHORIZED_CLASSROOM_ACCESS = "Unauthorized classroom access";
 const SOCKET_ERR_UNAUTHORIZED_CLASSROOM_EVENT = "Unauthorized classroom event";
 const SOCKET_ERR_UNAUTHORIZED_QUESTION_SET = "Unauthorized question set access";
+const SOCKET_ERR_INVALID_STUDENT_CODE = "Invalid student code";
+function cleanOptionalString(value) {
+    return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
 function registerGameSocketHandlers(io, deps) {
-    const { db, gameManager, randomId = () => crypto.randomUUID(), resolveSocketUserId = async () => null, canHostQuestionSet = async () => false, canAccessClassroom = async () => false, canPublishClassroomEvent = async () => false, auditLog = audit_log_1.logAuditEvent, } = deps;
+    const { db, gameManager, randomId = () => crypto.randomUUID(), resolveSocketUserId = async () => null, resolveLivePlayerCapForHost, canHostQuestionSet = async () => false, canAccessClassroom = async () => false, canPublishClassroomEvent = async () => false, auditLog = audit_log_1.logAuditEvent, } = deps;
     io.on("connection", (socket) => {
         const joinedClassrooms = new Set();
         socket.on("create-game", async ({ setId, settings, mode, rewardClassroomId, }) => {
@@ -75,6 +80,16 @@ function registerGameSocketHandlers(io, deps) {
                 const sanitized = settings && typeof settings === "object" ? { ...settings } : {};
                 delete sanitized.negamonRewardClassroomId;
                 let gameSettings = { ...defaultSettings, ...sanitized };
+                let planMaxLivePlayers = Number.POSITIVE_INFINITY;
+                if (resolveLivePlayerCapForHost) {
+                    try {
+                        planMaxLivePlayers = await resolveLivePlayerCapForHost(hostId);
+                    }
+                    catch (err) {
+                        console.error("[socket] resolveLivePlayerCapForHost failed", err);
+                    }
+                }
+                gameSettings = { ...gameSettings, planMaxLivePlayers };
                 if (normalizedMode === "NEGAMON_BATTLE" &&
                     typeof rewardClassroomId === "string" &&
                     rewardClassroomId.trim().length > 0) {
@@ -136,7 +151,8 @@ function registerGameSocketHandlers(io, deps) {
                 socket.emit("game-over", { players: game.players });
             }
         });
-        socket.on("join-game", ({ pin, nickname, reconnectToken }) => {
+        socket.on("join-game", async ({ pin, nickname, reconnectToken, studentId, studentCode }) => {
+            var _a, _b;
             const game = gameManager.getGame(pin);
             if (!game) {
                 socket.emit("error", { message: "Game not found" });
@@ -146,7 +162,32 @@ function registerGameSocketHandlers(io, deps) {
                 socket.emit("error", { message: "Game is locked" });
                 return;
             }
-            const existingPlayer = game.players.find((player) => player.name === nickname);
+            const cleanStudentId = cleanOptionalString(studentId);
+            const cleanStudentCode = cleanOptionalString(studentCode);
+            let verifiedStudent = null;
+            if (game.gameMode === "NEGAMON_BATTLE" &&
+                game.settings.negamonRewardClassroomId &&
+                cleanStudentCode &&
+                ((_a = deps.db.student) === null || _a === void 0 ? void 0 : _a.findFirst)) {
+                verifiedStudent = await deps.db.student.findFirst({
+                    where: {
+                        ...(cleanStudentId ? { id: cleanStudentId } : {}),
+                        classId: game.settings.negamonRewardClassroomId,
+                        OR: (0, student_login_code_1.getStudentLoginCodeVariants)(cleanStudentCode).map((candidate) => ({
+                            loginCode: candidate,
+                        })),
+                    },
+                    select: { id: true, loginCode: true, name: true, nickname: true },
+                });
+                if (!verifiedStudent) {
+                    socket.emit("error", { message: SOCKET_ERR_INVALID_STUDENT_CODE });
+                    return;
+                }
+            }
+            const joinedNickname = ((_b = verifiedStudent === null || verifiedStudent === void 0 ? void 0 : verifiedStudent.nickname) === null || _b === void 0 ? void 0 : _b.trim()) || (verifiedStudent === null || verifiedStudent === void 0 ? void 0 : verifiedStudent.name) || nickname;
+            const existingPlayer = verifiedStudent
+                ? game.players.find((player) => player.studentId === verifiedStudent.id || player.name === joinedNickname)
+                : game.players.find((player) => player.name === nickname);
             if (game.status === "PLAYING" &&
                 !existingPlayer &&
                 game.gameMode === "NEGAMON_BATTLE") {
@@ -156,7 +197,7 @@ function registerGameSocketHandlers(io, deps) {
                 return;
             }
             if (existingPlayer) {
-                if (!game.canReconnectPlayer(nickname, reconnectToken)) {
+                if (!game.canReconnectPlayer(existingPlayer.name, reconnectToken)) {
                     socket.emit("error", { message: "Nickname already in use" });
                     return;
                 }
@@ -164,28 +205,42 @@ function registerGameSocketHandlers(io, deps) {
                 socket.join(pin);
                 socket.emit("joined-success", {
                     pin,
-                    nickname,
+                    nickname: existingPlayer.name,
                     gameMode: game.gameMode,
-                    reconnectToken: game.getPlayerReconnectToken(nickname),
+                    reconnectToken: game.getPlayerReconnectToken(existingPlayer.name),
+                    studentId: existingPlayer.studentId,
+                    studentCode: existingPlayer.studentCode,
                 });
                 return;
             }
             if (nickname === "HOST")
                 return;
+            const capRaw = game.settings.planMaxLivePlayers;
+            const playerCap = typeof capRaw === "number" && Number.isFinite(capRaw) && capRaw > 0
+                ? capRaw
+                : Number.POSITIVE_INFINITY;
+            if (game.players.length >= playerCap) {
+                socket.emit("error", { message: "Lobby is full (plan player limit)" });
+                return;
+            }
             const newReconnectToken = randomId();
             socket.join(pin);
-            game.registerPlayerReconnectToken(nickname, newReconnectToken);
+            game.registerPlayerReconnectToken(joinedNickname, newReconnectToken);
             game.addPlayer({
                 id: socket.id,
-                name: nickname,
+                name: joinedNickname,
+                studentId: verifiedStudent === null || verifiedStudent === void 0 ? void 0 : verifiedStudent.id,
+                studentCode: verifiedStudent === null || verifiedStudent === void 0 ? void 0 : verifiedStudent.loginCode,
                 isConnected: true,
                 score: 0,
             }, socket);
             socket.emit("joined-success", {
                 pin,
-                nickname,
+                nickname: joinedNickname,
                 gameMode: game.gameMode,
                 reconnectToken: newReconnectToken,
+                studentId: verifiedStudent === null || verifiedStudent === void 0 ? void 0 : verifiedStudent.id,
+                studentCode: verifiedStudent === null || verifiedStudent === void 0 ? void 0 : verifiedStudent.loginCode,
             });
             if (game.status === "PLAYING") {
                 socket.emit("game-started", {

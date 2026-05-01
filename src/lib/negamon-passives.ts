@@ -1,7 +1,12 @@
+/**
+ * Purchasable Negamon passive skills were removed from the product.
+ * This module remains as a no-op shim so any stray imports fail gracefully.
+ */
+
 export type PassiveEffectType =
-    | "gold_rate_bonus" // +N G/hr added on top of rank goldRate
-    | "checkin_bonus" // +N G added on every daily check-in
-    | "streak_shield"; // protects streak from breaking if miss 1 day
+    | "gold_rate_bonus"
+    | "checkin_bonus"
+    | "streak_shield";
 
 export interface NegamonPassive {
     id: string;
@@ -11,32 +16,11 @@ export interface NegamonPassive {
     value: number;
 }
 
-export const NEGAMON_PASSIVES: NegamonPassive[] = [
-    {
-        id: "gold_flow",
-        icon: "💰",
-        cost: 100,
-        effect: "gold_rate_bonus",
-        value: 2,
-    },
-    {
-        id: "lucky_checkin",
-        icon: "🍀",
-        cost: 150,
-        effect: "checkin_bonus",
-        value: 5,
-    },
-    {
-        id: "iron_will",
-        icon: "🛡️",
-        cost: 200,
-        effect: "streak_shield",
-        value: 1,
-    },
-];
+/** @deprecated No purchasable passives; always empty. */
+export const NEGAMON_PASSIVES: NegamonPassive[] = [];
 
-export function getPassiveById(id: string): NegamonPassive | undefined {
-    return NEGAMON_PASSIVES.find((p) => p.id === id);
+export function getPassiveById(_id: string): NegamonPassive | undefined {
+    return undefined;
 }
 
 export function negamonPassiveNameKey(id: string): string {
@@ -47,18 +31,14 @@ export function negamonPassiveDescKey(id: string): string {
     return `negamonPassive_${id}_desc`;
 }
 
-export function calcGoldRateBonus(negamonSkills: string[]): number {
-    return NEGAMON_PASSIVES.filter(
-        (p) => p.effect === "gold_rate_bonus" && negamonSkills.includes(p.id)
-    ).reduce((sum, p) => sum + p.value, 0);
+export function calcGoldRateBonus(_negamonSkills: string[]): number {
+    return 0;
 }
 
-export function calcCheckinBonus(negamonSkills: string[]): number {
-    return NEGAMON_PASSIVES.filter(
-        (p) => p.effect === "checkin_bonus" && negamonSkills.includes(p.id)
-    ).reduce((sum, p) => sum + p.value, 0);
+export function calcCheckinBonus(_negamonSkills: string[]): number {
+    return 0;
 }
 
-export function hasStreakShield(negamonSkills: string[]): boolean {
-    return negamonSkills.includes("iron_will");
+export function hasStreakShield(_negamonSkills: string[]): boolean {
+    return false;
 }

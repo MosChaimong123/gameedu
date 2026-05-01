@@ -27,6 +27,9 @@ export default async function AdminDashboardPage() {
       name: true,
       email: true,
       role: true,
+      plan: true,
+      planStatus: true,
+      planExpiry: true,
       createdAt: true,
       image: true,
     },
@@ -45,6 +48,7 @@ export default async function AdminDashboardPage() {
       }}
       recentUsers={recentUsers.map((user) => ({
         ...user,
+        planExpiry: user.planExpiry ? user.planExpiry.toISOString() : null,
         createdAt: user.createdAt.toISOString(),
       }))}
     />

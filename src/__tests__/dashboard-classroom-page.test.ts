@@ -48,6 +48,10 @@ vi.mock("@/components/board/ClassBoard", () => ({
   ClassBoard: () => null,
 }));
 
+vi.mock("@/components/classroom/classroom-economy-ledger-tab", () => ({
+  ClassroomEconomyLedgerTab: () => null,
+}));
+
 vi.mock("@/app/dashboard/classrooms/[id]/classroom-page-back-link", () => ({
   ClassroomPageBackLink: () => null,
 }));
@@ -88,7 +92,7 @@ describe("dashboard classroom page", () => {
 
   it("normalizes valid deep-link query for assignments focus", async () => {
     const { normalizeClassroomPageQuery } = await import(
-      "@/app/dashboard/classrooms/[id]/page"
+      "@/app/dashboard/classrooms/[id]/classroom-page-query"
     );
     const result = normalizeClassroomPageQuery({
       tab: "classroom",
@@ -99,12 +103,74 @@ describe("dashboard classroom page", () => {
       defaultTab: "classroom",
       classFocus: "assignments",
       highlightAssignmentId: "507f1f77bcf86cd799439011",
+      studentLookup: null,
+      manageStudentId: null,
+      historyStudentId: null,
+      rewardGamePin: null,
+    });
+  });
+
+  it("keeps a bounded student lookup deep-link query", async () => {
+    const { normalizeClassroomPageQuery } = await import(
+      "@/app/dashboard/classrooms/[id]/classroom-page-query"
+    );
+    const result = normalizeClassroomPageQuery({
+      tab: "classroom",
+      studentLookup: "Alice Example",
+    });
+    expect(result).toEqual({
+      defaultTab: "classroom",
+      classFocus: null,
+      highlightAssignmentId: null,
+      studentLookup: "Alice Example",
+      manageStudentId: null,
+      historyStudentId: null,
+      rewardGamePin: null,
+    });
+  });
+
+  it("keeps exact manage/history student deep links when object ids are valid", async () => {
+    const { normalizeClassroomPageQuery } = await import(
+      "@/app/dashboard/classrooms/[id]/classroom-page-query"
+    );
+    const result = normalizeClassroomPageQuery({
+      tab: "classroom",
+      manageStudentId: "507f1f77bcf86cd799439011",
+      historyStudentId: "507f1f77bcf86cd799439012",
+    });
+    expect(result).toEqual({
+      defaultTab: "classroom",
+      classFocus: null,
+      highlightAssignmentId: null,
+      studentLookup: null,
+      manageStudentId: "507f1f77bcf86cd799439011",
+      historyStudentId: "507f1f77bcf86cd799439012",
+      rewardGamePin: null,
+    });
+  });
+
+  it("keeps a bounded economy reward game pin deep-link query", async () => {
+    const { normalizeClassroomPageQuery } = await import(
+      "@/app/dashboard/classrooms/[id]/classroom-page-query"
+    );
+    const result = normalizeClassroomPageQuery({
+      tab: "economy",
+      rewardGamePin: "  GAME-PIN-1234567890-ABCDEFGHIJKL-extra  ",
+    });
+    expect(result).toEqual({
+      defaultTab: "economy",
+      classFocus: null,
+      highlightAssignmentId: null,
+      studentLookup: null,
+      manageStudentId: null,
+      historyStudentId: null,
+      rewardGamePin: "GAME-PIN-1234567890-ABCDEFGHIJKL",
     });
   });
 
   it("sanitizes unsupported tab/focus/highlight query", async () => {
     const { normalizeClassroomPageQuery } = await import(
-      "@/app/dashboard/classrooms/[id]/page"
+      "@/app/dashboard/classrooms/[id]/classroom-page-query"
     );
     const result = normalizeClassroomPageQuery({
       tab: "something-else",
@@ -115,6 +181,10 @@ describe("dashboard classroom page", () => {
       defaultTab: "classroom",
       classFocus: null,
       highlightAssignmentId: null,
+      studentLookup: null,
+      manageStudentId: null,
+      historyStudentId: null,
+      rewardGamePin: null,
     });
   });
 

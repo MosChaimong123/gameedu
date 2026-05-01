@@ -18,6 +18,8 @@ import {
     canUserAccessClassroom,
     canUserPublishClassroomSocketEvent,
 } from "./src/lib/authorization/resource-access";
+import { getLimitsForUser } from "./src/lib/plan/plan-access";
+import { isAppRole } from "./src/lib/roles";
 
 type RegisterHandlersDeps = Parameters<typeof registerGameSocketHandlers>[1];
 
@@ -78,6 +80,14 @@ app.prepare().then(async () => {
         canAccessClassroom: (userId, classId) => canUserAccessClassroom(db, userId, classId),
         canPublishClassroomEvent: (userId, classId, eventType) =>
             canUserPublishClassroomSocketEvent(db, userId, classId, eventType),
+        resolveLivePlayerCapForHost: async (hostId) => {
+            const user = await db.user.findUnique({
+                where: { id: hostId },
+                select: { plan: true, role: true },
+            });
+            const role = user?.role && isAppRole(user.role) ? user.role : "USER";
+            return getLimitsForUser(role, user?.plan).maxLiveGamePlayers;
+        },
     });
 
 

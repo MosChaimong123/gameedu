@@ -1,6 +1,15 @@
 export type ShopItemType = "frame" | "battle_item";
 export type ShopItemRarity = "common" | "rare" | "epic" | "legendary";
 
+/** Sub-groups inside the battle-items shop block (easier browsing). */
+export type ShopBattleItemCategory = "stat_boost" | "status" | "reward";
+
+export const BATTLE_ITEM_CATEGORY_ORDER: ShopBattleItemCategory[] = [
+    "stat_boost",
+    "status",
+    "reward",
+];
+
 export interface FramePreview {
     borderColor: string;
     shadow?: string;
@@ -13,8 +22,10 @@ export interface BattleEffect {
     statBoost?: { atk?: number; def?: number; spd?: number };
     /** Status effects this item grants immunity to */
     immunity?: string[];
-    /** Bonus gold added to reward if this fighter wins */
+    /** Bonus gold added to reward if this fighter wins (before multiplier) */
     goldBonus?: number;
+    /** Multiplier on total gold reward if this fighter wins (applied after flat bonus) */
+    goldMultiplier?: number;
 }
 
 export interface ShopItem {
@@ -25,6 +36,8 @@ export interface ShopItem {
     icon?: string;           // emoji — used by battle_item type
     preview?: FramePreview;  // used by frame type
     battleEffect?: BattleEffect;
+    /** When `type` is `battle_item`, used to group rows in the shop dialog. */
+    battleCategory?: ShopBattleItemCategory;
 }
 
 export function shopItemNameKey(id: string): string {
@@ -42,54 +55,158 @@ export const RARITY_COLOR: Record<ShopItemRarity, string> = {
     legendary: "#f59e0b",
 };
 
+/** Gold/hour multiplier by equipped frame rarity. */
+export const FRAME_GOLD_RATE_MULTIPLIER_BY_RARITY: Record<ShopItemRarity, number> = {
+    common: 1.05,
+    rare: 1.1,
+    epic: 1.2,
+    legendary: 1.35,
+};
+
+const RARITY_ORDER: Record<ShopItemRarity, number> = {
+    common: 1,
+    rare: 2,
+    epic: 3,
+    legendary: 4,
+};
+
 export const BATTLE_ITEMS: ShopItem[] = [
+    // ── DEF tiers ──
+    {
+        id: "item_buckler",
+        type: "battle_item",
+        price: 100,
+        rarity: "common",
+        icon: "🥏",
+        battleCategory: "stat_boost",
+        battleEffect: { statBoost: { def: 1.08 } },
+    },
     {
         id: "item_iron_shield",
         type: "battle_item",
-        price: 120,
+        price: 1000,
         rarity: "rare",
         icon: "🛡️",
+        battleCategory: "stat_boost",
         battleEffect: { statBoost: { def: 1.15 } },
+    },
+    {
+        id: "item_aegis_plate",
+        type: "battle_item",
+        price: 5000,
+        rarity: "epic",
+        icon: "🔰",
+        battleCategory: "stat_boost",
+        battleEffect: { statBoost: { def: 1.22 } },
+    },
+    // ── SPD tiers ──
+    {
+        id: "item_wind_thread",
+        type: "battle_item",
+        price: 100,
+        rarity: "common",
+        icon: "🎗️",
+        battleCategory: "stat_boost",
+        battleEffect: { statBoost: { spd: 1.10 } },
     },
     {
         id: "item_swift_feather",
         type: "battle_item",
-        price: 120,
+        price: 1000,
         rarity: "rare",
         icon: "🪶",
+        battleCategory: "stat_boost",
         battleEffect: { statBoost: { spd: 1.20 } },
+    },
+    {
+        id: "item_gale_plume",
+        type: "battle_item",
+        price: 5000,
+        rarity: "epic",
+        icon: "🪁",
+        battleCategory: "stat_boost",
+        battleEffect: { statBoost: { spd: 1.28 } },
+    },
+    // ── ATK tiers ──
+    {
+        id: "item_spark_charm",
+        type: "battle_item",
+        price: 100,
+        rarity: "common",
+        icon: "✳️",
+        battleCategory: "stat_boost",
+        battleEffect: { statBoost: { atk: 1.08 } },
     },
     {
         id: "item_ember_charm",
         type: "battle_item",
-        price: 120,
+        price: 1000,
         rarity: "rare",
         icon: "🔮",
+        battleCategory: "stat_boost",
         battleEffect: { statBoost: { atk: 1.15 } },
     },
     {
-        id: "item_antidote",
+        id: "item_inferno_talisman",
         type: "battle_item",
-        price: 80,
-        rarity: "common",
-        icon: "💊",
-        battleEffect: { immunity: ["POISON", "BADLY_POISON"] },
+        price: 5000,
+        rarity: "epic",
+        icon: "🔥",
+        battleCategory: "stat_boost",
+        battleEffect: { statBoost: { atk: 1.22 } },
     },
     {
         id: "item_lucky_coin",
         type: "battle_item",
-        price: 200,
+        price: 5000,
         rarity: "epic",
         icon: "🪙",
+        battleCategory: "reward",
         battleEffect: { goldBonus: 15 },
     },
+    {
+        id: "item_merchants_sigil",
+        type: "battle_item",
+        price: 5000,
+        rarity: "legendary",
+        icon: "✨",
+        battleCategory: "reward",
+        battleEffect: { goldMultiplier: 1.25 },
+    },
 ];
+
+export function groupBattleItemsByCategory(
+    items: ShopItem[]
+): { category: ShopBattleItemCategory; items: ShopItem[] }[] {
+    const map = new Map<ShopBattleItemCategory, ShopItem[]>();
+    for (const c of BATTLE_ITEM_CATEGORY_ORDER) {
+        map.set(c, []);
+    }
+    for (const item of items) {
+        if (item.type !== "battle_item") continue;
+        const cat = item.battleCategory ?? "stat_boost";
+        map.get(cat)?.push(item);
+    }
+    for (const cat of BATTLE_ITEM_CATEGORY_ORDER) {
+        map.get(cat)?.sort((a, b) => {
+            const byRarity = RARITY_ORDER[a.rarity] - RARITY_ORDER[b.rarity];
+            if (byRarity !== 0) return byRarity;
+            const byPrice = a.price - b.price;
+            if (byPrice !== 0) return byPrice;
+            return a.id.localeCompare(b.id);
+        });
+    }
+    return BATTLE_ITEM_CATEGORY_ORDER.map((category) => ({
+        category,
+        items: map.get(category) ?? [],
+    })).filter((g) => g.items.length > 0);
+}
 
 export const SHOP_ITEMS: ShopItem[] = [
     {
         id: "frame_silver",
         type: "frame",
-        price: 50,
+        price: 100,
         rarity: "common",
         preview: {
             borderColor: "#94a3b8",
@@ -99,7 +216,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     {
         id: "frame_gold",
         type: "frame",
-        price: 150,
+        price: 1000,
         rarity: "rare",
         preview: {
             borderColor: "#f59e0b",
@@ -109,7 +226,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     {
         id: "frame_emerald",
         type: "frame",
-        price: 250,
+        price: 1000,
         rarity: "rare",
         preview: {
             borderColor: "#10b981",
@@ -119,7 +236,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     {
         id: "frame_amethyst",
         type: "frame",
-        price: 400,
+        price: 5000,
         rarity: "epic",
         preview: {
             borderColor: "#8b5cf6",
@@ -129,7 +246,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     {
         id: "frame_dragon",
         type: "frame",
-        price: 800,
+        price: 10000,
         rarity: "legendary",
         preview: {
             borderColor: "#f97316",
@@ -140,7 +257,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     {
         id: "frame_sakura",
         type: "frame",
-        price: 80,
+        price: 100,
         rarity: "common",
         preview: {
             borderColor: "#f472b6",
@@ -150,7 +267,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     {
         id: "frame_ruby",
         type: "frame",
-        price: 200,
+        price: 1000,
         rarity: "rare",
         preview: {
             borderColor: "#dc2626",
@@ -160,7 +277,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     {
         id: "frame_ocean",
         type: "frame",
-        price: 350,
+        price: 5000,
         rarity: "epic",
         preview: {
             borderColor: "#0ea5e9",
@@ -171,7 +288,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     {
         id: "frame_lightning",
         type: "frame",
-        price: 450,
+        price: 5000,
         rarity: "epic",
         preview: {
             borderColor: "#eab308",
@@ -182,7 +299,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     {
         id: "frame_cosmic",
         type: "frame",
-        price: 1200,
+        price: 10000,
         rarity: "legendary",
         preview: {
             borderColor: "#a855f7",
@@ -198,6 +315,13 @@ export function getItemById(id: string): ShopItem | undefined {
 
 export function getBattleItemById(id: string): ShopItem | undefined {
     return BATTLE_ITEMS.find((i) => i.id === id);
+}
+
+export function getFrameGoldRateMultiplierById(frameId: string | null | undefined): number {
+    if (!frameId) return 1;
+    const frame = SHOP_ITEMS.find((i) => i.type === "frame" && i.id === frameId);
+    if (!frame) return 1;
+    return FRAME_GOLD_RATE_MULTIPLIER_BY_RARITY[frame.rarity] ?? 1;
 }
 
 export const ALL_ITEMS: ShopItem[] = [...SHOP_ITEMS, ...BATTLE_ITEMS];

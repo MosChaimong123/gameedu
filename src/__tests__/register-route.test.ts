@@ -65,7 +65,7 @@ describe("register route POST", () => {
     });
   });
 
-  it("forces a safe default role even when the client sends ADMIN", async () => {
+  it("rejects privileged roles such as ADMIN from the client", async () => {
     const { POST } = await import("@/app/api/register/route");
 
     const response = await POST(
@@ -79,15 +79,38 @@ describe("register route POST", () => {
       })
     );
 
+    expect(response.status).toBe(400);
+    expect(mockUserCreate).not.toHaveBeenCalled();
+  });
+
+  it("persists TEACHER when the client sends role TEACHER", async () => {
+    mockUserCreate.mockResolvedValue({
+      name: "Bob",
+      email: "bob@example.com",
+      role: "TEACHER",
+    });
+    const { POST } = await import("@/app/api/register/route");
+
+    const response = await POST(
+      makeJsonRequest({
+        name: "Bob Teacher",
+        username: "bobteach",
+        email: "bob@example.com",
+        password: "secret123",
+        role: "TEACHER",
+        school: "Test School",
+      })
+    );
+
     expect(response.status).toBe(200);
     expect(mockUserCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        name: "Alice",
-        username: "alice01",
-        email: "alice@example.com",
+        name: "Bob Teacher",
+        username: "bobteach",
+        email: "bob@example.com",
         password: "hashed-password",
-        role: "STUDENT",
-        school: "GameEdu Academy",
+        role: "TEACHER",
+        school: "Test School",
       }),
     });
   });

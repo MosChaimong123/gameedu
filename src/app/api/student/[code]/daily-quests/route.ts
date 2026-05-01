@@ -24,8 +24,10 @@ import {
     type ChallengeQuestId,
 } from "@/lib/quest-system";
 import { getActiveGoldMultiplier } from "@/lib/classroom-utils";
+import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
 
 type QuestType = "daily" | "weekly" | "challenge";
+type ClaimField = "dailyQuestsClaimed" | "weeklyQuestsClaimed" | "challengeQuestsClaimed";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function resolveStudent(code: string): Promise<any | null> {
@@ -34,6 +36,7 @@ async function resolveStudent(code: string): Promise<any | null> {
         where: { OR: getStudentLoginCodeVariants(code).map((c: string) => ({ loginCode: c })) },
         select: {
             id: true,
+            classId: true,
             loginCode: true,
             streak: true,
             lastCheckIn: true,
@@ -51,6 +54,67 @@ async function resolveStudent(code: string): Promise<any | null> {
                 select: { id: true, submittedAt: true },
             },
         },
+    });
+}
+
+async function persistQuestClaim(params: {
+    student: {
+        id: string;
+        classId: string | null;
+        gold: number;
+        dailyQuestsClaimed?: unknown;
+        weeklyQuestsClaimed?: unknown;
+        challengeQuestsClaimed?: unknown;
+    };
+    questType: QuestType;
+    questId: string;
+    field: ClaimField;
+    nextClaimed: unknown;
+    goldEarned: number;
+    idempotencyKey: string;
+    metadata: Record<string, unknown>;
+}) {
+    const { student, field, nextClaimed, goldEarned } = params;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (db as any).$transaction(async (tx: any) => {
+        const updatedCount = await tx.student.updateMany({
+            where: {
+                id: student.id,
+                [field]: student[field] ?? null,
+            },
+            data: {
+                gold: { increment: goldEarned },
+                [field]: nextClaimed,
+            },
+        });
+
+        if (updatedCount.count !== 1) {
+            return { ok: false as const, reason: "ALREADY_CLAIMED" as const };
+        }
+
+        const updated = await tx.student.findUniqueOrThrow({
+            where: { id: student.id },
+            select: { gold: true },
+        });
+
+        await recordEconomyTransaction(tx, {
+            studentId: student.id,
+            classId: student.classId,
+            type: "earn",
+            source: "quest",
+            amount: goldEarned,
+            balanceBefore: student.gold,
+            balanceAfter: updated.gold,
+            idempotencyKey: params.idempotencyKey,
+            metadata: {
+                questType: params.questType,
+                questId: params.questId,
+                ...params.metadata,
+            },
+        });
+
+        return { ok: true as const, newGold: updated.gold };
     });
 }
 
@@ -142,20 +206,25 @@ export async function POST(
         if (!completed) return NextResponse.json({ error: "NOT_COMPLETED" }, { status: 400 });
 
         const goldEarned = Math.floor(questDef.goldReward * multiplier);
-        const newGold = student.gold + goldEarned;
-        
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (db.student as any).update({
-            where: { id: student.id },
-            data: {
-                gold: newGold,
-                dailyQuestsClaimed: {
-                    date: todayDateKey(),
-                    claimed: [...claimedIds, questId],
-                },
+        const claimResult = await persistQuestClaim({
+            student,
+            questType,
+            questId,
+            field: "dailyQuestsClaimed",
+            nextClaimed: {
+                date: todayDateKey(),
+                claimed: [...claimedIds, questId],
+            },
+            goldEarned,
+            idempotencyKey: `quest:${student.id}:daily:${todayDateKey()}:${questId}`,
+            metadata: {
+                baseReward: questDef.goldReward,
+                eventMultiplier: multiplier,
+                date: todayDateKey(),
             },
         });
-        return NextResponse.json({ ok: true, newGold, goldEarned });
+        if (!claimResult.ok) return NextResponse.json({ error: "ALREADY_CLAIMED" }, { status: 400 });
+        return NextResponse.json({ ok: true, newGold: claimResult.newGold, goldEarned });
     }
 
     if (questType === "weekly") {
@@ -181,20 +250,26 @@ export async function POST(
         if (!completed) return NextResponse.json({ error: "NOT_COMPLETED" }, { status: 400 });
 
         const goldEarned = Math.floor(questDef.goldReward * multiplier);
-        const newGold = student.gold + goldEarned;
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (db.student as any).update({
-            where: { id: student.id },
-            data: {
-                gold: newGold,
-                weeklyQuestsClaimed: {
-                    weekKey: thisWeekKey(),
-                    claimed: [...claimedIds, questId],
-                },
+        const weekKey = thisWeekKey();
+        const claimResult = await persistQuestClaim({
+            student,
+            questType,
+            questId,
+            field: "weeklyQuestsClaimed",
+            nextClaimed: {
+                weekKey,
+                claimed: [...claimedIds, questId],
+            },
+            goldEarned,
+            idempotencyKey: `quest:${student.id}:weekly:${weekKey}:${questId}`,
+            metadata: {
+                baseReward: questDef.goldReward,
+                eventMultiplier: multiplier,
+                weekKey,
             },
         });
-        return NextResponse.json({ ok: true, newGold, goldEarned });
+        if (!claimResult.ok) return NextResponse.json({ error: "ALREADY_CLAIMED" }, { status: 400 });
+        return NextResponse.json({ ok: true, newGold: claimResult.newGold, goldEarned });
     }
 
     if (questType === "challenge") {
@@ -213,17 +288,21 @@ export async function POST(
         if (!completed) return NextResponse.json({ error: "NOT_COMPLETED" }, { status: 400 });
 
         const goldEarned = Math.floor(questDef.goldReward * multiplier);
-        const newGold = student.gold + goldEarned;
-        
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (db.student as any).update({
-            where: { id: student.id },
-            data: {
-                gold: newGold,
-                challengeQuestsClaimed: [...claimedIds, questId],
+        const claimResult = await persistQuestClaim({
+            student,
+            questType,
+            questId,
+            field: "challengeQuestsClaimed",
+            nextClaimed: [...claimedIds, questId],
+            goldEarned,
+            idempotencyKey: `quest:${student.id}:challenge:${questId}`,
+            metadata: {
+                baseReward: questDef.goldReward,
+                eventMultiplier: multiplier,
             },
         });
-        return NextResponse.json({ ok: true, newGold, goldEarned });
+        if (!claimResult.ok) return NextResponse.json({ error: "ALREADY_CLAIMED" }, { status: 400 });
+        return NextResponse.json({ ok: true, newGold: claimResult.newGold, goldEarned });
     }
 
     return NextResponse.json({ error: "INVALID_TYPE" }, { status: 400 });

@@ -2,8 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockAuth = vi.fn();
 const mockUserUpdate = vi.fn();
+const mockUserFindUnique = vi.fn();
+const mockUserCount = vi.fn();
 const mockUserDelete = vi.fn();
 const mockQuestionSetDelete = vi.fn();
+const mockDeleteMany = vi.fn();
+const mockClassroomFindMany = vi.fn();
 const mockRevalidatePath = vi.fn();
 const mockLogAuditEvent = vi.fn();
 
@@ -15,11 +19,25 @@ vi.mock("@/lib/db", () => ({
   db: {
     user: {
       update: mockUserUpdate,
+      findUnique: mockUserFindUnique,
+      count: mockUserCount,
       delete: mockUserDelete,
     },
     questionSet: {
       delete: mockQuestionSetDelete,
+      deleteMany: mockDeleteMany,
     },
+    oMRQuiz: { deleteMany: mockDeleteMany },
+    classroom: {
+      findMany: mockClassroomFindMany,
+      delete: vi.fn(),
+    },
+    gameHistory: { deleteMany: mockDeleteMany },
+    activeGame: { deleteMany: mockDeleteMany },
+    notification: { deleteMany: mockDeleteMany },
+    session: { deleteMany: mockDeleteMany },
+    account: { deleteMany: mockDeleteMany },
+    folder: { deleteMany: mockDeleteMany },
   },
 }));
 
@@ -41,8 +59,12 @@ describe("admin actions audit logging", () => {
       },
     });
     mockUserUpdate.mockResolvedValue({});
+    mockUserFindUnique.mockResolvedValue({ id: "user-2", role: "TEACHER" });
+    mockUserCount.mockResolvedValue(1);
     mockUserDelete.mockResolvedValue({});
     mockQuestionSetDelete.mockResolvedValue({});
+    mockDeleteMany.mockResolvedValue({ count: 0 });
+    mockClassroomFindMany.mockResolvedValue([]);
   });
 
   it("logs an audit event when updating a user role", async () => {

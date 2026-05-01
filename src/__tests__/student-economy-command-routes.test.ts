@@ -1,3 +1,4 @@
+import type { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockStudentFindFirst = vi.fn();
@@ -26,7 +27,7 @@ describe("student economy command routes", () => {
     const { POST } = await import("@/app/api/student/[code]/shop/equip/route");
     const request = {
       json: vi.fn().mockResolvedValue({ itemId: "frame_b" }),
-    } as unknown as Request;
+    } as unknown as NextRequest;
 
     const response = await POST(request, {
       params: Promise.resolve({ code: "abc123" }),
@@ -42,21 +43,21 @@ describe("student economy command routes", () => {
     expect(mockStudentUpdate).not.toHaveBeenCalled();
   });
 
-  it("returns app error payload when unlock skill payload is missing", async () => {
+  it("returns disabled when Negamon unlock-skill is called", async () => {
     const { POST } = await import("@/app/api/student/[code]/negamon/unlock-skill/route");
     const request = {
-      json: vi.fn().mockResolvedValue({}),
-    } as unknown as Request;
+      json: vi.fn().mockResolvedValue({ skillId: "gold_flow" }),
+    } as unknown as NextRequest;
 
     const response = await POST(request, {
       params: Promise.resolve({ code: "abc123" }),
     });
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(410);
     await expect(response.json()).resolves.toEqual({
       error: {
-        code: "INVALID_PAYLOAD",
-        message: "Missing skillId",
+        code: "NEGAMON_PASSIVES_DISABLED",
+        message: "Negamon passive skills are disabled",
       },
     });
   });

@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { MonsterStats } from "@/lib/types/negamon";
 import type { StatStages } from "@/lib/battle-engine";
-import { ACTION_METER_THRESHOLD, effectiveStat } from "@/lib/battle-engine";
+import { effectiveStat } from "@/lib/battle-engine";
 import { useLanguage } from "@/components/providers/language-provider";
 
 export type HudCombatStatsSnapshot = {
@@ -109,7 +109,6 @@ interface OpponentHudProps {
     combatStats?: HudCombatStatsSnapshot;
     currentEnergy?: number;
     maxEnergy?: number;
-    actionMeter?: number;
 }
 
 export function OpponentHud({
@@ -123,7 +122,6 @@ export function OpponentHud({
     combatStats,
     currentEnergy,
     maxEnergy,
-    actionMeter,
 }: OpponentHudProps) {
     const pct = Math.max(0, Math.min(100, (currentHp / maxHp) * 100));
     const hpPercent = Math.round(pct);
@@ -217,22 +215,6 @@ export function OpponentHud({
                     </div>
                 </div>
             ) : null}
-            {typeof actionMeter === "number" ? (
-                <div className="mt-1.5">
-                    <div className="mb-0.5 flex items-center justify-between text-[8px] font-black text-violet-600">
-                        <span>SPD METER</span>
-                        <span>{Math.floor(actionMeter)}/{ACTION_METER_THRESHOLD}</span>
-                    </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-violet-100">
-                        <motion.div
-                            animate={{ width: `${Math.min(100, Math.max(0, (actionMeter / ACTION_METER_THRESHOLD) * 100))}%` }}
-                            transition={{ duration: 0.35, ease: "easeOut" }}
-                            className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500"
-                        />
-                    </div>
-                </div>
-            ) : null}
-
             {/* Ability */}
             {abilityName && (
                 <p className="mt-1.5 text-[9px] font-bold text-violet-500 truncate">✨ {abilityName}</p>
@@ -256,7 +238,6 @@ interface PlayerHudProps {
     combatStats?: HudCombatStatsSnapshot;
     currentEnergy?: number;
     maxEnergy?: number;
-    actionMeter?: number;
 }
 
 export function PlayerHud({
@@ -271,7 +252,6 @@ export function PlayerHud({
     combatStats,
     currentEnergy,
     maxEnergy,
-    actionMeter,
 }: PlayerHudProps) {
     const pct = Math.max(0, Math.min(100, (currentHp / maxHp) * 100));
     const hpPercent = Math.round(pct);
@@ -379,22 +359,6 @@ export function PlayerHud({
                     </div>
                 </div>
             ) : null}
-            {typeof actionMeter === "number" ? (
-                <div className="mt-1.5">
-                    <div className="mb-0.5 flex items-center justify-between text-[8px] font-black text-violet-600">
-                        <span>SPD METER</span>
-                        <span>{Math.floor(actionMeter)}/{ACTION_METER_THRESHOLD}</span>
-                    </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-violet-100">
-                        <motion.div
-                            animate={{ width: `${Math.min(100, Math.max(0, (actionMeter / ACTION_METER_THRESHOLD) * 100))}%` }}
-                            transition={{ duration: 0.35, ease: "easeOut" }}
-                            className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500"
-                        />
-                    </div>
-                </div>
-            ) : null}
-
             {/* Ability */}
             {abilityName && (
                 <p className="mt-1.5 text-[9px] font-bold text-violet-500 truncate">✨ {abilityName}</p>

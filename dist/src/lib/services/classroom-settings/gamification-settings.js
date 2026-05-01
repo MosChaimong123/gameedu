@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.InvalidGamificationSettingsError = void 0;
+exports.InvalidGamificationSettingsError = exports.gamificationSettingsSchema = void 0;
 exports.normalizeGamificationSettings = normalizeGamificationSettings;
 exports.getNegamonSettingsFromGamification = getNegamonSettingsFromGamification;
 exports.getCustomAchievementsFromGamification = getCustomAchievementsFromGamification;
@@ -13,6 +13,7 @@ const zod_1 = require("zod");
 const db_1 = require("@/lib/db");
 const prisma_json_1 = require("@/lib/prisma-json");
 const monsterTypeSchema = zod_1.z.enum([
+    "NORMAL",
     "FIRE",
     "WATER",
     "EARTH",
@@ -20,7 +21,6 @@ const monsterTypeSchema = zod_1.z.enum([
     "THUNDER",
     "LIGHT",
     "DARK",
-    "PSYCHIC",
 ]);
 const moveCategorySchema = zod_1.z.enum(["PHYSICAL", "SPECIAL", "STATUS", "HEAL"]);
 const statusEffectSchema = zod_1.z.enum([
@@ -28,6 +28,7 @@ const statusEffectSchema = zod_1.z.enum([
     "PARALYZE",
     "SLEEP",
     "POISON",
+    "BADLY_POISON",
     "BOOST_ATK",
     "BOOST_DEF",
     "BOOST_SPD",
@@ -98,7 +99,7 @@ const classEventSchema = zod_1.z.object({
     endAt: zod_1.z.string(),
     active: zod_1.z.boolean().optional(),
 });
-const gamificationSettingsSchema = zod_1.z.object({
+exports.gamificationSettingsSchema = zod_1.z.object({
     negamon: negamonSettingsSchema.optional(),
     customAchievements: zod_1.z.array(customAchievementSchema).optional(),
     events: zod_1.z.array(classEventSchema).optional(),
@@ -114,7 +115,7 @@ function normalizeGamificationSettings(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
         return {};
     }
-    const parsed = gamificationSettingsSchema.safeParse(value);
+    const parsed = exports.gamificationSettingsSchema.safeParse(value);
     if (!parsed.success) {
         return {};
     }
@@ -179,7 +180,7 @@ async function updateGamificationSettings(classroomId, teacherId, gamifiedSettin
     if (!gamifiedSettings || typeof gamifiedSettings !== "object" || Array.isArray(gamifiedSettings)) {
         throw new InvalidGamificationSettingsError("gamifiedSettings must be an object");
     }
-    const parsed = gamificationSettingsSchema.safeParse(gamifiedSettings);
+    const parsed = exports.gamificationSettingsSchema.safeParse(gamifiedSettings);
     if (!parsed.success) {
         throw new InvalidGamificationSettingsError("gamifiedSettings has an invalid structure");
     }
@@ -200,7 +201,7 @@ async function updateClassroomGamificationSettingsById(classroomId, gamifiedSett
     if (!gamifiedSettings || typeof gamifiedSettings !== "object" || Array.isArray(gamifiedSettings)) {
         throw new InvalidGamificationSettingsError("gamifiedSettings must be an object");
     }
-    const parsed = gamificationSettingsSchema.safeParse(gamifiedSettings);
+    const parsed = exports.gamificationSettingsSchema.safeParse(gamifiedSettings);
     if (!parsed.success) {
         throw new InvalidGamificationSettingsError("gamifiedSettings has an invalid structure");
     }

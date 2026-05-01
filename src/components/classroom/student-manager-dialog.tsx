@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/providers/language-provider";
 import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-import { GripVertical, Edit, Trash2, Users, Save, XCircle, UserCog } from "lucide-react";
+import { GripVertical, Edit, Trash2, Users, Save, XCircle, UserCog, Copy, History } from "lucide-react";
 import { Student } from "@prisma/client";
 import {
     DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent,
@@ -38,6 +38,13 @@ interface StudentManagerDialogProps {
     onOpenChange: (open: boolean) => void;
     onChanged: (students: StudentWithSubmissions[]) => void;
     students: StudentWithSubmissions[];
+    initialSearchTerm?: string | null;
+    initialStudentId?: string | null;
+    auditContext?: {
+        source: string;
+        studentLookup?: string | null;
+        rewardGamePin?: string | null;
+    } | null;
 }
 
 function SortableStudentRow({
@@ -108,7 +115,17 @@ function SortableStudentRow({
     );
 }
 
-export function StudentManagerDialog({ classId, theme, open, onOpenChange, onChanged, students: initialStudents }: StudentManagerDialogProps) {
+export function StudentManagerDialog({
+    classId,
+    theme,
+    open,
+    onOpenChange,
+    onChanged,
+    students: initialStudents,
+    initialSearchTerm = null,
+    initialStudentId = null,
+    auditContext = null,
+}: StudentManagerDialogProps) {
     const { t } = useLanguage();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
@@ -122,6 +139,7 @@ export function StudentManagerDialog({ classId, theme, open, onOpenChange, onCha
 
     const [editName, setEditName] = useState("");
     const [editNickname, setEditNickname] = useState("");
+    const [searchTerm, setSearchTerm] = useState(initialSearchTerm ?? "");
 
     const startEdit = (s: StudentWithSubmissions) => {
         setEditStudent(s);
@@ -142,7 +160,11 @@ export function StudentManagerDialog({ classId, theme, open, onOpenChange, onCha
             const res = await fetch(`/api/classrooms/${classId}/students/${editStudent.id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: editName.trim(), nickname: editNickname.trim() || null }),
+                body: JSON.stringify({
+                    name: editName.trim(),
+                    nickname: editNickname.trim() || null,
+                    auditContext,
+                }),
             });
             if (!res.ok) throw new Error();
 
@@ -208,6 +230,52 @@ export function StudentManagerDialog({ classId, theme, open, onOpenChange, onCha
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
+    const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+    const filteredStudents = normalizedSearchTerm
+        ? localStudents.filter((student) =>
+            [student.name, student.nickname, student.loginCode]
+                .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+                .some((value) => value.toLowerCase().includes(normalizedSearchTerm))
+        )
+        : localStudents;
+
+    useEffect(() => {
+        if (!open) return;
+        setSearchTerm(initialSearchTerm ?? "");
+    }, [initialSearchTerm, open]);
+
+    useEffect(() => {
+        if (!open || !initialStudentId) return;
+        const exactStudent = localStudents.find((student) => student.id === initialStudentId);
+        if (!exactStudent) return;
+        if (editStudent?.id === exactStudent.id) return;
+        startEdit(exactStudent);
+    }, [editStudent?.id, initialStudentId, localStudents, open]);
+
+    useEffect(() => {
+        if (!open || !normalizedSearchTerm) return;
+        if (filteredStudents.length !== 1) return;
+        if (editStudent?.id === filteredStudents[0].id) return;
+        startEdit(filteredStudents[0]);
+    }, [editStudent?.id, filteredStudents, normalizedSearchTerm, open]);
+
+    const handleCopyLoginCode = async () => {
+        if (!editStudent?.loginCode) return;
+        try {
+            await navigator.clipboard.writeText(editStudent.loginCode);
+            toast({
+                title: t("studentManagerCopyLoginCodeSuccessTitle"),
+                description: t("studentManagerCopyLoginCodeSuccessDesc"),
+            });
+        } catch {
+            toast({
+                title: t("studentManagerCopyLoginCodeFailTitle"),
+                description: t("studentManagerCopyLoginCodeFailDesc"),
+                variant: "destructive",
+            });
+        }
+    };
+
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
@@ -259,31 +327,55 @@ export function StudentManagerDialog({ classId, theme, open, onOpenChange, onCha
                                 <div className="flex items-center gap-2 text-base font-bold text-slate-800">
                                     <Users className="h-5 w-5 shrink-0 text-indigo-600" /> {t("studentListHeading")}
                                 </div>
-                                <span className="inline-flex w-fit items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200/80">
-                                    <GripVertical className="h-3 w-3" />
-                                    <span className="hidden sm:inline">{t("assignmentDragReorderHint")}</span>
-                                    <span className="sm:hidden">{t("assignmentDragReorderHintShort")}</span>
-                                </span>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Input
+                                        value={searchTerm}
+                                        onChange={(event) => setSearchTerm(event.target.value)}
+                                        placeholder={t("studentManagerSearchPlaceholder")}
+                                        className="h-9 w-full min-w-[220px] bg-white sm:w-64"
+                                    />
+                                    <span className="inline-flex w-fit items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200/80">
+                                        <GripVertical className="h-3 w-3" />
+                                        <span className="hidden sm:inline">
+                                            {normalizedSearchTerm ? t("studentManagerSearchActive") : t("assignmentDragReorderHint")}
+                                        </span>
+                                        <span className="sm:hidden">
+                                            {normalizedSearchTerm ? t("studentManagerSearchActiveShort") : t("assignmentDragReorderHintShort")}
+                                        </span>
+                                    </span>
+                                </div>
                             </div>
                             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden bg-[#f4f6fb] p-3 sm:p-4">
-                                {localStudents.length === 0 ? (
+                                {filteredStudents.length === 0 ? (
                                     <div className="h-full flex items-center justify-center text-slate-400 italic">
-                                        {t("studentListEmpty")}
+                                        {normalizedSearchTerm ? t("studentManagerSearchEmpty") : t("studentListEmpty")}
                                     </div>
                                 ) : (
-                                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                                        <SortableContext items={localStudents.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                                            {localStudents.map((s, i) => (
-                                                <SortableStudentRow
-                                                    key={s.id}
-                                                    student={s}
-                                                    index={i}
-                                                    onEdit={startEdit}
-                                                    onDelete={(id) => setDeleteId(id)}
-                                                />
-                                            ))}
-                                        </SortableContext>
-                                    </DndContext>
+                                    normalizedSearchTerm ? (
+                                        filteredStudents.map((s, i) => (
+                                            <SortableStudentRow
+                                                key={s.id}
+                                                student={s}
+                                                index={i}
+                                                onEdit={startEdit}
+                                                onDelete={(id) => setDeleteId(id)}
+                                            />
+                                        ))
+                                    ) : (
+                                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                            <SortableContext items={localStudents.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                                                {localStudents.map((s, i) => (
+                                                    <SortableStudentRow
+                                                        key={s.id}
+                                                        student={s}
+                                                        index={i}
+                                                        onEdit={startEdit}
+                                                        onDelete={(id) => setDeleteId(id)}
+                                                    />
+                                                ))}
+                                            </SortableContext>
+                                        </DndContext>
+                                    )
                                 )}
                             </div>
                         </div>
@@ -338,15 +430,42 @@ export function StudentManagerDialog({ classId, theme, open, onOpenChange, onCha
                                         />
                                     </div>
 
-                                    <div className="bg-slate-50 rounded-xl border p-4 space-y-2">
+                                    <div className="bg-slate-50 rounded-xl border p-4 space-y-3">
                                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("studentMetaSection")}</p>
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-slate-500">{t("analyticsTableBehaviorColumn")}</span>
                                             <span className="font-bold text-indigo-600">{editStudent.behaviorPoints}</span>
                                         </div>
-                                        <div className="flex justify-between items-center">
+                                        <div className="flex items-center justify-between gap-3">
                                             <span className="text-sm text-slate-500">{t("studentLoginCodeLabel")}</span>
-                                            <span className="max-w-[16rem] break-all font-mono font-bold text-slate-600 bg-slate-200 px-2 py-0.5 rounded">{editStudent.loginCode?.toUpperCase()}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="max-w-[16rem] break-all rounded bg-slate-200 px-2 py-0.5 font-mono font-bold text-slate-600">
+                                                    {editStudent.loginCode?.toUpperCase()}
+                                                </span>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 rounded-lg"
+                                                    onClick={() => void handleCopyLoginCode()}
+                                                    disabled={!editStudent.loginCode}
+                                                >
+                                                    <Copy className="mr-1 h-3.5 w-3.5" />
+                                                    {t("studentManagerCopyLoginCode")}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-end">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 rounded-lg text-slate-600 hover:text-indigo-700"
+                                                onClick={() => onOpenChange(false)}
+                                            >
+                                                <History className="mr-1 h-3.5 w-3.5" />
+                                                {t("studentManagerCloseLabel")}
+                                            </Button>
                                         </div>
                                     </div>
                                 </div>

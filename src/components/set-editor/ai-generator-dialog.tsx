@@ -18,6 +18,7 @@ const AI_TOOL_ERROR_KEYS: Partial<Record<AppErrorCode, string>> = {
     FORBIDDEN: "aiToolErrForbidden",
     INVALID_PAYLOAD: "aiToolErrInvalidPayload",
     NO_FILE: "aiToolErrNoFile",
+    PLAN_LIMIT_AI_FEATURE: "planErrorAiFeature",
 }
 
 interface AIGeneratorDialogProps {

@@ -1,3 +1,5 @@
+/** Stripe recurring prices: create monthly/yearly PLUS prices in Stripe Dashboard and set env `STRIPE_PRICE_PLUS_MONTHLY` / `STRIPE_PRICE_PLUS_YEARLY`. */
+
 export type PlanId = "FREE" | "PLUS" | "PRO";
 
 export type PlanColor = "slate" | "indigo" | "emerald";
@@ -31,6 +33,7 @@ export const PLUS_PLANS: readonly PlusPlanDef[] = [
     {
         id: "PLUS",
         name: "GameEdu Plus",
+        /** Fallback when Stripe prices are not loaded (misconfigured env). */
         price: "199",
         unitKey: "planPlusUnit",
         descriptionKey: "planPlusDescription",

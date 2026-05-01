@@ -244,16 +244,75 @@ export type {
     SelectedAction,
 };
 
-/** Type Chart: moveType → defenderType → multiplier */
+/** ลำดับจุดบนวง UI = ทิศทามลูกศรชนะทาง ×2 (น้ำ→ไฟ→ลม→ดิน→ไฟฟ้า→น้ำ) */
+export const NEGAMON_ELEMENT_CYCLE_ORDER: MonsterType[] = [
+    "WATER",
+    "FIRE",
+    "WIND",
+    "EARTH",
+    "THUNDER",
+];
+
+/**
+ * Type Chart: moveType → defenderType → multiplier (×2 super, ×0.5 resist)
+ *
+ * วง 5 ธาตุ: น้ำ→ไฟ→ลม→ดิน→ไฟฟ้า→น้ำ
+ * มืด ชนะ ไฟ ลม ดิน ไฟฟ้า น้ำ | แสง ชนะ มืด | ทั้ง 5 ธาตุข้างบน ชนะ แสง
+ */
 export const MONSTER_TYPE_CHART: Partial<Record<MonsterType, Partial<Record<MonsterType, number>>>> = {
-    FIRE:    { EARTH: 2, WIND: 2,    WATER: 0.5, FIRE: 0.5    },
-    WATER:   { FIRE: 2,  EARTH: 2,   THUNDER: 0.5, WATER: 0.5 },
-    EARTH:   { THUNDER: 2,           FIRE: 0.5,  WIND: 0.5    },
-    WIND:    { EARTH: 2,             THUNDER: 0.5              },
-    THUNDER: { WATER: 2, WIND: 2,    EARTH: 0.5                },
-    LIGHT:   { DARK: 2,              PSYCHIC: 0.5              },
-    DARK:    { PSYCHIC: 2,           LIGHT: 0.5                },
-    PSYCHIC: { LIGHT: 2,             DARK: 0.5                 },
+    WATER: {
+        FIRE: 2,
+        THUNDER: 0.5,
+        LIGHT: 2,
+        DARK: 0.5,
+        WATER: 0.5,
+    },
+    FIRE: {
+        WIND: 2,
+        WATER: 0.5,
+        LIGHT: 2,
+        DARK: 0.5,
+        FIRE: 0.5,
+    },
+    WIND: {
+        EARTH: 2,
+        FIRE: 0.5,
+        LIGHT: 2,
+        DARK: 0.5,
+        WIND: 0.5,
+    },
+    EARTH: {
+        THUNDER: 2,
+        WIND: 0.5,
+        LIGHT: 2,
+        DARK: 0.5,
+        EARTH: 0.5,
+    },
+    THUNDER: {
+        WATER: 2,
+        EARTH: 0.5,
+        LIGHT: 2,
+        DARK: 0.5,
+        THUNDER: 0.5,
+    },
+    DARK: {
+        FIRE: 2,
+        WATER: 2,
+        WIND: 2,
+        EARTH: 2,
+        THUNDER: 2,
+        LIGHT: 0.5,
+        DARK: 0.5,
+    },
+    LIGHT: {
+        DARK: 2,
+        FIRE: 0.5,
+        WATER: 0.5,
+        WIND: 0.5,
+        EARTH: 0.5,
+        THUNDER: 0.5,
+        LIGHT: 0.5,
+    },
 };
 
 export type NegamonTableProgressHint =
@@ -292,7 +351,7 @@ export function getStudentMonsterState(
     const form = species.forms[rankIndex] ?? species.forms[0];
     const stats = calcMonsterStats(species.baseStats, rankIndex);
     const unlockedMoves = getUnlockedMoves(species, rankIndex, negamon.disabledMoves);
-    const type2 = rankIndex >= 3 ? species.type2 : undefined;
+    const type2 = species.type2;
 
     return { speciesId, speciesName: species.name, type: species.type, type2, form, stats, unlockedMoves, rankIndex, ability: species.ability };
 }
@@ -308,16 +367,19 @@ export function calcMonsterStats(baseStats: MonsterBaseStats, rankIndex: number)
     };
 }
 
-/** Moves ที่ unlock แล้วตาม rankIndex และไม่ถูกครูปิด */
+/**
+ * สกิลจาก `species.moves` เท่านั้น — ไม่รวมท่าตีธรรมดา (ระบบฝังใน battle/UI)
+ * rankIndex 0–1: ยังไม่มีสกิล; 2+ ปลดตาม learnRank (สกิลใน catalog ใช้ learnRank 3–6)
+ */
 export function getUnlockedMoves(
     species: MonsterSpecies,
     rankIndex: number,
     disabledMoves: string[] = []
 ): MonsterMove[] {
     const disabled = new Set(disabledMoves);
-    return species.moves.filter(
-        (m) => m.learnRank <= rankIndex + 1 && !disabled.has(m.id)
-    );
+    if (rankIndex < 2) return [];
+    const threshold = rankIndex + 1;
+    return species.moves.filter((m) => m.learnRank <= threshold && !disabled.has(m.id));
 }
 
 /** Type multiplier จาก type chart */

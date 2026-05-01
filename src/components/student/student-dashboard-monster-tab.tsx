@@ -26,7 +26,6 @@ interface StudentDashboardMonsterTabProps {
         form: { icon: string; name: string };
         rankIndex: number;
     } | null;
-    questGold?: number;
     onOpenStarterSelection: () => void;
 }
 
@@ -38,7 +37,6 @@ export function StudentDashboardMonsterTab({
     levelConfigResolved,
     negamonSettings,
     studentMonsterState,
-    questGold,
     onOpenStarterSelection,
 }: StudentDashboardMonsterTabProps) {
     return (
@@ -86,9 +84,7 @@ export function StudentDashboardMonsterTab({
                         behaviorPoints={student.behaviorPoints}
                         levelConfig={levelConfigResolved}
                         gamifiedSettings={classroom.gamifiedSettings}
-                        loginCode={student.loginCode}
-                        gold={questGold ?? student.gold}
-                        negamonSkills={student.negamonSkills}
+                        equippedFrame={student.equippedFrame}
                     />
                 ) : negamonSettings.allowStudentChoice ? (
                     <div className="flex flex-col items-center gap-4 py-10 text-center">

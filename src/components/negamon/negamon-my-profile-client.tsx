@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Heart, Shield, Sparkles, Swords, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -19,7 +19,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 import { NegamonInfoNav } from "@/components/negamon/negamon-info-nav";
 import { NegamonMovesGrid, NegamonMovesSectionHeader } from "@/components/negamon/negamon-moves-grid";
-import { PassiveSkillsPanel } from "@/components/negamon/monster-card";
+import { buildBasicAttackMove } from "@/lib/negamon-basic-move";
 import { Progress } from "@/components/ui/progress";
 import type { MonsterType } from "@/lib/types/negamon";
 
@@ -41,34 +41,24 @@ const TYPE_BADGE: Record<string, string> = {
     THUNDER: "bg-yellow-100 text-yellow-800 border-yellow-200",
     LIGHT: "bg-amber-100 text-amber-800 border-amber-200",
     DARK: "bg-purple-100 text-purple-800 border-purple-200",
-    PSYCHIC: "bg-pink-100 text-pink-800 border-pink-200",
 };
 
 export type NegamonMyProfileClientProps = {
     code: string;
-    /** รหัสเข้าระบบจริง — ใช้เรียก API ปลดสกิลติดตัว */
-    loginCode: string;
     studentId: string;
     behaviorPoints: number;
     levelConfig: LevelConfigInput;
     gamifiedSettings: Record<string, unknown>;
-    gold: number;
-    negamonSkills: string[];
 };
 
 export function NegamonMyProfileClient({
     code,
-    loginCode,
     studentId,
     behaviorPoints,
     levelConfig,
     gamifiedSettings,
-    gold,
-    negamonSkills,
 }: NegamonMyProfileClientProps) {
     const { t } = useLanguage();
-    const [skills, setSkills] = useState(negamonSkills);
-    const [localGold, setLocalGold] = useState(gold);
 
     const negamon = useMemo(() => getNegamonSettings(gamifiedSettings), [gamifiedSettings]);
     const monster = useMemo(() => {
@@ -86,6 +76,11 @@ export function NegamonMyProfileClient({
         if (!species || !monster) return [];
         return species.moves.filter((m) => m.learnRank > monster.rankIndex + 1);
     }, [species, monster]);
+
+    const profileUnlockedMoves = useMemo(() => {
+        if (!monster) return [];
+        return [buildBasicAttackMove(), ...monster.unlockedMoves];
+    }, [monster]);
 
     const damagePreview = useMemo(() => {
         if (!monster) return null;
@@ -407,12 +402,12 @@ export function NegamonMyProfileClient({
                     </section>
                 ) : null}
 
-                {monster.unlockedMoves.length > 0 ? (
+                {profileUnlockedMoves.length > 0 ? (
                     <section className="rounded-2xl border border-[#c4a574]/40 bg-[#fffdf6] p-4 shadow-sm sm:p-5">
                         <NegamonMovesSectionHeader />
                         <NegamonMovesGrid
                             speciesId={monster.speciesId}
-                            moves={monster.unlockedMoves}
+                            moves={profileUnlockedMoves}
                             variant="unlocked"
                         />
                     </section>
@@ -426,18 +421,6 @@ export function NegamonMyProfileClient({
                         <NegamonMovesGrid speciesId={monster.speciesId} moves={lockedMoves} variant="locked" />
                     </section>
                 ) : null}
-
-                <section className="rounded-2xl border border-[#c4a574]/40 bg-[#fffdf8] p-4 shadow-sm sm:p-5">
-                    <PassiveSkillsPanel
-                        loginCode={loginCode}
-                        gold={localGold}
-                        negamonSkills={skills}
-                        onSkillUnlocked={(_id, newGold, newSkills) => {
-                            setLocalGold(newGold);
-                            setSkills(newSkills);
-                        }}
-                    />
-                </section>
             </div>
         </div>
     );

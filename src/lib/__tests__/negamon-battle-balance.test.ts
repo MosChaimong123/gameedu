@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { MonsterMove, MonsterStats } from "@/lib/types/negamon";
+import type { MonsterMove, MonsterStats, MonsterType } from "@/lib/types/negamon";
 import {
     calcGoldReward,
     resolveBattle,
     resolveOneTurn,
+    resolveServerOwnedInteractiveTurn,
     type BattleFighter,
 } from "@/lib/battle-engine";
 import { DEFAULT_NEGAMON_SPECIES } from "@/lib/negamon-species";
@@ -96,6 +97,7 @@ function makeFighter(overrides: Partial<BattleFighter> = {}): BattleFighter {
         immunities: [],
         activeItems: [],
         goldBonus: 0,
+        goldMultiplier: 1,
         abilityUsed: false,
         maxEnergy: 999,
         currentEnergy: 999,
@@ -137,6 +139,41 @@ describe("Negamon battle balance patch", () => {
         expect(boostedDamage).toBeGreaterThan(controlDamage);
     });
 
+    it("IGNORE_DEF granted by a damaging move applies to the next attack", () => {
+        const pierceFollow: MonsterMove = {
+            ...strikeMove,
+            id: "pierce-follow",
+            effect: "IGNORE_DEF",
+            effectChance: 100,
+        };
+        const player = makeFighter({
+            studentId: "player",
+            moves: [pierceFollow, strikeMove],
+        });
+        const opponent = makeFighter({
+            studentId: "opponent",
+            studentName: "Opponent",
+            baseStats: { hp: 100, atk: 40, def: 120, spd: 1 },
+            type: "EARTH",
+            moves: [],
+        });
+
+        const seqPlayer = structuredClone(player);
+        const seqOpp = structuredClone(opponent);
+        resolveOneTurn(seqPlayer, seqOpp, "pierce-follow", () => 0.5);
+        const followTurn = resolveOneTurn(seqPlayer, seqOpp, "strike", () => 0.5);
+        const followDamage =
+            followTurn.events.find((e) => e.kind === "damage" && e.actorId === "player")?.value ?? 0;
+
+        const ctrlPlayer = structuredClone(player);
+        const ctrlOpp = structuredClone(opponent);
+        const baselineTurn = resolveOneTurn(ctrlPlayer, ctrlOpp, "strike", () => 0.5);
+        const baselineDamage =
+            baselineTurn.events.find((e) => e.kind === "damage" && e.actorId === "player")?.value ?? 0;
+
+        expect(followDamage).toBeGreaterThan(baselineDamage);
+    });
+
     it("does not increase gold reward just because the winner already has a higher rank", () => {
         const lowerRankWinner = makeFighter({ rankIndex: 1, goldBonus: 4 });
         const higherRankWinner = makeFighter({ rankIndex: 5, goldBonus: 4 });
@@ -176,21 +213,77 @@ describe("Negamon battle balance patch", () => {
         const kinnaree = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "kinnaree");
         const suvanna = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "suvannamaccha");
 
-        expect(garuda?.baseStats).toMatchObject({ atk: 170, def: 96, spd: 156 });
-        expect(garuda?.moves.find((move) => move.id === "garuda-strike")?.power).toBe(56);
-        expect(hanuman?.baseStats).toMatchObject({ atk: 164, def: 112, spd: 160 });
-        expect(hanuman?.moves.find((move) => move.id === "hanuman-sacred-fist")?.power).toBe(48);
-        expect(mekkala?.baseStats).toMatchObject({ atk: 142, def: 108, spd: 168 });
-        expect(mekkala?.moves.find((move) => move.id === "mekkala-judgment")?.power).toBe(54);
-        expect(singha?.baseStats).toMatchObject({ atk: 158, def: 126, spd: 62 });
-        expect(singha?.moves.find((move) => move.id === "singha-quake")?.power).toBe(40);
-        expect(kinnaree?.baseStats).toMatchObject({ hp: 300, atk: 146, spd: 188 });
-        expect(kinnaree?.moves.find((move) => move.id === "kinnaree-feather-storm")?.power).toBe(36);
-        expect(suvanna?.baseStats).toMatchObject({ hp: 420, atk: 148, def: 128 });
-        expect(suvanna?.moves.find((move) => move.id === "suvanna-blessing")?.power).toBe(50);
+        expect(garuda?.baseStats).toMatchObject({ hp: 280, atk: 188, def: 104, spd: 172 });
+        expect(garuda?.moves.find((move) => move.id === "garuda-strike")?.power).toBe(58);
+        expect(hanuman?.baseStats).toMatchObject({ hp: 320, atk: 182, def: 130, spd: 176 });
+        expect(hanuman?.moves.find((move) => move.id === "hanuman-divine-inc")?.power).toBe(58);
+        expect(mekkala?.baseStats).toMatchObject({ hp: 330, atk: 170, def: 128, spd: 186 });
+        expect(mekkala?.moves.find((move) => move.id === "mekkala-judgment")?.power).toBe(56);
+        expect(singha?.baseStats).toMatchObject({ hp: 560, atk: 176, def: 148, spd: 82 });
+        expect(singha?.moves.find((move) => move.id === "singha-blaze-claw")?.power).toBe(41);
+        expect(kinnaree?.baseStats).toMatchObject({ hp: 320, atk: 162, spd: 194 });
+        expect(kinnaree?.moves.find((move) => move.id === "kinnaree-radiant-slash")?.power).toBe(35);
+        expect(suvanna?.baseStats).toMatchObject({ hp: 500, atk: 168, def: 146 });
+        expect(suvanna?.moves.find((move) => move.id === "suvanna-blessing")?.power).toBe(52);
         for (const species of DEFAULT_NEGAMON_SPECIES) {
             expect(species.baseStats.atk).toBeGreaterThan(species.baseStats.def);
+            expect(species.moves.length).toBe(4);
+            expect(species.type2).toBeDefined();
+            const speciesTypes = new Set<MonsterType>([species.type, species.type2!]);
+            for (const move of species.moves) {
+                expect(speciesTypes.has(move.type)).toBe(true);
+            }
         }
+    });
+
+    it("keeps chip damage meaningful even against high defense targets", () => {
+        const attacker = makeFighter({
+            studentId: "attacker",
+            type: "FIRE",
+            baseStats: { hp: 100, atk: 120, def: 40, spd: 120 },
+            moves: [strikeMove],
+            actionMeter: 110,
+        });
+        const defender = makeFighter({
+            studentId: "defender",
+            studentName: "Defender",
+            type: "EARTH",
+            baseStats: { hp: 220, atk: 40, def: 190, spd: 10 },
+            moves: [],
+            actionMeter: 0,
+        });
+
+        const out = resolveOneTurn(attacker, defender, "strike", () => 0.5);
+        const damage = out.events.find((e) => e.kind === "damage" && e.actorId === "attacker")?.value ?? 0;
+
+        expect(damage).toBeGreaterThanOrEqual(8);
+    });
+
+    it("maintains mixed fight pacing across offensive and defensive archetypes", () => {
+        const fastOffense = makeFighter({
+            studentId: "fast-offense",
+            studentName: "Fast Offense",
+            type: "FIRE",
+            baseStats: { hp: 280, atk: 188, def: 104, spd: 172 },
+            maxHp: 280,
+            currentHp: 280,
+            rankIndex: 3,
+            moves: [strikeMove],
+        });
+        const tankDefense = makeFighter({
+            studentId: "tank-defense",
+            studentName: "Tank Defense",
+            type: "EARTH",
+            baseStats: { hp: 500, atk: 168, def: 146, spd: 110 },
+            maxHp: 500,
+            currentHp: 500,
+            rankIndex: 3,
+            moves: [strikeMove],
+        });
+
+        const result = resolveBattle(structuredClone(fastOffense), structuredClone(tankDefense), 42);
+        expect(result.totalTurns).toBeGreaterThanOrEqual(2);
+        expect(result.totalTurns).toBeLessThanOrEqual(18);
     });
 
     it("can grant extra actions in a turn when speed gap is very high", () => {
@@ -292,6 +385,47 @@ describe("Negamon battle balance patch", () => {
         expect(basicMoveUsed).toBeTruthy();
         expect(basicDamage?.value ?? 0).toBeGreaterThan(0);
         expect(player.currentEnergy).toBe(10);
+    });
+
+    it("lets the server choose the ready opponent even when a player move is submitted", () => {
+        const player = makeFighter({
+            studentId: "player",
+            moves: [strikeMove],
+            actionMeter: 0,
+        });
+        const enemy = makeFighter({
+            studentId: "enemy",
+            studentName: "Enemy",
+            moves: [strikeMove],
+            actionMeter: 110,
+        });
+
+        const out = resolveServerOwnedInteractiveTurn(player, enemy, "strike", () => 0.5);
+        const moveUsed = out.events.find((e) => e.kind === "move_used");
+
+        expect(out.actorSide).toBe("opponent");
+        expect(moveUsed?.actorId).toBe("enemy");
+        expect(player.currentHp).toBeLessThan(player.maxHp);
+    });
+
+    it("uses the submitted player move only when the server gives the player the action", () => {
+        const player = makeFighter({
+            studentId: "player",
+            moves: [boostAtkMove],
+            actionMeter: 110,
+        });
+        const enemy = makeFighter({
+            studentId: "enemy",
+            studentName: "Enemy",
+            moves: [strikeMove],
+            actionMeter: 0,
+        });
+
+        const out = resolveServerOwnedInteractiveTurn(player, enemy, "boost-atk", () => 0.5);
+        const boosted = out.events.find((e) => e.kind === "status_apply" && e.actorId === "player");
+
+        expect(out.actorSide).toBe("player");
+        expect(boosted?.effect).toBe("BOOST_ATK");
     });
 
     it("does not stack LOWER_DEF when cast repeatedly", () => {

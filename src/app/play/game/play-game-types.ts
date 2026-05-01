@@ -45,6 +45,8 @@ export type JoinedSuccessPayload = {
     nickname: string
     reconnectToken?: string
     gameMode?: PlayerMode
+    studentId?: string
+    studentCode?: string
 }
 
 export function createInitialPlayer(name: string): GoldQuestPlayer {
@@ -142,6 +144,7 @@ export const PLAY_SOCKET_ERROR_MESSAGE_KEYS: Record<string, string> = {
     "Host reconnection denied": "playSocketHostReconnectionDenied",
     "Game is locked": "playSocketGameLocked",
     "Negamon Battle already started — new players cannot join mid-match": "playNegamonSocketMidMatch",
+    "Invalid student code": "playSocketInvalidStudentCode",
     "Nickname already in use": "playSocketNicknameInUse",
     "Only the host can start the game": "playSocketOnlyHostCanStart",
     "Only the host can end the game": "playSocketOnlyHostCanEnd",

@@ -1,4 +1,5 @@
 import React from "react";
+import { enUS } from "date-fns/locale";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { StudentDashboardMainTabs } from "@/components/student/student-dashboard-main-tabs";
@@ -92,6 +93,7 @@ describe("student dashboard main tabs", () => {
                     streak: 2,
                     lastCheckIn: null,
                     inventory: [],
+                    battleLoadout: [],
                     equippedFrame: null,
                     negamonSkills: [],
                 },
@@ -101,7 +103,7 @@ describe("student dashboard main tabs", () => {
                 submissions: [],
                 assignmentFilter: "all",
                 assignmentSort: "default",
-                dateLocale: new Intl.Locale("en-US") as unknown as Locale,
+                dateLocale: enUS,
                 totalPositive: 50,
                 totalNegative: -10,
                 history: [],

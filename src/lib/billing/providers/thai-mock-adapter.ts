@@ -1,0 +1,27 @@
+import { resolvePublicAppOrigin } from "@/lib/billing/resolve-public-url";
+import { BILLING_PROVIDER_THAI_MOCK } from "@/lib/billing/billing-providers";
+import type { ThaiBillingAdapter } from "@/lib/billing/providers/types";
+
+/**
+ * Dev-only placeholder: redirects back to upgrade with query flags (no real charge).
+ * Real PromptPay/bank flows replace this when Omise or 2C2P adapter is implemented.
+ */
+export const thaiMockBillingAdapter: ThaiBillingAdapter = {
+  id: BILLING_PROVIDER_THAI_MOCK,
+
+  async startPlusPurchase(input) {
+    try {
+      const rawOrigin = input.appOrigin?.trim().replace(/\/$/, "") || resolvePublicAppOrigin();
+      const origin = rawOrigin;
+      const url = new URL(`${origin}/dashboard/upgrade`);
+      url.searchParams.set("checkout", "thai_mock");
+      url.searchParams.set("interval", input.interval);
+      return { ok: true, redirectUrl: url.toString() };
+    } catch {
+      return {
+        ok: false,
+        message: "Could not build redirect URL (set NEXT_PUBLIC_APP_URL / NEXTAUTH_URL).",
+      };
+    }
+  },
+};

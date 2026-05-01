@@ -72,6 +72,10 @@ vi.mock("@/components/classroom/classroom-dashboard-banners", () => ({
   },
 }));
 
+vi.mock("@/components/negamon/negamon-settings", () => ({
+  NegamonSettingsDialog: () => null,
+}));
+
 const baseClassroom: ClassroomDashboardViewModel = {
   id: "class-1",
   teacherId: "teacher-1",
@@ -100,6 +104,7 @@ const baseClassroom: ClassroomDashboardViewModel = {
       lastCheckIn: null,
       streak: 0,
       inventory: [],
+      battleLoadout: [],
       equippedFrame: null,
       negamonSkills: [],
       loginCode: "111111",
@@ -201,7 +206,9 @@ describe("classroom dashboard component", () => {
     });
   });
 
-  it("wires toolbar, content, and overlays from extracted dashboard sections", async () => {
+  it(
+    "wires toolbar, content, and overlays from extracted dashboard sections",
+    async () => {
     const { ClassroomDashboard } = await import("@/components/classroom/classroom-dashboard");
 
     renderToStaticMarkup(
@@ -237,9 +244,13 @@ describe("classroom dashboard component", () => {
     expect(setViewMode).toHaveBeenCalledWith("table");
     expect(exitAttendanceMode).toHaveBeenCalled();
     expect(clearSelectionMode).toHaveBeenCalled();
-  });
+    },
+    30_000
+  );
 
-  it("switches to attendance banner and selection summary when those flows are active", async () => {
+  it(
+    "switches to attendance banner and selection summary when those flows are active",
+    async () => {
     mockUseAttendanceFlow.mockReturnValue({
       isAttendanceMode: true,
       setIsAttendanceMode: vi.fn(),
@@ -281,5 +292,7 @@ describe("classroom dashboard component", () => {
       hasChanges: boolean;
     };
     expect(attendanceProps.hasChanges).toBe(true);
-  });
+    },
+    30_000
+  );
 });

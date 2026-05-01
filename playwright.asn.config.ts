@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const devServerCommand = process.platform === "win32" ? "npm.cmd run dev" : "npm run dev";
 
 export default defineConfig({
   testDir: "e2e",
@@ -10,7 +11,7 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"]],
   webServer: {
-    command: "npm run dev",
+    command: devServerCommand,
     url: baseURL,
     reuseExistingServer: true,
     timeout: 180_000,

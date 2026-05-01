@@ -59,6 +59,8 @@ export interface DashboardStudent {
     streak: number;
     lastCheckIn: string | null;
     inventory: string[];
+    /** Preset battle consumables when defending (max 1 per category). */
+    battleLoadout: string[];
     equippedFrame: string | null;
     negamonSkills: string[];
 }

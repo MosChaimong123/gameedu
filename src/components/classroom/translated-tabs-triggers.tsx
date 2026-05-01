@@ -13,6 +13,7 @@ export function TranslatedTabsTriggers() {
             <TabsTrigger className={triggerClassName} value="attendance" suppressHydrationWarning>{t("dashboardTabAttendance")}</TabsTrigger>
             <TabsTrigger className={triggerClassName} value="board" suppressHydrationWarning>{t("ideaBoard")}</TabsTrigger>
             <TabsTrigger className={triggerClassName} value="analytics" suppressHydrationWarning>{t("dashboardTabAnalytics")}</TabsTrigger>
+            <TabsTrigger className={triggerClassName} value="economy" suppressHydrationWarning>{t("dashboardTabEconomy")}</TabsTrigger>
         </>
     );
 }

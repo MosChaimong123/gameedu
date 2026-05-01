@@ -17,6 +17,8 @@ const socket_io_cors_1 = require("./src/lib/socket-io-cors");
 const mongo_admin_1 = require("./src/lib/ops/mongo-admin");
 const env_2 = require("./src/lib/env");
 const resource_access_1 = require("./src/lib/authorization/resource-access");
+const plan_access_1 = require("./src/lib/plan/plan-access");
+const roles_1 = require("./src/lib/roles");
 const dev = process.env.NODE_ENV !== "production";
 const hostname = dev ? "localhost" : "0.0.0.0";
 const port = parseInt(process.env.PORT || "3000", 10);
@@ -66,6 +68,14 @@ app.prepare().then(async () => {
         canHostQuestionSet: (userId, setId) => (0, resource_access_1.canHostQuestionSetForUser)(db_1.db, userId, setId),
         canAccessClassroom: (userId, classId) => (0, resource_access_1.canUserAccessClassroom)(db_1.db, userId, classId),
         canPublishClassroomEvent: (userId, classId, eventType) => (0, resource_access_1.canUserPublishClassroomSocketEvent)(db_1.db, userId, classId, eventType),
+        resolveLivePlayerCapForHost: async (hostId) => {
+            const user = await db_1.db.user.findUnique({
+                where: { id: hostId },
+                select: { plan: true, role: true },
+            });
+            const role = (user === null || user === void 0 ? void 0 : user.role) && (0, roles_1.isAppRole)(user.role) ? user.role : "USER";
+            return (0, plan_access_1.getLimitsForUser)(role, user === null || user === void 0 ? void 0 : user.plan).maxLiveGamePlayers;
+        },
     });
     httpServer
         .once("error", (err) => {

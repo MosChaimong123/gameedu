@@ -12,6 +12,12 @@
 # 2. ตั้ง env ที่ sync: false ให้ครบ (DATABASE_URL, AUTH_*, URL สาธารณะ)
 # 3. NEXT_PUBLIC_* ฝังตอน build — ตั้งค่าใน Render ก่อน build แรก
 # 4. Optional: Render Shell → npm run db:seed
+# 5. Stripe (PLUS checkout + webhook): ไปที่ Dashboard → Environment และกรอกค่าตามชื่อคีย์ด้านล่าง (sync: false)
+#    - STRIPE_SECRET_KEY = sk_live_... (Stripe Dashboard → API keys)
+#    - STRIPE_WEBHOOK_SECRET = whsec_... (จาก Webhook endpoint ของ production เท่านั้น)
+#    - STRIPE_PRICE_PLUS_MONTHLY / YEARLY = price_... (จาก Product รายเดือน/รายปีใน Stripe)
+#    - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = pk_live_... (ถ้ามีการใช้ Stripe.js / Elements ภายหลัง)
+# 6. Thai PSP (optional): BILLING_THAI_PROVIDER + BILLING_THAI_WEBHOOK_SECRET — see .env.example
 
 services:
   - type: web
@@ -50,6 +56,28 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GEMINI_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_PLUS_MONTHLY
+        sync: false
+      - key: STRIPE_PRICE_PLUS_YEARLY
+        sync: false
+      - key: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: BILLING_THAI_PROVIDER
+        sync: false
+      - key: BILLING_THAI_WEBHOOK_SECRET
+        sync: false
+      - key: OMISE_SECRET_KEY
+        sync: false
+      - key: NEXT_PUBLIC_OMISE_PUBLIC_KEY
+        sync: false
+      - key: OMISE_PLUS_MONTHLY_SATANG
+        sync: false
+      - key: OMISE_PLUS_YEARLY_SATANG
         sync: false
       - key: AUTH_TRUST_HOST
         value: "true"

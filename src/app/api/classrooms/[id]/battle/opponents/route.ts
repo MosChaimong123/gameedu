@@ -9,13 +9,25 @@ import {
     getStudentMonsterState,
 } from "@/lib/classroom-utils";
 import type { LevelConfigInput } from "@/lib/classroom-utils";
+import { authorizeBattleRead } from "@/lib/services/battle-read-auth";
 
 export async function GET(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id: classId } = await params;
-    const studentId = new URL(req.url).searchParams.get("studentId") ?? "";
+    const url = new URL(req.url);
+    const studentId = url.searchParams.get("studentId")?.trim() ?? "";
+    const studentCode = url.searchParams.get("studentCode") ?? undefined;
+
+    if (!studentId) {
+        return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });
+    }
+
+    const auth = await authorizeBattleRead({ classId, studentId, studentCode });
+    if (!auth.ok) {
+        return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
 
     const classroom = await db.classroom.findUnique({
         where: { id: classId },
@@ -42,7 +54,7 @@ export async function GET(
     const opponents = students
         .map((s: { id: string; name: string; behaviorPoints: number }) => {
             const m = getStudentMonsterState(s.id, s.behaviorPoints, levelConfig, negamon);
-            if (!m || m.unlockedMoves.length === 0) return null;
+            if (!m) return null;
             return {
                 id: s.id,
                 name: s.name,

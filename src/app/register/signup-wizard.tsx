@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -108,6 +109,10 @@ export default function SignupWizard() {
     const onRegister = async (e: React.FormEvent) => {
         e.preventDefault()
         setError("")
+        if (!role) {
+            setError(t("signupErrRoleMissing"))
+            return
+        }
         setIsLoading(true)
 
         try {
@@ -367,6 +372,18 @@ export default function SignupWizard() {
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         {t("signupSubmit")}
                     </Button>
+
+                    <p className="text-center text-xs font-medium leading-5 text-slate-500">
+                        By creating an account, you agree to the{" "}
+                        <Link href="/terms" className="font-bold text-indigo-600 hover:text-indigo-800">
+                            Terms
+                        </Link>{" "}
+                        and{" "}
+                        <Link href="/privacy" className="font-bold text-indigo-600 hover:text-indigo-800">
+                            Privacy Policy
+                        </Link>
+                        .
+                    </p>
 
                     <div className="relative my-4">
                         <div className="absolute inset-0 flex items-center">

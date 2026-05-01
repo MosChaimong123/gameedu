@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 import type { NegamonBattlePlayer } from "@/lib/types/game"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Swords } from "lucide-react"
+import { AlertTriangle, ShieldCheck, Swords } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 
 type Props = {
@@ -131,6 +131,32 @@ export function NegamonBattleHostView({
                                         <span className="truncate font-bold text-white">{p.name}</span>
                                         <span className="shrink-0 text-xs font-bold text-violet-200">
                                             {p.eliminated ? "K.O." : `${p.battleHp} HP`}
+                                        </span>
+                                    </div>
+                                    <div className="mb-2">
+                                        <span
+                                            className={cn(
+                                                "inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase",
+                                                p.studentId
+                                                    ? "bg-emerald-500/15 text-emerald-300"
+                                                    : "bg-amber-500/15 text-amber-300"
+                                            )}
+                                            title={
+                                                p.studentId
+                                                    ? t("hostNegamonIdentityLinked")
+                                                    : t("hostNegamonIdentityUnlinked")
+                                            }
+                                        >
+                                            {p.studentId ? (
+                                                <ShieldCheck className="h-3 w-3" />
+                                            ) : (
+                                                <AlertTriangle className="h-3 w-3" />
+                                            )}
+                                            <span className="truncate">
+                                                {p.studentId
+                                                    ? t("hostNegamonIdentityLinked")
+                                                    : t("hostNegamonIdentityUnlinked")}
+                                            </span>
                                         </span>
                                     </div>
                                     <div className="h-2.5 overflow-hidden rounded-full bg-slate-800">

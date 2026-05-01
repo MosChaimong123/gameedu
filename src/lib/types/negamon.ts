@@ -3,14 +3,14 @@
 // ============================================================
 
 export type MonsterType =
+    | "NORMAL" // ไร้ธาตุ — ใช้ท่าตีธรรมดาที่ฝังจากระบบเท่านั้น (ไม่ใช้เป็นธาตุมอน)
     | "FIRE"
     | "WATER"
     | "EARTH"
     | "WIND"
     | "THUNDER"
     | "LIGHT"
-    | "DARK"
-    | "PSYCHIC";
+    | "DARK";
 
 export type MoveCategory = "PHYSICAL" | "SPECIAL" | "STATUS" | "HEAL";
 
@@ -48,7 +48,7 @@ export type MonsterMove = {
     category: MoveCategory;
     power: number;       // 0 = status/heal move
     accuracy: number;    // 0-100
-    learnRank: number;   // 1-6 (ปลดล็อคที่ rank index + 1)
+    learnRank: number;   // สกิลใน species: 3–6 (ปลดเมื่อ rankIndex+1 >= learnRank); ท่าตีธรรมดา inject แยก
     priority?: number;   // turn-order priority: +1 ไปก่อน, -1 ไปหลัง (default 0)
     critBonus?: number;  // เพิ่ม crit rate เป็น % เช่น 20 = +20%
     effect?: StatusEffect;
@@ -83,7 +83,7 @@ export type MonsterSpecies = {
     id: string;            // unique key เช่น "naga", "garuda"
     name: string;          // ชื่อไทย เช่น "พญานาค"
     type: MonsterType;     // primary type
-    type2?: MonsterType;   // secondary type (ปลดล็อคตอน rank 4+)
+    type2?: MonsterType;   // secondary type — ค่าเริ่มต้นทุกสายพันธุ์ใน catalog มีครบคู่กับ type
     baseStats: MonsterBaseStats;
     forms: MonsterForm[];  // ต้องมีครบ 6 forms (index 0-5)
     moves: MonsterMove[];

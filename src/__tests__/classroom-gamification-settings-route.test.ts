@@ -56,7 +56,7 @@ describe("classroom gamification settings route", () => {
     await expectAppErrorResponse(response, {
       status: 400,
       code: "INVALID_PAYLOAD",
-      message: "gamifiedSettings must be an object",
+      message: "Invalid gamification settings",
     });
     expect(mockClassroomUpdate).not.toHaveBeenCalled();
   });
@@ -71,7 +71,7 @@ describe("classroom gamification settings route", () => {
     await expectAppErrorResponse(response, {
       status: 400,
       code: "INVALID_PAYLOAD",
-      message: "gamifiedSettings has an invalid structure",
+      message: "Invalid gamification settings",
     });
     expect(mockClassroomUpdate).not.toHaveBeenCalled();
   });

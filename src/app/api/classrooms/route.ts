@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { DEFAULT_LEVEL_CONFIG } from "@/lib/classroom-utils";
-import { AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
+import { getLimitsForUser } from "@/lib/plan/plan-access";
 
 function canManageClassrooms(role?: string | null) {
     return role === "TEACHER" || role === "ADMIN";
@@ -58,6 +63,20 @@ export async function POST(req: Request) {
 
         if (!name) {
             return new NextResponse("Name is required", { status: 400 });
+        }
+
+        const limits = getLimitsForUser(session.user.role, session.user.plan);
+        if (Number.isFinite(limits.maxClassrooms)) {
+            const n = await db.classroom.count({
+                where: { teacherId: session.user.id as string },
+            });
+            if (n >= limits.maxClassrooms) {
+                return createAppErrorResponse(
+                    "PLAN_LIMIT_CLASSROOMS",
+                    "Classroom limit reached for your plan",
+                    403
+                );
+            }
         }
 
         // Create Classroom

@@ -7,6 +7,7 @@ import {
     createRateLimitResponse,
     getRequestClientIdentifier,
 } from "@/lib/security/rate-limit"
+import { getLimitsForUser } from "@/lib/plan/plan-access"
 
 // Cache buster: v2-force-resync-v5-revert-to-stable-pdfparse
 
@@ -15,6 +16,15 @@ export async function POST(req: Request) {
         const session = await auth()
         if (!session?.user?.id) return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401)
         if (session.user.role === "STUDENT") return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403)
+
+        const planLimits = getLimitsForUser(session.user.role, session.user.plan)
+        if (!planLimits.aiFileParse) {
+            return createAppErrorResponse(
+                "PLAN_LIMIT_AI_FEATURE",
+                "AI file parsing is not included in your plan",
+                403
+            )
+        }
 
         const rateLimit = await consumeRateLimitWithStore({
             bucket: "ai-parse-file:post",

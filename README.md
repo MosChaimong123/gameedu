@@ -28,6 +28,8 @@ What is now treated as legacy:
 
 ## Key Docs
 
+- Commercial production roadmap: [docs/commercial-production-roadmap.md](docs/commercial-production-roadmap.md)
+- Phase 1 production readiness status: [docs/phase-1-production-readiness-status.md](docs/phase-1-production-readiness-status.md)
 - Contributor guide: [CONTRIBUTING.md](/C:/Users/IHCK/GAMEEDU/gamedu/CONTRIBUTING.md)
 - Domain and legacy cleanup summary: [docs/domain-legacy-cleanup-summary.md](/C:/Users/IHCK/GAMEEDU/gamedu/docs/domain-legacy-cleanup-summary.md)
 - Role semantics: [docs/role-semantics.md](/C:/Users/IHCK/GAMEEDU/gamedu/docs/role-semantics.md)
@@ -65,4 +67,3 @@ npm run db:cleanup-rpg
 - Treat `USER` as a generic authenticated account, not as a synonym for `STUDENT`.
 - Prefer canonical plural classroom API paths such as `/api/classrooms/...`.
 - Prefer shared auth and role helpers when adding new protected routes or pages.
-

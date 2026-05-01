@@ -20,6 +20,7 @@
     "test:integration": "node ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.mts --pool threads",
     "test:watch": "node ./node_modules/vitest/vitest.mjs --config vitest.config.mts --pool threads",
     "test:e2e:asn": "playwright test -c playwright.asn.config.ts",
+    "test:e2e:negamon-reward": "playwright test -c playwright.asn.config.ts -g \"Negamon reward re-sync smoke\"",
     "test:e2e:asn:headed": "playwright test -c playwright.asn.config.ts --headed",
     "test:e2e:asn:install": "playwright install chromium",
     "governance:check": "node scripts/check-governance.mjs",
@@ -29,7 +30,11 @@
     "db:push": "npx prisma db push",
     "prisma:regen": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/prisma-generate-unlock.ps1",
     "db:cleanup-rpg": "node scripts/cleanup-rpg-data.mjs",
-    "db:cleanup-rpg:dry-run": "node scripts/cleanup-rpg-data.mjs --dry-run"
+    "db:cleanup-rpg:dry-run": "node scripts/cleanup-rpg-data.mjs --dry-run",
+    "user:set-role": "node scripts/promote-user-role.mjs",
+    "billing:stripe-listen": "node scripts/stripe-listen.mjs",
+    "billing:stripe-print-secret": "node scripts/stripe-print-webhook-secret.mjs",
+    "billing:stripe-trigger-checkout": "node scripts/stripe-trigger-checkout-completed.mjs"
   },
   "prisma": {
     "seed": "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
@@ -79,6 +84,7 @@
     "recharts": "^3.7.0",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
+    "stripe": "^22.0.2",
     "tailwind-merge": "^3.4.0",
     "ts-node": "^10.9.2",
     "typescript": "^5",

@@ -1,7 +1,12 @@
 import { auth } from "@/auth"
 import { db } from "@/lib/db"
 import { NextResponse } from "next/server"
-import { AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
+import { getLimitsForUser } from "@/lib/plan/plan-access";
 
 function canManageQuestionSets(role?: string | null) {
     return role === "TEACHER" || role === "ADMIN"
@@ -60,6 +65,20 @@ export async function POST(req: Request) {
 
         if (!title) {
             return new NextResponse("Title is required", { status: 400 })
+        }
+
+        const limits = getLimitsForUser(session.user.role, session.user.plan)
+        if (Number.isFinite(limits.maxQuestionSets)) {
+            const existingCount = await db.questionSet.count({
+                where: { creatorId: session.user.id as string },
+            })
+            if (existingCount >= limits.maxQuestionSets) {
+                return createAppErrorResponse(
+                    "PLAN_LIMIT_QUESTION_SETS",
+                    "Question set limit reached for your plan",
+                    403
+                )
+            }
         }
 
         const set = await db.questionSet.create({

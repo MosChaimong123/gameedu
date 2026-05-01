@@ -136,6 +136,8 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
             pin: playerSession.pin,
             nickname: playerSession.name,
             reconnectToken: reconnectToken ?? undefined,
+            studentId: playerSession.studentId,
+            studentCode: playerSession.studentCode,
         })
 
         socket.emit("get-game-state", { pin: playerSession.pin })
@@ -532,6 +534,8 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
                     pin: data.pin,
                     name: data.nickname,
                     reconnectToken: data.reconnectToken,
+                    studentId: data.studentId,
+                    studentCode: data.studentCode,
                 })
             }
 

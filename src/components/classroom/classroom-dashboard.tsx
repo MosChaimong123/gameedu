@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StudentAvatar } from "./student-avatar";
 import { AddStudentDialog } from "./add-student-dialog";
 import { PointMenu } from "./point-menu";
@@ -49,12 +49,24 @@ interface ClassroomDashboardProps {
     initialClassFocus?: "assignments" | null;
     /** When set (e.g. from `?highlightAssignmentId=`), scroll/highlight that assignment column. */
     highlightAssignmentId?: string | null;
+    /** When set (e.g. from reward audit), filter students by roster match hints. */
+    initialStudentLookup?: string | null;
+    /** When set, open student manager and focus this student immediately. */
+    initialManageStudentId?: string | null;
+    /** When set, open history modal for this student immediately. */
+    initialHistoryStudentId?: string | null;
+    /** When set from reward audit deep-links, keep game pin context for remediation audit logs. */
+    initialRewardGamePin?: string | null;
 }
 
 export function ClassroomDashboard({
     classroom: initialClassroom,
     initialClassFocus = null,
     highlightAssignmentId = null,
+    initialStudentLookup = null,
+    initialManageStudentId = null,
+    initialHistoryStudentId = null,
+    initialRewardGamePin = null,
 }: ClassroomDashboardProps) {
     const { t } = useLanguage();
     const [selectedStudent, setSelectedStudent] = useState<ClassroomDashboardViewModel["students"][number] | null>(null);
@@ -203,6 +215,28 @@ export function ClassroomDashboard({
         }
     };
 
+    const normalizedStudentLookup = initialStudentLookup?.trim().toLowerCase() ?? "";
+    const studentLookupMatches = normalizedStudentLookup
+        ? classroom.students.filter((student) => {
+            const haystacks = [student.name, student.nickname, student.loginCode]
+                .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+                .map((value) => value.toLowerCase());
+            return haystacks.some((value) => value.includes(normalizedStudentLookup));
+        })
+        : [];
+    const studentLookupMatchedIds = new Set(studentLookupMatches.map((student) => student.id));
+    const singleStudentLookupMatch = studentLookupMatches.length === 1 ? studentLookupMatches[0] : null;
+
+    useEffect(() => {
+        if (!initialManageStudentId) return;
+        setShowStudentManager(true);
+    }, [initialManageStudentId, setShowStudentManager]);
+
+    useEffect(() => {
+        if (!initialHistoryStudentId) return;
+        setHistoryStudentId(initialHistoryStudentId);
+    }, [initialHistoryStudentId, setHistoryStudentId]);
+
     return (
         <div className="flex flex-col h-full space-y-6 relative">
             {/* Toolbar */}
@@ -277,6 +311,42 @@ export function ClassroomDashboard({
                 />
             )}
 
+            {normalizedStudentLookup ? (
+                <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <span className="font-black">{t("classroomStudentLookupTitle")}: </span>
+                            <span>{initialStudentLookup}</span>
+                            <span className="ml-2 font-semibold text-sky-700">
+                                {t("classroomStudentLookupMatches", { count: studentLookupMatches.length })}
+                            </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="border-sky-200 bg-white text-sky-800 hover:bg-sky-100"
+                                onClick={() => setShowStudentManager(true)}
+                            >
+                                {t("classroomStudentLookupManage")}
+                            </Button>
+                            {singleStudentLookupMatch ? (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-sky-200 bg-white text-sky-800 hover:bg-sky-100"
+                                    onClick={() => setHistoryStudentId(singleStudentLookupMatch.id)}
+                                >
+                                    {t("classroomStudentLookupHistory")}
+                                </Button>
+                            ) : null}
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
             {/* Grid Area */}
             {viewMode === "grid" ? (
                 <div className={`min-h-0 flex-1 overflow-y-auto rounded-[22px] border p-4 transition-all sm:p-6 ${isAttendanceMode ? "border-blue-200 bg-blue-50/20" : "border-[#f2f2f2] bg-[#fafafa]"}`}>
@@ -293,7 +363,10 @@ export function ClassroomDashboard({
                     </div>
                 ) : (
                     <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 sm:gap-5 md:grid-cols-[repeat(auto-fit,minmax(230px,1fr))] md:gap-6">
-                        {classroom.students.filter((s) => !isSelectMultiple || groupFilter === "all" || visibleStudentIds.includes(s.id)).map((student) => (
+                        {classroom.students
+                            .filter((s) => !isSelectMultiple || groupFilter === "all" || visibleStudentIds.includes(s.id))
+                            .filter((student) => !normalizedStudentLookup || studentLookupMatchedIds.has(student.id))
+                            .map((student) => (
                             <StudentAvatar
                                 key={student.id}
                                 {...student}
@@ -308,7 +381,9 @@ export function ClassroomDashboard({
                                     student.submissions ?? []
                                 )}
                                 behaviorPoints={student.behaviorPoints}
-                                className={isAttendanceMode ? "hover:scale-100" : ""}
+                                className={`${isAttendanceMode ? "hover:scale-100" : ""} ${
+                                    studentLookupMatchedIds.has(student.id) ? "ring-4 ring-sky-400/40 border-sky-200" : ""
+                                }`}
                             />
                         ))}
                     </div>
@@ -387,6 +462,17 @@ export function ClassroomDashboard({
                 onOpenChange={setShowStudentManager}
                 onChanged={(students) => updateStudents(students as never)}
                 students={classroom.students as never}
+                initialSearchTerm={initialStudentLookup}
+                initialStudentId={initialManageStudentId}
+                auditContext={
+                    initialStudentLookup || initialManageStudentId || initialRewardGamePin
+                        ? {
+                            source: "negamon_reward_audit",
+                            studentLookup: initialStudentLookup,
+                            rewardGamePin: initialRewardGamePin,
+                        }
+                        : null
+                }
             />
 
             {/* Widgets */}
@@ -459,4 +545,3 @@ export function ClassroomDashboard({
         </div>
     );
 }
-

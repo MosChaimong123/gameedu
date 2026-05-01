@@ -6,7 +6,7 @@ import { useSocket } from "@/components/providers/socket-provider"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Users, Copy, Loader2, Play } from "lucide-react"
+import { Users, Copy, Loader2, Play, ShieldCheck, AlertTriangle } from "lucide-react"
 import { GameModeSelector } from "@/components/host/game-mode-selector"
 import { GoldQuestSettings } from "@/components/host/settings/gold-quest-settings"
 import { CryptoHackSettings } from "@/components/host/settings/crypto-hack-settings"
@@ -104,6 +104,7 @@ export default function HostLobbyPage() {
     const [timeLeft, setTimeLeft] = useState(0)
     const [endTime, setEndTime] = useState<number | null>(null)
     const [isCancelLobbyDialogOpen, setIsCancelLobbyDialogOpen] = useState(false)
+    const [isNegamonIdentityStartDialogOpen, setIsNegamonIdentityStartDialogOpen] = useState(false)
     const hostTokenStorageKey = `host_reconnect_token_${setId}`
     /** จาก `?classroomId=` — ส่งตอน create-game เพื่อซิงค์ EXP หลังจบ Negamon */
     const [rewardClassroomFromQuery, setRewardClassroomFromQuery] = useState<string | null>(null)
@@ -133,6 +134,14 @@ export default function HostLobbyPage() {
     const [negamonBattleLogs, setNegamonBattleLogs] = useState<string[]>([])
 
     const isClient = useIsClient()
+    const uniqueLobbyPlayers = Array.from(new Map(players.map((player) => [player.id, player])).values())
+    const negamonIdentityStatus =
+        selectedMode === "NEGAMON_BATTLE" && rewardClassroomFromQuery
+            ? {
+                  linked: uniqueLobbyPlayers.filter((player) => Boolean(player.studentId)).length,
+                  total: uniqueLobbyPlayers.length,
+              }
+            : null
 
     useEffect(() => {
         if (sessionStatus === "authenticated" && !isTeacherOrAdmin(session?.user?.role)) {
@@ -393,12 +402,23 @@ export default function HostLobbyPage() {
         })
     }
 
-    const startGame = () => {
-        // Emit start game event (Phase 4)
+    const emitStartGame = () => {
         if (socket) {
             socket.emit("start-game", { pin });
             setView("PLAYING"); // Optimistic update
         }
+    }
+
+    const startGame = () => {
+        if (
+            negamonIdentityStatus &&
+            negamonIdentityStatus.total > 0 &&
+            negamonIdentityStatus.linked < negamonIdentityStatus.total
+        ) {
+            setIsNegamonIdentityStartDialogOpen(true)
+            return
+        }
+        emitStartGame()
     }
 
     const sessionLoadingShell = (
@@ -606,10 +626,58 @@ export default function HostLobbyPage() {
 
                 {/* Player Grid */}
                 <div className="w-full max-w-5xl">
+                    {negamonIdentityStatus && negamonIdentityStatus.total > 0 && (
+                        <div
+                            className={cn(
+                                "mb-4 flex flex-wrap items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-bold",
+                                negamonIdentityStatus.linked === negamonIdentityStatus.total
+                                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                                    : "border-amber-500/30 bg-amber-500/10 text-amber-200"
+                            )}
+                        >
+                            {negamonIdentityStatus.linked === negamonIdentityStatus.total ? (
+                                <ShieldCheck className="h-4 w-4" />
+                            ) : (
+                                <AlertTriangle className="h-4 w-4" />
+                            )}
+                            <span>
+                                {t("hostNegamonIdentitySummary", {
+                                    linked: negamonIdentityStatus.linked,
+                                    total: negamonIdentityStatus.total,
+                                })}
+                            </span>
+                        </div>
+                    )}
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        {Array.from(new Map(players.map((player) => [player.id, player])).values()).map((player) => (
-                            <Card key={player.id} className="bg-slate-800 border-none p-4 flex items-center justify-center animate-in scale-0 duration-300 fill-mode-both">
+                        {uniqueLobbyPlayers.map((player) => (
+                            <Card key={player.id} className="bg-slate-800 border-none p-4 flex flex-col items-center justify-center gap-2 animate-in scale-0 duration-300 fill-mode-both">
                                 <span className="font-bold text-lg text-white truncate">{player.name}</span>
+                                {selectedMode === "NEGAMON_BATTLE" && rewardClassroomFromQuery && (
+                                    <span
+                                        className={cn(
+                                            "inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase",
+                                            player.studentId
+                                                ? "bg-emerald-500/15 text-emerald-300"
+                                                : "bg-amber-500/15 text-amber-300"
+                                        )}
+                                        title={
+                                            player.studentId
+                                                ? t("hostNegamonIdentityLinked")
+                                                : t("hostNegamonIdentityUnlinked")
+                                        }
+                                    >
+                                        {player.studentId ? (
+                                            <ShieldCheck className="h-3 w-3" />
+                                        ) : (
+                                            <AlertTriangle className="h-3 w-3" />
+                                        )}
+                                        <span className="truncate">
+                                            {player.studentId
+                                                ? t("hostNegamonIdentityLinked")
+                                                : t("hostNegamonIdentityUnlinked")}
+                                        </span>
+                                    </span>
+                                )}
                             </Card>
                         ))}
                     </div>
@@ -659,6 +727,36 @@ export default function HostLobbyPage() {
                             className="bg-red-600 hover:bg-red-700"
                         >
                             {t("hostEndLobby")}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog
+                open={isNegamonIdentityStartDialogOpen}
+                onOpenChange={setIsNegamonIdentityStartDialogOpen}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{t("hostNegamonIdentityStartTitle")}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {t("hostNegamonIdentityStartDesc", {
+                                linked: negamonIdentityStatus?.linked ?? 0,
+                                total: negamonIdentityStatus?.total ?? 0,
+                            })}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>{t("hostNegamonIdentityStartBack")}</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(event) => {
+                                event.preventDefault()
+                                setIsNegamonIdentityStartDialogOpen(false)
+                                emitStartGame()
+                            }}
+                            className="bg-amber-600 hover:bg-amber-700"
+                        >
+                            {t("hostNegamonIdentityStartAnyway")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

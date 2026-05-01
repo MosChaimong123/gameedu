@@ -44,6 +44,8 @@ export default function PlayerLobbyPage() {
                 pin: playerSession.pin,
                 nickname: playerSession.name,
                 reconnectToken: playerSession.reconnectToken,
+                studentId: playerSession.studentId,
+                studentCode: playerSession.studentCode,
             })
             console.log("Lobby: Requesting game state for", playerSession.pin);
             socket.emit("get-game-state", { pin: playerSession.pin });

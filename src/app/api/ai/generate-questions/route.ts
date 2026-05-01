@@ -9,6 +9,7 @@ import {
     getRequestClientIdentifier,
 } from "@/lib/security/rate-limit"
 import { logAuditEvent } from "@/lib/security/audit-log"
+import { getLimitsForUser } from "@/lib/plan/plan-access"
 
 type GeminiContentPart =
     | { text: string }
@@ -54,6 +55,23 @@ export async function POST(req: Request) {
                 metadata: { role: session.user.role },
             })
             return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403)
+        }
+
+        const planLimits = getLimitsForUser(session.user.role, session.user.plan)
+        if (!planLimits.aiQuestionGeneration) {
+            logAuditEvent({
+                actorUserId,
+                action: "auth.ai_generate.denied",
+                category: "auth",
+                status: "rejected",
+                reason: "plan_limit",
+                targetType: "aiGenerate",
+            })
+            return createAppErrorResponse(
+                "PLAN_LIMIT_AI_FEATURE",
+                "AI question generation is not included in your plan",
+                403
+            )
         }
 
         const rateLimit = await consumeRateLimitWithStore({

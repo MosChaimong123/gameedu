@@ -15,9 +15,12 @@ const registerSchema = z.object({
     email: z.string().email(),
     password: z.string().min(6),
     school: z.string().optional(),
+    /** สมัครทางหน้าเว็บได้แค่ STUDENT หรือ TEACHER — ไม่รับ ADMIN จาก client */
+    role: z.preprocess(
+        (v) => (v === null || v === "" ? undefined : v),
+        z.enum(["STUDENT", "TEACHER"]).default("STUDENT")
+    ),
 })
-
-const PUBLIC_REGISTRATION_ROLE = "STUDENT" as const
 
 function maskEmail(email: string) {
     const [localPart = "", domain = ""] = email.split("@")
@@ -59,7 +62,7 @@ export async function POST(req: Request) {
 
         step = "parse_body";
         const body = await req.json()
-        const { name, username, email, password, school } = registerSchema.parse(body)
+        const { name, username, email, password, school, role: registrationRole } = registerSchema.parse(body)
 
         step = "check_uniqueness";
         const existingEmail = await db.user.findUnique({ where: { email } })
@@ -99,8 +102,7 @@ export async function POST(req: Request) {
                 username,
                 email,
                 password: hashedPassword,
-                // Public registration must never trust privileged role input from the client.
-                role: PUBLIC_REGISTRATION_ROLE,
+                role: registrationRole,
                 school
             },
         })

@@ -42,7 +42,19 @@ model User {
   plan          String?   @default("FREE")    // "FREE", "PLUS", "PRO"
   planStatus    String?   @default("INACTIVE") // "ACTIVE", "EXPIRED", "INACTIVE"
   planExpiry    DateTime?
-  customerId    String?   // Stripe/Payment Provider Customer ID
+  customerId    String?   // Stripe Customer ID (cus_...) when paying via Stripe
+  billingProvider String?              // Active PSP: stripe, omise, two_c_two_p, thai_mock, ...
+  billingExternalCustomerId String?    // Customer/account id from non-Stripe PSP when applicable
+
+}
+
+model BillingProviderEvent {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  provider          String   // e.g. stripe, omise, thai_mock
+  externalEventId   String   // PSP event / idempotency key (Stripe evt_...)
+  createdAt         DateTime @default(now())
+
+  @@unique([provider, externalEventId])
 }
 
 model Account {
@@ -146,8 +158,19 @@ model BattleSession {
   defenderId   String   @db.ObjectId  // Student.id
   /// Snapshot of both fighters + full turn log (BattleResult JSON)
   result       Json
-  winnerId     String   @db.ObjectId
+  /// null while interactivePending — set when battle is saved
+  winnerId     String?  @db.ObjectId
   goldReward   Int      @default(30)
+  /// When true, session waits for saveInteractive; do not list in history
+  interactivePending Boolean @default(false)
+  /// Item IDs consumed for this fight (one entry per stack unit), snapshot at beginInteractive
+  challengerBattleItems String[] @default([])
+  defenderBattleItems   String[] @default([])
+  /// Server-computed max gold if that side wins (for clamping client-reported reward)
+  maxGoldIfChallengerWins Int?
+  maxGoldIfDefenderWins   Int?
+  /// Optimistic lock for server-authoritative interactive turns
+  stateVersion Int @default(0)
   createdAt    DateTime @default(now())
 }
 
@@ -174,6 +197,8 @@ model Student {
   streak        Int                  @default(0)
   /// รายการ item ID ที่ซื้อจาก shop แล้ว
   inventory     String[]             @default([])
+  /// ไอเทมต่อสู้ที่ตั้งไว้ล่วงหน้า (ใช้เมื่อถูกท้า — สูงสุด 1 ต่อหมวด stat_boost / status / reward)
+  battleLoadout String[]             @default([])
   /// frame ID ที่กำลังใช้งานอยู่
   equippedFrame String?
   /// passive skill IDs ที่ unlock ด้วย gold แล้ว
@@ -195,8 +220,30 @@ model Student {
   boardReactions BoardReaction[]
   boardPollVotes BoardPollVote[]
   achievements  StudentAchievement[]
+  economyTransactions EconomyTransaction[]
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
+}
+
+model EconomyTransaction {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId     String   @db.ObjectId
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId       String?  @db.ObjectId
+  type          String   // earn, spend, adjust
+  source        String   // passive_gold, checkin, quest, battle, shop, admin_adjustment, migration
+  amount        Int      // positive for earn/adjust up, negative for spend/adjust down
+  balanceBefore Int
+  balanceAfter  Int
+  sourceRefId   String?  @db.ObjectId
+  idempotencyKey String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  @@index([studentId, createdAt])
+  @@index([classId, createdAt])
+  @@index([source, createdAt])
+  @@index([idempotencyKey])
 }
 
 model PointHistory {
@@ -207,6 +254,22 @@ model PointHistory {
   reason    String
   skillId   String?  @db.ObjectId
   timestamp DateTime @default(now())
+}
+
+model NegamonLiveBattleRewardClaim {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId      String   @db.ObjectId
+  classId        String   @db.ObjectId
+  gamePin        String
+  reason         String
+  idempotencyKey String   @unique
+  exp            Int
+  rank           Int
+  finalScore     Int
+  createdAt      DateTime @default(now())
+
+  @@index([classId, createdAt])
+  @@index([studentId, createdAt])
 }
 
 model Skill {
@@ -478,4 +541,34 @@ model OMRResult {
   answers     Json     // The student's detected answers
   
   scannedAt   DateTime @default(now())
+}
+
+/// Admin-managed dashboard news for teachers; `audiencePlans` must be non-empty (subset of FREE, PLUS, PRO).
+model TeacherNewsItem {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  title          String
+  body           String   @default("")
+  tag            String?
+  tagColor       String?
+  mascot         String?
+  publishedAt    DateTime @default(now())
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  audiencePlans  String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+/// Admin-managed missions shown on teacher dashboard; `audiencePlans` must be non-empty.
+model TeacherMission {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  title          String
+  reward         Int      @default(0)
+  completedDemo  Boolean  @default(false)
+  mascot         String?
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  audiencePlans  String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

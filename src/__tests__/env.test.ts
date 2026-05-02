@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   clearCachedEnvForTests,
   getAppEnv,
+  normalizePublicUrlEnvsInProcess,
   resolveAuthSecret,
   resolveAuditLogSink,
   resolveRateLimitStore,
@@ -32,6 +33,25 @@ describe("env helpers", () => {
     expect(env.DATABASE_URL).toContain("mongodb://");
     expect(env.AUTH_SECRET).toBe("secret");
     expect(env.NODE_ENV).toBe("production");
+  });
+
+  it("normalizes 0.0.0.0 to localhost in development (OAuth / browser-safe)", () => {
+    const env = {
+      NODE_ENV: "development",
+      NEXTAUTH_URL: "http://0.0.0.0:10000",
+      NEXT_PUBLIC_APP_URL: "https://0.0.0.0:3000/path",
+    } as NodeJS.ProcessEnv;
+    normalizePublicUrlEnvsInProcess(env);
+    expect(env.NEXTAUTH_URL).toBe("http://localhost:10000");
+    expect(env.NEXT_PUBLIC_APP_URL).toBe("https://localhost:3000/path");
+  });
+
+  it("refuses 0.0.0.0 in production public URL envs", () => {
+    const env = {
+      NODE_ENV: "production",
+      NEXTAUTH_URL: "https://0.0.0.0:10000",
+    } as NodeJS.ProcessEnv;
+    expect(() => normalizePublicUrlEnvsInProcess(env)).toThrow(/Invalid NEXTAUTH_URL/);
   });
 
   it("accepts NEXTAUTH_SECRET as a fallback for AUTH_SECRET", () => {

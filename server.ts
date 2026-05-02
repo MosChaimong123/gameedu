@@ -2,6 +2,9 @@
 import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd()); // โหลด .env.local ก่อน import อื่นใดทั้งหมด
 
+import { normalizePublicUrlEnvsInProcess } from "./src/lib/env";
+normalizePublicUrlEnvsInProcess();
+
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import next from "next";

@@ -33,6 +33,7 @@ import {
 import { getLocalizedOmrErrorMessageFromResponse } from "@/lib/omr-ui-messages"
 import { tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages"
 import { useLanguage } from "@/components/providers/language-provider"
+import { isTeacherOrAdmin } from "@/lib/role-guards"
 
 type OMRQuiz = {
     id: string
@@ -69,7 +70,7 @@ export default function OMRDashboardPage() {
     const [newQuiz, setNewQuiz] = useState({ title: "", questionCount: 20 })
 
     useEffect(() => {
-        if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+        if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
             router.replace("/dashboard")
         }
     }, [router, session, status])
@@ -97,7 +98,7 @@ export default function OMRDashboardPage() {
     }, [toast, language, t])
 
     useEffect(() => {
-        if (status !== "authenticated" || (session.user.role !== "TEACHER" && session.user.role !== "ADMIN")) {
+        if (status !== "authenticated" || !isTeacherOrAdmin(session.user.role)) {
             return
         }
         fetchQuizzes()
@@ -111,7 +112,7 @@ export default function OMRDashboardPage() {
         )
     }
 
-    if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+    if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
         return null
     }
 

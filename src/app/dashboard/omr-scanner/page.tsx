@@ -14,6 +14,7 @@ import { motion } from "framer-motion"
 import { getLocalizedOmrErrorMessageFromResponse } from "@/lib/omr-ui-messages"
 import { tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages"
 import { useLanguage } from "@/components/providers/language-provider"
+import { isTeacherOrAdmin } from "@/lib/role-guards"
 
 type OMRResultItem = {
     question: number
@@ -46,14 +47,14 @@ export default function OMRInferencePage() {
     const [score, setScore] = useState<{ correct: number, total: number } | null>(null)
 
     useEffect(() => {
-        if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+        if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
             router.replace("/dashboard")
         }
     }, [router, session, status])
 
     // Fetch OMR Quiz on load if ID provided
     useEffect(() => {
-        if (status !== "authenticated" || (session.user.role !== "TEACHER" && session.user.role !== "ADMIN")) {
+        if (status !== "authenticated" || !isTeacherOrAdmin(session.user.role)) {
             return
         }
         const searchParams = new URLSearchParams(window.location.search)
@@ -91,7 +92,7 @@ export default function OMRInferencePage() {
         )
     }
 
-    if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+    if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
         return null
     }
 

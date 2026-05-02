@@ -15,6 +15,7 @@ import { ImageUpload } from "@/components/image-upload"
 import { PageBackLink } from "@/components/ui/page-back-link"
 import { useToast } from "@/components/ui/use-toast"
 import { getLocalizedErrorMessageFromResponse } from "@/lib/ui-error-messages"
+import { isTeacherOrAdmin } from "@/lib/role-guards"
 
 export default function CreateSetPage() {
     const router = useRouter()
@@ -31,7 +32,7 @@ export default function CreateSetPage() {
     const [creationMethod, setCreationMethod] = useState<"manual" | "csv">("manual")
 
     useEffect(() => {
-        if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+        if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
             router.replace("/dashboard")
         }
     }, [router, session, status])
@@ -44,7 +45,7 @@ export default function CreateSetPage() {
         )
     }
 
-    if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+    if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
         return null
     }
 

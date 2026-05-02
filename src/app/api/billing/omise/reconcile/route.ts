@@ -7,6 +7,7 @@ import { applyPlusFromPaidOmiseCharge } from "@/lib/billing/omise-entitlement";
 import { omiseRetrieveCharge } from "@/lib/billing/omise-api";
 import { getThaiBillingProviderId } from "@/lib/billing/thai-billing-env";
 import { createAppError } from "@/lib/api-error";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 export const runtime = "nodejs";
 
@@ -43,7 +44,7 @@ export async function POST() {
     if (!userId) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
-    if (role !== "TEACHER" && role !== "ADMIN") {
+    if (!isTeacherOrAdmin(role)) {
       return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
 

@@ -8,10 +8,7 @@ import {
     createAppErrorResponse,
 } from "@/lib/api-error";
 import { getLimitsForUser } from "@/lib/plan/plan-access";
-
-function canManageQuestionSets(role?: string | null) {
-    return role === "TEACHER" || role === "ADMIN"
-}
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 export async function GET() {
     try {
@@ -21,7 +18,7 @@ export async function GET() {
             return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
         }
 
-        if (!canManageQuestionSets(session.user.role)) {
+        if (!isTeacherOrAdmin(session.user.role)) {
             return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
         }
 
@@ -57,7 +54,7 @@ export async function POST(req: Request) {
             return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
         }
 
-        if (!canManageQuestionSets(session.user.role)) {
+        if (!isTeacherOrAdmin(session.user.role)) {
             return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
         }
 

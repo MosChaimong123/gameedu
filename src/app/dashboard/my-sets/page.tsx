@@ -30,6 +30,7 @@ import { AssignmentCreateModal } from "@/components/dashboard/assignment-create-
 import { PageBackLink } from "@/components/ui/page-back-link"
 import { cn } from "@/lib/utils"
 import { getLocalizedErrorMessageFromResponse, tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages"
+import { isTeacherOrAdmin } from "@/lib/role-guards"
 
 type QuestionSet = {
     id: string
@@ -105,7 +106,7 @@ export default function MySetsPage() {
         : ""
 
     useEffect(() => {
-        if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+        if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
             router.replace("/dashboard")
         }
     }, [router, session, status])
@@ -158,7 +159,7 @@ export default function MySetsPage() {
     }, [language, t])
 
     useEffect(() => {
-        if (status !== "authenticated" || (session.user.role !== "TEACHER" && session.user.role !== "ADMIN")) {
+        if (status !== "authenticated" || !isTeacherOrAdmin(session.user.role)) {
             return
         }
         fetchAll()
@@ -178,7 +179,7 @@ export default function MySetsPage() {
         )
     }
 
-    if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+    if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
         return null
     }
 

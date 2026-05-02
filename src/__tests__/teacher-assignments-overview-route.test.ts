@@ -42,7 +42,7 @@ describe("GET /api/teacher/assignments/overview", () => {
     });
 
     it("returns 403 for non-teacher roles", async () => {
-        mockAuth.mockResolvedValue({ user: { id: "u1", role: "USER" } });
+        mockAuth.mockResolvedValue({ user: { id: "s1", role: "STUDENT" } });
         const { GET } = await import("@/app/api/teacher/assignments/overview/route");
         const res = await GET(new Request("http://localhost/api/teacher/assignments/overview"));
         expect(res.status).toBe(403);

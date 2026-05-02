@@ -9,6 +9,7 @@ import {
 } from "@/lib/api-error";
 import { getStripeCheckoutConfigured, getStripeClient, resolvePlusStripePriceId } from "@/lib/billing/stripe";
 import { resolvePublicAppOrigin } from "@/lib/billing/resolve-public-url";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 const bodySchema = z.object({
   interval: z.enum(["month", "year"]).default("month"),
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
       return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
-    if (role !== "TEACHER" && role !== "ADMIN") {
+    if (!isTeacherOrAdmin(role)) {
       return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
 

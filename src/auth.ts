@@ -91,6 +91,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 token.email = user.email
                 if (user.name !== undefined) token.name = user.name
                 token.picture = user.image
+                if (user.role !== undefined && user.role !== null) {
+                    token.role = isAppRole(user.role) ? user.role : ("USER" satisfies AppRole)
+                }
             }
 
             // Sync with DB if updated (SHIELDED FROM EDGE)
@@ -128,7 +131,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         async session({ session, token }) {
             if (token) {
                 if (token.id) session.user.id = token.id as string
-                if (token.role) session.user.role = token.role
+                if (token.role != null) {
+                    session.user.role = token.role
+                }
                 if (token.school) session.user.school = token.school
                 
                 if (token.name !== undefined) session.user.name = token.name

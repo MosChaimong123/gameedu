@@ -20,7 +20,7 @@ export const authConfig = {
                 return true
             }
 
-            // /dashboard → TEACHER or ADMIN only
+            // /dashboard → not STUDENT (TEACHER, ADMIN, USER, etc.)
             if (isOnDashboard) {
                 if (!isLoggedIn) return false
                 if (role === 'STUDENT') return Response.redirect(new URL('/student/home', nextUrl))

@@ -7,6 +7,7 @@ import { PageBackLink } from "@/components/ui/page-back-link"
 import { motion, AnimatePresence } from "framer-motion"
 import { OMRPrintableSheet } from "@/components/omr/omr-printable-sheet"
 import { useLanguage } from "@/components/providers/language-provider"
+import { isTeacherOrAdmin } from "@/lib/role-guards"
 
 type TemplateSize = "20" | "50" | "80"
 
@@ -48,7 +49,7 @@ export default function OMRTemplatesPage() {
     )
 
     useEffect(() => {
-        if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+        if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
             router.replace("/dashboard")
         }
     }, [router, session, status])
@@ -65,7 +66,7 @@ export default function OMRTemplatesPage() {
         )
     }
 
-    if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+    if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
         return null
     }
 

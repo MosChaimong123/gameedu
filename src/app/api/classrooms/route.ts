@@ -8,10 +8,7 @@ import {
     createAppErrorResponse,
 } from "@/lib/api-error";
 import { getLimitsForUser } from "@/lib/plan/plan-access";
-
-function canManageClassrooms(role?: string | null) {
-    return role === "TEACHER" || role === "ADMIN";
-}
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 export async function GET() {
     const session = await auth();
@@ -20,7 +17,7 @@ export async function GET() {
         return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
-    if (!canManageClassrooms(session.user.role)) {
+    if (!isTeacherOrAdmin(session.user.role)) {
         return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 });
     }
 
@@ -53,7 +50,7 @@ export async function POST(req: Request) {
         return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
     }
 
-    if (!canManageClassrooms(session.user.role)) {
+    if (!isTeacherOrAdmin(session.user.role)) {
         return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 });
     }
 

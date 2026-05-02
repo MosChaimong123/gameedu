@@ -8,10 +8,7 @@ import {
     createAppErrorResponse,
 } from "@/lib/api-error";
 import { countQuestionsInJson, getLimitsForUser } from "@/lib/plan/plan-access";
-
-function canManageQuestionSets(role?: string | null) {
-    return role === "TEACHER" || role === "ADMIN"
-}
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 type UpdateSetRequest = {
     title?: string
@@ -32,7 +29,7 @@ export async function GET(
             return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
         }
 
-        if (!canManageQuestionSets(session.user.role)) {
+        if (!isTeacherOrAdmin(session.user.role)) {
             return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
         }
 
@@ -69,7 +66,7 @@ export async function PATCH(
             return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
         }
 
-        if (!canManageQuestionSets(session.user.role)) {
+        if (!isTeacherOrAdmin(session.user.role)) {
             return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
         }
 
@@ -149,7 +146,7 @@ export async function DELETE(
             return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
         }
 
-        if (!canManageQuestionSets(session.user.role)) {
+        if (!isTeacherOrAdmin(session.user.role)) {
             return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
         }
 

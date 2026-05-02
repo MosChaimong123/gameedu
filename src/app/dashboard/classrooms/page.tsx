@@ -7,11 +7,12 @@ import { CreateClassroomDialog } from "./create-classroom-dialog";
 import { Users } from "lucide-react";
 import { formatTranslation } from "@/lib/format-translation";
 import { getRequestLanguage } from "@/lib/request-language";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 export default async function MyClassroomsPage() {
     const session = await auth();
     if (!session?.user) return redirect("/");
-    if (session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+    if (!isTeacherOrAdmin(session.user.role)) {
         return redirect("/dashboard");
     }
     const lang = await getRequestLanguage();

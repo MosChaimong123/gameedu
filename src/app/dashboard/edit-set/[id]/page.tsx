@@ -14,6 +14,7 @@ import { AIGeneratorDialog, type GeneratedQuestion } from "@/components/set-edit
 import { PageBackLink } from "@/components/ui/page-back-link"
 import { useToast } from "@/components/ui/use-toast"
 import { getLimitsForUser } from "@/lib/plan/plan-access"
+import { isTeacherOrAdmin } from "@/lib/role-guards"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -83,7 +84,7 @@ export default function EditSetPage() {
     const aiAllowed = planLimits?.aiQuestionGeneration ?? false
 
     useEffect(() => {
-        if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+        if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
             router.replace("/dashboard")
         }
     }, [router, session, status])
@@ -95,7 +96,7 @@ export default function EditSetPage() {
     }, [searchParams])
 
     useEffect(() => {
-        if (status !== "authenticated" || (session.user.role !== "TEACHER" && session.user.role !== "ADMIN")) {
+        if (status !== "authenticated" || !isTeacherOrAdmin(session.user.role)) {
             return
         }
 
@@ -125,7 +126,7 @@ export default function EditSetPage() {
         )
     }
 
-    if (status === "authenticated" && session.user.role !== "TEACHER" && session.user.role !== "ADMIN") {
+    if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
         return null
     }
 

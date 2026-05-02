@@ -7,6 +7,7 @@ import {
     decodeOAuthRoleIntent,
     OAUTH_ROLE_INTENT_COOKIE,
 } from "@/lib/auth/oauth-role-intent-cookie";
+import { resolveBrowserRedirectOrigin } from "@/lib/resolve-browser-redirect-origin";
 
 function clearIntentCookie(response: NextResponse) {
     const secure = process.env.NODE_ENV === "production";
@@ -20,7 +21,7 @@ function clearIntentCookie(response: NextResponse) {
 }
 
 export async function GET(req: Request) {
-    const origin = new URL(req.url).origin;
+    const origin = resolveBrowserRedirectOrigin(req.url);
     const session = await auth();
 
     if (!session?.user?.id) {

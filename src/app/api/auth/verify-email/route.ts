@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { resolveBrowserRedirectOrigin } from "@/lib/resolve-browser-redirect-origin";
 
 export async function GET(req: Request) {
     const url = new URL(req.url);
+    const origin = resolveBrowserRedirectOrigin(req.url);
     const token = url.searchParams.get("token")?.trim();
     const fail = (reason: string) =>
-        NextResponse.redirect(new URL(`/login?verifyError=${encodeURIComponent(reason)}`, url.origin));
+        NextResponse.redirect(new URL(`/login?verifyError=${encodeURIComponent(reason)}`, origin));
 
     if (!token) {
         return fail("missing_token");
@@ -27,5 +29,5 @@ export async function GET(req: Request) {
 
     await db.verificationToken.deleteMany({ where: { identifier: email } });
 
-    return NextResponse.redirect(new URL("/login?verified=1", url.origin));
+    return NextResponse.redirect(new URL("/login?verified=1", origin));
 }

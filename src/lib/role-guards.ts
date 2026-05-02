@@ -1,6 +1,6 @@
 /**
- * Teacher-facing dashboard + APIs. Includes `USER` because OAuth sign-in (Google)
- * creates accounts with Prisma default role `USER` until promoted to `TEACHER`.
+ * Teacher-facing dashboard + APIs. Includes `USER` because Google OAuth keeps Prisma
+ * default role `USER`; email/password registration sets `TEACHER` or `STUDENT` explicitly.
  */
 export function isTeacherOrAdmin(role?: string | null) {
     return role === "TEACHER" || role === "ADMIN" || role === "USER";

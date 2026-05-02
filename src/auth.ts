@@ -25,6 +25,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     ...authConfig,
     adapter: PrismaAdapter(db),
     session: { strategy: "jwt" },
+    events: {
+        /** Google OAuth creates users with Prisma default role USER — teachers should be TEACHER in DB. */
+        async createUser({ user }) {
+            const id = user.id?.trim()
+            if (!id) return
+            try {
+                await db.user.update({
+                    where: { id },
+                    data: { role: "TEACHER" },
+                })
+            } catch (e) {
+                console.error("[AUTH] createUser role upgrade failed", e)
+            }
+        },
+    },
     providers: [
         ...(googleProvider ? [googleProvider] : []),
         Credentials({
@@ -108,7 +123,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     if (freshUser) {
                         if (freshUser.name !== undefined) token.name = freshUser.name
                         token.picture = freshUser.image
-                        token.role = isAppRole(freshUser.role) ? freshUser.role : ("USER" satisfies AppRole)
+                        let role = isAppRole(freshUser.role) ? freshUser.role : ("USER" satisfies AppRole)
+                        if (role === "USER") {
+                            const googleLinked = await db.account.findFirst({
+                                where: { userId: token.id as string, provider: "google" },
+                                select: { id: true },
+                            })
+                            if (googleLinked) {
+                                await db.user.update({
+                                    where: { id: token.id as string },
+                                    data: { role: "TEACHER" },
+                                })
+                                role = "TEACHER"
+                            }
+                        }
+                        token.role = role
                         token.school = freshUser.school
                         token.settings = freshUser.settings
                         token.plan = freshUser.plan

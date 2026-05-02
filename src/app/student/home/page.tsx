@@ -13,7 +13,7 @@ export default async function StudentHomePage() {
 
     if (!session?.user || !userId) redirect("/login");
 
-    if (role === "TEACHER" || role === "ADMIN") redirect("/dashboard");
+    if (role === "TEACHER" || role === "ADMIN" || role === "USER") redirect("/dashboard");
 
     const rows = await db.student.findMany({
         where: { userId },

@@ -36,6 +36,7 @@
     "db:cleanup-rpg": "node scripts/cleanup-rpg-data.mjs",
     "db:cleanup-rpg:dry-run": "node scripts/cleanup-rpg-data.mjs --dry-run",
     "user:set-role": "node scripts/promote-user-role.mjs",
+    "db:backfill-email-verified": "node scripts/backfill-email-verified.mjs",
     "billing:stripe-listen": "node scripts/stripe-listen.mjs",
     "billing:stripe-print-secret": "node scripts/stripe-print-webhook-secret.mjs",
     "billing:stripe-trigger-checkout": "node scripts/stripe-trigger-checkout-completed.mjs"
@@ -86,6 +87,7 @@
     "react-dom": "19.2.3",
     "react-hook-form": "^7.71.1",
     "recharts": "^3.7.0",
+    "resend": "^6.12.2",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "stripe": "^22.0.2",

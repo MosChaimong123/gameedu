@@ -5,18 +5,33 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { getLocalizedAuthErrorMessage, tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages";
 import { useLanguage } from "@/components/providers/language-provider";
+import { signInWithGoogleRole } from "@/lib/auth/google-sign-in-client";
 
-export default function LoginForm() {
+export type LoginAudience = "teacher" | "student";
+
+type LoginFormProps = {
+    audience: LoginAudience;
+};
+
+export default function LoginForm({ audience }: LoginFormProps) {
     const { language, t } = useLanguage();
+    const searchParams = useSearchParams();
     const [isLoading, setIsLoading] = React.useState(false);
     const [showPassword, setShowPassword] = React.useState(false);
     const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+    const [resendState, setResendState] = React.useState<"idle" | "sending" | "sent" | "error">("idle");
+    const [needsVerify, setNeedsVerify] = React.useState(false);
+
+    const verified = searchParams.get("verified") === "1";
+    const pendingVerify = searchParams.get("pendingVerify") === "1";
+    const verifyError = searchParams.get("verifyError");
 
     const formSchema = React.useMemo(
         () =>
@@ -32,9 +47,17 @@ export default function LoginForm() {
         defaultValues: { email: "", password: "" },
     });
 
+    React.useEffect(() => {
+        if (pendingVerify) {
+            setNeedsVerify(true);
+        }
+    }, [pendingVerify]);
+
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setIsLoading(true);
         setErrorMsg(null);
+        setNeedsVerify(false);
+        setResendState("idle");
         try {
             const result = await signIn("credentials", {
                 email: values.email,
@@ -43,7 +66,13 @@ export default function LoginForm() {
             });
 
             if (result?.error || !result?.ok) {
-                setErrorMsg(getLocalizedAuthErrorMessage(result?.error, language, t));
+                const err = result?.error ?? "";
+                if (result?.code === "email_not_verified" || err === "EMAIL_NOT_VERIFIED" || err.includes("EMAIL_NOT_VERIFIED")) {
+                    setNeedsVerify(true);
+                }
+                const mapped =
+                    result?.code === "email_not_verified" ? "EMAIL_NOT_VERIFIED" : err;
+                setErrorMsg(getLocalizedAuthErrorMessage(mapped, language, t));
             } else {
                 const { getSession } = await import("next-auth/react");
                 const session = await getSession();
@@ -65,14 +94,97 @@ export default function LoginForm() {
         }
     }
 
+    async function onResendVerification() {
+        const email = form.getValues("email").trim();
+        if (!email) {
+            setErrorMsg(t("loginResendNeedEmail"));
+            return;
+        }
+        setResendState("sending");
+        try {
+            const res = await fetch("/api/auth/resend-verification", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email }),
+            });
+            if (!res.ok) {
+                setResendState("error");
+                return;
+            }
+            setResendState("sent");
+        } catch {
+            setResendState("error");
+        }
+    }
+
+    async function onGoogleClick() {
+        setIsLoading(true);
+        setErrorMsg(null);
+        try {
+            await signInWithGoogleRole(audience === "teacher" ? "TEACHER" : "STUDENT");
+        } catch {
+            setErrorMsg(getLocalizedAuthErrorMessage("oauth_intent_failed", language, t));
+            setIsLoading(false);
+        }
+    }
+
+    const verifyErrMessage =
+        verifyError === "missing_token" || verifyError === "invalid_or_expired"
+            ? verifyError === "missing_token"
+                ? t("loginVerifyErrorMissing")
+                : t("loginVerifyErrorExpired")
+            : verifyError
+              ? t("loginVerifyErrorGeneric")
+              : null;
+
     return (
         <div key={language} className="grid gap-5">
+            {verified ? (
+                <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span>{t("loginVerifyBannerSuccess")}</span>
+                </div>
+            ) : null}
+            {pendingVerify ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    {t("loginVerifyBannerPending")}
+                </div>
+            ) : null}
+            {verifyErrMessage ? (
+                <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>{verifyErrMessage}</span>
+                </div>
+            ) : null}
+
             {errorMsg && (
                 <div className="flex animate-in slide-in-from-top-2 items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     <AlertCircle className="h-4 w-4 shrink-0" />
                     <span>{errorMsg}</span>
                 </div>
             )}
+
+            {needsVerify ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                    <p className="mb-2">{t("loginAuthErrorEmailNotVerified")}</p>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={resendState === "sending"}
+                        onClick={() => void onResendVerification()}
+                    >
+                        {resendState === "sending" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        {t("loginResendVerification")}
+                    </Button>
+                    {resendState === "sent" ? (
+                        <p className="mt-2 text-emerald-700">{t("loginResendVerificationSent")}</p>
+                    ) : null}
+                    {resendState === "error" ? (
+                        <p className="mt-2 text-red-600">{t("loginResendVerificationFailed")}</p>
+                    ) : null}
+                </div>
+            ) : null}
 
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -145,10 +257,7 @@ export default function LoginForm() {
                 type="button"
                 disabled={isLoading}
                 className="h-11 w-full gap-3 rounded-xl border-2 border-slate-200 font-semibold hover:border-indigo-300 hover:bg-indigo-50"
-                onClick={() => {
-                    setIsLoading(true);
-                    void signIn("google", { callbackUrl: "/dashboard" });
-                }}
+                onClick={() => void onGoogleClick()}
             >
                 <svg className="h-5 w-5" viewBox="0 0 488 512" xmlns="http://www.w3.org/2000/svg" aria-hidden>
                     <path

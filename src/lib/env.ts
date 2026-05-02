@@ -35,6 +35,10 @@ const appEnvSchema = z.object({
   /** PLUS amounts in satang (THB × 100). Min PromptPay 2000. Defaults: 29000 / monthly×12 if unset */
   OMISE_PLUS_MONTHLY_SATANG: trimOrUnset,
   OMISE_PLUS_YEARLY_SATANG: trimOrUnset,
+  /** Resend API key — optional in dev; verification emails log link to console if unset */
+  RESEND_API_KEY: trimOrUnset,
+  /** From address for Resend (e.g. GameEdu <notify@yourdomain.com>) */
+  EMAIL_FROM: trimOrUnset,
 });
 
 export type AppEnv = z.infer<typeof appEnvSchema>;
@@ -73,6 +77,8 @@ export function getAppEnv(env: NodeJS.ProcessEnv = process.env): AppEnv {
     NEXT_PUBLIC_OMISE_PUBLIC_KEY: env.NEXT_PUBLIC_OMISE_PUBLIC_KEY,
     OMISE_PLUS_MONTHLY_SATANG: env.OMISE_PLUS_MONTHLY_SATANG,
     OMISE_PLUS_YEARLY_SATANG: env.OMISE_PLUS_YEARLY_SATANG,
+    RESEND_API_KEY: env.RESEND_API_KEY,
+    EMAIL_FROM: env.EMAIL_FROM,
   });
 
   if (env === process.env) {

@@ -118,7 +118,7 @@ if (result?.error || !result?.ok) {
 
 ตัวอย่าง UI ที่ใช้ helper กลางแล้ว:
 - [login-form.tsx](C:/Users/IHCK/GAMEEDU/gamedu/src/app/login/login-form.tsx)
-- [register-form.tsx](C:/Users/IHCK/GAMEEDU/gamedu/src/app/register/register-form.tsx)
+- [unified-auth-flow.tsx](C:/Users/IHCK/GAMEEDU/gamedu/src/components/auth/unified-auth-flow.tsx)
 - [signup-wizard.tsx](C:/Users/IHCK/GAMEEDU/gamedu/src/app/register/signup-wizard.tsx)
 - [join-class-dialog.tsx](C:/Users/IHCK/GAMEEDU/gamedu/src/components/student/join-class-dialog.tsx)
 - [ai-generator-dialog.tsx](C:/Users/IHCK/GAMEEDU/gamedu/src/components/set-editor/ai-generator-dialog.tsx)

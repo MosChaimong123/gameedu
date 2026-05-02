@@ -64,6 +64,8 @@ const LEGACY_TEXT_ERROR_MESSAGES: Array<[needle: string, message: string]> = [
     ["Invalid data:", "ข้อมูลที่กรอกไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง"],
     ["Registration failed", "สมัครสมาชิกไม่สำเร็จ"],
     ["CredentialsSignin", "อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่"],
+    ["EMAIL_NOT_VERIFIED", "กรุณายืนยันอีเมลจากลิงก์ที่ส่งไปก่อนเข้าสู่ระบบ หรือกดส่งลิงก์ใหม่"],
+    ["oauth_intent_failed", "ไม่สามารถเริ่มล็อกอิน Google ได้ โปรดลองอีกครั้ง"],
     ["Billing is not configured", DEFAULT_THAI_ERROR_MESSAGES.BILLING_NOT_CONFIGURED],
     ["Thai/local billing is not configured", DEFAULT_THAI_ERROR_MESSAGES.BILLING_THAI_NOT_CONFIGURED],
     ["Price not configured for interval", DEFAULT_THAI_ERROR_MESSAGES.BILLING_PRICE_NOT_CONFIGURED],
@@ -87,6 +89,8 @@ const LEGACY_EN_TEXT_ERROR_MESSAGES: Array<[needle: string, message: string]> = 
     ["Invalid data:", "Some fields look invalid. Please check and try again."],
     ["Registration failed", "We couldn't complete signup. Please try again."],
     ["CredentialsSignin", "Invalid email or password. Please try again."],
+    ["EMAIL_NOT_VERIFIED", "Please verify your email using the link we sent before signing in, or request a new link."],
+    ["oauth_intent_failed", "Could not start Google sign-in. Please try again."],
     ["Billing is not configured", "Billing is not configured right now."],
     ["Thai/local billing is not configured", "Thai/local billing is not configured right now."],
     ["Price not configured for interval", "This billing interval is not configured yet."],
@@ -219,6 +223,12 @@ export function getThaiErrorMessageFromAuthResult(error: string | null | undefin
     if (!error) {
         return "เกิดข้อผิดพลาดในการเข้าสู่ระบบ โปรดลองอีกครั้ง";
     }
+    if (error === "EMAIL_NOT_VERIFIED" || error.includes("EMAIL_NOT_VERIFIED")) {
+        return "กรุณายืนยันอีเมลจากลิงก์ที่ส่งไปก่อนเข้าสู่ระบบ หรือกดส่งลิงก์ใหม่";
+    }
+    if (error === "oauth_intent_failed" || error.includes("oauth_intent_failed")) {
+        return "ไม่สามารถเริ่มล็อกอิน Google ได้ โปรดลองอีกครั้ง";
+    }
 
     return getThaiErrorMessageFromLegacyText(
         error,
@@ -236,6 +246,12 @@ export function getLocalizedAuthErrorMessage(
     }
     if (error === "RATE_LIMITED") {
         return t("loginAuthErrorRateLimited");
+    }
+    if (error === "EMAIL_NOT_VERIFIED" || error.includes("EMAIL_NOT_VERIFIED")) {
+        return t("loginAuthErrorEmailNotVerified");
+    }
+    if (error === "oauth_intent_failed" || error.includes("oauth_intent_failed")) {
+        return t("authOAuthIntentFailed");
     }
     if (language === "th") {
         return getThaiErrorMessageFromAuthResult(error);

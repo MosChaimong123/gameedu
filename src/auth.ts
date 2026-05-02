@@ -1,4 +1,5 @@
 import NextAuth from "next-auth"
+import { CredentialsSignin } from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
@@ -10,6 +11,10 @@ import {
     consumeRateLimitWithStore,
     getRequestClientIdentifier,
 } from "@/lib/security/rate-limit"
+
+class EmailNotVerified extends CredentialsSignin {
+    code = "email_not_verified"
+}
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim()
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim()
@@ -38,7 +43,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     return null
                 }
 
-                const email = credentials.email as string
+                const email = (credentials.email as string).trim().toLowerCase()
                 const password = credentials.password as string
                 const rateLimit = await consumeRateLimitWithStore({
                     bucket: "auth-credentials:authorize",
@@ -69,6 +74,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
                 if (!isPasswordValid) {
                     return null
+                }
+
+                if (!user.emailVerified) {
+                    throw new EmailNotVerified()
                 }
 
                 return {

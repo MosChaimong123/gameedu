@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto"
 import { db } from "@/lib/db"
 import { createAppErrorResponse } from "@/lib/api-error"
 import { NextResponse } from "next/server"
@@ -8,11 +9,12 @@ import {
     getRequestClientIdentifier,
 } from "@/lib/security/rate-limit"
 import { logAuditEvent } from "@/lib/security/audit-log"
+import { sendVerificationEmail } from "@/lib/email/send-verification-email"
 
 const registerSchema = z.object({
     name: z.string().min(2),
     username: z.string().min(3, "Username must be at least 3 chars").regex(/^[a-zA-Z0-9_\u0E00-\u0E7F\-\.]+$/, "Username must only contain letters, numbers, or .-_"),
-    email: z.string().email(),
+    email: z.string().email().transform((s) => s.trim().toLowerCase()),
     password: z.string().min(6),
     school: z.string().optional(),
     /** สมัครทางหน้าเว็บได้แค่ STUDENT หรือ TEACHER — ไม่รับ ADMIN จาก client */
@@ -103,9 +105,48 @@ export async function POST(req: Request) {
                 email,
                 password: hashedPassword,
                 role: registrationRole,
-                school
+                school,
+                emailVerified: null,
             },
         })
+
+        step = "verification_token";
+        const rawToken = randomBytes(32).toString("hex")
+        await db.verificationToken.deleteMany({ where: { identifier: email } })
+        await db.verificationToken.create({
+            data: {
+                identifier: email,
+                token: rawToken,
+                expires: new Date(Date.now() + 48 * 60 * 60 * 1000),
+            },
+        })
+
+        step = "send_verification_email";
+        try {
+            await sendVerificationEmail(email, rawToken)
+        } catch (e) {
+            console.error("[REGISTER] verification email failed", e)
+            logAuditEvent({
+                actorUserId: user.id,
+                action: "auth.register.verification_email_failed",
+                category: "auth",
+                status: "error",
+                targetType: "user",
+                targetId: user.id,
+                metadata: {
+                    message: e instanceof Error ? e.message : "unknown",
+                },
+            })
+            if (process.env.NODE_ENV === "production") {
+                await db.verificationToken.deleteMany({ where: { identifier: email } })
+                await db.user.delete({ where: { id: user.id } })
+                return createAppErrorResponse(
+                    "INTERNAL_ERROR",
+                    "Could not send verification email. Please try again later.",
+                    503
+                )
+            }
+        }
 
         logAuditEvent({
             actorUserId: user.id,
@@ -118,7 +159,8 @@ export async function POST(req: Request) {
         })
 
         return NextResponse.json({
-            user: { name: user.name, email: user.email, role: user.role }
+            user: { name: user.name, email: user.email, role: user.role },
+            verifyRequired: true,
         })
     } catch (error: unknown) {
         console.error(`[REGISTER_ERROR] Step: ${step}`, error)

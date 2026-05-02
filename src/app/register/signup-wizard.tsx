@@ -3,13 +3,13 @@
 import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { User, GraduationCap, ChevronRight, CheckCircle2, Loader2, ArrowLeft, Eye, EyeOff, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getLocalizedErrorMessageFromResponse, tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages"
+import { signInWithGoogleRole } from "@/lib/auth/google-sign-in-client"
 import {
     Select,
     SelectContent,
@@ -43,11 +43,15 @@ type RoleCardProps = {
     onClick: () => void
 }
 
-export default function SignupWizard() {
+type SignupWizardProps = {
+    presetRole?: Role | null
+}
+
+export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
     const router = useRouter()
     const { language, t } = useLanguage()
-    const [step, setStep] = useState<1 | 2 | 3>(1)
-    const [role, setRole] = useState<Role | null>(null)
+    const [step, setStep] = useState<1 | 2 | 3>(presetRole ? 2 : 1)
+    const [role, setRole] = useState<Role | null>(presetRole)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
     const [showPassword, setShowPassword] = useState(false)
@@ -146,7 +150,7 @@ export default function SignupWizard() {
                 throw new Error(message)
             }
 
-            router.push("/login?registered=true")
+            router.push("/login?pendingVerify=1&audience=" + (role === "TEACHER" ? "teacher" : "student"))
         } catch (err: unknown) {
             const raw = err instanceof Error ? err.message : null
             const net = tryLocalizeFetchNetworkFailureMessage(raw, t)
@@ -157,8 +161,17 @@ export default function SignupWizard() {
     }
 
     const handleGoogleLogin = () => {
+        if (!role) {
+            setError(t("signupErrRoleMissing"))
+            return
+        }
         setIsLoading(true)
-        signIn("google", { callbackUrl: "/dashboard" })
+        setError("")
+        void signInWithGoogleRole(role)
+            .catch(() => {
+                setError(t("signupGoogleIntentFailed"))
+                setIsLoading(false)
+            })
     }
 
     const yearLabel = language === "th" ? t("signupLabelYearBe") : t("signupLabelYearCe")
@@ -194,7 +207,18 @@ export default function SignupWizard() {
             {step === 2 && (
                 <div className="space-y-6 duration-500 animate-in fade-in slide-in-from-right-8">
                     <div className="mb-2 flex items-center">
-                        <Button variant="ghost" size="sm" onClick={() => setStep(1)} className="p-0 hover:bg-transparent">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                if (presetRole) {
+                                    router.replace("/login?mode=register")
+                                } else {
+                                    setStep(1)
+                                }
+                            }}
+                            className="p-0 hover:bg-transparent"
+                        >
                             <ArrowLeft className="mr-1 h-4 w-4" /> {t("signupBack")}
                         </Button>
                     </div>
@@ -272,7 +296,7 @@ export default function SignupWizard() {
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setStep(role === "STUDENT" ? 2 : 1)}
+                            onClick={() => setStep(2)}
                             type="button"
                             className="p-0 hover:bg-transparent"
                         >
@@ -385,34 +409,39 @@ export default function SignupWizard() {
                         {t("signupLegalSuffix")}
                     </p>
 
-                    {role === "TEACHER" && (
-                        <>
-                            <div className="relative my-4">
-                                <div className="absolute inset-0 flex items-center">
-                                    <span className="w-full border-t" />
-                                </div>
-                                <div className="relative flex justify-center text-xs uppercase">
-                                    <span className="bg-white px-2 text-slate-500">{t("signupOrContinueWith")}</span>
-                                </div>
-                            </div>
+                    <div className="relative my-4">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-white px-2 text-slate-500">{t("signupOrContinueWith")}</span>
+                        </div>
+                    </div>
 
-                            <Button
-                                variant="outline"
-                                type="button"
-                                disabled={isLoading}
-                                onClick={handleGoogleLogin}
-                                className="h-11 w-full gap-3 rounded-xl border-2 border-slate-200 font-semibold hover:border-indigo-300 hover:bg-indigo-50"
-                            >
-                                <svg className="h-5 w-5" viewBox="0 0 488 512" xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        fill="#4285F4"
-                                        d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"
-                                    />
-                                </svg>
-                                {t("signupWithGoogle")}
-                            </Button>
-                        </>
-                    )}
+                    <Button
+                        variant="outline"
+                        type="button"
+                        disabled={isLoading}
+                        onClick={handleGoogleLogin}
+                        className="h-11 w-full gap-3 rounded-xl border-2 border-slate-200 font-semibold hover:border-indigo-300 hover:bg-indigo-50"
+                    >
+                        <svg className="h-5 w-5" viewBox="0 0 488 512" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                fill="#4285F4"
+                                d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"
+                            />
+                        </svg>
+                        {t("signupWithGoogle")}
+                    </Button>
+
+                    {role === "STUDENT" ? (
+                        <p className="text-center text-xs text-slate-500">
+                            {t("signupStudentAfterRegisterHint")}{" "}
+                            <a href="/student" className="font-semibold text-indigo-600 hover:text-indigo-800">
+                                {t("authStudentCodeCta")}
+                            </a>
+                        </p>
+                    ) : null}
                 </form>
             )}
         </div>

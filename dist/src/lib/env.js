@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.normalizePublicUrlEnvsInProcess = normalizePublicUrlEnvsInProcess;
 exports.resolveAuthSecret = resolveAuthSecret;
 exports.getAppEnv = getAppEnv;
 exports.clearCachedEnvForTests = clearCachedEnvForTests;
@@ -40,8 +41,50 @@ const appEnvSchema = zod_1.z.object({
     /** PLUS amounts in satang (THB × 100). Min PromptPay 2000. Defaults: 29000 / monthly×12 if unset */
     OMISE_PLUS_MONTHLY_SATANG: trimOrUnset,
     OMISE_PLUS_YEARLY_SATANG: trimOrUnset,
+    /** Resend API key — optional in dev; verification emails log link to console if unset */
+    RESEND_API_KEY: trimOrUnset,
+    /** From address for Resend (e.g. GameEdu <notify@yourdomain.com>) */
+    EMAIL_FROM: trimOrUnset,
 });
 let cachedEnv = null;
+/** Public URL env keys that must never use 0.0.0.0 as host (invalid in browsers; breaks OAuth redirects). */
+const PUBLIC_URL_ENV_KEYS = ["NEXTAUTH_URL", "NEXT_PUBLIC_APP_URL", "AUTH_URL"];
+/**
+ * - **Development:** rewrite `0.0.0.0` → `localhost` (bind address is invalid in browsers; fixes local OAuth).
+ * - **Production:** never rewrite — if `0.0.0.0` appears in public URL envs, throw (misconfigured host; use real HTTPS URL).
+ * Call early in the Node server entry (e.g. server.ts) before Auth.js reads `NEXTAUTH_URL`.
+ */
+function normalizePublicUrlEnvsInProcess(env = process.env) {
+    var _a;
+    const isProd = env.NODE_ENV === "production";
+    let changed = false;
+    for (const key of PUBLIC_URL_ENV_KEYS) {
+        const raw = (_a = env[key]) === null || _a === void 0 ? void 0 : _a.trim();
+        if (!raw)
+            continue;
+        try {
+            const u = new URL(raw);
+            if (u.hostname !== "0.0.0.0")
+                continue;
+            if (isProd) {
+                throw new Error(`Invalid ${key}="${raw}" in production. Use your public HTTPS base URL (e.g. https://your-service.onrender.com), not 0.0.0.0 or an internal port. Set NEXTAUTH_URL and NEXT_PUBLIC_APP_URL in Render → Environment to the same public URL.`);
+            }
+            u.hostname = "localhost";
+            const href = u.href.replace(/\/$/, "");
+            env[key] = href;
+            changed = true;
+        }
+        catch (e) {
+            if (e instanceof Error && e.message.startsWith("Invalid ") && e.message.includes("production")) {
+                throw e;
+            }
+            /* invalid URL string — leave unchanged */
+        }
+    }
+    if (changed && env === process.env) {
+        cachedEnv = null;
+    }
+}
 function resolveAuthSecret(env = process.env) {
     var _a, _b;
     const secret = ((_a = env.AUTH_SECRET) === null || _a === void 0 ? void 0 : _a.trim()) || ((_b = env.NEXTAUTH_SECRET) === null || _b === void 0 ? void 0 : _b.trim());
@@ -73,6 +116,8 @@ function getAppEnv(env = process.env) {
         NEXT_PUBLIC_OMISE_PUBLIC_KEY: env.NEXT_PUBLIC_OMISE_PUBLIC_KEY,
         OMISE_PLUS_MONTHLY_SATANG: env.OMISE_PLUS_MONTHLY_SATANG,
         OMISE_PLUS_YEARLY_SATANG: env.OMISE_PLUS_YEARLY_SATANG,
+        RESEND_API_KEY: env.RESEND_API_KEY,
+        EMAIL_FROM: env.EMAIL_FROM,
     });
     if (env === process.env) {
         cachedEnv = parsed;

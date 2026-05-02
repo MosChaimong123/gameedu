@@ -5,6 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const env_1 = require("@next/env");
 (0, env_1.loadEnvConfig)(process.cwd()); // โหลด .env.local ก่อน import อื่นใดทั้งหมด
+const env_2 = require("./src/lib/env");
+(0, env_2.normalizePublicUrlEnvsInProcess)();
 const node_http_1 = require("node:http");
 const node_crypto_1 = require("node:crypto");
 const next_1 = __importDefault(require("next"));
@@ -15,7 +17,7 @@ const db_1 = require("./src/lib/db"); // Use Singleton
 const register_game_socket_handlers_1 = require("./src/lib/socket/register-game-socket-handlers");
 const socket_io_cors_1 = require("./src/lib/socket-io-cors");
 const mongo_admin_1 = require("./src/lib/ops/mongo-admin");
-const env_2 = require("./src/lib/env");
+const env_3 = require("./src/lib/env");
 const resource_access_1 = require("./src/lib/authorization/resource-access");
 const plan_access_1 = require("./src/lib/plan/plan-access");
 const roles_1 = require("./src/lib/roles");
@@ -27,7 +29,7 @@ const port = parseInt(process.env.PORT || "3000", 10);
 const app = (0, next_1.default)({ dev, hostname, port, webpack: true });
 const handler = app.getRequestHandler();
 app.prepare().then(async () => {
-    const env = (0, env_2.validateServerEnv)();
+    const env = (0, env_3.validateServerEnv)();
     await (0, mongo_admin_1.ensureOperationalIndexes)();
     // Attempt to recover active games from DB
     await manager_1.gameManager.recoverGames();
@@ -61,7 +63,7 @@ app.prepare().then(async () => {
             }));
             const token = await (0, jwt_1.getToken)({
                 req: { headers },
-                secret: (0, env_2.resolveAuthSecret)(),
+                secret: (0, env_3.resolveAuthSecret)(),
             });
             return typeof (token === null || token === void 0 ? void 0 : token.id) === "string" ? token.id : null;
         },
@@ -87,7 +89,7 @@ app.prepare().then(async () => {
         const appUrl = (_b = (_a = env.NEXT_PUBLIC_APP_URL) !== null && _a !== void 0 ? _a : env.NEXTAUTH_URL) !== null && _b !== void 0 ? _b : `http://${hostname}:${port}`;
         const socketCorsOrigin = (0, socket_io_cors_1.resolveSocketIoCorsOrigin)();
         console.log(`> Ready on http://${hostname}:${port}`);
-        console.log(`[startup] appUrl=${appUrl} rateLimitStore=${(0, env_2.resolveRateLimitStore)()} auditLogSink=${(0, env_2.resolveAuditLogSink)()}`);
+        console.log(`[startup] appUrl=${appUrl} rateLimitStore=${(0, env_3.resolveRateLimitStore)()} auditLogSink=${(0, env_3.resolveAuditLogSink)()}`);
         console.log(`[startup] socketIoCors=${Array.isArray(socketCorsOrigin) ? socketCorsOrigin.join(",") : String(socketCorsOrigin)} readyPath=/api/ready healthPath=/api/health`);
     });
 });

@@ -1,6 +1,7 @@
-import { motion } from "framer-motion"
+﻿import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { MathRender } from "@/components/math-render"
+import { useLanguage } from "@/components/providers/language-provider"
 
 type Props = {
     question: {
@@ -12,11 +13,12 @@ type Props = {
         image?: string | null;
     };
     onAnswer: (index: number) => void;
-    /** ปิดการเลือกข้อ (เช่น หลังส่งคำตอบใน Negamon Battle) */
+    /** Disable answering, for example after submitting in Negamon Battle. */
     locked?: boolean;
 }
 
 export function QuestionCard({ question, onAnswer, locked = false }: Props) {
+    const { t } = useLanguage();
     const colors = [
         "bg-red-500 border-red-700",
         "bg-blue-500 border-blue-700",
@@ -41,7 +43,7 @@ export function QuestionCard({ question, onAnswer, locked = false }: Props) {
                 {question.image && (
                     <div className="mt-4 rounded-lg overflow-hidden border-2 border-slate-100">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={question.image} alt="Question" className="w-full h-48 object-cover" />
+                        <img src={question.image} alt={t("questionImageAlt")} className="w-full h-48 object-cover" />
                     </div>
                 )}
             </motion.div>
@@ -72,7 +74,7 @@ export function QuestionCard({ question, onAnswer, locked = false }: Props) {
                         <div className="relative z-10 drop-shadow-md w-full h-full flex items-center justify-center p-2">
                             {question.optionTypes?.[index] === 'IMAGE' ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={option} alt={`Option ${index + 1}`} className="max-w-full max-h-full object-contain rounded-md" />
+                                <img src={option} alt={t("optionImageAlt", { n: index + 1 })} className="max-w-full max-h-full object-contain rounded-md" />
                             ) : (
                                 <span className="text-lg md:text-xl">
                                     <MathRender text={option} />
@@ -85,3 +87,4 @@ export function QuestionCard({ question, onAnswer, locked = false }: Props) {
         </div>
     )
 }
+

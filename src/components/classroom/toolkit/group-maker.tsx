@@ -88,11 +88,17 @@ export function GroupMaker({
     onSavedGroupsChange,
 }: GroupMakerProps) {
     void _levelConfig;
-    const { t } = useLanguage();
+    const { language, t } = useLanguage();
     const { toast } = useToast();
+    const locale = language === "th" ? "th-TH" : "en-US";
+    const buildDefaultGroupName = (index: number) => t("groupNamePattern", { index: index + 1 });
+    const buildDefaultGroupSetName = () =>
+        t("groupSetNameAuto", {
+            date: new Intl.DateTimeFormat(locale).format(new Date()),
+        });
     const [groupCount, setGroupCount] = useState(4);
     const [groups, setGroups] = useState<Student[][]>([]);
-    const [groupSetName, setGroupSetName] = useState(`Group Set ${new Date().toLocaleDateString()}`);
+    const [groupSetName, setGroupSetName] = useState(() => buildDefaultGroupSetName());
     const [groupNames, setGroupNames] = useState<string[]>([]);
     const [savedGroups, setSavedGroups] = useState<StudentGroup[]>([]);
     const [isSaving, setIsSaving] = useState(false);
@@ -144,7 +150,7 @@ export function GroupMaker({
         setIsSaving(true);
         try {
             const formattedGroups = groups.map((g, i) => ({
-                name: groupNames[i] || `Group ${i + 1}`,
+                name: groupNames[i] || buildDefaultGroupName(i),
                 studentIds: g.map(s => s.id)
             }));
 
@@ -171,7 +177,7 @@ export function GroupMaker({
                     description: t("groupSaveSuccessDesc"),
                 });
             } else {
-                throw new Error("Failed to save groups");
+                throw new Error();
             }
         } catch (error) {
             console.error("Save error:", error);
@@ -192,7 +198,7 @@ export function GroupMaker({
         try {
             const res = await fetch(`/api/classrooms/${classId}/groups/${groupId}`, { method: "DELETE" });
             if (!res.ok) {
-                throw new Error("Failed to delete group");
+                throw new Error();
             }
             setSavedGroups(prev => {
                 const nextGroups = prev.filter(g => g.id !== groupId);
@@ -222,14 +228,14 @@ export function GroupMaker({
         const isOldFormat = isFirstItemValidString && !groupSet.studentIds[0].startsWith('[') && !groupSet.studentIds[0].startsWith('{');
         
         const names = groupSet.studentIds.map((groupStr, index) => {
-            if (isOldFormat) return `Group 1`; // Old format didn't have multi groups conceptually in the same way, but it parsed as one
+            if (isOldFormat) return buildDefaultGroupName(0); // Old format didn't have multi groups conceptually in the same way, but it parsed as one
             try {
                 const parsed = JSON.parse(groupStr);
                 if (!Array.isArray(parsed) && parsed && parsed.studentIds) {
-                    return parsed.name || `Group ${index + 1}`;
+                    return parsed.name || buildDefaultGroupName(index);
                 }
             } catch {}
-            return `Group ${index + 1}`;
+            return buildDefaultGroupName(index);
         });
         setEditSavedGroupNames(names);
     };
@@ -250,9 +256,9 @@ export function GroupMaker({
                     try {
                         const parsedGroup = JSON.parse(groupStr);
                         if (Array.isArray(parsedGroup)) {
-                            return JSON.stringify({ name: editSavedGroupNames[idx] || `Group ${idx + 1}`, studentIds: parsedGroup });
+                            return JSON.stringify({ name: editSavedGroupNames[idx] || buildDefaultGroupName(idx), studentIds: parsedGroup });
                         } else if (parsedGroup && parsedGroup.studentIds) {
-                            return JSON.stringify({ ...parsedGroup, name: editSavedGroupNames[idx] || `Group ${idx + 1}` });
+                            return JSON.stringify({ ...parsedGroup, name: editSavedGroupNames[idx] || buildDefaultGroupName(idx) });
                         }
                     } catch {}
                     return groupStr;
@@ -281,7 +287,7 @@ export function GroupMaker({
                     description: t("groupUpdateSuccessDesc"),
                 });
             } else {
-                throw new Error("Failed to update group");
+                throw new Error();
             }
         } catch (error) {
             console.error("Update error:", error);
@@ -312,7 +318,7 @@ export function GroupMaker({
                 })
             });
             if (!res.ok) {
-                throw new Error("Failed to award points");
+                throw new Error();
             }
             
             const groupName = selectedGroupForFeedback.name;
@@ -348,7 +354,7 @@ export function GroupMaker({
         });
 
         setGroups(newGroups);
-        setGroupNames(Array.from({ length: groupCount }, (_, i) => `Group ${i + 1}`));
+        setGroupNames(Array.from({ length: groupCount }, (_, i) => buildDefaultGroupName(i)));
         setHasSaved(false);
     };
 
@@ -513,14 +519,14 @@ export function GroupMaker({
                                 >
                                     <div className="flex items-center justify-between gap-3 mb-4 border-b border-slate-200 pb-3">
                                         <Input
-                                            value={groupNames[groupIndex] || `Group ${groupIndex + 1}`}
+                                            value={groupNames[groupIndex] || buildDefaultGroupName(groupIndex)}
                                             onChange={(e) => {
                                                 const newNames = [...groupNames];
                                                 newNames[groupIndex] = e.target.value;
                                                 setGroupNames(newNames);
                                             }}
                                             className="font-bold text-slate-700 text-lg border-transparent hover:border-slate-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 h-9 px-2 shadow-none transition-all rounded-lg w-full"
-                                            placeholder={`Group ${groupIndex + 1}`}
+                                            placeholder={buildDefaultGroupName(groupIndex)}
                                         />
                                         <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold transition-colors
                                             ${dragOverGroupIndex === groupIndex ? 'bg-indigo-200 text-indigo-800' : 'bg-indigo-100 text-indigo-800'}
@@ -582,7 +588,7 @@ export function GroupMaker({
                                     : `text-white hover:opacity-90 ${getThemeHorizontalBgClass(theme)}`}`}
                             style={hasSaved ? {} : getThemeBgStyle(theme)}
                         >
-                            {isSaving ? "Saving..." : hasSaved ? t("groupSavedSuccess") : t("saveGroups")}
+                            {isSaving ? t("groupSaving") : hasSaved ? t("groupSavedSuccess") : t("saveGroups")}
                         </Button>
                     </div>
                 )}
@@ -672,7 +678,7 @@ export function GroupMaker({
                                                     groupSet.studentIds.map((groupStr, index) => {
                                                         let parsedGroup: ParsedSavedGroup | string[] | null = null;
                                                         let parsedIds: string[] = [];
-                                                        let groupName = `Group ${index + 1}`;
+                                                        let groupName = buildDefaultGroupName(index);
                                                         
                                                         try {
                                                             // For some reason if the string isn't JSON, it will throw an error and we skip parsing it.

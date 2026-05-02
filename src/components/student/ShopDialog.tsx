@@ -24,6 +24,8 @@ import {
     BATTLE_ITEMS,
     RARITY_COLOR,
     FRAME_GOLD_RATE_MULTIPLIER_BY_RARITY,
+    getFallbackShopItemDesc,
+    getFallbackShopItemName,
     groupBattleItemsByCategory,
     shopItemDescKey,
     shopItemNameKey,
@@ -33,6 +35,7 @@ import {
 } from "@/lib/shop-items";
 import { useLanguage } from "@/components/providers/language-provider";
 import { getLocalizedMessageFromApiErrorBody } from "@/lib/ui-error-messages";
+import { FrameRing } from "@/components/ui/frame-visual";
 
 const RARITY_I18N_KEY: Record<ShopItemRarity, string> = {
     common: "shopRarityCommon",
@@ -46,6 +49,29 @@ const FRAME_RARITY_ORDER: Record<ShopItemRarity, number> = {
     rare: 2,
     epic: 3,
     legendary: 4,
+};
+
+const FRAME_ELEMENT_ORDER: Record<string, number> = {
+    fire: 1,
+    water: 2,
+    earth: 3,
+    wind: 4,
+    thunder: 5,
+    light: 6,
+    dark: 7,
+};
+
+const FRAME_ELEMENT_META: Record<
+    string,
+    { emoji: string; colorClass: string; th: string; en: string }
+> = {
+    fire: { emoji: "🔥", colorClass: "text-rose-600", th: "ธาตุไฟ", en: "Fire" },
+    water: { emoji: "💧", colorClass: "text-sky-600", th: "ธาตุน้ำ", en: "Water" },
+    earth: { emoji: "🪨", colorClass: "text-lime-700", th: "ธาตุดิน", en: "Earth" },
+    wind: { emoji: "🌪️", colorClass: "text-cyan-600", th: "ธาตุลม", en: "Wind" },
+    thunder: { emoji: "⚡", colorClass: "text-amber-600", th: "ธาตุสายฟ้า", en: "Thunder" },
+    light: { emoji: "✨", colorClass: "text-yellow-600", th: "ธาตุแสง", en: "Light" },
+    dark: { emoji: "🌙", colorClass: "text-violet-600", th: "ธาตุความมืด", en: "Dark" },
 };
 
 const BATTLE_CATEGORY_ICON: Record<ShopBattleItemCategory, ComponentType<{ className?: string }>> = {
@@ -75,7 +101,7 @@ export function ShopDialog({
     onBuy,
     onEquip,
 }: ShopDialogProps) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [buying, setBuying] = useState<string | null>(null);
     const [equipping, setEquipping] = useState<string | null>(null);
     const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -100,7 +126,7 @@ export function ShopDialog({
             } else {
                 const body = data as { newGold: number; inventory: string[] };
                 onBuy(item.id, body.newGold, body.inventory);
-                showToast(t("shopPurchaseSuccess", { name: t(shopItemNameKey(item.id)) }));
+                showToast(t("shopPurchaseSuccess", { name: itemName(item) }));
             }
         } finally {
             setBuying(null);
@@ -126,6 +152,12 @@ export function ShopDialog({
     }
 
     const frames = [...SHOP_ITEMS.filter((i) => i.type === "frame")].sort((a, b) => {
+        const byElement =
+            (FRAME_ELEMENT_ORDER[a.frameElement ?? ""] ?? 99) -
+            (FRAME_ELEMENT_ORDER[b.frameElement ?? ""] ?? 99);
+        if (byElement !== 0) return byElement;
+        const byTier = (a.frameTier ?? 99) - (b.frameTier ?? 99);
+        if (byTier !== 0) return byTier;
         const byRarity = FRAME_RARITY_ORDER[a.rarity] - FRAME_RARITY_ORDER[b.rarity];
         if (byRarity !== 0) return byRarity;
         const byPrice = a.price - b.price;
@@ -133,6 +165,30 @@ export function ShopDialog({
         return a.id.localeCompare(b.id);
     });
     const battleItemGroups = groupBattleItemsByCategory(BATTLE_ITEMS);
+    const frameGroups = frames.reduce<Array<{ element: string; items: ShopItem[] }>>((acc, item) => {
+        const element = item.frameElement ?? "other";
+        const last = acc[acc.length - 1];
+        if (last && last.element === element) {
+            last.items.push(item);
+        } else {
+            acc.push({ element, items: [item] });
+        }
+        return acc;
+    }, []);
+
+    function itemName(item: ShopItem): string {
+        const key = shopItemNameKey(item.id);
+        const translated = t(key);
+        if (translated !== key) return translated;
+        return getFallbackShopItemName(item.id, language);
+    }
+
+    function itemDesc(item: ShopItem): string {
+        const key = shopItemDescKey(item.id);
+        const translated = t(key);
+        if (translated !== key) return translated;
+        return getFallbackShopItemDesc(item.id, language);
+    }
 
     function renderBuyButton(item: ShopItem) {
         const owned = inventory.includes(item.id);
@@ -235,7 +291,7 @@ export function ShopDialog({
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-center gap-1.5">
                                                         <p className="text-sm font-black text-slate-900">
-                                                            {t(shopItemNameKey(item.id))}
+                                                            {itemName(item)}
                                                         </p>
                                                         <span
                                                             className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase"
@@ -248,7 +304,7 @@ export function ShopDialog({
                                                         </span>
                                                     </div>
                                                     <p className="text-[11px] text-slate-500">
-                                                        {t(shopItemDescKey(item.id))}
+                                                        {itemDesc(item)}
                                                     </p>
                                                 </div>
 
@@ -266,94 +322,110 @@ export function ShopDialog({
                         <Shirt className="h-3 w-3" /> {t("shopProfileFramesSection")}
                     </p>
 
-                    {frames.map((item) => {
-                        const owned = inventory.includes(item.id);
-                        const equipped = equippedFrame === item.id;
-                        const canAfford = gold >= item.price;
-
+                    {frameGroups.map(({ element, items }) => {
+                        const elementMeta = FRAME_ELEMENT_META[element] ?? {
+                            emoji: "🧿",
+                            colorClass: "text-slate-600",
+                            th: "ธาตุพิเศษ",
+                            en: "Special",
+                        };
+                        const elementLabel = language === "th" ? elementMeta.th : elementMeta.en;
                         return (
-                            <div
-                                key={item.id}
-                                className={cn(
-                                    "flex items-center gap-4 rounded-2xl border p-4 transition-all",
-                                    equipped
-                                        ? "border-indigo-300 bg-indigo-50/60"
-                                        : "border-slate-100 bg-slate-50/60 hover:border-slate-200"
-                                )}
-                            >
-                                {/* Frame preview ring */}
-                                <div
-                                    className="relative h-12 w-12 shrink-0 rounded-full"
-                                    style={{
-                                        border: `3px solid ${item.preview?.borderColor}`,
-                                        boxShadow: item.preview?.shadow,
-                                        background: item.preview?.gradient ?? "#f8fafc",
-                                    }}
-                                >
-                                    <div className="absolute inset-[4px] rounded-full bg-slate-200" />
-                                </div>
-
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-sm font-black text-slate-900">{t(shopItemNameKey(item.id))}</p>
-                                        <span
-                                            className="rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase"
-                                            style={{
-                                                backgroundColor: `${RARITY_COLOR[item.rarity]}22`,
-                                                color: RARITY_COLOR[item.rarity],
-                                            }}
-                                        >
-                                            {t(RARITY_I18N_KEY[item.rarity])}
-                                        </span>
-                                    </div>
-                                    <p className="mt-0.5 text-xs text-slate-500">{t(shopItemDescKey(item.id))}</p>
-                                    <p className="mt-0.5 text-[11px] font-bold text-emerald-700">
-                                        {t("shopFrameGoldRateBonus", {
-                                            percent: Math.round(
-                                                (FRAME_GOLD_RATE_MULTIPLIER_BY_RARITY[item.rarity] - 1) * 100
-                                            ),
-                                        })}
+                            <div key={element} className="space-y-2">
+                                <div className="flex items-center gap-2 px-1 pt-1">
+                                    <span className={cn("text-base", elementMeta.colorClass)}>{elementMeta.emoji}</span>
+                                    <p className={cn("text-xs font-black uppercase tracking-wider", elementMeta.colorClass)}>
+                                        {elementLabel}
                                     </p>
+                                    <span className="h-px flex-1 bg-slate-200" />
                                 </div>
 
-                                <div className="shrink-0">
-                                    {!owned ? (
-                                        <Button
-                                            size="sm"
-                                            disabled={!canAfford || buying === item.id}
-                                            onClick={() => handleBuy(item)}
+                                {items.map((item) => {
+                                    const owned = inventory.includes(item.id);
+                                    const equipped = equippedFrame === item.id;
+                                    const canAfford = gold >= item.price;
+                                    const framePreview = item.preview;
+
+                                    return (
+                                        <div
+                                            key={item.id}
                                             className={cn(
-                                                "rounded-xl text-xs font-black gap-1",
-                                                canAfford
-                                                    ? "bg-yellow-500 hover:bg-yellow-600 text-white"
-                                                    : "bg-slate-200 text-slate-400"
+                                                "flex items-center gap-4 rounded-2xl border p-4 transition-all",
+                                                equipped
+                                                    ? "border-indigo-300 bg-indigo-50/60"
+                                                    : "border-slate-100 bg-slate-50/60 hover:border-slate-200"
                                             )}
                                         >
-                                            <Coins className="h-3 w-3" />
-                                            {item.price.toLocaleString()}
-                                        </Button>
-                                    ) : equipped ? (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            disabled={equipping !== null}
-                                            onClick={() => handleEquip(null)}
-                                            className="rounded-xl text-xs font-black border-indigo-300 text-indigo-700 hover:bg-indigo-50"
-                                        >
-                                            {t("shopUnequip")}
-                                        </Button>
-                                    ) : (
-                                        <Button
-                                            size="sm"
-                                            disabled={equipping !== null}
-                                            onClick={() => handleEquip(item.id)}
-                                            className="rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white gap-1"
-                                        >
-                                            <CheckCircle2 className="h-3 w-3" />
-                                            {t("shopEquip")}
-                                        </Button>
-                                    )}
-                                </div>
+                                            {/* Frame preview ring — tier DNA via FrameRing */}
+                                            {framePreview ? (
+                                                <FrameRing preview={framePreview} size="sm" rounded="full" />
+                                            ) : (
+                                                <div className="relative h-12 w-12 shrink-0 rounded-full border-2 border-slate-200 bg-slate-100" />
+                                            )}
+
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-sm font-black text-slate-900">{itemName(item)}</p>
+                                                    <span
+                                                        className="rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                                                        style={{
+                                                            backgroundColor: `${RARITY_COLOR[item.rarity]}22`,
+                                                            color: RARITY_COLOR[item.rarity],
+                                                        }}
+                                                    >
+                                                        {t(RARITY_I18N_KEY[item.rarity])}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-0.5 text-[11px] font-bold text-emerald-700">
+                                                    {t("shopFrameGoldRateBonus", {
+                                                        percent: Math.round(
+                                                            (FRAME_GOLD_RATE_MULTIPLIER_BY_RARITY[item.rarity] - 1) * 100
+                                                        ),
+                                                    })}
+                                                </p>
+                                            </div>
+
+                                            <div className="shrink-0">
+                                                {!owned ? (
+                                                    <Button
+                                                        size="sm"
+                                                        disabled={!canAfford || buying === item.id}
+                                                        onClick={() => handleBuy(item)}
+                                                        className={cn(
+                                                            "rounded-xl text-xs font-black gap-1",
+                                                            canAfford
+                                                                ? "bg-yellow-500 hover:bg-yellow-600 text-white"
+                                                                : "bg-slate-200 text-slate-400"
+                                                        )}
+                                                    >
+                                                        <Coins className="h-3 w-3" />
+                                                        {item.price.toLocaleString()}
+                                                    </Button>
+                                                ) : equipped ? (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        disabled={equipping !== null}
+                                                        onClick={() => handleEquip(null)}
+                                                        className="rounded-xl text-xs font-black border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                                                    >
+                                                        {t("shopUnequip")}
+                                                    </Button>
+                                                ) : (
+                                                    <Button
+                                                        size="sm"
+                                                        disabled={equipping !== null}
+                                                        onClick={() => handleEquip(item.id)}
+                                                        className="rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white gap-1"
+                                                    >
+                                                        <CheckCircle2 className="h-3 w-3" />
+                                                        {t("shopEquip")}
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         );
                     })}

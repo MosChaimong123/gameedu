@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+
 import { useLanguage } from "@/components/providers/language-provider";
-import { cn } from "@/lib/utils";
 import type { BattleSessionEntry } from "@/components/negamon/battle-tab.types";
+import { cn } from "@/lib/utils";
 
 interface BattleHistoryPanelProps {
     classId: string;
@@ -13,15 +14,15 @@ interface BattleHistoryPanelProps {
     refreshKey?: number;
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: (key: string, params?: Record<string, string | number>) => string): string {
     const diff = Date.now() - new Date(iso).getTime();
-    const m = Math.floor(diff / 60000);
-    if (m < 1) return "เมื่อกี้";
-    if (m < 60) return `${m} นาทีที่แล้ว`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `${h} ชั่วโมงที่แล้ว`;
-    const d = Math.floor(h / 24);
-    return `${d} วันที่แล้ว`;
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return t("battleHistoryJustNow");
+    if (minutes < 60) return t("battleHistoryMinutesAgo", { count: minutes });
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return t("battleHistoryHoursAgo", { count: hours });
+    const days = Math.floor(hours / 24);
+    return t("battleHistoryDaysAgo", { count: days });
 }
 
 export function BattleHistoryPanel({
@@ -41,6 +42,7 @@ export function BattleHistoryPanel({
             studentId: myStudentId,
             studentCode: myStudentCode,
         });
+
         void fetch(`/api/classrooms/${classId}/battle?${params.toString()}`)
             .then((r) => r.json())
             .then((d: { sessions?: BattleSessionEntry[]; studentNames?: Record<string, string> }) => {
@@ -49,6 +51,7 @@ export function BattleHistoryPanel({
             })
             .catch(() => setSessions([]))
             .finally(() => setLoading(false));
+
         return () => window.clearTimeout(timer);
     }, [classId, myStudentCode, myStudentId, refreshKey]);
 
@@ -65,7 +68,9 @@ export function BattleHistoryPanel({
     if (sessions.length === 0) {
         return (
             <div className="flex flex-col items-center gap-3 py-10 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border-4 border-rose-100 bg-white text-3xl shadow">⚔️</div>
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border-4 border-rose-100 bg-white text-3xl shadow">
+                    ⚔️
+                </div>
                 <p className="text-sm font-black text-rose-400">{t("battleHistoryEmpty")}</p>
             </div>
         );
@@ -102,30 +107,21 @@ export function BattleHistoryPanel({
 
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
-                                <span className="truncate text-sm font-black text-slate-800">
-                                    {opponentName}
-                                </span>
+                                <span className="truncate text-sm font-black text-slate-800">{opponentName}</span>
                                 <span
                                     className={cn(
                                         "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black",
-                                        isChallenger
-                                            ? "bg-rose-100 text-rose-600"
-                                            : "bg-sky-100 text-sky-600"
+                                        isChallenger ? "bg-rose-100 text-rose-600" : "bg-sky-100 text-sky-600"
                                     )}
                                 >
                                     {isChallenger ? t("battleRoleChallenger") : t("battleRoleDefender")}
                                 </span>
                             </div>
-                            <p className="text-[11px] font-bold text-slate-400">{timeAgo(s.createdAt)}</p>
+                            <p className="text-[11px] font-bold text-slate-400">{timeAgo(s.createdAt, t)}</p>
                         </div>
 
-                        <div
-                            className={cn(
-                                "shrink-0 text-sm font-black tabular-nums",
-                                won ? "text-yellow-600" : "text-slate-400"
-                            )}
-                        >
-                            {won ? `+${s.goldReward}G` : "แพ้"}
+                        <div className={cn("shrink-0 tabular-nums text-sm font-black", won ? "text-yellow-600" : "text-slate-400")}>
+                            {won ? `+${s.goldReward}G` : t("battleResultLoserBadge")}
                         </div>
                     </motion.div>
                 );

@@ -17,13 +17,13 @@ function negamonPng(key: string, rankIndex: number): string {
     return `/assets/negamon/${key}_rank${rankIndex}.png`;
 }
 
-const ABILITY_ACID_RAIN: PassiveAbility    = { id: "acid_rain",      name: "ฝนกรด",       desc: "POISON ที่ติดคู่ต่อสู้ไม่หายตลอดเกม" };
-const ABILITY_FLAME_BODY: PassiveAbility   = { id: "flame_body",     name: "ร่างเพลิง",    desc: "10% โอกาสผู้โจมตีติด BURN เมื่อโดนตี" };
-const ABILITY_IRON_SHELL: PassiveAbility   = { id: "iron_shell",     name: "เกราะเหล็ก",   desc: "รับดาเมจลดลง 10% ตลอดเกม" };
+const ABILITY_ACID_RAIN: PassiveAbility    = { id: "acid_rain",      name: "ฝนกรด",       desc: "เมื่อฝ่ายตรงข้ามติดพิษ — แต่ละปลายเทิร์นดาเมจพิษ +2% ของ max HP ต่อทิก (สะสม)" };
+const ABILITY_FLAME_BODY: PassiveAbility   = { id: "flame_body",     name: "ร่างเพลิง",    desc: "เมื่อ HP ต่ำกว่า 50% → ดาเมจไหม้ที่ศัตรูรับ +7% ของ max HP ต่อปลายเทิร์น" };
+const ABILITY_IRON_SHELL: PassiveAbility   = { id: "iron_shell",     name: "เกราะเหล็ก",   desc: "DEF +10% ตลอดการต่อสู้" };
 const ABILITY_TAILWIND: PassiveAbility     = { id: "tailwind",       name: "ลมบน",         desc: "SPD สูงขึ้น 10% ตลอดเกม" };
 const ABILITY_RAGE_MODE: PassiveAbility    = { id: "rage_mode",      name: "โทสะอสูร",     desc: "เมื่อ HP < 50% → ATK +25% ครั้งเดียว" };
-const ABILITY_AERIAL_STRIKE: PassiveAbility = { id: "aerial_strike", name: "กระโจนจากฟ้า", desc: "Priority move ทำดาเมจเพิ่ม 20%" };
-const ABILITY_STATIC: PassiveAbility       = { id: "static",         name: "สายฟ้าสถิต",   desc: "15% โอกาสผู้โจมตีติด PARALYZE เมื่อโดนตี" };
+const ABILITY_AERIAL_STRIKE: PassiveAbility = { id: "aerial_strike", name: "กระโจนจากฟ้า", desc: "โบนัสอัตราคริ: +20%" };
+const ABILITY_VOLT_FLOW: PassiveAbility    = { id: "volt_flow",      name: "พลังฟ้าไหลวน", desc: "ฟื้น EN เพิ่ม +15 ทุกปลายเทิร์น" };
 const ABILITY_GUARDIAN_SCALE: PassiveAbility = { id: "guardian_scale", name: "เกล็ดทองคุ้มครอง", desc: "เมื่อ HP < 30% → ฟื้น HP 15% ครั้งเดียว" };
 
 export const DEFAULT_NEGAMON_SPECIES: MonsterSpecies[] = [
@@ -47,10 +47,10 @@ export const DEFAULT_NEGAMON_SPECIES: MonsterSpecies[] = [
         ],
         ability: ABILITY_ACID_RAIN,
         moves: [
-            { id: "naga-aqua-jet",     name: "กระโจนน้ำ",         type: "WATER",   category: "SPECIAL",  power: 32, accuracy: 100, learnRank: 3, priority: 1 },
+            { id: "naga-aqua-jet",     name: "กระโจนน้ำ",         type: "WATER",   category: "SPECIAL",  power: 32, accuracy: 100, learnRank: 3 },
             { id: "naga-mind-snare",   name: "เงาสะกดยมนาค",     type: "DARK", category: "STATUS",   power: 0,  accuracy: 100, learnRank: 4, effect: "LOWER_ATK" },
-            { id: "naga-astral-surge", name: "คลื่นทมิฬลึก",     type: "DARK", category: "SPECIAL",  power: 38, accuracy: 88,  learnRank: 5 },
-            { id: "naga-tidal-force",  name: "ยมสมุทรเกลียวคลื่น", type: "WATER", category: "SPECIAL", power: 50, accuracy: 76, learnRank: 6, effect: "BADLY_POISON", effectChance: 30, critBonus: 14 },
+            { id: "naga-astral-surge", name: "คลื่นทมิฬลึก",     type: "DARK", category: "SPECIAL",  power: 38, accuracy: 88,  learnRank: 5, drainPct: 25 },
+            { id: "naga-tidal-force",  name: "ยมสมุทรเกลียวคลื่น", type: "WATER", category: "SPECIAL", power: 46, accuracy: 76, learnRank: 6, effect: "BADLY_POISON", effectChance: 100, critBonus: 10 },
         ],
     },
 
@@ -74,10 +74,10 @@ export const DEFAULT_NEGAMON_SPECIES: MonsterSpecies[] = [
         ],
         ability: ABILITY_FLAME_BODY,
         moves: [
-            { id: "garuda-flame-burst",  name: "เปลวเพลิงระเบิด", type: "FIRE",   category: "SPECIAL",  power: 38, accuracy: 90,  learnRank: 3, effect: "BURN", effectChance: 25 },
+            { id: "garuda-flame-burst",  name: "เปลวเพลิงระเบิด", type: "FIRE",   category: "SPECIAL",  power: 37, accuracy: 90,  learnRank: 3, effect: "BURN", effectChance: 100 },
             { id: "garuda-sky-dive",     name: "ดิ่งจากฟ้า",     type: "WIND",   category: "PHYSICAL", power: 42, accuracy: 90,  learnRank: 4, critBonus: 20 },
             { id: "garuda-cyclone-scar", name: "แผลพายุเทพ",     type: "WIND",   category: "SPECIAL",  power: 48, accuracy: 85,  learnRank: 5 },
-            { id: "garuda-strike",       name: "เพลิงมหาครุฑวิถี", type: "FIRE", category: "PHYSICAL", power: 58, accuracy: 71, learnRank: 6, priority: 1, effect: "BURN", effectChance: 40 },
+            { id: "garuda-strike",       name: "เพลิงมหาครุฑวิถี", type: "FIRE", category: "PHYSICAL", power: 50, accuracy: 71, learnRank: 6, effect: "BURN", effectChance: 100 },
         ],
     },
 
@@ -103,8 +103,8 @@ export const DEFAULT_NEGAMON_SPECIES: MonsterSpecies[] = [
         moves: [
             { id: "singha-earth-slam",   name: "กระทืบแผ่นดิน",   type: "EARTH", category: "PHYSICAL", power: 34, accuracy: 90, learnRank: 3 },
             { id: "singha-blaze-claw",   name: "กรงเล็บเพลิงราชา", type: "FIRE",  category: "PHYSICAL", power: 41, accuracy: 88, learnRank: 4 },
-            { id: "singha-crimson-mane", name: "ยศเปลวสีห์",      type: "FIRE",  category: "SPECIAL",  power: 42, accuracy: 86, learnRank: 5, effect: "BURN", effectChance: 22 },
-            { id: "singha-earth-king",   name: "สิงห์ถล่มพิภพ",   type: "EARTH", category: "PHYSICAL", power: 56, accuracy: 73, learnRank: 6, effect: "LOWER_DEF", effectChance: 100 },
+            { id: "singha-crimson-mane", name: "ยศเปลวสีห์",      type: "FIRE",  category: "SPECIAL",  power: 41, accuracy: 86, learnRank: 5, effect: "BURN", effectChance: 100, effectBurnDotRate: 0.04, effectDurationTurns: 3 },
+            { id: "singha-earth-king",   name: "สิงห์ถล่มพิภพ",   type: "EARTH", category: "PHYSICAL", power: 50, accuracy: 73, learnRank: 6, effect: "BOOST_DEF_20", effectChance: 100 },
         ],
     },
 
@@ -128,10 +128,34 @@ export const DEFAULT_NEGAMON_SPECIES: MonsterSpecies[] = [
         ],
         ability: ABILITY_TAILWIND,
         moves: [
-            { id: "kinnaree-air-slash",     name: "กรีดลม",         type: "WIND",  category: "SPECIAL",  power: 32, accuracy: 95,  learnRank: 3, effect: "PARALYZE", effectChance: 20 },
-            { id: "kinnaree-radiant-slash", name: "รังสีกรีดอากาศ", type: "LIGHT", category: "SPECIAL",  power: 35, accuracy: 92,  learnRank: 4, effect: "PARALYZE", effectChance: 18 },
+            { id: "kinnaree-air-slash",     name: "กรีดลม",         type: "WIND",  category: "SPECIAL",  power: 31, accuracy: 95,  learnRank: 3, effect: "BOOST_SPD_30", effectChance: 100 },
+            {
+                id: "kinnaree-radiant-slash",
+                name: "รังสีกรีดอากาศ",
+                type: "LIGHT",
+                category: "SPECIAL",
+                power: 34,
+                accuracy: 92,
+                learnRank: 4,
+                effect: "IGNORE_DEF",
+                effectChance: 100,
+                effectIgnoreDefRetained: 0.75,
+            },
             { id: "kinnaree-heaven-song",   name: "บทเพลงสวรรค์",  type: "LIGHT", category: "HEAL",     power: 0,  accuracy: 100, learnRank: 5, effect: "HEAL_25" },
-            { id: "kinnaree-divine-storm",  name: "วังวนสวรรค์", type: "WIND", category: "SPECIAL", power: 54, accuracy: 76, learnRank: 6, priority: 1, effect: "PARALYZE", effectChance: 38 },
+            {
+                id: "kinnaree-divine-storm",
+                name: "วังวนสวรรค์",
+                type: "WIND",
+                category: "SPECIAL",
+                power: 44,
+                accuracy: 76,
+                learnRank: 6,
+                effect: "LOWER_SPD",
+                effectChance: 100,
+                effectDurationTurns: 3,
+                selfEffect: "BOOST_SPD_100",
+                selfEffectDurationTurns: 3,
+            },
         ],
     },
 
@@ -155,10 +179,10 @@ export const DEFAULT_NEGAMON_SPECIES: MonsterSpecies[] = [
         ],
         ability: ABILITY_RAGE_MODE,
         moves: [
-            { id: "thot-shadow-claw",   name: "กรงเล็บเงา",    type: "DARK",  category: "PHYSICAL", power: 34, accuracy: 90,  learnRank: 3, critBonus: 20 },
+            { id: "thot-shadow-claw",   name: "กรงเล็บเงา",    type: "DARK",  category: "PHYSICAL", power: 34, accuracy: 90,  learnRank: 3, drainPct: 25 },
             { id: "thot-ten-faces",     name: "สิบหน้า",       type: "DARK",  category: "STATUS",   power: 0,  accuracy: 100, learnRank: 4, effect: "BOOST_ATK" },
             { id: "thot-hell-fist",     name: "หมัดเพลิงนรก",  type: "FIRE",  category: "PHYSICAL", power: 46, accuracy: 85,  learnRank: 5 },
-            { id: "thot-asura-burst",   name: "เพลิงอสูรสิบหน้า", type: "FIRE", category: "SPECIAL", power: 56, accuracy: 72, learnRank: 6, effect: "BURN", effectChance: 42, critBonus: 22 },
+            { id: "thot-asura-burst",   name: "เพลิงอสูรสิบหน้า", type: "FIRE", category: "SPECIAL", power: 50, accuracy: 72, learnRank: 6, effect: "BURN", effectChance: 100, critBonus: 12 },
         ],
     },
 
@@ -185,7 +209,7 @@ export const DEFAULT_NEGAMON_SPECIES: MonsterSpecies[] = [
             { id: "hanuman-slash",       name: "สามกรีด",           type: "WIND",   category: "PHYSICAL", power: 34, accuracy: 90,  learnRank: 3, critBonus: 20 },
             { id: "hanuman-yawn-stars",  name: "หาวเป็นดาวเดือน",   type: "LIGHT",  category: "STATUS",   power: 0,  accuracy: 100, learnRank: 4, effect: "SLEEP" },
             { id: "hanuman-cloud-dash",  name: "พุ่งก้อนเมฆ",      type: "WIND",   category: "PHYSICAL", power: 40, accuracy: 90,  learnRank: 5 },
-            { id: "hanuman-divine-inc",  name: "พระหัตถ์ทลายเกราะ", type: "LIGHT", category: "PHYSICAL", power: 58, accuracy: 75, learnRank: 6, priority: 1, effect: "IGNORE_DEF", effectChance: 100, critBonus: 18 },
+            { id: "hanuman-divine-inc",  name: "พระหัตถ์ทลายเกราะ", type: "LIGHT", category: "PHYSICAL", power: 46, accuracy: 75, learnRank: 6, effect: "IGNORE_DEF", effectChance: 100, critBonus: 30 },
         ],
     },
 
@@ -207,12 +231,12 @@ export const DEFAULT_NEGAMON_SPECIES: MonsterSpecies[] = [
             { rank: 4, name: "Mani Mekkala",  icon: negamonPng("mekkala", 4),   color: "#f97316" },
             { rank: 5, name: "Jewel Empress", icon: negamonPng("mekkala", 5),   color: "#ef4444" },
         ],
-        ability: ABILITY_STATIC,
+        ability: ABILITY_VOLT_FLOW,
         moves: [
-            { id: "mekkala-thunder",       name: "ฟ้าผ่า",      type: "THUNDER", category: "SPECIAL",  power: 32, accuracy: 90,  learnRank: 3, effect: "PARALYZE", effectChance: 25 },
-            { id: "mekkala-crystal-glare", name: "ประกายแก้ว",  type: "LIGHT",   category: "SPECIAL",  power: 34, accuracy: 95,  learnRank: 4, effect: "LOWER_DEF", critBonus: 15 },
+            { id: "mekkala-thunder",       name: "ฟ้าผ่า",      type: "THUNDER", category: "SPECIAL",  power: 31, accuracy: 90,  learnRank: 3, effect: "LOWER_EN_REGEN", effectChance: 100, effectRegenPenalty: 15, effectDurationTurns: 2 },
+            { id: "mekkala-crystal-glare", name: "ประกายแก้ว",  type: "LIGHT",   category: "SPECIAL",  power: 31, accuracy: 95,  learnRank: 4, effect: "LOWER_DEF", effectChance: 100, critBonus: 10 },
             { id: "mekkala-prism",         name: "แสงปริซึม",   type: "LIGHT",   category: "SPECIAL",  power: 40, accuracy: 90,  learnRank: 5 },
-            { id: "mekkala-judgment",      name: "แส้สายฟ้าตัดสิน", type: "THUNDER", category: "SPECIAL", power: 56, accuracy: 74, learnRank: 6, effect: "PARALYZE", effectChance: 45 },
+            { id: "mekkala-judgment",      name: "แส้สายฟ้าตัดสิน", type: "THUNDER", category: "SPECIAL", power: 48, accuracy: 74, learnRank: 6, effect: "PARALYZE", effectChance: 100, effectDurationTurns: 1, effectParalyzeFullSkip: true, energyCost: 70 },
         ],
     },
 
@@ -238,8 +262,8 @@ export const DEFAULT_NEGAMON_SPECIES: MonsterSpecies[] = [
         moves: [
             { id: "suvanna-wave",        name: "คลื่นน้ำ",       type: "WATER",   category: "SPECIAL",  power: 34, accuracy: 90,  learnRank: 3 },
             { id: "suvanna-lullaby",     name: "เพลงนางเงือก",   type: "LIGHT",   category: "STATUS",   power: 0,  accuracy: 100, learnRank: 4, effect: "SLEEP" },
-            { id: "suvanna-golden-tide", name: "คลื่นทองศักดิ์สิทธิ์", type: "LIGHT", category: "SPECIAL",  power: 44, accuracy: 85,  learnRank: 5, effect: "BOOST_DEF" },
-            { id: "suvanna-blessing",    name: "สมุทรนิทราประกายทอง", type: "WATER", category: "SPECIAL", power: 52, accuracy: 78, learnRank: 6, effect: "SLEEP", effectChance: 32 },
+            { id: "suvanna-golden-tide", name: "คลื่นทองศักดิ์สิทธิ์", type: "LIGHT", category: "SPECIAL",  power: 38, accuracy: 85,  learnRank: 5, effect: "BOOST_DEF" },
+            { id: "suvanna-blessing",    name: "สมุทรนิทราประกายทอง", type: "WATER", category: "SPECIAL", power: 48, accuracy: 78, learnRank: 6, drainPct: 50 },
         ],
     },
 ];

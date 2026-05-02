@@ -107,7 +107,7 @@ export function CryptoHackClient({ socket, player, otherPlayers, onNavigate, vie
                                         {t("cryptoClientInitializeDefense")}
                                     </h1>
                                     <p className="text-green-800 text-sm md:text-lg uppercase tracking-[0.5em] animate-pulse">
-                                        &gt; SELECT_PASSWORD_PROTOCOL
+                                        &gt; {t("cryptoClientSelectPasswordProtocol")}
                                     </p>
                                 </div>
 
@@ -147,7 +147,7 @@ export function CryptoHackClient({ socket, player, otherPlayers, onNavigate, vie
                                 {t("cryptoClientTargetAcquisition")}
                             </h1>
                             <p className="text-red-900 text-sm md:text-lg uppercase tracking-[0.3em] animate-pulse">
-                                &gt; SELECT_VICTIM_NODE
+                                &gt; {t("cryptoClientSelectVictimNode")}
                             </p>
                         </div>
 
@@ -246,10 +246,10 @@ function PasswordGuessView({ passwordOptions, hackHint, handleAttemptHack }: { p
         <div className="w-full max-w-6xl mx-auto flex flex-col items-center animate-in fade-in slide-in-from-bottom-5 h-full">
             <div className="mb-4 text-center shrink-0">
                 <h1 className="text-3xl md:text-5xl font-black text-blue-500 mb-2 uppercase tracking-tighter drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]">
-                    BRUTE FORCE
+                    {t("cryptoClientBruteForce")}
                 </h1>
                 <div className="text-blue-900 text-sm md:text-lg uppercase tracking-[0.2em] flex items-center justify-center gap-2">
-                    <span>&gt; CRACKING_PASSWORD...</span>
+                    <span>&gt; {t("cryptoClientCrackingPassword")}</span>
                     <span className="w-2 h-4 bg-blue-500 animate-pulse" />
                 </div>
             </div>

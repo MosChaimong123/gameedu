@@ -88,7 +88,7 @@ export function ClassroomDashboardToolbar({
                         {classroom.emoji?.startsWith("data:image") || classroom.emoji?.startsWith("http") ? (
                             <Image
                                 src={classroom.emoji}
-                                alt="Class Icon"
+                                alt={t("classroomIconAlt")}
                                 width={56}
                                 height={56}
                                 className="h-full w-full object-cover"
@@ -114,7 +114,7 @@ export function ClassroomDashboardToolbar({
                                 className={`ml-1 h-2 w-2 rounded-full ${
                                     isConnected ? "bg-green-400" : "bg-red-400"
                                 }`}
-                                title={isConnected ? "Connected" : "Disconnected"}
+                                title={isConnected ? t("connected") : t("disconnected")}
                             />
                         </div>
                     </div>

@@ -1,25 +1,29 @@
 "use server"
 
 import { auth } from "@/auth";
-import { db } from "@/lib/db";
+import { db, getOptionalDbModel } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { logAuditEvent } from "@/lib/security/audit-log";
 import type { Session } from "next-auth";
 import { z } from "zod";
 
 type UserRole = "ADMIN" | "TEACHER" | "STUDENT";
+type AdminActionResult = { success: true } | { success: false; errorKey: string };
+type DeleteUserResult =
+    | { success: true }
+    | { success: false; errorKey: string };
 
 async function ensureAdmin(): Promise<Session> {
     const session = await auth();
     const role = session?.user?.role;
     if (!session?.user || role !== "ADMIN") {
-        throw new Error("Unauthorized: Admin access required");
+        throw new Error("adminAuthRequired");
     }
 
     return session;
 }
 
-export async function updateUserRole(userId: string, newRole: UserRole) {
+export async function updateUserRole(userId: string, newRole: UserRole): Promise<AdminActionResult> {
     const session = await ensureAdmin();
     
     try {
@@ -39,13 +43,9 @@ export async function updateUserRole(userId: string, newRole: UserRole) {
         return { success: true };
     } catch (error) {
         console.error("Failed to update user role:", error);
-        return { success: false, error: "Failed to update role" };
+        return { success: false, errorKey: "adminRoleUpdateFailDesc" };
     }
 }
-
-export type DeleteUserResult =
-    | { success: true }
-    | { success: false; errorKey: string };
 
 /**
  * Remove related rows that block Prisma user.delete (MongoDB has no automatic FK cascade for most User relations).
@@ -117,6 +117,10 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 const subscriptionPlanSchema = z.enum(["FREE", "PLUS", "PRO"]);
 const audiencePlansSchema = z.array(subscriptionPlanSchema).min(1);
 
+function missingModelResult(errorKey: string) {
+    return { success: false as const, errorKey };
+}
+
 const updateUserSubscriptionSchema = z.object({
     plan: subscriptionPlanSchema,
     planStatus: z.enum(["ACTIVE", "EXPIRED", "INACTIVE"]).optional(),
@@ -131,7 +135,7 @@ export async function updateUserSubscription(
         const session = await ensureAdmin();
         const parsed = updateUserSubscriptionSchema.safeParse(raw);
         if (!parsed.success) {
-            return { success: false as const, error: "Invalid subscription payload" };
+            return { success: false as const, errorKey: "adminSubscriptionInvalidPayload" };
         }
 
         let planExpiry: Date | null | undefined;
@@ -140,7 +144,7 @@ export async function updateUserSubscription(
         } else if (parsed.data.planExpiry) {
             const d = new Date(parsed.data.planExpiry);
             if (Number.isNaN(d.getTime())) {
-                return { success: false as const, error: "Invalid expiry date" };
+                return { success: false as const, errorKey: "adminSubscriptionInvalidExpiry" };
             }
             planExpiry = d;
         }
@@ -168,10 +172,10 @@ export async function updateUserSubscription(
         return { success: true as const };
     } catch (error) {
         console.error("Failed to update subscription:", error);
-        if (error instanceof Error && error.message.includes("Unauthorized")) {
-            return { success: false as const, error: "Unauthorized: Admin access required" };
+        if (error instanceof Error && error.message === "adminAuthRequired") {
+            return { success: false as const, errorKey: "adminAuthRequired" };
         }
-        return { success: false as const, error: "Failed to update subscription" };
+        return { success: false as const, errorKey: "adminSubscriptionUpdateFailDesc" };
     }
 }
 
@@ -194,10 +198,14 @@ export async function createTeacherNewsItem(raw: unknown) {
     const session = await ensureAdmin();
     const parsed = teacherNewsCreateSchema.safeParse(raw);
     if (!parsed.success) {
-        return { success: false as const, error: "Invalid news payload" };
+        return { success: false as const, errorKey: "adminTeacherNewsInvalidPayload" };
+    }
+    const teacherNewsItem = getOptionalDbModel<{ create: (args: unknown) => Promise<unknown> }>("teacherNewsItem");
+    if (!teacherNewsItem) {
+        return missingModelResult("adminTeacherNewsUnavailable");
     }
     try {
-        await db.teacherNewsItem.create({
+        await teacherNewsItem.create({
             data: {
                 title: parsed.data.title,
                 body: parsed.data.body ?? "",
@@ -220,7 +228,7 @@ export async function createTeacherNewsItem(raw: unknown) {
         return { success: true as const };
     } catch (error) {
         console.error("[createTeacherNewsItem]", error);
-        return { success: false as const, error: "Failed to create news" };
+        return { success: false as const, errorKey: "adminTeacherNewsCreateFailDesc" };
     }
 }
 
@@ -228,10 +236,14 @@ export async function updateTeacherNewsItem(raw: unknown) {
     const session = await ensureAdmin();
     const parsed = teacherNewsUpdateSchema.safeParse(raw);
     if (!parsed.success) {
-        return { success: false as const, error: "Invalid news payload" };
+        return { success: false as const, errorKey: "adminTeacherNewsInvalidPayload" };
+    }
+    const teacherNewsItem = getOptionalDbModel<{ update: (args: unknown) => Promise<unknown> }>("teacherNewsItem");
+    if (!teacherNewsItem) {
+        return missingModelResult("adminTeacherNewsUnavailable");
     }
     try {
-        await db.teacherNewsItem.update({
+        await teacherNewsItem.update({
             where: { id: parsed.data.id },
             data: {
                 title: parsed.data.title,
@@ -255,14 +267,18 @@ export async function updateTeacherNewsItem(raw: unknown) {
         return { success: true as const };
     } catch (error) {
         console.error("[updateTeacherNewsItem]", error);
-        return { success: false as const, error: "Failed to update news" };
+        return { success: false as const, errorKey: "adminTeacherNewsUpdateFailDesc" };
     }
 }
 
 export async function deleteTeacherNewsItem(id: string) {
     const session = await ensureAdmin();
+    const teacherNewsItem = getOptionalDbModel<{ delete: (args: unknown) => Promise<unknown> }>("teacherNewsItem");
+    if (!teacherNewsItem) {
+        return missingModelResult("adminTeacherNewsUnavailable");
+    }
     try {
-        await db.teacherNewsItem.delete({ where: { id } });
+        await teacherNewsItem.delete({ where: { id } });
         logAuditEvent({
             actorUserId: session.user.id,
             action: "admin.teacher_news.deleted",
@@ -274,7 +290,7 @@ export async function deleteTeacherNewsItem(id: string) {
         return { success: true as const };
     } catch (error) {
         console.error("[deleteTeacherNewsItem]", error);
-        return { success: false as const, error: "Failed to delete news" };
+        return { success: false as const, errorKey: "adminTeacherNewsDeleteFailDesc" };
     }
 }
 
@@ -296,10 +312,14 @@ export async function createTeacherMission(raw: unknown) {
     const session = await ensureAdmin();
     const parsed = teacherMissionCreateSchema.safeParse(raw);
     if (!parsed.success) {
-        return { success: false as const, error: "Invalid mission payload" };
+        return { success: false as const, errorKey: "adminTeacherMissionInvalidPayload" };
+    }
+    const teacherMission = getOptionalDbModel<{ create: (args: unknown) => Promise<unknown> }>("teacherMission");
+    if (!teacherMission) {
+        return missingModelResult("adminTeacherMissionUnavailable");
     }
     try {
-        await db.teacherMission.create({
+        await teacherMission.create({
             data: {
                 title: parsed.data.title,
                 reward: parsed.data.reward,
@@ -321,7 +341,7 @@ export async function createTeacherMission(raw: unknown) {
         return { success: true as const };
     } catch (error) {
         console.error("[createTeacherMission]", error);
-        return { success: false as const, error: "Failed to create mission" };
+        return { success: false as const, errorKey: "adminTeacherMissionCreateFailDesc" };
     }
 }
 
@@ -329,10 +349,14 @@ export async function updateTeacherMission(raw: unknown) {
     const session = await ensureAdmin();
     const parsed = teacherMissionUpdateSchema.safeParse(raw);
     if (!parsed.success) {
-        return { success: false as const, error: "Invalid mission payload" };
+        return { success: false as const, errorKey: "adminTeacherMissionInvalidPayload" };
+    }
+    const teacherMission = getOptionalDbModel<{ update: (args: unknown) => Promise<unknown> }>("teacherMission");
+    if (!teacherMission) {
+        return missingModelResult("adminTeacherMissionUnavailable");
     }
     try {
-        await db.teacherMission.update({
+        await teacherMission.update({
             where: { id: parsed.data.id },
             data: {
                 title: parsed.data.title,
@@ -355,14 +379,18 @@ export async function updateTeacherMission(raw: unknown) {
         return { success: true as const };
     } catch (error) {
         console.error("[updateTeacherMission]", error);
-        return { success: false as const, error: "Failed to update mission" };
+        return { success: false as const, errorKey: "adminTeacherMissionUpdateFailDesc" };
     }
 }
 
 export async function deleteTeacherMission(id: string) {
     const session = await ensureAdmin();
+    const teacherMission = getOptionalDbModel<{ delete: (args: unknown) => Promise<unknown> }>("teacherMission");
+    if (!teacherMission) {
+        return missingModelResult("adminTeacherMissionUnavailable");
+    }
     try {
-        await db.teacherMission.delete({ where: { id } });
+        await teacherMission.delete({ where: { id } });
         logAuditEvent({
             actorUserId: session.user.id,
             action: "admin.teacher_mission.deleted",
@@ -374,11 +402,11 @@ export async function deleteTeacherMission(id: string) {
         return { success: true as const };
     } catch (error) {
         console.error("[deleteTeacherMission]", error);
-        return { success: false as const, error: "Failed to delete mission" };
+        return { success: false as const, errorKey: "adminTeacherMissionDeleteFailDesc" };
     }
 }
 
-export async function deleteSet(setId: string) {
+export async function deleteSet(setId: string): Promise<AdminActionResult> {
     const session = await ensureAdmin();
     
     try {
@@ -396,6 +424,6 @@ export async function deleteSet(setId: string) {
         return { success: true };
     } catch (error) {
         console.error("Failed to delete set:", error);
-        return { success: false, error: "Failed to delete set" };
+        return { success: false, errorKey: "adminSetDeleteFailDesc" };
     }
 }

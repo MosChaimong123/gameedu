@@ -56,6 +56,11 @@ function attendanceSegmentLabel(
   return legacyName ?? status ?? "";
 }
 
+function csvCell(value: string | number | null | undefined): string {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
 interface AnalyticsData {
   summary: { name: string; value: number; fill: string }[];
   growthData: { date: string; points: number }[];
@@ -85,10 +90,8 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
       .catch(() => setLoading(false));
   }, [classId]);
 
-  const handleExportExcel = async () => {
+  const handleExportCsv = () => {
     if (!data) return;
-    const XLSX = await import("xlsx");
-    const wb = XLSX.utils.book_new();
     const studentsData = [
       [
         t("studentName"),
@@ -102,10 +105,14 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
         s.name, s.behaviorPoints, s.totalPositive, s.totalNeedsWork, s.achievementCount, s.attendance
       ])
     ];
-    const ws = XLSX.utils.aoa_to_sheet(studentsData);
-    ws["!cols"] = [{wch:20},{wch:14},{wch:10},{wch:10},{wch:12},{wch:12}];
-    XLSX.utils.book_append_sheet(wb, ws, t("analyticsExcelSheetStudents"));
-    XLSX.writeFile(wb, `analytics_${new Date().toLocaleDateString("th-TH").replace(/\//g,"-")}.xlsx`);
+    const csv = studentsData.map((row) => row.map(csvCell).join(",")).join("\r\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `analytics_${new Date().toLocaleDateString("th-TH").replace(/\//g, "-")}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   const totalStud = data?.studentStats.length ?? 0;
@@ -151,8 +158,8 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
           <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{t("analyticsPageSubtitle")}</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleExportExcel} size="sm" className="gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black">
-            <FileSpreadsheet className="w-4 h-4" /> {t("analyticsExportExcelButton")}
+          <Button onClick={handleExportCsv} size="sm" className="gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black">
+            <FileSpreadsheet className="w-4 h-4" /> {t("analyticsExportCsvButton")}
           </Button>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
+import { createAppErrorResponse } from "@/lib/api-error";
 import { getStripeClient, getStripeSecretKey, getStripeWebhookSecret } from "@/lib/billing/stripe";
 import { claimStripeWebhookEvent, releaseStripeWebhookClaim } from "@/lib/billing/stripe-idempotency";
 import {
@@ -16,12 +17,12 @@ export async function POST(req: Request) {
 
   if (!webhookSecret || !apiSecret) {
     console.error("[webhooks/stripe] Missing STRIPE_WEBHOOK_SECRET or STRIPE_SECRET_KEY");
-    return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
+    return createAppErrorResponse("BILLING_NOT_CONFIGURED", "Webhook not configured", 503);
   }
 
   const signature = req.headers.get("stripe-signature");
   if (!signature) {
-    return NextResponse.json({ error: "Missing stripe-signature" }, { status: 400 });
+    return createAppErrorResponse("INVALID_PAYLOAD", "Missing stripe-signature", 400);
   }
 
   const rawBody = await req.text();
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
     event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch (err) {
     console.error("[webhooks/stripe] Signature verification failed", err);
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    return createAppErrorResponse("INVALID_PAYLOAD", "Invalid signature", 400);
   }
 
   const claimed = await claimStripeWebhookEvent(event.id);
@@ -63,7 +64,7 @@ export async function POST(req: Request) {
   } catch (e) {
     console.error("[webhooks/stripe] Handler error", event.type, e);
     await releaseStripeWebhookClaim(event.id);
-    return NextResponse.json({ error: "Handler failed" }, { status: 500 });
+    return createAppErrorResponse("INTERNAL_ERROR", "Handler failed", 500);
   }
 
   return NextResponse.json({ received: true });

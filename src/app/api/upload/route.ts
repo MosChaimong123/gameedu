@@ -119,15 +119,7 @@ export async function POST(request: NextRequest) {
                 targetType: "upload",
                 metadata: { reason: "missing_file" },
             });
-            return NextResponse.json(
-                {
-                    error: {
-                        code: "NO_FILE",
-                        message: "No file uploaded",
-                    },
-                },
-                { status: 400 }
-            );
+            return createAppErrorResponse("NO_FILE", "No file uploaded", 400);
         }
 
         if (!ALLOWED_MIME_TYPES.has(file.type)) {

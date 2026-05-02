@@ -4,7 +4,9 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getStudentRank } from "@/lib/classroom-utils";
+import { getItemById } from "@/lib/shop-items";
 import { useLanguage } from "@/components/providers/language-provider";
+import { FrameCardChrome, FrameRing } from "@/components/ui/frame-visual";
 
 type LevelConfigInput = Record<string, number> | Array<{ name: string; minScore: number }> | null | undefined;
 
@@ -19,6 +21,7 @@ interface StudentAvatarProps {
     className?: string;
     attendance?: string; // PRESENT, ABSENT, LATE, LEFT_EARLY
     levelConfig?: LevelConfigInput;
+    equippedFrame?: string | null;
     isSelected?: boolean;
     isAttendanceMode?: boolean;
 }
@@ -36,6 +39,7 @@ export function StudentAvatar({
     className,
     attendance = "PRESENT",
     levelConfig,
+    equippedFrame = null,
     isSelected = false,
     isAttendanceMode = false
 }: StudentAvatarProps) {
@@ -60,20 +64,11 @@ export function StudentAvatar({
     };
 
     const rankStyle = getRankStyle(rank);
+    const frameItem = equippedFrame ? getItemById(equippedFrame) : undefined;
+    const framePreview = frameItem?.type === "frame" ? frameItem.preview : undefined;
 
-    return (
-        <motion.div
-            whileHover={{ scale: 1.05, y: -5 }}
-            whileTap={{ scale: 0.95 }}
-            className={cn(
-                "relative flex flex-col items-center justify-center rounded-[2rem] border border-slate-100 bg-white p-4 shadow-sm transition-all cursor-pointer group hover:border-indigo-100 hover:shadow-2xl sm:p-5",
-                isAbsent && "opacity-60 grayscale bg-slate-50",
-                isSelected && "bg-indigo-50 ring-4 ring-indigo-500/30 shadow-xl",
-                className
-            )}
-            onClick={onClick}
-            onContextMenu={onContextMenu}
-        >
+    const cardInner = (
+        <>
             {/* Top Right Score Badges (Side Stack) */}
             {!isAbsent && (
                 <div className="absolute right-2 top-3 z-20 flex flex-col items-end gap-1.5 sm:right-3 sm:top-4">
@@ -118,22 +113,47 @@ export function StudentAvatar({
                 </div>
             )}
 
-            {/* Avatar Image using DiceBear (Bottts or Monsters) */}
-            <div className={cn(
-                "relative mb-4 h-24 w-24 overflow-hidden rounded-[1.75rem] border border-slate-100 bg-slate-50 p-3 shadow-inner transition-colors group-hover:bg-indigo-50/50 sm:h-28 sm:w-28",
-                isLate && "ring-4 ring-yellow-400 ring-offset-2",
-                isLeftEarly && "ring-4 ring-orange-400 ring-offset-2"
-            )}>
-                {isAbsent && <div className="absolute inset-0 bg-red-500/10 z-10" />}
-                <Image
-                    src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatarSeed || id}`}
-                    alt={name}
-                    fill
-                    sizes="(max-width: 640px) 96px, 112px"
-                    unoptimized
-                    className="object-contain drop-shadow-md group-hover:scale-110 transition-transform duration-500"
-                />
-            </div>
+            {/* Avatar — tier ring when a shop frame is equipped */}
+            {framePreview ? (
+                <FrameRing
+                    preview={framePreview}
+                    size="lg"
+                    rounded="avatar"
+                    className={cn(
+                        "mb-4 shadow-inner transition-colors group-hover:bg-indigo-50/50",
+                        isLate && "ring-4 ring-yellow-400 ring-offset-2",
+                        isLeftEarly && "ring-4 ring-orange-400 ring-offset-2"
+                    )}
+                >
+                    {isAbsent && <div className="absolute inset-0 z-10 rounded-[inherit] bg-red-500/10" />}
+                    <Image
+                        src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatarSeed || id}`}
+                        alt={name}
+                        fill
+                        sizes="(max-width: 640px) 96px, 112px"
+                        unoptimized
+                        className="object-contain p-3 drop-shadow-md transition-transform duration-500 group-hover:scale-110"
+                    />
+                </FrameRing>
+            ) : (
+                <div
+                    className={cn(
+                        "relative mb-4 h-24 w-24 overflow-hidden rounded-[1.75rem] border border-slate-100 bg-slate-50 p-3 shadow-inner transition-colors group-hover:bg-indigo-50/50 sm:h-28 sm:w-28",
+                        isLate && "ring-4 ring-yellow-400 ring-offset-2",
+                        isLeftEarly && "ring-4 ring-orange-400 ring-offset-2"
+                    )}
+                >
+                    {isAbsent && <div className="absolute inset-0 z-10 bg-red-500/10" />}
+                    <Image
+                        src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatarSeed || id}`}
+                        alt={name}
+                        fill
+                        sizes="(max-width: 640px) 96px, 112px"
+                        unoptimized
+                        className="object-contain drop-shadow-md transition-transform duration-500 group-hover:scale-110"
+                    />
+                </div>
+            )}
 
             {/* Name Label & Rank */}
             <div className="flex flex-col items-center w-full">
@@ -147,6 +167,40 @@ export function StudentAvatar({
                     {name}
                 </div>
             </div>
+        </>
+    );
+
+    return (
+        <motion.div
+            whileHover={{ scale: 1.05, y: -5 }}
+            whileTap={{ scale: 0.95 }}
+            className={cn(
+                "relative flex flex-col items-center justify-center rounded-[2rem] transition-all cursor-pointer group",
+                !framePreview &&
+                    "border border-slate-100 bg-white p-4 shadow-sm hover:border-indigo-100 hover:shadow-2xl sm:p-5",
+                framePreview && "p-0 shadow-none",
+                isAbsent && "opacity-60 grayscale bg-slate-50",
+                isSelected && "bg-indigo-50 ring-4 ring-indigo-500/30 shadow-xl",
+                className
+            )}
+            onClick={onClick}
+            onContextMenu={onContextMenu}
+        >
+            {framePreview ? (
+                <FrameCardChrome
+                    preview={framePreview}
+                    outerClassName={cn(
+                        "rounded-[2rem] flex w-full flex-col items-center justify-center",
+                        isAbsent && "opacity-60 grayscale"
+                    )}
+                    innerRoundedClassName="rounded-[1.85rem]"
+                    innerClassName="relative flex flex-col items-center justify-center p-4 sm:p-5"
+                >
+                    {cardInner}
+                </FrameCardChrome>
+            ) : (
+                cardInner
+            )}
         </motion.div>
     );
 }

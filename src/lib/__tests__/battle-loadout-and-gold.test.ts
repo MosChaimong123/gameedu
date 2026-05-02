@@ -15,11 +15,12 @@ function minimalWinner(overrides: Partial<BattleFighter> = {}): BattleFighter {
         maxHp: 10,
         currentHp: 10,
         baseStats: { hp: 10, atk: 10, def: 10, spd: 10 },
-        statStages: { atk: 1, def: 1, spd: 1, waterDmg: 1, ignoreDef: false },
+        statStages: { atk: 1, def: 1, spd: 1, waterDmg: 1 },
         effects: [],
         moves: [],
         rankIndex: 0,
         badlyPoisonTick: 0,
+        acidRainPoisonStacks: 0,
         immunities: [],
         activeItems: [],
         goldBonus: 0,
@@ -29,6 +30,7 @@ function minimalWinner(overrides: Partial<BattleFighter> = {}): BattleFighter {
         currentEnergy: 10,
         energyRegenPerTurn: 0,
         actionMeter: 0,
+        turnsCompleted: 0,
         ...overrides,
     };
 }

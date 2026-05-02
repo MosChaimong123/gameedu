@@ -48,7 +48,9 @@ export function OpponentPicker({
                     />
                     <div className="min-w-0 flex-1">
                         <p className="text-xs font-black text-slate-800">{op.name}</p>
-                        <p className="text-[10px] text-slate-400">{op.formName} ยท Rank {op.rankIndex + 1}</p>
+                        <p className="text-[10px] text-slate-400">
+                            {t("battleOpponentFormRankLine", { form: op.formName, rank: op.rankIndex + 1 })}
+                        </p>
                     </div>
                     <button
                         type="button"

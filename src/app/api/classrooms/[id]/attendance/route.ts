@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error";
 import {
+    CLASSROOM_ATTENDANCE_INVALID_DATA,
     saveClassroomAttendance,
     type AttendanceUpdateInput,
 } from "@/lib/services/classroom-attendance/save-classroom-attendance";
@@ -25,7 +26,7 @@ export async function POST(
         const updates = body.updates as AttendanceUpdateInput[] | undefined;
 
         if (!updates) {
-            return createAppErrorResponse("INVALID_PAYLOAD", "Invalid data", 400);
+            return createAppErrorResponse("INVALID_PAYLOAD", CLASSROOM_ATTENDANCE_INVALID_DATA, 400);
         }
 
         const result = await saveClassroomAttendance({
@@ -51,6 +52,6 @@ export async function POST(
 
     } catch (error) {
         console.error("[ATTENDANCE_POST]", error);
-        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

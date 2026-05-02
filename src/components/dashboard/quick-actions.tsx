@@ -153,7 +153,7 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
                         {isStudent ? "🎒" : "👑"}
                     </div>
                     <div className="absolute bottom-6 right-32 hidden rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm font-bold text-white/80 shadow-lg backdrop-blur-md lg:flex">
-                        {isStudent ? "พร้อมลุยด่าน" : "พร้อมเปิดเกม"}
+                        {isStudent ? t("quickActionsStudentReady") : t("quickActionsTeacherReady")}
                     </div>
 
                     <div className="relative z-10 flex flex-col items-center md:items-start gap-6 text-center md:text-left">

@@ -115,12 +115,12 @@ export function RecentActivity() {
                         {/* Quick Actions for Item */}
                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Link href={`/dashboard/edit-set/${set.id}`}>
-                                <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-purple-600 transition-colors" title="Edit">
+                                <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-purple-600 transition-colors" title={t("edit")}>
                                     <PenSquare className="w-4 h-4" />
                                 </button>
                             </Link>
                             <Link href={`/host/${set.id}`}>
-                                <button className="p-2 hover:bg-orange-50 rounded-lg text-slate-500 hover:text-orange-600 transition-colors" title="Host">
+                                <button className="p-2 hover:bg-orange-50 rounded-lg text-slate-500 hover:text-orange-600 transition-colors" title={t("host")}>
                                     <Play className="w-4 h-4" />
                                 </button>
                             </Link>

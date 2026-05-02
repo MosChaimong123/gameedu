@@ -4,6 +4,28 @@ import type { GameQuestion, GameSettings } from "../types/game";
 import { logAuditEvent } from "@/lib/security/audit-log";
 import { consumeRateLimit, consumeRateLimitWithStore } from "@/lib/security/rate-limit";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
+import {
+  SOCKET_ERROR_FAILED_TO_LOAD_QUESTIONS,
+  SOCKET_ERROR_GAME_LOCKED,
+  SOCKET_ERROR_GAME_NOT_FOUND,
+  SOCKET_ERROR_HOST_RECONNECTION_DENIED,
+  SOCKET_ERROR_INVALID_CLASSROOM_EVENT,
+  SOCKET_ERROR_INVALID_GAME_CODE,
+  SOCKET_ERROR_INVALID_QUESTION_SET,
+  SOCKET_ERROR_INVALID_STUDENT_CODE,
+  SOCKET_ERROR_JOIN_CLASSROOM_FIRST,
+  SOCKET_ERROR_LOBBY_FULL,
+  SOCKET_ERROR_NEGAMON_MID_MATCH,
+  SOCKET_ERROR_NICKNAME_IN_USE,
+  SOCKET_ERROR_ONLY_HOST_CAN_END,
+  SOCKET_ERROR_ONLY_HOST_CAN_START,
+  SOCKET_ERROR_SET_NOT_FOUND,
+  SOCKET_ERROR_TOO_MANY_SUBMISSIONS,
+  SOCKET_ERROR_UNAUTHORIZED,
+  SOCKET_ERROR_UNAUTHORIZED_CLASSROOM_ACCESS,
+  SOCKET_ERROR_UNAUTHORIZED_CLASSROOM_EVENT,
+  SOCKET_ERROR_UNAUTHORIZED_QUESTION_SET,
+} from "@/lib/socket-error-messages";
 
 type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE";
 
@@ -110,12 +132,6 @@ const defaultSettings: GameSettings = {
   allowStudentAccounts: true,
 } satisfies GameSettings;
 
-const SOCKET_ERR_UNAUTHORIZED = "Unauthorized";
-const SOCKET_ERR_UNAUTHORIZED_CLASSROOM_ACCESS = "Unauthorized classroom access";
-const SOCKET_ERR_UNAUTHORIZED_CLASSROOM_EVENT = "Unauthorized classroom event";
-const SOCKET_ERR_UNAUTHORIZED_QUESTION_SET = "Unauthorized question set access";
-const SOCKET_ERR_INVALID_STUDENT_CODE = "Invalid student code";
-
 function cleanOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
@@ -151,7 +167,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         rewardClassroomId?: string;
       }) => {
         if (typeof setId !== "string" || setId.length === 0) {
-          socket.emit("error", { message: "Invalid question set" });
+          socket.emit("error", { message: SOCKET_ERROR_INVALID_QUESTION_SET });
           return;
         }
 
@@ -163,7 +179,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
             targetId: setId,
             metadata: { reason: "unauthorized_host", socketId: socket.id },
           });
-          socket.emit("error", { message: SOCKET_ERR_UNAUTHORIZED });
+          socket.emit("error", { message: SOCKET_ERROR_UNAUTHORIZED });
           return;
         }
 
@@ -175,7 +191,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
             targetId: setId,
             metadata: { reason: "unauthorized_question_set", socketId: socket.id },
           });
-          socket.emit("error", { message: SOCKET_ERR_UNAUTHORIZED_QUESTION_SET });
+          socket.emit("error", { message: SOCKET_ERROR_UNAUTHORIZED_QUESTION_SET });
           return;
         }
 
@@ -191,7 +207,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
             where: { id: setId },
           });
           if (!set) {
-            socket.emit("error", { message: "Set not found" });
+            socket.emit("error", { message: SOCKET_ERROR_SET_NOT_FOUND });
             return;
           }
 
@@ -260,7 +276,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           socket.join(pin);
           socket.emit("game-created", { pin, hostReconnectToken });
         } catch {
-          socket.emit("error", { message: "Failed to load questions" });
+          socket.emit("error", { message: SOCKET_ERROR_FAILED_TO_LOAD_QUESTIONS });
         }
       }
     );
@@ -268,12 +284,12 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
     socket.on("reconnect-host", ({ pin, reconnectToken }) => {
       const game = gameManager.getGame(pin);
       if (!game) {
-        socket.emit("error", { message: "Game not found" });
+        socket.emit("error", { message: SOCKET_ERROR_GAME_NOT_FOUND });
         return;
       }
 
       if (!game.reconnectHost(socket.id, reconnectToken)) {
-        socket.emit("error", { message: "Host reconnection denied" });
+        socket.emit("error", { message: SOCKET_ERROR_HOST_RECONNECTION_DENIED });
         return;
       }
 
@@ -299,12 +315,12 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
     socket.on("join-game", async ({ pin, nickname, reconnectToken, studentId, studentCode }) => {
       const game = gameManager.getGame(pin);
       if (!game) {
-        socket.emit("error", { message: "Game not found" });
+        socket.emit("error", { message: SOCKET_ERROR_GAME_NOT_FOUND });
         return;
       }
 
       if (game.status !== "LOBBY" && !game.settings.allowLateJoin) {
-        socket.emit("error", { message: "Game is locked" });
+        socket.emit("error", { message: SOCKET_ERROR_GAME_LOCKED });
         return;
       }
 
@@ -332,7 +348,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         });
 
         if (!verifiedStudent) {
-          socket.emit("error", { message: SOCKET_ERR_INVALID_STUDENT_CODE });
+          socket.emit("error", { message: SOCKET_ERROR_INVALID_STUDENT_CODE });
           return;
         }
       }
@@ -348,14 +364,14 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         game.gameMode === "NEGAMON_BATTLE"
       ) {
         socket.emit("error", {
-          message: "Negamon Battle already started — new players cannot join mid-match",
+          message: SOCKET_ERROR_NEGAMON_MID_MATCH,
         });
         return;
       }
 
       if (existingPlayer) {
         if (!game.canReconnectPlayer(existingPlayer.name, reconnectToken)) {
-          socket.emit("error", { message: "Nickname already in use" });
+          socket.emit("error", { message: SOCKET_ERROR_NICKNAME_IN_USE });
           return;
         }
 
@@ -380,7 +396,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           ? capRaw
           : Number.POSITIVE_INFINITY;
       if (game.players.length >= playerCap) {
-        socket.emit("error", { message: "Lobby is full (plan player limit)" });
+        socket.emit("error", { message: SOCKET_ERROR_LOBBY_FULL });
         return;
       }
 
@@ -435,7 +451,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
       const game = gameManager.getGame(pin);
       if (!game) return;
       if (!game.isHostSocket(socket.id)) {
-        socket.emit("error", { message: "Only the host can start the game" });
+        socket.emit("error", { message: SOCKET_ERROR_ONLY_HOST_CAN_START });
         return;
       }
       game.startGame();
@@ -445,7 +461,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
       const game = gameManager.getGame(pin);
       if (!game) return;
       if (!game.isHostSocket(socket.id)) {
-        socket.emit("error", { message: "Only the host can end the game" });
+        socket.emit("error", { message: SOCKET_ERROR_ONLY_HOST_CAN_END });
         return;
       }
       game.endGame();
@@ -508,7 +524,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           status: "rejected",
           metadata: { reason: "invalid_pin", socketId: socket.id },
         });
-        socket.emit("error", { message: "Invalid game code" });
+        socket.emit("error", { message: SOCKET_ERROR_INVALID_GAME_CODE });
         return;
       }
 
@@ -536,7 +552,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
             status: "rejected",
             metadata: { reason: "rate_limited", socketId: socket.id },
           });
-          socket.emit("error", { message: "Too many submissions. Slow down." });
+          socket.emit("error", { message: SOCKET_ERROR_TOO_MANY_SUBMISSIONS });
           return;
         }
 
@@ -563,7 +579,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           targetId: classId,
           metadata: { socketId: socket.id },
         });
-        socket.emit("error", { message: SOCKET_ERR_UNAUTHORIZED_CLASSROOM_ACCESS });
+        socket.emit("error", { message: SOCKET_ERROR_UNAUTHORIZED_CLASSROOM_ACCESS });
         return;
       }
 
@@ -598,7 +614,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           targetId: classId,
           metadata: { reason: "invalid_event_type", type, socketId: socket.id },
         });
-        socket.emit("error", { message: "Invalid classroom event" });
+        socket.emit("error", { message: SOCKET_ERROR_INVALID_CLASSROOM_EVENT });
         return;
       }
 
@@ -611,7 +627,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           targetId: classId,
           metadata: { reason: "unauthorized_classroom_access", type, socketId: socket.id },
         });
-        socket.emit("error", { message: SOCKET_ERR_UNAUTHORIZED_CLASSROOM_ACCESS });
+        socket.emit("error", { message: SOCKET_ERROR_UNAUTHORIZED_CLASSROOM_ACCESS });
         return;
       }
 
@@ -623,7 +639,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           targetId: classId,
           metadata: { reason: "not_joined", type, socketId: socket.id },
         });
-        socket.emit("error", { message: "Join the classroom before sending updates" });
+        socket.emit("error", { message: SOCKET_ERROR_JOIN_CLASSROOM_FIRST });
         return;
       }
 
@@ -635,7 +651,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           targetId: classId,
           metadata: { reason: "unauthorized_event", type, socketId: socket.id },
         });
-        socket.emit("error", { message: SOCKET_ERR_UNAUTHORIZED_CLASSROOM_EVENT });
+        socket.emit("error", { message: SOCKET_ERROR_UNAUTHORIZED_CLASSROOM_EVENT });
         return;
       }
 

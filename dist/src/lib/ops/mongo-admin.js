@@ -7,6 +7,7 @@ exports.ensureOperationalIndexes = ensureOperationalIndexes;
 exports.pingOperationalDb = pingOperationalDb;
 const mongodb_1 = require("mongodb");
 const env_1 = require("@/lib/env");
+const DATABASE_PING_TIMEOUT = "databasePingTimeout";
 const globalForMongoOps = globalThis;
 function inferDbNameFromUrl(url) {
     const parsed = new URL(url);
@@ -58,6 +59,6 @@ async function pingOperationalDb(timeoutMs) {
     const db = await getOperationalDb();
     return Promise.race([
         db.command({ ping: 1 }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Database ping timed out")), timeoutMs)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error(DATABASE_PING_TIMEOUT)), timeoutMs)),
     ]);
 }

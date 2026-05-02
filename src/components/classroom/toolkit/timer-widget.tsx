@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Play, Pause, RotateCcw, X } from "lucide-react";
 import useSound from "use-sound";
+import { useLanguage } from "@/components/providers/language-provider";
 
 interface TimerWidgetProps {
     onClose: () => void;
 }
 
 export function TimerWidget({ onClose }: TimerWidgetProps) {
+    const { t } = useLanguage();
     const [timeLeft, setTimeLeft] = useState(300); // Default 5 mins
     const [duration, setDuration] = useState(300);
     const [isActive, setIsActive] = useState(false);
@@ -81,6 +83,7 @@ export function TimerWidget({ onClose }: TimerWidgetProps) {
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900/95 backdrop-blur-xl p-4 sm:p-8 animate-in fade-in duration-300">
             <button
                 onClick={onClose}
+                aria-label={t("timerClose")}
                 className="absolute top-6 right-6 text-white/50 hover:text-white bg-white/10 hover:bg-white/20 p-3 rounded-full transition-all"
             >
                 <X className="w-8 h-8" />
@@ -136,20 +139,20 @@ export function TimerWidget({ onClose }: TimerWidgetProps) {
                 {/* Custom Input */}
                 <form onSubmit={handleCustomSubmit} className="flex gap-2 sm:gap-4 justify-center items-center bg-white/5 p-4 rounded-3xl border border-white/10 w-full max-w-xl mx-auto">
                     <Input
-                        placeholder="Min"
+                        placeholder={t("timerMinutesPlaceholder")}
                         className="w-20 sm:w-28 h-14 sm:h-16 text-2xl sm:text-3xl text-center bg-white/10 border-none text-white placeholder:text-white/30 rounded-2xl focus-visible:ring-1 focus-visible:ring-white/50"
                         value={customMinutes}
                         onChange={e => setCustomMinutes(e.target.value)}
                     />
                     <span className="text-3xl sm:text-4xl text-white/50 font-bold">:</span>
                     <Input
-                        placeholder="Sec"
+                        placeholder={t("timerSecondsPlaceholder")}
                         className="w-20 sm:w-28 h-14 sm:h-16 text-2xl sm:text-3xl text-center bg-white/10 border-none text-white placeholder:text-white/30 rounded-2xl focus-visible:ring-1 focus-visible:ring-white/50"
                         value={customSeconds}
                         onChange={e => setCustomSeconds(e.target.value)}
                     />
                     <Button type="submit" size="lg" className="h-14 sm:h-16 px-6 sm:px-10 text-lg sm:text-xl rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-white transition-colors border border-indigo-400/50">
-                        Set
+                        {t("timerSet")}
                     </Button>
                 </form>
             </div>

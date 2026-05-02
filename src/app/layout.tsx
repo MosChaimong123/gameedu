@@ -10,6 +10,7 @@ import { SoundProvider } from "@/hooks/use-sound";
 import { Toaster } from "@/components/ui/toaster";
 import { LANGUAGE_COOKIE_NAME } from "@/lib/language-cookie";
 import type { Language } from "@/lib/translations";
+import { siteMetadata } from "../../content/public-pages";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,8 +29,8 @@ const notoSansThai = Noto_Sans_Thai({
 });
 
 export const metadata: Metadata = {
-  title: "GameEdu",
-  description: "Educational Game Platform",
+  title: siteMetadata.title,
+  description: siteMetadata.description,
 };
 
 

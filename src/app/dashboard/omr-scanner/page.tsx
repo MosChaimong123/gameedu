@@ -80,7 +80,7 @@ export default function OMRInferencePage() {
                     setResult({ success: false, message })
                 })
         }
-        // `t` omitted — not referentially stable from LanguageProvider.
+        // `t` is listed so locale changes refresh messages.
     }, [session, status, language, t])
 
     if (status === "loading") {
@@ -193,7 +193,7 @@ export default function OMRInferencePage() {
                         {capturedImage ? (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full">
                                 <div className="relative">
-                                    <Image src={capturedImage} alt="Captured OMR sheet" width={1200} height={900} unoptimized className="w-full rounded-[2.5rem] shadow-2xl border-4 border-white/5 aspect-[4/3] object-cover" />
+                                    <Image src={capturedImage} alt={t("omrCapturedSheetAlt")} width={1200} height={900} unoptimized className="w-full rounded-[2.5rem] shadow-2xl border-4 border-white/5 aspect-[4/3] object-cover" />
                                     {isProcessing && (
                                         <div className="absolute inset-0 bg-black/80 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center text-white">
                                             <Loader2 className="w-12 h-12 animate-spin mb-4 text-purple-400" />

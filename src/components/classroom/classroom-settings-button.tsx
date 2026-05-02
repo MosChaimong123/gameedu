@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { Classroom } from "@prisma/client";
-import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
+
+import { useLanguage } from "@/components/providers/language-provider";
+import { Button } from "@/components/ui/button";
 import { ClassroomSettingsDialog } from "./classroom-settings-dialog";
 
 interface ClassroomSettingsButtonProps {
@@ -15,6 +17,7 @@ export function ClassroomSettingsButton({
   classroom,
   className,
 }: ClassroomSettingsButtonProps) {
+  const { t } = useLanguage();
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
@@ -24,11 +27,11 @@ export function ClassroomSettingsButton({
         size="sm"
         variant="ghost"
         className={`h-8 w-8 p-0 hover:bg-blue-100 ${className}`}
-        title="ตั้งค่าห้องเรียน"
+        title={t("classroomSettings")}
       >
-        <Settings className="w-4 h-4 text-blue-600" />
+        <Settings className="h-4 w-4 text-blue-600" />
       </Button>
-      
+
       <ClassroomSettingsDialog
         classroom={classroom}
         open={dialogOpen}

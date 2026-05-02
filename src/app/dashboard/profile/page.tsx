@@ -266,7 +266,7 @@ export default function ProfilePage() {
                                         value={email}
                                         disabled
                                         className="h-12 px-4 rounded-xl bg-slate-50 border-slate-100 font-medium cursor-not-allowed"
-                                        placeholder="your.email@example.com"
+                                        placeholder={t("profileEmailPlaceholderExample")}
                                     />
                                     <p className="text-[10px] text-slate-400 flex items-center gap-1">
                                         <Shield className="w-3 h-3" /> {t("profileEmailLockedHint")}

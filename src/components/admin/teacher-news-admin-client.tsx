@@ -111,7 +111,7 @@ export function TeacherNewsAdminClient({ initialItems }: { initialItems: Teacher
             router.refresh();
             return;
         }
-        toast({ title: t("adminSaveFailTitle"), description: result.error, variant: "destructive" });
+        toast({ title: t("adminSaveFailTitle"), description: t(result.errorKey), variant: "destructive" });
     };
 
     const onDelete = async (id: string) => {
@@ -124,7 +124,7 @@ export function TeacherNewsAdminClient({ initialItems }: { initialItems: Teacher
             router.refresh();
             return;
         }
-        toast({ title: t("adminDeleteFailTitle"), variant: "destructive" });
+        toast({ title: t("adminDeleteFailTitle"), description: t(result.errorKey), variant: "destructive" });
     };
 
     return (

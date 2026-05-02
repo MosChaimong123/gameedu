@@ -30,7 +30,7 @@ export function CreateClassroomDialog() {
                 body: JSON.stringify({ name, grade })
             });
 
-            if (!res.ok) throw new Error("Failed to create");
+            if (!res.ok) throw new Error();
 
             await res.json();
 

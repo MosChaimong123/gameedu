@@ -1,6 +1,5 @@
-import { translations, type Language } from "@/lib/translations";
-
-type TranslationDictionary = Record<string, string>;
+import { type Language } from "@/lib/translations";
+import { getTranslationText } from "@/lib/translation-lookup";
 
 /** Server-safe `t()` using the shared dictionary (defaults to English for DB fallback text). */
 export function formatTranslation(
@@ -8,7 +7,7 @@ export function formatTranslation(
   key: string,
   params?: Record<string, string | number>
 ): string {
-  let text = (translations[language] as TranslationDictionary)[key] ?? key;
+  let text = getTranslationText(language, key);
   if (params) {
     Object.entries(params).forEach(([paramKey, value]) => {
       text = text.replace(`{${paramKey}}`, String(value));

@@ -46,7 +46,7 @@ function HudCombatStatsRow({ snapshot }: { snapshot: HudCombatStatsSnapshot }) {
     );
 }
 
-// ── HP bar color based on percentage ─────────────────────────
+// HP bar color based on percentage.
 
 function hpBarColor(pct: number) {
     if (pct > 50) return { bar: "from-green-400 to-emerald-500", bg: "bg-emerald-100" };
@@ -54,24 +54,41 @@ function hpBarColor(pct: number) {
     return              { bar: "from-red-400 to-rose-500",       bg: "bg-rose-100"    };
 }
 
-// ── Status effect pill ────────────────────────────────────────
+// Status effect pills use translation keys so HUD language follows user settings.
 
-const STATUS_PILL: Record<string, { label: string; cls: string }> = {
-    BOOST_ATK:    { label: "🗡️ ATK+", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
-    BOOST_DEF:    { label: "🛡️ DEF+", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
-    BOOST_SPD:    { label: "💨 SPD+", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
-    BOOST_WATER_DMG: { label: "💧 WTR+", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
-    BURN:         { label: "🔥 BRN", cls: "bg-orange-100 text-orange-700 border-orange-300" },
-    POISON:       { label: "☠️ PSN", cls: "bg-purple-100 text-purple-700 border-purple-300" },
-    BADLY_POISON: { label: "☠️☠️ TOX", cls: "bg-purple-200 text-purple-800 border-purple-400" },
-    PARALYZE:     { label: "⚡ PAR", cls: "bg-yellow-100 text-yellow-700 border-yellow-300" },
-    SLEEP:        { label: "💤 SLP", cls: "bg-indigo-100 text-indigo-700 border-indigo-300" },
-    FREEZE:       { label: "❄️ FRZ", cls: "bg-sky-100 text-sky-700 border-sky-300"         },
-    CONFUSE:      { label: "😵 CNF", cls: "bg-pink-100 text-pink-700 border-pink-300"       },
+const STATUS_PILL: Record<string, { icon: string; labelKey: string; cls: string }> = {
+    IGNORE_DEF: { icon: "🛡️", labelKey: "battleStatusIGNORE_DEF", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
+    LOWER_ATK: { icon: "⚔️", labelKey: "battleStatusLOWER_ATK", cls: "bg-amber-100 text-amber-700 border-amber-300" },
+    LOWER_ATK_ALL: { icon: "⚔️", labelKey: "battleStatusLOWER_ATK_ALL", cls: "bg-amber-100 text-amber-700 border-amber-300" },
+    LOWER_DEF: { icon: "🛡️", labelKey: "battleStatusLOWER_DEF", cls: "bg-amber-100 text-amber-700 border-amber-300" },
+    LOWER_SPD: { icon: "💨", labelKey: "battleStatusLOWER_SPD", cls: "bg-amber-100 text-amber-700 border-amber-300" },
+    LOWER_EN_REGEN: { icon: "🔋", labelKey: "battleStatusLOWER_EN_REGEN", cls: "bg-amber-100 text-amber-700 border-amber-300" },
+    BOOST_ATK: { icon: "⚔️", labelKey: "battleStatusBOOST_ATK", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
+    BOOST_DEF: { icon: "🛡️", labelKey: "battleStatusBOOST_DEF", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
+    BOOST_DEF_20: { icon: "🛡️", labelKey: "battleStatusBOOST_DEF_20", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
+    BOOST_SPD: { icon: "💨", labelKey: "battleStatusBOOST_SPD", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
+    BOOST_SPD_30: { icon: "💨", labelKey: "battleStatusBOOST_SPD_30", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
+    BOOST_SPD_100: { icon: "💨", labelKey: "battleStatusBOOST_SPD_100", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
+    BOOST_WATER_DMG: { icon: "💧", labelKey: "battleStatusBOOST_WATER_DMG", cls: "bg-emerald-100 text-emerald-700 border-emerald-300" },
+    BURN: { icon: "🔥", labelKey: "battleStatusBURN", cls: "bg-orange-100 text-orange-700 border-orange-300" },
+    POISON: { icon: "☠️", labelKey: "battleStatusPOISON", cls: "bg-purple-100 text-purple-700 border-purple-300" },
+    BADLY_POISON: { icon: "☠️", labelKey: "battleStatusBADLY_POISON", cls: "bg-purple-200 text-purple-800 border-purple-400" },
+    PARALYZE: { icon: "⚡", labelKey: "battleStatusPARALYZE", cls: "bg-yellow-100 text-yellow-700 border-yellow-300" },
+    SLEEP: { icon: "💤", labelKey: "battleStatusSLEEP", cls: "bg-indigo-100 text-indigo-700 border-indigo-300" },
+    FREEZE: { icon: "❄️", labelKey: "battleStatusFREEZE", cls: "bg-sky-100 text-sky-700 border-sky-300" },
+    CONFUSE: { icon: "😵", labelKey: "battleStatusCONFUSE", cls: "bg-pink-100 text-pink-700 border-pink-300" },
 };
 
+/** Keep BattleArena `getStatuses` in sync: only effects listed in STATUS_PILL can show as pills. */
+export const BATTLE_HUD_DISPLAYABLE_EFFECTS: ReadonlySet<string> = new Set(Object.keys(STATUS_PILL));
+
 const STATUS_KIND_CLASS: Record<string, string> = {
-    // debuffs
+    LOWER_ATK: "ring-1 ring-amber-300/80",
+    LOWER_ATK_ALL: "ring-1 ring-amber-300/80",
+    LOWER_DEF: "ring-1 ring-amber-300/80",
+    LOWER_SPD: "ring-1 ring-amber-300/80",
+    LOWER_EN_REGEN: "ring-1 ring-amber-300/80",
+    IGNORE_DEF: "ring-1 ring-emerald-300/80",
     BURN: "ring-1 ring-orange-300/80",
     POISON: "ring-1 ring-purple-300/80",
     BADLY_POISON: "ring-1 ring-purple-400/90",
@@ -82,7 +99,10 @@ const STATUS_KIND_CLASS: Record<string, string> = {
     // buffs (reserved if later added to HUD list)
     BOOST_ATK: "ring-1 ring-emerald-300/80",
     BOOST_DEF: "ring-1 ring-emerald-300/80",
+    BOOST_DEF_20: "ring-1 ring-emerald-300/80",
     BOOST_SPD: "ring-1 ring-emerald-300/80",
+    BOOST_SPD_30: "ring-1 ring-emerald-300/80",
+    BOOST_SPD_100: "ring-1 ring-emerald-300/80",
     BOOST_WATER_DMG: "ring-1 ring-emerald-300/80",
 };
 
@@ -91,21 +111,29 @@ export type ActiveStatusView = {
     turnsLeft: number;
 };
 
-// ── Opponent HUD (top-right style) ────────────────────────────
-// ชื่อ | Type | Rank
-// ████████░░ HP
-//
-// ไม่แสดงตัวเลข HP (แบบ Pokémon main series)
+function statusTurnsLabel(turnsLeft: number) {
+    return turnsLeft < 0 ? "∞" : `${Math.max(0, turnsLeft)}T`;
+}
+
+function statusPillLabel(t: (key: string) => string, effect: string) {
+    const pill = STATUS_PILL[effect];
+    if (!pill) return null;
+    return `${pill.icon} ${t(pill.labelKey)}`;
+}
+
+// Opponent HUD (top-right style).
 
 interface OpponentHudProps {
     name: string;
     formName: string;
     rankIndex: number;
+    /** Completed action steps where this fighter was the actor (per-side turn counter). */
+    turnsCompleted?: number;
     currentHp: number;
     maxHp: number;
     activeStatuses?: ActiveStatusView[];
     abilityName?: string;
-    /** Effective combat stats (base × in-battle stage multipliers). */
+    /** Effective combat stats (base multiplied by in-battle stage multipliers). */
     combatStats?: HudCombatStatsSnapshot;
     currentEnergy?: number;
     maxEnergy?: number;
@@ -115,6 +143,7 @@ export function OpponentHud({
     name,
     formName,
     rankIndex,
+    turnsCompleted = 0,
     currentHp,
     maxHp,
     activeStatuses = [],
@@ -126,6 +155,7 @@ export function OpponentHud({
     const pct = Math.max(0, Math.min(100, (currentHp / maxHp) * 100));
     const hpPercent = Math.round(pct);
     const { bar, bg } = hpBarColor(pct);
+    const { t } = useLanguage();
 
     return (
         <motion.div
@@ -140,9 +170,14 @@ export function OpponentHud({
                     <p className="text-[11px] font-black text-slate-800 leading-none truncate">{formName}</p>
                     <p className="text-[9px] text-slate-400 font-semibold truncate">{name}</p>
                 </div>
-                <span className="shrink-0 ml-2 rounded-lg bg-slate-100 px-1.5 py-0.5 text-[9px] font-black text-slate-600">
-                    Lv.{rankIndex + 1}
-                </span>
+                <div className="ml-2 flex shrink-0 flex-col items-end gap-0.5">
+                    <span className="rounded-lg bg-slate-100 px-1.5 py-0.5 text-[9px] font-black text-slate-600">
+                        {t("battleLevelLabel", { level: rankIndex + 1 })}
+                    </span>
+                    <span className="rounded-md bg-indigo-50 px-1.5 py-0.5 text-[8px] font-black tabular-nums text-indigo-700 ring-1 ring-indigo-200/80">
+                        {t("battleHudPersonalTurns", { count: turnsCompleted })}
+                    </span>
+                </div>
             </div>
 
             {/* Status pills */}
@@ -151,9 +186,9 @@ export function OpponentHud({
                     <div className="mb-1 flex flex-wrap gap-1">
                         {activeStatuses.map((s) => {
                             const pill = STATUS_PILL[s.effect];
+                            const label = statusPillLabel(t, s.effect);
                             if (!pill) return null;
-                            const turnsLabel =
-                                s.turnsLeft < 0 ? "∞" : `${Math.max(0, s.turnsLeft)}T`;
+                            const turnsLabel = statusTurnsLabel(s.turnsLeft);
                             return (
                                 <span
                                     key={`${s.effect}-${s.turnsLeft}`}
@@ -163,7 +198,7 @@ export function OpponentHud({
                                         STATUS_KIND_CLASS[s.effect]
                                     )}
                                 >
-                                    {pill.label} {turnsLabel}
+                                    {label} {turnsLabel}
                                 </span>
                             );
                         })}
@@ -171,11 +206,11 @@ export function OpponentHud({
                     <div className="flex items-center gap-2 text-[8px] font-bold text-slate-500">
                         <span className="inline-flex items-center gap-1">
                             <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                            เขียว=บัฟ
+                            {t("battleHudBuffLegend")}
                         </span>
                         <span className="inline-flex items-center gap-1">
                             <span className="h-2 w-2 rounded-full bg-amber-400" />
-                            สีเตือน=ดีบัฟ
+                            {t("battleHudDebuffLegend")}
                         </span>
                     </div>
                 </div>
@@ -183,13 +218,13 @@ export function OpponentHud({
 
             {/* HP label */}
             <div className="flex items-center justify-between mb-1">
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">HP</span>
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{t("battleHudHp")}</span>
                 <span className="text-[10px] font-black tabular-nums text-slate-700">
                     {currentHp}/{maxHp} <span className="text-slate-400">({hpPercent}%)</span>
                 </span>
             </div>
 
-            {/* HP bar — no number (Pokémon style) */}
+            {/* HP bar without number. */}
             <div className={cn("h-3 w-full rounded-full overflow-hidden shadow-inner", bg)}>
                 <motion.div
                     animate={{ width: `${pct}%` }}
@@ -203,7 +238,7 @@ export function OpponentHud({
             {typeof currentEnergy === "number" && typeof maxEnergy === "number" ? (
                 <div className="mt-1.5">
                     <div className="mb-0.5 flex items-center justify-between text-[8px] font-black text-cyan-700">
-                        <span>EN</span>
+                        <span>{t("battleHudEn")}</span>
                         <span>{currentEnergy}/{maxEnergy}</span>
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-cyan-100">
@@ -223,13 +258,13 @@ export function OpponentHud({
     );
 }
 
-// ── Player HUD (bottom-left style) ───────────────────────────
-// แสดงตัวเลข HP จริง (แบบ Pokémon GBA/DS)
+// Player HUD (bottom-left style) shows the exact HP number.
 
 interface PlayerHudProps {
     name: string;
     formName: string;
     rankIndex: number;
+    turnsCompleted?: number;
     currentHp: number;
     maxHp: number;
     activeStatuses?: ActiveStatusView[];
@@ -244,6 +279,7 @@ export function PlayerHud({
     name,
     formName,
     rankIndex,
+    turnsCompleted = 0,
     currentHp,
     maxHp,
     activeStatuses = [],
@@ -256,6 +292,7 @@ export function PlayerHud({
     const pct = Math.max(0, Math.min(100, (currentHp / maxHp) * 100));
     const hpPercent = Math.round(pct);
     const { bar, bg } = hpBarColor(pct);
+    const { t } = useLanguage();
 
     return (
         <motion.div
@@ -270,9 +307,14 @@ export function PlayerHud({
                     <p className="text-[11px] font-black text-slate-800 leading-none truncate">{formName}</p>
                     <p className="text-[9px] text-slate-400 font-semibold truncate">{name}</p>
                 </div>
-                <span className="shrink-0 ml-2 rounded-lg bg-slate-100 px-1.5 py-0.5 text-[9px] font-black text-slate-600">
-                    Lv.{rankIndex + 1}
-                </span>
+                <div className="ml-2 flex shrink-0 flex-col items-end gap-0.5">
+                    <span className="rounded-lg bg-slate-100 px-1.5 py-0.5 text-[9px] font-black text-slate-600">
+                        {t("battleLevelLabel", { level: rankIndex + 1 })}
+                    </span>
+                    <span className="rounded-md bg-indigo-50 px-1.5 py-0.5 text-[8px] font-black tabular-nums text-indigo-700 ring-1 ring-indigo-200/80">
+                        {t("battleHudPersonalTurns", { count: turnsCompleted })}
+                    </span>
+                </div>
             </div>
 
             {/* Status pills + held items */}
@@ -280,9 +322,9 @@ export function PlayerHud({
                 <div className="flex flex-wrap gap-1 mb-1.5">
                     {activeStatuses.map((s) => {
                         const pill = STATUS_PILL[s.effect];
+                        const label = statusPillLabel(t, s.effect);
                         if (!pill) return null;
-                        const turnsLabel =
-                            s.turnsLeft < 0 ? "∞" : `${Math.max(0, s.turnsLeft)}T`;
+                        const turnsLabel = statusTurnsLabel(s.turnsLeft);
                         return (
                             <span
                                 key={`${s.effect}-${s.turnsLeft}`}
@@ -292,7 +334,7 @@ export function PlayerHud({
                                     STATUS_KIND_CLASS[s.effect]
                                 )}
                             >
-                                {pill.label} {turnsLabel}
+                                {label} {turnsLabel}
                             </span>
                         );
                     })}
@@ -307,18 +349,18 @@ export function PlayerHud({
                 <div className="mb-1.5 flex items-center gap-2 text-[8px] font-bold text-slate-500">
                     <span className="inline-flex items-center gap-1">
                         <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                        เขียว=บัฟ
+                        {t("battleHudBuffLegend")}
                     </span>
                     <span className="inline-flex items-center gap-1">
                         <span className="h-2 w-2 rounded-full bg-amber-400" />
-                        สีเตือน=ดีบัฟ
+                        {t("battleHudDebuffLegend")}
                     </span>
                 </div>
             )}
 
             {/* HP label + number */}
             <div className="flex items-center justify-between mb-1">
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">HP</span>
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{t("battleHudHp")}</span>
                 <span className="text-[10px] font-black tabular-nums text-slate-700">
                     <motion.span
                         key={currentHp}
@@ -347,7 +389,7 @@ export function PlayerHud({
             {typeof currentEnergy === "number" && typeof maxEnergy === "number" ? (
                 <div className="mt-1.5">
                     <div className="mb-0.5 flex items-center justify-between text-[8px] font-black text-cyan-700">
-                        <span>EN</span>
+                        <span>{t("battleHudEn")}</span>
                         <span>{currentEnergy}/{maxEnergy}</span>
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-cyan-100">
@@ -366,3 +408,4 @@ export function PlayerHud({
         </motion.div>
     );
 }
+

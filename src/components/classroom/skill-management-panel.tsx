@@ -88,7 +88,7 @@ export function SkillManagementPanel({
                 });
                 onSkillsChanged?.([...skills, createdSkill]);
             } else {
-                throw new Error("Failed to add skill");
+                throw new Error();
             }
         } catch (error) {
             console.error("Failed to add skill", error);
@@ -118,7 +118,7 @@ export function SkillManagementPanel({
                     description: t("toastSkillDeleteSuccessDesc"),
                 });
             } else {
-                throw new Error("Failed to delete skill");
+                throw new Error();
             }
         } catch (error) {
             console.error("Failed to delete skill", error);

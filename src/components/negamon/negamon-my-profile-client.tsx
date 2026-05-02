@@ -185,11 +185,7 @@ export function NegamonMyProfileClient({
                                         >
                                             {monsterTypeLabel(t, monster.type2)}
                                         </span>
-                                    ) : (
-                                        <span className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-400">
-                                            {t("negamonInfoType2UnlockHint")}
-                                        </span>
-                                    )}
+                                    ) : null}
                                 </div>
                             </div>
                             <div className="rounded-xl border border-amber-100 bg-amber-50/80 p-3">
@@ -394,11 +390,13 @@ export function NegamonMyProfileClient({
 
                 {monster.ability ? (
                     <section className="rounded-2xl border border-violet-300/50 bg-violet-50/90 p-4 shadow-sm">
-                        <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-violet-700">
+                        <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-violet-900">
                             {t("monsterAbilityHeading")}
                         </p>
                         <p className="text-sm font-black text-violet-950">{monster.ability.name}</p>
-                        <p className="mt-1 text-sm font-medium text-violet-900/90">{monster.ability.desc}</p>
+                        <p className="mt-1 text-sm font-semibold leading-relaxed text-violet-950">
+                            {monster.ability.desc}
+                        </p>
                     </section>
                 ) : null}
 

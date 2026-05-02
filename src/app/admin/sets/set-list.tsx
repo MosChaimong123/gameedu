@@ -61,7 +61,7 @@ export function SetList({ initialSets }: { initialSets: AdminSet[] }) {
     } else {
       toast({
         title: t("adminSetDeleteFailTitle"),
-        description: result.error,
+        description: t(result.errorKey),
         variant: "destructive",
       });
     }

@@ -2,12 +2,14 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Plus, Layout, RefreshCw, MessageSquare } from "lucide-react";
+import { io, Socket } from "socket.io-client";
+
+import { useLanguage } from "@/components/providers/language-provider";
 import { Button } from "@/components/ui/button";
 import { PostCard } from "./PostCard";
 import type { BoardPostCardData } from "./PostCard";
 import { CreatePostModal } from "./CreatePostModal";
 import { getBoardWithPosts, ensureDefaultBoard } from "@/lib/actions/board-actions";
-import { io, Socket } from "socket.io-client";
 
 type BoardData = {
     id: string;
@@ -37,6 +39,7 @@ interface ClassBoardProps {
 let socket: Socket;
 
 export function ClassBoard({ classId, studentId, userId, isTeacher }: ClassBoardProps) {
+    const { t } = useLanguage();
     const [board, setBoard] = useState<BoardData | null>(null);
     const [posts, setPosts] = useState<BoardPost[]>([]);
     const [loading, setLoading] = useState(true);
@@ -48,7 +51,7 @@ export function ClassBoard({ classId, studentId, userId, isTeacher }: ClassBoard
     const fetchBoard = useCallback(async (quiet = false) => {
         if (!quiet) setLoading(true);
         else setIsRefreshing(true);
-        
+
         try {
             const defaultBoard = await ensureDefaultBoard(classId);
             const boardData = await getBoardWithPosts(defaultBoard.id);
@@ -65,18 +68,15 @@ export function ClassBoard({ classId, studentId, userId, isTeacher }: ClassBoard
     useEffect(() => {
         fetchBoard();
 
-        // Initialize Socket.io
         socket = io(window.location.origin, {
             path: "/socket.io",
-            addTrailingSlash: false
+            addTrailingSlash: false,
         });
 
         socket.emit("join-classroom", classId);
 
         socket.on("classroom-event", (event: ClassroomSocketEvent) => {
             if (event.type === "BOARD_UPDATE") {
-                // To keep it simple and consistent, we just re-fetch the board data
-                // This ensures we have the latest reactions and comments too
                 fetchBoard(true);
             }
         });
@@ -88,90 +88,88 @@ export function ClassBoard({ classId, studentId, userId, isTeacher }: ClassBoard
     }, [classId, fetchBoard]);
 
     const handlePostCreated = (newPost: CreatedPost) => {
-        setPosts(prev => prev.some((post) => post.id === newPost.id) ? prev : prev);
+        setPosts((prev) => (prev.some((post) => post.id === newPost.id) ? prev : prev));
         socket.emit("classroom-update", {
             classId,
             type: "BOARD_UPDATE",
-            data: { postId: newPost.id }
+            data: { postId: newPost.id },
         });
         fetchBoard(true);
     };
 
     const handleUpdate = () => {
         fetchBoard(true);
-        // Notify others of reactions/comments/deletions
         socket.emit("classroom-update", {
             classId,
             type: "BOARD_UPDATE",
-            data: { action: "interaction" }
+            data: { action: "interaction" },
         });
     };
 
     if (loading) {
         return (
-            <div className="h-64 flex flex-col items-center justify-center gap-3 text-slate-400">
-                <RefreshCw className="w-8 h-8 animate-spin" />
-                <p className="text-sm font-bold">กำลังโหลดกระดานไอเดีย...</p>
+            <div className="flex h-64 flex-col items-center justify-center gap-3 text-slate-400">
+                <RefreshCw className="h-8 w-8 animate-spin" />
+                <p className="text-sm font-bold">{t("boardLoading")}</p>
             </div>
         );
     }
 
     return (
         <div className="space-y-6">
-            {/* Board Controls */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-200">
-                        <MessageSquare className="w-5 h-5" />
+                    <div className="rounded-xl bg-indigo-600 p-2 text-white shadow-lg shadow-indigo-200">
+                        <MessageSquare className="h-5 w-5" />
                     </div>
                     <div>
-                        <h2 className="text-lg font-black text-slate-800 leading-tight">กระดานไอเดียของห้อง</h2>
-                        <p className="text-xs text-slate-400">พื้นที่แลกเปลี่ยนและแชร์สิ่งดีๆ ร่วมกัน</p>
+                        <h2 className="text-lg font-black leading-tight text-slate-800">{t("boardRoomTitle")}</h2>
+                        <p className="text-xs text-slate-400">{t("boardRoomSubtitle")}</p>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Button 
-                        variant="outline" 
-                        size="icon" 
+                    <Button
+                        variant="outline"
+                        size="icon"
                         onClick={() => fetchBoard(true)}
                         disabled={isRefreshing}
                         className="rounded-xl border-slate-200"
+                        aria-label={t("teacherCommandRefresh")}
                     >
-                        <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
                     </Button>
-                    <Button 
+                    <Button
                         onClick={() => setShowCreateModal(true)}
-                        className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black rounded-xl px-4 shadow-lg shadow-indigo-200 hover:shadow-xl transition-all active:scale-95 flex items-center gap-2"
+                        className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 font-black text-white shadow-lg shadow-indigo-200 transition-all hover:shadow-xl active:scale-95"
                     >
-                        <Plus className="w-5 h-5" />
-                        <span>เขียนไอเดีย</span>
+                        <Plus className="h-5 w-5" />
+                        <span>{t("boardWriteIdea")}</span>
                     </Button>
                 </div>
             </div>
 
-            {/* Posts Grid */}
             {posts.length === 0 ? (
-                <div className="bg-white rounded-3xl border-2 border-dashed border-slate-200 p-12 text-center">
-                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Layout className="w-10 h-10 text-slate-200" />
+                <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white p-12 text-center">
+                    <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-slate-50">
+                        <Layout className="h-10 w-10 text-slate-200" />
                     </div>
-                    <h3 className="text-slate-600 font-bold mb-1">ยังไม่มีโพสต์ในขณะนี้</h3>
-                    <p className="text-slate-400 text-sm mb-6">เริ่มเป็นคนแรกที่แชร์ไอเดียในห้องเรียนกันเลย!</p>
-                    <Button 
+                    <h3 className="mb-1 font-bold text-slate-600">{t("boardEmptyTitle")}</h3>
+                    <p className="mb-6 text-sm text-slate-400">{t("boardEmptyDesc")}</p>
+                    <Button
                         onClick={() => setShowCreateModal(true)}
                         variant="outline"
-                        className="rounded-xl border-indigo-200 text-indigo-600 font-bold hover:bg-indigo-50"
+                        className="rounded-xl border-indigo-200 font-bold text-indigo-600 hover:bg-indigo-50"
                     >
-                        สร้างโพสต์แรก
+                        {t("boardCreateFirstPost")}
                     </Button>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-min">
+                <div className="grid auto-rows-min grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {posts.map((post) => (
-                        <PostCard 
-                            key={post.id} 
-                            post={post} 
+                        <PostCard
+                            key={post.id}
+                            post={post}
                             currentUserIdOrStudentId={currentAuthorId}
                             isTeacher={isTeacher}
                             onUpdate={handleUpdate}
@@ -181,7 +179,7 @@ export function ClassBoard({ classId, studentId, userId, isTeacher }: ClassBoard
             )}
 
             {board?.id && (
-                <CreatePostModal 
+                <CreatePostModal
                     open={showCreateModal}
                     onOpenChange={setShowCreateModal}
                     boardId={board.id}

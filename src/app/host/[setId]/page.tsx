@@ -38,6 +38,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { formatSocketErrorMessage } from "@/app/play/game/play-game-types"
+import { isSocketSessionResetError } from "@/lib/socket-error-messages"
 
 type HostView = "SELECT_MODE" | "SETTINGS" | "LOBBY" | "PLAYING" | "ENDED"
 type GameMode = "GOLD_QUEST" | "CRYPTO_HACK" | "NEGAMON_BATTLE"
@@ -298,7 +299,7 @@ export default function HostLobbyPage() {
             console.error("Socket Error:", err);
             setCreatingGame(false)
             const raw = typeof err?.message === "string" ? err.message : ""
-            if (raw === "Game not found" || raw === "Game is locked" || raw === "Host reconnection denied") {
+            if (isSocketSessionResetError(raw)) {
                 sessionStorage.removeItem(`host_pin_${setId}`);
                 sessionStorage.removeItem(hostTokenStorageKey);
                 window.location.reload();
@@ -621,7 +622,10 @@ export default function HostLobbyPage() {
                             <Copy className="h-6 w-6 text-slate-500" />
                         </div>
                     </div>
-                    <p className="text-slate-500">{t("hostGoToPlayPrefix")} <span className="text-purple-400 font-bold">gameedu-app.onrender.com/play</span></p>
+                    <p className="text-slate-500">
+                        {t("hostGoToPlayPrefix")}{" "}
+                        <span className="text-purple-400 font-bold">{t("hostPlayUrlLabel")}</span>
+                    </p>
                 </div>
 
                 {/* Player Grid */}

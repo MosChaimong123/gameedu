@@ -10,7 +10,10 @@ describe("student sync route", () => {
 
     expect(response.status).toBe(410);
     await expect(response.json()).resolves.toEqual({
-      error: "This endpoint is no longer available",
+      error: {
+        code: "ENDPOINT_NO_LONGER_AVAILABLE",
+        message: "Endpoint no longer available",
+      },
     });
   });
 });

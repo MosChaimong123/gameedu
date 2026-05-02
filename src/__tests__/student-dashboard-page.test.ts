@@ -104,7 +104,6 @@ describe("student dashboard page", () => {
         lastCheckIn: true,
         streak: true,
         inventory: true,
-        battleLoadout: true,
         equippedFrame: true,
         negamonSkills: true,
         classroom: {

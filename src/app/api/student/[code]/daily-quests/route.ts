@@ -81,7 +81,8 @@ async function persistQuestClaim(params: {
         const updatedCount = await tx.student.updateMany({
             where: {
                 id: student.id,
-                [field]: student[field] ?? null,
+                // Prisma JSON fields in `where` must use JsonFilter (`equals` / `not` / `isSet`)
+                [field]: { equals: student[field] ?? null },
             },
             data: {
                 gold: { increment: goldEarned },

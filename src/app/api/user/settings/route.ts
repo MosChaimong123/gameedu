@@ -4,7 +4,11 @@ import { requireSessionUser } from "@/lib/auth-guards";
 import { db } from "@/lib/db";
 import { toPrismaJson } from "@/lib/prisma-json";
 import { parseUserSettings } from "@/lib/user-settings";
-import { AUTH_REQUIRED_MESSAGE, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error";
+import {
+  AUTH_REQUIRED_MESSAGE,
+  INTERNAL_ERROR_MESSAGE,
+  createAppErrorResponse,
+} from "@/lib/api-error";
 
 type SettingsPatchBody = {
   accessibility?: {
@@ -17,7 +21,7 @@ export async function PATCH(req: NextRequest) {
   try {
     const sessionUser = await requireSessionUser();
     if (!sessionUser?.id) {
-      return NextResponse.json({ error: AUTH_REQUIRED_MESSAGE }, { status: 401 });
+      return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
     const body = (await req.json()) as SettingsPatchBody;
@@ -29,14 +33,22 @@ export async function PATCH(req: NextRequest) {
         accessibility === null ||
         Array.isArray(accessibility)
       ) {
-        return NextResponse.json({ error: "Invalid accessibility settings" }, { status: 400 });
+        return createAppErrorResponse(
+          "INVALID_ACCESSIBILITY_SETTINGS",
+          "Invalid accessibility settings",
+          400
+        );
       }
 
       if (
         ("reducedMotion" in accessibility && typeof accessibility.reducedMotion !== "boolean") ||
         ("reducedSound" in accessibility && typeof accessibility.reducedSound !== "boolean")
       ) {
-        return NextResponse.json({ error: "Invalid accessibility settings" }, { status: 400 });
+        return createAppErrorResponse(
+          "INVALID_ACCESSIBILITY_SETTINGS",
+          "Invalid accessibility settings",
+          400
+        );
       }
     }
 
@@ -46,7 +58,7 @@ export async function PATCH(req: NextRequest) {
     });
 
     if (!dbUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return createAppErrorResponse("NOT_FOUND", "User not found", 404);
     }
 
     const currentSettings = parseUserSettings(dbUser.settings);
@@ -71,6 +83,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ settings: parseUserSettings(updated.settings) });
   } catch (error) {
     console.error("[USER_SETTINGS_PATCH]", error);
-    return NextResponse.json({ error: INTERNAL_ERROR_MESSAGE }, { status: 500 });
+    return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
   }
 }

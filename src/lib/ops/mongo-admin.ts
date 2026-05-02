@@ -1,6 +1,8 @@
 import { MongoClient, type Db, type Collection } from "mongodb";
 import { getAppEnv } from "@/lib/env";
 
+const DATABASE_PING_TIMEOUT = "databasePingTimeout";
+
 type RateLimitDocument = {
   _id: string;
   bucket: string;
@@ -92,7 +94,7 @@ export async function pingOperationalDb(timeoutMs: number) {
   return Promise.race([
     db.command({ ping: 1 }),
     new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Database ping timed out")), timeoutMs)
+      setTimeout(() => reject(new Error(DATABASE_PING_TIMEOUT)), timeoutMs)
     ),
   ]);
 }

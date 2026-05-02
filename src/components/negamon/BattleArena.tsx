@@ -9,9 +9,15 @@ import { useLanguage } from "@/components/providers/language-provider";
 import type { BattleFighter, BattleResult, TurnEvent } from "@/lib/battle-engine";
 import {
     effectiveStat,
+    normalizeBattleFighterTurns,
 } from "@/lib/battle-engine";
-import { BattleField } from "@/components/negamon/BattleField";
-import { PlayerHud, OpponentHud, type ActiveStatusView } from "@/components/negamon/PokemonHud";
+import { BattleField, FloatingText } from "@/components/negamon/BattleField";
+import {
+    PlayerHud,
+    OpponentHud,
+    type ActiveStatusView,
+    BATTLE_HUD_DISPLAYABLE_EFFECTS,
+} from "@/components/negamon/PokemonHud";
 import { DialogueBox, type DialogueLine } from "@/components/negamon/DialogueBox";
 import { ActionMenu } from "@/components/negamon/ActionMenu";
 import { BattleResultScreen, type BattleStats } from "@/components/negamon/BattleResultScreen";
@@ -168,12 +174,35 @@ function FighterCard({
 }
 
 const EFFECT_ICON: Partial<Record<string, string>> = {
+    BOOST_WATER_DMG: "WTR+",
+    LOWER_ATK: "ATK-",
+    LOWER_DEF: "DEF-",
+    LOWER_SPD: "SPD-",
+    LOWER_EN_REGEN: "EN-",
+    IGNORE_DEF: "BRK",
     BURN: "🔥", POISON: "☠️", BADLY_POISON: "☠️☠️",
     PARALYZE: "⚡", SLEEP: "💤", FREEZE: "❄️", CONFUSE: "😵",
-    BOOST_ATK: "⬆️ATK", BOOST_DEF: "⬆️DEF", BOOST_SPD: "⬆️SPD",
+    BOOST_ATK: "⬆️ATK",
+    BOOST_DEF: "⬆️DEF",
+    BOOST_DEF_20: "⬆️DEF",
+    BOOST_SPD: "⬆️SPD",
+    BOOST_SPD_30: "⬆️SPD",
+    BOOST_SPD_100: "⬆️SPD",
 };
 
 const STATUS_LABEL: Partial<Record<string, string>> = {
+    BOOST_ATK: "บัฟโจมตี",
+    BOOST_DEF: "บัฟป้องกัน",
+    BOOST_DEF_20: "บัฟป้องกัน",
+    BOOST_SPD: "บัฟความเร็ว",
+    BOOST_SPD_30: "บัฟความเร็ว",
+    BOOST_SPD_100: "บัฟความเร็ว",
+    BOOST_WATER_DMG: "บัฟน้ำ",
+    LOWER_ATK: "ลดโจมตี",
+    LOWER_DEF: "ลดป้องกัน",
+    LOWER_SPD: "ลดความเร็ว",
+    LOWER_EN_REGEN: "ดูด EN",
+    IGNORE_DEF: "เจาะเกราะ",
     BURN: "ไหม้", POISON: "พิษ", BADLY_POISON: "พิษหนัก",
     PARALYZE: "อัมพาต", SLEEP: "นอนหลับ", FREEZE: "แข็งตัว", CONFUSE: "สับสน",
 };
@@ -189,46 +218,114 @@ function effectivenessLabel(
     return null;
 }
 
-function statusApplyMsg(effect: string | undefined, targetName: string | undefined): string {
+function getStatusLabel(
+    effect: string | undefined,
+    t: (key: string, params?: Record<string, string | number>) => string
+): string {
+    if (!effect) return "?";
+    const key = `battleStatus${effect}`;
+    const translated = t(key);
+    return translated === key ? STATUS_LABEL[effect] ?? effect : translated;
+}
+
+function battleStatusApplyMessage(
+    effect: string | undefined,
+    targetName: string | undefined,
+    t: (key: string, params?: Record<string, string | number>) => string
+): string {
     const name = targetName ?? "?";
+    const icon = EFFECT_ICON[effect ?? ""] ?? "";
     switch (effect) {
-        case "BURN":         return `${name} ถูกจุดไฟ! 🔥`;
-        case "POISON":       return `${name} ถูกวางยาพิษ! ☠️`;
-        case "BADLY_POISON": return `${name} ถูกวางยาพิษหนัก! ☠️☠️`;
-        case "PARALYZE":     return `${name} ถูกทำให้อัมพาต! ⚡`;
-        case "SLEEP":        return `${name} ถูกทำให้หลับ! 💤`;
-        case "FREEZE":       return `${name} ถูกแช่แข็ง! ❄️`;
-        case "CONFUSE":      return `${name} ถูกทำให้สับสน! 😵`;
+        case "BURN": return t("battleLogApplyBURN", { name, icon });
+        case "POISON": return t("battleLogApplyPOISON", { name, icon });
+        case "BADLY_POISON": return t("battleLogApplyBADLY_POISON", { name, icon });
+        case "PARALYZE": return t("battleLogApplyPARALYZE", { name, icon });
+        case "SLEEP": return t("battleLogApplySLEEP", { name, icon });
+        case "FREEZE": return t("battleLogApplyFREEZE", { name, icon });
+        case "CONFUSE": return t("battleLogApplyCONFUSE", { name, icon });
         case "LOWER_ATK":
-        case "LOWER_ATK_ALL": return `ATK ของ ${name} ลดลง! ⬇️`;
-        case "LOWER_DEF":    return `DEF ของ ${name} ลดลง! ⬇️`;
-        case "BOOST_ATK":    return `ATK พุ่งขึ้น! ⬆️`;
-        case "BOOST_DEF":    return `DEF พุ่งขึ้น! ⬆️`;
-        case "BOOST_SPD":    return `SPD พุ่งขึ้น! ⬆️`;
-        case "IGNORE_DEF":   return `ท่าถัดไปจะทะลุ DEF! 👁️`;
-        default:             return `${name} ได้รับผลพิเศษ`;
+        case "LOWER_ATK_ALL": return t("battleLogApplyLowerAtk", { name, icon });
+        case "LOWER_DEF": return t("battleLogApplyLowerDef", { name, icon });
+        case "LOWER_SPD": return t("battleLogApplyLowerSpd", { name, icon });
+        case "LOWER_EN_REGEN": return t("battleLogApplyLowerEnRegen", { name, icon });
+        case "BOOST_ATK": return t("battleLogApplyBoostAtk", { name, icon });
+        case "BOOST_DEF":
+        case "BOOST_DEF_20": return t("battleLogApplyBoostDef", { name, icon });
+        case "BOOST_SPD":
+        case "BOOST_SPD_30":
+        case "BOOST_SPD_100": return t("battleLogApplyBoostSpd", { name, icon });
+        case "IGNORE_DEF": return t("battleLogApplyIgnoreDef", { name, icon });
+        default: return t("battleLogApplyGeneric", { name });
     }
 }
 
-function statusTickMsg(effect: string | undefined, actorName: string | undefined, value: number | undefined): string {
+function battleStatusTickMessage(
+    effect: string | undefined,
+    actorName: string | undefined,
+    value: number | undefined,
+    t: (key: string, params?: Record<string, string | number>) => string
+): string {
     const name = actorName ?? "?";
-    const dmg = value ?? 0;
+    const icon = EFFECT_ICON[effect ?? ""] ?? "";
+    const tickValue = value ?? 0;
     switch (effect) {
-        case "BURN":         return `${name} เจ็บจากไฟ ${dmg} HP 🔥`;
-        case "POISON":       return `${name} เจ็บจากพิษ ${dmg} HP ☠️`;
-        case "BADLY_POISON": return `${name} เจ็บจากพิษสะสม ${dmg} HP ☠️☠️`;
-        default:             return `${name} เสีย ${dmg} HP`;
+        case "BURN": return t("battleLogTickBURN", { name, value: tickValue, icon });
+        case "POISON": return t("battleLogTickPOISON", { name, value: tickValue, icon });
+        case "BADLY_POISON": return t("battleLogTickBADLY_POISON", { name, value: tickValue, icon });
+        default: return t("battleLogTickGeneric", { name, value: tickValue });
     }
 }
 
-function skipMsg(effect: string | undefined, actorName: string | undefined): string {
+function battleSkipMessage(
+    effect: string | undefined,
+    actorName: string | undefined,
+    t: (key: string, params?: Record<string, string | number>) => string
+): string {
     const name = actorName ?? "?";
+    const icon = EFFECT_ICON[effect ?? ""] ?? "";
     switch (effect) {
-        case "SLEEP":    return `${name} กำลังหลับอยู่ 💤`;
-        case "PARALYZE": return `${name} อัมพาต เคลื่อนไม่ได้! ⚡`;
-        case "FREEZE":   return `${name} แข็งตัว เคลื่อนไม่ได้! ❄️`;
-        default:         return `${name} ข้ามตา`;
+        case "SLEEP": return t("battleLogSkipSLEEP", { name, icon });
+        case "PARALYZE": return t("battleLogSkipPARALYZE", { name, icon });
+        case "FREEZE": return t("battleLogSkipFREEZE", { name, icon });
+        default: return t("battleLogSkipGeneric", { name });
     }
+}
+
+function battleAbilityMessage(
+    event: TurnEvent,
+    actorName: string,
+    t: (key: string, params?: Record<string, string | number>) => string
+): string {
+    const ability = event.abilityName ?? "Ability";
+    switch (event.abilityId) {
+        case "rage_mode":
+            return t("battleAbilityRageMode", { ability, name: actorName, icon: "ATK+" });
+        case "guardian_scale":
+            return t("battleAbilityGuardianScale", { ability, name: actorName, value: event.value ?? 0, icon: "DEF" });
+        default:
+            return t("battleAbilityDefault", { ability });
+    }
+}
+
+/** Secondary line for status_apply: turns + optional EffectEntry numbers */
+function formatStatusApplyMetaLine(
+    event: TurnEvent,
+    t: (key: string, params?: Record<string, string | number>) => string
+): string | undefined {
+    const parts: string[] = [];
+    if (event.turnsLeft != null) {
+        parts.push(t("battleStatusMetaTurnsLeft", { n: event.turnsLeft }));
+    }
+    if (event.regenPenalty != null && event.regenPenalty > 0) {
+        parts.push(t("battleStatusMetaEnDrain", { value: event.regenPenalty }));
+    }
+    if (event.burnDotRate != null) {
+        parts.push(t("battleStatusMetaBurnRate", { pct: Math.round(event.burnDotRate * 100) }));
+    }
+    if (event.ignoreDefRetained != null) {
+        parts.push(t("battleStatusMetaIgnoreDef", { mult: Number(event.ignoreDefRetained.toFixed(2)) }));
+    }
+    return parts.length ? parts.join(" · ") : undefined;
 }
 
 // Reserved for future compact event log rendering.
@@ -253,29 +350,21 @@ function EventRow({ event, fighters }: { event: TurnEvent; fighters: [BattleFigh
         event.kind === "extra_action"    ? "💨" :
         event.kind === "no_energy"       ? "🔋" : "▶️";
 
-    const abilityMsg = (event.kind === "ability_trigger") ? (() => {
-        const name = actor?.studentName ?? "?";
-        const target_ = fighters.find((f) => f.studentId === event.targetId);
-        switch (event.abilityId) {
-            case "flame_body":     return `🌟 ${event.abilityName} — ${target_?.studentName} ถูกจุดไฟ! 🔥`;
-            case "static":         return `🌟 ${event.abilityName} — ${target_?.studentName} อัมพาต! ⚡`;
-            case "rage_mode":      return `🌟 ${event.abilityName} — ${name} ATK พุ่งขึ้น! 😡`;
-            case "guardian_scale": return `🌟 ${event.abilityName} — ${name} ฟื้น ${event.value} HP! 🛡️`;
-            default:               return `🌟 ${event.abilityName ?? "Ability"} ทำงาน!`;
-        }
-    })() : null;
+    const abilityMsg = event.kind === "ability_trigger"
+        ? battleAbilityMessage(event, actor?.studentName ?? "?", t)
+        : null;
 
     const msg = abilityMsg ??
-        (event.kind === "move_used"     ? `${actor?.studentName} ใช้ ${event.moveName}` :
-        event.kind === "miss"           ? `${actor?.studentName} พลาด!` :
-        event.kind === "damage"         ? `${target?.studentName} โดน ${event.value} ดาเมจ` :
-        event.kind === "heal"           ? `${actor?.studentName} ฟื้น ${event.value} HP` :
-        event.kind === "status_apply"   ? statusApplyMsg(event.effect, target?.studentName ?? actor?.studentName) :
-        event.kind === "status_tick"    ? statusTickMsg(event.effect, actor?.studentName, event.value) :
-        event.kind === "status_end"     ? `${STATUS_LABEL[event.effect ?? ""] ?? event.effect} หายแล้ว ✅` :
-        event.kind === "skip_turn"      ? skipMsg(event.effect, actor?.studentName) :
-        event.kind === "confusion_hit"  ? `😵 ${actor?.studentName} สับสน ตีตัวเอง ${event.value} ดาเมจ!` :
-        event.kind === "freeze_thaw"    ? `❄️ ${actor?.studentName} ละลายแล้ว! กลับมาสู้ได้!` :
+        (event.kind === "move_used"     ? t("battleLogMoveUsed", { name: actor?.studentName ?? "?", move: event.moveName ?? "?" }) :
+        event.kind === "miss"           ? t("battleLogMiss", { name: actor?.studentName ?? "?" }) :
+        event.kind === "damage"         ? t("battleLogDamage", { target: target?.studentName ?? "?", value: event.value ?? 0 }) :
+        event.kind === "heal"           ? t("battleLogHeal", { name: actor?.studentName ?? "?", value: event.value ?? 0 }) :
+        event.kind === "status_apply"   ? battleStatusApplyMessage(event.effect, target?.studentName ?? actor?.studentName, t) :
+        event.kind === "status_tick"    ? battleStatusTickMessage(event.effect, actor?.studentName, event.value, t) :
+        event.kind === "status_end"     ? t("battleLogStatusEnd", { status: getStatusLabel(event.effect, t), name: actor?.studentName ?? "?" }) :
+        event.kind === "skip_turn"      ? battleSkipMessage(event.effect, actor?.studentName, t) :
+        event.kind === "confusion_hit"  ? t("battleLogConfusionHit", { name: actor?.studentName ?? "?", value: event.value ?? 0 }) :
+        event.kind === "freeze_thaw"    ? t("battleLogFreezeThaw", { name: actor?.studentName ?? "?" }) :
         event.kind === "extra_action"   ? t("battleExtraAction", { name: actor?.studentName ?? "?" }) :
         event.kind === "no_energy"      ? t("battleNoEnergyMove", {
             name: actor?.studentName ?? "?",
@@ -283,7 +372,7 @@ function EventRow({ event, fighters }: { event: TurnEvent; fighters: [BattleFigh
             current: event.currentEnergy ?? 0,
             required: event.requiredEnergy ?? 0,
         }) :
-        event.kind === "faint"          ? `${actor?.studentName} สลบแล้ว! 💀` : "");
+        event.kind === "faint"          ? t("battleLogFaint", { name: actor?.studentName ?? "?" }) : "");
 
     return (
         <div className="flex items-start gap-2 py-0.5">
@@ -291,13 +380,13 @@ function EventRow({ event, fighters }: { event: TurnEvent; fighters: [BattleFigh
             <div className="min-w-0 flex flex-wrap items-center gap-1">
                 <span className="text-[11px] text-slate-700">{msg}</span>
                 {event.kind === "move_used" && event.priorityOverride && (
-                    <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-black text-sky-600">⚡ ไปก่อน!</span>
+                    <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-black text-sky-600">{t("battleBadgePriority")}</span>
                 )}
                 {event.kind === "damage" && event.stab && (
-                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-black text-amber-700">💥 STAB</span>
+                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-black text-amber-700">{t("battleBadgeStab")}</span>
                 )}
                 {event.kind === "damage" && event.crit && (
-                    <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-black text-red-600">⚡ CRIT!</span>
+                    <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-black text-red-600">{t("battleBadgeCrit")}</span>
                 )}
                 {event.effectiveness && effectivenessLabel(event.effectiveness, t)}
             </div>
@@ -310,7 +399,25 @@ function EventRow({ event, fighters }: { event: TurnEvent; fighters: [BattleFigh
 const TURN_DELAY_MS = 900;
 
 function cloneBattleFighter(fighter: BattleFighter): BattleFighter {
-    return JSON.parse(JSON.stringify(fighter)) as BattleFighter;
+    return normalizeBattleFighterTurns(JSON.parse(JSON.stringify(fighter)) as BattleFighter);
+}
+
+/** Approximate per-actor completed steps for replay (matches engine: one increment per action resolution). */
+function replayActorStepCount(
+    turns: BattleResult["turns"],
+    upToTurnExclusive: number,
+    studentId: string
+): number {
+    let n = 0;
+    for (let ti = 0; ti < upToTurnExclusive; ti++) {
+        for (const e of turns[ti]) {
+            if (e.actorId !== studentId) continue;
+            if (e.kind === "move_used" || e.kind === "skip_turn" || e.kind === "confusion_hit") {
+                n += 1;
+            }
+        }
+    }
+    return n;
 }
 
 /** Reconstruct live HP for both fighters up to turnIndex (exclusive) */
@@ -346,7 +453,8 @@ function computeHpAtTurn(
 
 function eventToDialogueLines(
     event: TurnEvent,
-    fighters: [BattleFighter, BattleFighter]
+    fighters: [BattleFighter, BattleFighter],
+    t: (key: string, params?: Record<string, string | number>) => string
 ): DialogueLine[] {
     const actor  = fighters.find((f) => f.studentId === event.actorId);
     const target = fighters.find((f) => f.studentId === event.targetId);
@@ -356,89 +464,94 @@ function eventToDialogueLines(
     switch (event.kind) {
         case "move_used": {
             const badges: DialogueLine["badges"] = [];
-            if (event.priorityOverride) badges.push({ label: "⚡ ก่อนเลย!", color: "bg-sky-100 text-sky-700" });
+            if (event.priorityOverride) badges.push({ label: t("battleBadgePriority"), color: "bg-sky-100 text-sky-700" });
             return [{
-                text: `${aName} ใช้ ${event.moveName ?? "?"}!`,
+                text: t("battleLogMoveUsed", { name: aName, move: event.moveName ?? "?" }),
                 actor: aName,
                 actorIcon: actor?.formIcon,
                 skill: event.moveName ?? "?",
-                damageText: "เตรียมโจมตี",
+                damageText: t("battleDialoguePreparingAttack"),
                 badges,
             }];
         }
         case "damage": {
             const badges: DialogueLine["badges"] = [];
-            if (event.crit)                        badges.push({ label: "⚡ CRIT!",      color: "bg-red-100 text-red-600" });
-            if (event.stab)                        badges.push({ label: "💥 STAB",       color: "bg-amber-100 text-amber-700" });
-            if (event.effectiveness === "super")   badges.push({ label: "ได้ผลมาก!",    color: "bg-orange-100 text-orange-600" });
-            if (event.effectiveness === "weak")    badges.push({ label: "ได้ผลน้อย...", color: "bg-slate-100 text-slate-500" });
+            if (event.crit) badges.push({ label: t("battleBadgeCrit"), color: "bg-red-100 text-red-600" });
+            if (event.stab) badges.push({ label: t("battleBadgeStab"), color: "bg-amber-100 text-amber-700" });
+            if (event.effectiveness === "super") badges.push({ label: t("battleBadgeSuper"), color: "bg-orange-100 text-orange-600" });
+            if (event.effectiveness === "weak") badges.push({ label: t("battleBadgeWeak"), color: "bg-slate-100 text-slate-500" });
             return [{
-                text: `${aName} โจมตี ${tName} ${event.value ?? 0} ดาเมจ`,
+                text: t("battleLogDamage", { target: tName, value: event.value ?? 0 }),
                 actor: aName,
                 actorIcon: actor?.formIcon,
-                skill: event.moveName ?? "โจมตี",
+                skill: event.moveName ?? t("battleDialogueBasicAttack"),
                 damageText: `-${event.value ?? 0} HP`,
-                statusText: `เป้าหมาย: ${tName}`,
+                statusText: t("battleDialogueTarget", { name: tName }),
                 badges,
             }];
         }
         case "miss":
-            return [{ text: `${aName} พลาด! 💨` }];
+            return [{ text: t("battleLogMiss", { name: aName }) }];
         case "heal":
             return [{
-                text: `${aName} ฟื้นคืน ${event.value ?? 0} HP! 💚`,
+                text: t("battleLogHeal", { name: aName, value: event.value ?? 0 }),
                 actor: aName,
                 actorIcon: actor?.formIcon,
-                skill: "ฟื้นฟู",
+                skill: t("battleDialogueHealSkill"),
                 damageText: `+${event.value ?? 0} HP`,
             }];
         case "faint":
-            return [{ text: `${aName} สลบแล้ว! 💀` }];
-        case "status_apply":
+            return [{ text: t("battleLogFaint", { name: aName }) }];
+        case "status_apply": {
+            const statusMessage = battleStatusApplyMessage(event.effect, tName || aName, t);
+            const metaLine = formatStatusApplyMetaLine(event, t);
+            const turnsChip =
+                event.turnsLeft != null
+                    ? t("battleStatusMetaTurnsShort", { n: event.turnsLeft })
+                    : event.effect
+                      ? EFFECT_ICON[event.effect] ?? t("battleDialogueStatusSkill")
+                      : t("battleDialogueStatusSkill");
             return [{
-                text: statusApplyMsg(event.effect, tName || aName),
+                text: statusMessage,
                 actor: aName,
                 actorIcon: actor?.formIcon,
-                skill: event.moveName ?? "เอฟเฟกต์สถานะ",
-                damageText: event.effect ? EFFECT_ICON[event.effect] ?? "สถานะ" : "สถานะ",
-                statusText: statusApplyMsg(event.effect, tName || aName),
+                skill: event.moveName ?? t("battleDialogueStatusSkill"),
+                damageText: turnsChip,
+                statusText: metaLine ?? statusMessage,
             }];
+        }
         case "status_tick":
             return [{
-                text: statusTickMsg(event.effect, aName, event.value),
+                text: battleStatusTickMessage(event.effect, aName, event.value, t),
                 actor: aName,
                 actorIcon: actor?.formIcon,
-                skill: "ผลต่อเนื่อง",
+                skill: t("battleDialogueOngoingEffect"),
                 damageText: `-${event.value ?? 0} HP`,
-                statusText: event.effect ? STATUS_LABEL[event.effect] ?? event.effect : undefined,
+                statusText: event.effect ? getStatusLabel(event.effect, t) : undefined,
             }];
         case "status_end":
-            return [{ text: `${STATUS_LABEL[event.effect ?? ""] ?? event.effect} ของ ${aName} หายแล้ว ✅` }];
+            return [{ text: t("battleLogStatusEnd", { status: getStatusLabel(event.effect, t), name: aName }) }];
         case "skip_turn":
-            return [{ text: skipMsg(event.effect, aName) }];
+            return [{ text: battleSkipMessage(event.effect, aName, t) }];
         case "confusion_hit":
-            return [{ text: `😵 ${aName} สับสน ตีตัวเอง ${event.value ?? 0} ดาเมจ!` }];
+            return [{ text: t("battleLogConfusionHit", { name: aName, value: event.value ?? 0 }) }];
         case "freeze_thaw":
-            return [{ text: `❄️ ${aName} ละลายออกจากน้ำแข็ง!` }];
-        case "ability_trigger": {
-            const tgt = fighters.find((f) => f.studentId === event.targetId);
-            let text = `🌟 ${event.abilityName ?? "Ability"} ทำงาน!`;
-            switch (event.abilityId) {
-                case "flame_body":     text = `🌟 ${event.abilityName} — ${tgt?.studentName} ถูกจุดไฟ! 🔥`; break;
-                case "static":         text = `🌟 ${event.abilityName} — ${tgt?.studentName} อัมพาต! ⚡`;  break;
-                case "rage_mode":      text = `🌟 ${event.abilityName} — ${aName} ATK พุ่งขึ้น! 😡`;       break;
-                case "guardian_scale": text = `🌟 ${event.abilityName} — ${aName} ฟื้น ${event.value ?? 0} HP! 🛡️`; break;
-            }
-            return [{ text }];
-        }
+            return [{ text: t("battleLogFreezeThaw", { name: aName }) }];
+        case "ability_trigger":
+            return [{ text: battleAbilityMessage(event, aName, t) }];
         case "no_energy":
             return [{
-                text: `🔋 EN ไม่พอ! ${aName} ใช้โจมตีธรรมดาแทน`,
+                text: t("battleNoEnergyMove", {
+                    name: aName,
+                    move: event.moveName ?? "?",
+                    current: event.currentEnergy ?? 0,
+                    required: event.requiredEnergy ?? 0,
+                }),
                 actor: aName,
                 actorIcon: actor?.formIcon,
-                skill: event.moveName ?? "สกิล",
+                skill: event.moveName ?? t("battleDialogueStatusSkill"),
                 damageText: `EN ${event.currentEnergy ?? 0}/${event.requiredEnergy ?? 0}`,
-                statusText: "พลังงานไม่พอ เปลี่ยนเป็นโจมตีธรรมดาอัตโนมัติ",
+                statusText: t("battleDialogueNoEnergyAttack"),
             }];
         default:
             return [];
@@ -501,7 +614,7 @@ function BattleReplay({
     const [hurtId, setHurtId] = useState<string | null>(null);
     const [flashId, setFlashId] = useState<string | null>(null);
     const [faintedId, setFaintedId] = useState<string | null>(null);
-    const [floatingDmg, setFloatingDmg] = useState<{ id: string; value: number; crit?: boolean; targetLabel?: string } | null>(null);
+    const [floatingDmg, setFloatingDmg] = useState<{ id: string; value: number; crit?: boolean } | null>(null);
     const [dialogueLines, setDialogueLines] = useState<DialogueLine[]>([]);
     const fighters = result.fighters;
 
@@ -535,7 +648,6 @@ function BattleReplay({
                     id: dmgEvt.targetId ?? "",
                     value: dmgEvt.value ?? 0,
                     crit: dmgEvt.crit,
-                    targetLabel: fighters.find((f) => f.studentId === dmgEvt.targetId)?.studentName ?? "?",
                 });
                 setTimeout(() => {
                     setAttackingId(null);
@@ -549,7 +661,7 @@ function BattleReplay({
 
             // Append dialogue lines for this turn
             const newLines: DialogueLine[] = turnEvents.flatMap((evt) =>
-                eventToDialogueLines(evt, fighters)
+                eventToDialogueLines(evt, fighters, t)
             );
             if (newLines.length > 0) {
                 setDialogueLines((prev) => [...prev, ...newLines]);
@@ -564,12 +676,9 @@ function BattleReplay({
 
     // Active statuses at current turn
     function getStatuses(fighter: BattleFighter): ActiveStatusView[] {
-        return fighter.effects.filter((e) =>
-            [
-                "BOOST_ATK","BOOST_DEF","BOOST_SPD","BOOST_WATER_DMG",
-                "BURN","POISON","BADLY_POISON","PARALYZE","SLEEP","FREEZE","CONFUSE",
-            ].includes(e.effect)
-        ).map((e) => ({ effect: e.effect, turnsLeft: e.turnsLeft }));
+        return fighter.effects
+            .filter((e) => BATTLE_HUD_DISPLAYABLE_EFFECTS.has(e.effect))
+            .map((e) => ({ effect: e.effect, turnsLeft: e.turnsLeft }));
     }
 
     return (
@@ -598,7 +707,6 @@ function BattleReplay({
                     hurtId={hurtId}
                     flashId={flashId}
                     faintedId={faintedId}
-                    floatingDmg={floatingDmg}
                 />
 
                 {/* HUD overlay */}
@@ -608,6 +716,7 @@ function BattleReplay({
                         name={opponent.studentName}
                         formName={opponent.formName}
                         rankIndex={opponent.rankIndex}
+                        turnsCompleted={replayActorStepCount(result.turns, shownTurns, opponent.studentId)}
                         currentHp={opponentHp}
                         maxHp={opponent.maxHp}
                         activeStatuses={getStatuses(opponent)}
@@ -624,6 +733,7 @@ function BattleReplay({
                         name={player.studentName}
                         formName={player.formName}
                         rankIndex={player.rankIndex}
+                        turnsCompleted={replayActorStepCount(result.turns, shownTurns, player.studentId)}
                         currentHp={playerHp}
                         maxHp={player.maxHp}
                         activeStatuses={getStatuses(player)}
@@ -635,8 +745,23 @@ function BattleReplay({
                     />
                 </div>
 
-                {/* Turn counter */}
-                <div className="absolute top-2 right-2 rounded-full bg-black/30 backdrop-blur-sm px-2 py-0.5 text-[10px] font-black text-white/80">
+                {floatingDmg ? (
+                    <div className="pointer-events-none absolute inset-0 z-[45] overflow-visible">
+                        <FloatingText
+                            text={
+                                floatingDmg.crit
+                                    ? `💥 ${floatingDmg.value}!!`
+                                    : `−${floatingDmg.value}`
+                            }
+                            side={floatingDmg.id === player.studentId ? "player" : "opponent"}
+                            color={floatingDmg.crit ? "#fbbf24" : "#f87171"}
+                            show
+                        />
+                    </div>
+                ) : null}
+
+                {/* Turn counter — below floating damage layer (z-45) */}
+                <div className="absolute top-2 right-2 z-30 rounded-full bg-black/30 backdrop-blur-sm px-2 py-0.5 text-[10px] font-black text-white/80">
                     T{shownTurns}/{result.turns.length}
                 </div>
             </div>
@@ -678,7 +803,7 @@ function BattleReplay({
             )}
             {!allDone && playing && dialogueLines.length === 0 && (
                 <div className="rounded-2xl border-[3px] border-slate-800 bg-white px-4 py-3 shadow-[3px_3px_0px_0px_rgba(15,23,42,0.35)] min-h-[64px] flex items-center">
-                    <p className="text-sm font-bold text-slate-400 animate-pulse">กำลังเริ่มต่อสู้...</p>
+                    <p className="text-sm font-bold text-slate-400 animate-pulse">{t("battleStarting")}</p>
                 </div>
             )}
 
@@ -690,7 +815,7 @@ function BattleReplay({
                         onClick={() => setPlaying(!playing)}
                         className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2 text-xs font-black text-slate-600"
                     >
-                        {playing ? "⏸ หยุด" : "▶ เล่น"}
+                        {playing ? t("battleReplayPause") : t("battleReplayPlay")}
                     </button>
                 )}
                 {!allDone && (
@@ -698,14 +823,14 @@ function BattleReplay({
                         type="button"
                         onClick={() => {
                             const allLines = result.turns.flatMap((turn) =>
-                                turn.flatMap((evt) => eventToDialogueLines(evt, fighters))
+                                turn.flatMap((evt) => eventToDialogueLines(evt, fighters, t))
                             );
                             setDialogueLines(allLines);
                             setShownTurns(result.turns.length);
                         }}
                         className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2 text-xs font-black text-slate-600 flex items-center justify-center gap-1"
                     >
-                        <ChevronRight className="h-3.5 w-3.5" /> ข้ามไปผล
+                        <ChevronRight className="h-3.5 w-3.5" /> {t("battleSkipResult")}
                     </button>
                 )}
                 {allDone && (
@@ -714,7 +839,7 @@ function BattleReplay({
                         onClick={onReset}
                         className="flex-1 rounded-xl border-b-2 border-indigo-600 bg-gradient-to-b from-indigo-400 to-indigo-500 py-2 text-xs font-black text-white flex items-center justify-center gap-1 active:translate-y-px active:border-b-0"
                     >
-                        <RotateCcw className="h-3.5 w-3.5" /> ท้าทายใหม่
+                        <RotateCcw className="h-3.5 w-3.5" /> {t("battleRematch")}
                     </button>
                 )}
             </div>
@@ -727,6 +852,25 @@ function BattleReplay({
 const ANIM_DELAY_MS = 1600; // ms between turn events during animation phase
 const BATTLE_SPEED_STORAGE_KEY = "negamon_battle_speed_multiplier";
 const BATTLE_AUTO_MODE_STORAGE_KEY = "negamon_battle_auto_mode";
+
+function readStoredBattleSpeed(): 1 | 2 | 3 {
+    if (typeof window === "undefined") return 1;
+    try {
+        const raw = window.localStorage.getItem(BATTLE_SPEED_STORAGE_KEY);
+        return raw === "1" || raw === "2" || raw === "3" ? (Number(raw) as 1 | 2 | 3) : 1;
+    } catch {
+        return 1;
+    }
+}
+
+function readStoredBattleAutoMode(): boolean {
+    if (typeof window === "undefined") return false;
+    try {
+        return window.localStorage.getItem(BATTLE_AUTO_MODE_STORAGE_KEY) === "1";
+    } catch {
+        return false;
+    }
+}
 
 type IBPhase = "picking" | "animating" | "result";
 
@@ -783,15 +927,14 @@ function InteractiveBattle({
     onFinish,
     onReset,
 }: InteractiveBattleProps) {
+    const { t } = useLanguage();
+
     // Deep-copy fighters into refs so we can mutate them across turns
     const playerRef   = useRef<BattleFighter>(JSON.parse(JSON.stringify(initialPlayer)));
     const opponentRef = useRef<BattleFighter>(JSON.parse(JSON.stringify(initialOpponent)));
     const turnRef     = useRef(0);
 
-    // Derive player/opponent from myId
     const isChallenger = myId === challengerId;
-    const player   = isChallenger ? playerRef.current   : opponentRef.current;
-    const opponent  = isChallenger ? opponentRef.current : playerRef.current;
     const [renderFighters, setRenderFighters] = useState(() => ({
         player: cloneBattleFighter(isChallenger ? initialPlayer : initialOpponent),
         opponent: cloneBattleFighter(isChallenger ? initialOpponent : initialPlayer),
@@ -801,10 +944,9 @@ function InteractiveBattle({
     const [started, setStarted]       = useState(false);
     const [turnIndex, setTurnIndex]   = useState(0);
     const [subStep, setSubStep]       = useState(1);
-    const [playerCanAct, setPlayerCanAct] = useState(false);
     const [nextActor, setNextActor] = useState<"player" | "opponent">("player");
-    const [autoMode, setAutoMode] = useState(false);
-    const [speedMultiplier, setSpeedMultiplier] = useState<1 | 2 | 3>(1);
+    const [autoMode, setAutoMode] = useState(readStoredBattleAutoMode);
+    const [speedMultiplier, setSpeedMultiplier] = useState<1 | 2 | 3>(readStoredBattleSpeed);
     const [dialogueLines, setDialogue] = useState<DialogueLine[]>([]);
     const [faintedId, setFaintedId]   = useState<string | null>(null);
     const [winnerId, setWinnerId]     = useState<string | null>(null);
@@ -820,15 +962,12 @@ function InteractiveBattle({
     const [flashId, setFlashId]       = useState<string | null>(null);
     const [hurtId, setHurtId]         = useState<string | null>(null);
     const [attackingId, setAttackingId] = useState<string | null>(null);
-    const [floatingDmg, setFloatingDmg] = useState<{ id: string; value: number; crit?: boolean; targetLabel?: string } | null>(null);
+    const [floatingDmg, setFloatingDmg] = useState<{ id: string; value: number; crit?: boolean } | null>(null);
 
     function getStatuses(fighter: BattleFighter): ActiveStatusView[] {
-        return fighter.effects.filter((e) =>
-            [
-                "BOOST_ATK","BOOST_DEF","BOOST_SPD","BOOST_WATER_DMG",
-                "BURN","POISON","BADLY_POISON","PARALYZE","SLEEP","FREEZE","CONFUSE",
-            ].includes(e.effect)
-        ).map((e) => ({ effect: e.effect, turnsLeft: e.turnsLeft }));
+        return fighter.effects
+            .filter((e) => BATTLE_HUD_DISPLAYABLE_EFFECTS.has(e.effect))
+            .map((e) => ({ effect: e.effect, turnsLeft: e.turnsLeft }));
     }
 
     const syncRenderFighters = useCallback(() => {
@@ -845,21 +984,27 @@ function InteractiveBattle({
     const opponentOpeningSpd = effectiveStat(renderOpponent.baseStats.spd, renderOpponent.statStages.spd);
     const playerOpeningQueue = playerOpeningSpd >= opponentOpeningSpd ? 1 : 2;
     const openingStarterName = playerOpeningQueue === 1 ? renderPlayer.studentName : renderOpponent.studentName;
+    const playerCanAct = started && phase === "picking" && nextActor === "player";
 
     function handleStartBattle() {
         setStarted(true);
         setNextActor(playerOpeningQueue === 1 ? "player" : "opponent");
-        setPlayerCanAct(playerOpeningQueue === 1);
         setDialogue([{
             text:
                 playerOpeningQueue === 1
-                    ? `เริ่มต่อสู้! ${openingStarterName} ได้คิวแรกจาก SPD ที่สูงกว่า`
-                    : `เริ่มต่อสู้! ${openingStarterName} ได้คิวแรกจาก SPD ที่สูงกว่า (${renderPlayer.studentName} ได้คิวที่ 2)`,
+                    ? t("battleOpeningTurn", { name: openingStarterName })
+                    : t("battleOpeningTurnQueued", {
+                        name: openingStarterName,
+                        other: renderPlayer.studentName,
+                    }),
             actor: openingStarterName,
             actorIcon: playerOpeningQueue === 1 ? renderPlayer.formIcon : renderOpponent.formIcon,
-            skill: "เปิดฉากต่อสู้",
-            damageText: `คิว ${playerOpeningQueue === 1 ? 1 : 2}`,
-            statusText: `SPD คุณ ${playerOpeningSpd} • SPD ฝั่งตรงข้าม ${opponentOpeningSpd}`,
+            skill: t("battleDialogueOpeningSkill"),
+            damageText: t("battleDialogueQueueShort", { position: playerOpeningQueue === 1 ? 1 : 2 }),
+            statusText: t("battleDialogueSpdCompare", {
+                player: playerOpeningSpd,
+                opponent: opponentOpeningSpd,
+            }),
         }]);
     }
 
@@ -886,19 +1031,20 @@ function InteractiveBattle({
     }
 
     function accumulateBattleStats(events: TurnEvent[]) {
+        const activePlayer = isChallenger ? playerRef.current : opponentRef.current;
         for (const evt of events) {
             if (evt.kind === "damage") {
-                if (evt.actorId === player.studentId) {
+                if (evt.actorId === activePlayer.studentId) {
                     statsRef.current.damageDealt += evt.value ?? 0;
                 } else {
                     statsRef.current.damageReceived += evt.value ?? 0;
                 }
                 if (evt.crit) statsRef.current.critCount += 1;
             }
-            if (evt.kind === "heal" && evt.actorId === player.studentId) {
+            if (evt.kind === "heal" && evt.actorId === activePlayer.studentId) {
                 statsRef.current.healsUsed += evt.value ?? 0;
             }
-            if (evt.kind === "confusion_hit" && evt.actorId === player.studentId) {
+            if (evt.kind === "confusion_hit" && evt.actorId === activePlayer.studentId) {
                 statsRef.current.damageReceived += evt.value ?? 0;
             }
         }
@@ -906,7 +1052,7 @@ function InteractiveBattle({
 
     function appendDialogueForEvents(events: TurnEvent[]) {
         const pair: [BattleFighter, BattleFighter] = [playerRef.current, opponentRef.current];
-        const lines = events.flatMap((evt) => eventToDialogueLines(evt, pair));
+        const lines = events.flatMap((evt) => eventToDialogueLines(evt, pair, t));
         setDialogue((prev) => [...prev, ...lines]);
     }
 
@@ -920,12 +1066,6 @@ function InteractiveBattle({
                 id: dmgEvt.targetId ?? "",
                 value: dmgEvt.value ?? 0,
                 crit: dmgEvt.crit,
-                targetLabel:
-                    (dmgEvt.targetId === playerRef.current.studentId
-                        ? playerRef.current.studentName
-                        : dmgEvt.targetId === opponentRef.current.studentId
-                            ? opponentRef.current.studentName
-                            : "?"),
             });
             setTimeout(() => {
                 setAttackingId(null);
@@ -968,8 +1108,8 @@ function InteractiveBattle({
                     {
                         text:
                             final.rewardBlockedReason === "daily_cap"
-                                ? "วันนี้รับรางวัลทองจาก Battle ครบโควตาแล้ว"
-                                : "คู่ต่อสู้นี้ยังอยู่ในช่วงคูลดาวน์รางวัลทอง",
+                                ? t("battleRewardBlockedDailyCap")
+                                : t("battleRewardBlockedCooldown"),
                     },
                 ]);
             }
@@ -996,7 +1136,7 @@ function InteractiveBattle({
 
         const turn = await requestServerTurn(moveId);
         if (!turn) {
-            setDialogue((prev) => [...prev, { text: "บันทึกเทิร์นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }]);
+            setDialogue((prev) => [...prev, { text: t("battleTurnSaveFailed") }]);
             setPhase("picking");
             return;
         }
@@ -1027,7 +1167,7 @@ function InteractiveBattle({
 
         const turn = await requestServerTurn();
         if (!turn) {
-            setDialogue((prev) => [...prev, { text: "บันทึกเทิร์นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }]);
+            setDialogue((prev) => [...prev, { text: t("battleTurnSaveFailed") }]);
             setPhase("picking");
             return;
         }
@@ -1046,6 +1186,14 @@ function InteractiveBattle({
         });
     }
 
+    const executePlayerActionRef = useRef(executePlayerAction);
+    const handleAutoOpponentActionRef = useRef(handleAutoOpponentAction);
+
+    useEffect(() => {
+        executePlayerActionRef.current = executePlayerAction;
+        handleAutoOpponentActionRef.current = handleAutoOpponentAction;
+    });
+
     function handleResetBattlePreferences() {
         setAutoMode(false);
         setSpeedMultiplier(1);
@@ -1056,23 +1204,6 @@ function InteractiveBattle({
             // ignore storage errors
         }
     }
-
-    useEffect(() => {
-        try {
-            const raw = window.localStorage.getItem(BATTLE_SPEED_STORAGE_KEY);
-            if (raw === "1" || raw === "2" || raw === "3") {
-                setSpeedMultiplier(Number(raw) as 1 | 2 | 3);
-            }
-            const autoRaw = window.localStorage.getItem(BATTLE_AUTO_MODE_STORAGE_KEY);
-            if (autoRaw === "1") {
-                setAutoMode(true);
-            } else if (autoRaw === "0") {
-                setAutoMode(false);
-            }
-        } catch {
-            // ignore storage errors
-        }
-    }, []);
 
     useEffect(() => {
         try {
@@ -1093,10 +1224,9 @@ function InteractiveBattle({
     useEffect(() => {
         if (!started || phase !== "picking") return;
         const canAct = nextActor === "player";
-        setPlayerCanAct(canAct);
         if (!canAct) {
             const timer = window.setTimeout(() => {
-                handleAutoOpponentAction();
+                handleAutoOpponentActionRef.current();
             }, getDelay(250));
             return () => window.clearTimeout(timer);
         }
@@ -1105,7 +1235,7 @@ function InteractiveBattle({
     useEffect(() => {
         if (!started || phase !== "picking" || !autoMode || !playerCanAct) return;
         const timer = window.setTimeout(() => {
-            executePlayerAction(pickAutoMoveId(playerRef.current));
+            executePlayerActionRef.current(pickAutoMoveId(playerRef.current));
         }, getDelay(300));
         return () => window.clearTimeout(timer);
     }, [started, phase, autoMode, playerCanAct, getDelay]);
@@ -1137,7 +1267,6 @@ function InteractiveBattle({
                     hurtId={hurtId}
                     flashId={flashId}
                     faintedId={faintedId}
-                    floatingDmg={floatingDmg}
                 />
 
                 {/* Opponent HUD — top-right (same side as opponent sprite) */}
@@ -1146,6 +1275,7 @@ function InteractiveBattle({
                         name={renderOpponent.studentName}
                         formName={renderOpponent.formName}
                         rankIndex={renderOpponent.rankIndex}
+                        turnsCompleted={renderOpponent.turnsCompleted ?? 0}
                         currentHp={renderOpponent.currentHp}
                         maxHp={renderOpponent.maxHp}
                         activeStatuses={getStatuses(renderOpponent)}
@@ -1162,6 +1292,7 @@ function InteractiveBattle({
                         name={renderPlayer.studentName}
                         formName={renderPlayer.formName}
                         rankIndex={renderPlayer.rankIndex}
+                        turnsCompleted={renderPlayer.turnsCompleted ?? 0}
                         currentHp={renderPlayer.currentHp}
                         maxHp={renderPlayer.maxHp}
                         activeStatuses={getStatuses(renderPlayer)}
@@ -1176,9 +1307,26 @@ function InteractiveBattle({
                     />
                 </div>
 
-                {/* Turn counter */}
+                {floatingDmg ? (
+                    <div className="pointer-events-none absolute inset-0 z-[45] overflow-visible">
+                        <FloatingText
+                            text={
+                                floatingDmg.crit
+                                    ? `💥 ${floatingDmg.value}!!`
+                                    : `−${floatingDmg.value}`
+                            }
+                            side={
+                                floatingDmg.id === renderPlayer.studentId ? "player" : "opponent"
+                            }
+                            color={floatingDmg.crit ? "#fbbf24" : "#f87171"}
+                            show
+                        />
+                    </div>
+                ) : null}
+
+                {/* Turn counter — below floating damage layer (z-45) */}
                 {started && (
-                    <div className="absolute top-2 right-2 rounded-full bg-black/30 backdrop-blur-sm px-2 py-0.5 text-[10px] font-black text-white/80">
+                    <div className="absolute top-2 right-2 z-30 rounded-full bg-black/30 backdrop-blur-sm px-2 py-0.5 text-[10px] font-black text-white/80">
                         R{turnIndex + 1}
                     </div>
                 )}
@@ -1215,10 +1363,12 @@ function InteractiveBattle({
                 >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <p className="text-sm font-black text-slate-800">พร้อมเริ่มการต่อสู้</p>
+                            <p className="text-sm font-black text-slate-800">{t("battleReadyTitle")}</p>
                             <p className="text-xs font-semibold text-slate-600">
-                                คิวเริ่มจาก SPD: {openingStarterName} เริ่มก่อน
-                                {playerOpeningQueue === 2 ? ` (${renderPlayer.studentName} คิว 2)` : ""}
+                                {t("battleReadyQueue", { name: openingStarterName })}
+                                {playerOpeningQueue === 2
+                                    ? ` (${t("battleQueuePosition", { name: renderPlayer.studentName, position: 2 })})`
+                                    : ""}
                             </p>
                         </div>
                         <button
@@ -1226,7 +1376,7 @@ function InteractiveBattle({
                             onClick={handleStartBattle}
                             className="rounded-xl border-b-2 border-emerald-700 bg-gradient-to-b from-emerald-400 to-emerald-500 px-4 py-2 text-xs font-black text-white active:translate-y-px active:border-b-0"
                         >
-                            ▶ เริ่มต่อสู้
+                            {t("battleStartButton")}
                         </button>
                     </div>
                 </motion.div>
@@ -1253,10 +1403,10 @@ function InteractiveBattle({
                                             autoMode ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-600"
                                         )}
                                     >
-                                        {autoMode ? "AUTO ON" : "AUTO OFF"}
+                                        {autoMode ? t("battleAutoOn") : t("battleAutoOff")}
                                     </button>
                                     <span className="text-[10px] font-bold text-slate-500">
-                                        {playerCanAct ? "คิวคุณ" : "คิวศัตรู"}
+                                        {playerCanAct ? t("battleYourTurn") : t("battleOpponentTurn")}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-1">
@@ -1280,7 +1430,7 @@ function InteractiveBattle({
                                         onClick={handleResetBattlePreferences}
                                         className="rounded-md bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-700 hover:bg-slate-300"
                                     >
-                                        รีเซ็ต
+                                        {t("battleResetButton")}
                                     </button>
                                 </div>
                             </div>
@@ -1317,7 +1467,7 @@ function InteractiveBattle({
                                             imageClassName="h-full w-full object-contain"
                                         />
                                         <span>
-                                            {renderOpponent.studentName} ท้าทายคุณ! — เลือกท่าได้เลย!
+                                            {t("battleOpponentPrompt", { name: renderOpponent.studentName })}
                                         </span>
                                     </p>
                                 </div>
@@ -1358,10 +1508,8 @@ export function BattleTab({
     myMonster,
     currentGold = 0,
     inventory,
-    battleLoadout,
     onGoldChange,
     onBattleConsumablesSpent,
-    onBattleLoadoutSaved,
 }: BattleTabProps) {
     const { t } = useLanguage();
     const [view, setView] = useState<BattleView>("fight");
@@ -1494,7 +1642,7 @@ export function BattleTab({
                                 : "text-rose-400 hover:bg-rose-50"
                         )}
                     >
-                        ⚔️ ต่อสู้
+                        {t("battleViewFight")}
                     </button>
                     <button
                         type="button"
@@ -1506,7 +1654,7 @@ export function BattleTab({
                                 : "text-rose-400 hover:bg-rose-50"
                         )}
                     >
-                        📜 ประวัติ
+                        {t("battleViewHistory")}
                     </button>
                 </div>
             </div>
@@ -1550,12 +1698,7 @@ export function BattleTab({
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <BattleItemBagPanel
-                                    loginCode={myStudentCode}
-                                    inventory={inventory}
-                                    battleLoadout={battleLoadout}
-                                    onLoadoutSaved={onBattleLoadoutSaved}
-                                />
+                                <BattleItemBagPanel inventory={inventory} />
                                 <OpponentPicker
                                     opponents={opponents}
                                     onChallenge={handlePickOpponent}
@@ -1589,7 +1732,7 @@ export function BattleTab({
                     if (!v) setPrepTargetId(null);
                 }}
                 inventory={inventory}
-                initialSelection={lastAttackLoadout.length > 0 ? lastAttackLoadout : battleLoadout}
+                initialSelection={lastAttackLoadout.length > 0 ? lastAttackLoadout : []}
                 onConfirm={(ids) => {
                     const sanitized = sanitizeLoadoutAgainstInventory(ids, inventory);
                     const valid = validateBattleLoadout(sanitized, inventory);
@@ -1603,5 +1746,6 @@ export function BattleTab({
         </div>
     );
 }
+
 
 

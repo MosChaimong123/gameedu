@@ -37,10 +37,6 @@ vi.mock("@/components/student/student-dashboard-main-tabs", () => ({
     },
 }));
 
-vi.mock("@/components/accessibility/AccessibilityControlPanel", () => ({
-    AccessibilityControlPanel: () => null,
-}));
-
 vi.mock("@/components/negamon/evolve-animation", () => ({
     useEvolveAnimation: () => ({
         triggerEvolve: vi.fn(),

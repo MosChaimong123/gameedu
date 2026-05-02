@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 export const AUTH_REQUIRED_MESSAGE = "Unauthorized";
 export const FORBIDDEN_MESSAGE = "Forbidden";
 export const INTERNAL_ERROR_MESSAGE = "Internal Server Error";
+export const ENDPOINT_NO_LONGER_AVAILABLE_MESSAGE = "Endpoint no longer available";
 
 export type AppErrorCode =
     | "AUTH_REQUIRED"
@@ -35,7 +36,18 @@ export type AppErrorCode =
     | "PLAN_LIMIT_AI_FEATURE"
     | "PLAN_LIMIT_CLASSROOMS"
     | "PLAN_LIMIT_NEGAMON_SPECIES"
-    | "PLAN_LIMIT_AUDIENCE_PLANS";
+    | "PLAN_LIMIT_AUDIENCE_PLANS"
+    | "BILLING_NOT_CONFIGURED"
+    | "BILLING_PRICE_NOT_CONFIGURED"
+    | "BILLING_PRO_MANAGED"
+    | "BILLING_CHECKOUT_CREATE_FAILED"
+    | "BILLING_THAI_NOT_CONFIGURED"
+    | "BILLING_OMISE_INACTIVE"
+    | "BILLING_OMISE_NOT_CONFIGURED"
+    | "BILLING_CHARGE_SESSION_MISMATCH"
+    | "BILLING_PROCESSING_FAILED"
+    | "INVALID_ACCESSIBILITY_SETTINGS"
+    | "ENDPOINT_NO_LONGER_AVAILABLE";
 
 export type AppErrorPayload = {
     error: {

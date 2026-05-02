@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { HackTask } from "@/lib/types/game";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/providers/language-provider";
 
 type Props = {
     task: HackTask;
@@ -8,6 +9,7 @@ type Props = {
 }
 
 export function PatternTask({ task, onComplete }: Props) {
+    const { t } = useLanguage();
     const isPatternTask = task.type === "PATTERN";
     // 2x2 Grid: 0, 1, 2, 3
     const [sequence, setSequence] = useState<number[]>([]);
@@ -96,10 +98,10 @@ export function PatternTask({ task, onComplete }: Props) {
                 "text-2xl font-black uppercase tracking-widest animate-pulse transition-colors",
                 isError ? "text-red-500" : "text-yellow-400"
             )}>
-                {isError ? "PATTERN MISMATCH!" : "VERIFICATION REQUIRED"}
+                {isError ? t("cryptoPatternMismatch") : t("cryptoPatternVerificationRequired")}
             </h2>
             <div className="text-slate-400 text-sm">
-                {isPlaying ? "Watch the pattern..." : "Repeat the pattern!"}
+                {isPlaying ? t("cryptoPatternWatch") : t("cryptoPatternRepeat")}
             </div>
 
             <div className="grid grid-cols-2 gap-4 p-4 bg-slate-900 rounded-2xl border-2 border-slate-700 shadow-2xl">
@@ -129,7 +131,7 @@ export function PatternTask({ task, onComplete }: Props) {
                 disabled={isPlaying}
                 className="text-xs text-slate-500 underline hover:text-white"
             >
-                Replay Pattern
+                {t("cryptoPatternReplay")}
             </button>
         </div>
     )

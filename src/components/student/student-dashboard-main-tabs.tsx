@@ -53,7 +53,6 @@ interface StudentDashboardMainTabsProps {
     onOpenStarterSelection: () => void;
     onGoldChange: (value: number | undefined) => void;
     onBattleConsumablesSpent?: (consumedItemIds: string[]) => void;
-    onBattleLoadoutSaved?: (battleLoadout: string[]) => void;
 }
 
 export function StudentDashboardMainTabs({
@@ -83,7 +82,6 @@ export function StudentDashboardMainTabs({
     onOpenStarterSelection,
     onGoldChange,
     onBattleConsumablesSpent,
-    onBattleLoadoutSaved,
 }: StudentDashboardMainTabsProps) {
     return (
         <div className="md:col-span-3 space-y-8">
@@ -161,7 +159,6 @@ export function StudentDashboardMainTabs({
                     questGold={questGold}
                     currentGold={student.gold}
                     inventory={student.inventory}
-                    battleLoadout={student.battleLoadout}
                     myMonster={studentMonsterState ? {
                         formIcon: studentMonsterState.form.icon,
                         formName: studentMonsterState.form.name,
@@ -170,7 +167,6 @@ export function StudentDashboardMainTabs({
                     history={history}
                     onGoldChange={onGoldChange}
                     onBattleConsumablesSpent={onBattleConsumablesSpent}
-                    onBattleLoadoutSaved={onBattleLoadoutSaved}
                 />
             </Tabs>
         </div>

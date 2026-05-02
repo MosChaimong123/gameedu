@@ -4,6 +4,7 @@ import { NextResponse } from "next/server"
 import {
     AUTH_REQUIRED_MESSAGE,
     FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
     createAppErrorResponse,
 } from "@/lib/api-error";
 import { getLimitsForUser } from "@/lib/plan/plan-access";
@@ -37,7 +38,7 @@ export async function GET() {
         return NextResponse.json(sets)
     } catch (error) {
         console.error("[SETS_GET]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }
 
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
         const { title, description, isPublic, coverImage } = body
 
         if (!title) {
-            return new NextResponse("Title is required", { status: 400 })
+            return createAppErrorResponse("INVALID_PAYLOAD", "Title is required", 400)
         }
 
         const limits = getLimitsForUser(session.user.role, session.user.plan)
@@ -94,8 +95,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json(set)
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Internal Error"
         console.error("[SETS_POST]", error)
-        return new NextResponse(message, { status: 500 })
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }

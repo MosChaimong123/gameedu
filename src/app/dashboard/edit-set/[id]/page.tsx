@@ -138,7 +138,7 @@ export default function EditSetPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(set),
             })
-            if (!res.ok) throw new Error("Failed to save")
+            if (!res.ok) throw new Error("editSetSaveFailed")
             toast({
                 title: t("editSetSaveSuccessTitle"),
                 description: t("editSetSaveSuccessDesc"),
@@ -262,7 +262,7 @@ export default function EditSetPage() {
                         <div className="aspect-[4/3] rounded-xl bg-slate-100 overflow-hidden border-2 border-slate-100 shadow-sm relative group">
                             {set.coverImage ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={set.coverImage} alt="Cover" className="w-full h-full object-cover" />
+                                <img src={set.coverImage} alt={t("coverImageAlt")} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
                                     <ImageIcon className="w-12 h-12 mb-2" />

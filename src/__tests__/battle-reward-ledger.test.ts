@@ -6,6 +6,7 @@ const mockStudentFindUnique = vi.fn();
 const mockStudentUpdate = vi.fn();
 const mockBattleSessionCreate = vi.fn();
 const mockBattleSessionCount = vi.fn();
+const mockBattleSessionFindMany = vi.fn();
 const mockBattleSessionFindFirst = vi.fn();
 const mockBattleSessionUpdate = vi.fn();
 const mockBattleSessionUpdateMany = vi.fn();
@@ -19,6 +20,7 @@ const mockTransaction = vi.fn(async (fn: (tx: unknown) => unknown) =>
     battleSession: {
       create: mockBattleSessionCreate,
       count: mockBattleSessionCount,
+      findMany: mockBattleSessionFindMany,
       findFirst: mockBattleSessionFindFirst,
       update: mockBattleSessionUpdate,
       updateMany: mockBattleSessionUpdateMany,
@@ -44,6 +46,7 @@ vi.mock("@/lib/db", () => ({
     },
     battleSession: {
       count: mockBattleSessionCount,
+      findMany: mockBattleSessionFindMany,
       findFirst: mockBattleSessionFindFirst,
       update: mockBattleSessionUpdate,
       updateMany: mockBattleSessionUpdateMany,
@@ -74,6 +77,7 @@ vi.mock("@/lib/classroom-utils", () => ({
 
 vi.mock("@/lib/battle-engine", () => ({
   calcGoldReward: vi.fn(() => 30),
+  normalizeBattleFighterTurns: (f: unknown) => f as object,
   initBattleFighter: vi.fn((monster: { studentId: string }) => ({
     studentId: monster.studentId,
     studentName: monster.studentId === "challenger-1" ? "Challenger" : "Defender",
@@ -142,6 +146,7 @@ describe("battle reward ledger", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockBattleSessionCount.mockResolvedValue(0);
+    mockBattleSessionFindMany.mockResolvedValue([]);
     mockBattleSessionUpdateMany.mockResolvedValue({ count: 1 });
   });
 
@@ -248,7 +253,7 @@ describe("battle reward ledger", () => {
         name: "Defender",
         behaviorPoints: 8,
         gold: 50,
-        inventory: ["item_buckler", "item_lucky_coin", "frame_silver"],
+        inventory: ["item_buckler", "item_lucky_coin", "frame_fire_t1"],
         battleLoadout: ["item_buckler", "item_lucky_coin"],
       });
     mockBattleSessionCreate.mockResolvedValue({
@@ -285,7 +290,7 @@ describe("battle reward ledger", () => {
     expect(mockStudentUpdate).toHaveBeenNthCalledWith(2, {
       where: { id: "defender-1" },
       data: {
-        inventory: ["frame_silver"],
+        inventory: ["frame_fire_t1"],
         battleLoadout: [],
       },
     });
@@ -695,7 +700,7 @@ describe("battle reward ledger", () => {
         name: "Defender",
         behaviorPoints: 8,
         gold: 50,
-        inventory: ["item_buckler", "item_lucky_coin", "frame_silver"],
+        inventory: ["item_buckler", "item_lucky_coin", "frame_fire_t1"],
         battleLoadout: ["item_buckler", "item_lucky_coin"],
       });
     mockBattleSessionFindFirst
@@ -748,7 +753,7 @@ describe("battle reward ledger", () => {
       .mockResolvedValueOnce({ gold: 100, inventory: [], battleLoadout: [] })
       .mockResolvedValueOnce({
         gold: 50,
-        inventory: ["item_buckler", "item_lucky_coin", "frame_silver"],
+        inventory: ["item_buckler", "item_lucky_coin", "frame_fire_t1"],
         battleLoadout: ["item_buckler", "item_lucky_coin"],
       });
     mockBattleSessionCount.mockResolvedValue(0);
@@ -779,7 +784,7 @@ describe("battle reward ledger", () => {
     expect(mockStudentUpdate).toHaveBeenNthCalledWith(2, {
       where: { id: "defender-1" },
       data: {
-        inventory: ["frame_silver"],
+        inventory: ["frame_fire_t1"],
         battleLoadout: [],
       },
     });

@@ -1,6 +1,13 @@
 import { Server, Socket } from "socket.io";
 import { AbstractGameEngine, type GameQuestion } from "./abstract-game";
 import { CryptoHackPlayer, GameSettings, HackTask, CryptoReward } from "../types/game";
+import {
+    SOCKET_ERROR_CRYPTO_PASSWORD_TAKEN,
+    SOCKET_ERROR_CRYPTO_SELECTION_INVALID,
+    SOCKET_ERROR_CRYPTO_SELECTION_SERVER,
+    SOCKET_ERROR_CRYPTO_SYSTEM_GLITCHED,
+    SOCKET_ERROR_GAME_LOCKED,
+} from "@/lib/socket-error-messages";
 
 type CryptoGameStatePayload = {
     players: CryptoHackPlayer[];
@@ -88,7 +95,7 @@ export class CryptoHackEngine extends AbstractGameEngine {
 
     addPlayer(player: CryptoPlayerJoin, socket: Socket) {
         if (this.status !== "LOBBY" && !this.settings.allowLateJoin) {
-            socket.emit("error", { message: "Game is locked" });
+            socket.emit("error", { message: SOCKET_ERROR_GAME_LOCKED });
             return;
         }
 
@@ -183,7 +190,7 @@ export class CryptoHackEngine extends AbstractGameEngine {
         // Prevent Duplicate Password Selection
         const isTaken = this.players.some(p => p.id !== player.id && p.password === password);
         if (isTaken) {
-            this.io.to(player.id).emit("error", { message: "Protocol Occupied! Choose another." });
+            this.io.to(player.id).emit("error", { message: SOCKET_ERROR_CRYPTO_PASSWORD_TAKEN });
             return;
         }
 
@@ -311,7 +318,7 @@ export class CryptoHackEngine extends AbstractGameEngine {
 
             if (!choices || !choices[index]) {
                 console.warn(`[Crypto] Invalid box selection for ${player.name}: No pending rewards (Count: ${choices?.length}) or invalid index (${index}).`);
-                socket.emit("selection-error", { message: "No rewards pending or invalid selection." });
+                socket.emit("selection-error", { message: SOCKET_ERROR_CRYPTO_SELECTION_INVALID });
                 // Re-emit choose-box to sync client?
                 if (choices && choices.length === 3) {
                     socket.emit("choose-box", { options: ["HIDDEN", "HIDDEN", "HIDDEN"] });
@@ -339,7 +346,7 @@ export class CryptoHackEngine extends AbstractGameEngine {
             this.statusUpdate(); // Persist state change
         } catch (error) {
             console.error(`[Crypto] Error in handleBoxSelection:`, error);
-            socket.emit("selection-error", { message: "Server error processing selection." });
+            socket.emit("selection-error", { message: SOCKET_ERROR_CRYPTO_SELECTION_SERVER });
         }
     }
 
@@ -469,7 +476,7 @@ export class CryptoHackEngine extends AbstractGameEngine {
         }
 
         if (player && player.isGlitched) {
-            socket.emit("error", { message: "System Glitched! Complete task to restore." });
+            socket.emit("error", { message: SOCKET_ERROR_CRYPTO_SYSTEM_GLITCHED });
             // Resend task just in case
             if (player.currentTask) socket.emit("task-assigned", { task: player.currentTask });
             // Also emit player-hacked to show overlay?

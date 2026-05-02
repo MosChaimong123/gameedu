@@ -274,7 +274,7 @@ export function ClassroomSettingsDialog({
                                 onClick={() => fileInputRef.current?.click()}
                             >
                                 {emoji.startsWith('data:image') || emoji.startsWith('http') ? (
-                                    <Image src={emoji} alt="Icon" fill sizes="96px" unoptimized className="object-cover" />
+                                    <Image src={emoji} alt={t("classroomIconAlt")} fill sizes="96px" unoptimized className="object-cover" />
                                 ) : (
                                     <span>{emoji}</span>
                                 )}

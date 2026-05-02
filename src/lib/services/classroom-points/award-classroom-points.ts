@@ -4,6 +4,11 @@ import { sendNotification } from "@/lib/notifications";
 import { notifyNegamonRankUpIfNeeded } from "@/lib/negamon/negamon-rank-notify";
 import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 
+export const CLASSROOM_POINTS_STUDENT_NOT_FOUND = "classroomPointsStudentNotFound";
+export const CLASSROOM_POINTS_SKILL_NOT_FOUND = "classroomPointsSkillNotFound";
+export const CLASSROOM_POINTS_MISSING_DATA = "classroomPointsMissingData";
+export const CLASSROOM_POINTS_STUDENTS_NOT_FOUND = "classroomPointsStudentsNotFound";
+
 type ClassroomPointsDeps = {
     db: PrismaClient;
 };
@@ -80,12 +85,12 @@ export async function awardSingleClassroomPoint(
         select: { id: true, classId: true, loginCode: true, behaviorPoints: true },
     });
     if (!student || student.classId !== classroom.id) {
-        return { ok: false, status: 404, message: "Student not found" };
+        return { ok: false, status: 404, message: CLASSROOM_POINTS_STUDENT_NOT_FOUND };
     }
 
     const skill = await getSkill(args.skillId, deps);
     if (!skill) {
-        return { ok: false, status: 404, message: "Skill not found" };
+        return { ok: false, status: 404, message: CLASSROOM_POINTS_SKILL_NOT_FOUND };
     }
 
     const oldPoints = student.behaviorPoints;
@@ -141,7 +146,7 @@ export async function awardBatchClassroomPoints(
     deps: ClassroomPointsDeps = { db }
 ): Promise<ClassroomPointsResult> {
     if (args.studentIds.length === 0) {
-        return { ok: false, status: 400, message: "Missing data" };
+        return { ok: false, status: 400, message: CLASSROOM_POINTS_MISSING_DATA };
     }
 
     const classroom = await getAuthorizedClassroom(args.classroomId, args.teacherId, deps);
@@ -163,12 +168,12 @@ export async function awardBatchClassroomPoints(
 
     const validStudents = students.filter((student: StudentMembership) => student.classId === classroom.id);
     if (validStudents.length !== args.studentIds.length) {
-        return { ok: false, status: 404, message: "One or more students were not found in this classroom" };
+        return { ok: false, status: 404, message: CLASSROOM_POINTS_STUDENTS_NOT_FOUND };
     }
 
     const skill = await getSkill(args.skillId, deps);
     if (!skill) {
-        return { ok: false, status: 404, message: "Skill not found" };
+        return { ok: false, status: 404, message: CLASSROOM_POINTS_SKILL_NOT_FOUND };
     }
 
     const oldPointsById = new Map(validStudents.map((student) => [student.id, student.behaviorPoints] as const));

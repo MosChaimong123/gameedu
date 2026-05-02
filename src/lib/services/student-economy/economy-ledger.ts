@@ -35,9 +35,17 @@ export async function recordEconomyTransaction(
     }
 
     const idempotencyKey = input.idempotencyKey?.trim() || null;
-    const economyTransaction = db.economyTransaction as typeof db.economyTransaction & {
-        findFirst?: typeof db.economyTransaction.findFirst;
-    };
+    const economyTransaction = (db as { economyTransaction?: typeof db.economyTransaction }).economyTransaction as
+        | (typeof db.economyTransaction & {
+              findFirst?: typeof db.economyTransaction.findFirst;
+          })
+        | undefined;
+
+    // Older Prisma Client builds may not know this model yet. Skip ledger write rather than
+    // breaking the user-facing flow until the client is regenerated.
+    if (!economyTransaction || typeof economyTransaction.create !== "function") {
+        return null;
+    }
     const data = {
         studentId: input.studentId,
         classId: input.classId ?? null,

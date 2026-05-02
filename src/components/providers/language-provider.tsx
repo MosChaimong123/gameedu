@@ -1,8 +1,9 @@
 "use client"
 
 import React, { createContext, startTransition, useContext, useEffect, useState } from "react"
-import { translations, Language } from "@/lib/translations"
+import { Language } from "@/lib/translations"
 import { LANGUAGE_COOKIE_MAX_AGE_SEC, LANGUAGE_COOKIE_NAME } from "@/lib/language-cookie"
+import { getTranslationText } from "@/lib/translation-lookup"
 
 type LanguageContextType = {
     language: Language
@@ -12,7 +13,6 @@ type LanguageContextType = {
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
-type TranslationDictionary = Record<string, string>
 
 function writeLanguageCookie(lang: Language) {
     if (typeof document === "undefined") return
@@ -55,7 +55,7 @@ export function LanguageProvider({ children, initialLanguage = "en" }: LanguageP
     }
 
     const t = (key: string, params?: Record<string, string | number>) => {
-        let text = (translations[language] as TranslationDictionary)[key] || key
+        let text = getTranslationText(language, key)
         if (params) {
             Object.entries(params).forEach(([paramKey, value]) => {
                 text = text.replace(`{${paramKey}}`, String(value))

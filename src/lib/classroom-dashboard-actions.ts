@@ -1,5 +1,33 @@
 import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 
+async function extractDashboardActionError(response: Response, fallback: string) {
+    const contentType = response.headers.get("content-type") ?? "";
+
+    if (contentType.includes("application/json")) {
+        const body = (await response.json().catch(() => null)) as
+            | {
+                  error?: string | { code?: string; message?: string };
+                  message?: string;
+              }
+            | null;
+
+        if (body?.error && typeof body.error === "object" && typeof body.error.code === "string") {
+            return `apiError_${body.error.code}`;
+        }
+
+        if (typeof body?.error === "string") {
+            return body.error;
+        }
+
+        if (typeof body?.message === "string") {
+            return body.message;
+        }
+    }
+
+    const text = await response.text().catch(() => "");
+    return text.trim() || fallback;
+}
+
 export type AwardBehaviorPointsInput =
     | {
         classroomId: string;
@@ -59,7 +87,7 @@ export async function awardBehaviorPoints(
     });
 
     if (!response.ok) {
-        throw new Error("Failed to award behavior points");
+        throw new Error(await extractDashboardActionError(response, "awardBehaviorFailDesc"));
     }
 
     return response.json() as Promise<AwardBehaviorPointsResult>;
@@ -75,7 +103,7 @@ export async function saveClassroomAttendance(
     });
 
     if (!response.ok) {
-        throw new Error("Failed to save attendance");
+        throw new Error(await extractDashboardActionError(response, "toastAttendanceSaveFailDesc"));
     }
 
     return response.json() as Promise<SaveAttendanceResult>;
@@ -89,7 +117,7 @@ export async function resetBehaviorPoints(
     });
 
     if (!response.ok) {
-        throw new Error("Failed to reset points");
+        throw new Error(await extractDashboardActionError(response, "resetPointsFailDesc"));
     }
 
     return response.json() as Promise<ResetClassroomPointsResult>;
@@ -101,7 +129,7 @@ export async function fetchClassroomDashboard(
     const response = await fetch(`/api/classrooms/${classroomId}`);
 
     if (!response.ok) {
-        throw new Error("Failed to refresh classroom");
+        throw new Error(await extractDashboardActionError(response, "teacherCommandLoadError"));
     }
 
     return response.json() as Promise<ClassroomDashboardViewModel>;

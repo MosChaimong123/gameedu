@@ -16,6 +16,7 @@ import {
     calcGoldReward,
     initBattleFighter,
     makePRNG,
+    normalizeBattleFighterTurns,
     resolveBattle,
     resolveServerOwnedInteractiveTurn,
     type BattleFighter,
@@ -109,6 +110,65 @@ function normalizeDefenderLoadout(
     return { ids: [], hadInvalidPreset: arr.length > 0 };
 }
 
+/** Pending rows older than TTL still block DB hygiene; mirror turnInteractive expiry. */
+async function expireStaleInteractivePendingSessions(classId: string, challengerId: string) {
+    const cutoff = new Date(Date.now() - INTERACTIVE_SESSION_TTL_MS);
+    const stale = await db.battleSession.findMany({
+        where: {
+            classId,
+            challengerId,
+            interactivePending: true,
+            createdAt: { lt: cutoff },
+        },
+        select: { id: true, result: true, stateVersion: true },
+        take: 50,
+    });
+    for (const s of stale) {
+        await db.battleSession.updateMany({
+            where: { id: s.id, interactivePending: true, stateVersion: s.stateVersion },
+            data: {
+                interactivePending: false,
+                result: {
+                    mode: "interactive_expired",
+                    expiredAt: new Date().toISOString(),
+                    previousResult: s.result,
+                },
+                stateVersion: { increment: 1 },
+            },
+        });
+    }
+}
+
+/** When the pending cap is hit, release the oldest slot so a new beginInteractive can proceed. */
+async function evictOldestPendingInteractiveSession(classId: string, challengerId: string): Promise<boolean> {
+    const windowStart = new Date(Date.now() - INTERACTIVE_SESSION_TTL_MS);
+    const oldest = await db.battleSession.findFirst({
+        where: {
+            classId,
+            challengerId,
+            interactivePending: true,
+            createdAt: { gte: windowStart },
+        },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, result: true, stateVersion: true },
+    });
+    if (!oldest) return false;
+    const updated = await db.battleSession.updateMany({
+        where: { id: oldest.id, interactivePending: true, stateVersion: oldest.stateVersion },
+        data: {
+            interactivePending: false,
+            result: {
+                mode: "interactive_expired",
+                reason: "pending_slot_released_for_new_battle",
+                expiredAt: new Date().toISOString(),
+                previousResult: oldest.result,
+            },
+            stateVersion: { increment: 1 },
+        },
+    });
+    return updated.count === 1;
+}
+
 async function enforceBattleStartAbuseLimits(input: {
     classId: string;
     challengerId: string;
@@ -136,14 +196,24 @@ async function enforceBattleStartAbuseLimits(input: {
     }
 
     if (input.mode === "beginInteractive") {
-        const pendingCount = await db.battleSession.count({
-            where: {
-                classId: input.classId,
-                challengerId: input.challengerId,
-                interactivePending: true,
-                createdAt: { gte: new Date(now - INTERACTIVE_SESSION_TTL_MS) },
-            },
-        });
+        await expireStaleInteractivePendingSessions(input.classId, input.challengerId);
+
+        const pendingWhere = {
+            classId: input.classId,
+            challengerId: input.challengerId,
+            interactivePending: true,
+            createdAt: { gte: new Date(now - INTERACTIVE_SESSION_TTL_MS) },
+        };
+
+        let pendingCount = await db.battleSession.count({ where: pendingWhere });
+        let guard = 0;
+        while (pendingCount >= MAX_PENDING_INTERACTIVE_SESSIONS && guard < 8) {
+            const evicted = await evictOldestPendingInteractiveSession(input.classId, input.challengerId);
+            if (!evicted) break;
+            pendingCount = await db.battleSession.count({ where: pendingWhere });
+            guard += 1;
+        }
+
         if (pendingCount >= MAX_PENDING_INTERACTIVE_SESSIONS) {
             return NextResponse.json(
                 {
@@ -344,8 +414,8 @@ export async function POST(
             return NextResponse.json({ error: "INVALID_SESSION_STATE" }, { status: 409 });
         }
 
-        const player = cloneFighter(state.player);
-        const opponent = cloneFighter(state.opponent);
+        const player = normalizeBattleFighterTurns(cloneFighter(state.player));
+        const opponent = normalizeBattleFighterTurns(cloneFighter(state.opponent));
         const { rng, getCursor } = makeCountingRng(state.seed, state.rngCursor);
         const turn = resolveServerOwnedInteractiveTurn(player, opponent, moveId, rng);
         if (turn.actorSide === "player" && !moveId) {
@@ -487,13 +557,13 @@ export async function POST(
                         ),
                     },
                 });
-                const winnerBalanceBefore = winner.studentId === challengerId ? chFresh.gold : defFresh.gold;
                 const updatedWinner = await tx.student.update({
                     where: { id: winner.studentId },
                     data: { gold: { increment: payoutPolicy.goldReward } },
                     select: { gold: true },
                 });
                 if (payoutPolicy.goldReward > 0) {
+                    const winnerBalanceBefore = updatedWinner.gold - payoutPolicy.goldReward;
                     await recordEconomyTransaction(tx, {
                         studentId: winner.studentId,
                         classId,
@@ -632,8 +702,8 @@ export async function POST(
             data: { gold: { increment: payoutPolicy.goldReward } },
             select: { gold: true },
         });
-        const winnerBalanceBefore = result.winnerId === challengerId ? challenger.gold : defender.gold;
         if (payoutPolicy.goldReward > 0) {
+            const winnerBalanceBefore = winner.gold - payoutPolicy.goldReward;
             await recordEconomyTransaction(tx, {
                 studentId: result.winnerId,
                 classId,

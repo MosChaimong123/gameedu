@@ -105,7 +105,7 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
 
     toast({
       title: t("adminRoleUpdateFailTitle"),
-      description: result.error,
+      description: t(result.errorKey),
       variant: "destructive",
     });
   };
@@ -139,7 +139,7 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
     }
     toast({
       title: t("adminSubscriptionUpdateFailTitle"),
-      description: "error" in result ? result.error : undefined,
+      description: "errorKey" in result ? t(result.errorKey) : undefined,
       variant: "destructive",
     });
   };
@@ -316,9 +316,9 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
                 value={subPlan}
                 onChange={(e) => setSubPlan(e.target.value as "FREE" | "PLUS" | "PRO")}
               >
-                <option value="FREE">FREE</option>
-                <option value="PLUS">PLUS</option>
-                <option value="PRO">PRO</option>
+                <option value="FREE">{t("adminPlanFree")}</option>
+                <option value="PLUS">{t("adminPlanPlus")}</option>
+                <option value="PRO">{t("adminPlanPro")}</option>
               </select>
             </div>
             <div className="space-y-1">
@@ -328,9 +328,9 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
                 value={subStatus}
                 onChange={(e) => setSubStatus(e.target.value as "ACTIVE" | "EXPIRED" | "INACTIVE")}
               >
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="EXPIRED">EXPIRED</option>
-                <option value="INACTIVE">INACTIVE</option>
+                <option value="ACTIVE">{t("adminPlanStatusActive")}</option>
+                <option value="EXPIRED">{t("adminPlanStatusExpired")}</option>
+                <option value="INACTIVE">{t("adminPlanStatusInactive")}</option>
               </select>
             </div>
             <div className="space-y-1">

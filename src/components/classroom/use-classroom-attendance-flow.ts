@@ -5,6 +5,22 @@ import { saveClassroomAttendance } from "@/lib/classroom-dashboard-actions";
 import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 import type { DashboardToastFn, DashboardTranslateFn } from "./classroom-dashboard.types";
 
+function resolveDashboardErrorMessage(
+    raw: string | null | undefined,
+    t: DashboardTranslateFn,
+    fallbackKey: string
+) {
+    const normalized = (raw ?? "").trim();
+    if (!normalized) return t(fallbackKey);
+    if (normalized.startsWith("apiError_")) {
+        const localized = t(normalized);
+        if (localized !== normalized) return localized;
+    }
+    const direct = t(normalized);
+    if (direct !== normalized) return direct;
+    return normalized;
+}
+
 type UseClassroomAttendanceFlowArgs = {
     classroomId: string;
     students: ClassroomDashboardViewModel["students"];
@@ -89,10 +105,14 @@ export function useClassroomAttendanceFlow({
             });
             setAttendanceSnapshot(null);
             return true;
-        } catch {
+        } catch (error) {
             toast({
                 title: t("toastAttendanceSaveFailTitle"),
-                description: t("toastAttendanceSaveFailDesc"),
+                description: resolveDashboardErrorMessage(
+                    error instanceof Error ? error.message : null,
+                    t,
+                    "toastAttendanceSaveFailDesc"
+                ),
                 variant: "destructive",
             });
             return false;

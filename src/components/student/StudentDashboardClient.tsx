@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import { format, isToday, isYesterday } from "date-fns";
 import { enUS, th } from "date-fns/locale";
-import { AccessibilityControlPanel } from "@/components/accessibility/AccessibilityControlPanel";
 import { useLanguage } from "@/components/providers/language-provider";
 import {
     calcMonsterStats,
@@ -60,7 +58,6 @@ export function StudentDashboardClient({
     const [isSelectionOpen, setIsSelectionOpen] = useState(false);
     const [assignmentFilter, setAssignmentFilter] = useState<"all" | "pending" | "completed">("all");
     const [assignmentSort, setAssignmentSort] = useState<"default" | "deadline">("default");
-    const [showAccessibility, setShowAccessibility] = useState(false);
     const [questGold, setQuestGold] = useState<number | undefined>(undefined);
     const [economyPatch, setEconomyPatch] = useState<
         Partial<Pick<DashboardStudent, "inventory" | "battleLoadout">>
@@ -215,26 +212,13 @@ export function StudentDashboardClient({
                     code={code}
                     currentUserId={currentUserId}
                     mode={mode}
-                    showAccessibility={showAccessibility}
                     classIcon={classIcon}
                     isImageIcon={isImageIcon}
                     themeClass={themeClass}
                     themeStyle={themeStyle}
                     notificationTray={<NotificationTray studentCode={code} />}
                     onToggleMode={toggleMode}
-                    onToggleAccessibility={() => setShowAccessibility((value) => !value)}
                 />
-
-                {showAccessibility && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        className="mb-6"
-                    >
-                        <AccessibilityControlPanel />
-                    </motion.div>
-                )}
 
                 <div className="grid md:grid-cols-4 gap-8">
                     <StudentDashboardSidebar
@@ -299,9 +283,6 @@ export function StudentDashboardClient({
                                 );
                                 return { ...p, inventory: inv, battleLoadout: lo };
                             });
-                        }}
-                        onBattleLoadoutSaved={(next) => {
-                            setEconomyPatch((p) => ({ ...p, battleLoadout: next }));
                         }}
                     />
                 </div>

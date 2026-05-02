@@ -8,11 +8,11 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-    Settings, 
-    Volume2, 
-    Languages, 
-    Shield, 
+import {
+    Settings,
+    Volume2,
+    Languages,
+    Shield,
     Save,
     Globe,
 } from "lucide-react"
@@ -20,6 +20,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { PageBackLink } from "@/components/ui/page-back-link"
 import type { UserSettings } from "@/lib/user-settings"
 import { parseUserSettings } from "@/lib/user-settings"
+import { useToast } from "@/components/ui/use-toast"
+import { getLocalizedErrorMessageFromResponse } from "@/lib/ui-error-messages"
 
 type SettingsState = UserSettings & {
     language: "en" | "th"
@@ -29,32 +31,31 @@ type SettingsState = UserSettings & {
 
 const LANGUAGE_DEFS = [
     { id: "th" as const, nameKey: "userSettingsLangTh", subKey: "userSettingsLangThSub", flag: "🇹🇭" },
-    { id: "en" as const, nameKey: "userSettingsLangEn", subKey: "userSettingsLangEnSub", flag: "🇺🇸" },
+    { id: "en" as const, nameKey: "userSettingsLangEn", subKey: "userSettingsLangEnSub", flag: "🇬🇧" },
 ] as const
 
 export default function SettingsPage() {
     const { data: session, update } = useSession()
-    const { t, setLanguage } = useLanguage()
-    
+    const { t, setLanguage, language } = useLanguage()
+    const { toast } = useToast()
+
     const [loading, setLoading] = useState(false)
     const [saved, setSaved] = useState(false)
     const [hasInitialized, setHasInitialized] = useState(false)
 
-    // Local state for settings
     const [settings, setSettings] = useState<SettingsState>({
         sfxEnabled: true,
         bgmEnabled: true,
         language: "th",
         notifications: true,
-        highPerformance: false
+        highPerformance: false,
     })
 
     useEffect(() => {
-        // Only initialize once from session
         if (session?.user && !hasInitialized) {
             if (session.user.settings) {
                 const userSettings = parseUserSettings(session.user.settings)
-                setSettings(prev => ({
+                setSettings((prev) => ({
                     ...prev,
                     ...userSettings,
                     language: userSettings.language === "en" ? "en" : "th",
@@ -67,29 +68,46 @@ export default function SettingsPage() {
     const handleSave = async () => {
         setLoading(true)
         setSaved(false)
-        
+
         try {
             const res = await fetch("/api/user/settings", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(settings)
+                body: JSON.stringify(settings),
             })
-            
+
             if (res.ok) {
                 setSaved(true)
                 await update({ settings })
                 setTimeout(() => setSaved(false), 3000)
+            } else {
+                const description = await getLocalizedErrorMessageFromResponse(
+                    res,
+                    "toastGenericError",
+                    t,
+                    language
+                )
+                toast({
+                    title: t("error"),
+                    description,
+                    variant: "destructive",
+                })
             }
         } catch (error) {
             console.error("Save error", error)
+            toast({
+                title: t("error"),
+                description: t("toastGenericError"),
+                variant: "destructive",
+            })
         } finally {
             setLoading(false)
         }
     }
 
     const updateSetting = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => {
-        setSettings(prev => ({ ...prev, [key]: value }))
-        
+        setSettings((prev) => ({ ...prev, [key]: value }))
+
         if (key === "language") setLanguage(value as SettingsState["language"])
     }
 
@@ -97,20 +115,19 @@ export default function SettingsPage() {
         <div className="min-h-[calc(100vh-4rem)] bg-slate-50/50 pb-12">
             <div className="mx-auto w-full max-w-4xl space-y-10 py-2 animate-in fade-in slide-in-from-bottom-6 duration-700 sm:py-4">
                 <PageBackLink href="/dashboard" labelKey="navBackDashboard" />
-                {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border pb-10">
+                <div className="flex flex-col gap-6 border-b border-border pb-10 md:flex-row md:items-end md:justify-between">
                     <div className="space-y-2">
-                        <motion.div 
+                        <motion.div
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            className="w-16 h-16 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-xl shadow-indigo-200 mb-4"
+                            className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-xl shadow-indigo-200"
                         >
-                            <Settings className="w-8 h-8 animate-pulse" />
+                            <Settings className="h-8 w-8 animate-pulse" />
                         </motion.div>
-                        <h1 className="text-4xl font-black tracking-tight text-foreground leading-none">{t("settings")}</h1>
-                        <p className="text-muted-foreground text-lg font-medium max-w-md leading-relaxed">{t("settingsDesc")}</p>
+                        <h1 className="text-4xl font-black leading-none tracking-tight text-foreground">{t("settings")}</h1>
+                        <p className="max-w-md text-lg font-medium leading-relaxed text-muted-foreground">{t("settingsDesc")}</p>
                     </div>
-                    
+
                     <div className="flex items-center gap-3">
                         <AnimatePresence mode="wait">
                             {saved ? (
@@ -119,25 +136,25 @@ export default function SettingsPage() {
                                     initial={{ opacity: 0, y: 10, scale: 0.9 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.9 }}
-                                    className="flex items-center gap-2 px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-black border border-emerald-100 shadow-sm"
+                                    className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-6 py-3 font-black text-emerald-600 shadow-sm"
                                 >
                                     <AnimatePresence>
-                                        <motion.div animate={{ rotate: [0, 10, -10, 0] }}>✅</motion.div>
+                                        <motion.div animate={{ rotate: [0, 10, -10, 0] }}>✓</motion.div>
                                     </AnimatePresence>
                                     {t("saved")}
                                 </motion.div>
                             ) : (
-                                <Button 
+                                <Button
                                     key="save"
-                                    onClick={handleSave} 
+                                    onClick={handleSave}
                                     disabled={loading}
-                                    className="h-14 px-10 rounded-2xl bg-slate-900 hover:bg-black text-white font-black shadow-2xl transition-all hover:scale-105 active:scale-95 gap-3 border-0 group"
+                                    className="group h-14 gap-3 rounded-2xl border-0 bg-slate-900 px-10 font-black text-white shadow-2xl transition-all hover:scale-105 hover:bg-black active:scale-95"
                                 >
                                     {loading ? (
-                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                                     ) : (
                                         <>
-                                            <Save className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                                            <Save className="h-5 w-5 transition-transform group-hover:rotate-12" />
                                             {t("saveChanges")}
                                         </>
                                     )}
@@ -149,24 +166,22 @@ export default function SettingsPage() {
 
                 <Tabs defaultValue="language" className="w-full space-y-10">
                     <div className="flex justify-center">
-                        <TabsList className="bg-white p-2 rounded-3xl h-16 border border-slate-200 shadow-xl shadow-slate-200/50 gap-2">
-                            <TabsTrigger value="language" className="rounded-2xl px-8 font-black data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all gap-2">
-                                <Languages className="w-4 h-4" /> {t("userSettingsLanguageTab")}
+                        <TabsList className="h-16 gap-2 rounded-3xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-200/50">
+                            <TabsTrigger value="language" className="gap-2 rounded-2xl px-8 font-black transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+                                <Languages className="h-4 w-4" /> {t("userSettingsLanguageTab")}
                             </TabsTrigger>
-                            <TabsTrigger value="audio" className="rounded-2xl px-8 font-black data-[state=active]:bg-indigo-600 data-[state=active]:text-white transition-all gap-2">
-                                <Volume2 className="w-4 h-4" /> {t("audio")}
+                            <TabsTrigger value="audio" className="gap-2 rounded-2xl px-8 font-black transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+                                <Volume2 className="h-4 w-4" /> {t("audio")}
                             </TabsTrigger>
                         </TabsList>
                     </div>
 
-
-
                     <TabsContent value="language" className="animate-in fade-in zoom-in-95 duration-500 focus-visible:outline-none">
-                        <Card className="border-0 shadow-2xl shadow-slate-200/50 rounded-[3rem] bg-card p-2">
+                        <Card className="border-0 bg-card p-2 shadow-2xl shadow-slate-200/50 rounded-[3rem]">
                             <CardHeader className="p-10 pb-4">
-                                <CardTitle className="text-3xl font-black flex items-center gap-4">
-                                    <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
-                                        <Globe className="w-8 h-8" />
+                                <CardTitle className="flex items-center gap-4 text-3xl font-black">
+                                    <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
+                                        <Globe className="h-8 w-8" />
                                     </div>
                                     {t("userSettingsLanguageTitle")}
                                 </CardTitle>
@@ -175,29 +190,35 @@ export default function SettingsPage() {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="p-10 pt-6">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                                <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
                                     {LANGUAGE_DEFS.map((lang) => (
-                                        <motion.button 
+                                        <motion.button
                                             key={lang.id}
                                             whileHover={{ y: -5, scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
                                             onClick={() => updateSetting("language", lang.id)}
-                                            className={`group p-8 rounded-[2.5rem] border-4 transition-all text-left relative overflow-hidden ${settings.language === lang.id ? 'border-indigo-600 bg-indigo-50/50 shadow-xl shadow-indigo-100' : 'border-slate-100 bg-slate-50 hover:border-indigo-200'}`}
+                                            className={`group relative overflow-hidden rounded-[2.5rem] border-4 p-8 text-left transition-all ${
+                                                settings.language === lang.id
+                                                    ? "border-indigo-600 bg-indigo-50/50 shadow-xl shadow-indigo-100"
+                                                    : "border-slate-100 bg-slate-50 hover:border-indigo-200"
+                                            }`}
                                         >
-                                            <div className="flex flex-col gap-4 relative z-10">
-                                                <span className="text-5xl group-hover:scale-110 transition-transform origin-left block">{lang.flag}</span>
+                                            <div className="relative z-10 flex flex-col gap-4">
+                                                <span className="block origin-left text-5xl transition-transform group-hover:scale-110">{lang.flag}</span>
                                                 <div>
-                                                    <h4 className={`font-black text-2xl leading-none ${settings.language === lang.id ? 'text-indigo-600' : 'text-foreground'}`}>{t(lang.nameKey)}</h4>
-                                                    <p className="text-sm text-muted-foreground uppercase font-black tracking-widest mt-2">{t(lang.subKey)}</p>
+                                                    <h4 className={`text-2xl font-black leading-none ${settings.language === lang.id ? "text-indigo-600" : "text-foreground"}`}>
+                                                        {t(lang.nameKey)}
+                                                    </h4>
+                                                    <p className="mt-2 text-sm font-black uppercase tracking-widest text-muted-foreground">{t(lang.subKey)}</p>
                                                 </div>
                                             </div>
                                             {settings.language === lang.id && (
-                                                <motion.div 
+                                                <motion.div
                                                     layoutId="activeLang"
-                                                    className="absolute top-6 right-6 w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg"
+                                                    className="absolute right-6 top-6 flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg"
                                                 >
                                                     <AnimatePresence>
-                                                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>✅</motion.div>
+                                                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>✓</motion.div>
                                                     </AnimatePresence>
                                                 </motion.div>
                                             )}
@@ -209,36 +230,36 @@ export default function SettingsPage() {
                     </TabsContent>
 
                     <TabsContent value="audio" className="animate-in fade-in zoom-in-95 duration-500 focus-visible:outline-none">
-                        <Card className="border-0 shadow-2xl shadow-slate-200/50 rounded-[3rem] bg-card overflow-hidden">
-                            <CardContent className="p-10 space-y-8">
-                                <div className="flex items-center justify-between p-8 rounded-[2.5rem] bg-muted border border-border hover:bg-muted/50 transition-all group">
+                        <Card className="overflow-hidden rounded-[3rem] border-0 bg-card shadow-2xl shadow-slate-200/50">
+                            <CardContent className="space-y-8 p-10">
+                                <div className="group flex items-center justify-between rounded-[2.5rem] border border-border bg-muted p-8 transition-all hover:bg-muted/50">
                                     <div className="flex items-center gap-6">
-                                        <div className="p-4 bg-indigo-600 text-white rounded-3xl shadow-lg shadow-indigo-200 group-hover:rotate-6 transition-transform">
-                                            <Volume2 className="w-8 h-8" />
+                                        <div className="rounded-3xl bg-indigo-600 p-4 text-white shadow-lg shadow-indigo-200 transition-transform group-hover:rotate-6">
+                                            <Volume2 className="h-8 w-8" />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label className="text-2xl font-black italic text-foreground leading-none">{t("userSettingsSfxTitle")}</Label>
-                                            <p className="text-sm text-muted-foreground font-black uppercase tracking-widest mt-1">{t("userSettingsSfxHint")}</p>
+                                            <Label className="text-2xl font-black italic leading-none text-foreground">{t("userSettingsSfxTitle")}</Label>
+                                            <p className="mt-1 text-sm font-black uppercase tracking-widest text-muted-foreground">{t("userSettingsSfxHint")}</p>
                                         </div>
                                     </div>
-                                    <Switch 
+                                    <Switch
                                         checked={settings.sfxEnabled}
                                         onCheckedChange={(val) => updateSetting("sfxEnabled", val)}
                                         className="scale-125 data-[state=checked]:bg-indigo-600"
                                     />
                                 </div>
-                                
-                                <div className="flex items-center justify-between p-8 rounded-[2.5rem] bg-muted border border-border hover:bg-muted/50 transition-all group">
+
+                                <div className="group flex items-center justify-between rounded-[2.5rem] border border-border bg-muted p-8 transition-all hover:bg-muted/50">
                                     <div className="flex items-center gap-6">
-                                        <div className="p-4 bg-emerald-500 text-white rounded-3xl shadow-lg shadow-emerald-200 group-hover:-rotate-6 transition-transform">
-                                            <Globe className="w-8 h-8" />
+                                        <div className="rounded-3xl bg-emerald-500 p-4 text-white shadow-lg shadow-emerald-200 transition-transform group-hover:-rotate-6">
+                                            <Globe className="h-8 w-8" />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label className="text-2xl font-black italic text-foreground leading-none">{t("userSettingsBgmTitle")}</Label>
-                                            <p className="text-sm text-muted-foreground font-black uppercase tracking-widest mt-1">{t("userSettingsBgmHint")}</p>
+                                            <Label className="text-2xl font-black italic leading-none text-foreground">{t("userSettingsBgmTitle")}</Label>
+                                            <p className="mt-1 text-sm font-black uppercase tracking-widest text-muted-foreground">{t("userSettingsBgmHint")}</p>
                                         </div>
                                     </div>
-                                    <Switch 
+                                    <Switch
                                         checked={settings.bgmEnabled}
                                         onCheckedChange={(val) => updateSetting("bgmEnabled", val)}
                                         className="scale-125 data-[state=checked]:bg-emerald-500"
@@ -249,29 +270,25 @@ export default function SettingsPage() {
                     </TabsContent>
                 </Tabs>
 
-                {session?.user?.role === 'ADMIN' && (
-                    <motion.div 
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
-                        className="pt-10"
-                    >
-                        <div className="relative group">
-                            <div className="absolute -inset-1 bg-gradient-to-r from-red-500 to-indigo-600 rounded-[3.5rem] blur opacity-30"></div>
-                            <Card className="relative border-0 shadow-2xl rounded-[3rem] bg-indigo-600 text-white p-2 overflow-hidden">
-                                <div className="p-10 space-y-8">
+                {session?.user?.role === "ADMIN" && (
+                    <motion.div initial={{ opacity: 0, scale: 0.9 }} whileInView={{ opacity: 1, scale: 1 }} className="pt-10">
+                        <div className="group relative">
+                            <div className="absolute -inset-1 rounded-[3.5rem] bg-gradient-to-r from-red-500 to-indigo-600 opacity-30 blur" />
+                            <Card className="relative overflow-hidden rounded-[3rem] border-0 bg-indigo-600 p-2 text-white shadow-2xl">
+                                <div className="space-y-8 p-10">
                                     <div className="flex items-center gap-6">
-                                        <div className="p-5 bg-white text-indigo-600 rounded-[2rem] shadow-2xl">
-                                            <Shield className="w-10 h-10" />
+                                        <div className="rounded-[2rem] bg-white p-5 text-indigo-600 shadow-2xl">
+                                            <Shield className="h-10 w-10" />
                                         </div>
                                         <div className="space-y-1">
                                             <h2 className="text-4xl font-black italic leading-none">{t("userSettingsAdminCardTitle")}</h2>
-                                            <p className="text-indigo-100 text-lg font-bold">{t("userSettingsAdminCardSubtitle")}</p>
+                                            <p className="text-lg font-bold text-indigo-100">{t("userSettingsAdminCardSubtitle")}</p>
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
-                                        <Button variant="secondary" className="h-16 rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-all">{t("userSettingsAdminBtnMembers")}</Button>
-                                        <Button variant="secondary" className="h-16 rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-all">{t("userSettingsAdminBtnStatus")}</Button>
-                                        <Button className="h-16 rounded-2xl font-black text-lg bg-slate-900 text-white hover:bg-black shadow-xl hover:scale-105 transition-all">{t("userSettingsAdminBtnMaintenance")}</Button>
+                                    <div className="grid grid-cols-1 gap-6 pt-4 sm:grid-cols-2 lg:grid-cols-3">
+                                        <Button variant="secondary" className="h-16 rounded-2xl text-lg font-black shadow-xl transition-all hover:scale-105">{t("userSettingsAdminBtnMembers")}</Button>
+                                        <Button variant="secondary" className="h-16 rounded-2xl text-lg font-black shadow-xl transition-all hover:scale-105">{t("userSettingsAdminBtnStatus")}</Button>
+                                        <Button className="h-16 rounded-2xl bg-slate-900 text-lg font-black text-white shadow-xl transition-all hover:scale-105 hover:bg-black">{t("userSettingsAdminBtnMaintenance")}</Button>
                                     </div>
                                 </div>
                             </Card>
@@ -282,5 +299,3 @@ export default function SettingsPage() {
         </div>
     )
 }
-
-

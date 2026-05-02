@@ -2,14 +2,14 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import { AUTH_REQUIRED_MESSAGE, createAppErrorResponse } from "@/lib/api-error";
 
 export async function POST(req: Request) {
     try {
         const { email, password, adminSecret } = await req.json();
 
         if (!email || !password) {
-            return new NextResponse("Missing credentials", { status: 400 });
+            return createAppErrorResponse("INVALID_PAYLOAD", "Missing credentials", 400);
         }
 
         const session = await auth();
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
 
             const validSecret = process.env.ADMIN_SECRET;
             if (!adminSecret || !validSecret || adminSecret !== validSecret) {
-                return new NextResponse("Invalid admin secret", { status: 403 });
+                return createAppErrorResponse("FORBIDDEN", "Invalid admin secret", 403);
             }
         }
 
@@ -50,22 +50,22 @@ export async function POST(req: Request) {
                     name: "Admin",
                 }
             });
-            return NextResponse.json({ message: "Admin account created", userId: newUser.id, username: adminUsername });
+            return NextResponse.json({ ok: true, result: "ADMIN_CREATED", userId: newUser.id, username: adminUsername });
         }
 
         // If user exists, upgrade to ADMIN
         if (existing.role === "ADMIN") {
-            return NextResponse.json({ message: "Already an admin" });
+            return NextResponse.json({ ok: true, result: "ALREADY_ADMIN" });
         }
 
         // Validate password before upgrading
         if (!existing.password) {
-            return new NextResponse("Account uses OAuth. Cannot upgrade via this method.", { status: 400 });
+            return createAppErrorResponse("INVALID_PAYLOAD", "Account uses OAuth. Cannot upgrade via this method.", 400);
         }
 
         const isValid = await bcrypt.compare(password, existing.password);
         if (!isValid) {
-            return new NextResponse("Invalid credentials", { status: 403 });
+            return createAppErrorResponse("FORBIDDEN", "Invalid credentials", 403);
         }
 
         // Upgrade existing user to ADMIN
@@ -74,9 +74,9 @@ export async function POST(req: Request) {
             data: { role: "ADMIN" }
         });
 
-        return NextResponse.json({ message: "User upgraded to Admin" });
+        return NextResponse.json({ ok: true, result: "USER_UPGRADED_TO_ADMIN" });
     } catch (error) {
         console.error("[ADMIN_REGISTER_POST]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
     }
 }

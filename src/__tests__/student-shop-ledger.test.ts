@@ -35,14 +35,14 @@ describe("buyStudentShopItem ledger", () => {
     tx.student.updateMany.mockResolvedValue({ count: 1 });
     tx.student.findUniqueOrThrow.mockResolvedValue({
       gold: 150,
-      inventory: ["frame_silver"],
+      inventory: ["frame_fire_t1"],
     });
     tx.economyTransaction.create.mockResolvedValue({ id: "ledger-1" });
 
     const { buyStudentShopItem } = await import(
       "@/lib/services/student-economy/buy-student-shop-item"
     );
-    const result = await buyStudentShopItem("abc123", "frame_silver", {
+    const result = await buyStudentShopItem("abc123", "frame_fire_t1", {
       db: db as never,
     });
 
@@ -50,17 +50,17 @@ describe("buyStudentShopItem ledger", () => {
       ok: true,
       success: true,
       newGold: 150,
-      inventory: ["frame_silver"],
+      inventory: ["frame_fire_t1"],
     });
     expect(tx.student.updateMany).toHaveBeenCalledWith({
       where: {
         id: "student-1",
         gold: { gte: 100 },
-        NOT: { inventory: { has: "frame_silver" } },
+        NOT: { inventory: { has: "frame_fire_t1" } },
       },
       data: {
         gold: { decrement: 100 },
-        inventory: { push: "frame_silver" },
+        inventory: { push: "frame_fire_t1" },
       },
     });
     expect(tx.economyTransaction.create).toHaveBeenCalledWith({
@@ -73,7 +73,7 @@ describe("buyStudentShopItem ledger", () => {
         balanceBefore: 250,
         balanceAfter: 150,
         metadata: {
-          itemId: "frame_silver",
+          itemId: "frame_fire_t1",
           itemType: "frame",
           price: 100,
           rarity: "common",
@@ -93,7 +93,7 @@ describe("buyStudentShopItem ledger", () => {
     const { buyStudentShopItem } = await import(
       "@/lib/services/student-economy/buy-student-shop-item"
     );
-    const result = await buyStudentShopItem("abc123", "frame_silver", {
+    const result = await buyStudentShopItem("abc123", "frame_fire_t1", {
       db: db as never,
     });
 

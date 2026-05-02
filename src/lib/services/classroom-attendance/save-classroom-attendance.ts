@@ -1,5 +1,9 @@
 import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
+import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+
+export const CLASSROOM_ATTENDANCE_INVALID_DATA = "classroomAttendanceInvalidData";
+export const CLASSROOM_ATTENDANCE_STUDENT_NOT_FOUND = "classroomAttendanceStudentNotFound";
 
 type ClassroomAttendanceDeps = {
     db: PrismaClient;
@@ -29,7 +33,7 @@ export async function saveClassroomAttendance(
     deps: ClassroomAttendanceDeps = { db }
 ): Promise<SaveClassroomAttendanceResult> {
     if (!Array.isArray(args.updates)) {
-        return { ok: false, status: 400, message: "Invalid data" };
+        return { ok: false, status: 400, message: CLASSROOM_ATTENDANCE_INVALID_DATA };
     }
 
     const classroom = await deps.db.classroom.findUnique({
@@ -43,7 +47,7 @@ export async function saveClassroomAttendance(
     });
 
     if (!classroom) {
-        return { ok: false, status: 401, message: "Unauthorized" };
+        return { ok: false, status: 401, message: AUTH_REQUIRED_MESSAGE };
     }
 
     const students = await deps.db.student.findMany({
@@ -62,7 +66,7 @@ export async function saveClassroomAttendance(
         students.length !== args.updates.length ||
         students.some((student) => student.classId !== args.classroomId)
     ) {
-        return { ok: false, status: 404, message: "Student not found" };
+        return { ok: false, status: 404, message: CLASSROOM_ATTENDANCE_STUDENT_NOT_FOUND };
     }
 
     const now = new Date();

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Accessibility, BookOpen, Swords } from "lucide-react";
+import { BookOpen, Swords } from "lucide-react";
 import { PageBackLink } from "@/components/ui/page-back-link";
 import { LanguageToggle } from "@/components/language-toggle";
 import { SyncAccountButton } from "./sync-account-button";
@@ -20,14 +20,12 @@ interface StudentDashboardHeaderProps {
     code: string;
     currentUserId?: string;
     mode: StudentDashboardMode;
-    showAccessibility: boolean;
     classIcon: string | null;
     isImageIcon: boolean;
     themeClass: string;
     themeStyle: React.CSSProperties;
     notificationTray: React.ReactNode;
     onToggleMode: () => void;
-    onToggleAccessibility: () => void;
 }
 
 export function StudentDashboardHeader({
@@ -37,14 +35,12 @@ export function StudentDashboardHeader({
     code,
     currentUserId,
     mode,
-    showAccessibility,
     classIcon,
     isImageIcon,
     themeClass,
     themeStyle,
     notificationTray,
     onToggleMode,
-    onToggleAccessibility,
 }: StudentDashboardHeaderProps) {
     return (
         <>
@@ -76,7 +72,7 @@ export function StudentDashboardHeader({
                         {isImageIcon ? (
                             <Image
                                 src={classIcon!}
-                                alt="icon"
+                                alt={t("classroomIconAlt")}
                                 width={80}
                                 height={80}
                                 className="h-full w-full object-cover"
@@ -128,17 +124,6 @@ export function StudentDashboardHeader({
                                 <Swords className="h-3.5 w-3.5" /> {t("studentDashModeGameShort")}
                             </>
                         )}
-                    </button>
-                    <button
-                        onClick={onToggleAccessibility}
-                        title={t("studentDashAccessibilityTitle")}
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all ${
-                            showAccessibility
-                                ? "border-white/40 bg-white/25"
-                                : "border-white/20 bg-white/10 hover:bg-white/20"
-                        }`}
-                    >
-                        <Accessibility className="h-4 w-4 text-white" />
                     </button>
                     <div className="hidden h-10 w-px bg-white/10 sm:block" />
                     <div className="flex items-center gap-3">

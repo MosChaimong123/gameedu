@@ -117,7 +117,7 @@ export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={value}
-                            alt="Cover"
+                            alt={t("coverImageAlt")}
                             className="w-full h-full object-contain max-h-[300px]"
                         />
                         <div className="absolute top-2 right-2">

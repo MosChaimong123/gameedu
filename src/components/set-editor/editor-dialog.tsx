@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -172,7 +172,7 @@ export function EditorDialog({ open, onOpenChange, activeQuestion, setActiveQues
                             {activeQuestion.image && (
                                 <div className="w-1/3 bg-slate-100 border-r border-slate-200 relative">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={activeQuestion.image} alt="Question" className="w-full h-full object-contain" />
+                                    <img src={activeQuestion.image} alt={t("questionImageAlt")} className="w-full h-full object-contain" />
                                     <button
                                         onClick={() => setActiveQuestion({ ...activeQuestion, image: null })}
                                         className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full shadow-md hover:bg-red-600"
@@ -212,7 +212,7 @@ export function EditorDialog({ open, onOpenChange, activeQuestion, setActiveQues
                                     <span className="font-serif italic font-bold text-lg">x²</span>
                                 </Button>
                                 <Button size="icon" className="h-10 w-10 rounded-lg bg-blue-500 hover:bg-blue-600 text-white shadow-sm opacity-50 cursor-not-allowed" title={t("audio")}>
-                                    <span className="font-bold">♪</span>
+                                    <span className="font-bold">โช</span>
                                 </Button>
                             </div>
 
@@ -227,7 +227,7 @@ export function EditorDialog({ open, onOpenChange, activeQuestion, setActiveQues
                                         }}
                                         tabIndex={0}
                                         role="button"
-                                        aria-label="Edit Question"
+                                        aria-label={t("editQuestion")}
                                         data-testid="question-preview"
                                         onKeyDown={(e) => {
                                             if (e.key === "Enter" || e.key === " ") {
@@ -361,7 +361,7 @@ export function EditorDialog({ open, onOpenChange, activeQuestion, setActiveQues
                                                     size="icon"
                                                     variant="ghost"
                                                     className="h-8 w-8 rounded bg-white/20 hover:bg-white/40 text-white font-serif italic font-bold"
-                                                    title="Add Equation"
+                                                    title={t("addEquation")}
                                                     onClick={(e) => {
                                                         e.stopPropagation()
                                                         setActiveField(i)
@@ -373,7 +373,7 @@ export function EditorDialog({ open, onOpenChange, activeQuestion, setActiveQues
                                                 <Popover>
                                                     <PopoverTrigger asChild>
 
-                                                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded bg-white/20 hover:bg-white/40 text-white" title="Add Image">
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded bg-white/20 hover:bg-white/40 text-white" title={t("addImage")}>
                                                             <ImageIcon className="w-5 h-5" />
                                                         </Button>
                                                     </PopoverTrigger>
@@ -417,7 +417,7 @@ export function EditorDialog({ open, onOpenChange, activeQuestion, setActiveQues
                                             {isImageOption ? (
                                                 <div className="w-full h-full p-2 flex items-center justify-center">
                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img src={opt} alt="Option" className="max-h-full max-w-full object-contain rounded-lg shadow-sm" />
+                                                    <img src={opt} alt={t("optionImageAlt", { n: i + 1 })} className="max-h-full max-w-full object-contain rounded-lg shadow-sm" />
                                                 </div>
                                             ) : (
                                                 <div className="w-full h-full relative">
@@ -451,4 +451,5 @@ export function EditorDialog({ open, onOpenChange, activeQuestion, setActiveQues
         </>
     )
 }
+
 

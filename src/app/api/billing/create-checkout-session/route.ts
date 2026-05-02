@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import {
+  AUTH_REQUIRED_MESSAGE,
+  FORBIDDEN_MESSAGE,
+  createAppErrorResponse,
+} from "@/lib/api-error";
 import { getStripeCheckoutConfigured, getStripeClient, resolvePlusStripePriceId } from "@/lib/billing/stripe";
 import { resolvePublicAppOrigin } from "@/lib/billing/resolve-public-url";
 
@@ -12,7 +17,7 @@ const bodySchema = z.object({
 export async function POST(req: Request) {
   try {
     if (!getStripeCheckoutConfigured()) {
-      return NextResponse.json({ error: "Billing is not configured" }, { status: 503 });
+      return createAppErrorResponse("BILLING_NOT_CONFIGURED", "Billing is not configured", 503);
     }
 
     const session = await auth();
@@ -20,23 +25,27 @@ export async function POST(req: Request) {
     const role = session?.user?.role;
 
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
     if (role !== "TEACHER" && role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
 
     const json = await req.json().catch(() => null);
     const parsed = bodySchema.safeParse(json ?? {});
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+      return createAppErrorResponse("INVALID_PAYLOAD", "Invalid payload", 400);
     }
 
     const interval = parsed.data.interval;
     const priceId = resolvePlusStripePriceId(interval);
     if (!priceId) {
-      return NextResponse.json({ error: "Price not configured for interval" }, { status: 503 });
+      return createAppErrorResponse(
+        "BILLING_PRICE_NOT_CONFIGURED",
+        "Price not configured for interval",
+        503
+      );
     }
 
     const dbUser = await db.user.findUnique({
@@ -49,13 +58,14 @@ export async function POST(req: Request) {
     });
 
     if (!dbUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return createAppErrorResponse("NOT_FOUND", "User not found", 404);
     }
 
     if (dbUser.plan === "PRO") {
-      return NextResponse.json(
-        { error: "School Pro accounts are managed by your organization. Contact us to change billing." },
-        { status: 409 }
+      return createAppErrorResponse(
+        "BILLING_PRO_MANAGED",
+        "School Pro accounts are managed by your organization. Contact us to change billing.",
+        409
       );
     }
 
@@ -102,12 +112,16 @@ export async function POST(req: Request) {
     });
 
     if (!checkoutSession.url) {
-      return NextResponse.json({ error: "Could not create checkout session" }, { status: 500 });
+      return createAppErrorResponse(
+        "BILLING_CHECKOUT_CREATE_FAILED",
+        "Could not create checkout session",
+        500
+      );
     }
 
     return NextResponse.json({ url: checkoutSession.url });
   } catch (e) {
     console.error("[billing/create-checkout-session]", e);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    return createAppErrorResponse("INTERNAL_ERROR", "Internal error", 500);
   }
 }

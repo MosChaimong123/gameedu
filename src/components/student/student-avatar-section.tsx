@@ -9,7 +9,8 @@ import {
 import { AvatarPickerModal } from "./avatar-picker-modal";
 import { ShopDialog } from "./ShopDialog";
 import { type RankEntry, type LevelConfigInput, getNextRankProgress, formatAmount } from "@/lib/classroom-utils";
-import { getItemById } from "@/lib/shop-items";
+import { getItemById, type FramePreview } from "@/lib/shop-items";
+import { FrameCardChrome, FrameRing } from "@/components/ui/frame-visual";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,37 @@ function streakReward(streak: number): number {
     return 5;
 }
 
+function GameProfileCardBezel({
+    preview,
+    fallbackStyle,
+    children,
+}: {
+    preview?: FramePreview;
+    fallbackStyle: React.CSSProperties;
+    children: React.ReactNode;
+}) {
+    if (preview) {
+        return (
+            <FrameCardChrome
+                preview={preview}
+                outerClassName="overflow-hidden rounded-[24px] shadow-[0_20px_45px_-28px_rgba(15,23,42,0.45)]"
+                innerRoundedClassName="rounded-[22px]"
+                innerClassName="overflow-hidden bg-gradient-to-b from-white via-white to-slate-50/80"
+            >
+                {children}
+            </FrameCardChrome>
+        );
+    }
+    return (
+        <div
+            className="overflow-hidden rounded-[24px] bg-gradient-to-b from-white via-white to-slate-50/80 shadow-[0_20px_45px_-28px_rgba(15,23,42,0.45)]"
+            style={fallbackStyle}
+        >
+            {children}
+        </div>
+    );
+}
+
 export function StudentAvatarSection({
     studentId, classId, loginCode, initialAvatar, name, nickname,
     points, behaviorPoints, initialGold, goldRate,
@@ -92,6 +124,10 @@ export function StudentAvatarSection({
     useEffect(() => {
         setInventory(initialInventory);
     }, [initialInventory]);
+
+    useEffect(() => {
+        setEquippedFrame(initialEquippedFrame);
+    }, [initialEquippedFrame]);
 
     // Check-in state
     const [streak, setStreak] = useState(initialStreak);
@@ -153,10 +189,31 @@ export function StudentAvatarSection({
         setCheckingIn(true);
         try {
             const res = await fetch(`/api/student/${loginCode}/checkin`, { method: "POST" });
-            const data = await res.json();
+            type CheckInResponse = {
+                alreadyDone?: boolean;
+                success?: boolean;
+                streak?: number;
+                newGold?: number;
+                goldEarned?: number;
+                error?: { message?: string };
+            };
+            let data: CheckInResponse | null = null;
+            try {
+                data = (await res.json()) as CheckInResponse;
+            } catch {
+                data = null;
+            }
+            if (!res.ok || !data) {
+                return;
+            }
             if (data.alreadyDone) {
                 setAlreadyCheckedIn(true);
-            } else if (data.success) {
+            } else if (
+                data.success &&
+                typeof data.streak === "number" &&
+                typeof data.newGold === "number" &&
+                typeof data.goldEarned === "number"
+            ) {
                 setAlreadyCheckedIn(true);
                 setStreak(data.streak);
                 setGold(data.newGold);
@@ -183,6 +240,7 @@ export function StudentAvatarSection({
             boxShadow: preview?.shadow ?? defaultShadow,
         };
     }, [frameItem]);
+    const gameFramePreview = frameItem?.type === "frame" ? frameItem.preview : undefined;
 
     if (mode === "game") {
         return (
@@ -191,16 +249,19 @@ export function StudentAvatarSection({
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ type: "spring", stiffness: 380, damping: 28 }}
-                    className="overflow-hidden rounded-[22px] bg-white"
-                    style={gameCardFrameStyle}
+                    className={cn(gameFramePreview ? "rounded-[24px]" : undefined)}
+                    style={gameFramePreview ? undefined : gameCardFrameStyle}
                 >
+                    <GameProfileCardBezel preview={gameFramePreview} fallbackStyle={gameCardFrameStyle}>
                     {/* รูปเต็มความกว้างการ์ด — กรอบนอกตามกรอบที่เลือกในร้าน */}
-                    <div className="relative w-full overflow-hidden bg-slate-100 aspect-square max-h-[min(92vw,22rem)]">
+                    <div className="relative aspect-square max-h-[min(92vw,22rem)] w-full overflow-hidden bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.95),rgba(241,245,249,0.85)_40%,rgba(226,232,240,0.9)_100%)]">
                         <motion.div
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.995 }}
-                            className="group absolute inset-0 flex items-center justify-center overflow-hidden bg-white"
+                            className="group absolute inset-0 flex items-center justify-center overflow-hidden bg-white/70"
                         >
+                            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 bg-gradient-to-b from-black/10 to-transparent" />
+                            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-24 bg-gradient-to-t from-black/15 to-transparent" />
                             {gameProfileMonster ? (
                                 <NegamonFormIcon
                                     icon={gameProfileMonster.icon}
@@ -233,19 +294,19 @@ export function StudentAvatarSection({
                         </motion.div>
                     </div>
 
-                    <div className="space-y-3 px-3 pb-3 pt-3 sm:px-4">
-                        <div className="w-full min-w-0 space-y-2.5 text-center">
-                            <h2 className="truncate px-1 text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+                    <div className="space-y-3.5 px-3 pb-3.5 pt-3.5 sm:px-4 sm:pb-4">
+                        <div className="w-full min-w-0 rounded-2xl border border-slate-200/80 bg-white/90 px-2.5 py-3 shadow-sm backdrop-blur text-center">
+                            <h2 className="truncate px-1 text-lg font-black tracking-tight text-slate-900 sm:text-xl">
                                 {name}
                                 {nickname ? (
-                                    <span className="font-medium text-slate-600">
+                                    <span className="font-semibold text-slate-500">
                                         {" "}
                                         &middot; &quot;{nickname}&quot;
                                     </span>
                                 ) : null}
                             </h2>
-                            <div className="flex w-full justify-center px-1">
-                                <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 shadow-sm">
+                            <div className="mt-2 flex w-full justify-center px-1">
+                                <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3.5 py-2 shadow-[0_8px_18px_-16px_rgba(15,23,42,0.7)]">
                                     <span
                                         className="h-2 w-2 shrink-0 rounded-full ring-2 ring-slate-200"
                                         style={{ backgroundColor: rankEntry.color || "#34d399" }}
@@ -257,8 +318,8 @@ export function StudentAvatarSection({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                            <div className="flex flex-col items-center gap-1 rounded-xl border border-[#f2f2f2] bg-[#fafafa] px-2 py-3 text-center sm:py-3.5">
+                        <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+                            <div className="flex flex-col items-center gap-1 rounded-2xl border border-amber-100/80 bg-gradient-to-b from-amber-50/90 to-white px-2 py-3 text-center shadow-sm sm:py-3.5">
                                 <span className="text-xl leading-none" aria-hidden>
                                     🪙
                                 </span>
@@ -268,7 +329,7 @@ export function StudentAvatarSection({
                                 </p>
                                 <p className="text-[10px] font-medium text-slate-500">+{goldRate}/hr</p>
                             </div>
-                            <div className="flex flex-col items-center gap-1 rounded-xl border border-[#f2f2f2] bg-[#fafafa] px-2 py-3 text-center sm:py-3.5">
+                            <div className="flex flex-col items-center gap-1 rounded-2xl border border-orange-100/80 bg-gradient-to-b from-orange-50/85 to-white px-2 py-3 text-center shadow-sm sm:py-3.5">
                                 <span className="text-xl leading-none" aria-hidden>
                                     {streak > 0 ? "🔥" : "💧"}
                                 </span>
@@ -289,17 +350,17 @@ export function StudentAvatarSection({
                             </div>
                         </div>
 
-                        <div className="flex gap-2 sm:gap-2.5">
+                        <div className="flex gap-2.5 sm:gap-3">
                             <button
                                 type="button"
                                 onClick={() => setShowShop(true)}
-                                className="flex flex-1 touch-manipulation items-center justify-center gap-2 rounded-xl border border-amber-200/90 bg-gradient-to-b from-amber-50 to-amber-100/90 px-3 py-2.5 text-xs font-semibold text-amber-950 shadow-sm transition hover:border-amber-300 hover:shadow-md active:scale-[0.98] sm:text-sm"
+                                className="flex flex-1 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-amber-200/90 bg-gradient-to-b from-amber-50 via-amber-50 to-amber-100/90 px-3 py-2.5 text-xs font-semibold text-amber-950 shadow-sm transition hover:border-amber-300 hover:shadow-md active:scale-[0.98] sm:text-sm"
                             >
                                 <ShoppingBag className="h-4 w-4 shrink-0 opacity-80" strokeWidth={2.25} />
                                 {t("studentAvatarShop")}
                             </button>
                             {alreadyCheckedIn ? (
-                                <div className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/90 px-3 py-2.5 text-xs font-semibold text-emerald-800 opacity-90 sm:text-sm">
+                                <div className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/90 px-3 py-2.5 text-xs font-semibold text-emerald-800 opacity-90 sm:text-sm">
                                     <CalendarCheck className="h-4 w-4 shrink-0" strokeWidth={2.25} />
                                     {t("studentCheckInDone")}
                                 </div>
@@ -308,7 +369,7 @@ export function StudentAvatarSection({
                                     type="button"
                                     disabled={checkingIn}
                                     onClick={handleCheckIn}
-                                    className="flex flex-1 touch-manipulation items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-2.5 text-xs font-semibold text-white shadow-md shadow-emerald-500/25 transition hover:brightness-105 active:scale-[0.98] disabled:opacity-60 sm:text-sm"
+                                    className="flex flex-1 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-2.5 text-xs font-semibold text-white shadow-md shadow-emerald-500/25 transition hover:brightness-105 active:scale-[0.98] disabled:opacity-60 sm:text-sm"
                                 >
                                     <CalendarCheck className="h-4 w-4 shrink-0" strokeWidth={2.25} />
                                     {t("studentCheckInCta")}
@@ -335,6 +396,7 @@ export function StudentAvatarSection({
                             </motion.div>
                         )}
                     </div>
+                    </GameProfileCardBezel>
                 </motion.div>
 
                 {/* Modals */}
@@ -378,31 +440,62 @@ export function StudentAvatarSection({
 
                     <div className="relative z-10 mx-auto flex w-full max-w-[260px] flex-col items-center gap-5">
                         <div className="group relative">
-                            <div
-                                className="absolute -inset-3 rounded-full border-2 border-dashed"
-                                style={{ borderColor: `${rankEntry.color || "#6366f1"}55` }}
-                            />
-                            <motion.div
-                                whileHover={{ scale: 1.03 }}
-                                className="relative z-10 h-[132px] w-[132px] overflow-hidden rounded-full border-4 bg-white shadow-lg sm:h-[144px] sm:w-[144px]"
-                                style={frameItem ? avatarBorderStyle : { borderColor: "white" }}
-                            >
-                                <div className="absolute inset-0 bg-gradient-to-tr from-slate-50 via-white to-blue-50/40" />
-                                <Image
-                                    src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatar}&backgroundColor=transparent`}
-                                    alt={name}
-                                    width={144}
-                                    height={144}
-                                    className="relative z-10 p-3 drop-shadow-md"
+                            {/* Rank halo — เมื่อสวมกรอบร้านค้าให้โชว์ DNA ของ tier แทนเส้นประที่ทับกรอบ */}
+                            {!(frameItem?.type === "frame" && frameItem.preview) ? (
+                                <div
+                                    className="absolute -inset-3 rounded-full border-2 border-dashed"
+                                    style={{ borderColor: `${rankEntry.color || "#6366f1"}55` }}
+                                    aria-hidden
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPicker(true)}
-                                    className="absolute inset-0 z-20 flex items-center justify-center bg-indigo-600/75 opacity-0 backdrop-blur-[1px] transition-opacity duration-200 group-hover:opacity-100"
+                            ) : null}
+                            {frameItem?.type === "frame" && frameItem.preview ? (
+                                <motion.div whileHover={{ scale: 1.03 }} className="relative z-10">
+                                    <FrameRing
+                                        preview={frameItem.preview}
+                                        size="xl"
+                                        rounded="full"
+                                        className="shadow-lg ring-2 ring-white/25 drop-shadow-[0_8px_28px_rgba(0,0,0,0.45)]"
+                                    >
+                                        <div className="pointer-events-none absolute inset-0 z-0 rounded-full bg-gradient-to-tr from-slate-50 via-white to-blue-50/40" />
+                                        <Image
+                                            src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatar}&backgroundColor=transparent`}
+                                            alt={name}
+                                            fill
+                                            sizes="144px"
+                                            className="relative z-10 object-contain p-3 drop-shadow-md"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPicker(true)}
+                                            className="absolute inset-0 z-20 flex items-center justify-center rounded-full bg-indigo-600/75 opacity-0 backdrop-blur-[1px] transition-opacity duration-200 group-hover:opacity-100"
+                                        >
+                                            <Camera className="h-9 w-9 text-white drop-shadow" />
+                                        </button>
+                                    </FrameRing>
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    whileHover={{ scale: 1.03 }}
+                                    className="relative z-10 h-[132px] w-[132px] overflow-hidden rounded-full border-4 bg-white shadow-lg sm:h-[144px] sm:w-[144px]"
+                                    style={frameItem ? avatarBorderStyle : { borderColor: "white" }}
                                 >
-                                    <Camera className="h-9 w-9 text-white drop-shadow" />
-                                </button>
-                            </motion.div>
+                                    <div className="absolute inset-0 bg-gradient-to-tr from-slate-50 via-white to-blue-50/40" />
+                                    <Image
+                                        src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatar}&backgroundColor=transparent`}
+                                        alt={name}
+                                        width={144}
+                                        height={144}
+                                        className="relative z-10 p-3 drop-shadow-md"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPicker(true)}
+                                        className="absolute inset-0 z-20 flex items-center justify-center bg-indigo-600/75 opacity-0 backdrop-blur-[1px] transition-opacity duration-200 group-hover:opacity-100"
+                                    >
+                                        <Camera className="h-9 w-9 text-white drop-shadow" />
+                                    </button>
+                                </motion.div>
+                            )}
                         </div>
 
                         {/* Rank badge */}

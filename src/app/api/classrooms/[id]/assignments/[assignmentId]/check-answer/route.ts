@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { loadQuizTakeContext } from "@/lib/quiz-take-context";
 import {
+  QUIZ_PLAIN_ERR_ALREADY_SUBMITTED,
+  QUIZ_PLAIN_ERR_BAD_REQUEST,
+  QUIZ_PLAIN_ERR_INTERNAL,
+  QUIZ_PLAIN_ERR_INVALID_INDEX,
+} from "@/lib/quiz-load-error-messages";
+import {
   buildRateLimitKey,
   consumeRateLimit,
   createRateLimitResponse,
@@ -35,10 +41,10 @@ export async function POST(
       typeof body.selectedIndex === "number" ? body.selectedIndex : NaN;
 
     if (!studentCode.trim() || !Number.isFinite(questionIndex) || !Number.isFinite(selectedIndex)) {
-      return new NextResponse("Bad Request", { status: 400 });
+      return new NextResponse(QUIZ_PLAIN_ERR_BAD_REQUEST, { status: 400 });
     }
     if (questionIndex < 0 || selectedIndex < 0) {
-      return new NextResponse("Bad Request", { status: 400 });
+      return new NextResponse(QUIZ_PLAIN_ERR_BAD_REQUEST, { status: 400 });
     }
 
     const ctx = await loadQuizTakeContext(id, assignmentId, studentCode);
@@ -46,21 +52,21 @@ export async function POST(
       return new NextResponse(ctx.message, { status: ctx.status });
     }
     if (ctx.kind === "already_submitted") {
-      return new NextResponse("Already submitted", { status: 409 });
+      return new NextResponse(QUIZ_PLAIN_ERR_ALREADY_SUBMITTED, { status: 409 });
     }
 
     const q = ctx.questions[questionIndex];
     if (!q) {
-      return new NextResponse("Invalid question index", { status: 400 });
+      return new NextResponse(QUIZ_PLAIN_ERR_INVALID_INDEX, { status: 400 });
     }
     const nOpts = Array.isArray(q.options) ? q.options.length : 0;
     if (selectedIndex >= nOpts) {
-      return new NextResponse("Invalid option index", { status: 400 });
+      return new NextResponse(QUIZ_PLAIN_ERR_INVALID_INDEX, { status: 400 });
     }
 
     return NextResponse.json({ accepted: true });
   } catch (e) {
     console.error("[QUIZ_CHECK_ANSWER]", e);
-    return new NextResponse("Internal Error", { status: 500 });
+    return new NextResponse(QUIZ_PLAIN_ERR_INTERNAL, { status: 500 });
   }
 }

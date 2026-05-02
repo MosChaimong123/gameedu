@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { getAppEnv } from "@/lib/env";
+import { BILLING_STRIPE_SECRET_MISSING } from "@/lib/billing/billing-error-keys";
 
 let stripeSingleton: Stripe | null = null;
 
@@ -29,7 +30,7 @@ export function resolvePlusStripePriceId(interval: PlusBillingInterval): string 
 export function getStripeClient(): Stripe {
   const secret = getStripeSecretKey();
   if (!secret) {
-    throw new Error("STRIPE_SECRET_KEY is not configured");
+    throw new Error(BILLING_STRIPE_SECRET_MISSING);
   }
   if (!stripeSingleton) {
     stripeSingleton = new Stripe(secret, {

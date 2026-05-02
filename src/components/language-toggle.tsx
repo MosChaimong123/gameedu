@@ -5,7 +5,7 @@ import { useLanguage } from "@/components/providers/language-provider"
 import { cn } from "@/lib/utils"
 
 export function LanguageToggle({ className }: { className?: string }) {
-    const { language, toggleLanguage } = useLanguage()
+    const { language, toggleLanguage, t } = useLanguage()
 
     return (
         <Button
@@ -14,7 +14,7 @@ export function LanguageToggle({ className }: { className?: string }) {
             size="sm"
             onClick={toggleLanguage}
             className={cn("h-8 min-w-12 shrink-0 px-2 font-bold border-2", className)}
-            aria-label={language === "en" ? "Switch to Thai" : "Switch to English"}
+            aria-label={language === "en" ? t("languageToggleToThai") : t("languageToggleToEnglish")}
         >
             {language === "en" ? "TH" : "EN"}
         </Button>

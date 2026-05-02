@@ -1,7 +1,7 @@
 import { db } from "@/lib/db"
 import { requireSessionUser } from "@/lib/auth-guards"
 import { NextResponse } from "next/server"
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import { AUTH_REQUIRED_MESSAGE, INTERNAL_ERROR_MESSAGE, createAppErrorResponse } from "@/lib/api-error";
 
 export async function PATCH(req: Request) {
     try {
@@ -30,8 +30,7 @@ export async function PATCH(req: Request) {
 
         return NextResponse.json(updatedUser)
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Internal Error"
         console.error("[API_PROFILE] Error:", error)
-        return new NextResponse(message, { status: 500 })
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }

@@ -1,6 +1,7 @@
 import type { CryptoHackPlayer, GoldQuestPlayer, NegamonBattlePlayer, GameSettings } from "@/lib/types/game"
 import { DEFAULT_NEGAMON_BATTLE_TUNING } from "@/lib/types/game"
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error"
+
+export { formatSocketErrorMessage } from "@/lib/socket-error-messages"
 
 export type GameView =
     | "LOBBY"
@@ -131,39 +132,4 @@ export function getPlayerScoreValue(player: PlayerState, mode: PlayerMode): numb
 /** เฟส C: กัน socket event ของ Gold/Crypto ไปรบกวน UI ขณะเล่น Negamon Battle */
 export function looksLikeNegamonPlayerRow(p: PlayerState): boolean {
     return "battleHp" in p && typeof (p as NegamonBattlePlayer).battleHp === "number"
-}
-
-/** Socket `error` payload `message` (exact match) → `translations` key */
-export const PLAY_SOCKET_ERROR_MESSAGE_KEYS: Record<string, string> = {
-    "Invalid question set": "playSocketInvalidQuestionSet",
-    [AUTH_REQUIRED_MESSAGE]: "playSocketUnauthorized",
-    "Unauthorized question set access": "playSocketUnauthorizedQuestionSetAccess",
-    "Set not found": "playSocketSetNotFound",
-    "Failed to load questions": "playSocketFailedToLoadQuestions",
-    "Game not found": "playSocketGameNotFound",
-    "Host reconnection denied": "playSocketHostReconnectionDenied",
-    "Game is locked": "playSocketGameLocked",
-    "Negamon Battle already started — new players cannot join mid-match": "playNegamonSocketMidMatch",
-    "Invalid student code": "playSocketInvalidStudentCode",
-    "Nickname already in use": "playSocketNicknameInUse",
-    "Only the host can start the game": "playSocketOnlyHostCanStart",
-    "Only the host can end the game": "playSocketOnlyHostCanEnd",
-    "Invalid game code": "playNegamonSocketInvalidGameCode",
-    "Too many submissions. Slow down.": "playNegamonSocketTooManySubmissions",
-    "Unauthorized classroom access": "playSocketUnauthorizedClassroomAccess",
-    "Invalid classroom event": "playSocketInvalidClassroomEvent",
-    "Join the classroom before sending updates": "playSocketJoinClassroomFirst",
-    "Unauthorized classroom event": "playSocketUnauthorizedClassroomEvent",
-}
-
-export function formatSocketErrorMessage(
-    raw: string,
-    t: (key: string, params?: Record<string, string | number>) => string
-): string {
-    const key = PLAY_SOCKET_ERROR_MESSAGE_KEYS[raw]
-    if (key) {
-        const msg = t(key)
-        if (msg !== key) return msg
-    }
-    return raw
 }

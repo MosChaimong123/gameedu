@@ -1,9 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { PageBackLink } from "@/components/ui/page-back-link"
+import { BarChart3, Gamepad2, ShieldCheck, Sparkles, Trophy } from "lucide-react"
 import { PublicBrandMark } from "@/components/layout/public-brand-mark"
 import { useLanguage } from "@/components/providers/language-provider"
+import { PageBackLink } from "@/components/ui/page-back-link"
 
 type AuthSplitLayoutProps = {
     mode: "login" | "register"
@@ -26,9 +27,9 @@ export function AuthSplitLayout({ mode, children }: AuthSplitLayoutProps) {
     const footerLinkText = isLogin ? t("loginFooterRegister") : t("registerFooterLogin")
 
     const loginFeatures = [
-        { icon: "🏆", text: t("loginFeatureScores") },
-        { icon: "📊", text: t("loginFeatureReports") },
-        { icon: "🎮", text: t("loginFeatureGames") },
+        { icon: Trophy, text: t("loginFeatureScores") },
+        { icon: BarChart3, text: t("loginFeatureReports") },
+        { icon: Gamepad2, text: t("loginFeatureGames") },
     ] as const
 
     return (
@@ -62,7 +63,7 @@ export function AuthSplitLayout({ mode, children }: AuthSplitLayoutProps) {
                                     key={item.text}
                                     className="flex items-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-sm"
                                 >
-                                    <span className="text-2xl">{item.icon}</span>
+                                    <item.icon className="h-6 w-6 text-white" />
                                     <span className="font-semibold text-white">{item.text}</span>
                                 </div>
                             ))}
@@ -71,14 +72,14 @@ export function AuthSplitLayout({ mode, children }: AuthSplitLayoutProps) {
                         <div className="space-y-4">
                             <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
                                 <div className="mb-1 flex items-center gap-3">
-                                    <span className="text-xl">⚡</span>
+                                    <Sparkles className="h-5 w-5 text-white" />
                                     <p className="font-bold text-white">{t("registerBullet1Title")}</p>
                                 </div>
                                 <p className="pl-9 text-sm text-white/60">{t("registerBullet1Desc")}</p>
                             </div>
                             <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
                                 <div className="mb-1 flex items-center gap-3">
-                                    <span className="text-xl">🔒</span>
+                                    <ShieldCheck className="h-5 w-5 text-white" />
                                     <p className="font-bold text-white">{t("registerBullet2Title")}</p>
                                 </div>
                                 <p className="pl-9 text-sm text-white/60">{t("registerBullet2Desc")}</p>

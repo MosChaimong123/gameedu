@@ -393,7 +393,7 @@ export function AddAssignmentDialog({
                 });
             }
 
-            if (!res.ok) throw new Error("Failed");
+            if (!res.ok) throw new Error();
 
             const savedAssignment = await res.json() as Assignment;
             const nextAssignments = editId
@@ -467,7 +467,7 @@ export function AddAssignmentDialog({
             const res = await fetch(`/api/classrooms/${classId}/assignments/${deleteId}`, {
                 method: "DELETE",
             });
-            if (!res.ok) throw new Error("Failed to delete");
+            if (!res.ok) throw new Error();
             toast({
                 title: t("toastAssignmentDeleteSuccessTitle"),
                 description: t("toastAssignmentDeleteSuccessDesc"),

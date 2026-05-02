@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { motion } from "framer-motion";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
     Dialog,
@@ -33,7 +32,36 @@ import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 import { NegamonMoveInlineDescription } from "@/components/negamon/negamon-move-inline-description";
 import { getMoveEnergyCost } from "@/lib/negamon-energy";
 import { buildBasicAttackMove } from "@/lib/negamon-basic-move";
-import { getFrameGoldRateMultiplierById } from "@/lib/shop-items";
+import { getFrameGoldRateMultiplierById, getItemById, type FramePreview } from "@/lib/shop-items";
+import { FrameCardChrome } from "@/components/ui/frame-visual";
+
+function MonsterCardBezel({
+    framePreview,
+    fallbackStyle,
+    children,
+}: {
+    framePreview?: FramePreview;
+    fallbackStyle: CSSProperties;
+    children: ReactNode;
+}) {
+    if (framePreview) {
+        return (
+            <FrameCardChrome
+                preview={framePreview}
+                outerClassName="rounded-[1.35rem]"
+                innerRoundedClassName="rounded-[1.12rem]"
+                innerClassName="overflow-hidden border border-slate-100 bg-white"
+            >
+                {children}
+            </FrameCardChrome>
+        );
+    }
+    return (
+        <div className="rounded-[1.35rem] border bg-white p-[5px]" style={fallbackStyle}>
+            <div className="overflow-hidden rounded-[1.12rem] border border-slate-100 bg-white">{children}</div>
+        </div>
+    );
+}
 
 interface MonsterCardProps {
     studentId: string;
@@ -80,12 +108,82 @@ const STAT_CONFIG = [
     },
 ] as const;
 
+type MonsterCardTheme = {
+    primary: string;
+    secondary: string;
+    soft: string;
+    softBorder: string;
+    deep: string;
+};
+
+const MONSTER_CARD_THEME: Record<string, MonsterCardTheme> = {
+    naga: { primary: "#1658a1", secondary: "#5d9fdf", soft: "#eff6ff", softBorder: "#bfdbfe", deep: "#0f2f64" },
+    garuda: { primary: "#e66214", secondary: "#f39c1e", soft: "#fff7ed", softBorder: "#fed7aa", deep: "#7c2d12" },
+    singha: { primary: "#9d1e06", secondary: "#f29a1d", soft: "#fff7ed", softBorder: "#fdba74", deep: "#7f1d1d" },
+    kinnaree: { primary: "#a49463", secondary: "#e6dea7", soft: "#fffbeb", softBorder: "#fef08a", deep: "#57534e" },
+    thotsakan: { primary: "#5b209b", secondary: "#4f285f", soft: "#f5f3ff", softBorder: "#ddd6fe", deep: "#2e1065" },
+    hanuman: { primary: "#a1591e", secondary: "#e6a45b", soft: "#fff7ed", softBorder: "#fed7aa", deep: "#7c2d12" },
+    mekkala: { primary: "#946de4", secondary: "#ab9ce0", soft: "#f5f3ff", softBorder: "#ddd6fe", deep: "#4c1d95" },
+    suvannamaccha: { primary: "#d9a55c", secondary: "#a3daef", soft: "#fffbeb", softBorder: "#fde68a", deep: "#92400e" },
+};
+
+function normalizeHex(hex: string): string {
+    const raw = hex.trim().replace("#", "");
+    if (raw.length === 3) return `#${raw[0]}${raw[0]}${raw[1]}${raw[1]}${raw[2]}${raw[2]}`.toLowerCase();
+    if (raw.length === 6) return `#${raw}`.toLowerCase();
+    return "#8b5cf6";
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+    const norm = normalizeHex(hex);
+    const n = parseInt(norm.slice(1), 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+    const toHex = (v: number) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0");
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function mixHex(a: string, b: string, ratio: number): string {
+    const x = hexToRgb(a);
+    const y = hexToRgb(b);
+    const t = Math.max(0, Math.min(1, ratio));
+    return rgbToHex(
+        x.r + (y.r - x.r) * t,
+        x.g + (y.g - x.g) * t,
+        x.b + (y.b - x.b) * t
+    );
+}
+
+function buildFallbackTheme(baseColor: string): MonsterCardTheme {
+    const base = normalizeHex(baseColor);
+    return {
+        primary: mixHex(base, "#111827", 0.08),
+        secondary: mixHex(base, "#ffffff", 0.3),
+        soft: mixHex(base, "#ffffff", 0.92),
+        softBorder: mixHex(base, "#ffffff", 0.75),
+        deep: mixHex(base, "#0f172a", 0.45),
+    };
+}
+
+function withRankIntensity(theme: MonsterCardTheme, rankIndex: number): MonsterCardTheme {
+    const intensity = Math.max(0, Math.min(1, rankIndex / 5));
+    return {
+        primary: mixHex(theme.primary, "#111827", 0.08 + intensity * 0.18),
+        secondary: mixHex(theme.secondary, "#111827", 0.03 + intensity * 0.12),
+        soft: mixHex(theme.soft, theme.primary, 0.02 + intensity * 0.08),
+        softBorder: mixHex(theme.softBorder, theme.primary, 0.1 + intensity * 0.2),
+        deep: mixHex(theme.deep, "#020617", 0.06 + intensity * 0.16),
+    };
+}
+
 function MoveCircleGlyph({ move }: { move: MonsterMove }) {
     const g = negamonTypeGlyph(move.type);
     if (g && g !== "○") {
         return <span className="text-lg leading-none drop-shadow-sm">{g}</span>;
     }
-    return <Swords className="h-5 w-5 text-amber-200/90" strokeWidth={2.25} />;
+    return <Swords className="h-5 w-5 text-slate-500" strokeWidth={2.25} />;
 }
 
 export function MonsterCard({
@@ -114,6 +212,11 @@ export function MonsterCard({
         return [buildBasicAttackMove(), ...monster.unlockedMoves];
     }, [monster]);
 
+    const equippedFrameItem = useMemo(
+        () => (equippedFrame ? getItemById(equippedFrame) : undefined),
+        [equippedFrame]
+    );
+
     if (!negamon?.enabled || !monster) return null;
 
     const maxStat = Math.max(monster.stats.hp, monster.stats.atk, monster.stats.def, monster.stats.spd);
@@ -128,7 +231,6 @@ export function MonsterCard({
     const starCount = Math.min(3, Math.max(1, monster.rankIndex + 1));
     const frameGoldMult = getFrameGoldRateMultiplierById(equippedFrame);
     const frameGoldPercent = Math.round((frameGoldMult - 1) * 100);
-
     const dialogMove = selectedMoveId
         ? displayMoves.find((m) => m.id === selectedMoveId) ??
           lockedMoves.find((m) => m.id === selectedMoveId) ??
@@ -136,7 +238,14 @@ export function MonsterCard({
         : null;
     const isDialogLocked = Boolean(selectedMoveId && lockedMoves.some((m) => m.id === selectedMoveId));
 
-    const heroGlow = `radial-gradient(ellipse 85% 55% at 50% 38%, ${monster.form.color}55, transparent 62%), radial-gradient(ellipse 70% 45% at 50% 72%, rgba(212,175,55,0.22), transparent 55%)`;
+    const baseTheme = MONSTER_CARD_THEME[monster.speciesId] ?? buildFallbackTheme(monster.form.color);
+    const theme = withRankIntensity(baseTheme, monster.rankIndex);
+    const heroGlow = `radial-gradient(ellipse 85% 55% at 50% 38%, ${theme.secondary}44, transparent 62%), radial-gradient(ellipse 70% 45% at 50% 72%, ${theme.primary}26, transparent 55%)`;
+    const framePreview = equippedFrameItem?.type === "frame" ? equippedFrameItem.preview : undefined;
+    const cardFrameColor = framePreview?.borderColor ?? theme.softBorder;
+    const cardFrameBackground = framePreview?.gradient ?? "#ffffff";
+    const cardFrameShadow =
+        framePreview?.shadow ?? "0 18px 40px -28px rgba(15,23,42,0.45)";
 
     return (
         <motion.div
@@ -145,28 +254,34 @@ export function MonsterCard({
             transition={{ delay: 0.1 }}
             className={cn("mx-auto w-full max-w-md", className)}
         >
-            <div className="rounded-[1.35rem] border-[3px] border-[#c9a227] bg-gradient-to-br from-[#a67c2d] via-[#4a3419] to-[#1c1209] p-[5px] shadow-[0_18px_48px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,248,220,0.35),inset_0_-2px_6px_rgba(0,0,0,0.35)]">
-                <div className="overflow-hidden rounded-[1.12rem] border border-[#2a1f14]/90 bg-[#140d0a] shadow-[inset_0_0_0_1px_rgba(212,175,55,0.12)]">
+            <MonsterCardBezel
+                framePreview={framePreview}
+                fallbackStyle={{
+                    borderColor: cardFrameColor,
+                    background: cardFrameBackground,
+                    boxShadow: cardFrameShadow,
+                }}
+            >
                     <div className="relative aspect-[5/6] w-full max-h-[min(78vw,22rem)] overflow-hidden sm:max-h-[24rem]">
                         <div
-                            className="pointer-events-none absolute inset-0 z-0 bg-[#0a0705]"
+                            className="pointer-events-none absolute inset-0 z-0 bg-[#fafafa]"
                             style={{ backgroundImage: heroGlow }}
                             aria-hidden
                         />
                         <div
-                            className="pointer-events-none absolute inset-0 z-[1] opacity-[0.14]"
+                            className="pointer-events-none absolute inset-0 z-[1] opacity-[0.04]"
                             style={{
                                 backgroundImage:
-                                    "repeating-linear-gradient(-12deg, transparent, transparent 6px, rgba(212,175,55,0.08) 6px, rgba(212,175,55,0.08) 7px)",
+                                    "repeating-linear-gradient(-12deg, transparent, transparent 6px, rgba(148,163,184,0.18) 6px, rgba(148,163,184,0.18) 7px)",
                             }}
                             aria-hidden
                         />
-                        <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-[#140d0a] via-transparent to-black/40" />
+                        <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-white/90 via-transparent to-white/20" />
 
                         <div className="absolute inset-x-0 bottom-0 z-[1] flex justify-center">
                             <div className="relative w-[min(92%,17.5rem)]">
-                                <div className="h-[4.25rem] rounded-[50%_50%_0_0] border-x-2 border-t-2 border-[#7a5c28]/85 bg-gradient-to-b from-[#2d2118] via-[#1a120c] to-[#0a0604] shadow-[0_-12px_28px_rgba(212,175,55,0.12)]" />
-                                <div className="absolute left-1/2 top-2.5 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border-2 border-[#e8c547] bg-[#120c08] text-sm text-amber-200 shadow-[0_0_12px_rgba(212,175,55,0.35)]">
+                                <div className="h-[4.25rem] rounded-[50%_50%_0_0] border-x border-t border-slate-200 bg-gradient-to-b from-white via-slate-50 to-slate-100 shadow-[0_-10px_24px_rgba(15,23,42,0.08)]" />
+                                <div className="absolute left-1/2 top-2.5 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-sm text-slate-600 shadow-sm">
                                     ✦
                                 </div>
                             </div>
@@ -190,11 +305,14 @@ export function MonsterCard({
 
                         <div className="absolute inset-x-0 top-0 z-[3] flex items-start justify-between gap-1.5 p-2.5 sm:gap-2 sm:p-3">
                             <div className="flex flex-col items-center">
-                                <div className="flex h-11 w-11 flex-col items-center justify-center rounded-full border-2 border-[#e8c547]/90 bg-black/55 text-center shadow-lg backdrop-blur-[6px] sm:h-12 sm:w-12">
-                                    <span className="text-[7px] font-black uppercase tracking-wider text-amber-100/90">
+                                <div
+                                    className="flex h-11 w-11 flex-col items-center justify-center rounded-full border bg-white/90 text-center shadow-sm backdrop-blur-[6px] sm:h-12 sm:w-12"
+                                    style={{ borderColor: theme.softBorder }}
+                                >
+                                    <span className="text-[7px] font-black uppercase tracking-wider text-slate-500">
                                         Lv
                                     </span>
-                                    <span className="text-sm font-black tabular-nums leading-none text-white sm:text-base">
+                                    <span className="text-sm font-black tabular-nums leading-none text-slate-900 sm:text-base">
                                         {monster.rankIndex + 1}
                                     </span>
                                 </div>
@@ -207,41 +325,49 @@ export function MonsterCard({
                                             className={cn(
                                                 "h-4 w-4 shrink-0 drop-shadow-md sm:h-[1.15rem] sm:w-[1.15rem]",
                                                 i < starCount
-                                                    ? "fill-amber-400 text-amber-200 stroke-amber-800/50"
-                                                    : "fill-white/10 text-white/15 stroke-white/25"
+                                                    ? "fill-amber-300 text-amber-400 stroke-amber-600/60"
+                                                    : "fill-slate-100 text-slate-200 stroke-slate-300"
                                             )}
                                             strokeWidth={1.5}
                                         />
                                     ))}
                                 </div>
-                                <div className="h-1.5 w-[min(58%,11rem)] overflow-hidden rounded-full border border-amber-900/50 bg-black/55 shadow-inner">
+                                <div className="h-1.5 w-[min(58%,11rem)] overflow-hidden rounded-full border border-slate-200 bg-white shadow-inner">
                                     <motion.div
                                         initial={{ width: 0 }}
                                         animate={{ width: `${rankProgress.progress}%` }}
                                         transition={{ duration: 0.75, ease: "easeOut" }}
-                                        className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-200 shadow-[0_0_8px_rgba(251,191,36,0.45)]"
+                                        className="h-full rounded-full"
+                                        style={{ background: `linear-gradient(to right, ${theme.primary}, ${theme.secondary})` }}
                                     />
                                 </div>
                             </div>
-                            <div className="shrink-0 rounded-lg border border-[#c9a227]/55 bg-black/60 px-2 py-1 shadow-md backdrop-blur-[6px]">
-                                <div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wide text-amber-100 sm:text-[10px]">
-                                    <Sparkles className="h-3 w-3 text-amber-400" />
+                            <div
+                                className="shrink-0 rounded-lg border bg-white/95 px-2 py-1 shadow-sm backdrop-blur-[6px]"
+                                style={{ borderColor: theme.softBorder }}
+                            >
+                                <div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wide text-slate-600 sm:text-[10px]">
+                                    <Sparkles className="h-3 w-3" style={{ color: theme.primary }} />
                                     TP {totalTp}
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="relative z-[4] -mt-7 mx-2.5 rounded-xl border-2 border-[#8b6914]/65 bg-gradient-to-b from-[#f8eccc] via-[#e8d5a8] to-[#d4bc7f] px-2.5 py-2 shadow-[0_8px_20px_rgba(0,0,0,0.35)] sm:mx-3 sm:gap-3 sm:px-3 sm:py-2.5">
+                    <div
+                        className="relative z-[4] -mt-7 mx-2.5 rounded-xl border bg-white px-2.5 py-2 shadow-[0_12px_20px_-14px_rgba(15,23,42,0.45)] sm:mx-3 sm:gap-3 sm:px-3 sm:py-2.5"
+                        style={{ borderColor: cardFrameColor }}
+                    >
                         <div className="flex items-center gap-2.5 sm:gap-3">
                             <div
-                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[#5c3d9e]/40 bg-gradient-to-br from-violet-800 to-purple-950 text-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] sm:h-11 sm:w-11"
+                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-lg shadow-sm sm:h-11 sm:w-11"
+                                style={{ borderColor: theme.softBorder, backgroundColor: theme.soft, color: theme.deep }}
                                 aria-hidden
                             >
                                 <span className="drop-shadow-sm">{negamonTypeGlyph(monster.type)}</span>
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#5c4428]">
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
                                     {t("monsterCardBrand")}
                                 </p>
                                 <h3 className="font-serif text-lg font-black leading-tight tracking-tight text-stone-900 sm:text-xl">
@@ -272,31 +398,23 @@ export function MonsterCard({
                         </div>
                     </div>
 
-                    <div className="relative -mt-0.5 space-y-3 bg-gradient-to-b from-[#1f160f] via-[#16100b] to-[#0c0805] px-3 pb-4 pt-5 sm:space-y-4 sm:px-4 sm:pb-5 sm:pt-6">
-                        <div
-                            className="pointer-events-none absolute inset-0 opacity-[0.07]"
-                            style={{
-                                backgroundImage:
-                                    "radial-gradient(circle at 1px 1px, rgba(212,175,55,0.5) 1px, transparent 0)",
-                                backgroundSize: "6px 6px",
-                            }}
-                            aria-hidden
-                        />
+                    <div className="relative -mt-0.5 space-y-3 bg-white px-3 pb-4 pt-5 sm:space-y-4 sm:px-4 sm:pb-5 sm:pt-6">
 
                         <div className="relative z-[1] space-y-3 sm:space-y-4">
                             <div className="flex flex-col items-center gap-2">
                                 <div className="relative flex w-[88%] max-w-[16rem] justify-center">
-                                    <div className="absolute -left-1 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[6px] border-r-8 border-y-transparent border-r-red-950 opacity-90" />
-                                    <div className="absolute -right-1 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[6px] border-l-8 border-y-transparent border-l-red-950 opacity-90" />
-                                    <div className="w-full rounded-sm border border-red-950/60 bg-gradient-to-b from-[#b91c1c] to-[#7f1d1d] px-5 py-1.5 text-center shadow-[0_4px_14px_rgba(0,0,0,0.45)]">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-100">
+                                    <div
+                                        className="w-full rounded-lg border px-5 py-1.5 text-center"
+                                        style={{ borderColor: theme.softBorder, backgroundColor: theme.soft }}
+                                    >
+                                        <p className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: theme.deep }}>
                                             {t("monsterCardCombatStatsRibbon")}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-700/45 bg-emerald-950/55 px-3 py-1 shadow-inner">
+                                <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 shadow-inner">
                                     <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-                                    <span className="text-[10px] font-bold text-emerald-200/95">
+                                    <span className="text-[10px] font-bold text-emerald-700">
                                         {t("shopFrameGoldRateBonus", { percent: frameGoldPercent })}
                                     </span>
                                 </div>
@@ -309,20 +427,20 @@ export function MonsterCard({
                                     return (
                                         <div
                                             key={key}
-                                            className="rounded-xl border border-[#5c4a2e]/55 bg-[#2a2118]/92 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                                            className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-[0_6px_14px_-12px_rgba(15,23,42,0.35)]"
                                         >
                                             <div className="mb-1.5 flex items-center justify-between gap-1">
                                                 <div className="flex min-w-0 items-center gap-1">
                                                     <Icon className={cn("h-3.5 w-3.5 shrink-0", iconColor)} />
-                                                    <span className="truncate text-[9px] font-black uppercase tracking-wide text-amber-200/75">
+                                                    <span className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500">
                                                         {t(labelKey)}
                                                     </span>
                                                 </div>
-                                                <span className="text-base font-black tabular-nums leading-none text-amber-50">
+                                                <span className="text-base font-black tabular-nums leading-none text-slate-900">
                                                     {val}
                                                 </span>
                                             </div>
-                                            <div className="h-2 w-full overflow-hidden rounded-full border border-black/40 bg-black/45 shadow-inner">
+                                            <div className="h-2 w-full overflow-hidden rounded-full border border-slate-200 bg-slate-100 shadow-inner">
                                                 <motion.div
                                                     initial={{ width: 0 }}
                                                     animate={{ width: `${pct}%` }}
@@ -339,47 +457,58 @@ export function MonsterCard({
                                 })}
                             </div>
 
-                            <div className="rounded-xl border border-amber-700/35 bg-[#261c14]/95 p-2.5 shadow-[inset_0_1px_0_rgba(255,220,150,0.06)]">
+                            <div
+                                className="rounded-xl border p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+                                style={{ borderColor: theme.softBorder, backgroundColor: theme.soft }}
+                            >
                                 <div className="mb-1.5 flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-1.5">
-                                        <Star className="h-3.5 w-3.5 text-amber-400" />
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-100/90">
+                                        <Star className="h-3.5 w-3.5" style={{ color: theme.primary }} />
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-700">
                                             {rankProgress.currentRank}
                                         </span>
                                     </div>
                                     {rankProgress.nextRank ? (
-                                        <span className="text-[9px] font-bold text-amber-200/65">
+                                        <span className="text-[9px] font-bold text-slate-500">
                                             {t("monsterRankProgressMore", {
                                                 points: rankProgress.pointsNeeded,
                                                 rank: rankProgress.nextRank,
                                             })}
                                         </span>
                                     ) : (
-                                        <span className="flex items-center gap-1 text-[9px] font-black text-amber-300">
-                                            <Sparkles className="h-3 w-3" />
+                                        <span className="flex items-center gap-1 text-[9px] font-black text-slate-600">
+                                            <Sparkles className="h-3 w-3" style={{ color: theme.primary }} />
                                             {t("monsterRankMax")}
                                         </span>
                                     )}
                                 </div>
-                                <Progress
-                                    value={rankProgress.progress}
-                                    className="h-2 rounded-full border border-amber-900/40 bg-black/40 [&>div]:rounded-full [&>div]:bg-gradient-to-r [&>div]:from-amber-500 [&>div]:to-yellow-400"
-                                />
+                                <div className="h-2 rounded-full border border-slate-200 bg-white p-0.5">
+                                    <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${rankProgress.progress}%` }}
+                                        transition={{ duration: 0.75, ease: "easeOut" }}
+                                        className="h-full rounded-full"
+                                        style={{ background: `linear-gradient(to right, ${theme.primary}, ${theme.secondary})` }}
+                                    />
+                                </div>
                             </div>
 
                             {monster.ability ? (
-                                <div className="rounded-xl border border-violet-500/35 bg-gradient-to-br from-[#1e1628]/98 to-[#120e1a]/98 p-3 shadow-[inset_0_1px_0_rgba(196,181,253,0.08)]">
-                                    <p className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-violet-300">
-                                        <Sparkles className="h-3 w-3 text-violet-400" />
+                                <div
+                                    className="rounded-xl border p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+                                    style={{ borderColor: theme.softBorder, backgroundColor: theme.soft }}
+                                >
+                                    <p className="mb-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-widest" style={{ color: theme.deep }}>
+                                        <Sparkles className="h-3 w-3" style={{ color: theme.primary }} />
                                         {t("monsterAbilityHeading")}
                                     </p>
                                     <div className="flex items-start gap-2">
                                         <span className="text-lg shrink-0 opacity-90">✨</span>
                                         <div>
-                                            <p className="text-xs font-black text-violet-100">
+                                            <p className="text-xs font-black" style={{ color: theme.deep }}>
                                                 {monster.ability.name}
                                             </p>
-                                            <p className="text-[10px] leading-snug text-violet-200/85">
+                                            <p className="text-[10px] leading-snug" style={{ color: theme.deep }}>
                                                 {monster.ability.desc}
                                             </p>
                                         </div>
@@ -389,11 +518,17 @@ export function MonsterCard({
 
                             {displayMoves.length > 0 ? (
                                 <div>
-                                    <p className="mb-2.5 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-200/80">
-                                        <span className="h-px flex-1 bg-gradient-to-r from-transparent to-amber-700/50" />
-                                        <Swords className="h-3.5 w-3.5 text-amber-500" />
+                                    <p className="mb-2.5 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: theme.deep }}>
+                                        <span
+                                            className="h-px flex-1"
+                                            style={{ backgroundImage: `linear-gradient(to right, transparent, ${theme.softBorder})` }}
+                                        />
+                                        <Swords className="h-3.5 w-3.5" style={{ color: theme.primary }} />
                                         {t("monsterMovesHeading")}
-                                        <span className="h-px flex-1 bg-gradient-to-l from-transparent to-amber-700/50" />
+                                        <span
+                                            className="h-px flex-1"
+                                            style={{ backgroundImage: `linear-gradient(to left, transparent, ${theme.softBorder})` }}
+                                        />
                                     </p>
                                     <div className="flex flex-wrap justify-center gap-2.5 sm:gap-3">
                                         {displayMoves.map((move) => {
@@ -406,7 +541,12 @@ export function MonsterCard({
                                                         setSelectedMoveId(move.id);
                                                         setMoveDialogOpen(true);
                                                     }}
-                                                    className="group relative flex h-[3.35rem] w-[3.35rem] shrink-0 items-center justify-center rounded-full border-2 border-[#d4af37]/70 bg-gradient-to-br from-[#3d2e18] to-[#120c08] text-amber-100 shadow-[0_6px_16px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,220,150,0.2)] transition-transform hover:scale-[1.05] active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80"
+                                                    className="group relative flex h-[3.35rem] w-[3.35rem] shrink-0 items-center justify-center rounded-full border-2 shadow-[0_8px_16px_-10px_rgba(15,23,42,0.45),inset_0_1px_0_rgba(255,255,255,0.95)] transition-transform hover:scale-[1.05] active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80"
+                                                    style={{
+                                                        borderColor: theme.softBorder,
+                                                        background: `linear-gradient(to bottom right, ${theme.soft}, #ffffff)`,
+                                                        color: theme.deep,
+                                                    }}
                                                     aria-label={t("monsterMoveDetailAriaLabel", {
                                                         move: moveName,
                                                     })}
@@ -427,11 +567,11 @@ export function MonsterCard({
 
                             {lockedMoves.length > 0 ? (
                                 <div>
-                                    <p className="mb-2.5 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-200/45">
-                                        <span className="h-px flex-1 bg-gradient-to-r from-transparent to-stone-600/40" />
+                                    <p className="mb-2.5 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-stone-500">
+                                        <span className="h-px flex-1 bg-gradient-to-r from-transparent to-stone-300" />
                                         <Lock className="h-3.5 w-3.5" />
                                         {t("monsterLockedMovesHeading")}
-                                        <span className="h-px flex-1 bg-gradient-to-l from-transparent to-stone-600/40" />
+                                        <span className="h-px flex-1 bg-gradient-to-l from-transparent to-stone-300" />
                                     </p>
                                     <div className="flex flex-wrap justify-center gap-2.5 sm:gap-3">
                                         {lockedMoves.map((move) => {
@@ -444,14 +584,14 @@ export function MonsterCard({
                                                         setSelectedMoveId(move.id);
                                                         setMoveDialogOpen(true);
                                                     }}
-                                                    className="relative flex h-[3.35rem] w-[3.35rem] shrink-0 items-center justify-center rounded-full border-2 border-dashed border-stone-600/70 bg-stone-900/50 text-stone-500 opacity-90 transition-transform hover:scale-[1.04] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
+                                                    className="relative flex h-[3.35rem] w-[3.35rem] shrink-0 items-center justify-center rounded-full border-2 border-dashed border-stone-300 bg-stone-100 text-stone-500 opacity-90 transition-transform hover:scale-[1.04] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
                                                     aria-label={t("monsterMoveDetailAriaLabel", {
                                                         move: moveName,
                                                     })}
                                                 >
                                                     <MoveCircleGlyph move={move} />
-                                                    <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45">
-                                                        <Lock className="h-4 w-4 text-amber-200/90" />
+                                                    <span className="absolute inset-0 flex items-center justify-center rounded-full bg-white/50">
+                                                        <Lock className="h-4 w-4 text-stone-600" />
                                                     </span>
                                                 </button>
                                             );
@@ -461,8 +601,7 @@ export function MonsterCard({
                             ) : null}
                         </div>
                     </div>
-                </div>
-            </div>
+            </MonsterCardBezel>
 
             <Dialog
                 open={moveDialogOpen}
@@ -509,7 +648,7 @@ export function MonsterCard({
                                 <NegamonMoveInlineDescription
                                     t={t}
                                     move={dialogMove}
-                                    className="border-stone-600/50 text-stone-300"
+                                    tone="dark"
                                 />
                             </div>
                         ) : (
@@ -535,7 +674,7 @@ export function MonsterCard({
                                     </span>
                                     {(dialogMove.critBonus ?? 0) >= 15 ? (
                                         <span className="rounded-md border border-red-800 bg-red-950/60 px-1.5 py-0.5 text-[9px] font-black text-red-300">
-                                            CRIT+
+                                            {t("battleBadgeCrit")}
                                         </span>
                                     ) : null}
                                 </div>
@@ -554,10 +693,7 @@ export function MonsterCard({
                                         </span>
                                     </span>
                                 </div>
-                                {(dialogMove.priority ?? 0) > 0 ? (
-                                    <p className="text-[10px] text-sky-300">{t("monsterMoveDetailPriority")}</p>
-                                ) : null}
-                                <NegamonMoveInlineDescription t={t} move={dialogMove} />
+                                <NegamonMoveInlineDescription t={t} move={dialogMove} tone="dark" />
                             </div>
                         )}
                     </DialogContent>

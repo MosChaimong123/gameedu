@@ -470,8 +470,17 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
             }, 3000)
         })
 
-        socket.on("selection-error", () => {
+        socket.on("selection-error", (payload?: { message?: string }) => {
             if (skipLegacySocketHandlers()) return
+            const raw =
+                payload && typeof payload.message === "string" ? payload.message : null
+            if (raw) {
+                toast({
+                    title: t("playToastActionFailed"),
+                    description: formatSocketErrorMessage(raw, t),
+                    variant: "destructive",
+                })
+            }
             console.log("Selection error, returning to question.")
             setView("QUESTION")
             const pin = playerSession.pin

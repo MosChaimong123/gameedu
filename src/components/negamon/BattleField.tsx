@@ -142,38 +142,41 @@ function AttackFlash({ active, side, color = "#ffffff" }: AttackFlashProps) {
 
 interface FloatingTextProps {
     text: string;
-    targetLabel?: string;
     side: "player" | "opponent";
     color?: string;
     show: boolean;
 }
 
-export function FloatingText({ text, targetLabel, side, color = "#ef4444", show }: FloatingTextProps) {
+/** Floating combat numbers — anchored to sprite lanes (see MonsterSprite positions). */
+export function FloatingText({ text, side, color = "#ef4444", show }: FloatingTextProps) {
     return (
         <AnimatePresence>
             {show && (
                 <motion.div
                     key={text}
-                    initial={{ opacity: 1, y: 0 }}
-                    animate={{ opacity: 0, y: side === "player" ? 40 : -40 }}
+                    initial={{ opacity: 1, scale: 0.92, y: 8 }}
+                    animate={{ opacity: 0, scale: 1.08, y: -56 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.8 }}
+                    transition={{ duration: 0.85, ease: "easeOut" }}
                     className={cn(
-                        "absolute z-30 pointer-events-none select-none",
-                        side === "player" ? "bottom-24 left-12" : "top-24 right-12"
+                        "pointer-events-none select-none",
+                        "absolute flex flex-col items-center justify-center text-center",
+                        /* Match sprite anchors: player bottom-left lane, opponent upper-right lane */
+                        side === "player"
+                            ? "left-[35%] bottom-[22%] -translate-x-1/2"
+                            : "right-[35%] top-[24%] translate-x-1/2"
                     )}
-                    style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
                 >
-                    <div className="rounded-md border border-black/10 bg-black/35 px-2 py-1">
-                        {targetLabel ? (
-                            <p className="text-[10px] font-black leading-none text-white/90">
-                                โดน: {targetLabel}
-                            </p>
-                        ) : null}
-                        <p className="text-sm font-black leading-tight" style={{ color }}>
-                            {text}
-                        </p>
-                    </div>
+                    <p
+                        className="text-[clamp(1.35rem,5vw,2.25rem)] font-black tabular-nums leading-none tracking-tight"
+                        style={{
+                            color,
+                            textShadow:
+                                "0 0 4px #fff, 0 0 10px #fff, 0 2px 0 #000, 0 4px 12px rgba(0,0,0,0.85)",
+                        }}
+                    >
+                        {text}
+                    </p>
                 </motion.div>
             )}
         </AnimatePresence>
@@ -199,7 +202,6 @@ interface BattleFieldProps {
     hurtId: string | null;
     faintedId: string | null;
     flashId: string | null;
-    floatingDmg?: { id: string; value: number; crit?: boolean; targetLabel?: string } | null;
 }
 
 export function BattleField({
@@ -209,7 +211,6 @@ export function BattleField({
     hurtId,
     faintedId,
     flashId,
-    floatingDmg,
 }: BattleFieldProps) {
     const playerArena  = TYPE_ARENA[player.type]   ?? DEFAULT_ARENA;
     const opponentArena = TYPE_ARENA[opponent.type] ?? DEFAULT_ARENA;
@@ -252,19 +253,6 @@ export function BattleField({
                 side="opponent"
                 color={opponentArena.glow}
             />
-
-            {/* Floating damage numbers */}
-            {floatingDmg && (
-                <>
-                    <FloatingText
-                        text={floatingDmg.crit ? `💥 ${floatingDmg.value}!!` : `-${floatingDmg.value}`}
-                        targetLabel={floatingDmg.targetLabel}
-                        side={floatingDmg.id === player.studentId ? "player" : "opponent"}
-                        color={floatingDmg.crit ? "#f59e0b" : "#ef4444"}
-                        show
-                    />
-                </>
-            )}
 
             {/* Monsters (center-safe lanes to avoid HUD overlap on corners) */}
             <div className="absolute inset-0">

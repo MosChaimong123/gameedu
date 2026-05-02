@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { loadQuizTakeContext } from "@/lib/quiz-take-context";
 import {
+  QUIZ_PLAIN_ERR_ALREADY_SUBMITTED,
+  QUIZ_PLAIN_ERR_INTERNAL,
+  QUIZ_PLAIN_ERR_INVALID_INDEX,
+} from "@/lib/quiz-load-error-messages";
+import {
   buildRateLimitKey,
   consumeRateLimit,
   createRateLimitResponse,
@@ -33,7 +38,7 @@ export async function GET(
   }
 
   if (!Number.isFinite(index) || index < 0) {
-    return new NextResponse("Invalid index", { status: 400 });
+    return new NextResponse(QUIZ_PLAIN_ERR_INVALID_INDEX, { status: 400 });
   }
 
   try {
@@ -42,11 +47,11 @@ export async function GET(
       return new NextResponse(ctx.message, { status: ctx.status });
     }
     if (ctx.kind === "already_submitted") {
-      return new NextResponse("Already submitted", { status: 409 });
+      return new NextResponse(QUIZ_PLAIN_ERR_ALREADY_SUBMITTED, { status: 409 });
     }
 
     if (index >= ctx.questions.length) {
-      return new NextResponse("Invalid index", { status: 400 });
+      return new NextResponse(QUIZ_PLAIN_ERR_INVALID_INDEX, { status: 400 });
     }
 
     const q = ctx.questions[index];
@@ -61,6 +66,6 @@ export async function GET(
     });
   } catch (e) {
     console.error("[QUIZ_QUESTION_GET]", e);
-    return new NextResponse("Internal Error", { status: 500 });
+    return new NextResponse(QUIZ_PLAIN_ERR_INTERNAL, { status: 500 });
   }
 }

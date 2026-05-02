@@ -7,6 +7,7 @@ exports.resolveRateLimitStore = resolveRateLimitStore;
 exports.resolveAuditLogSink = resolveAuditLogSink;
 exports.validateServerEnv = validateServerEnv;
 const zod_1 = require("zod");
+const PRODUCTION_PUBLIC_URL_REQUIRED = "productionPublicUrlRequired";
 /** Env vars that may be blank; treat blank as unset. */
 const trimOrUnset = zod_1.z
     .union([zod_1.z.string(), zod_1.z.undefined()])
@@ -102,7 +103,7 @@ function resolveAuditLogSink(env = process.env) {
 function validateServerEnv(env = process.env) {
     const config = getAppEnv(env);
     if (config.NODE_ENV === "production" && !config.NEXT_PUBLIC_APP_URL && !config.NEXTAUTH_URL) {
-        throw new Error("NEXT_PUBLIC_APP_URL or NEXTAUTH_URL is required in production");
+        throw new Error(PRODUCTION_PUBLIC_URL_REQUIRED);
     }
     return config;
 }

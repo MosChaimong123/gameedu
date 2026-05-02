@@ -51,7 +51,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 })
 
                 if (!rateLimit.allowed) {
-                    throw new Error("Too many login attempts. Please wait and try again.")
+                    throw new Error("RATE_LIMITED")
                 }
 
                 const user = await db.user.findUnique({

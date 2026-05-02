@@ -1,8 +1,14 @@
-"use server";
+﻿"use server";
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+
+const BOARD_ERR_CLASSROOM_NOT_FOUND = "boardErrClassroomNotFound";
+const BOARD_ERR_BOARD_NOT_FOUND = "boardErrBoardNotFound";
+const BOARD_ERR_POST_NOT_FOUND = "boardErrPostNotFound";
+const BOARD_ERR_POLL_CLOSED = "boardErrPollClosed";
+const BOARD_ERR_NO_POLL = "boardErrNoPoll";
 
 type BoardPollOptionInput = {
     id: string;
@@ -64,7 +70,7 @@ async function resolveClassroomActor(classId: string, userId: string): Promise<B
     });
 
     if (!classroom) {
-        throw new Error("Classroom not found");
+        throw new Error(BOARD_ERR_CLASSROOM_NOT_FOUND);
     }
 
     if (classroom.teacherId === userId) {
@@ -96,7 +102,7 @@ async function resolveBoardActor(boardId: string, userId: string) {
     });
 
     if (!board) {
-        throw new Error("Board not found");
+        throw new Error(BOARD_ERR_BOARD_NOT_FOUND);
     }
 
     const actor = await resolveClassroomActor(board.classId, userId);
@@ -242,7 +248,7 @@ export async function deleteBoardPost(postId: string) {
     const post = await fetchBoardPostById(postId);
 
     if (!post) {
-        throw new Error("Post not found");
+        throw new Error(BOARD_ERR_POST_NOT_FOUND);
     }
 
     const actor = await resolveClassroomActor(post.board.classId, userId);
@@ -266,7 +272,7 @@ export async function toggleBoardReaction(data: {
     const post = await fetchBoardPostById(data.postId);
 
     if (!post) {
-        throw new Error("Post not found");
+        throw new Error(BOARD_ERR_POST_NOT_FOUND);
     }
 
     const actor = await resolveClassroomActor(post.board.classId, userId);
@@ -305,7 +311,7 @@ export async function addBoardComment(data: {
     const post = await fetchBoardPostById(data.postId);
 
     if (!post) {
-        throw new Error("Post not found");
+        throw new Error(BOARD_ERR_POST_NOT_FOUND);
     }
 
     const actor = await resolveClassroomActor(post.board.classId, userId);
@@ -352,15 +358,15 @@ export async function voteBoardPoll(data: {
     const post = await fetchBoardPostById(data.postId);
 
     if (!post) {
-        throw new Error("Post not found");
+        throw new Error(BOARD_ERR_POST_NOT_FOUND);
     }
 
     if (post.pollClosed) {
-        throw new Error("โพลนี้ถูกปิดการโหวตแล้ว");
+        throw new Error(BOARD_ERR_POLL_CLOSED);
     }
 
     if (!post.poll) {
-        throw new Error("ไม่พบโพลสำหรับโพสต์นี้");
+        throw new Error(BOARD_ERR_NO_POLL);
     }
 
     const actor = await resolveClassroomActor(post.board.classId, userId);
@@ -396,7 +402,7 @@ export async function togglePollStatus(postId: string) {
     const post = await fetchBoardPostById(postId);
 
     if (!post) {
-        throw new Error("Post not found");
+        throw new Error(BOARD_ERR_POST_NOT_FOUND);
     }
 
     const actor = await resolveClassroomActor(post.board.classId, userId);
@@ -407,3 +413,4 @@ export async function togglePollStatus(postId: string) {
         data: { pollClosed: !post.pollClosed },
     });
 }
+

@@ -10,11 +10,37 @@ export const BATTLE_ITEM_CATEGORY_ORDER: ShopBattleItemCategory[] = [
     "reward",
 ];
 
+/** Visual tier DNA for profile frames (distinct silhouette per level). */
+export type FrameTierVariant = "t1_minimal" | "t2_dual" | "t3_ascendant" | "t4_sovereign";
+
 export interface FramePreview {
     borderColor: string;
     shadow?: string;
-    /** CSS gradient string — applied as background on the border ring when animate is needed */
+    /** CSS gradient — ring / card bezel fill */
     gradient?: string;
+    variant: FrameTierVariant;
+    /** Outer bezel width in px */
+    borderWidthPx: number;
+    /** Secondary glow layer (concat with shadow where supported) */
+    haloShadow?: string;
+    /** T4: rotating conic under bezel */
+    animated?: boolean;
+    conicGradient?: string;
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+    let h = hex.replace("#", "").trim();
+    if (h.length === 3) {
+        h = h
+            .split("")
+            .map((c) => c + c)
+            .join("");
+    }
+    const n = parseInt(h, 16);
+    const r = (n >> 16) & 255;
+    const g = (n >> 8) & 255;
+    const b = n & 255;
+    return `rgba(${r},${g},${b},${alpha})`;
 }
 
 export interface BattleEffect {
@@ -38,7 +64,12 @@ export interface ShopItem {
     battleEffect?: BattleEffect;
     /** When `type` is `battle_item`, used to group rows in the shop dialog. */
     battleCategory?: ShopBattleItemCategory;
+    /** Optional elemental theme metadata for profile frame items */
+    frameElement?: FrameElement;
+    frameTier?: 1 | 2 | 3 | 4;
 }
+
+export type FrameElement = "fire" | "water" | "earth" | "wind" | "thunder" | "light" | "dark";
 
 export function shopItemNameKey(id: string): string {
     return `shopItem_${id}_name`;
@@ -202,112 +233,116 @@ export function groupBattleItemsByCategory(
     })).filter((g) => g.items.length > 0);
 }
 
-export const SHOP_ITEMS: ShopItem[] = [
-    {
-        id: "frame_silver",
-        type: "frame",
-        price: 100,
-        rarity: "common",
-        preview: {
-            borderColor: "#94a3b8",
-            shadow: "0 0 12px rgba(148,163,184,0.6)",
-        },
-    },
-    {
-        id: "frame_gold",
-        type: "frame",
-        price: 1000,
-        rarity: "rare",
-        preview: {
-            borderColor: "#f59e0b",
-            shadow: "0 0 18px rgba(245,158,11,0.7)",
-        },
-    },
-    {
-        id: "frame_emerald",
-        type: "frame",
-        price: 1000,
-        rarity: "rare",
-        preview: {
-            borderColor: "#10b981",
-            shadow: "0 0 18px rgba(16,185,129,0.7)",
-        },
-    },
-    {
-        id: "frame_amethyst",
-        type: "frame",
-        price: 5000,
-        rarity: "epic",
-        preview: {
-            borderColor: "#8b5cf6",
-            shadow: "0 0 22px rgba(139,92,246,0.8)",
-        },
-    },
-    {
-        id: "frame_dragon",
-        type: "frame",
-        price: 10000,
-        rarity: "legendary",
-        preview: {
-            borderColor: "#f97316",
-            shadow: "0 0 28px rgba(249,115,22,0.9)",
-            gradient: "linear-gradient(135deg,#ef4444,#f97316,#fbbf24)",
-        },
-    },
-    {
-        id: "frame_sakura",
-        type: "frame",
-        price: 100,
-        rarity: "common",
-        preview: {
-            borderColor: "#f472b6",
-            shadow: "0 0 14px rgba(244,114,182,0.6)",
-        },
-    },
-    {
-        id: "frame_ruby",
-        type: "frame",
-        price: 1000,
-        rarity: "rare",
-        preview: {
-            borderColor: "#dc2626",
-            shadow: "0 0 18px rgba(220,38,38,0.7)",
-        },
-    },
-    {
-        id: "frame_ocean",
-        type: "frame",
-        price: 5000,
-        rarity: "epic",
-        preview: {
-            borderColor: "#0ea5e9",
-            shadow: "0 0 22px rgba(14,165,233,0.8)",
-            gradient: "linear-gradient(135deg,#0ea5e9,#6366f1,#8b5cf6)",
-        },
-    },
-    {
-        id: "frame_lightning",
-        type: "frame",
-        price: 5000,
-        rarity: "epic",
-        preview: {
-            borderColor: "#eab308",
-            shadow: "0 0 24px rgba(234,179,8,0.9)",
-            gradient: "linear-gradient(135deg,#facc15,#f97316,#eab308)",
-        },
-    },
-    {
-        id: "frame_cosmic",
-        type: "frame",
-        price: 10000,
-        rarity: "legendary",
-        preview: {
-            borderColor: "#a855f7",
-            shadow: "0 0 32px rgba(168,85,247,1)",
-            gradient: "linear-gradient(135deg,#ec4899,#a855f7,#6366f1,#0ea5e9,#10b981)",
-        },
-    },
+const FRAME_TIER_META: Array<{ tier: 1 | 2 | 3 | 4; rarity: ShopItemRarity; price: number }> = [
+    { tier: 1, rarity: "common", price: 100 },
+    { tier: 2, rarity: "rare", price: 1000 },
+    { tier: 3, rarity: "epic", price: 5000 },
+    { tier: 4, rarity: "legendary", price: 10000 },
 ];
+
+const FRAME_ELEMENT_PALETTES: Record<
+    FrameElement,
+    { thName: string; enName: string; c1: string; c2: string; c3: string }
+> = {
+    fire: { thName: "เพลิง", enName: "Fire", c1: "#ef4444", c2: "#f97316", c3: "#fbbf24" },
+    water: { thName: "วารี", enName: "Water", c1: "#0ea5e9", c2: "#3b82f6", c3: "#6366f1" },
+    earth: { thName: "ปฐพี", enName: "Earth", c1: "#65a30d", c2: "#16a34a", c3: "#a3e635" },
+    wind: { thName: "วายุ", enName: "Wind", c1: "#14b8a6", c2: "#22d3ee", c3: "#67e8f9" },
+    thunder: { thName: "อสนี", enName: "Thunder", c1: "#eab308", c2: "#f59e0b", c3: "#fde047" },
+    light: { thName: "แสง", enName: "Light", c1: "#f59e0b", c2: "#facc15", c3: "#fff7ae" },
+    dark: { thName: "เงา", enName: "Dark", c1: "#7c3aed", c2: "#4c1d95", c3: "#a855f7" },
+};
+
+function framePreviewForTier(c1: string, c2: string, c3: string, tier: 1 | 2 | 3 | 4): FramePreview {
+    if (tier === 1) {
+        return {
+            variant: "t1_minimal",
+            borderColor: c1,
+            borderWidthPx: 2,
+            shadow: `0 0 14px ${hexToRgba(c1, 0.38)}`,
+        };
+    }
+    if (tier === 2) {
+        return {
+            variant: "t2_dual",
+            borderColor: c2,
+            borderWidthPx: 3,
+            gradient: `linear-gradient(138deg, ${c1} 0%, ${c2} 45%, ${c3} 100%)`,
+            shadow: `0 0 18px ${hexToRgba(c2, 0.48)}, inset 0 0 0 1px ${hexToRgba(c1, 0.28)}`,
+            haloShadow: `0 4px 12px ${hexToRgba(c1, 0.18)}`,
+        };
+    }
+    if (tier === 3) {
+        return {
+            variant: "t3_ascendant",
+            borderColor: c2,
+            borderWidthPx: 4,
+            gradient: `linear-gradient(154deg, ${c1} 0%, ${c2} 34%, ${c3} 62%, ${c1} 100%)`,
+            shadow: `0 0 28px ${hexToRgba(c2, 0.52)}`,
+            haloShadow: `0 0 48px ${hexToRgba(c1, 0.24)}, 0 0 72px ${hexToRgba(c3, 0.14)}`,
+        };
+    }
+    return {
+        variant: "t4_sovereign",
+        borderColor: c3,
+        borderWidthPx: 5,
+        gradient: `linear-gradient(168deg, ${c1} 0%, ${c3} 26%, ${c2} 48%, ${c3} 72%, ${c1} 100%)`,
+        shadow: `0 0 36px ${hexToRgba(c3, 0.58)}`,
+        haloShadow: `0 0 64px ${hexToRgba(c1, 0.3)}, 0 0 96px ${hexToRgba(c2, 0.2)}`,
+        animated: true,
+        conicGradient: `conic-gradient(from 0deg, ${c1}, ${c3}, ${c2}, ${c3}, ${c1})`,
+    };
+}
+
+const FRAME_ELEMENTS: FrameElement[] = ["fire", "water", "earth", "wind", "thunder", "light", "dark"];
+
+export const SHOP_ITEMS: ShopItem[] = FRAME_ELEMENTS.flatMap((element) => {
+    const palette = FRAME_ELEMENT_PALETTES[element];
+    return FRAME_TIER_META.map(({ tier, rarity, price }) => ({
+        id: `frame_${element}_t${tier}`,
+        type: "frame" as const,
+        price,
+        rarity,
+        frameElement: element,
+        frameTier: tier,
+        preview: framePreviewForTier(palette.c1, palette.c2, palette.c3, tier),
+    }));
+});
+
+const FRAME_TIER_NAME_TH: Record<1 | 2 | 3 | 4, string> = {
+    1: "กำเนิด",
+    2: "ขัดเกลา",
+    3: "อัญเชิญ",
+    4: "จักรพรรดิ",
+};
+const FRAME_TIER_NAME_EN: Record<1 | 2 | 3 | 4, string> = {
+    1: "Initiate",
+    2: "Refined",
+    3: "Ascendant",
+    4: "Sovereign",
+};
+
+export function getFallbackShopItemName(id: string, locale: "th" | "en"): string {
+    const match = /^frame_(fire|water|earth|wind|thunder|light|dark)_t([1-4])$/.exec(id);
+    if (!match) return id;
+    const element = match[1] as FrameElement;
+    const palette = FRAME_ELEMENT_PALETTES[element];
+    if (locale === "th") return `กรอบ${palette.thName}`;
+    return `${palette.enName} Frame`;
+}
+
+export function getFallbackShopItemDesc(id: string, locale: "th" | "en"): string {
+    const match = /^frame_(fire|water|earth|wind|thunder|light|dark)_t([1-4])$/.exec(id);
+    if (!match) return "";
+    const element = match[1] as FrameElement;
+    const tier = Number(match[2]) as 1 | 2 | 3 | 4;
+    const elementTh = FRAME_ELEMENT_PALETTES[element].thName;
+    const elementEn = FRAME_ELEMENT_PALETTES[element].enName;
+    if (locale === "th") {
+        return `กรอบพลังธาตุ${elementTh} ระดับ ${tier} ดีไซน์ประกายชั้น ${FRAME_TIER_NAME_TH[tier]} เน้นความหรูมินิมอล`;
+    }
+    return `${elementEn} elemental frame in tier ${tier}, designed with a premium minimal glow.`;
+}
 
 export function getItemById(id: string): ShopItem | undefined {
     return [...SHOP_ITEMS, ...BATTLE_ITEMS].find((i) => i.id === id);

@@ -6,6 +6,7 @@ import { PatternTask } from "./tasks/pattern-task";
 // New Tasks
 import { FrequencyTask } from "./tasks/frequency-task";
 import { MemoryTask } from "./tasks/memory-task";
+import { useLanguage } from "@/components/providers/language-provider";
 
 type Props = {
     task: HackTask | null;
@@ -13,6 +14,7 @@ type Props = {
 }
 
 export function TaskOverlay({ task, onComplete }: Props) {
+    const { t } = useLanguage();
     const [errorCode] = useState(() =>
         Math.floor(Math.random() * 10000).toString(16).toUpperCase()
     );
@@ -28,10 +30,10 @@ export function TaskOverlay({ task, onComplete }: Props) {
             {/* Warning Header */}
             <div className="absolute top-10 flex flex-col items-center">
                 <h1 className="text-6xl font-black text-red-500 tracking-[0.2em] uppercase glitch-text mb-2 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]">
-                    SYSTEM FAILURE
+                    {t("cryptoTaskOverlaySystemFailure")}
                 </h1>
                 <div className="text-xl text-red-400 font-bold bg-black/50 px-4 py-2 rounded border border-red-500/50">
-                    CRITICAL ERROR DETECTED
+                    {t("cryptoTaskOverlayCriticalError")}
                 </div>
             </div>
 
@@ -54,7 +56,7 @@ export function TaskOverlay({ task, onComplete }: Props) {
             </div>
 
             <div className="absolute bottom-8 text-red-500/50 text-sm font-mono animate-pulse">
-                ERR_CODE: 0x{errorCode} {"// CONNECTION_UNSTABLE"}
+                {t("cryptoTaskOverlayErrorCode", { code: `0x${errorCode}` })}
             </div>
         </div>
     )

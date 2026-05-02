@@ -13,10 +13,22 @@ export async function getClassroomDashboard(
     classroomId: string,
     deps: ClassroomDashboardDeps = { db }
 ): Promise<ClassroomDashboardViewModel | null> {
-    return deps.db.classroom.findUnique({
+    const classroom = await deps.db.classroom.findUnique({
         where: {
             id: classroomId,
         },
         select: classroomDashboardSelect,
     });
+
+    if (!classroom) {
+        return null;
+    }
+
+    return {
+        ...classroom,
+        students: classroom.students.map((student) => ({
+            ...student,
+            battleLoadout: [],
+        })),
+    };
 }

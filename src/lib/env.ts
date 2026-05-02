@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const PRODUCTION_PUBLIC_URL_REQUIRED = "productionPublicUrlRequired";
+
 /** Env vars that may be blank; treat blank as unset. */
 const trimOrUnset = z
   .union([z.string(), z.undefined()])
@@ -106,7 +108,7 @@ export function validateServerEnv(env: NodeJS.ProcessEnv = process.env) {
   const config = getAppEnv(env);
 
   if (config.NODE_ENV === "production" && !config.NEXT_PUBLIC_APP_URL && !config.NEXTAUTH_URL) {
-    throw new Error("NEXT_PUBLIC_APP_URL or NEXTAUTH_URL is required in production");
+    throw new Error(PRODUCTION_PUBLIC_URL_REQUIRED);
   }
 
   return config;

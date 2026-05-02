@@ -1,4 +1,5 @@
 import { resolvePublicAppOrigin } from "@/lib/billing/resolve-public-url";
+import { BILLING_REDIRECT_URL_UNAVAILABLE } from "@/lib/billing/billing-error-keys";
 import { BILLING_PROVIDER_THAI_MOCK } from "@/lib/billing/billing-providers";
 import type { ThaiBillingAdapter } from "@/lib/billing/providers/types";
 
@@ -20,7 +21,7 @@ export const thaiMockBillingAdapter: ThaiBillingAdapter = {
     } catch {
       return {
         ok: false,
-        message: "Could not build redirect URL (set NEXT_PUBLIC_APP_URL / NEXTAUTH_URL).",
+        message: BILLING_REDIRECT_URL_UNAVAILABLE,
       };
     }
   },

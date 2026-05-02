@@ -16,17 +16,17 @@ const DEFAULT_THAI_ERROR_MESSAGES: Record<AppErrorCode, string> = {
     FORBIDDEN: "คุณไม่มีสิทธิ์ทำรายการนี้",
     INVALID_LOGIN_CODE: "ไม่พบรหัสเข้าใช้งานนี้ กรุณาตรวจสอบอีกครั้ง",
     LOGIN_CODE_ALREADY_LINKED: "รหัสนี้ถูกเชื่อมกับบัญชีอื่นแล้ว",
-    ALREADY_IN_CLASSROOM: "บัญชีนี้เข้าร่วมห้องเรียนนี้อยู่แล้ว",
+    ALREADY_IN_CLASSROOM: "บัญชีนี้อยู่ในห้องเรียนนี้แล้ว",
     RATE_LIMITED: "คุณลองหลายครั้งเกินไป โปรดรอสักครู่แล้วลองใหม่",
     INVALID_PAYLOAD: "ข้อมูลที่ส่งมาไม่ถูกต้อง",
     NOT_FOUND: "ไม่พบข้อมูลที่ต้องการ",
     NO_FILE: "กรุณาเลือกไฟล์ก่อนอัปโหลด",
-    UNSUPPORTED_FILE_TYPE: "ชนิดไฟล์นี้ยังไม่รองรับ",
+    UNSUPPORTED_FILE_TYPE: "ไฟล์ประเภทนี้ยังไม่รองรับ",
     FILE_TOO_LARGE: "ไฟล์มีขนาดใหญ่เกินกำหนด",
     INTERNAL_ERROR: "เกิดข้อผิดพลาดภายในระบบ โปรดลองอีกครั้งภายหลัง",
     QUIZ_ALL_REQUIRED: "ต้องตอบให้ครบทุกข้อก่อนส่ง",
-    NEGAMON_NOT_ENABLED: "ห้องนี้ยังไม่เปิดใช้งาน Negamon",
-    NEGAMON_SELECTION_DISABLED: "ครูไม่อนุญาตให้เลือกมอนสเตอร์เอง",
+    NEGAMON_NOT_ENABLED: "ห้องนี้ยังไม่ได้เปิดใช้ Negamon",
+    NEGAMON_SELECTION_DISABLED: "ครูยังไม่อนุญาตให้นักเรียนเลือกมอนสเตอร์เอง",
     NEGAMON_INVALID_SPECIES: "มอนสเตอร์นี้ไม่อยู่ในรายการที่อนุญาต",
     NEGAMON_PASSIVES_DISABLED: "ระบบสกิลพาสซีฟ Negamon ถูกปิดใช้งานแล้ว",
     NEGAMON_PASSIVE_NOT_FOUND: "ไม่พบสกิลนี้",
@@ -37,12 +37,23 @@ const DEFAULT_THAI_ERROR_MESSAGES: Record<AppErrorCode, string> = {
     SHOP_ALREADY_OWNED: "คุณมีไอเทมนี้แล้ว",
     PLAN_LIMIT_QUESTION_SETS: "จำนวนชุดคำถามถึงขีดจำกัดของแผนแล้ว",
     PLAN_LIMIT_QUESTIONS_PER_SET: "จำนวนข้อในชุดเกินขีดจำกัดของแผน",
-    PLAN_LIMIT_OMR_MONTHLY: "ใช้โควต้าสแกน OMR รายเดือนครบแล้ว",
+    PLAN_LIMIT_OMR_MONTHLY: "ใช้โควตาสแกน OMR รายเดือนครบแล้ว",
     PLAN_LIMIT_LIVE_PLAYERS: "ห้องเต็มตามขีดจำกัดผู้เล่นของแผนโฮสต์",
-    PLAN_LIMIT_AI_FEATURE: "ฟีเจอร์ AI ไม่รวมในแผนปัจจุบัน",
+    PLAN_LIMIT_AI_FEATURE: "ฟีเจอร์ AI นี้ไม่รวมในแผนปัจจุบัน",
     PLAN_LIMIT_CLASSROOMS: "จำนวนห้องเรียนถึงขีดจำกัดของแผนแล้ว",
     PLAN_LIMIT_NEGAMON_SPECIES: "การเลือกสายพันธุ์ Negamon เกินขีดจำกัดของแผน",
     PLAN_LIMIT_AUDIENCE_PLANS: "ต้องเลือกแผนเป้าหมายอย่างน้อยหนึ่งแผน",
+    BILLING_NOT_CONFIGURED: "ระบบชำระเงินยังไม่ได้ตั้งค่า",
+    BILLING_PRICE_NOT_CONFIGURED: "ยังไม่ได้ตั้งค่าราคาสำหรับรอบบิลนี้",
+    BILLING_PRO_MANAGED: "บัญชี School Pro ถูกจัดการโดยองค์กรของคุณ กรุณาติดต่อทีมงานเรื่องการชำระเงิน",
+    BILLING_CHECKOUT_CREATE_FAILED: "ไม่สามารถเริ่มหน้าชำระเงินได้ในขณะนี้",
+    BILLING_THAI_NOT_CONFIGURED: "ช่องทางชำระเงินไทยยังไม่ได้ตั้งค่า",
+    BILLING_OMISE_INACTIVE: "ระบบ Omise ยังไม่ได้เปิดใช้งาน",
+    BILLING_OMISE_NOT_CONFIGURED: "Omise ยังตั้งค่าไม่ครบ",
+    BILLING_CHARGE_SESSION_MISMATCH: "รายการชำระเงินนี้ไม่ตรงกับเซสชันปัจจุบัน",
+    BILLING_PROCESSING_FAILED: "ระบบไม่สามารถยืนยันการชำระเงินให้เสร็จสมบูรณ์ได้",
+    INVALID_ACCESSIBILITY_SETTINGS: "ค่าการช่วยการเข้าถึงไม่ถูกต้อง",
+    ENDPOINT_NO_LONGER_AVAILABLE: "ปลายทางนี้ไม่ได้เปิดใช้งานแล้ว",
 };
 
 const LEGACY_TEXT_ERROR_MESSAGES: Array<[needle: string, message: string]> = [
@@ -53,9 +64,21 @@ const LEGACY_TEXT_ERROR_MESSAGES: Array<[needle: string, message: string]> = [
     ["Invalid data:", "ข้อมูลที่กรอกไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง"],
     ["Registration failed", "สมัครสมาชิกไม่สำเร็จ"],
     ["CredentialsSignin", "อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่"],
+    ["Billing is not configured", DEFAULT_THAI_ERROR_MESSAGES.BILLING_NOT_CONFIGURED],
+    ["Thai/local billing is not configured", DEFAULT_THAI_ERROR_MESSAGES.BILLING_THAI_NOT_CONFIGURED],
+    ["Price not configured for interval", DEFAULT_THAI_ERROR_MESSAGES.BILLING_PRICE_NOT_CONFIGURED],
+    ["School Pro accounts are managed by your organization", DEFAULT_THAI_ERROR_MESSAGES.BILLING_PRO_MANAGED],
+    ["Could not create checkout session", DEFAULT_THAI_ERROR_MESSAGES.BILLING_CHECKOUT_CREATE_FAILED],
+    ["Omise is not active", DEFAULT_THAI_ERROR_MESSAGES.BILLING_OMISE_INACTIVE],
+    ["Omise not configured", DEFAULT_THAI_ERROR_MESSAGES.BILLING_OMISE_NOT_CONFIGURED],
+    ["Charge does not belong to this session", DEFAULT_THAI_ERROR_MESSAGES.BILLING_CHARGE_SESSION_MISMATCH],
+    ["Processing failed", DEFAULT_THAI_ERROR_MESSAGES.BILLING_PROCESSING_FAILED],
+    ["Invalid accessibility settings", DEFAULT_THAI_ERROR_MESSAGES.INVALID_ACCESSIBILITY_SETTINGS],
+    ["No file uploaded", DEFAULT_THAI_ERROR_MESSAGES.NO_FILE],
+    ["Unsupported file type", DEFAULT_THAI_ERROR_MESSAGES.UNSUPPORTED_FILE_TYPE],
+    ["File too large", DEFAULT_THAI_ERROR_MESSAGES.FILE_TOO_LARGE],
 ];
 
-/** Same needles as `LEGACY_TEXT_ERROR_MESSAGES` — English copy for non-TH UI. */
 const LEGACY_EN_TEXT_ERROR_MESSAGES: Array<[needle: string, message: string]> = [
     ["Too many login attempts", "Too many sign-in attempts. Please wait a moment and try again."],
     ["Too many requests", "Too many attempts. Please wait a moment and try again."],
@@ -64,6 +87,19 @@ const LEGACY_EN_TEXT_ERROR_MESSAGES: Array<[needle: string, message: string]> = 
     ["Invalid data:", "Some fields look invalid. Please check and try again."],
     ["Registration failed", "We couldn't complete signup. Please try again."],
     ["CredentialsSignin", "Invalid email or password. Please try again."],
+    ["Billing is not configured", "Billing is not configured right now."],
+    ["Thai/local billing is not configured", "Thai/local billing is not configured right now."],
+    ["Price not configured for interval", "This billing interval is not configured yet."],
+    ["School Pro accounts are managed by your organization", "School Pro billing is managed by your organization."],
+    ["Could not create checkout session", "Could not start checkout right now."],
+    ["Omise is not active", "Omise billing is not active right now."],
+    ["Omise not configured", "Omise billing is not configured right now."],
+    ["Charge does not belong to this session", "This payment does not belong to the current session."],
+    ["Processing failed", "We couldn't finish processing the payment."],
+    ["Invalid accessibility settings", "Accessibility settings are invalid."],
+    ["No file uploaded", "Please choose a file before uploading."],
+    ["Unsupported file type", "This file type is not supported."],
+    ["File too large", "This file is too large."],
 ];
 
 export function getThaiErrorMessage(
@@ -74,7 +110,6 @@ export function getThaiErrorMessage(
     return overrides?.[code] ?? DEFAULT_THAI_ERROR_MESSAGES[code] ?? fallback;
 }
 
-/** Resolve API `AppErrorCode` using `translations` keys `apiError_*` and optional per-flow overrides. */
 export function getLocalizedAppErrorMessage(
     code: AppErrorCode,
     fallback: string,
@@ -99,11 +134,29 @@ const LEGACY_API_ERROR_STRING_KEYS: Record<string, string> = {
     "Already unlocked": "apiError_NEGAMON_PASSIVE_ALREADY_UNLOCKED",
     "Item not found": "apiError_SHOP_ITEM_NOT_FOUND",
     "Already owned": "apiError_SHOP_ALREADY_OWNED",
+    "Billing is not configured": "apiError_BILLING_NOT_CONFIGURED",
+    "Thai/local billing is not configured": "apiError_BILLING_THAI_NOT_CONFIGURED",
+    "Price not configured for interval": "apiError_BILLING_PRICE_NOT_CONFIGURED",
+    "Could not create checkout session": "apiError_BILLING_CHECKOUT_CREATE_FAILED",
+    "Omise is not active": "apiError_BILLING_OMISE_INACTIVE",
+    "Omise not configured": "apiError_BILLING_OMISE_NOT_CONFIGURED",
+    "Charge does not belong to this session.": "apiError_BILLING_CHARGE_SESSION_MISMATCH",
+    "Charge does not belong to this session": "apiError_BILLING_CHARGE_SESSION_MISMATCH",
+    "Processing failed": "apiError_BILLING_PROCESSING_FAILED",
+    "Invalid accessibility settings": "apiError_INVALID_ACCESSIBILITY_SETTINGS",
+    "No file uploaded": "apiError_NO_FILE",
+    "Unsupported file type": "apiError_UNSUPPORTED_FILE_TYPE",
+    "File too large": "apiError_FILE_TOO_LARGE",
 };
 
-/**
- * Parse JSON error bodies from `fetch` / Axios (`{ error: { code, message } }` or legacy `{ error: string }`).
- */
+function localizeDirectTranslationKey(
+    key: string,
+    t: (key: string, params?: Record<string, string | number>) => string
+) {
+    const localized = t(key);
+    return localized !== key ? localized : null;
+}
+
 export function getLocalizedMessageFromApiErrorBody(
     body: unknown,
     t: (key: string, params?: Record<string, string | number>) => string,
@@ -133,12 +186,25 @@ export function getLocalizedMessageFromApiErrorBody(
     }
 
     if (typeof err === "string") {
+        const direct = localizeDirectTranslationKey(err, t);
+        if (direct) return direct;
         const mapKey = LEGACY_API_ERROR_STRING_KEYS[err];
         if (mapKey) {
             const localized = t(mapKey);
             if (localized !== mapKey) return localized;
         }
         return err;
+    }
+
+    if (typeof o.message === "string") {
+        const direct = localizeDirectTranslationKey(o.message, t);
+        if (direct) return direct;
+        const mapKey = LEGACY_API_ERROR_STRING_KEYS[o.message];
+        if (mapKey) {
+            const localized = t(mapKey);
+            if (localized !== mapKey) return localized;
+        }
+        return o.message;
     }
 
     return fallback;
@@ -167,6 +233,9 @@ export function getLocalizedAuthErrorMessage(
 ) {
     if (!error) {
         return t("loginAuthErrorUnknown");
+    }
+    if (error === "RATE_LIMITED") {
+        return t("loginAuthErrorRateLimited");
     }
     if (language === "th") {
         return getThaiErrorMessageFromAuthResult(error);
@@ -266,10 +335,6 @@ export async function getThaiErrorMessageFromResponse(
     return getThaiErrorMessageFromLegacyText(text, fallback);
 }
 
-/**
- * Browser `fetch` often throws/rejects with English-only messages like "Failed to fetch".
- * Returns a translated string when recognized; otherwise `null` so callers can keep their own path.
- */
 export function tryLocalizeFetchNetworkFailureMessage(
     raw: string | null | undefined,
     t: (key: string, params?: Record<string, string | number>) => string

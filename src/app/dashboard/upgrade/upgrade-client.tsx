@@ -13,6 +13,10 @@ import { motion } from "framer-motion";
 import { PageBackLink } from "@/components/ui/page-back-link";
 import { useLanguage } from "@/components/providers/language-provider";
 import { cn } from "@/lib/utils";
+import {
+    getLocalizedErrorMessageFromResponse,
+    tryLocalizeFetchNetworkFailureMessage,
+} from "@/lib/ui-error-messages";
 
 function formatPlusDisplayAmount(n: number): string {
     if (Number.isInteger(n) || Math.abs(n - Math.round(n)) < 0.001) {
@@ -34,9 +38,9 @@ export function UpgradePageClient({
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const currentPlan = session?.user?.plan ?? "FREE";
-    const contactHref = "mailto:support@gamedu.local?subject=GameEdu%20Plan%20Upgrade";
+    const contactHref = `mailto:support@gamedu.local?subject=${encodeURIComponent(t("upgradeContactSubject"))}`;
 
     const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
     const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -85,16 +89,27 @@ export function UpgradePageClient({
                 credentials: "same-origin",
                 body: JSON.stringify({ interval: billingInterval }),
             });
-            const data = (await res.json().catch(() => ({}))) as { error?: string; url?: string };
             if (!res.ok) {
-                setCheckoutError(typeof data.error === "string" ? data.error : t("upgradeCheckoutFailed"));
+                setCheckoutError(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "upgradeCheckoutFailed",
+                        t,
+                        language
+                    )
+                );
                 return;
             }
+            const data = (await res.json().catch(() => ({}))) as { url?: string };
             if (typeof data.url === "string") {
                 window.location.href = data.url;
                 return;
             }
             setCheckoutError(t("upgradeCheckoutFailed"));
+        } catch (error: unknown) {
+            const raw = error instanceof Error ? error.message : null;
+            const net = tryLocalizeFetchNetworkFailureMessage(raw, t);
+            setCheckoutError(net ?? (raw || t("upgradeCheckoutFailed")));
         } finally {
             setCheckoutLoading(false);
         }
@@ -110,11 +125,18 @@ export function UpgradePageClient({
                 credentials: "same-origin",
                 body: JSON.stringify({ interval: billingInterval }),
             });
-            const data = (await res.json().catch(() => ({}))) as { error?: string; url?: string };
             if (!res.ok) {
-                setCheckoutError(typeof data.error === "string" ? data.error : t("upgradeCheckoutFailed"));
+                setCheckoutError(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "upgradeCheckoutFailed",
+                        t,
+                        language
+                    )
+                );
                 return;
             }
+            const data = (await res.json().catch(() => ({}))) as { url?: string };
             if (typeof data.url === "string") {
                 try {
                     const target = new URL(data.url, window.location.origin);
@@ -134,6 +156,10 @@ export function UpgradePageClient({
                 return;
             }
             setCheckoutError(t("upgradeCheckoutFailed"));
+        } catch (error: unknown) {
+            const raw = error instanceof Error ? error.message : null;
+            const net = tryLocalizeFetchNetworkFailureMessage(raw, t);
+            setCheckoutError(net ?? (raw || t("upgradeCheckoutFailed")));
         } finally {
             setThaiLoading(false);
         }

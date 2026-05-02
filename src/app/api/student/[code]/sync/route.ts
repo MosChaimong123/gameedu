@@ -1,4 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import {
+  ENDPOINT_NO_LONGER_AVAILABLE_MESSAGE,
+  createAppErrorResponse,
+} from "@/lib/api-error";
 
 /**
  * Legacy sync endpoint removed. Student portal no longer performs RPG/game-state sync.
@@ -10,8 +14,9 @@ export async function POST(
   void req;
   void context;
 
-  return NextResponse.json(
-    { error: "This endpoint is no longer available" },
-    { status: 410 }
+  return createAppErrorResponse(
+    "ENDPOINT_NO_LONGER_AVAILABLE",
+    ENDPOINT_NO_LONGER_AVAILABLE_MESSAGE,
+    410
   );
 }

@@ -1,5 +1,12 @@
 import { dbAssignmentTypeToFormType } from "@/lib/assignment-type";
 
+export const MANUAL_SCORE_MISSING = "manualScoreMissing";
+export const MANUAL_SCORE_NOT_NUMBER = "manualScoreNotNumber";
+export const MANUAL_SCORE_NOT_WHOLE = "manualScoreNotWhole";
+export const MANUAL_SCORE_CHECKLIST_EMPTY = "manualScoreChecklistEmpty";
+export const MANUAL_SCORE_CHECKLIST_RANGE = "manualScoreChecklistRange";
+export const MANUAL_SCORE_RANGE = "manualScoreRange";
+
 /**
  * ตรวจค่าคะแนนที่ครูใส่ในตาราง / manual-scores ให้สอดคล้องประเภทภารกิจ
  */
@@ -10,7 +17,7 @@ export function parseAndValidateManualScore(
   score: unknown
 ): { ok: true; scoreInt: number } | { ok: false; message: string } {
   if (score === null || score === undefined) {
-    return { ok: false, message: "Missing score" };
+    return { ok: false, message: MANUAL_SCORE_MISSING };
   }
 
   const numeric =
@@ -21,12 +28,12 @@ export function parseAndValidateManualScore(
         : NaN;
 
   if (!Number.isFinite(numeric) || Number.isNaN(numeric)) {
-    return { ok: false, message: "Score must be a number" };
+    return { ok: false, message: MANUAL_SCORE_NOT_NUMBER };
   }
 
   const scoreInt = Math.trunc(numeric);
   if (scoreInt !== numeric) {
-    return { ok: false, message: "Score must be a whole number" };
+    return { ok: false, message: MANUAL_SCORE_NOT_WHOLE };
   }
 
   const formType = dbAssignmentTypeToFormType(assignmentType);
@@ -42,8 +49,8 @@ export function parseAndValidateManualScore(
         ok: false,
         message:
           n <= 0
-            ? "Checklist has no items; score must be 0"
-            : `Checklist score must be between 0 and ${maxMask}`,
+            ? MANUAL_SCORE_CHECKLIST_EMPTY
+            : `${MANUAL_SCORE_CHECKLIST_RANGE}:${maxMask}`,
       };
     }
     return { ok: true, scoreInt };
@@ -55,7 +62,7 @@ export function parseAndValidateManualScore(
   if (scoreInt < 0 || scoreInt > max) {
     return {
       ok: false,
-      message: `Score must be between 0 and ${max}`,
+      message: `${MANUAL_SCORE_RANGE}:${max}`,
     };
   }
 

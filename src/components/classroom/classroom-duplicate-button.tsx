@@ -42,7 +42,7 @@ export function ClassroomDuplicateButton({
       });
 
       if (!res.ok) {
-        throw new Error("Failed to duplicate");
+        throw new Error();
       }
 
       const data = await res.json();

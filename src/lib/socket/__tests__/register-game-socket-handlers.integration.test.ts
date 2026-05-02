@@ -5,6 +5,19 @@ import { io as clientIo, type Socket as ClientSocket } from "socket.io-client";
 import { registerGameSocketHandlers } from "../register-game-socket-handlers";
 import type { GameSettings } from "../../types/game";
 import { resetRateLimitStore } from "../../security/rate-limit";
+import {
+  SOCKET_ERROR_INVALID_CLASSROOM_EVENT,
+  SOCKET_ERROR_INVALID_GAME_CODE,
+  SOCKET_ERROR_INVALID_STUDENT_CODE,
+  SOCKET_ERROR_JOIN_CLASSROOM_FIRST,
+  SOCKET_ERROR_LOBBY_FULL,
+  SOCKET_ERROR_ONLY_HOST_CAN_START,
+  SOCKET_ERROR_TOO_MANY_SUBMISSIONS,
+  SOCKET_ERROR_UNAUTHORIZED,
+  SOCKET_ERROR_UNAUTHORIZED_CLASSROOM_ACCESS,
+  SOCKET_ERROR_UNAUTHORIZED_CLASSROOM_EVENT,
+  SOCKET_ERROR_UNAUTHORIZED_QUESTION_SET,
+} from "../../socket-error-messages";
 
 class FakeGame {
   public pin: string;
@@ -291,7 +304,7 @@ describe("registerGameSocketHandlers integration", () => {
 
     player.emit("start-game", { pin: gameCreated.pin });
     const denied = await new Promise<{ message: string }>((resolve) => player.once("error", resolve));
-    expect(denied.message).toBe("Only the host can start the game");
+    expect(denied.message).toBe(SOCKET_ERROR_ONLY_HOST_CAN_START);
 
     host.disconnect();
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -325,7 +338,7 @@ describe("registerGameSocketHandlers integration", () => {
     });
 
     const denied = await new Promise<{ message: string }>((resolve) => host.once("error", resolve));
-    expect(denied.message).toBe("Unauthorized");
+    expect(denied.message).toBe(SOCKET_ERROR_UNAUTHORIZED);
     expect(auditEvents).toContainEqual(
       expect.objectContaining({
         action: "socket.game.create.denied",
@@ -347,7 +360,7 @@ describe("registerGameSocketHandlers integration", () => {
     });
 
     const denied = await new Promise<{ message: string }>((resolve) => host.once("error", resolve));
-    expect(denied.message).toBe("Unauthorized question set access");
+    expect(denied.message).toBe(SOCKET_ERROR_UNAUTHORIZED_QUESTION_SET);
     expect(auditEvents).toContainEqual(
       expect.objectContaining({
         actorUserId: "teacher-1",
@@ -369,7 +382,7 @@ describe("registerGameSocketHandlers integration", () => {
     outsider.emit("join-classroom", "class-1");
 
     const outsiderDenied = await new Promise<{ message: string }>((resolve) => outsider.once("error", resolve));
-    expect(outsiderDenied.message).toBe("Unauthorized classroom access");
+    expect(outsiderDenied.message).toBe(SOCKET_ERROR_UNAUTHORIZED_CLASSROOM_ACCESS);
     expect(auditEvents).toContainEqual(
       expect.objectContaining({
         actorUserId: "teacher-1",
@@ -422,7 +435,7 @@ describe("registerGameSocketHandlers integration", () => {
     });
 
     const updateDenied = await new Promise<{ message: string }>((resolve) => outsider.once("error", resolve));
-    expect(updateDenied.message).toBe("Unauthorized classroom access");
+    expect(updateDenied.message).toBe(SOCKET_ERROR_UNAUTHORIZED_CLASSROOM_ACCESS);
     expect(auditEvents).toContainEqual(
       expect.objectContaining({
         action: "socket.classroom.update.denied",
@@ -456,7 +469,7 @@ describe("registerGameSocketHandlers integration", () => {
     });
 
     const pointDenied = await new Promise<{ message: string }>((resolve) => student.once("error", resolve));
-    expect(pointDenied.message).toBe("Unauthorized classroom event");
+    expect(pointDenied.message).toBe(SOCKET_ERROR_UNAUTHORIZED_CLASSROOM_EVENT);
     expect(auditEvents).toContainEqual(
       expect.objectContaining({
         actorUserId: "student-user-1",
@@ -473,7 +486,7 @@ describe("registerGameSocketHandlers integration", () => {
     });
 
     const invalidDenied = await new Promise<{ message: string }>((resolve) => student.once("error", resolve));
-    expect(invalidDenied.message).toBe("Invalid classroom event");
+    expect(invalidDenied.message).toBe(SOCKET_ERROR_INVALID_CLASSROOM_EVENT);
     expect(auditEvents).toContainEqual(
       expect.objectContaining({
         action: "socket.classroom.update.denied",
@@ -512,7 +525,7 @@ describe("registerGameSocketHandlers integration", () => {
     });
 
     const denied = await new Promise<{ message: string }>((resolve) => teacher.once("error", resolve));
-    expect(denied.message).toBe("Join the classroom before sending updates");
+    expect(denied.message).toBe(SOCKET_ERROR_JOIN_CLASSROOM_FIRST);
     expect(auditEvents).toContainEqual(
       expect.objectContaining({
         actorUserId: "teacher-1",
@@ -707,7 +720,7 @@ describe("registerGameSocketHandlers integration", () => {
     });
 
     const denied = await new Promise<{ message: string }>((resolve) => player.once("error", resolve));
-    expect(denied.message).toBe("Invalid student code");
+    expect(denied.message).toBe(SOCKET_ERROR_INVALID_STUDENT_CODE);
     expect(games.get(gameCreated.pin)?.players).toHaveLength(0);
 
     host.disconnect();
@@ -738,7 +751,7 @@ describe("registerGameSocketHandlers integration", () => {
     });
 
     const err = await new Promise<{ message: string }>((resolve) => player.once("error", resolve));
-    expect(err.message).toBe("Invalid game code");
+    expect(err.message).toBe(SOCKET_ERROR_INVALID_GAME_CODE);
     expect(auditEvents).toContainEqual(
       expect.objectContaining({
         action: "socket.negamon.answer.denied",
@@ -809,7 +822,7 @@ describe("registerGameSocketHandlers integration", () => {
 
     player.emit("submit-negamon-answer", payload);
     const rateErr = await new Promise<{ message: string }>((resolve) => player.once("error", resolve));
-    expect(rateErr.message).toBe("Too many submissions. Slow down.");
+    expect(rateErr.message).toBe(SOCKET_ERROR_TOO_MANY_SUBMISSIONS);
     expect(auditEvents).toContainEqual(
       expect.objectContaining({
         action: "socket.negamon.answer.denied",
@@ -834,7 +847,7 @@ describe("registerGameSocketHandlers integration", () => {
     const second = await connectClient();
     second.emit("join-game", { pin: gameCreated.pin, nickname: "Extra" });
     const denied = await new Promise<{ message: string }>((resolve) => second.once("error", resolve));
-    expect(denied.message).toBe("Lobby is full (plan player limit)");
+    expect(denied.message).toBe(SOCKET_ERROR_LOBBY_FULL);
 
     host.disconnect();
     first.disconnect();

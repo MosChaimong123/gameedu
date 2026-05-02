@@ -1,5 +1,12 @@
 /** Omise REST (Thailand): Basic auth = secret key + ":" as username, empty password. */
 
+import {
+  BILLING_OMISE_CHARGE_FAILED,
+  BILLING_OMISE_MINIMUM_AMOUNT,
+  BILLING_OMISE_MISSING_AUTHORIZE_URI,
+  BILLING_OMISE_RETRIEVE_FAILED,
+} from "@/lib/billing/billing-error-keys";
+
 const OMISE_API = "https://api.omise.co";
 
 function basicAuth(secretKey: string): string {
@@ -35,7 +42,7 @@ export async function omiseCreatePromptPayCharge(params: {
   const { secretKey, amountSatang, metadata, returnUri } = params;
 
   if (amountSatang < 2000) {
-    return { ok: false, message: "Omise PromptPay minimum amount is 2000 satang (THB 20)." };
+    return { ok: false, message: BILLING_OMISE_MINIMUM_AMOUNT };
   }
 
   const body = new URLSearchParams();
@@ -64,8 +71,8 @@ export async function omiseCreatePromptPayCharge(params: {
       json.object === "error"
         ? (json as OmiseErrorJson).message ??
           (json as OmiseErrorJson).code ??
-          "Omise charge failed"
-        : "Omise charge failed";
+          BILLING_OMISE_CHARGE_FAILED
+        : BILLING_OMISE_CHARGE_FAILED;
     return { ok: false, message: msg };
   }
 
@@ -75,7 +82,7 @@ export async function omiseCreatePromptPayCharge(params: {
   if (!authorizeUri || !chargeId) {
     return {
       ok: false,
-      message: "Omise returned no authorize_uri or charge id (check PromptPay is enabled on your Omise account).",
+      message: BILLING_OMISE_MISSING_AUTHORIZE_URI,
     };
   }
 
@@ -99,8 +106,8 @@ export async function omiseRetrieveCharge(
       json.object === "error"
         ? (json as OmiseErrorJson).message ??
           (json as OmiseErrorJson).code ??
-          "Omise retrieve charge failed"
-        : "Omise retrieve charge failed";
+          BILLING_OMISE_RETRIEVE_FAILED
+        : BILLING_OMISE_RETRIEVE_FAILED;
     return { ok: false, message: msg };
   }
 

@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { db } from "@/lib/db";
+import { getOptionalDbModel } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { PageBackLink } from "@/components/ui/page-back-link";
 import { AdminSectionHeader } from "@/components/admin/admin-section-header";
@@ -11,9 +11,23 @@ export default async function AdminTeacherMissionsPage() {
         redirect("/dashboard");
     }
 
-    const items = await db.teacherMission.findMany({
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-    });
+    const teacherMission = getOptionalDbModel<{
+        findMany: (args: unknown) => Promise<Array<{
+            id: string;
+            title: string;
+            reward: number;
+            completedDemo: boolean;
+            mascot: string | null;
+            sortOrder: number;
+            isActive: boolean;
+            audiencePlans: string[];
+        }>>
+    }>("teacherMission");
+    const items = teacherMission
+        ? await teacherMission.findMany({
+              orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+          })
+        : [];
 
     const serialized = items.map((row) => ({
         id: row.id,

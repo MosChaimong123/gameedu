@@ -76,6 +76,7 @@ export function ClassroomDashboardContent({
                                     key={student.id}
                                     {...student}
                                     avatarSeed={student.avatar || student.id}
+                                    equippedFrame={student.equippedFrame}
                                     onClick={() => onStudentClick(student)}
                                     onContextMenu={(event) => {
                                         event.preventDefault();

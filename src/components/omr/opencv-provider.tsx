@@ -76,7 +76,7 @@ export function OpenCVProvider({ children }: { children: React.ReactNode }) {
                         {cvStatus === "error" ? t("omrCvLoadError") : t("omrCvLoading")}
                     </h2>
                     <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mb-8">
-                        {cvStatus === "error" ? "Connection Timeout or CDN Error" : "Loading Computer Vision Library (Large File)"}
+                        {cvStatus === "error" ? t("omrCvErrorShort") : t("omrCvLoadingShort")}
                     </p>
 
                     {cvStatus === "error" && (
@@ -84,8 +84,8 @@ export function OpenCVProvider({ children }: { children: React.ReactNode }) {
                             <Button variant="outline" onClick={() => window.location.reload()} className="h-14 rounded-2xl border-2 font-black text-slate-800 bg-white">
                                 {t("omrCvRetryReload")}
                             </Button>
-                            <p className="text-[10px] text-slate-500 text-center font-medium uppercase tracking-widest">
-                                * OpenCV.js has a large file size (8MB+).<br/>Please check your internet connection.
+                            <p className="text-center text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                                {t("omrCvLargeFileHint")}
                             </p>
                         </div>
                     )}

@@ -87,14 +87,12 @@ describe("student dashboard header", () => {
         code: "ABC123",
         currentUserId: "user-1",
         mode: "learn",
-        showAccessibility: false,
         classIcon: null,
         isImageIcon: false,
         themeClass: "from-sky-500 to-indigo-500",
         themeStyle: {},
         notificationTray: React.createElement("div"),
         onToggleMode: vi.fn(),
-        onToggleAccessibility: vi.fn(),
       })
     );
 
@@ -131,14 +129,12 @@ describe("student dashboard header", () => {
         code: "ABC123",
         currentUserId: "user-1",
         mode: "game",
-        showAccessibility: true,
         classIcon: "icon",
         isImageIcon: false,
         themeClass: "from-sky-500 to-indigo-500",
         themeStyle: {},
         notificationTray: React.createElement("div"),
         onToggleMode: vi.fn(),
-        onToggleAccessibility: vi.fn(),
       })
     );
 

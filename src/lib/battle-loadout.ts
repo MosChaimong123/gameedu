@@ -5,6 +5,11 @@ export type BattleLoadoutValidation =
     | { ok: true; normalizedIds: string[] }
     | { ok: false; code: string; message: string };
 
+export const BATTLE_LOADOUT_DUPLICATE_ITEM = "battleLoadoutDuplicateItem";
+export const BATTLE_LOADOUT_UNKNOWN_ITEM = "battleLoadoutUnknownItem";
+export const BATTLE_LOADOUT_CATEGORY_LIMIT = "battleLoadoutCategoryLimit";
+export const BATTLE_LOADOUT_NOT_OWNED = "battleLoadoutNotOwned";
+
 /** Client-side mirror: remove one stack unit per id (no throw if missing). */
 export function applyConsumeInventory(inventory: string[], consumedIds: string[]): string[] {
     const out = [...inventory];
@@ -55,13 +60,13 @@ export function validateBattleLoadout(
         if (!id) continue;
 
         if (seen.has(id)) {
-            return { ok: false, code: "DUPLICATE_SLOT", message: "Duplicate item in loadout" };
+            return { ok: false, code: "DUPLICATE_SLOT", message: BATTLE_LOADOUT_DUPLICATE_ITEM };
         }
         seen.add(id);
 
         const item = getBattleItemById(id);
         if (!item) {
-            return { ok: false, code: "UNKNOWN_ITEM", message: `Not a battle item: ${id}` };
+            return { ok: false, code: "UNKNOWN_ITEM", message: `${BATTLE_LOADOUT_UNKNOWN_ITEM}:${id}` };
         }
 
         const cat = item.battleCategory ?? "stat_boost";
@@ -69,13 +74,13 @@ export function validateBattleLoadout(
             return {
                 ok: false,
                 code: "CATEGORY_LIMIT",
-                message: `Only one ${cat} item allowed`,
+                message: `${BATTLE_LOADOUT_CATEGORY_LIMIT}:${cat}`,
             };
         }
         perCategory.set(cat, id);
 
         if (countInInventory(inventory, id) < 1) {
-            return { ok: false, code: "NOT_IN_STOCK", message: `Not owned: ${id}` };
+            return { ok: false, code: "NOT_IN_STOCK", message: `${BATTLE_LOADOUT_NOT_OWNED}:${id}` };
         }
     }
 

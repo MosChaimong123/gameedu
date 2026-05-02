@@ -1,12 +1,14 @@
 "use client";
 
-import { Users, ArrowRight } from "lucide-react";
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 import { Classroom } from "@prisma/client";
+import { ArrowRight, Users } from "lucide-react";
+
+import { useLanguage } from "@/components/providers/language-provider";
 import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
-import { ClassroomManagementButton } from "./classroom-management-button";
 import { ClassroomDuplicateButton } from "./classroom-duplicate-button";
+import { ClassroomManagementButton } from "./classroom-management-button";
 
 interface ClassroomCardProps {
     classroom: Classroom & { _count?: { students: number } };
@@ -14,78 +16,75 @@ interface ClassroomCardProps {
 }
 
 export function ClassroomCard({ classroom, studentCount }: ClassroomCardProps) {
+    const { t } = useLanguage();
     const { id, name, grade, emoji, theme, image } = classroom;
     const count = studentCount ?? classroom._count?.students ?? 0;
-    const icon = emoji || image || "🛡️";
+    const icon = emoji || image || "🏫";
 
     return (
         <div className="group relative">
-            {/* Action Buttons */}
-            <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-                <ClassroomDuplicateButton
-                    classId={id}
-                    name={name}
-                />
-                <ClassroomManagementButton
-                    classId={id}
-                    name={name}
-                    theme={theme}
-                />
+            <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+                <ClassroomDuplicateButton classId={id} name={name} />
+                <ClassroomManagementButton classId={id} name={name} theme={theme} />
             </div>
 
             <Link href={`/dashboard/classrooms/${id}`} className="block">
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-pointer">
-
-                {/* Colour banner */}
-                <div 
-                    className={`h-28 bg-gradient-to-br ${getThemeBgClass(theme)} relative overflow-hidden flex items-center justify-center`}
-                    style={getThemeBgStyle(theme)}
-                >
-                    {/* Decorative circles */}
-                    <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
-                    <div className="absolute -bottom-6 -left-6 w-28 h-28 bg-black/10 rounded-full" />
-
-                    {/* Grade centered in banner */}
-                    {grade && (
-                        <div className="text-center z-10">
-                            <p className="text-white/70 text-xs font-semibold uppercase tracking-widest">ระดับชั้น</p>
-                            <p className="text-white text-3xl font-black drop-shadow-sm">{grade}</p>
-                        </div>
-                    )}
-
-                    {/* Student count badge top-left */}
-                    <div className="absolute top-3 left-3 bg-black/20 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-                        <Users className="w-3 h-3" />
-                        {count}
-                    </div>
-                </div>
-
-                {/* Icon badge */}
-                <div className="px-5 pt-0 relative">
-                    <div 
-                        className={`-mt-6 w-14 h-14 rounded-2xl bg-gradient-to-br ${getThemeBgClass(theme)} shadow-lg flex items-center justify-center text-2xl border-4 border-white overflow-hidden`}
+                <div className="cursor-pointer overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+                    <div
+                        className={`relative flex h-28 items-center justify-center overflow-hidden bg-gradient-to-br ${getThemeBgClass(theme)}`}
                         style={getThemeBgStyle(theme)}
                     >
-                        {icon.startsWith('data:image') || icon.startsWith('http') ? (
-                            <Image src={icon} alt="Class Icon" fill sizes="56px" unoptimized className="object-cover" />
-                        ) : (
-                            <span>{icon}</span>
+                        <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10" />
+                        <div className="absolute -bottom-6 -left-6 h-28 w-28 rounded-full bg-black/10" />
+
+                        {grade && (
+                            <div className="z-10 text-center">
+                                <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
+                                    {t("classroomGradeLabel")}
+                                </p>
+                                <p className="text-3xl font-black text-white drop-shadow-sm">{grade}</p>
+                            </div>
                         )}
-                    </div>
-                </div>
 
-                {/* Body */}
-                <div className="px-5 pt-3 pb-5">
-                    <h3 className="text-2xl font-black text-slate-800 truncate group-hover:text-indigo-600 transition-colors leading-tight">{name}</h3>
-
-                    {/* Footer */}
-                    <div 
-                        className={`mt-4 w-full py-2.5 px-4 rounded-xl bg-gradient-to-r ${getThemeBgClass(theme)} text-white text-sm font-bold flex items-center justify-center gap-2 group-hover:shadow-md transition-all`}
-                        style={getThemeBgStyle(theme)}
-                    >
-                        เปิดห้องเรียน <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-black/20 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-sm">
+                            <Users className="h-3 w-3" />
+                            {count}
+                        </div>
                     </div>
-                </div>
+
+                    <div className="relative px-5 pt-0">
+                        <div
+                            className={`-mt-6 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-gradient-to-br text-2xl shadow-lg ${getThemeBgClass(theme)}`}
+                            style={getThemeBgStyle(theme)}
+                        >
+                            {icon.startsWith("data:image") || icon.startsWith("http") ? (
+                                <Image
+                                    src={icon}
+                                    alt={t("classroomIconAlt")}
+                                    fill
+                                    sizes="56px"
+                                    unoptimized
+                                    className="object-cover"
+                                />
+                            ) : (
+                                <span>{icon}</span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="px-5 pb-5 pt-3">
+                        <h3 className="truncate text-2xl font-black leading-tight text-slate-800 transition-colors group-hover:text-indigo-600">
+                            {name}
+                        </h3>
+
+                        <div
+                            className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r px-4 py-2.5 text-sm font-bold text-white transition-all group-hover:shadow-md ${getThemeBgClass(theme)}`}
+                            style={getThemeBgStyle(theme)}
+                        >
+                            {t("classroomOpenRoom")}
+                            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        </div>
+                    </div>
                 </div>
             </Link>
         </div>

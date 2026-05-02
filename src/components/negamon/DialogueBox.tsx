@@ -127,11 +127,11 @@ export function DialogueBox({
         }
     }, [isTyping, fullText.length, isLastLine]);
 
-    if (!currentLine) return null;
-
     const displayedText = fullText.slice(0, charIdx);
-    const showBadges    = !isTyping && (currentLine.badges?.length ?? 0) > 0;
-    const hasStructuredLayout = Boolean(currentLine.actor || currentLine.skill || currentLine.damageText || currentLine.statusText);
+    const showBadges    = !isTyping && (currentLine?.badges?.length ?? 0) > 0;
+    const hasStructuredLayout = Boolean(
+        currentLine?.actor || currentLine?.skill || currentLine?.damageText || currentLine?.statusText
+    );
     const historyLines = showHistory
         ? lines.slice(Math.max(0, lineIdx - historyLimit), lineIdx)
         : [];
@@ -142,6 +142,8 @@ export function DialogueBox({
         if (!node) return;
         node.scrollTop = node.scrollHeight;
     }, [showHistory, historyLines.length, lineIdx]);
+
+    if (!currentLine) return null;
 
     return (
         <motion.div
@@ -163,7 +165,7 @@ export function DialogueBox({
                     <div className="space-y-1.5">
                         {historyLines.map((line, index) => (
                             <div key={`${line.text}-${index}`} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-start gap-2">
                                     {line.actorIcon ? (
                                         <NegamonFormIcon
                                             icon={line.actorIcon}
@@ -179,7 +181,26 @@ export function DialogueBox({
                                             {line.actor?.charAt(0) ?? "?"}
                                         </span>
                                     )}
-                                    <p className="text-xs font-semibold text-slate-700">{line.text}</p>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-start justify-between gap-1.5">
+                                            <p className="text-xs font-semibold text-slate-700">{line.text}</p>
+                                            {line.damageText && (
+                                                <span
+                                                    className={cn(
+                                                        "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black",
+                                                        damageBadgeTone(line.damageText)
+                                                    )}
+                                                >
+                                                    {line.damageText}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {line.statusText && line.statusText !== line.text && (
+                                            <p className="mt-0.5 text-[10px] font-semibold leading-snug text-slate-500">
+                                                {line.statusText}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))}

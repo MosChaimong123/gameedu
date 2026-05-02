@@ -286,7 +286,7 @@ export function CreatePostModal({
                                 <LinkIcon className="w-3 h-3" /> {t("boardLinkShareLabel")}
                             </Label>
                             <Input 
-                                placeholder="https://..."
+                                placeholder={t("boardLinkPlaceholder")}
                                 value={linkUrl}
                                 onChange={(e) => setLinkUrl(e.target.value)}
                                 className="rounded-xl border-slate-200"
@@ -393,7 +393,7 @@ export function CreatePostModal({
                                 <Youtube className="w-3 h-3" /> {t("boardYoutubeLinkLabel")}
                             </Label>
                             <Input 
-                                placeholder="https://www.youtube.com/watch?v=..."
+                                placeholder={t("boardYoutubePlaceholder")}
                                 value={youtubeUrl}
                                 onChange={(e) => setYoutubeUrl(e.target.value)}
                                 className="rounded-xl border-slate-200"
@@ -466,7 +466,7 @@ export function CreatePostModal({
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img 
                                             src={URL.createObjectURL(file)} 
-                                            alt="Preview" 
+                                            alt={t("boardImagePreviewAlt")} 
                                             className="w-full h-full object-cover"
                                         />
                                         <button 

@@ -146,4 +146,29 @@
       scroll-behavior: auto !important;
     }
   }
+
+  /* Profile frame tier chrome (T4 premium motion — respects reduced-motion above) */
+  @keyframes frame-tier-conic-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .frame-tier-conic-spin {
+    animation: frame-tier-conic-spin 14s linear infinite;
+  }
+
+  @keyframes frame-tier-shimmer {
+    0%,
+    100% {
+      opacity: 0.06;
+    }
+    50% {
+      opacity: 0.16;
+    }
+  }
+
+  .frame-tier-shimmer {
+    animation: frame-tier-shimmer 4s ease-in-out infinite;
+  }
 }

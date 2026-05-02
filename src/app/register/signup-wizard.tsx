@@ -374,15 +374,15 @@ export default function SignupWizard() {
                     </Button>
 
                     <p className="text-center text-xs font-medium leading-5 text-slate-500">
-                        By creating an account, you agree to the{" "}
+                        {t("signupLegalPrefix")}{" "}
                         <Link href="/terms" className="font-bold text-indigo-600 hover:text-indigo-800">
-                            Terms
+                            {t("signupLegalTerms")}
                         </Link>{" "}
-                        and{" "}
+                        {t("signupLegalAnd")}{" "}
                         <Link href="/privacy" className="font-bold text-indigo-600 hover:text-indigo-800">
-                            Privacy Policy
+                            {t("signupLegalPrivacy")}
                         </Link>
-                        .
+                        {t("signupLegalSuffix")}
                     </p>
 
                     <div className="relative my-4">

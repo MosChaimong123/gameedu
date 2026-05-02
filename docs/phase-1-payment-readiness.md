@@ -1,0 +1,81 @@
+# Phase 1 Payment Readiness
+
+## Provider Decision
+
+Open one payment provider first. Do not enable Stripe and Omise together for public launch until one path is fully verified.
+
+Recommended order for Thai teacher MVP:
+
+1. Omise/PromptPay if the primary buyers are Thai teachers and PromptPay is the expected default.
+2. Stripe if card checkout is required first or Stripe operations are easier for the team.
+
+## Required Environment
+
+### Stripe
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRICE_PLUS_MONTHLY`
+- `STRIPE_PRICE_PLUS_YEARLY`
+- optional: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- webhook URL: `https://YOUR_DOMAIN/api/webhooks/stripe`
+
+### Omise
+
+- `BILLING_THAI_PROVIDER=omise`
+- `OMISE_SECRET_KEY`
+- `NEXT_PUBLIC_OMISE_PUBLIC_KEY`
+- `OMISE_PLUS_MONTHLY_SATANG`
+- `OMISE_PLUS_YEARLY_SATANG`
+- webhook URL: `https://YOUR_DOMAIN/api/webhooks/billing/omise`
+
+Never use `BILLING_THAI_PROVIDER=mock` for production paid launch.
+
+## Stripe Smoke Checklist
+
+1. Log in as teacher.
+2. Open `/dashboard/upgrade`.
+3. Start monthly checkout.
+4. Complete test payment.
+5. Return to app with `checkout=success`.
+6. Confirm DB user fields:
+   - `plan: "PLUS"`
+   - `planStatus: "ACTIVE"`
+   - `customerId` set
+   - `planExpiry` or subscription-derived status set as expected
+7. Refresh session and confirm UI sees PLUS.
+8. Replay the same Stripe event from Dashboard/CLI.
+9. Confirm duplicate webhook does not apply duplicate entitlement.
+10. Cancel subscription in Stripe test mode.
+11. Confirm subscription deletion/update maps plan correctly.
+
+## Omise Smoke Checklist
+
+1. Set `BILLING_THAI_PROVIDER=omise`.
+2. Log in as teacher.
+3. Open `/dashboard/upgrade`.
+4. Start Thai payment.
+5. Confirm Omise charge is created and return URL is valid.
+6. Complete PromptPay test payment.
+7. Confirm browser return reconcile or webhook grants PLUS only after paid charge retrieval.
+8. Re-run reconcile.
+9. Replay webhook.
+10. Confirm duplicate idempotency through `BillingProviderEvent`.
+11. Test unpaid/expired charge and confirm no entitlement.
+
+## Static Findings
+
+- Stripe webhook verifies signature and claims event idempotency.
+- Omise webhook retrieves charge from Omise before entitlement.
+- Omise/browser reconcile shares charge-id idempotency.
+- Shared entitlement writer is `src/lib/billing/apply-plus-entitlement.ts`.
+- Production payment readiness still requires real provider dashboard setup and sandbox/live verification.
+
+## No-Go Payment Conditions
+
+- Missing webhook secret for selected provider.
+- Checkout UI is enabled but webhook is not configured.
+- Mock provider is enabled in production.
+- Duplicate webhook grants entitlement twice.
+- Failed/unpaid/expired payment grants PLUS.
+- Session does not refresh plan after payment.

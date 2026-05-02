@@ -61,7 +61,7 @@ export function QuestionList({ questions, onAddQuestion, onEditQuestion, onDelet
                                         {q.image && (
                                             <div className="w-16 h-16 rounded overflow-hidden bg-slate-200 flex-shrink-0 border">
                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img src={q.image} alt="Question" className="w-full h-full object-cover" />
+                                                <img src={q.image} alt={t("questionImageAlt")} className="w-full h-full object-cover" />
                                             </div>
                                         )}
                                         <p className="font-bold text-slate-800 text-lg line-clamp-2">
@@ -107,7 +107,7 @@ export function QuestionList({ questions, onAddQuestion, onEditQuestion, onDelet
                                             {q.optionTypes?.[idx] === "IMAGE" && opt ? (
                                                 <div className="w-8 h-8 relative overflow-hidden rounded border bg-white">
                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img src={opt} alt="Opt" className="w-full h-full object-cover" />
+                                                    <img src={opt} alt={t("optionImageAlt", { n: idx + 1 })} className="w-full h-full object-cover" />
                                                 </div>
                                             ) : (
                                                 <div className="truncate min-w-0 flex-1">

@@ -1,4 +1,5 @@
 import { getAppEnv } from "@/lib/env";
+import { BILLING_RETURN_URL_UNAVAILABLE } from "@/lib/billing/billing-error-keys";
 import { omiseCreatePromptPayCharge } from "@/lib/billing/omise-api";
 import { resolveOmisePlusAmountSatang } from "@/lib/billing/omise-plus-amounts";
 import { BILLING_PROVIDER_OMISE } from "@/lib/billing/billing-providers";
@@ -19,7 +20,7 @@ export function createOmiseBillingAdapter(secretKey: string): ThaiBillingAdapter
       if (!rawOrigin) {
         return {
           ok: false,
-          message: "Could not build return URL (set NEXT_PUBLIC_APP_URL / NEXTAUTH_URL or open the app via a normal URL).",
+          message: BILLING_RETURN_URL_UNAVAILABLE,
         };
       }
 

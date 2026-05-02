@@ -6,6 +6,7 @@ import { OMISE_PENDING_CHARGE_COOKIE } from "@/lib/billing/omise-constants";
 import { applyPlusFromPaidOmiseCharge } from "@/lib/billing/omise-entitlement";
 import { omiseRetrieveCharge } from "@/lib/billing/omise-api";
 import { getThaiBillingProviderId } from "@/lib/billing/thai-billing-env";
+import { createAppError } from "@/lib/api-error";
 
 export const runtime = "nodejs";
 
@@ -22,12 +23,18 @@ function jsonWithClearedChargeCookie(body: unknown, status = 200) {
 export async function POST() {
   try {
     if (getThaiBillingProviderId() !== "omise") {
-      return NextResponse.json({ ok: false, error: "Omise is not active" }, { status: 503 });
+      return NextResponse.json(
+        { ok: false, ...createAppError("BILLING_OMISE_INACTIVE", "Omise is not active") },
+        { status: 503 }
+      );
     }
 
     const secret = getAppEnv().OMISE_SECRET_KEY;
     if (!secret) {
-      return NextResponse.json({ ok: false, error: "Omise not configured" }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, ...createAppError("BILLING_OMISE_NOT_CONFIGURED", "Omise not configured") },
+        { status: 500 }
+      );
     }
 
     const session = await auth();
@@ -62,7 +69,13 @@ export async function POST() {
     const metaUserStr = typeof metaUser === "string" ? metaUser.trim() : "";
     if (metaUserStr !== userId) {
       return jsonWithClearedChargeCookie(
-        { ok: false, error: "Charge does not belong to this session." },
+        {
+          ok: false,
+          ...createAppError(
+            "BILLING_CHARGE_SESSION_MISMATCH",
+            "Charge does not belong to this session."
+          ),
+        },
         403
       );
     }
@@ -74,10 +87,19 @@ export async function POST() {
       return jsonWithClearedChargeCookie({ ok: true, outcome });
     } catch (e) {
       console.error("[billing/omise/reconcile] apply", e);
-      return jsonWithClearedChargeCookie({ ok: false, error: "Processing failed" }, 500);
+      return jsonWithClearedChargeCookie(
+        {
+          ok: false,
+          ...createAppError("BILLING_PROCESSING_FAILED", "Processing failed"),
+        },
+        500
+      );
     }
   } catch (e) {
     console.error("[billing/omise/reconcile]", e);
-    return NextResponse.json({ ok: false, error: "Internal error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, ...createAppError("INTERNAL_ERROR", "Internal error") },
+      { status: 500 }
+    );
   }
 }

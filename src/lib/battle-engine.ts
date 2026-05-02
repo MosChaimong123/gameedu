@@ -15,7 +15,15 @@ export const BASIC_ATTACK_MOVE_ID = NEGAMON_BASIC_ATTACK_MOVE_ID;
 
 export type EffectEntry = {
     effect: StatusEffect;
-    turnsLeft: number; // -1 = permanent until battle ends (POISON)
+    turnsLeft: number;
+    /** PARALYZE: ข้ามเทิร์นทุกครั้ง (ไม่ทอย 50%) */
+    paralyzeFullSkip?: boolean;
+    /** BURN: สัดส่วนของ max HP ต่อ tick (เช่น 0.04) — ถ้าไม่มีใช้ค่า default ของ engine */
+    burnDotRate?: number;
+    /** LOWER_EN_REGEN: ลด EN ต่อ regen รอบ */
+    regenPenalty?: number;
+    /** IGNORE_DEF: คูณ DEF ตอนคำนวณดาเมจ (default = IGNORE_DEF_RETAINED_DEF_MULTIPLIER) */
+    ignoreDefRetained?: number;
 };
 
 /** Stat multiplier stages tracked per fighter */
@@ -24,7 +32,6 @@ export type StatStages = {
     def: number;
     spd: number;
     waterDmg: number;   // extra multiplier on WATER moves
-    ignoreDef: boolean; // next attack ignores DEF entirely
 };
 
 export type BattleFighter = {
@@ -43,7 +50,12 @@ export type BattleFighter = {
     effects: EffectEntry[];
     moves: MonsterMove[];
     rankIndex: number;
-    badlyPoisonTick: number; // escalating poison counter
+    badlyPoisonTick: number; // legacy field; BADLY_POISON ใช้อัตราคงที่แล้ว
+    /**
+     * ฝนกรด: จำนวนทิกพิษที่ผ่านมาแล้วขณะคู่ต่อสู้เป็น `acid_rain`
+     * ดาเมจทิกนี้ = ฐานพิษ + (ค่านี้ × 2%) ของ max HP; หลังทิกเพิ่มค่านี้เมื่อคู่ต่อสู้เป็นนาค
+     */
+    acidRainPoisonStacks: number;
     immunities: string[];    // status effects this fighter is immune to
     activeItems: string[];   // item IDs currently providing effects
     goldBonus: number;       // flat bonus gold before multiplier if this fighter wins
@@ -55,6 +67,8 @@ export type BattleFighter = {
     currentEnergy: number;
     energyRegenPerTurn: number;
     actionMeter: number;
+    /** Number of completed action steps where this fighter was the actor (per-fighter turn counter). */
+    turnsCompleted: number;
 };
 
 export type TurnEventKind =
@@ -80,6 +94,14 @@ export type TurnEvent = {
     moveName?: string;
     value?: number;
     effect?: StatusEffect;
+    /** Present on status_apply: turns remaining for this effect on the holder */
+    turnsLeft?: number;
+    /** From EffectEntry on status_apply (LOWER_EN_REGEN) */
+    regenPenalty?: number;
+    /** From EffectEntry on status_apply (BURN) — fraction of max HP per tick */
+    burnDotRate?: number;
+    /** From EffectEntry on status_apply (IGNORE_DEF) */
+    ignoreDefRetained?: number;
     effectiveness?: "super" | "normal" | "weak";
     stab?: boolean;
     crit?: boolean;           // critical hit
@@ -106,34 +128,62 @@ const MAX_TURNS = 20;
 const GOLD_REWARD_BASE = 30;
 /** Cap on combined goldMultiplier from battle items (winner payout). */
 export const BATTLE_GOLD_MULT_CAP = 2.5;
-const BURN_DOT_RATE = 0.03;
+/** ค่าเริ่มต้น DoT ไหม้ (% ของ max HP ต่อปลายเทิร์น) — ท่าที่กำหนด `effectBurnDotRate` จะ override */
+export const BURN_DOT_RATE = 0.03;
 const POISON_DOT_RATE = 0.0125;
-const BADLY_POISON_STEP_RATE = 0.008;
-const BADLY_POISON_MAX_RATE = 0.08;
+/** พิษหนัก: % ของ max HP ต่อทิกปลายเทิร์น (คงที่) */
+const BADLY_POISON_DOT_RATE = 0.04;
 const BOOST_STAT_MULTIPLIER = 1.25;
+/** กรีดลม (กินรี): บัฟ SPD แรงกว่า BOOST_SPD */
+const BOOST_SPD_30_MULTIPLIER = 1.3;
+/** พายุทิพย์ / divine storm: SPD ×2 (+100%) */
+const BOOST_SPD_100_MULTIPLIER = 2;
+/** ลด SPD ศัตรู 50% */
+const LOWER_SPD_MULTIPLIER = 0.5;
+/** Singha ult & similar: DEF buff weaker than BOOST_DEF */
+const BOOST_DEF_LIGHT_MULTIPLIER = 1.2;
 const LOWER_STAT_MULTIPLIER = 0.85;
 const WATER_DAMAGE_BOOST_MULTIPLIER = 1.35;
 const HEAL_FRACTION = 0.20;
-const FLAME_BODY_TRIGGER_RATE = 0.10;
-const STATIC_TRIGGER_RATE = 0.15;
+/** ครุฑ passive `flame_body`: เมื่อ HP < threshold — boost foe's BURN DoT rate */
+const FLAME_BODY_BURN_AMP = 0.07;
+const FLAME_BODY_HP_THRESHOLD = 0.5;
+/** เมขลา passive `volt_flow`: บวกเพิ่มต่อ `energyRegenPerTurn` ตอนสร้าง fighter */
+const VOLT_FLOW_REGEN_BONUS = 15;
 const FREEZE_THAW_RATE = 0.20;
 export const ACTION_METER_THRESHOLD = 100;
 const MAX_ACTIONS_PER_TURN = 4;
 const METER_FILL_ITERATION_GUARD = 32;
+/** จำนวนเทิร์นที่ติดไหม้เริ่มต้น — override ด้วย `move.effectDurationTurns` เมื่อใส่ในสเปกท่า */
+export const BURN_DURATION_TURNS = 3;
+const POISON_DURATION_TURNS = 4;
+const BADLY_POISON_DURATION_TURNS = 4;
+const PARALYZE_DURATION_TURNS = 2;
+const SLEEP_DURATION_TURNS = 2;
+const FREEZE_DURATION_TURNS = 2;
+const CONFUSE_DURATION_TURNS = 3;
+const BOOST_DURATION_TURNS = 2;
+const LOWER_STAT_DURATION_TURNS = 2;
+const EN_REGEN_SAP_DEFAULT = 15;
+/** Armor pierce debuff on defender; ticks down in processEndOfTurn. */
+const IGNORE_DEF_DURATION_TURNS = 2;
+/** นาค `acid_rain` + ฝ่ายตรงข้ามติดพิษ: แต่ละทิกพิษบวก +N×2% ของ max HP (สะสมหลังทิกแรก) */
+const ACID_RAIN_POISON_BONUS_PER_STACK = 0.02;
 const DAMAGE_LEVEL_SCALE_BASE = 1.1;
 const DAMAGE_LEVEL_SCALE_STEP = 0.07;
 const BASIC_ATTACK_POWER_SCALE = 0.82;
 const SKILL_POWER_SCALE = 0.94;
 const BASIC_ATTACK_FLAT_BONUS = 8;
 const SKILL_FLAT_BONUS = 12;
-const SPEED_CRIT_BONUS_PER_POINT = 0.0006; // +0.06% crit per SPD advantage point
-const SPEED_CRIT_BONUS_MAX = 0.12; // cap speed-derived crit bonus at +12%
-const CRIT_RATE_MAX = 0.5; // hard cap 50%
+const SPEED_CRIT_BONUS_PER_POINT = 0.002; // +0.2% crit per SPD advantage point (ไม่มีเพดาน)
+/** Defender's effective DEF is multiplied by this while armor pierce is active (0.5 = 50% DEF, i.e. 50% armor reduction). */
+export const IGNORE_DEF_RETAINED_DEF_MULTIPLIER = 0.5;
+const ATTACK_DEFENSE_RATIO_CAP = 3.25;
 
 // ── Initialisation ────────────────────────────────────────────
 
 const DEFAULT_STAGES: StatStages = {
-    atk: 1, def: 1, spd: 1, waterDmg: 1, ignoreDef: false,
+    atk: 1, def: 1, spd: 1, waterDmg: 1,
 };
 
 export function initBattleFighter(
@@ -171,6 +221,11 @@ export function initBattleFighter(
         stages.spd *= 1.1;
     }
 
+    // Apply iron_shell ability: DEF stage ×1.1 (+10% effective DEF)
+    if (monster.ability?.id === "iron_shell") {
+        stages.def *= 1.1;
+    }
+
     const energy = getEnergyProfileForSpecies(monster.speciesId);
 
     return {
@@ -190,6 +245,7 @@ export function initBattleFighter(
         moves: [buildBasicAttackMove(), ...monster.unlockedMoves],
         rankIndex: monster.rankIndex,
         badlyPoisonTick: 0,
+        acidRainPoisonStacks: 0,
         immunities,
         activeItems,
         goldBonus,
@@ -198,10 +254,21 @@ export function initBattleFighter(
         abilityUsed: false,
         abilityName: monster.ability?.name,
         maxEnergy: energy.maxEnergy,
-        currentEnergy: energy.maxEnergy,
-        energyRegenPerTurn: energy.regenPerTurn,
+        currentEnergy: 0,
+        energyRegenPerTurn:
+            energy.regenPerTurn +
+            (monster.ability?.id === "volt_flow" ? VOLT_FLOW_REGEN_BONUS : 0),
         actionMeter: 0,
+        turnsCompleted: 0,
     };
+}
+
+/** Ensure persisted/json fighters have turnsCompleted (older sessions). */
+export function normalizeBattleFighterTurns(f: BattleFighter): BattleFighter {
+    if (typeof f.turnsCompleted !== "number" || Number.isNaN(f.turnsCompleted)) {
+        f.turnsCompleted = 0;
+    }
+    return f;
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -226,11 +293,54 @@ function hasEffect(fighter: BattleFighter, eff: StatusEffect) {
     return fighter.effects.some((e) => e.effect === eff);
 }
 
-function addEffect(fighter: BattleFighter, eff: StatusEffect, turns: number) {
-    // Don't stack same effect; respect immunity from held items
-    if (!hasEffect(fighter, eff) && !fighter.immunities.includes(eff)) {
-        fighter.effects.push({ effect: eff, turnsLeft: turns });
+function addEffect(
+    fighter: BattleFighter,
+    eff: StatusEffect,
+    turns: number,
+    opts?: {
+        paralyzeFullSkip?: boolean;
+        burnDotRate?: number;
+        regenPenalty?: number;
+        ignoreDefRetained?: number;
     }
+) {
+    if (fighter.immunities.includes(eff)) return;
+    if (eff === "POISON" || eff === "BADLY_POISON") {
+        fighter.acidRainPoisonStacks = 0;
+    }
+    const existing = fighter.effects.find((entry) => entry.effect === eff);
+    if (existing) {
+        existing.turnsLeft = Math.max(existing.turnsLeft, turns);
+        if (eff === "PARALYZE" && opts?.paralyzeFullSkip) {
+            existing.paralyzeFullSkip = true;
+        }
+        if (eff === "BURN" && opts?.burnDotRate != null) {
+            existing.burnDotRate = opts.burnDotRate;
+        }
+        if (eff === "LOWER_EN_REGEN" && opts?.regenPenalty != null) {
+            existing.regenPenalty = Math.max(existing.regenPenalty ?? 0, opts.regenPenalty);
+        }
+        if (eff === "IGNORE_DEF") {
+            const incoming = opts?.ignoreDefRetained ?? IGNORE_DEF_RETAINED_DEF_MULTIPLIER;
+            const prev = existing.ignoreDefRetained ?? IGNORE_DEF_RETAINED_DEF_MULTIPLIER;
+            existing.ignoreDefRetained = Math.min(prev, incoming);
+        }
+        return;
+    }
+    const entry: EffectEntry = { effect: eff, turnsLeft: turns };
+    if (eff === "PARALYZE" && opts?.paralyzeFullSkip) {
+        entry.paralyzeFullSkip = true;
+    }
+    if (eff === "BURN" && opts?.burnDotRate != null) {
+        entry.burnDotRate = opts.burnDotRate;
+    }
+    if (eff === "LOWER_EN_REGEN") {
+        entry.regenPenalty = opts?.regenPenalty ?? EN_REGEN_SAP_DEFAULT;
+    }
+    if (eff === "IGNORE_DEF") {
+        entry.ignoreDefRetained = opts?.ignoreDefRetained ?? IGNORE_DEF_RETAINED_DEF_MULTIPLIER;
+    }
+    fighter.effects.push(entry);
 }
 
 const BASE_CRIT_RATE = 0.0625; // 6.25%
@@ -239,13 +349,20 @@ function calcDamageValue(
     attacker: BattleFighter,
     defender: BattleFighter,
     move: MonsterMove,
-    rng: () => number,
-    isPriorityMove = false
+    rng: () => number
 ): { dmg: number; effectiveness: "super" | "normal" | "weak"; stab: boolean; crit: boolean } {
     const atkStat = effectiveStat(attacker.baseStats.atk, attacker.statStages.atk);
-    const defStat = attacker.statStages.ignoreDef
-        ? 1
-        : effectiveStat(defender.baseStats.def, defender.statStages.def);
+    const rawDefStat = effectiveStat(defender.baseStats.def, defender.statStages.def);
+    const ignoreDefEntry = defender.effects.find((e) => e.effect === "IGNORE_DEF");
+    const defStat = ignoreDefEntry
+        ? Math.max(
+              1,
+              Math.floor(
+                  rawDefStat *
+                      (ignoreDefEntry.ignoreDefRetained ?? IGNORE_DEF_RETAINED_DEF_MULTIPLIER)
+              )
+          )
+        : rawDefStat;
 
     let typeMult = getTypeMultiplier(move.type, defender.type);
     if (defender.type2) typeMult *= getTypeMultiplier(move.type, defender.type2);
@@ -258,21 +375,14 @@ function calcDamageValue(
     const moveMult =
         move.type === "WATER" ? attacker.statStages.waterDmg : 1;
 
-    // Passive: aerial_strike — priority moves deal +20% dmg
-    const aerialMult = (attacker.ability === "aerial_strike" && isPriorityMove) ? 1.2 : 1;
-
-    // Passive: iron_shell — defender takes -10% dmg
-    const ironShellMult = defender.ability === "iron_shell" ? 0.9 : 1;
-
     // Critical hit: base + move bonus + speed advantage bonus (speed archetype identity).
     const attackerSpd = effectiveStat(attacker.baseStats.spd, attacker.statStages.spd);
     const defenderSpd = effectiveStat(defender.baseStats.spd, defender.statStages.spd);
     const spdAdvantage = Math.max(0, attackerSpd - defenderSpd);
-    const speedCritBonus = Math.min(SPEED_CRIT_BONUS_MAX, spdAdvantage * SPEED_CRIT_BONUS_PER_POINT);
-    const critRate = Math.min(
-        CRIT_RATE_MAX,
-        BASE_CRIT_RATE + (move.critBonus ?? 0) / 100 + speedCritBonus
-    );
+    const speedCritBonus = spdAdvantage * SPEED_CRIT_BONUS_PER_POINT;
+    const aerialCritBonus = attacker.ability === "aerial_strike" ? 0.2 : 0;
+    const critRate =
+        BASE_CRIT_RATE + (move.critBonus ?? 0) / 100 + speedCritBonus + aerialCritBonus;
     const crit = rng() < critRate;
     const critMult = crit ? 1.5 : 1;
 
@@ -281,13 +391,16 @@ function calcDamageValue(
 
     const avgRank = (attacker.rankIndex + defender.rankIndex) / 2;
     const levelScale = DAMAGE_LEVEL_SCALE_BASE + avgRank * DAMAGE_LEVEL_SCALE_STEP;
-    const attackDefenseRatio = atkStat / Math.max(1, defStat);
+    const attackDefenseRatio = Math.min(
+        ATTACK_DEFENSE_RATIO_CAP,
+        atkStat / Math.max(1, defStat)
+    );
     const isBasicAttack = move.id === NEGAMON_BASIC_ATTACK_MOVE_ID;
     const powerScale = isBasicAttack ? BASIC_ATTACK_POWER_SCALE : SKILL_POWER_SCALE;
     const flatBonus = isBasicAttack ? BASIC_ATTACK_FLAT_BONUS : SKILL_FLAT_BONUS;
     const rawBase = move.power * attackDefenseRatio * levelScale * powerScale + flatBonus;
     const modifiedDamage =
-        rawBase * typeMult * stabMult * moveMult * aerialMult * ironShellMult * critMult * variance;
+        rawBase * typeMult * stabMult * moveMult * critMult * variance;
     // Keep guaranteed chip so high DEF never creates near-zero stalls.
     const minDamageFloor = Math.max(1, Math.floor(move.power * (isBasicAttack ? 0.18 : 0.22)));
     const base = Math.max(minDamageFloor, Math.floor(modifiedDamage));
@@ -323,11 +436,19 @@ function selectMove(
 
     const hpPct = fighter.currentHp / fighter.maxHp;
     const opponentHasStatus = opponent
-        ? opponent.effects.some((e) => ["BURN","POISON","BADLY_POISON","PARALYZE","SLEEP","FREEZE","CONFUSE"].includes(e.effect))
+        ? opponent.effects.some((e) =>
+              ["BURN","POISON","BADLY_POISON","PARALYZE","SLEEP","FREEZE","CONFUSE","LOWER_EN_REGEN"].includes(
+                  e.effect
+              )
+          )
         : false;
     const selfHasBoostAtk = fighter.effects.some((e) => e.effect === "BOOST_ATK");
-    const selfHasBoostDef = fighter.effects.some((e) => e.effect === "BOOST_DEF");
-    const selfHasBoostSpd = fighter.effects.some((e) => e.effect === "BOOST_SPD");
+    const selfHasBoostDef = fighter.effects.some(
+        (e) => e.effect === "BOOST_DEF" || e.effect === "BOOST_DEF_20"
+    );
+    const selfHasBoostSpd = fighter.effects.some((e) =>
+        ["BOOST_SPD", "BOOST_SPD_30", "BOOST_SPD_100"].includes(e.effect)
+    );
 
     const scored = fighter.moves.map((move) => {
         const energyCost = move.energyCost ?? getMoveEnergyCost(move, fighter.speciesId);
@@ -363,9 +484,12 @@ function selectMove(
                     score = (!selfHasBoostAtk && hpPct > 0.4) ? 55 : 5;
                     break;
                 case "BOOST_DEF":
+                case "BOOST_DEF_20":
                     score = (!selfHasBoostDef && hpPct < 0.6) ? 60 : 5;
                     break;
                 case "BOOST_SPD":
+                case "BOOST_SPD_30":
+                case "BOOST_SPD_100":
                     score = (!selfHasBoostSpd && hpPct > 0.3) ? 50 : 5;
                     break;
                 case "HEAL_25":
@@ -379,6 +503,12 @@ function selectMove(
                     break;
                 case "LOWER_DEF":
                     score = 40;
+                    break;
+                case "LOWER_SPD":
+                    score = 40;
+                    break;
+                case "LOWER_EN_REGEN":
+                    score = 42;
                     break;
                 case "BURN":
                 case "POISON":
@@ -409,10 +539,25 @@ function selectMove(
     return scored[0].move;
 }
 
+// ── Per-actor end of action (separate turn counters) ─────────
+
+/** After a meter step with no faint from the move: EoT + EN regen + turn count for the actor only. */
+function applyActorTurnEnd(actor: BattleFighter, defender: BattleFighter, events: TurnEvent[]): string | null {
+    processEndOfTurn(actor, defender, events);
+    if (actor.currentHp <= 0) {
+        events.push({ kind: "faint", actorId: actor.studentId });
+        return actor.studentId;
+    }
+    regenEnergy(actor);
+    actor.turnsCompleted += 1;
+    return null;
+}
+
 // ── End-of-turn effect processing ────────────────────────────
 
-function processEndOfTurn(
+export function processEndOfTurn(
     fighter: BattleFighter,
+    opponent: BattleFighter | undefined,
     events: TurnEvent[]
 ) {
     const toRemove: StatusEffect[] = [];
@@ -420,24 +565,36 @@ function processEndOfTurn(
     for (const entry of fighter.effects) {
         switch (entry.effect) {
             case "BURN": {
-                // 3% maxHp per turn × 3 turns = 9% total
-                const dmg = Math.max(1, Math.floor(fighter.maxHp * BURN_DOT_RATE));
+                let rate = entry.burnDotRate ?? BURN_DOT_RATE;
+                if (
+                    opponent?.ability === "flame_body" &&
+                    opponent.currentHp / opponent.maxHp < FLAME_BODY_HP_THRESHOLD
+                ) {
+                    rate += FLAME_BODY_BURN_AMP;
+                }
+                const dmg = Math.max(1, Math.floor(fighter.maxHp * rate));
                 fighter.currentHp = Math.max(0, fighter.currentHp - dmg);
                 events.push({ kind: "status_tick", actorId: fighter.studentId, value: dmg, effect: "BURN" });
                 break;
             }
             case "POISON": {
-                // 1.25% maxHp ต่อ turn ตลอดเกม
-                const dmg = Math.max(1, Math.floor(fighter.maxHp * POISON_DOT_RATE));
+                let rate = POISON_DOT_RATE;
+                if (opponent?.ability === "acid_rain") {
+                    rate += fighter.acidRainPoisonStacks * ACID_RAIN_POISON_BONUS_PER_STACK;
+                    fighter.acidRainPoisonStacks++;
+                }
+                const dmg = Math.max(1, Math.floor(fighter.maxHp * rate));
                 fighter.currentHp = Math.max(0, fighter.currentHp - dmg);
                 events.push({ kind: "status_tick", actorId: fighter.studentId, value: dmg, effect: "POISON" });
                 break;
             }
             case "BADLY_POISON": {
-                // Escalating: +0.8% maxHp per tick, capped at 8%
-                fighter.badlyPoisonTick++;
-                const pct = Math.min(BADLY_POISON_MAX_RATE, fighter.badlyPoisonTick * BADLY_POISON_STEP_RATE);
-                const dmg = Math.max(1, Math.floor(fighter.maxHp * pct));
+                let rate = BADLY_POISON_DOT_RATE;
+                if (opponent?.ability === "acid_rain") {
+                    rate += fighter.acidRainPoisonStacks * ACID_RAIN_POISON_BONUS_PER_STACK;
+                    fighter.acidRainPoisonStacks++;
+                }
+                const dmg = Math.max(1, Math.floor(fighter.maxHp * rate));
                 fighter.currentHp = Math.max(0, fighter.currentHp - dmg);
                 events.push({ kind: "status_tick", actorId: fighter.studentId, value: dmg, effect: "BADLY_POISON" });
                 break;
@@ -454,10 +611,14 @@ function processEndOfTurn(
         events.push({ kind: "status_end", actorId: fighter.studentId, effect: eff });
         // Reset stat stages when boost ends
         if (eff === "BOOST_ATK")       fighter.statStages.atk = 1;
-        if (eff === "BOOST_DEF")       fighter.statStages.def = 1;
-        if (eff === "BOOST_SPD")       fighter.statStages.spd = 1;
+        if (eff === "BOOST_DEF" || eff === "BOOST_DEF_20") fighter.statStages.def = 1;
+        if (eff === "BOOST_SPD" || eff === "BOOST_SPD_30" || eff === "BOOST_SPD_100") fighter.statStages.spd = 1;
+        if (eff === "LOWER_SPD") fighter.statStages.spd = 1;
         if (eff === "BOOST_WATER_DMG") fighter.statStages.waterDmg = 1;
+        if (eff === "LOWER_ATK")       fighter.statStages.atk = 1;
+        if (eff === "LOWER_DEF")       fighter.statStages.def = 1;
         if (eff === "BADLY_POISON")    fighter.badlyPoisonTick = 0;
+        if (eff === "POISON" || eff === "BADLY_POISON") fighter.acidRainPoisonStacks = 0;
     }
 
     // Passive: rage_mode — HP drops below 50% → ATK ×1.25 (once)
@@ -477,6 +638,33 @@ function processEndOfTurn(
 
 // ── Move execution ────────────────────────────────────────────
 
+/** Apply primary effect + optional selfEffect after one shared proc roll (effectChance). */
+function applyMoveCombatEffects(
+    move: MonsterMove,
+    attacker: BattleFighter,
+    defender: BattleFighter,
+    events: TurnEvent[],
+    rng: () => number
+) {
+    if (!move.effect && !move.selfEffect) return;
+    const chance = move.effectChance ?? 100;
+    if (rng() * 100 >= chance) return;
+    if (move.effect) {
+        applyEffect(move.effect, attacker, defender, events, {
+            durationTurns: move.effectDurationTurns,
+            paralyzeFullSkip: move.effectParalyzeFullSkip,
+            burnDotRate: move.effectBurnDotRate,
+            regenPenalty: move.effectRegenPenalty,
+            ignoreDefRetained: move.effectIgnoreDefRetained,
+        });
+    }
+    if (move.selfEffect) {
+        applyEffect(move.selfEffect, attacker, defender, events, {
+            durationTurns: move.selfEffectDurationTurns,
+        });
+    }
+}
+
 function executeMove(
     attacker: BattleFighter,
     defender: BattleFighter,
@@ -487,7 +675,7 @@ function executeMove(
 ) {
     const executeBasicAttackFallback = () => {
         const basicMove = buildBasicAttackMove();
-        const { dmg, effectiveness, stab, crit } = calcDamageValue(attacker, defender, basicMove, rng, false);
+        const { dmg, effectiveness, stab, crit } = calcDamageValue(attacker, defender, basicMove, rng);
         events.push({
             kind: "move_used",
             actorId: attacker.studentId,
@@ -516,7 +704,10 @@ function executeMove(
         priorityOverride,
     });
 
-    const energyCost = move.energyCost ?? getMoveEnergyCost(move, attacker.speciesId);
+    const rawEnergyCost = move.energyCost ?? getMoveEnergyCost(move, attacker.speciesId);
+    const energyCost = Number.isFinite(rawEnergyCost)
+        ? Math.max(0, Math.round(rawEnergyCost))
+        : getMoveEnergyCost(move, attacker.speciesId);
     if (attacker.currentEnergy < energyCost) {
         events.push({
             kind: "no_energy",
@@ -542,14 +733,12 @@ function executeMove(
 
     // Status-only move
     if (move.category === "STATUS") {
-        if (move.effect) {
-            applyEffect(move.effect, attacker, defender, events);
-        }
+        applyMoveCombatEffects(move, attacker, defender, events, rng);
         return;
     }
 
     // Physical / Special — apply damage
-    const { dmg, effectiveness, stab, crit } = calcDamageValue(attacker, defender, move, rng, priorityOverride);
+    const { dmg, effectiveness, stab, crit } = calcDamageValue(attacker, defender, move, rng);
     defender.currentHp = Math.max(0, defender.currentHp - dmg);
     events.push({
         kind: "damage",
@@ -562,37 +751,25 @@ function executeMove(
         crit,
     });
 
-    // Consume armor-pierce from a prior setup (e.g. STATUS IGNORE_DEF). Clear before post-hit
-    // effects so a move that grants IGNORE_DEF for the *next* hit still works.
-    if (attacker.statStages.ignoreDef) {
-        attacker.statStages.ignoreDef = false;
+    const drainPct = move.drainPct ?? 0;
+    if (drainPct > 0 && dmg > 0) {
+        const drainHeal = Math.max(1, Math.floor((dmg * drainPct) / 100));
+        attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + drainHeal);
+        events.push({ kind: "heal", actorId: attacker.studentId, value: drainHeal });
     }
 
-    // Side effect on hit
-    if (move.effect) {
-        const chance = move.effectChance ?? 100;
-        if (rng() * 100 < chance) {
-            applyEffect(move.effect, attacker, defender, events);
-        }
+    // Side effects on hit (IGNORE_DEF applies to defender; duration ticks in processEndOfTurn)
+    if (move.effect || move.selfEffect) {
+        applyMoveCombatEffects(move, attacker, defender, events, rng);
     }
 
-    // Passive: flame_body — defender has 10% chance to burn attacker on hit
-    if (defender.ability === "flame_body" && !hasEffect(attacker, "BURN") && rng() < FLAME_BODY_TRIGGER_RATE) {
-        addEffect(attacker, "BURN", 3);
-        events.push({ kind: "ability_trigger", actorId: defender.studentId, targetId: attacker.studentId, effect: "BURN", abilityId: "flame_body", abilityName: defender.abilityName });
-    }
-    // Passive: static — defender has 15% chance to paralyze attacker on hit
-    if (defender.ability === "static" && !hasEffect(attacker, "PARALYZE") && rng() < STATIC_TRIGGER_RATE) {
-        addEffect(attacker, "PARALYZE", 2);
-        events.push({ kind: "ability_trigger", actorId: defender.studentId, targetId: attacker.studentId, effect: "PARALYZE", abilityId: "static", abilityName: defender.abilityName });
-    }
 }
 
 function regenEnergy(fighter: BattleFighter) {
-    fighter.currentEnergy = Math.min(
-        fighter.maxEnergy,
-        fighter.currentEnergy + fighter.energyRegenPerTurn
-    );
+    const sapEntry = fighter.effects.find((e) => e.effect === "LOWER_EN_REGEN");
+    const sap = sapEntry ? (sapEntry.regenPenalty ?? EN_REGEN_SAP_DEFAULT) : 0;
+    const gain = Math.max(0, fighter.energyRegenPerTurn - sap);
+    fighter.currentEnergy = Math.min(fighter.maxEnergy, fighter.currentEnergy + gain);
 }
 
 function addActionMeter(fighter: BattleFighter) {
@@ -660,6 +837,13 @@ function chooseActorByMeter(
     return { actor, move, defender, priorityOverride: false };
 }
 
+export type MeterStepResult = {
+    faintedId: string | null;
+    acted: boolean;
+    actor?: BattleFighter;
+    defender?: BattleFighter;
+};
+
 function resolveMeterStep(
     a: BattleFighter,
     b: BattleFighter,
@@ -667,7 +851,7 @@ function resolveMeterStep(
     bMove: MonsterMove | null,
     events: TurnEvent[],
     rng: () => number
-): { faintedId: string | null; acted: boolean } {
+): MeterStepResult {
     let guard = METER_FILL_ITERATION_GUARD;
     while (!isReadyByMeter(a) && !isReadyByMeter(b) && guard > 0) {
         addActionMeter(a);
@@ -687,35 +871,96 @@ function resolveMeterStep(
 
     if (a.currentHp <= 0) {
         events.push({ kind: "faint", actorId: a.studentId });
-        return { faintedId: a.studentId, acted: true };
+        return { faintedId: a.studentId, acted: true, actor, defender };
     }
     if (b.currentHp <= 0) {
         events.push({ kind: "faint", actorId: b.studentId });
-        return { faintedId: b.studentId, acted: true };
+        return { faintedId: b.studentId, acted: true, actor, defender };
     }
-    return { faintedId: null, acted: true };
+    return { faintedId: null, acted: true, actor, defender };
+}
+
+/** status_apply: effect is on the acting attacker (self-buff) */
+const SELF_STATUS_APPLY_EFFECTS: ReadonlySet<StatusEffect> = new Set([
+    "BOOST_ATK",
+    "BOOST_DEF",
+    "BOOST_DEF_20",
+    "BOOST_SPD",
+    "BOOST_SPD_30",
+    "BOOST_SPD_100",
+    "BOOST_WATER_DMG",
+]);
+
+function statusApplyStoredEffectKey(eff: StatusEffect): StatusEffect {
+    if (eff === "LOWER_ATK_ALL") return "LOWER_ATK";
+    return eff;
+}
+
+function buildStatusApplyEvent(
+    eff: StatusEffect,
+    attacker: BattleFighter,
+    defender: BattleFighter
+): TurnEvent {
+    const recipient = SELF_STATUS_APPLY_EFFECTS.has(eff) ? attacker : defender;
+    const stored = statusApplyStoredEffectKey(eff);
+    const entry = recipient.effects.find((e) => e.effect === stored);
+    const ev: TurnEvent = {
+        kind: "status_apply",
+        actorId: attacker.studentId,
+        targetId: recipient.studentId,
+        effect: eff,
+    };
+    if (entry) {
+        if (entry.turnsLeft != null) ev.turnsLeft = entry.turnsLeft;
+        if (entry.regenPenalty != null) ev.regenPenalty = entry.regenPenalty;
+        if (entry.burnDotRate != null) ev.burnDotRate = entry.burnDotRate;
+        if (entry.ignoreDefRetained != null) ev.ignoreDefRetained = entry.ignoreDefRetained;
+    }
+    return ev;
 }
 
 function applyEffect(
     eff: StatusEffect,
     attacker: BattleFighter,
     defender: BattleFighter,
-    events: TurnEvent[]
+    events: TurnEvent[],
+    applyOpts?: {
+        durationTurns?: number;
+        paralyzeFullSkip?: boolean;
+        burnDotRate?: number;
+        regenPenalty?: number;
+        ignoreDefRetained?: number;
+    }
 ) {
     let applied = true;
     switch (eff) {
-        case "BURN":         addEffect(defender, "BURN",         3);  break;
-        case "PARALYZE":     addEffect(defender, "PARALYZE",     2);  break;
-        case "SLEEP":        addEffect(defender, "SLEEP",        2);  break;
-        case "POISON":       addEffect(defender, "POISON",      -1);  break;
-        case "BADLY_POISON": addEffect(defender, "BADLY_POISON",-1);  break;
-        case "FREEZE":       addEffect(defender, "FREEZE",      -1);  break;
-        case "CONFUSE":      addEffect(defender, "CONFUSE",      3);  break;
+        case "BURN": {
+            const burnTurns = Math.max(1, applyOpts?.durationTurns ?? BURN_DURATION_TURNS);
+            const burnRate = applyOpts?.burnDotRate ?? BURN_DOT_RATE;
+            addEffect(defender, "BURN", burnTurns, { burnDotRate: burnRate });
+            break;
+        }
+        case "PARALYZE": {
+            const paraTurns = Math.max(1, applyOpts?.durationTurns ?? PARALYZE_DURATION_TURNS);
+            addEffect(defender, "PARALYZE", paraTurns, {
+                paralyzeFullSkip: applyOpts?.paralyzeFullSkip === true,
+            });
+            break;
+        }
+        case "SLEEP":        addEffect(defender, "SLEEP", SLEEP_DURATION_TURNS);  break;
+        case "POISON":
+            addEffect(defender, "POISON", POISON_DURATION_TURNS);
+            break;
+        case "BADLY_POISON":
+            addEffect(defender, "BADLY_POISON", BADLY_POISON_DURATION_TURNS);
+            break;
+        case "FREEZE":       addEffect(defender, "FREEZE", FREEZE_DURATION_TURNS);  break;
+        case "CONFUSE":      addEffect(defender, "CONFUSE", CONFUSE_DURATION_TURNS);  break;
 
         case "BOOST_ATK":
             if (attacker.statStages.atk < BOOST_STAT_MULTIPLIER) {
                 attacker.statStages.atk = BOOST_STAT_MULTIPLIER;
-                addEffect(attacker, "BOOST_ATK", 2);
+                addEffect(attacker, "BOOST_ATK", BOOST_DURATION_TURNS);
             } else {
                 applied = false;
             }
@@ -723,28 +968,75 @@ function applyEffect(
         case "BOOST_DEF":
             if (attacker.statStages.def < BOOST_STAT_MULTIPLIER) {
                 attacker.statStages.def = BOOST_STAT_MULTIPLIER;
-                addEffect(attacker, "BOOST_DEF", 2);
+                addEffect(attacker, "BOOST_DEF", BOOST_DURATION_TURNS);
             } else {
                 applied = false;
             }
             break;
-        case "BOOST_SPD":
-            {
-                if (attacker.statStages.spd < BOOST_STAT_MULTIPLIER) {
-                    const prevSpdStage = attacker.statStages.spd;
-                    attacker.statStages.spd = BOOST_STAT_MULTIPLIER;
-                    // QoL: speed buff immediately advances action meter by true SPD delta.
-                    addActionMeterBySpdDelta(attacker, prevSpdStage, attacker.statStages.spd);
-                    addEffect(attacker, "BOOST_SPD", 2);
-                } else {
-                    applied = false;
-                }
-            break;
+        case "BOOST_DEF_20":
+            if (attacker.statStages.def < BOOST_DEF_LIGHT_MULTIPLIER) {
+                attacker.statStages.def = BOOST_DEF_LIGHT_MULTIPLIER;
+                addEffect(attacker, "BOOST_DEF_20", BOOST_DURATION_TURNS);
+            } else {
+                applied = false;
             }
+            break;
+        case "BOOST_SPD": {
+            const spdTurns = Math.max(1, applyOpts?.durationTurns ?? BOOST_DURATION_TURNS);
+            if (attacker.statStages.spd < BOOST_STAT_MULTIPLIER) {
+                attacker.effects = attacker.effects.filter(
+                    (e) =>
+                        !["BOOST_SPD", "BOOST_SPD_30", "BOOST_SPD_100", "LOWER_SPD"].includes(e.effect)
+                );
+                const prevSpdStage = attacker.statStages.spd;
+                attacker.statStages.spd = BOOST_STAT_MULTIPLIER;
+                // QoL: speed buff immediately advances action meter by true SPD delta.
+                addActionMeterBySpdDelta(attacker, prevSpdStage, attacker.statStages.spd);
+                addEffect(attacker, "BOOST_SPD", spdTurns);
+            } else {
+                applied = false;
+            }
+            break;
+        }
+        case "BOOST_SPD_30": {
+            const spd30Turns = Math.max(1, applyOpts?.durationTurns ?? BOOST_DURATION_TURNS);
+            if (attacker.statStages.spd < BOOST_SPD_30_MULTIPLIER) {
+                attacker.effects = attacker.effects.filter(
+                    (e) =>
+                        !["BOOST_SPD", "BOOST_SPD_30", "BOOST_SPD_100", "LOWER_SPD"].includes(e.effect)
+                );
+                const prevSpdStage = attacker.statStages.spd;
+                attacker.statStages.spd = BOOST_SPD_30_MULTIPLIER;
+                addActionMeterBySpdDelta(attacker, prevSpdStage, attacker.statStages.spd);
+                addEffect(attacker, "BOOST_SPD_30", spd30Turns);
+            } else {
+                applied = false;
+            }
+            break;
+        }
+        case "BOOST_SPD_100": {
+            const spd100Turns = Math.max(1, applyOpts?.durationTurns ?? BOOST_DURATION_TURNS);
+            if (attacker.statStages.spd < BOOST_SPD_100_MULTIPLIER) {
+                attacker.effects = attacker.effects.filter(
+                    (e) =>
+                        !["BOOST_SPD", "BOOST_SPD_30", "BOOST_SPD_100", "LOWER_SPD"].includes(e.effect)
+                );
+                const prevSpdStage = attacker.statStages.spd;
+                attacker.statStages.spd = BOOST_SPD_100_MULTIPLIER;
+                addActionMeterBySpdDelta(attacker, prevSpdStage, attacker.statStages.spd);
+                addEffect(attacker, "BOOST_SPD_100", spd100Turns);
+            } else if (hasEffect(attacker, "BOOST_SPD_100")) {
+                addEffect(attacker, "BOOST_SPD_100", spd100Turns);
+                applied = false;
+            } else {
+                applied = false;
+            }
+            break;
+        }
         case "BOOST_WATER_DMG":
             if (attacker.statStages.waterDmg < WATER_DAMAGE_BOOST_MULTIPLIER) {
                 attacker.statStages.waterDmg = WATER_DAMAGE_BOOST_MULTIPLIER;
-                addEffect(attacker, "BOOST_WATER_DMG", 2);
+                addEffect(attacker, "BOOST_WATER_DMG", BOOST_DURATION_TURNS);
             } else {
                 applied = false;
             }
@@ -753,6 +1045,11 @@ function applyEffect(
         case "LOWER_ATK":
             if (defender.statStages.atk > LOWER_STAT_MULTIPLIER) {
                 defender.statStages.atk = LOWER_STAT_MULTIPLIER;
+                addEffect(defender, "LOWER_ATK", LOWER_STAT_DURATION_TURNS);
+            } else if (hasEffect(defender, "LOWER_ATK")) {
+                // Already at floor: refresh duration only (no stacking)
+                addEffect(defender, "LOWER_ATK", LOWER_STAT_DURATION_TURNS);
+                applied = false;
             } else {
                 applied = false;
             }
@@ -760,6 +1057,10 @@ function applyEffect(
         case "LOWER_ATK_ALL": // In 1v1 affects only defender
             if (defender.statStages.atk > LOWER_STAT_MULTIPLIER) {
                 defender.statStages.atk = LOWER_STAT_MULTIPLIER;
+                addEffect(defender, "LOWER_ATK", LOWER_STAT_DURATION_TURNS);
+            } else if (hasEffect(defender, "LOWER_ATK")) {
+                addEffect(defender, "LOWER_ATK", LOWER_STAT_DURATION_TURNS);
+                applied = false;
             } else {
                 applied = false;
             }
@@ -767,22 +1068,51 @@ function applyEffect(
         case "LOWER_DEF":
             if (defender.statStages.def > LOWER_STAT_MULTIPLIER) {
                 defender.statStages.def = LOWER_STAT_MULTIPLIER;
+                addEffect(defender, "LOWER_DEF", LOWER_STAT_DURATION_TURNS);
+            } else if (hasEffect(defender, "LOWER_DEF")) {
+                addEffect(defender, "LOWER_DEF", LOWER_STAT_DURATION_TURNS);
+                applied = false;
             } else {
                 applied = false;
             }
             break;
+        case "LOWER_SPD": {
+            const lowerSpdTurns = Math.max(1, applyOpts?.durationTurns ?? LOWER_STAT_DURATION_TURNS);
+            defender.effects = defender.effects.filter(
+                (e) => !["BOOST_SPD", "BOOST_SPD_30", "BOOST_SPD_100"].includes(e.effect)
+            );
+            if (defender.statStages.spd > LOWER_SPD_MULTIPLIER) {
+                defender.statStages.spd = LOWER_SPD_MULTIPLIER;
+                addEffect(defender, "LOWER_SPD", lowerSpdTurns);
+            } else if (hasEffect(defender, "LOWER_SPD")) {
+                addEffect(defender, "LOWER_SPD", lowerSpdTurns);
+                applied = false;
+            } else {
+                applied = false;
+            }
+            break;
+        }
+        case "LOWER_EN_REGEN": {
+            const enTurns = Math.max(1, applyOpts?.durationTurns ?? LOWER_STAT_DURATION_TURNS);
+            const pen = Math.max(0, applyOpts?.regenPenalty ?? EN_REGEN_SAP_DEFAULT);
+            addEffect(defender, "LOWER_EN_REGEN", enTurns, { regenPenalty: pen });
+            break;
+        }
         case "HEAL_25": {
             const amt = Math.max(1, Math.floor(attacker.maxHp * HEAL_FRACTION));
             attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + amt);
             events.push({ kind: "heal", actorId: attacker.studentId, value: amt });
             return; // no status_apply event needed
         }
-        case "IGNORE_DEF":
-            attacker.statStages.ignoreDef = true;
+        case "IGNORE_DEF": {
+            const igTurns = Math.max(1, applyOpts?.durationTurns ?? IGNORE_DEF_DURATION_TURNS);
+            const igMult = applyOpts?.ignoreDefRetained ?? IGNORE_DEF_RETAINED_DEF_MULTIPLIER;
+            addEffect(defender, "IGNORE_DEF", igTurns, { ignoreDefRetained: igMult });
             break;
+        }
     }
     if (applied) {
-        events.push({ kind: "status_apply", actorId: attacker.studentId, targetId: defender.studentId, effect: eff });
+        events.push(buildStatusApplyEvent(eff, attacker, defender));
     }
 }
 
@@ -799,9 +1129,11 @@ function checkSkip(
         return true;
     }
     const paraEntry = fighter.effects.find((e) => e.effect === "PARALYZE");
-    if (paraEntry && rng() < 0.5) {
-        events.push({ kind: "skip_turn", actorId: fighter.studentId, effect: "PARALYZE" });
-        return true;
+    if (paraEntry) {
+        if (paraEntry.paralyzeFullSkip || rng() < 0.5) {
+            events.push({ kind: "skip_turn", actorId: fighter.studentId, effect: "PARALYZE" });
+            return true;
+        }
     }
     const freezeEntry = fighter.effects.find((e) => e.effect === "FREEZE");
     if (freezeEntry) {
@@ -869,29 +1201,19 @@ export function resolveBattle(
                 faintedId = step.faintedId;
                 break;
             }
+            if (step.actor && step.defender) {
+                const faintAfter = applyActorTurnEnd(step.actor, step.defender, events);
+                if (faintAfter) {
+                    faintedId = faintAfter;
+                    break;
+                }
+            }
         }
 
         if (faintedId) {
             turns.push(events);
             break;
         }
-
-        // End-of-turn: apply DoT effects
-        processEndOfTurn(f1, events);
-        if (f1.currentHp <= 0) {
-            events.push({ kind: "faint", actorId: f1.studentId });
-            turns.push(events);
-            break;
-        }
-        processEndOfTurn(f2, events);
-        if (f2.currentHp <= 0) {
-            events.push({ kind: "faint", actorId: f2.studentId });
-            turns.push(events);
-            break;
-        }
-
-        regenEnergy(f1);
-        regenEnergy(f2);
 
         turns.push(events);
     }
@@ -1002,23 +1324,7 @@ export function resolveServerOwnedInteractiveTurn(
     }
 
     if (!faintedId) {
-        processEndOfTurn(player, events);
-        if (player.currentHp <= 0) {
-            events.push({ kind: "faint", actorId: player.studentId });
-            faintedId = player.studentId;
-        }
-    }
-    if (!faintedId) {
-        processEndOfTurn(opponent, events);
-        if (opponent.currentHp <= 0) {
-            events.push({ kind: "faint", actorId: opponent.studentId });
-            faintedId = opponent.studentId;
-        }
-    }
-
-    if (!faintedId) {
-        regenEnergy(player);
-        regenEnergy(opponent);
+        faintedId = applyActorTurnEnd(actor, defender, events);
     }
 
     return { events, faintedId, actorSide };
@@ -1054,7 +1360,8 @@ export function resolveForcedAction(
         events.push({ kind: "faint", actorId: defender.studentId });
         return { events, faintedId: defender.studentId };
     }
-    return { events, faintedId: null };
+    const faintAfter = applyActorTurnEnd(actor, defender, events);
+    return { events, faintedId: faintAfter };
 }
 
 /** Carries state between first and second half of an interactive turn (same RNG stream). */
@@ -1094,6 +1401,13 @@ export function resolveInteractiveTurnFirstHalf(
     if (step.faintedId) {
         return { events, faintedId: step.faintedId, pending: null };
     }
+    if (!step.acted || !step.actor || !step.defender) {
+        return { events, faintedId: null, pending: null };
+    }
+    const faintAfterFirst = applyActorTurnEnd(step.actor, step.defender, events);
+    if (faintAfterFirst) {
+        return { events, faintedId: faintAfterFirst, pending: null };
+    }
 
     const firstActorMove = events.find((e) => e.kind === "move_used");
     const lastActorId = firstActorMove?.actorId ?? null;
@@ -1132,21 +1446,12 @@ export function resolveInteractiveTurnSecondHalf(
         if (step.faintedId) {
             return { events, faintedId: step.faintedId };
         }
+        if (!step.actor || !step.defender) break;
+        const faintAfter = applyActorTurnEnd(step.actor, step.defender, events);
+        if (faintAfter) {
+            return { events, faintedId: faintAfter };
+        }
     }
-
-    processEndOfTurn(player, events);
-    if (player.currentHp <= 0) {
-        events.push({ kind: "faint", actorId: player.studentId });
-        return { events, faintedId: player.studentId };
-    }
-    processEndOfTurn(opponent, events);
-    if (opponent.currentHp <= 0) {
-        events.push({ kind: "faint", actorId: opponent.studentId });
-        return { events, faintedId: opponent.studentId };
-    }
-
-    regenEnergy(player);
-    regenEnergy(opponent);
 
     return { events, faintedId: null };
 }

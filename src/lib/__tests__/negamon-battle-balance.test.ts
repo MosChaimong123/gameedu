@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
-import type { MonsterMove, MonsterStats, MonsterType } from "@/lib/types/negamon";
+import type { MonsterMove, MonsterStats, MonsterType, StudentMonsterState } from "@/lib/types/negamon";
 import {
     calcGoldReward,
+    initBattleFighter,
+    processEndOfTurn,
     resolveBattle,
+    resolveInteractiveTurnFirstHalf,
+    resolveInteractiveTurnSecondHalf,
     resolveOneTurn,
     resolveServerOwnedInteractiveTurn,
     type BattleFighter,
+    type InteractiveTurnPending,
 } from "@/lib/battle-engine";
+import { getMoveEnergyCost } from "@/lib/negamon-energy";
 import { DEFAULT_NEGAMON_SPECIES } from "@/lib/negamon-species";
 import { DEFAULT_NEGAMON_BATTLE_TUNING } from "@/lib/types/game";
 
@@ -77,6 +83,62 @@ const boostDefMove: MonsterMove = {
     effect: "BOOST_DEF",
 };
 
+const heavyStrikeMove: MonsterMove = {
+    id: "heavy-strike",
+    name: "Heavy Strike",
+    type: "FIRE",
+    category: "PHYSICAL",
+    power: 56,
+    accuracy: 100,
+    learnRank: 1,
+};
+
+const poisonMove: MonsterMove = {
+    id: "poison",
+    name: "Poison",
+    type: "DARK",
+    category: "STATUS",
+    power: 0,
+    accuracy: 100,
+    learnRank: 1,
+    effect: "POISON",
+};
+
+const lowerEnRegenMove: MonsterMove = {
+    id: "sap-en",
+    name: "Sap EN",
+    type: "THUNDER",
+    category: "STATUS",
+    power: 0,
+    accuracy: 100,
+    learnRank: 1,
+    effect: "LOWER_EN_REGEN",
+    effectRegenPenalty: 15,
+    effectDurationTurns: 2,
+};
+
+const burnTestMove: MonsterMove = {
+    id: "test-burn",
+    name: "Burn",
+    type: "FIRE",
+    category: "SPECIAL",
+    power: 20,
+    accuracy: 100,
+    learnRank: 1,
+    effect: "BURN",
+    effectChance: 100,
+};
+
+/** Legacy dual end-of-round used only by tests that simulated empty meter loops (actionsTaken >= MAX). */
+function applyLegacyRoundEndBoth(
+    player: BattleFighter,
+    opponent: BattleFighter,
+    events: TurnEvent[]
+) {
+    processEndOfTurn(player, opponent, events);
+    processEndOfTurn(opponent, player, events);
+}
+
 function makeFighter(overrides: Partial<BattleFighter> = {}): BattleFighter {
     return {
         studentId: "fighter-a",
@@ -89,11 +151,12 @@ function makeFighter(overrides: Partial<BattleFighter> = {}): BattleFighter {
         maxHp: 100,
         currentHp: 100,
         baseStats: { ...stats },
-        statStages: { atk: 1, def: 1, spd: 1, waterDmg: 1, ignoreDef: false },
+        statStages: { atk: 1, def: 1, spd: 1, waterDmg: 1 },
         effects: [],
         moves: [strikeMove],
         rankIndex: 1,
         badlyPoisonTick: 0,
+        acidRainPoisonStacks: 0,
         immunities: [],
         activeItems: [],
         goldBonus: 0,
@@ -103,11 +166,31 @@ function makeFighter(overrides: Partial<BattleFighter> = {}): BattleFighter {
         currentEnergy: 999,
         energyRegenPerTurn: 0,
         actionMeter: 0,
+        turnsCompleted: 0,
         ...overrides,
     };
 }
 
 describe("Negamon battle balance patch", () => {
+    it("initBattleFighter starts currentEnergy at 0", () => {
+        const naga = DEFAULT_NEGAMON_SPECIES.find((s) => s.id === "naga");
+        expect(naga).toBeTruthy();
+        const studentMonster: StudentMonsterState = {
+            speciesId: naga!.id,
+            speciesName: naga!.name,
+            type: naga!.type,
+            type2: naga!.type2,
+            form: naga!.forms[0],
+            stats: naga!.baseStats,
+            unlockedMoves: naga!.moves,
+            rankIndex: 0,
+            ability: naga!.ability,
+        };
+        const f = initBattleFighter(studentMonster, "s1", "Test");
+        expect(f.currentEnergy).toBe(0);
+        expect(f.maxEnergy).toBeGreaterThan(0);
+    });
+
     it("makes IGNORE_DEF reduce defender mitigation on the next attack", () => {
         const basePlayer = makeFighter({
             studentId: "player",
@@ -174,6 +257,311 @@ describe("Negamon battle balance patch", () => {
         expect(followDamage).toBeGreaterThan(baselineDamage);
     });
 
+    it("keeps IGNORE_DEF from producing one-hit burst spikes against high-defense targets", () => {
+        const player = makeFighter({
+            studentId: "player",
+            type: "FIRE",
+            maxHp: 1344,
+            currentHp: 1344,
+            baseStats: { hp: 1344, atk: 455, def: 325, spd: 387 },
+            moves: [heavyStrikeMove],
+            actionMeter: 110,
+        });
+        const defender = makeFighter({
+            studentId: "defender",
+            studentName: "Defender",
+            type: "EARTH",
+            maxHp: 1344,
+            currentHp: 1344,
+            baseStats: { hp: 1344, atk: 495, def: 439, spd: 198 },
+            moves: [],
+            actionMeter: 0,
+        });
+
+        defender.effects.push({ effect: "IGNORE_DEF", turnsLeft: 2 });
+        const out = resolveOneTurn(player, defender, "heavy-strike", () => 0.5);
+        const damage =
+            out.events.find((e) => e.kind === "damage" && e.actorId === "player")?.value ?? 0;
+
+        expect(damage).toBeGreaterThan(0);
+        expect(damage).toBeLessThan(900);
+        expect(defender.currentHp).toBeGreaterThan(0);
+    });
+
+    it("tracks finite turn counters for poison and defense debuffs", () => {
+        const player = makeFighter({
+            studentId: "player",
+            speciesId: "naga",
+            moves: [poisonMove, lowerDefMove],
+            actionMeter: 110,
+            ability: "acid_rain",
+        });
+        const defender = makeFighter({
+            studentId: "defender",
+            studentName: "Defender",
+            moves: [],
+            actionMeter: 0,
+        });
+
+        resolveOneTurn(player, defender, "poison", () => 0.5);
+        const poisonEntry = defender.effects.find((entry) => entry.effect === "POISON");
+        expect(poisonEntry?.turnsLeft).toBeGreaterThan(0);
+
+        player.actionMeter = 110;
+        resolveOneTurn(player, defender, "lower-def", () => 0.5);
+        const lowerDefEntry = defender.effects.find((entry) => entry.effect === "LOWER_DEF");
+        expect(lowerDefEntry?.turnsLeft).toBeGreaterThan(0);
+    });
+
+    it("LOWER_EN_REGEN reduces how much EN the target recovers each round", () => {
+        const player = makeFighter({
+            studentId: "player",
+            moves: [lowerEnRegenMove],
+            actionMeter: 110,
+            currentEnergy: 100,
+            maxEnergy: 100,
+            energyRegenPerTurn: 20,
+        });
+        const opponent = makeFighter({
+            studentId: "opponent",
+            studentName: "Opponent",
+            moves: [],
+            actionMeter: 0,
+            currentEnergy: 0,
+            maxEnergy: 100,
+            energyRegenPerTurn: 20,
+        });
+        resolveOneTurn(player, opponent, "sap-en", () => 0.5);
+        expect(opponent.effects.some((e) => e.effect === "LOWER_EN_REGEN")).toBe(true);
+        expect(opponent.currentEnergy).toBe(5);
+    });
+
+    /** Skip action meter loop; run only end-of-turn ticks (MAX_ACTIONS_PER_TURN = 4). */
+    function runEndOfTurnTicksOnly(
+        player: BattleFighter,
+        opponent: BattleFighter,
+        playerMove: MonsterMove
+    ) {
+        opponent.effects.push({ effect: "BURN", turnsLeft: 3 });
+        const pending: InteractiveTurnPending = {
+            player,
+            opponent,
+            playerMove,
+            actionsTaken: 4,
+            lastActorId: null,
+        };
+        const out = resolveInteractiveTurnSecondHalf(pending, () => 0.5);
+        const events = [...out.events];
+        applyLegacyRoundEndBoth(player, opponent, events);
+        return { events, faintedId: out.faintedId };
+    }
+
+    it("flame_body does not amplify foe BURN tick when Garuda HP is at or above 50%", () => {
+        const player = makeFighter({
+            studentId: "garuda",
+            moves: [burnTestMove],
+            currentHp: 100,
+            maxHp: 100,
+            ability: "flame_body",
+            abilityName: "ร่างเพลิง",
+        });
+        const opponent = makeFighter({
+            studentId: "foe",
+            studentName: "Foe",
+            moves: [],
+            maxHp: 100,
+            currentHp: 100,
+        });
+        const out = runEndOfTurnTicksOnly(player, opponent, burnTestMove);
+        const burnTick = out.events.find(
+            (e) => e.kind === "status_tick" && e.effect === "BURN" && e.actorId === "foe"
+        );
+        expect(burnTick?.value).toBe(3);
+    });
+
+    it("flame_body amplifies foe BURN tick by +7% max HP when Garuda HP is below 50%", () => {
+        const player = makeFighter({
+            studentId: "garuda",
+            moves: [burnTestMove],
+            currentHp: 49,
+            maxHp: 100,
+            ability: "flame_body",
+            abilityName: "ร่างเพลิง",
+        });
+        const opponent = makeFighter({
+            studentId: "foe",
+            studentName: "Foe",
+            moves: [],
+            maxHp: 100,
+            currentHp: 100,
+        });
+        const out = runEndOfTurnTicksOnly(player, opponent, burnTestMove);
+        const burnTick = out.events.find(
+            (e) => e.kind === "status_tick" && e.effect === "BURN" && e.actorId === "foe"
+        );
+        expect(burnTick?.value).toBe(10);
+    });
+
+    it("without flame_body BURN tick stays at base rate even when attacker HP is low", () => {
+        const player = makeFighter({
+            studentId: "attacker",
+            moves: [burnTestMove],
+            currentHp: 49,
+            maxHp: 100,
+        });
+        const opponent = makeFighter({
+            studentId: "foe",
+            studentName: "Foe",
+            moves: [],
+            maxHp: 100,
+            currentHp: 100,
+        });
+        const out = runEndOfTurnTicksOnly(player, opponent, burnTestMove);
+        const burnTick = out.events.find(
+            (e) => e.kind === "status_tick" && e.effect === "BURN" && e.actorId === "foe"
+        );
+        expect(burnTick?.value).toBe(3);
+    });
+
+    it("acid_rain stacks +2% max HP poison damage per tick when foe is poisoned", () => {
+        const naga = makeFighter({
+            studentId: "naga",
+            ability: "acid_rain",
+            abilityName: "ฝนกรด",
+            moves: [strikeMove],
+        });
+        const foe = makeFighter({
+            studentId: "foe",
+            studentName: "Foe",
+            moves: [],
+            maxHp: 400,
+            currentHp: 400,
+        });
+        foe.effects = [{ effect: "POISON", turnsLeft: 4 }];
+        const pending1: InteractiveTurnPending = {
+            player: naga,
+            opponent: foe,
+            playerMove: strikeMove,
+            actionsTaken: 4,
+            lastActorId: null,
+        };
+        const out1 = resolveInteractiveTurnSecondHalf(pending1, () => 0.5);
+        const events1 = [...out1.events];
+        applyLegacyRoundEndBoth(naga, foe, events1);
+        const t1 = events1.find(
+            (e) => e.kind === "status_tick" && e.effect === "POISON" && e.actorId === "foe"
+        );
+        expect(t1?.value).toBe(5);
+
+        const pending2: InteractiveTurnPending = {
+            player: naga,
+            opponent: foe,
+            playerMove: strikeMove,
+            actionsTaken: 4,
+            lastActorId: null,
+        };
+        const out2 = resolveInteractiveTurnSecondHalf(pending2, () => 0.5);
+        const events2 = [...out2.events];
+        applyLegacyRoundEndBoth(naga, foe, events2);
+        const t2 = events2.find(
+            (e) => e.kind === "status_tick" && e.effect === "POISON" && e.actorId === "foe"
+        );
+        expect(t2?.value).toBe(13);
+    });
+
+    it("acid_rain does not amplify poison when opponent is not naga", () => {
+        const attacker = makeFighter({
+            studentId: "a",
+            moves: [strikeMove],
+        });
+        const foe = makeFighter({
+            studentId: "foe",
+            studentName: "Foe",
+            moves: [],
+            maxHp: 400,
+            currentHp: 400,
+        });
+        foe.effects = [{ effect: "POISON", turnsLeft: 4 }];
+        const mid1 = resolveInteractiveTurnSecondHalf(
+            {
+                player: attacker,
+                opponent: foe,
+                playerMove: strikeMove,
+                actionsTaken: 4,
+                lastActorId: null,
+            },
+            () => 0.5
+        );
+        const evMid = [...mid1.events];
+        applyLegacyRoundEndBoth(attacker, foe, evMid);
+        const out2 = resolveInteractiveTurnSecondHalf(
+            {
+                player: attacker,
+                opponent: foe,
+                playerMove: strikeMove,
+                actionsTaken: 4,
+                lastActorId: null,
+            },
+            () => 0.5
+        );
+        const ev2 = [...out2.events];
+        applyLegacyRoundEndBoth(attacker, foe, ev2);
+        const t2 = ev2.find(
+            (e) => e.kind === "status_tick" && e.effect === "POISON" && e.actorId === "foe"
+        );
+        expect(t2?.value).toBe(5);
+    });
+
+    it("acid_rain badly poison: first tick 4% max HP then +2% on second tick", () => {
+        const naga = makeFighter({
+            studentId: "naga",
+            ability: "acid_rain",
+            moves: [strikeMove],
+        });
+        const foe = makeFighter({
+            studentId: "foe",
+            studentName: "Foe",
+            moves: [],
+            maxHp: 500,
+            currentHp: 500,
+        });
+        foe.effects = [{ effect: "BADLY_POISON", turnsLeft: 4 }];
+        const out1 = resolveInteractiveTurnSecondHalf(
+            {
+                player: naga,
+                opponent: foe,
+                playerMove: strikeMove,
+                actionsTaken: 4,
+                lastActorId: null,
+            },
+            () => 0.5
+        );
+        const evBp1 = [...out1.events];
+        applyLegacyRoundEndBoth(naga, foe, evBp1);
+        expect(
+            evBp1.find(
+                (e) => e.kind === "status_tick" && e.effect === "BADLY_POISON" && e.actorId === "foe"
+            )?.value
+        ).toBe(20);
+        const out2 = resolveInteractiveTurnSecondHalf(
+            {
+                player: naga,
+                opponent: foe,
+                playerMove: strikeMove,
+                actionsTaken: 4,
+                lastActorId: null,
+            },
+            () => 0.5
+        );
+        const evBp2 = [...out2.events];
+        applyLegacyRoundEndBoth(naga, foe, evBp2);
+        expect(
+            evBp2.find(
+                (e) => e.kind === "status_tick" && e.effect === "BADLY_POISON" && e.actorId === "foe"
+            )?.value
+        ).toBe(30);
+    });
+
     it("does not increase gold reward just because the winner already has a higher rank", () => {
         const lowerRankWinner = makeFighter({ rankIndex: 1, goldBonus: 4 });
         const higherRankWinner = makeFighter({ rankIndex: 5, goldBonus: 4 });
@@ -214,17 +602,34 @@ describe("Negamon battle balance patch", () => {
         const suvanna = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "suvannamaccha");
 
         expect(garuda?.baseStats).toMatchObject({ hp: 280, atk: 188, def: 104, spd: 172 });
-        expect(garuda?.moves.find((move) => move.id === "garuda-strike")?.power).toBe(58);
+        expect(garuda?.moves.find((move) => move.id === "garuda-strike")?.power).toBe(50);
         expect(hanuman?.baseStats).toMatchObject({ hp: 320, atk: 182, def: 130, spd: 176 });
-        expect(hanuman?.moves.find((move) => move.id === "hanuman-divine-inc")?.power).toBe(58);
+        expect(hanuman?.moves.find((move) => move.id === "hanuman-divine-inc")?.power).toBe(46);
         expect(mekkala?.baseStats).toMatchObject({ hp: 330, atk: 170, def: 128, spd: 186 });
-        expect(mekkala?.moves.find((move) => move.id === "mekkala-judgment")?.power).toBe(56);
+        expect(mekkala?.moves.find((move) => move.id === "mekkala-judgment")?.power).toBe(48);
         expect(singha?.baseStats).toMatchObject({ hp: 560, atk: 176, def: 148, spd: 82 });
         expect(singha?.moves.find((move) => move.id === "singha-blaze-claw")?.power).toBe(41);
         expect(kinnaree?.baseStats).toMatchObject({ hp: 320, atk: 162, spd: 194 });
-        expect(kinnaree?.moves.find((move) => move.id === "kinnaree-radiant-slash")?.power).toBe(35);
+        expect(kinnaree?.moves.find((move) => move.id === "kinnaree-air-slash")).toMatchObject({
+            power: 31,
+            effect: "BOOST_SPD_30",
+        });
+        expect(kinnaree?.moves.find((move) => move.id === "kinnaree-radiant-slash")).toMatchObject({
+            power: 34,
+            effect: "IGNORE_DEF",
+            effectChance: 100,
+            effectIgnoreDefRetained: 0.75,
+        });
         expect(suvanna?.baseStats).toMatchObject({ hp: 500, atk: 168, def: 146 });
-        expect(suvanna?.moves.find((move) => move.id === "suvanna-blessing")?.power).toBe(52);
+        const blessing = suvanna?.moves.find((move) => move.id === "suvanna-blessing");
+        expect(blessing?.power).toBe(48);
+        expect(blessing?.drainPct).toBe(50);
+        expect(blessing?.effect).toBeUndefined();
+        const naga = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "naga");
+        expect(naga?.moves.find((move) => move.id === "naga-astral-surge")).toMatchObject({
+            power: 38,
+            drainPct: 25,
+        });
         for (const species of DEFAULT_NEGAMON_SPECIES) {
             expect(species.baseStats.atk).toBeGreaterThan(species.baseStats.def);
             expect(species.moves.length).toBe(4);
@@ -257,6 +662,53 @@ describe("Negamon battle balance patch", () => {
         const damage = out.events.find((e) => e.kind === "damage" && e.actorId === "attacker")?.value ?? 0;
 
         expect(damage).toBeGreaterThanOrEqual(8);
+    });
+
+    it("keeps overloaded rank-6 moves within moderated power bands", () => {
+        const garuda = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "garuda");
+        const hanuman = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "hanuman");
+        const kinnaree = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "kinnaree");
+        const mekkala = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "mekkala");
+        const thotsakan = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "thotsakan");
+
+        expect(garuda?.moves.find((move) => move.id === "garuda-strike")).toMatchObject({
+            power: 50,
+            effectChance: 100,
+        });
+        expect(hanuman?.moves.find((move) => move.id === "hanuman-divine-inc")).toMatchObject({
+            power: 46,
+            critBonus: 30,
+        });
+        expect(kinnaree?.moves.find((move) => move.id === "kinnaree-divine-storm")).toMatchObject({
+            power: 44,
+            effect: "LOWER_SPD",
+            effectChance: 100,
+            effectDurationTurns: 3,
+            selfEffect: "BOOST_SPD_100",
+            selfEffectDurationTurns: 3,
+        });
+        expect(mekkala?.moves.find((move) => move.id === "mekkala-judgment")).toMatchObject({
+            power: 48,
+            effectChance: 100,
+            effectDurationTurns: 1,
+            effectParalyzeFullSkip: true,
+            energyCost: 70,
+        });
+        expect(thotsakan?.moves.find((move) => move.id === "thot-asura-burst")).toMatchObject({
+            power: 50,
+            critBonus: 12,
+            effectChance: 100,
+        });
+    });
+
+    it("charges higher EN for learnRank 6 ultimate moves than for lower-rank moves", () => {
+        const naga = DEFAULT_NEGAMON_SPECIES.find((s) => s.id === "naga");
+        expect(naga).toBeTruthy();
+        const tidal = naga!.moves.find((m) => m.id === "naga-tidal-force")!;
+        const aqua = naga!.moves.find((m) => m.id === "naga-aqua-jet")!;
+        expect(getMoveEnergyCost(tidal, "naga")).toBeGreaterThanOrEqual(60);
+        expect(getMoveEnergyCost(aqua, "naga")).toBeLessThan(getMoveEnergyCost(tidal, "naga"));
+        expect(getMoveEnergyCost({ ...tidal, learnRank: 5 }, "naga")).toBeLessThan(getMoveEnergyCost(tidal, "naga"));
     });
 
     it("maintains mixed fight pacing across offensive and defensive archetypes", () => {
@@ -332,16 +784,19 @@ describe("Negamon battle balance patch", () => {
             studentId: "player",
             baseStats: { hp: 100, atk: 80, def: 40, spd: 120 },
             moves: [boostSpdMove],
-            actionMeter: 10,
+            actionMeter: 110,
         });
         const enemy = makeFighter({
             studentId: "enemy",
             studentName: "Enemy",
             baseStats: { hp: 100, atk: 60, def: 40, spd: 10 },
             moves: [],
+            actionMeter: 0,
         });
 
-        resolveOneTurn(player, enemy, "boost-spd", () => 0.5);
+        // First action only: per-actor EoT in a full resolveOneTurn can tick short buffs twice
+        const half = resolveInteractiveTurnFirstHalf(player, enemy, "boost-spd", () => 0.5);
+        expect(half.faintedId).toBeNull();
 
         // SPD 120 -> 150 after BOOST_SPD (x1.25), so meter gains +30 immediately
         expect(player.statStages.spd).toBe(1.25);
@@ -426,6 +881,8 @@ describe("Negamon battle balance patch", () => {
 
         expect(out.actorSide).toBe("player");
         expect(boosted?.effect).toBe("BOOST_ATK");
+        expect(boosted?.targetId).toBe("player");
+        expect(boosted?.turnsLeft).toBeGreaterThan(0);
     });
 
     it("does not stack LOWER_DEF when cast repeatedly", () => {
@@ -460,12 +917,13 @@ describe("Negamon battle balance patch", () => {
             actionMeter: 0,
         });
 
-        resolveOneTurn(
+        resolveInteractiveTurnFirstHalf(
             {
                 ...structuredClone(attacker),
                 moves: [boostAtkMove],
                 currentHp: 999,
                 maxHp: 999,
+                actionMeter: 110,
             },
             structuredClone(enemy),
             "boost-atk",
@@ -476,9 +934,10 @@ describe("Negamon battle balance patch", () => {
             moves: [boostAtkMove],
             currentHp: 999,
             maxHp: 999,
+            actionMeter: 110,
         };
         const atkB = structuredClone(enemy);
-        const atkOut = resolveOneTurn(atkA, atkB, "boost-atk", () => 0.5);
+        const atkOut = resolveInteractiveTurnFirstHalf(atkA, atkB, "boost-atk", () => 0.5);
         const atkApplyCount = atkOut.events.filter((e) => e.kind === "status_apply" && e.effect === "BOOST_ATK").length;
         expect(atkApplyCount).toBe(1);
 
@@ -487,9 +946,10 @@ describe("Negamon battle balance patch", () => {
             moves: [boostDefMove],
             currentHp: 999,
             maxHp: 999,
+            actionMeter: 110,
         };
         const defB = structuredClone(enemy);
-        const defOut = resolveOneTurn(defA, defB, "boost-def", () => 0.5);
+        const defOut = resolveInteractiveTurnFirstHalf(defA, defB, "boost-def", () => 0.5);
         const defApplyCount = defOut.events.filter((e) => e.kind === "status_apply" && e.effect === "BOOST_DEF").length;
         expect(defApplyCount).toBe(1);
 
@@ -498,9 +958,10 @@ describe("Negamon battle balance patch", () => {
             moves: [boostSpdMove],
             currentHp: 999,
             maxHp: 999,
+            actionMeter: 110,
         };
         const spdB = structuredClone(enemy);
-        const spdOut = resolveOneTurn(spdA, spdB, "boost-spd", () => 0.5);
+        const spdOut = resolveInteractiveTurnFirstHalf(spdA, spdB, "boost-spd", () => 0.5);
         const spdApplyCount = spdOut.events.filter((e) => e.kind === "status_apply" && e.effect === "BOOST_SPD").length;
         expect(spdApplyCount).toBe(1);
     });

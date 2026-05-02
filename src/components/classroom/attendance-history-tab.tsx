@@ -60,7 +60,7 @@ export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
                 body: JSON.stringify({ status: newStatus })
             });
             if (!res.ok) {
-                throw new Error("Failed to update");
+                throw new Error();
             }
         } catch (error) {
             console.error("Failed to update status", error);

@@ -11,7 +11,7 @@ export async function updateProfile(data: { name?: string, image?: string }) {
         
         if (!session?.user?.id) {
             console.error("[ACTION_UPDATE_PROFILE] Unauthorized - No user ID")
-            return { error: "Unauthorized: Please log in again" }
+            return { errorKey: "profileApiUnauthorized" }
         }
 
         console.log(`[ACTION_UPDATE_PROFILE] DB Update for ${session.user.id}...`)
@@ -29,8 +29,7 @@ export async function updateProfile(data: { name?: string, image?: string }) {
 
         return { success: true, name: updated.name }
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Unknown server error"
         console.error("[ACTION_UPDATE_PROFILE] CRITICAL ERROR:", error)
-        return { error: message }
+        return { errorKey: "profileUnknownError" }
     }
 }

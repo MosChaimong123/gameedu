@@ -15,22 +15,27 @@ export type MonsterType =
 export type MoveCategory = "PHYSICAL" | "SPECIAL" | "STATUS" | "HEAL";
 
 export type StatusEffect =
-    | "BURN"          // เสีย 3% HP ต่อตา (3 ตา)
+    | "BURN"          // ปลายเทิร์น: เสีย 3% max HP (min 1) × 3 เทิร์น
     | "PARALYZE"      // 50% โอกาสข้ามตา (2 ตา)
     | "SLEEP"         // ข้ามตา (1-2 ตา)
     | "POISON"        // เสีย 1.25% HP ต่อตา (ตลอดเกม)
-    | "BADLY_POISON"  // เสีย +0.8% HP ต่อตา สะสมจนถึง 8%
+    | "BADLY_POISON"  // เสีย 4% max HP ต่อทิกปลายเทิร์น (คงที่)
     | "FREEZE"        // ข้ามตา, 20%/ตา ละลายเอง
     | "CONFUSE"       // 33% โอกาสตีตัวเอง (3 ตา)
     | "BOOST_ATK"     // ATK +25% (2 ตา)
     | "BOOST_DEF"     // DEF +25% (2 ตา)
+    | "BOOST_DEF_20"  // DEF +20% (2 ตา)
     | "BOOST_SPD"     // SPD +25% (2 ตา)
+    | "BOOST_SPD_30"  // SPD +30% (2 ตา)
+    | "BOOST_SPD_100" // SPD ×2 (+100%) (ตามเทิร์นใน engine)
     | "BOOST_WATER_DMG" // Water move +35% (2 ตา)
     | "LOWER_ATK"     // ลด ATK opponent -15%
     | "LOWER_ATK_ALL" // ลด ATK ทุกคน -15% (AoE)
     | "LOWER_DEF"     // ลด DEF opponent -15%
+    | "LOWER_SPD"     // ลด SPD opponent 50% (×0.5)
+    | "LOWER_EN_REGEN" // ลด EN ที่ฟื้นต่อปลายเทิร์นของฝ่ายตรงข้าม (ค่าใน effectRegenPenalty)
     | "HEAL_25"       // ฟื้น HP 20%
-    | "IGNORE_DEF";   // ไม่คิด DEF ของ opponent
+    | "IGNORE_DEF";   // debuff ฝั่งถูกโจมตี: DEF ถูกคิดลดช่วงรับดาเมจ (ตามเทิร์นที่ตั้งใน engine)
 
 export type MonsterBaseStats = {
     hp: number;
@@ -53,6 +58,22 @@ export type MonsterMove = {
     critBonus?: number;  // เพิ่ม crit rate เป็น % เช่น 20 = +20%
     effect?: StatusEffect;
     effectChance?: number; // % โอกาสเกิด effect (default 100 ถ้าไม่ระบุ)
+    /** ระยะเอฟเฟกต์ (เทิร์นที่ตั้งใน addEffect) — ใช้เมื่อต่างจากค่า default ของ engine เช่น PARALYZE 1 เทิร์น */
+    effectDurationTurns?: number;
+    /** เอฟเฟกต์บนตัวผู้ใช้ท่า (เช่น บัฟขณะที่ effect หลักโจมตีศัตรู) */
+    selfEffect?: StatusEffect;
+    /** ระยะเวลา selfEffect (เทิร์น) */
+    selfEffectDurationTurns?: number;
+    /** PARALYZE: true = ข้ามเทิร์นทุกครั้งขณะติด (ไม่ทอย 50%) */
+    effectParalyzeFullSkip?: boolean;
+    /** BURN: ดาเมจต่อ tick = floor(maxHp × ค่านี้) เช่น 0.04 = 4% — ไม่ใส่ใช้ default ของ engine */
+    effectBurnDotRate?: number;
+    /** LOWER_EN_REGEN: ลด EN ที่ฟื้นต่อปลายเทิร์นของศัตรู (default 15) */
+    effectRegenPenalty?: number;
+    /** IGNORE_DEF: ตัวคูณ DEF ที่ใช้รับดาเมจ (default 0.5 ใน engine) — เช่น 0.75 = คง 75% ของ DEF (= เจาะ 25%) */
+    effectIgnoreDefRetained?: number;
+    /** ฟื้น HP หลังตี = floor(damage * drainPct / 100) */
+    drainPct?: number;
     energyCost?: number; // energy used per cast (resolved by engine/UI when omitted)
 };
 
@@ -64,13 +85,13 @@ export type MonsterForm = {
 };
 
 export type PassiveAbilityId =
-    | "acid_rain"       // นาค: POISON ติดไม่หาย (-1 turns ตลอดเกม)
-    | "flame_body"      // ครุฑ: 10% โดนตี → ผู้โจมตีติด BURN
-    | "iron_shell"      // สิงห์: รับ dmg -10% ถาวร
+    | "acid_rain"       // นาค: ฝ่ายตรงข้ามติดพิษ → ดาเมจพิษ +2% max HP ต่อทิก (สะสม)
+    | "flame_body"      // ครุฑ: เมื่อ HP < 50% ดาเมจไหม้ที่ศัตรูรับ +7% ของ max HP ต่อ tick
+    | "iron_shell"      // สิงห์: DEF stage ×1.1 ตั้งแต่เริ่มต่อสู้
     | "tailwind"        // กินรี: SPD ×1.1 ตลอดเกม
     | "rage_mode"       // ทศกัณฑ์: HP < 50% → ATK ×1.25 (ครั้งเดียว)
-    | "aerial_strike"   // หนุมาน: Priority move +20% dmg
-    | "static"          // เมขลา: 15% โดนตี → ผู้โจมตีติด PARALYZE
+    | "aerial_strike"   // หนุมาน: +20% crit rate on damaging moves
+    | "volt_flow"       // เมขลา: ฟื้น EN เพิ่ม +15 ทุกปลายเทิร์น
     | "guardian_scale"; // สุพรรณมัจฉา: HP < 30% → Heal 15% ครั้งเดียว
 
 export type PassiveAbility = {

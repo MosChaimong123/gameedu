@@ -14,6 +14,22 @@ import type {
     UpdatedStudentPoints,
 } from "./classroom-dashboard.types";
 
+function resolveDashboardErrorMessage(
+    raw: string | null | undefined,
+    t: DashboardTranslateFn,
+    fallbackKey: string
+) {
+    const normalized = (raw ?? "").trim();
+    if (!normalized) return t(fallbackKey);
+    if (normalized.startsWith("apiError_")) {
+        const localized = t(normalized);
+        if (localized !== normalized) return localized;
+    }
+    const direct = t(normalized);
+    if (direct !== normalized) return direct;
+    return normalized;
+}
+
 type ClassroomSocketPayload = {
     type: string;
     data: {
@@ -128,7 +144,7 @@ export function useClassroomPointsFlow({
             });
 
             return true;
-        } catch {
+        } catch (error) {
             setClassroom((prev) => ({
                 ...prev,
                 students: prev.students.map((student) =>
@@ -139,7 +155,11 @@ export function useClassroomPointsFlow({
             }));
             toast({
                 title: t("awardBehaviorFailTitle"),
-                description: t("awardBehaviorFailDesc"),
+                description: resolveDashboardErrorMessage(
+                    error instanceof Error ? error.message : null,
+                    t,
+                    "awardBehaviorFailDesc"
+                ),
                 variant: "destructive",
             });
             return false;
@@ -162,10 +182,14 @@ export function useClassroomPointsFlow({
                 description: t("resetPointsSuccessDesc"),
             });
             return true;
-        } catch {
+        } catch (error) {
             toast({
                 title: t("error"),
-                description: t("resetPointsFailDesc"),
+                description: resolveDashboardErrorMessage(
+                    error instanceof Error ? error.message : null,
+                    t,
+                    "resetPointsFailDesc"
+                ),
                 variant: "destructive",
             });
             return false;

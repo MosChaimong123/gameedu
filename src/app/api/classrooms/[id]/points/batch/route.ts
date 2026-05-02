@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { awardBatchClassroomPoints } from "@/lib/services/classroom-points/award-classroom-points";
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    CLASSROOM_POINTS_MISSING_DATA,
+    awardBatchClassroomPoints,
+} from "@/lib/services/classroom-points/award-classroom-points";
+import { AUTH_REQUIRED_MESSAGE, INTERNAL_ERROR_MESSAGE, createAppErrorResponse } from "@/lib/api-error";
 
 export async function POST(
     req: Request,
@@ -11,10 +14,10 @@ export async function POST(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
     if (!session.user.id) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
     try {
@@ -22,7 +25,7 @@ export async function POST(
         const { studentIds, skillId } = body;
 
         if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0 || !skillId) {
-            return new NextResponse("Missing data", { status: 400 });
+            return createAppErrorResponse("INVALID_PAYLOAD", CLASSROOM_POINTS_MISSING_DATA, 400);
         }
 
         const result = await awardBatchClassroomPoints({
@@ -33,7 +36,12 @@ export async function POST(
         });
 
         if (!result.ok) {
-            return new NextResponse(result.message, { status: result.status });
+            const code = result.status === 400
+                ? "INVALID_PAYLOAD"
+                : result.status === 404
+                    ? "NOT_FOUND"
+                    : "AUTH_REQUIRED";
+            return createAppErrorResponse(code, result.message, result.status);
         }
 
         return NextResponse.json({
@@ -45,6 +53,6 @@ export async function POST(
 
     } catch (error) {
         console.error("[POINTS_BATCH_POST]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

@@ -1,6 +1,13 @@
 import { db } from "@/lib/db";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
 import { resolveQuizReviewMode, type QuizReviewMode } from "@/lib/quiz-review-policy";
+import {
+  QUIZ_PLAIN_ERR_ASSIGNMENT_CLOSED,
+  QUIZ_PLAIN_ERR_BAD_REQUEST,
+  QUIZ_PLAIN_ERR_NO_QUESTIONS,
+  QUIZ_PLAIN_ERR_NOT_QUIZ_ASSIGNMENT,
+  QUIZ_PLAIN_ERR_STUDENT_NOT_FOUND,
+} from "@/lib/quiz-load-error-messages";
 
 export type QuizQuestionRow = {
   id: string;
@@ -32,7 +39,7 @@ export async function loadQuizTakeContext(
 ): Promise<QuizTakeContextResult> {
   const trimmed = studentCode.trim();
   if (!trimmed) {
-    return { kind: "denied", status: 400, message: "Bad Request" };
+    return { kind: "denied", status: 400, message: QUIZ_PLAIN_ERR_BAD_REQUEST };
   }
 
   const student = await db.student.findFirst({
@@ -43,7 +50,7 @@ export async function loadQuizTakeContext(
     select: { id: true },
   });
   if (!student) {
-    return { kind: "denied", status: 404, message: "Student Not Found" };
+    return { kind: "denied", status: 404, message: QUIZ_PLAIN_ERR_STUDENT_NOT_FOUND };
   }
 
   const assignment = await db.assignment.findUnique({
@@ -61,10 +68,10 @@ export async function loadQuizTakeContext(
   });
 
   if (!assignment || assignment.type !== "quiz" || !assignment.visible || !assignment.quizData) {
-    return { kind: "denied", status: 400, message: "Not a quiz assignment" };
+    return { kind: "denied", status: 400, message: QUIZ_PLAIN_ERR_NOT_QUIZ_ASSIGNMENT };
   }
   if (assignment.deadline && new Date(assignment.deadline) < new Date()) {
-    return { kind: "denied", status: 403, message: "Assignment closed" };
+    return { kind: "denied", status: 403, message: QUIZ_PLAIN_ERR_ASSIGNMENT_CLOSED };
   }
 
   const existing = await db.assignmentSubmission.findUnique({
@@ -80,7 +87,7 @@ export async function loadQuizTakeContext(
   const raw = assignment.quizData as { questions?: QuizQuestionRow[] };
   const questions = Array.isArray(raw.questions) ? raw.questions : [];
   if (questions.length === 0) {
-    return { kind: "denied", status: 400, message: "No questions" };
+    return { kind: "denied", status: 400, message: QUIZ_PLAIN_ERR_NO_QUESTIONS };
   }
 
   const reviewMode = resolveQuizReviewMode({

@@ -14,11 +14,12 @@ import { useLanguage } from "@/components/providers/language-provider"
 import { ImageUpload } from "@/components/image-upload"
 import { PageBackLink } from "@/components/ui/page-back-link"
 import { useToast } from "@/components/ui/use-toast"
+import { getLocalizedErrorMessageFromResponse } from "@/lib/ui-error-messages"
 
 export default function CreateSetPage() {
     const router = useRouter()
     const { data: session, status } = useSession()
-    const { t } = useLanguage()
+    const { language, t } = useLanguage()
     const { toast } = useToast()
     const [loading, setLoading] = useState(false)
 
@@ -79,7 +80,12 @@ export default function CreateSetPage() {
                 }
                 router.refresh()
             } else {
-                const msg = await res.text()
+                const msg = await getLocalizedErrorMessageFromResponse(
+                    res,
+                    "createSetFailTryAgain",
+                    t,
+                    language
+                )
                 toast({
                     title: t("createSetFailTitle"),
                     description: msg || t("createSetFailTryAgain"),
@@ -232,7 +238,7 @@ export default function CreateSetPage() {
                             {loading ? (
                                 <>
                                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                    Creating...
+                                    {t("createSetCreating")}
                                 </>
                             ) : (
                                 t("create")

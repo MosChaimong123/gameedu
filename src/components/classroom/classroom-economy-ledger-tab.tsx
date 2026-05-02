@@ -198,6 +198,38 @@ function studentLabel(student: EconomyLedgerStudentOption): string {
   return student.nickname ? `${student.name} (${student.nickname})` : student.name;
 }
 
+const LEDGER_SOURCE_KEYS: Record<string, string> = {
+  battle: "economyLedgerSourceBattle",
+  shop: "economyLedgerSourceShop",
+  quest: "economyLedgerSourceQuest",
+  checkin: "economyLedgerSourceCheckin",
+  passive_gold: "economyLedgerSourcePassiveGold",
+  admin_adjustment: "economyLedgerSourceAdminAdjustment",
+  migration: "economyLedgerSourceMigration",
+};
+
+const LEDGER_TYPE_KEYS: Record<string, string> = {
+  earn: "economyLedgerTypeEarn",
+  spend: "economyLedgerTypeSpend",
+  adjust: "economyLedgerTypeAdjust",
+};
+
+function ledgerSourceLabel(
+  source: string,
+  t: (key: string, params?: Record<string, string | number>) => string
+): string {
+  const key = LEDGER_SOURCE_KEYS[source];
+  return key ? t(key) : source;
+}
+
+function ledgerTypeLabel(
+  type: string,
+  t: (key: string, params?: Record<string, string | number>) => string
+): string {
+  const key = LEDGER_TYPE_KEYS[type];
+  return key ? t(key) : type;
+}
+
 function studentNameById(students: EconomyLedgerStudentOption[], studentId: string) {
   const student = students.find((item) => item.id === studentId);
   return student ? studentLabel(student) : studentId;
@@ -684,9 +716,9 @@ export function ClassroomEconomyLedgerTab({
             className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
           >
             <option value="">{t("negamonRewardAuditAllReasons")}</option>
-            <option value="no_awards">no_awards</option>
-            <option value="already_awarded">already_awarded</option>
-            <option value="claim_already_exists">claim_already_exists</option>
+            <option value="no_awards">{t("negamonRewardAuditReasonNoAwards")}</option>
+            <option value="already_awarded">{t("negamonRewardAuditReasonAlreadyAwarded")}</option>
+            <option value="claim_already_exists">{t("negamonRewardAuditReasonClaimAlreadyExists")}</option>
           </select>
           <Button
             type="button"
@@ -753,7 +785,7 @@ export function ClassroomEconomyLedgerTab({
             {t("negamonRewardAuditSkipped")}: {rewardAudit?.summary.skippedEventCount ?? 0}
           </span>
           <span className="rounded bg-white/80 px-2 py-1 text-indigo-700">
-            EXP: {rewardAudit?.summary.totalExp ?? 0}
+            {t("negamonRewardAuditExpSummary")}: {rewardAudit?.summary.totalExp ?? 0}
           </span>
           <span className="rounded bg-white/80 px-2 py-1 text-slate-700">
             {t("negamonRewardAuditRecipients")}: {rewardAudit?.summary.recipientCount ?? 0}
@@ -997,7 +1029,7 @@ export function ClassroomEconomyLedgerTab({
                 size="sm"
                 onClick={() => setRewardResyncResult(null)}
               >
-                Close
+                {t("economyResyncPanelClose")}
               </Button>
             </div>
             <div className="grid gap-2 text-xs font-bold sm:grid-cols-3">
@@ -1023,10 +1055,13 @@ export function ClassroomEconomyLedgerTab({
                       className="rounded-md bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-900"
                     >
                       <p className="font-black">
-                        #{recipient.rank} +{recipient.exp} EXP
+                        {t("economyResyncRankExpLine", {
+                          rank: recipient.rank,
+                          exp: recipient.exp,
+                        })}
                       </p>
                       <p>{studentNameById(students, recipient.studentId)}</p>
-                      <p>Score: {recipient.finalScore}</p>
+                      <p>{t("economyResyncScoreLabel", { value: recipient.finalScore })}</p>
                       <p>{t("negamonRewardResyncSource")}: {recipient.identitySource}</p>
                       <p>
                         {t("negamonRewardResyncBehavior")}: {recipient.behaviorPointsBefore} {"->"} {recipient.behaviorPointsAfter}
@@ -1089,8 +1124,12 @@ export function ClassroomEconomyLedgerTab({
                         </a>
                       </p>
                       <p className="text-amber-700">{skippedReasonLabel(player.reason, t)}</p>
-                      {typeof player.exp === "number" ? <p>EXP {player.exp}</p> : null}
-                      {typeof player.finalScore === "number" ? <p>Score {player.finalScore}</p> : null}
+                      {typeof player.exp === "number" ? (
+                        <p>{t("economyResyncExpOnly", { value: player.exp })}</p>
+                      ) : null}
+                      {typeof player.finalScore === "number" ? (
+                        <p>{t("economyResyncScoreLabel", { value: player.finalScore })}</p>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -1161,8 +1200,12 @@ export function ClassroomEconomyLedgerTab({
                             </a>
                           </p>
                           <p className="text-amber-700">{skippedReasonLabel(player.reason, t)}</p>
-                          {typeof player.exp === "number" ? <p>EXP {player.exp}</p> : null}
-                          {typeof player.finalScore === "number" ? <p>Score {player.finalScore}</p> : null}
+                          {typeof player.exp === "number" ? (
+                            <p>{t("economyResyncExpOnly", { value: player.exp })}</p>
+                          ) : null}
+                          {typeof player.finalScore === "number" ? (
+                            <p>{t("economyResyncScoreLabel", { value: player.finalScore })}</p>
+                          ) : null}
                           <div className="mt-2 flex flex-wrap gap-2">
                             <a
                               href={buildStudentActionHref({
@@ -1337,7 +1380,7 @@ export function ClassroomEconomyLedgerTab({
             <option value="">{t("economyLedgerAll")}</option>
             {SOURCE_OPTIONS.filter(Boolean).map((option) => (
               <option key={option} value={option}>
-                {option}
+                {ledgerSourceLabel(option, t)}
               </option>
             ))}
           </select>
@@ -1352,7 +1395,7 @@ export function ClassroomEconomyLedgerTab({
             <option value="">{t("economyLedgerAll")}</option>
             {TYPE_OPTIONS.filter(Boolean).map((option) => (
               <option key={option} value={option}>
-                {option}
+                {ledgerTypeLabel(option, t)}
               </option>
             ))}
           </select>
@@ -1410,13 +1453,16 @@ export function ClassroomEconomyLedgerTab({
                 <td className="px-3 py-2 font-semibold text-slate-700">
                   {row.student?.name ?? row.studentId}
                 </td>
-                <td className="px-3 py-2">{row.type}</td>
-                <td className="px-3 py-2">{row.source}</td>
+                <td className="px-3 py-2">{ledgerTypeLabel(row.type, t)}</td>
+                <td className="px-3 py-2">{ledgerSourceLabel(row.source, t)}</td>
                 <td className={`px-3 py-2 font-bold ${row.amount >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
                   {row.amount >= 0 ? `+${row.amount}` : row.amount}
                 </td>
                 <td className="px-3 py-2 text-slate-600">
-                  {row.balanceBefore} {"->"} {row.balanceAfter}
+                  {t("economyLedgerBalanceArrow", {
+                    before: row.balanceBefore,
+                    after: row.balanceAfter,
+                  })}
                 </td>
                 <td className="px-3 py-2 text-slate-500">
                   {new Date(row.createdAt).toLocaleString()}

@@ -73,11 +73,14 @@ export function NegamonCodexClient({ code, speciesList, negamonEnabled }: Negamo
     useEffect(() => {
         if (sorted.length === 0) return;
         const firstId = sorted[0].id;
-        setOpenSpeciesIds((prev) => {
-            const next = new Set(prev);
-            next.add(firstId);
-            return next;
-        });
+        const timer = window.setTimeout(() => {
+            setOpenSpeciesIds((prev) => {
+                const next = new Set(prev);
+                next.add(firstId);
+                return next;
+            });
+        }, 0);
+        return () => window.clearTimeout(timer);
     }, [sorted]);
 
     function expandAll() {
@@ -255,11 +258,6 @@ export function NegamonCodexClient({ code, speciesList, negamonEnabled }: Negamo
                                                     </span>
                                                 ) : null}
                                             </div>
-                                            {sp.type2 ? (
-                                                <p className="mt-1 text-[10px] font-bold text-slate-400">
-                                                    {t("negamonInfoType2UnlockHint")}
-                                                </p>
-                                            ) : null}
                                         </div>
                                     </div>
                                     <div className="flex flex-1 flex-wrap gap-2 text-[11px] font-bold text-slate-600 sm:justify-end">
@@ -280,11 +278,11 @@ export function NegamonCodexClient({ code, speciesList, negamonEnabled }: Negamo
                                 <div className="border-t border-slate-100 px-4 pb-4 pt-2">
                                     {sp.ability ? (
                                         <div className="mb-4 rounded-xl border border-violet-200 bg-violet-50/80 p-3">
-                                            <p className="text-[10px] font-black uppercase tracking-wide text-violet-700">
+                                            <p className="text-[10px] font-black uppercase tracking-wide text-violet-900">
                                                 {t("monsterAbilityHeading")}
                                             </p>
                                             <p className="text-sm font-black text-violet-950">{sp.ability.name}</p>
-                                            <p className="mt-0.5 text-xs font-medium text-violet-900/90">
+                                            <p className="mt-0.5 text-xs font-semibold leading-snug text-violet-950">
                                                 {sp.ability.desc}
                                             </p>
                                         </div>

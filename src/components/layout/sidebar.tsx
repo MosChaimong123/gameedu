@@ -51,7 +51,7 @@ export function Sidebar({ className }: { className?: string }) {
                     GameEdu
                 </span>
             </Link>
-            <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-4" aria-label="Main">
+            <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-4" aria-label={t("mainNavigation")}>
                 {navItems.map((item) => {
                     const isActive =
                         item.href === "/dashboard"

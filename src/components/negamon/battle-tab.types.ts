@@ -22,8 +22,6 @@ export interface BattleTabProps {
     myMonster: { formIcon: string; formName: string; rankIndex: number } | null;
     currentGold?: number;
     inventory: string[];
-    battleLoadout: string[];
     onGoldChange?: (newGold: number) => void;
     onBattleConsumablesSpent?: (consumedItemIds: string[]) => void;
-    onBattleLoadoutSaved?: (battleLoadout: string[]) => void;
 }

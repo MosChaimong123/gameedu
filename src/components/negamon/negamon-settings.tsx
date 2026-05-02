@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { motion } from "framer-motion";
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -29,6 +29,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
+import { normalizeGamificationSettings } from "@/lib/services/classroom-settings/gamification-settings-schema";
 
 const UNASSIGNED_VALUE = "__negamon_unassigned__";
 
@@ -107,11 +108,23 @@ export function NegamonSettingsDialog({
     );
     const [expandedSpecies, setExpandedSpecies] = useState<string | null>(null);
     const [fetchedGamifiedSettings, setFetchedGamifiedSettings] = useState<Record<string, unknown> | null>(
-        existingGamifiedSettings ?? null
+        () =>
+            existingGamifiedSettings &&
+            typeof existingGamifiedSettings === "object" &&
+            !Array.isArray(existingGamifiedSettings)
+                ? normalizeGamificationSettings(existingGamifiedSettings)
+                : null
     );
+    const wasOpenRef = useRef(false);
 
     useEffect(() => {
-        if (!open) return;
+        if (!open) {
+            wasOpenRef.current = false;
+            return;
+        }
+        if (wasOpenRef.current) return;
+
+        wasOpenRef.current = true;
         const s = currentSettings;
         setEnabled(s?.enabled ?? false);
         setAllowStudentChoice(s?.allowStudentChoice ?? true);
@@ -121,7 +134,7 @@ export function NegamonSettingsDialog({
         setStudentMonsters({ ...(s?.studentMonsters ?? {}) });
         setDisabledMoves([...(s?.disabledMoves ?? [])]);
         setExpandedSpecies(null);
-    }, [currentSettings, open]);
+    }, [currentSettings, open, normalizeSelectedSpeciesIds]);
 
     useEffect(() => {
         if (!open) return;
@@ -138,7 +151,13 @@ export function NegamonSettingsDialog({
             })
             .catch(() => {
                 if (!cancelled) {
-                    setFetchedGamifiedSettings(existingGamifiedSettings ?? null);
+                    setFetchedGamifiedSettings(
+                        existingGamifiedSettings &&
+                            typeof existingGamifiedSettings === "object" &&
+                            !Array.isArray(existingGamifiedSettings)
+                            ? normalizeGamificationSettings(existingGamifiedSettings)
+                            : null
+                    );
                 }
             });
 
@@ -173,6 +192,9 @@ export function NegamonSettingsDialog({
     };
 
     const allowedSpeciesSet = new Set(selectedSpeciesIds);
+    const selectedSpeciesCatalog = DEFAULT_NEGAMON_SPECIES.filter((sp) =>
+        selectedSpeciesIds.includes(sp.id)
+    );
     const sortedStudents = [...students].sort((a, b) => a.name.localeCompare(b.name, "th"));
 
     const cleanStudentMonsters = (): Record<string, string> => {
@@ -187,21 +209,20 @@ export function NegamonSettingsDialog({
     };
 
     const randomAssignUnassigned = () => {
-        if (selectedSpeciesIds.length === 0) {
+        if (selectedSpeciesCatalog.length === 0) {
             toast({ title: t("negamonSettingsToastNeedSpecies"), variant: "destructive" });
             return;
         }
+        const next: Record<string, string> = { ...studentMonsters };
         let added = 0;
-        setStudentMonsters((prev) => {
-            const next = { ...prev };
-            for (const st of students) {
-                if (next[st.id]) continue;
-                const pick = selectedSpeciesIds[Math.floor(Math.random() * selectedSpeciesIds.length)];
-                next[st.id] = pick;
-                added += 1;
-            }
-            return next;
-        });
+        for (const st of students) {
+            const currentAssigned = next[st.id];
+            if (currentAssigned && allowedSpeciesSet.has(currentAssigned)) continue;
+            const pick = selectedSpeciesCatalog[Math.floor(Math.random() * selectedSpeciesCatalog.length)];
+            next[st.id] = pick.id;
+            added += 1;
+        }
+        setStudentMonsters(next);
         toast({
             title:
                 added === 0
@@ -274,10 +295,7 @@ export function NegamonSettingsDialog({
             };
 
             try {
-                const base =
-                    fetchedGamifiedSettings && typeof fetchedGamifiedSettings === "object"
-                        ? { ...fetchedGamifiedSettings }
-                        : {};
+                const base = normalizeGamificationSettings(fetchedGamifiedSettings ?? {});
                 const nextGamifiedSettings = {
                     ...base,
                     negamon: newSettings,
@@ -698,7 +716,7 @@ export function NegamonSettingsDialog({
                                                     const selectValue = assigned && allowedSpeciesSet.has(assigned)
                                                         ? assigned
                                                         : UNASSIGNED_VALUE;
-                                                    const selectedSp = DEFAULT_NEGAMON_SPECIES.find(x => x.id === assigned);
+                                                    const selectedSp = selectedSpeciesCatalog.find((x) => x.id === assigned);
 
                                                     return (
                                                         <div
@@ -748,16 +766,14 @@ export function NegamonSettingsDialog({
                                                                         )}
                                                                     </div>
                                                                 </SelectTrigger>
-                                                                <SelectContent className="rounded-xl border-2">
-                                                                    <SelectItem value={UNASSIGNED_VALUE}>
-                                                                        <span className="text-slate-400 font-bold">{t("negamonSettingsUnassigned")}</span>
-                                                                    </SelectItem>
-                                                                    {DEFAULT_NEGAMON_SPECIES.filter((sp) =>
-                                                                        selectedSpeciesIds.includes(sp.id)
-                                                                    ).map((sp) => (
-                                                                        <SelectItem key={sp.id} value={sp.id}>
-                                                                            <span className="flex items-center gap-2 py-0.5">
-                                                                                <NegamonFormIcon
+                                                                    <SelectContent className="rounded-xl border-2">
+                                                                        <SelectItem value={UNASSIGNED_VALUE}>
+                                                                            <span className="text-slate-400 font-bold">{t("negamonSettingsUnassigned")}</span>
+                                                                        </SelectItem>
+                                                                        {selectedSpeciesCatalog.map((sp) => (
+                                                                            <SelectItem key={sp.id} value={sp.id}>
+                                                                                <span className="flex items-center gap-2 py-0.5">
+                                                                                    <NegamonFormIcon
                                                                                     icon={sp.forms[1]?.icon ?? sp.forms[0].icon}
                                                                                     label={sp.name}
                                                                                     emojiClassName="text-2xl"

@@ -42,7 +42,7 @@ export function ClassroomManagementButton({
         method: "DELETE",
       });
 
-      if (!res.ok) throw new Error("Failed to delete");
+      if (!res.ok) throw new Error();
 
       toast({
         title: t("classroomDeleteSuccessTitle"),

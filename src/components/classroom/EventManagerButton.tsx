@@ -28,6 +28,10 @@ import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
 import { cn } from "@/lib/utils";
 import {
+  getLocalizedMessageFromApiErrorBody,
+  tryLocalizeFetchNetworkFailureMessage,
+} from "@/lib/ui-error-messages";
+import {
     getThemeAccentColor,
     getThemeAccentRgba,
     getThemeBgStyle,
@@ -128,17 +132,27 @@ export function EventManagerButton({ classId, theme = "" }: { classId: string; t
           setForm((current) => ({ ...current, title: "", description: "" }));
           await loadEvents();
         } else {
-          throw new Error(data.message || "Failed to create event");
+          throw new Error(
+            getLocalizedMessageFromApiErrorBody(data, t, {
+              fallbackTranslationKey: "apiError_INTERNAL_ERROR",
+            })
+          );
         }
       } else {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || `Error: ${res.status}`);
+        const errorData = await res.json().catch(() => null);
+        throw new Error(
+          getLocalizedMessageFromApiErrorBody(errorData, t, {
+            fallbackTranslationKey: "apiError_INTERNAL_ERROR",
+          })
+        );
       }
     } catch (error) {
       console.error("Error creating event:", error);
+      const raw = error instanceof Error ? error.message : null;
+      const networkMessage = tryLocalizeFetchNetworkFailureMessage(raw, t);
       toast({
         title: t("error"),
-        description: error instanceof Error ? error.message : "Internal Server Error",
+        description: networkMessage ?? (error instanceof Error ? error.message : t("apiError_INTERNAL_ERROR")),
         variant: "destructive",
       });
     } finally {

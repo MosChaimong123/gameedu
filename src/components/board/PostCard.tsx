@@ -308,7 +308,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                         className="mb-2 rounded-xl overflow-hidden border border-black/5 bg-black/5 aspect-video relative cursor-zoom-in group"
                         onClick={() => openPreview([imageUrl], 0)}
                     >
-                        <Image src={imageUrl} alt="post" fill className="object-cover transition-transform group-hover:scale-105" unoptimized sizes="(max-width: 768px) 100vw, 50vw" />
+                        <Image src={imageUrl} alt={t("boardPostImageAlt")} fill className="object-cover transition-transform group-hover:scale-105" unoptimized sizes="(max-width: 768px) 100vw, 50vw" />
                     </div>
                 )}
 
@@ -339,7 +339,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                             width="100%"
                             height="100%"
                             src={`https://www.youtube.com/embed/${post.youtubeId}`}
-                            title="YouTube video player"
+                            title={t("boardYoutubePlayerTitle")}
                             frameBorder="0"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             allowFullScreen
@@ -394,7 +394,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                                 className={`relative bg-black/5 aspect-square cursor-zoom-in group ${albumImages.length === 1 ? 'col-span-2' : ''}`}
                                 onClick={() => openPreview(albumImages, idx)}
                             >
-                                <Image src={imgUrl} alt={`album-${idx}`} fill className="object-cover transition-transform group-hover:scale-105" unoptimized sizes="(max-width: 768px) 50vw, 25vw" />
+                                <Image src={imgUrl} alt={t("boardAlbumImageAlt", { n: idx + 1 })} fill className="object-cover transition-transform group-hover:scale-105" unoptimized sizes="(max-width: 768px) 50vw, 25vw" />
                                 {idx === 3 && albumImages.length > 4 && (
                                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-black text-lg group-hover:bg-black/40 transition-colors">
                                         +{albumImages.length - 4}
@@ -502,7 +502,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                     <form onSubmit={handleAddComment} className="flex gap-2">
                         <input 
                             type="text" 
-                            placeholder="พิมพ์ความคิดเห็น..."
+                            placeholder={t("boardCommentPlaceholder")}
                             value={commentText}
                             onChange={(e) => setCommentText(e.target.value)}
                             className="bg-white rounded-xl px-3 py-1.5 text-xs flex-1 border border-slate-200 focus:outline-hidden focus:ring-1 focus:ring-purple-500"
@@ -528,7 +528,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                         <div className="relative w-full h-full flex items-center justify-center p-4">
                             <Image
                                 src={previewGallery[currentPreviewIndex]}
-                                alt="Preview"
+                                alt={t("boardImagePreviewAlt")}
                                 width={1200}
                                 height={900}
                                 className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"

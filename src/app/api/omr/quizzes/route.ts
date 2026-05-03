@@ -2,14 +2,19 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { db as prisma } from "@/lib/db"
 import { isTeacherOrAdmin } from "@/lib/role-guards"
-import { AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
 
 // GET /api/omr/quizzes - List all OMR quizzes for the teacher
 export async function GET() {
     try {
         const session = await auth()
-        if (!session?.user?.id) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
-        if (!isTeacherOrAdmin(session.user.role)) return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
+        if (!session?.user?.id) return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401)
+        if (!isTeacherOrAdmin(session.user.role)) return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403)
 
         const quizzes = await prisma.oMRQuiz.findMany({
             where: { teacherId: session.user.id },
@@ -27,7 +32,7 @@ export async function GET() {
         return NextResponse.json(quizzes)
     } catch (error) {
         console.error("[OMR_QUIZZES_GET]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }
 
@@ -35,13 +40,13 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         const session = await auth()
-        if (!session?.user?.id) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
-        if (!isTeacherOrAdmin(session.user.role)) return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
+        if (!session?.user?.id) return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401)
+        if (!isTeacherOrAdmin(session.user.role)) return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403)
 
         const body = await req.json()
         const { title, description, questionCount, classId } = body
 
-        if (!title) return new NextResponse("Title is required", { status: 400 })
+        if (!title) return createAppErrorResponse("INVALID_PAYLOAD", "Title is required", 400)
 
         // Initialize empty answer key
         const answerKey: Record<string, string> = {}
@@ -68,6 +73,6 @@ export async function POST(req: Request) {
         return NextResponse.json(quiz)
     } catch (error) {
         console.error("[OMR_QUIZZES_POST]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }

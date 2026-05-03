@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error";
+import {
+  createAppErrorResponse,
+  AUTH_REQUIRED_MESSAGE,
+  FORBIDDEN_MESSAGE,
+  INTERNAL_ERROR_MESSAGE,
+  NOT_FOUND_MESSAGE,
+} from "@/lib/api-error";
 import {
   getClassEventsFromGamification,
   getClassroomGamificationRecord,
@@ -32,7 +38,7 @@ export async function GET(
   try {
     const { id } = await params;
     const classroom = await getClassroomGamificationRecord(id);
-    if (!classroom) return createAppErrorResponse("NOT_FOUND", "Not found", 404);
+    if (!classroom) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
 
     const events = getClassEventsFromGamification(classroom.gamifiedSettings) as ClassEvent[];
     const now = new Date();
@@ -65,7 +71,7 @@ export async function POST(
     }
 
     const classroom = await getClassroomGamificationRecord(id);
-    if (!classroom) return createAppErrorResponse("NOT_FOUND", "Not found", 404);
+    if (!classroom) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
     if (classroom.teacherId !== session.user.id) {
       return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
@@ -122,7 +128,7 @@ export async function DELETE(
     const { eventId } = await req.json();
 
     const classroom = await getClassroomGamificationRecord(id);
-    if (!classroom) return createAppErrorResponse("NOT_FOUND", "Not found", 404);
+    if (!classroom) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
     if (classroom.teacherId !== session.user.id) {
       return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }

@@ -11,9 +11,11 @@ type AuthSplitLayoutProps = {
     children: React.ReactNode
     /** Override "register" link target (e.g. preserve ?audience= when signing in as teacher/student) */
     registerHref?: string
+    /** Override "login" link target (e.g. preserve callbackUrl when coming back from register) */
+    loginHref?: string
 }
 
-export function AuthSplitLayout({ mode, children, registerHref }: AuthSplitLayoutProps) {
+export function AuthSplitLayout({ mode, children, registerHref, loginHref }: AuthSplitLayoutProps) {
     const { t } = useLanguage()
     const isLogin = mode === "login"
 
@@ -25,7 +27,7 @@ export function AuthSplitLayout({ mode, children, registerHref }: AuthSplitLayou
     const formSubtitle = isLogin ? t("loginFormSubtitle") : t("registerFormSubtitle")
 
     const footerPrompt = isLogin ? t("loginFooterPrompt") : t("registerFooterPrompt")
-    const footerHref = isLogin ? registerHref ?? "/login?mode=register" : "/login"
+    const footerHref = isLogin ? registerHref ?? "/login?mode=register" : loginHref ?? "/login"
     const footerLinkText = isLogin ? t("loginFooterRegister") : t("registerFooterLogin")
 
     const loginFeatures = [

@@ -5,6 +5,8 @@ import { NextResponse } from "next/server"
 import {
     AUTH_REQUIRED_MESSAGE,
     FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    NOT_FOUND_MESSAGE,
     createAppErrorResponse,
 } from "@/lib/api-error";
 import { countQuestionsInJson, getLimitsForUser } from "@/lib/plan/plan-access";
@@ -26,11 +28,11 @@ export async function GET(
     try {
         const session = await auth()
         if (!session || !session.user) {
-            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
+            return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401)
         }
 
         if (!isTeacherOrAdmin(session.user.role)) {
-            return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403)
         }
 
         // Await params as per Next.js 15/16 changes if necessary, 
@@ -46,13 +48,13 @@ export async function GET(
         })
 
         if (!set) {
-            return new NextResponse("Not Found", { status: 404 })
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404)
         }
 
         return NextResponse.json(set)
     } catch (error) {
         console.error("[SET_GET]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }
 
@@ -63,11 +65,11 @@ export async function PATCH(
     try {
         const session = await auth()
         if (!session || !session.user) {
-            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
+            return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401)
         }
 
         if (!isTeacherOrAdmin(session.user.role)) {
-            return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403)
         }
 
         const { id } = await params
@@ -83,7 +85,7 @@ export async function PATCH(
         })
 
         if (!existingSet) {
-            return new NextResponse("Not Found", { status: 404 })
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404)
         }
 
         const limits = getLimitsForUser(session.user.role, session.user.plan)
@@ -111,7 +113,7 @@ export async function PATCH(
             })
 
             if (!targetFolder) {
-                return new NextResponse("Folder not found", { status: 404 })
+                return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404)
             }
         }
 
@@ -132,7 +134,7 @@ export async function PATCH(
         return NextResponse.json(updatedSet)
     } catch (error) {
         console.error("[SET_PATCH]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }
 
@@ -143,11 +145,11 @@ export async function DELETE(
     try {
         const session = await auth()
         if (!session || !session.user) {
-            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
+            return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401)
         }
 
         if (!isTeacherOrAdmin(session.user.role)) {
-            return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403)
         }
 
         const { id } = await params
@@ -161,7 +163,7 @@ export async function DELETE(
         })
 
         if (!existingSet) {
-            return new NextResponse("Not Found", { status: 404 })
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404)
         }
 
         await db.questionSet.delete({
@@ -173,6 +175,6 @@ export async function DELETE(
         return new NextResponse(null, { status: 200 })
     } catch (error) {
         console.error("[SET_DELETE]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }

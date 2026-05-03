@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/components/providers/language-provider"
 import { resolveNotificationCopy } from "@/lib/notification-display"
+import { getLocalizedErrorMessageFromResponse, tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages"
 
 type ApiNotification = {
     id: string
@@ -35,6 +36,8 @@ export function NotificationTray({ studentCode }: NotificationTrayProps) {
     const [notifications, setNotifications] = useState<ApiNotification[]>([])
     const [loading, setLoading] = useState(true)
     const [open, setOpen] = useState(false)
+    const [errorMessage, setErrorMessage] = useState<string | null>(null)
+    const [pollingPaused, setPollingPaused] = useState(false)
 
     const fetchUrl = studentCode
         ? `/api/student/${studentCode}/notifications`
@@ -44,19 +47,40 @@ export function NotificationTray({ studentCode }: NotificationTrayProps) {
         (error instanceof DOMException && error.name === "AbortError") ||
         (error instanceof Error && error.name === "AbortError")
 
+    const setReadableErrorFromResponse = useCallback(
+        async (res: Response) => {
+            const message = await getLocalizedErrorMessageFromResponse(
+                res,
+                "toastGenericError",
+                t,
+                language
+            )
+            setErrorMessage(message)
+            if (res.status === 401 || res.status === 403) {
+                setPollingPaused(true)
+            }
+        },
+        [language, t]
+    )
+
     const fetchNotifications = useCallback(async (signal?: AbortSignal) => {
+        if (pollingPaused) {
+            setLoading(false)
+            return
+        }
         try {
             const res = await fetch(fetchUrl, { signal, cache: "no-store" })
             if (!res.ok) {
-                const text = await res.text()
                 if (!signal?.aborted) {
-                    console.warn(`Failed to fetch notifications from ${fetchUrl} with status ${res.status}: ${text}`)
+                    await setReadableErrorFromResponse(res)
                 }
                 return
             }
             const data = (await res.json()) as ApiNotification[]
             if (!signal?.aborted) {
                 setNotifications(data)
+                setErrorMessage(null)
+                setPollingPaused(false)
             }
         } catch (error) {
             if (isAbortError(error)) return
@@ -64,25 +88,37 @@ export function NotificationTray({ studentCode }: NotificationTrayProps) {
                 error instanceof Error &&
                 ["TypeError", "NetworkError"].includes(error.name) &&
                 error.message.toLowerCase().includes("fetch")
-            if (!signal?.aborted && !isNetworkFailure) {
-                console.error(`Failed to fetch notifications from ${fetchUrl}:`, error)
+            if (!signal?.aborted) {
+                const raw = error instanceof Error ? error.message : null
+                const net = tryLocalizeFetchNetworkFailureMessage(raw, t)
+                setErrorMessage(net ?? t("toastGenericError"))
+                if (!isNetworkFailure) {
+                    console.error(`Failed to fetch notifications from ${fetchUrl}:`, error)
+                }
             }
         } finally {
             if (!signal?.aborted) {
                 setLoading(false)
             }
         }
-    }, [fetchUrl])
+    }, [fetchUrl, pollingPaused, setReadableErrorFromResponse, t])
 
     useEffect(() => {
         const controller = new AbortController()
         void fetchNotifications(controller.signal)
-        const interval = setInterval(fetchNotifications, 30000)
+        if (pollingPaused) {
+            return () => {
+                controller.abort()
+            }
+        }
+        const interval = setInterval(() => {
+            void fetchNotifications()
+        }, 30000)
         return () => {
             clearInterval(interval)
             controller.abort()
         }
-    }, [fetchNotifications])
+    }, [fetchNotifications, pollingPaused])
 
     const unreadCount = notifications.filter((n) => !n.isRead).length
 
@@ -94,6 +130,7 @@ export function NotificationTray({ studentCode }: NotificationTrayProps) {
                 headers: { "Content-Type": "application/json" },
             })
             if (res.ok) {
+                setErrorMessage(null)
                 if (id === "all") {
                     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
                 } else {
@@ -102,9 +139,14 @@ export function NotificationTray({ studentCode }: NotificationTrayProps) {
                         prev.map((n) => (n.id === id ? { ...n, ...updated, isRead: true } : n))
                     )
                 }
+            } else {
+                await setReadableErrorFromResponse(res)
             }
         } catch (error) {
             console.error("Failed to mark as read", error)
+            const raw = error instanceof Error ? error.message : null
+            const net = tryLocalizeFetchNetworkFailureMessage(raw, t)
+            setErrorMessage(net ?? t("toastGenericError"))
         }
     }
 
@@ -112,10 +154,16 @@ export function NotificationTray({ studentCode }: NotificationTrayProps) {
         try {
             const res = await fetch(`${fetchUrl}?id=${id}`, { method: "DELETE" })
             if (res.ok) {
+                setErrorMessage(null)
                 setNotifications((prev) => prev.filter((n) => n.id !== id))
+            } else {
+                await setReadableErrorFromResponse(res)
             }
         } catch (error) {
             console.error("Failed to delete notification", error)
+            const raw = error instanceof Error ? error.message : null
+            const net = tryLocalizeFetchNetworkFailureMessage(raw, t)
+            setErrorMessage(net ?? t("toastGenericError"))
         }
     }
 
@@ -169,6 +217,11 @@ export function NotificationTray({ studentCode }: NotificationTrayProps) {
                 </div>
 
                 <div className="max-h-[70vh] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-200">
+                    {errorMessage ? (
+                        <div className="mx-4 mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                            {errorMessage}
+                        </div>
+                    ) : null}
                     {loading ? (
                         <div className="p-8 text-center space-y-3">
                             <div className="flex justify-center flex-wrap gap-1">

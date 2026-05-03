@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockAuth = vi.fn();
 const mockStudentFindFirst = vi.fn();
 const mockUserFindUnique = vi.fn();
-const mockNotFound = vi.fn(() => {
-  throw new Error("NEXT_NOT_FOUND");
+const mockRedirect = vi.fn(() => {
+  throw new Error("NEXT_REDIRECT");
 });
 
 vi.mock("@/auth", () => ({
@@ -23,7 +23,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  notFound: mockNotFound,
+  redirect: mockRedirect,
 }));
 
 vi.mock("@/components/student/StudentDashboardClient", () => ({
@@ -155,5 +155,18 @@ describe("student dashboard page", () => {
       where: { id: "teacher-1" },
       select: { name: true },
     });
+  });
+
+  it("redirects invalid student codes back to the student login portal with a localized error state", async () => {
+    mockStudentFindFirst.mockResolvedValue(null);
+    const StudentDashboardPage = (await import("@/app/student/[code]/page")).default;
+
+    await expect(
+      StudentDashboardPage({
+        params: Promise.resolve({ code: "missing1" }),
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mockRedirect).toHaveBeenCalledWith("/student?error=invalid_code");
   });
 });

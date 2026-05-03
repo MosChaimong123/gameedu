@@ -248,7 +248,7 @@ export function getLocalizedAuthErrorMessage(
     if (!error) {
         return t("loginAuthErrorUnknown");
     }
-    if (error === "RATE_LIMITED") {
+    if (error === "RATE_LIMITED" || error === "rate_limited") {
         return t("loginAuthErrorRateLimited");
     }
     if (error === "EMAIL_NOT_VERIFIED" || error.includes("EMAIL_NOT_VERIFIED")) {

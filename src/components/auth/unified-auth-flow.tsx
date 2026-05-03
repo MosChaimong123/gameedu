@@ -6,6 +6,7 @@ import { GraduationCap, KeyRound, User } from "lucide-react";
 import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Button } from "@/components/ui/button";
+import { appendCallbackUrl } from "@/lib/auth/callback-url";
 import { cn } from "@/lib/utils";
 import LoginForm from "@/app/login/login-form";
 import SignupWizard from "@/app/register/signup-wizard";
@@ -42,6 +43,7 @@ export function UnifiedAuthFlow() {
     const { t } = useLanguage();
 
     const mode = searchParams.get("mode");
+    const callbackUrl = searchParams.get("callbackUrl");
     const audienceRaw = searchParams.get("audience");
     const audience =
         audienceRaw === "teacher" ? "teacher" : audienceRaw === "student" ? "student" : null;
@@ -51,7 +53,7 @@ export function UnifiedAuthFlow() {
         const preset =
             audience === "teacher" ? ("TEACHER" as const) : audience === "student" ? ("STUDENT" as const) : null;
         return (
-            <AuthSplitLayout mode="register">
+            <AuthSplitLayout mode="register" loginHref={appendCallbackUrl("/login", callbackUrl)}>
                 <SignupWizard presetRole={preset} />
             </AuthSplitLayout>
         );
@@ -70,13 +72,13 @@ export function UnifiedAuthFlow() {
                             icon={<User className="h-10 w-10 text-purple-500" />}
                             title={t("authEntryTeacher")}
                             description={t("authEntryTeacherDesc")}
-                            onClick={() => router.replace("/login?audience=teacher")}
+                            onClick={() => router.replace(appendCallbackUrl("/login?audience=teacher", callbackUrl))}
                         />
                         <RolePickCard
                             icon={<GraduationCap className="h-10 w-10 text-emerald-500" />}
                             title={t("authEntryStudent")}
                             description={t("authEntryStudentDesc")}
-                            onClick={() => router.replace("/login?audience=student")}
+                            onClick={() => router.replace(appendCallbackUrl("/login?audience=student", callbackUrl))}
                         />
                         <Link
                             href="/student"
@@ -95,10 +97,18 @@ export function UnifiedAuthFlow() {
     return (
         <AuthSplitLayout
             mode="login"
-            registerHref={`/login?mode=register&audience=${audience === "teacher" ? "teacher" : "student"}`}
+            registerHref={appendCallbackUrl(
+                `/login?mode=register&audience=${audience === "teacher" ? "teacher" : "student"}`,
+                callbackUrl
+            )}
         >
             <div className="space-y-4">
-                <Button variant="ghost" size="sm" className="mb-2 -ml-2 w-fit" onClick={() => router.replace("/login")}>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mb-2 -ml-2 w-fit"
+                    onClick={() => router.replace(appendCallbackUrl("/login", callbackUrl))}
+                >
                     {t("authBackToRolePick")}
                 </Button>
                 {audience === "student" ? (

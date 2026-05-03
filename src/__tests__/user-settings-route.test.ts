@@ -50,6 +50,24 @@ describe("user settings route", () => {
     });
   });
 
+  it("returns a structured auth-required error when no session user exists", async () => {
+    mockAuth.mockResolvedValueOnce(null);
+    const { PATCH } = await import("@/app/api/user/settings/route");
+
+    const response = await PATCH({
+      json: async () => ({ accessibility: { reducedMotion: true } }),
+    } as NextRequest);
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "AUTH_REQUIRED",
+        message: "Unauthorized",
+      },
+    });
+    expect(mockUserFindUnique).not.toHaveBeenCalled();
+  });
+
   it("rejects non-object accessibility payloads", async () => {
     const { PATCH } = await import("@/app/api/user/settings/route");
 
@@ -71,6 +89,24 @@ describe("user settings route", () => {
 
     expect(response.status).toBe(400);
     expect(mockUserFindUnique).not.toHaveBeenCalled();
+    expect(mockUserUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns not found when the session user record is missing", async () => {
+    mockUserFindUnique.mockResolvedValueOnce(null);
+    const { PATCH } = await import("@/app/api/user/settings/route");
+
+    const response = await PATCH({
+      json: async () => ({ accessibility: { reducedMotion: true } }),
+    } as NextRequest);
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "NOT_FOUND",
+        message: "User not found",
+      },
+    });
     expect(mockUserUpdate).not.toHaveBeenCalled();
   });
 

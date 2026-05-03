@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
+import {
+    createAppErrorResponse,
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+} from "@/lib/api-error";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 export async function GET(
     req: Request,
@@ -14,20 +20,33 @@ export async function GET(
         return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+    }
+
     try {
+        const classroom = await db.classroom.findUnique({
+            where: {
+                id,
+                teacherId: session.user.id
+            },
+            select: { id: true },
+        });
+
+        if (!classroom) {
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+        }
+
         const skills = await db.skill.findMany({
             where: {
                 classId: id,
-                classroom: {
-                    teacherId: session.user.id
-                }
             }
         });
 
         return NextResponse.json(skills);
     } catch (error) {
         console.error("[SKILLS_GET]", error);
-        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }
 
@@ -42,6 +61,10 @@ export async function POST(
         return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+    }
+
     try {
         const body = await req.json();
         const { name, weight, type, icon } = body;
@@ -54,7 +77,8 @@ export async function POST(
             where: {
                 id,
                 teacherId: session.user.id
-            }
+            },
+            select: { id: true },
         });
 
         if (!classroom) {
@@ -72,9 +96,8 @@ export async function POST(
         });
 
         return NextResponse.json(skill);
-
     } catch (error) {
         console.error("[SKILL_POST]", error);
-        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

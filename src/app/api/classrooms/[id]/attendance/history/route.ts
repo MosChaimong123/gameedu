@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
+import {
+    createAppErrorResponse,
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+} from "@/lib/api-error";
 
 type AttendanceRecordWithStudent = Awaited<ReturnType<typeof db.attendanceRecord.findMany>>[number];
 type GroupedAttendanceRecords = Record<string, AttendanceRecordWithStudent[]>;
@@ -80,6 +85,6 @@ export async function GET(
 
     } catch (error) {
         console.error("[ATTENDANCE_HISTORY_GET]", error);
-        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

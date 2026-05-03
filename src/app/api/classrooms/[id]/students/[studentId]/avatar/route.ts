@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    createAppErrorResponse,
+    AUTH_REQUIRED_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+} from "@/lib/api-error";
 import { db } from "@/lib/db";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
 import {
@@ -56,6 +60,6 @@ export async function PATCH(
         return NextResponse.json(updated);
     } catch (error) {
         console.error("[AVATAR_PATCH]", error);
-        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

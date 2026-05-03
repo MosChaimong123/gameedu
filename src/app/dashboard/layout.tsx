@@ -1,4 +1,5 @@
 import { auth } from "@/auth"
+import { DashboardAuthSync } from "@/components/auth/dashboard-auth-sync"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Topbar } from "@/components/layout/topbar"
 import { SessionProvider } from "next-auth/react"
@@ -12,6 +13,7 @@ export default async function DashboardLayout({
 
     return (
         <SessionProvider session={session}>
+            <DashboardAuthSync />
             <div className="flex h-screen bg-slate-50 overflow-hidden">
                 <aside className="hidden shrink-0 md:flex">
                     <Sidebar />

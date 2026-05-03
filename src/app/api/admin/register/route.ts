@@ -2,7 +2,11 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { AUTH_REQUIRED_MESSAGE, createAppErrorResponse } from "@/lib/api-error";
+import {
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
 
 export async function POST(req: Request) {
     try {
@@ -21,7 +25,7 @@ export async function POST(req: Request) {
             });
 
             if (adminCount > 0) {
-                return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 403 });
+                return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
             }
 
             const validSecret = process.env.ADMIN_SECRET;
@@ -77,6 +81,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true, result: "USER_UPGRADED_TO_ADMIN" });
     } catch (error) {
         console.error("[ADMIN_REGISTER_POST]", error);
-        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

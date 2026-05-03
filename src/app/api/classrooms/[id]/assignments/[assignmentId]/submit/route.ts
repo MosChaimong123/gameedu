@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
-import { createAppErrorResponse } from "@/lib/api-error";
+import { createAppErrorResponse, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error";
 import { db } from "@/lib/db";
 import { sanitizeIntegrityEvents } from "@/lib/quiz-integrity";
 import { loadQuizTakeContext } from "@/lib/quiz-take-context";
@@ -177,6 +177,6 @@ export async function POST(
 
     } catch (error) {
         console.error("[QUIZ_SUBMIT]", error);
-        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

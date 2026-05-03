@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error";
+import {
+  createAppErrorResponse,
+  AUTH_REQUIRED_MESSAGE,
+  FORBIDDEN_MESSAGE,
+  INTERNAL_ERROR_MESSAGE,
+  NOT_FOUND_MESSAGE,
+} from "@/lib/api-error";
 import {
   getCustomAchievementsFromGamification,
   getClassroomGamificationRecord,
@@ -29,7 +35,7 @@ export async function GET(
   try {
     const { id } = await params;
     const classroom = await getClassroomGamificationRecord(id);
-    if (!classroom) return createAppErrorResponse("NOT_FOUND", "Not found", 404);
+    if (!classroom) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
     return NextResponse.json(getCustomAchievementsFromGamification(classroom.gamifiedSettings));
   } catch {
     return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
@@ -51,7 +57,7 @@ export async function POST(
     if (!name?.trim()) return createAppErrorResponse("INVALID_PAYLOAD", "Name is required", 400);
 
     const classroom = await getClassroomGamificationRecord(id);
-    if (!classroom) return createAppErrorResponse("NOT_FOUND", "Not found", 404);
+    if (!classroom) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
     if (classroom.teacherId !== session.user.id) {
       return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
@@ -105,7 +111,7 @@ export async function DELETE(
     const { achievementId } = await req.json();
 
     const classroom = await getClassroomGamificationRecord(id);
-    if (!classroom) return createAppErrorResponse("NOT_FOUND", "Not found", 404);
+    if (!classroom) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
     if (classroom.teacherId !== session.user.id) {
       return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }

@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    NOT_FOUND_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 export async function DELETE(
     req: Request,
@@ -11,7 +18,11 @@ export async function DELETE(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
+
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
 
     try {
@@ -19,11 +30,12 @@ export async function DELETE(
             where: {
                 id,
                 teacherId: session.user.id
-            }
+            },
+            select: { id: true },
         });
 
         if (!classroom) {
-            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
         }
 
         const existingSkill = await db.skill.findUnique({
@@ -37,7 +49,7 @@ export async function DELETE(
         });
 
         if (!existingSkill || existingSkill.classId !== id) {
-            return new NextResponse("Skill not found", { status: 404 });
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         const skill = await db.skill.delete({
@@ -47,9 +59,8 @@ export async function DELETE(
         });
 
         return NextResponse.json(skill);
-
     } catch (error) {
         console.error("[SKILL_DELETE]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

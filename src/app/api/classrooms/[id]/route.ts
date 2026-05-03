@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    NOT_FOUND_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
 import {
     InvalidClassroomBasicUpdateError,
     type ClassroomBasicUpdateInput,
     updateClassroomBasics,
 } from "@/lib/services/classroom-settings/update-classroom-basics";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 export async function GET(
     req: Request,
@@ -16,7 +23,11 @@ export async function GET(
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
+
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
 
     try {
@@ -42,13 +53,13 @@ export async function GET(
         });
 
         if (!classroom) {
-            return new NextResponse("Not Found", { status: 404 });
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         return NextResponse.json(classroom);
     } catch (error) {
         console.error("[CLASSROOM_GET]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }
 
@@ -60,7 +71,11 @@ export async function DELETE(
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
+
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
 
     try {
@@ -74,7 +89,15 @@ export async function DELETE(
         return NextResponse.json(classroom);
     } catch (error) {
         console.error("[CLASSROOM_DELETE]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        if (
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            error.code === "P2025"
+        ) {
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
+        }
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }
 
@@ -86,7 +109,11 @@ export async function PATCH(
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
+
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
 
     try {
@@ -100,10 +127,19 @@ export async function PATCH(
         return NextResponse.json(classroom);
     } catch (error) {
         if (error instanceof InvalidClassroomBasicUpdateError) {
-            return new NextResponse(error.message, { status: 400 });
+            return createAppErrorResponse("INVALID_PAYLOAD", error.message, 400);
+        }
+
+        if (
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            error.code === "P2025"
+        ) {
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         console.error("[CLASSROOM_PATCH]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

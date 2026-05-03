@@ -1,7 +1,12 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { AUTH_REQUIRED_MESSAGE, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    NOT_FOUND_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
 
 const notificationSelect = {
     id: true,
@@ -19,7 +24,7 @@ const notificationSelect = {
 export async function GET() {
     const session = await auth();
     if (!session?.user?.id) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
     try {
@@ -37,14 +42,14 @@ export async function GET() {
         return NextResponse.json(notifications);
     } catch (error) {
         console.error("GET /api/notifications error:", error);
-        return new NextResponse(INTERNAL_ERROR_MESSAGE, { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }
 
 export async function PATCH(req: Request) {
     const session = await auth();
     if (!session?.user?.id) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
     try {
@@ -62,7 +67,7 @@ export async function PATCH(req: Request) {
         }
 
         if (typeof id !== "string" || id.trim().length === 0 || typeof isRead !== "boolean") {
-            return new NextResponse("Invalid payload", { status: 400 });
+            return createAppErrorResponse("INVALID_PAYLOAD", "Invalid payload", 400);
         }
 
         const updated = await db.notification.updateMany({
@@ -76,7 +81,7 @@ export async function PATCH(req: Request) {
         });
 
         if (updated.count === 0) {
-            return new NextResponse("Not Found", { status: 404 });
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         const notification = await db.notification.findFirst({
@@ -88,20 +93,20 @@ export async function PATCH(req: Request) {
         });
 
         if (!notification) {
-            return new NextResponse("Not Found", { status: 404 });
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         return NextResponse.json(notification);
     } catch (error) {
         console.error("PATCH /api/notifications error:", error);
-        return new NextResponse(INTERNAL_ERROR_MESSAGE, { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }
 
 export async function DELETE(req: Request) {
     const session = await auth();
     if (!session?.user?.id) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
 
     try {
@@ -109,7 +114,7 @@ export async function DELETE(req: Request) {
         const id = searchParams.get("id");
 
         if (!id || id.trim().length === 0) {
-            return new NextResponse("Missing id", { status: 400 });
+            return createAppErrorResponse("INVALID_PAYLOAD", "Missing id", 400);
         }
 
         const deleted = await db.notification.deleteMany({
@@ -120,12 +125,12 @@ export async function DELETE(req: Request) {
         });
 
         if (deleted.count === 0) {
-            return new NextResponse("Not Found", { status: 404 });
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error("DELETE /api/notifications error:", error);
-        return new NextResponse(INTERNAL_ERROR_MESSAGE, { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    NOT_FOUND_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 export async function PATCH(
     req: Request,
@@ -11,7 +18,11 @@ export async function PATCH(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
+
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
 
     try {
@@ -19,19 +30,19 @@ export async function PATCH(
         const { status } = body;
 
         if (!status) {
-            return new NextResponse("Status is required", { status: 400 });
+            return createAppErrorResponse("INVALID_PAYLOAD", "Status is required", 400);
         }
 
-        // Verify Class Ownership
         const classroom = await db.classroom.findUnique({
             where: {
                 id,
                 teacherId: session.user.id
-            }
+            },
+            select: { id: true },
         });
 
         if (!classroom) {
-            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
         }
 
         const existingRecord = await db.attendanceRecord.findUnique({
@@ -46,7 +57,7 @@ export async function PATCH(
         });
 
         if (!existingRecord || existingRecord.classId !== id) {
-            return new NextResponse("Attendance record not found", { status: 404 });
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         const updatedRecord = await db.attendanceRecord.update({
@@ -58,18 +69,14 @@ export async function PATCH(
             }
         });
 
-        // Also update the current status in Student model if the record is for today?
-        // Let's just update the student's status as a bonus if they edit it, 
-        // but maybe safer to keep them decoupled or update both. We will just update the Student too.
         await db.student.update({
             where: { id: updatedRecord.studentId },
             data: { attendance: status }
         });
 
         return NextResponse.json(updatedRecord);
-
     } catch (error) {
         console.error("[ATTENDANCE_RECORD_PATCH]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

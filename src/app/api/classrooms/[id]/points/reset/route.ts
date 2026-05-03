@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    createAppErrorResponse,
+    AUTH_REQUIRED_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+} from "@/lib/api-error";
 import { logAuditEvent } from "@/lib/security/audit-log";
 import { resetClassroomPoints } from "@/lib/services/classroom-points/reset-classroom-points";
 
@@ -48,6 +52,6 @@ export async function POST(
 
     } catch (error) {
         console.error("[POINTS_RESET_POST]", error);
-        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500);
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

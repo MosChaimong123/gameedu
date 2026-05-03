@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { db } from "@/lib/db"
-import { AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    NOT_FOUND_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 type CreateFolderRequest = {
@@ -12,11 +18,11 @@ type CreateFolderRequest = {
 export async function GET() {
     const session = await auth()
     if (!session?.user?.id) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401)
     }
 
     if (!isTeacherOrAdmin(session.user.role)) {
-        return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403)
     }
 
     try {
@@ -32,25 +38,25 @@ export async function GET() {
         return NextResponse.json(folders)
     } catch (error) {
         console.error("Failed to fetch folders", error)
-        return new NextResponse(INTERNAL_ERROR_MESSAGE, { status: 500 })
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }
 
 export async function POST(req: Request) {
     const session = await auth()
     if (!session?.user?.id) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401)
     }
 
     if (!isTeacherOrAdmin(session.user.role)) {
-        return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403)
     }
 
     try {
         const { name, parentFolderId } = await req.json() as CreateFolderRequest
 
         if (!name) {
-            return new NextResponse("Folder name is required", { status: 400 })
+            return createAppErrorResponse("INVALID_PAYLOAD", "Folder name is required", 400)
         }
 
         if (parentFolderId) {
@@ -65,7 +71,7 @@ export async function POST(req: Request) {
             })
 
             if (!parentFolder) {
-                return new NextResponse("Parent folder not found", { status: 404 })
+                return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404)
             }
         }
 
@@ -80,6 +86,6 @@ export async function POST(req: Request) {
         return NextResponse.json(folder)
     } catch (error) {
         console.error("Failed to create folder", error)
-        return new NextResponse(INTERNAL_ERROR_MESSAGE, { status: 500 })
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }

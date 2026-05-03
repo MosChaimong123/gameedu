@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { User, GraduationCap, ChevronRight, CheckCircle2, Loader2, ArrowLeft, Eye, EyeOff, AlertCircle } from "lucide-react"
+import { appendCallbackUrl } from "@/lib/auth/callback-url"
 import { cn } from "@/lib/utils"
 import { getLocalizedErrorMessageFromResponse, tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages"
 import { signInWithGoogleRole } from "@/lib/auth/google-sign-in-client"
@@ -49,7 +50,9 @@ type SignupWizardProps = {
 
 export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
     const router = useRouter()
+    const searchParams = useSearchParams()
     const { language, t } = useLanguage()
+    const callbackUrl = searchParams.get("callbackUrl")
     const [step, setStep] = useState<1 | 2 | 3>(presetRole ? 2 : 1)
     const [role, setRole] = useState<Role | null>(presetRole)
     const [isLoading, setIsLoading] = useState(false)
@@ -150,7 +153,12 @@ export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
                 throw new Error(message)
             }
 
-            router.push("/login?pendingVerify=1&audience=" + (role === "TEACHER" ? "teacher" : "student"))
+            router.push(
+                appendCallbackUrl(
+                    "/login?pendingVerify=1&audience=" + (role === "TEACHER" ? "teacher" : "student"),
+                    callbackUrl
+                )
+            )
         } catch (err: unknown) {
             const raw = err instanceof Error ? err.message : null
             const net = tryLocalizeFetchNetworkFailureMessage(raw, t)
@@ -167,7 +175,7 @@ export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
         }
         setIsLoading(true)
         setError("")
-        void signInWithGoogleRole(role)
+        void signInWithGoogleRole(role, callbackUrl)
             .catch(() => {
                 setError(t("signupGoogleIntentFailed"))
                 setIsLoading(false)
@@ -212,7 +220,7 @@ export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
                             size="sm"
                             onClick={() => {
                                 if (presetRole) {
-                                    router.replace("/login?mode=register")
+                                    router.replace(appendCallbackUrl("/login?mode=register", callbackUrl))
                                 } else {
                                     setStep(1)
                                 }
@@ -437,9 +445,9 @@ export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
                     {role === "STUDENT" ? (
                         <p className="text-center text-xs text-slate-500">
                             {t("signupStudentAfterRegisterHint")}{" "}
-                            <a href="/student" className="font-semibold text-indigo-600 hover:text-indigo-800">
+                            <Link href="/student" className="font-semibold text-indigo-600 hover:text-indigo-800">
                                 {t("authStudentCodeCta")}
-                            </a>
+                            </Link>
                         </p>
                     ) : null}
                 </form>

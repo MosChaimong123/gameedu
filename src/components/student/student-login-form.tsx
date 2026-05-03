@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Backpack, LayoutDashboard } from "lucide-react";
+import { AlertCircle, Backpack, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "@/components/providers/language-provider";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -14,6 +14,9 @@ export function StudentLoginForm({ isLoggedIn }: { isLoggedIn: boolean }) {
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
     const { t } = useLanguage();
+    const searchParams = useSearchParams();
+    const error = searchParams.get("error");
+    const invalidCode = error === "invalid_code";
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
@@ -38,6 +41,13 @@ export function StudentLoginForm({ isLoggedIn }: { isLoggedIn: boolean }) {
                     <h1 className="text-3xl font-black text-slate-800 tracking-tight">{t("studentPortalTitle")}</h1>
                     <p className="text-slate-500">{t("studentPortalSubtitle")}</p>
                 </div>
+
+                {invalidCode ? (
+                    <div className="flex w-full items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-700">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>{t("joinClassErrInvalidCode")}</span>
+                    </div>
+                ) : null}
 
                 {isLoggedIn && (
                     <Link href="/student/home" 

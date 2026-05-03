@@ -16,6 +16,10 @@ class EmailNotVerified extends CredentialsSignin {
     code = "email_not_verified"
 }
 
+class RateLimitedSignin extends CredentialsSignin {
+    code = "rate_limited"
+}
+
 const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim()
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim()
 const googleProvider =
@@ -56,7 +60,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 })
 
                 if (!rateLimit.allowed) {
-                    throw new Error("RATE_LIMITED")
+                    throw new RateLimitedSignin()
                 }
 
                 const user = await db.user.findUnique({

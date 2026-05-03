@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { StudentDashboardClient } from "@/components/student/StudentDashboardClient";
 import { getStudentDashboard } from "@/lib/services/student-dashboard/get-student-dashboard";
 
@@ -11,7 +11,9 @@ export default async function StudentDashboardPage(
     const currentUserId = session?.user?.id;
     const dashboard = await getStudentDashboard(code);
 
-    if (!dashboard) return notFound();
+    if (!dashboard) {
+        redirect("/student?error=invalid_code");
+    }
 
     return (
         <StudentDashboardClient

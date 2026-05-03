@@ -7,6 +7,8 @@ import {
     decodeOAuthRoleIntent,
     OAUTH_ROLE_INTENT_COOKIE,
 } from "@/lib/auth/oauth-role-intent-cookie";
+import { appendCallbackUrl, getSafeAuthCallbackPath } from "@/lib/auth/callback-url";
+import { getDefaultPostAuthPath } from "@/lib/auth/post-auth-destination";
 import { resolveBrowserRedirectOrigin } from "@/lib/resolve-browser-redirect-origin";
 
 function clearIntentCookie(response: NextResponse) {
@@ -22,10 +24,12 @@ function clearIntentCookie(response: NextResponse) {
 
 export async function GET(req: Request) {
     const origin = resolveBrowserRedirectOrigin(req.url);
+    const callbackPath = getSafeAuthCallbackPath(new URL(req.url).searchParams.get("callbackUrl"), origin);
     const session = await auth();
+    const loginPath = appendCallbackUrl("/login", callbackPath);
 
     if (!session?.user?.id) {
-        return NextResponse.redirect(new URL("/login", origin));
+        return NextResponse.redirect(new URL(loginPath, origin));
     }
 
     const secret = resolveAuthSecret();
@@ -47,7 +51,7 @@ export async function GET(req: Request) {
     });
 
     if (!user) {
-        return redirectWithClearedCookie("/login");
+        return redirectWithClearedCookie(loginPath);
     }
 
     const updates: { role?: string; emailVerified?: Date } = {};
@@ -66,12 +70,8 @@ export async function GET(req: Request) {
     }
 
     const finalRole = updates.role ?? user.role;
-
-    if (finalRole === "STUDENT") {
-        return redirectWithClearedCookie("/student/home");
+    if (callbackPath) {
+        return redirectWithClearedCookie(callbackPath);
     }
-    if (finalRole === "ADMIN") {
-        return redirectWithClearedCookie("/admin");
-    }
-    return redirectWithClearedCookie("/dashboard");
+    return redirectWithClearedCookie(getDefaultPostAuthPath(finalRole));
 }

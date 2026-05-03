@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, it, vi } from "vitest";
+import { expectAppErrorResponse } from "@/__tests__/utils/route-test-helpers";
 
 const mockAuth = vi.fn();
 
@@ -11,7 +12,26 @@ describe("user upgrade route", () => {
     vi.clearAllMocks();
   });
 
-  it("rejects self-service plan upgrades even for authenticated users", async () => {
+  it("rejects unauthenticated upgrade requests with a structured auth error", async () => {
+    mockAuth.mockResolvedValue(null);
+
+    const { POST } = await import("@/app/api/user/upgrade/route");
+    const response = await POST(
+      new Request("http://localhost/api/user/upgrade", {
+        method: "POST",
+        body: JSON.stringify({ plan: "PRO" }),
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    await expectAppErrorResponse(response, {
+      status: 401,
+      code: "AUTH_REQUIRED",
+      message: "Unauthorized",
+    });
+  });
+
+  it("returns a structured gone response for the disabled self-service upgrade endpoint", async () => {
     mockAuth.mockResolvedValue({ user: { id: "user-1" } });
 
     const { POST } = await import("@/app/api/user/upgrade/route");
@@ -23,7 +43,10 @@ describe("user upgrade route", () => {
       })
     );
 
-    expect(response.status).toBe(403);
-    await expect(response.text()).resolves.toBe("Direct plan upgrades are disabled");
+    await expectAppErrorResponse(response, {
+      status: 410,
+      code: "ENDPOINT_NO_LONGER_AVAILABLE",
+      message: "Endpoint no longer available",
+    });
   });
 });

@@ -2,7 +2,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { logAuditEvent } from "@/lib/security/audit-log";
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    NOT_FOUND_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 type OriginalSkill = {
     name: string;
@@ -24,11 +31,14 @@ export async function POST(
     const session = await auth();
 
     if (!session || !session.user || !session.user.id) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
+
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
 
     try {
-        // Get the original classroom
         const originalClassroom = await db.classroom.findUnique({
             where: {
                 id,
@@ -41,22 +51,20 @@ export async function POST(
         });
 
         if (!originalClassroom) {
-            return new NextResponse("Not Found", { status: 404 });
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         const sourceSkills = originalClassroom.skills as OriginalSkill[];
         const sourceAssignments = originalClassroom.assignments as OriginalAssignment[];
 
-        // Generate unique name for duplicate
-        const timestamp = new Date().toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+        const timestamp = new Date().toLocaleString("en-US", {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
         });
         const newName = `${originalClassroom.name} (Copy - ${timestamp})`;
 
-        // Create new classroom with same settings but no students
         const duplicatedClassroom = await db.classroom.create({
             data: {
                 name: newName,
@@ -67,7 +75,6 @@ export async function POST(
                 gamifiedSettings: originalClassroom.gamifiedSettings,
                 levelConfig: originalClassroom.levelConfig,
                 quizReviewMode: originalClassroom.quizReviewMode ?? null,
-                // Copy skills
                 skills: {
                     create: sourceSkills.map((skill) => ({
                         name: skill.name,
@@ -76,7 +83,6 @@ export async function POST(
                         icon: skill.icon
                     }))
                 },
-                // Copy assignments
                 assignments: {
                     create: sourceAssignments.map((assignment) => ({
                         name: assignment.name,
@@ -108,6 +114,6 @@ export async function POST(
         });
     } catch (error) {
         console.error("[CLASSROOM_DUPLICATE]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

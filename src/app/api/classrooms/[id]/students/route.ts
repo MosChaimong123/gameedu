@@ -2,7 +2,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { generateStudentLoginCode } from "@/lib/student-login-code";
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    NOT_FOUND_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 type StudentCreateInput = {
     name: string
@@ -56,7 +63,11 @@ export async function POST(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
+
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
 
     try {
@@ -64,7 +75,7 @@ export async function POST(
         const { students } = body;
 
         if (!students || !Array.isArray(students)) {
-            return new NextResponse("Invalid data", { status: 400 });
+            return createAppErrorResponse("INVALID_PAYLOAD", "Invalid data", 400);
         }
 
         const classroom = await db.classroom.findUnique({
@@ -73,7 +84,7 @@ export async function POST(
         });
 
         if (!classroom) {
-            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
         }
 
         const startOrder = classroom.students.length;
@@ -105,7 +116,7 @@ export async function POST(
         return NextResponse.json(createdStudents);
     } catch (error) {
         console.error("[STUDENTS_POST]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }
 
@@ -116,11 +127,19 @@ export async function PATCH(
     const session = await auth();
     const { id } = await params;
 
-    if (!session?.user?.id) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+    if (!session?.user?.id) {
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
+
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+    }
 
     try {
         const classroom = await db.classroom.findUnique({ where: { id, teacherId: session.user.id } });
-        if (!classroom) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        if (!classroom) {
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+        }
 
         const items = await req.json() as StudentOrderInput[];
         const students = await db.student.findMany({
@@ -136,7 +155,7 @@ export async function PATCH(
         });
 
         if (students.length !== items.length || students.some((student) => student.classId !== id)) {
-            return new NextResponse("Student not found", { status: 404 });
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         await Promise.all(
@@ -148,7 +167,6 @@ export async function PATCH(
         return new NextResponse(null, { status: 204 });
     } catch (error) {
         console.error("[STUDENTS_REORDER]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }
-

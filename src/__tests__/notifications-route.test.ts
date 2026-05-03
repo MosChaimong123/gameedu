@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { expectAppErrorResponse } from "@/__tests__/utils/route-test-helpers";
 
 const mockAuth = vi.fn();
 const mockNotificationFindMany = vi.fn();
@@ -26,6 +27,20 @@ describe("notifications route", () => {
     vi.clearAllMocks();
   });
 
+  it("rejects unauthenticated notification reads", async () => {
+    mockAuth.mockResolvedValue(null);
+    const { GET } = await import("@/app/api/notifications/route");
+
+    const response = await GET();
+
+    await expectAppErrorResponse(response, {
+      status: 401,
+      code: "AUTH_REQUIRED",
+      message: "Unauthorized",
+    });
+    expect(mockNotificationFindMany).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid patch payloads", async () => {
     mockAuth.mockResolvedValue({ user: { id: "user-1" } });
     const { PATCH } = await import("@/app/api/notifications/route");
@@ -34,7 +49,11 @@ describe("notifications route", () => {
       json: async () => ({ id: 123, isRead: "yes" }),
     } as Request);
 
-    expect(response.status).toBe(400);
+    await expectAppErrorResponse(response, {
+      status: 400,
+      code: "INVALID_PAYLOAD",
+      message: "Invalid payload",
+    });
     expect(mockNotificationUpdateMany).not.toHaveBeenCalled();
   });
 
@@ -47,7 +66,11 @@ describe("notifications route", () => {
       json: async () => ({ id: "notification-1", isRead: true }),
     } as Request);
 
-    expect(response.status).toBe(404);
+    await expectAppErrorResponse(response, {
+      status: 404,
+      code: "NOT_FOUND",
+      message: "Not found",
+    });
   });
 
   it("returns only the safe notification subset for the current account", async () => {
@@ -115,6 +138,10 @@ describe("notifications route", () => {
       })
     );
 
-    expect(response.status).toBe(404);
+    await expectAppErrorResponse(response, {
+      status: 404,
+      code: "NOT_FOUND",
+      message: "Not found",
+    });
   });
 });

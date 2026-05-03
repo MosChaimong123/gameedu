@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { expectAppErrorResponse } from "@/__tests__/utils/route-test-helpers";
 
 const mockRequireSessionUser = vi.fn();
 const mockClassroomFindUnique = vi.fn();
@@ -77,6 +78,34 @@ describe("classroom analytics route", () => {
           },
         },
       },
+    });
+  });
+
+  it("returns a structured auth error when no session user exists", async () => {
+    mockRequireSessionUser.mockResolvedValueOnce(null);
+    const route = await import("@/app/api/classrooms/[id]/analytics/route");
+    const response = await route.GET({} as never, {
+      params: Promise.resolve({ id: "class-1" }),
+    });
+
+    await expectAppErrorResponse(response, {
+      status: 401,
+      code: "AUTH_REQUIRED",
+      message: "Unauthorized",
+    });
+  });
+
+  it("returns not found when the classroom does not belong to the current teacher", async () => {
+    mockClassroomFindUnique.mockResolvedValueOnce(null);
+    const route = await import("@/app/api/classrooms/[id]/analytics/route");
+    const response = await route.GET({} as never, {
+      params: Promise.resolve({ id: "class-missing" }),
+    });
+
+    await expectAppErrorResponse(response, {
+      status: 404,
+      code: "NOT_FOUND",
+      message: "Not found",
     });
   });
 });

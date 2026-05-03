@@ -1,7 +1,12 @@
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { requireSessionUser } from "@/lib/auth-guards";
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+  AUTH_REQUIRED_MESSAGE,
+  INTERNAL_ERROR_MESSAGE,
+  NOT_FOUND_MESSAGE,
+  createAppErrorResponse,
+} from "@/lib/api-error";
 
 type StudentAnalyticsRecord = {
   id: string;
@@ -41,7 +46,7 @@ export async function GET(
 ) {
   const { id } = await params;
   const user = await requireSessionUser();
-  if (!user) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+  if (!user) return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
 
   try {
     const classroom = await db.classroom.findUnique({
@@ -92,7 +97,7 @@ export async function GET(
       },
     });
 
-    if (!classroom) return new NextResponse("Not Found", { status: 404 });
+    if (!classroom) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
 
     let totalPositive = 0, totalNeedsWork = 0;
     const recentHistory: StudentAnalyticsRecord[] = [];
@@ -246,6 +251,6 @@ export async function GET(
 
   } catch (error) {
     console.error("[ANALYTICS_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
   }
 }

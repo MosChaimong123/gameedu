@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    NOT_FOUND_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
 import { logAuditEvent } from "@/lib/security/audit-log";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 type StudentPatchAuditContext = {
     source?: string;
@@ -18,10 +25,18 @@ export async function PATCH(
         const session = await auth();
         const { id, studentId } = await params;
 
-        if (!session?.user?.id) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        if (!session?.user?.id) {
+            return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+        }
+
+        if (!isTeacherOrAdmin(session.user.role)) {
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+        }
 
         const classroom = await db.classroom.findUnique({ where: { id, teacherId: session.user.id } });
-        if (!classroom) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        if (!classroom) {
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+        }
 
         const body = await req.json();
         const existingStudent = await db.student.findUnique({
@@ -30,7 +45,7 @@ export async function PATCH(
         });
 
         if (!existingStudent || existingStudent.classId !== id) {
-            return new NextResponse("Student not found", { status: 404 });
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         const auditContext =
@@ -86,7 +101,7 @@ export async function PATCH(
         return NextResponse.json(student);
     } catch (error) {
         console.error("[STUDENT_PATCH]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }
 
@@ -98,10 +113,18 @@ export async function DELETE(
         const session = await auth();
         const { id, studentId } = await params;
 
-        if (!session?.user?.id) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        if (!session?.user?.id) {
+            return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+        }
+
+        if (!isTeacherOrAdmin(session.user.role)) {
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+        }
 
         const classroom = await db.classroom.findUnique({ where: { id, teacherId: session.user.id } });
-        if (!classroom) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        if (!classroom) {
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+        }
 
         const existingStudent = await db.student.findUnique({
             where: { id: studentId },
@@ -109,7 +132,7 @@ export async function DELETE(
         });
 
         if (!existingStudent || existingStudent.classId !== id) {
-            return new NextResponse("Student not found", { status: 404 });
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         await db.student.delete({ where: { id: studentId } });
@@ -117,6 +140,6 @@ export async function DELETE(
         return new NextResponse(null, { status: 204 });
     } catch (error) {
         console.error("[STUDENT_DELETE]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

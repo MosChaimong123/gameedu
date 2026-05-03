@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ENDPOINT_NO_LONGER_AVAILABLE_MESSAGE = exports.INTERNAL_ERROR_MESSAGE = exports.FORBIDDEN_MESSAGE = exports.AUTH_REQUIRED_MESSAGE = void 0;
+exports.ENDPOINT_NO_LONGER_AVAILABLE_MESSAGE = exports.INTERNAL_ERROR_MESSAGE = exports.NOT_FOUND_MESSAGE = exports.FORBIDDEN_MESSAGE = exports.AUTH_REQUIRED_MESSAGE = void 0;
 exports.createAppError = createAppError;
 exports.createAppErrorResponse = createAppErrorResponse;
 const server_1 = require("next/server");
 exports.AUTH_REQUIRED_MESSAGE = "Unauthorized";
 exports.FORBIDDEN_MESSAGE = "Forbidden";
+exports.NOT_FOUND_MESSAGE = "Not found";
 exports.INTERNAL_ERROR_MESSAGE = "Internal Server Error";
 exports.ENDPOINT_NO_LONGER_AVAILABLE_MESSAGE = "Endpoint no longer available";
 function createAppError(code, message) {

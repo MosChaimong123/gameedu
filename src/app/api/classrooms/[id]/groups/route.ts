@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    NOT_FOUND_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 type GroupEntry = {
     name: string
@@ -16,26 +23,39 @@ export async function GET(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
+
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
 
     try {
+        const classroom = await db.classroom.findUnique({
+            where: {
+                id,
+                teacherId: session.user.id
+            },
+            select: { id: true },
+        });
+
+        if (!classroom) {
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+        }
+
         const groups = await db.studentGroup.findMany({
             where: {
                 classId: id,
-                classroom: {
-                    teacherId: session.user.id
-                }
             },
             orderBy: {
-                createdAt: 'desc'
+                createdAt: "desc"
             }
         });
 
         return NextResponse.json(groups);
     } catch (error) {
         console.error("[GROUPS_GET]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }
 
@@ -47,7 +67,11 @@ export async function POST(
     const session = await auth();
 
     if (!session || !session.user) {
-        return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+        return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
+
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
 
     try {
@@ -55,18 +79,19 @@ export async function POST(
         const { name, groups } = body;
 
         if (!name || !groups || !Array.isArray(groups)) {
-             return new NextResponse("Missing data", { status: 400 });
+             return createAppErrorResponse("INVALID_PAYLOAD", "Missing data", 400);
         }
 
         const classroom = await db.classroom.findUnique({
             where: {
                 id,
                 teacherId: session.user.id
-            }
+            },
+            select: { id: true },
         });
 
         if (!classroom) {
-            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
         }
 
         const requestedStudentIds = groups.flatMap((group) => group.studentIds);
@@ -84,24 +109,21 @@ export async function POST(
             });
 
             if (students.length !== requestedStudentIds.length || students.some((student) => student.classId !== id)) {
-                return new NextResponse("Student not found in classroom", { status: 404 });
+                return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
             }
         }
 
-        // Store the entire set of groups as a single record
-        // By stringifying the objects, we avoid a Prisma schema change. 
         const groupRecord = await db.studentGroup.create({
             data: {
-                name: name,
+                name,
                 classId: id,
                 studentIds: groups.map((group) => JSON.stringify({ name: group.name, studentIds: group.studentIds }))
             }
         });
 
         return NextResponse.json([groupRecord]);
-
     } catch (error) {
         console.error("[GROUPS_POST]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

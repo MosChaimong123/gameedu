@@ -2,7 +2,14 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
 import { parseQuizReviewModeFromRequest } from "@/lib/quiz-review-policy";
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    NOT_FOUND_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 export async function PATCH(
     req: Request,
@@ -13,7 +20,11 @@ export async function PATCH(
         const resolvedParams = await params;
 
         if (!session?.user?.id) {
-            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+            return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+        }
+
+        if (!isTeacherOrAdmin(session.user.role)) {
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
         }
 
         const classroom = await db.classroom.findUnique({
@@ -21,7 +32,7 @@ export async function PATCH(
         });
 
         if (!classroom) {
-            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
         }
 
         const body = (await req.json()) as Record<string, unknown>;
@@ -31,7 +42,7 @@ export async function PATCH(
         });
 
         if (!existingAssignment || existingAssignment.classId !== resolvedParams.id) {
-            return new NextResponse("Assignment Not Found", { status: 404 });
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         const explicitType = typeof body.type === "string" ? body.type : undefined;
@@ -42,7 +53,7 @@ export async function PATCH(
                     ? body.quizSetId
                     : null;
             if (!incomingSet && !existingAssignment.quizSetId) {
-                return new NextResponse("Quiz requires a question set", { status: 400 });
+                return createAppErrorResponse("INVALID_PAYLOAD", "Quiz requires a question set", 400);
             }
         }
 
@@ -89,7 +100,7 @@ export async function PATCH(
         if (effectiveType === "quiz" && body.quizReviewMode !== undefined) {
             const parsed = parseQuizReviewModeFromRequest(body.quizReviewMode);
             if (!parsed.ok) {
-                return new NextResponse("Invalid quizReviewMode", { status: 400 });
+                return createAppErrorResponse("INVALID_PAYLOAD", "Invalid quizReviewMode", 400);
             }
             if (parsed.value !== undefined) {
                 data.quizReviewMode = parsed.value;
@@ -102,7 +113,7 @@ export async function PATCH(
                 select: { questions: true, creatorId: true },
             });
             if (!questionSet || questionSet.creatorId !== session.user.id) {
-                return new NextResponse("Question set not found", { status: 404 });
+                return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
             }
             data.quizSetId = body.quizSetId;
             data.quizData = { questions: questionSet.questions };
@@ -123,7 +134,7 @@ export async function PATCH(
         return NextResponse.json(assignment);
     } catch (error) {
         console.error("[ASSIGNMENT_PATCH]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }
 
@@ -136,7 +147,11 @@ export async function DELETE(
         const resolvedParams = await params;
 
         if (!session?.user?.id) {
-            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+            return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+        }
+
+        if (!isTeacherOrAdmin(session.user.role)) {
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
         }
 
         const classroom = await db.classroom.findUnique({
@@ -147,7 +162,7 @@ export async function DELETE(
         });
 
         if (!classroom) {
-            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 });
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
         }
 
         const assignment = await db.assignment.findUnique({
@@ -156,7 +171,7 @@ export async function DELETE(
         });
 
         if (!assignment || assignment.classId !== resolvedParams.id) {
-             return new NextResponse("Assignment Not Found", { status: 404 });
+             return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         await db.assignment.delete({
@@ -166,9 +181,8 @@ export async function DELETE(
         });
 
         return new NextResponse(null, { status: 204 });
-
     } catch (error) {
         console.error("[ASSIGNMENT_DELETE]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }

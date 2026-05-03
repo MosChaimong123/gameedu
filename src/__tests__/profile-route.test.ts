@@ -34,6 +34,41 @@ describe("profile route", () => {
     });
   });
 
+  it("returns a structured auth-required error when no session user exists", async () => {
+    mockAuth.mockResolvedValueOnce(null);
+    const { PATCH } = await import("@/app/api/user/profile/route");
+
+    const response = await PATCH(makeJsonRequest({
+      name: "Teacher",
+    }));
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "AUTH_REQUIRED",
+        message: "Unauthorized",
+      },
+    });
+    expect(mockUserUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns not found when the session user no longer exists", async () => {
+    mockUserUpdate.mockRejectedValueOnce({ code: "P2025" });
+    const { PATCH } = await import("@/app/api/user/profile/route");
+
+    const response = await PATCH(makeJsonRequest({
+      name: "Teacher",
+    }));
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "NOT_FOUND",
+        message: "Not found",
+      },
+    });
+  });
+
   it("returns only a safe user profile subset", async () => {
     const { PATCH } = await import("@/app/api/user/profile/route");
     const response = await PATCH(makeJsonRequest({

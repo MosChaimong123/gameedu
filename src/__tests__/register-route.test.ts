@@ -10,15 +10,22 @@ function makeJsonRequest(body: JsonRequestBody): Request {
 
 const mockUserFindUnique = vi.fn();
 const mockUserCreate = vi.fn();
+const mockVerificationTokenDeleteMany = vi.fn();
+const mockVerificationTokenCreate = vi.fn();
 const mockHash = vi.fn();
 const mockConsumeRateLimit = vi.fn();
 const mockLogAuditEvent = vi.fn();
+const mockSendVerificationEmail = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
     user: {
       findUnique: mockUserFindUnique,
       create: mockUserCreate,
+    },
+    verificationToken: {
+      deleteMany: mockVerificationTokenDeleteMany,
+      create: mockVerificationTokenCreate,
     },
   },
 }));
@@ -47,6 +54,10 @@ vi.mock("@/lib/security/audit-log", () => ({
   logAuditEvent: mockLogAuditEvent,
 }));
 
+vi.mock("@/lib/email/send-verification-email", () => ({
+  sendVerificationEmail: mockSendVerificationEmail,
+}));
+
 describe("register route POST", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -59,10 +70,18 @@ describe("register route POST", () => {
     mockHash.mockResolvedValue("hashed-password");
     mockUserFindUnique.mockResolvedValue(null);
     mockUserCreate.mockResolvedValue({
+      id: "user-1",
       name: "Alice",
       email: "alice@example.com",
       role: "STUDENT",
     });
+    mockVerificationTokenDeleteMany.mockResolvedValue({ count: 0 });
+    mockVerificationTokenCreate.mockResolvedValue({
+      identifier: "alice@example.com",
+      token: "token",
+      expires: new Date("2026-01-01T00:00:00.000Z"),
+    });
+    mockSendVerificationEmail.mockResolvedValue(undefined);
   });
 
   it("rejects privileged roles such as ADMIN from the client", async () => {
@@ -85,6 +104,7 @@ describe("register route POST", () => {
 
   it("persists TEACHER when the client sends role TEACHER", async () => {
     mockUserCreate.mockResolvedValue({
+      id: "user-2",
       name: "Bob",
       email: "bob@example.com",
       role: "TEACHER",

@@ -81,10 +81,13 @@ describe("ui error messages", () => {
       const dict: Record<string, string> = {
         loginAuthErrorUnknown: "Sign-in failed (unknown).",
         loginAuthErrorInvalidCredentials: "Bad login.",
+        loginAuthErrorRateLimited: "Too many sign-in attempts.",
       };
       return dict[key] ?? key;
     };
     expect(getLocalizedAuthErrorMessage(null, "en", t)).toBe("Sign-in failed (unknown).");
+    expect(getLocalizedAuthErrorMessage("rate_limited", "en", t)).toBe("Too many sign-in attempts.");
+    expect(getLocalizedAuthErrorMessage("RATE_LIMITED", "en", t)).toBe("Too many sign-in attempts.");
     expect(getLocalizedAuthErrorMessage("CredentialsSignin", "en", t)).toBe(
       "Invalid email or password. Please try again."
     );

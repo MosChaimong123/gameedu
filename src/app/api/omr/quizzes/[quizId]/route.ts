@@ -2,7 +2,13 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { db as prisma } from "@/lib/db"
 import { isTeacherOrAdmin } from "@/lib/role-guards"
-import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
+import {
+    createAppErrorResponse,
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    NOT_FOUND_MESSAGE,
+} from "@/lib/api-error";
 
 interface IParams {
     quizId: string
@@ -36,12 +42,12 @@ export async function GET(
             }
         })
 
-        if (!quiz) return createAppErrorResponse("NOT_FOUND", "Not Found", 404)
+        if (!quiz) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404)
 
         return NextResponse.json(quiz)
     } catch (error) {
         console.error("[OMR_QUIZ_GET]", error)
-        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500)
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }
 
@@ -62,7 +68,7 @@ export async function PUT(
         const existing = await prisma.oMRQuiz.findFirst({
             where: { id: quizId, teacherId: session.user.id }
         })
-        if (!existing) return createAppErrorResponse("NOT_FOUND", "Not Found", 404)
+        if (!existing) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404)
 
         const quiz = await prisma.oMRQuiz.update({
             where: { id: quizId },
@@ -88,7 +94,7 @@ export async function PUT(
         return NextResponse.json(quiz)
     } catch (error) {
         console.error("[OMR_QUIZ_PUT]", error)
-        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500)
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }
 
@@ -107,7 +113,7 @@ export async function DELETE(
         const existing = await prisma.oMRQuiz.findFirst({
             where: { id: quizId, teacherId: session.user.id }
         })
-        if (!existing) return createAppErrorResponse("NOT_FOUND", "Not Found", 404)
+        if (!existing) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404)
 
         await prisma.oMRQuiz.delete({
             where: { id: quizId }
@@ -116,6 +122,6 @@ export async function DELETE(
         return new NextResponse(null, { status: 204 })
     } catch (error) {
         console.error("[OMR_QUIZ_DELETE]", error)
-        return createAppErrorResponse("INTERNAL_ERROR", "Internal Error", 500)
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }

@@ -2,7 +2,14 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
 import { parseAndValidateManualScore } from "@/lib/validate-manual-assignment-score";
-import { AUTH_REQUIRED_MESSAGE, INTERNAL_ERROR_MESSAGE, createAppErrorResponse } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    NOT_FOUND_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 /** Teachers may still record/edit manual scores after the deadline (class policy); student quiz submission enforces its own rules. */
 
@@ -15,6 +22,10 @@ export async function POST(
 
     if (!session || !session.user) {
         return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
+
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
 
     try {
@@ -36,7 +47,7 @@ export async function POST(
         });
 
         if (!assignment) {
-            return createAppErrorResponse("NOT_FOUND", "Assignment not found or unauthorized", 404);
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         const validated = parseAndValidateManualScore(
@@ -55,7 +66,7 @@ export async function POST(
         });
 
         if (!student || student.classId !== id) {
-            return createAppErrorResponse("NOT_FOUND", "Student not found in classroom", 404);
+            return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
         const submission = await db.assignmentSubmission.upsert({

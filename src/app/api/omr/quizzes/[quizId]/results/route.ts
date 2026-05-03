@@ -5,6 +5,8 @@ import { isTeacherOrAdmin } from "@/lib/role-guards"
 import {
     AUTH_REQUIRED_MESSAGE,
     FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    NOT_FOUND_MESSAGE,
     createAppErrorResponse,
 } from "@/lib/api-error";
 import { getLimitsForUser } from "@/lib/plan/plan-access";
@@ -21,8 +23,8 @@ export async function POST(
     try {
         const { quizId } = await params
         const session = await auth()
-        if (!session?.user?.id) return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
-        if (!isTeacherOrAdmin(session.user.role)) return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
+        if (!session?.user?.id) return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401)
+        if (!isTeacherOrAdmin(session.user.role)) return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403)
         const body = await req.json()
         const { studentId, studentName, score, total, answers } = body
 
@@ -31,7 +33,7 @@ export async function POST(
             where: { id: quizId, teacherId: session.user.id }
         })
 
-        if (!quiz) return new NextResponse(FORBIDDEN_MESSAGE, { status: 403 })
+        if (!quiz) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404)
 
         const limits = getLimitsForUser(session.user.role, session.user.plan)
         if (Number.isFinite(limits.maxOmrScansPerMonth)) {
@@ -67,6 +69,6 @@ export async function POST(
         return NextResponse.json(result)
     } catch (error) {
         console.error("[OMR_RESULTS_POST]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }

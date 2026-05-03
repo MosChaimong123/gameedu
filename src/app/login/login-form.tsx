@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { resolvePostAuthDestination } from "@/lib/auth/post-auth-destination";
+import { getNextAuthResultCode } from "@/lib/auth/next-auth-result";
 import { getLocalizedAuthErrorMessage, tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages";
 import { useLanguage } from "@/components/providers/language-provider";
 import { signInWithGoogleRole } from "@/lib/auth/google-sign-in-client";
@@ -32,6 +34,7 @@ export default function LoginForm({ audience }: LoginFormProps) {
     const verified = searchParams.get("verified") === "1";
     const pendingVerify = searchParams.get("pendingVerify") === "1";
     const verifyError = searchParams.get("verifyError");
+    const callbackUrl = searchParams.get("callbackUrl");
 
     const formSchema = React.useMemo(
         () =>
@@ -67,23 +70,31 @@ export default function LoginForm({ audience }: LoginFormProps) {
 
             if (result?.error || !result?.ok) {
                 const err = result?.error ?? "";
-                if (result?.code === "email_not_verified" || err === "EMAIL_NOT_VERIFIED" || err.includes("EMAIL_NOT_VERIFIED")) {
+                const resultCode =
+                    result?.code ??
+                    getNextAuthResultCode(
+                        typeof window !== "undefined" ? result?.url : null,
+                        typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"
+                    );
+                if (resultCode === "email_not_verified" || err === "EMAIL_NOT_VERIFIED" || err.includes("EMAIL_NOT_VERIFIED")) {
                     setNeedsVerify(true);
                 }
                 const mapped =
-                    result?.code === "email_not_verified" ? "EMAIL_NOT_VERIFIED" : err;
+                    resultCode === "email_not_verified"
+                        ? "EMAIL_NOT_VERIFIED"
+                        : resultCode === "rate_limited"
+                          ? "RATE_LIMITED"
+                          : err;
                 setErrorMsg(getLocalizedAuthErrorMessage(mapped, language, t));
             } else {
                 const { getSession } = await import("next-auth/react");
                 const session = await getSession();
-                const role = session?.user?.role;
-                if (role === "STUDENT") {
-                    window.location.href = "/student/home";
-                } else if (role === "ADMIN") {
-                    window.location.href = "/admin";
-                } else {
-                    window.location.href = "/dashboard";
-                }
+                const destination = resolvePostAuthDestination(
+                    session?.user?.role,
+                    callbackUrl,
+                    window.location.origin
+                );
+                window.location.href = destination;
             }
         } catch (error) {
             const raw = error instanceof Error ? error.message : null;
@@ -121,7 +132,7 @@ export default function LoginForm({ audience }: LoginFormProps) {
         setIsLoading(true);
         setErrorMsg(null);
         try {
-            await signInWithGoogleRole(audience === "teacher" ? "TEACHER" : "STUDENT");
+            await signInWithGoogleRole(audience === "teacher" ? "TEACHER" : "STUDENT", callbackUrl);
         } catch {
             setErrorMsg(getLocalizedAuthErrorMessage("oauth_intent_failed", language, t));
             setIsLoading(false);

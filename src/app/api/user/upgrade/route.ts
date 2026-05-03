@@ -1,18 +1,26 @@
-import { NextResponse } from "next/server"
 import { requireSessionUser } from "@/lib/auth-guards"
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    AUTH_REQUIRED_MESSAGE,
+    ENDPOINT_NO_LONGER_AVAILABLE_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+    createAppErrorResponse,
+} from "@/lib/api-error";
 
 export async function POST(req: Request) {
     try {
         const user = await requireSessionUser()
         if (!user?.id) {
-            return new NextResponse(AUTH_REQUIRED_MESSAGE, { status: 401 })
+            return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401)
         }
 
         await req.json().catch(() => null)
-        return new NextResponse("Direct plan upgrades are disabled", { status: 403 })
+        return createAppErrorResponse(
+            "ENDPOINT_NO_LONGER_AVAILABLE",
+            ENDPOINT_NO_LONGER_AVAILABLE_MESSAGE,
+            410
+        )
     } catch (error) {
         console.error("[UPGRADE_POST]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
     }
 }

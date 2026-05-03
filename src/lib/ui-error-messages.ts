@@ -19,6 +19,10 @@ const DEFAULT_THAI_ERROR_MESSAGES: Record<AppErrorCode, string> = {
     ALREADY_IN_CLASSROOM: "บัญชีนี้อยู่ในห้องเรียนนี้แล้ว",
     RATE_LIMITED: "คุณลองหลายครั้งเกินไป โปรดรอสักครู่แล้วลองใหม่",
     INVALID_PAYLOAD: "ข้อมูลที่ส่งมาไม่ถูกต้อง",
+    REGISTER_EMAIL_ALREADY_EXISTS: "อีเมลนี้ลงทะเบียนแล้ว ลองเข้าสู่ระบบหรือใช้อีเมลอื่น",
+    REGISTER_USERNAME_TAKEN: "ชื่อผู้ใช้ที่สร้างอัตโนมัติซ้ำกับผู้อื่น ลองอีกครั้งหรือใช้อีเมลอื่น",
+    REGISTER_VERIFICATION_EMAIL_FAILED:
+        "ระบบส่งอีเมลยืนยันไม่สำเร็จ (เช่น ยังไม่ตั้งค่า Resend หรือโดเมนส่งเมล) โปรดลองใหม่ภายหลังหรือสมัครด้วย Google",
     NOT_FOUND: "ไม่พบข้อมูลที่ต้องการ",
     NO_FILE: "กรุณาเลือกไฟล์ก่อนอัปโหลด",
     UNSUPPORTED_FILE_TYPE: "ไฟล์ประเภทนี้ยังไม่รองรับ",

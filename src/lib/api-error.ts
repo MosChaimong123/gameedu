@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 export const AUTH_REQUIRED_MESSAGE = "Unauthorized";
 export const FORBIDDEN_MESSAGE = "Forbidden";
+export const NOT_FOUND_MESSAGE = "Not found";
 export const INTERNAL_ERROR_MESSAGE = "Internal Server Error";
 export const ENDPOINT_NO_LONGER_AVAILABLE_MESSAGE = "Endpoint no longer available";
 
@@ -13,6 +14,9 @@ export type AppErrorCode =
     | "ALREADY_IN_CLASSROOM"
     | "RATE_LIMITED"
     | "INVALID_PAYLOAD"
+    | "REGISTER_EMAIL_ALREADY_EXISTS"
+    | "REGISTER_USERNAME_TAKEN"
+    | "REGISTER_VERIFICATION_EMAIL_FAILED"
     | "NOT_FOUND"
     | "NO_FILE"
     | "UNSUPPORTED_FILE_TYPE"

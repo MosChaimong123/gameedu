@@ -77,7 +77,7 @@ export async function POST(req: Request) {
                 targetType: "register",
                 metadata: { emailMasked: maskEmail(email) },
             })
-            return createAppErrorResponse("INVALID_PAYLOAD", "Email already exists", 400)
+            return createAppErrorResponse("REGISTER_EMAIL_ALREADY_EXISTS", "Email already exists", 400)
         }
 
         const existingUsername = await db.user.findUnique({ where: { username } })
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
                 targetType: "register",
                 metadata: { usernameMasked: maskIdentifier(username) },
             })
-            return createAppErrorResponse("INVALID_PAYLOAD", "Username already taken", 400)
+            return createAppErrorResponse("REGISTER_USERNAME_TAKEN", "Username already taken", 400)
         }
 
         step = "hash_password";
@@ -141,7 +141,7 @@ export async function POST(req: Request) {
                 await db.verificationToken.deleteMany({ where: { identifier: email } })
                 await db.user.delete({ where: { id: user.id } })
                 return createAppErrorResponse(
-                    "INTERNAL_ERROR",
+                    "REGISTER_VERIFICATION_EMAIL_FAILED",
                     "Could not send verification email. Please try again later.",
                     503
                 )

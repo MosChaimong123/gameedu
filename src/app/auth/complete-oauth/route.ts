@@ -8,7 +8,7 @@ import {
     OAUTH_ROLE_INTENT_COOKIE,
 } from "@/lib/auth/oauth-role-intent-cookie";
 import { appendCallbackUrl, getSafeAuthCallbackPath } from "@/lib/auth/callback-url";
-import { getDefaultPostAuthPath } from "@/lib/auth/post-auth-destination";
+import { getDefaultPostAuthPath, normalizePostAuthRole } from "@/lib/auth/post-auth-destination";
 import { resolveBrowserRedirectOrigin } from "@/lib/resolve-browser-redirect-origin";
 
 function clearIntentCookie(response: NextResponse) {
@@ -73,5 +73,5 @@ export async function GET(req: Request) {
     if (callbackPath) {
         return redirectWithClearedCookie(callbackPath);
     }
-    return redirectWithClearedCookie(getDefaultPostAuthPath(finalRole));
+    return redirectWithClearedCookie(getDefaultPostAuthPath(normalizePostAuthRole(finalRole)));
 }

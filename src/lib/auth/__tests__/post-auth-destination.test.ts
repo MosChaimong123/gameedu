@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { getDefaultPostAuthPath, resolvePostAuthDestination } from "@/lib/auth/post-auth-destination";
+import {
+    getDefaultPostAuthPath,
+    normalizePostAuthRole,
+    resolvePostAuthDestination,
+} from "@/lib/auth/post-auth-destination";
 
 describe("post auth destination helpers", () => {
+    it("normalizes string roles from prisma/session", () => {
+        expect(normalizePostAuthRole("TEACHER")).toBe("TEACHER");
+        expect(normalizePostAuthRole("unexpected")).toBeUndefined();
+        expect(getDefaultPostAuthPath(normalizePostAuthRole("unexpected"))).toBe("/dashboard");
+    });
+
     it("returns role-based defaults", () => {
         expect(getDefaultPostAuthPath("STUDENT")).toBe("/student/home");
         expect(getDefaultPostAuthPath("ADMIN")).toBe("/admin");

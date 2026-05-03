@@ -2,6 +2,14 @@ import { getSafeAuthCallbackPath } from "@/lib/auth/callback-url";
 
 export type PostAuthRole = "STUDENT" | "ADMIN" | "TEACHER" | "USER" | null | undefined;
 
+/** Narrows DB / session string roles for post-auth routing. Unknown values become undefined (dashboard). */
+export function normalizePostAuthRole(role: string | null | undefined): PostAuthRole {
+    if (role === "STUDENT" || role === "ADMIN" || role === "TEACHER" || role === "USER") {
+        return role;
+    }
+    return undefined;
+}
+
 export function getDefaultPostAuthPath(role: PostAuthRole): string {
     if (role === "STUDENT") {
         return "/student/home";

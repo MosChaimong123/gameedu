@@ -912,7 +912,8 @@ const englishPack = {
         reports: "Reports",
         studentLogins: "Student Logins",
         studentAccessCodes: "Student Access Codes",
-        accessCodesDesc: "Give these unique 6-character codes to your students so they can log into their portals. You can print this page for easy distribution.",
+        accessCodesDesc:
+            "Give each student their unique {newLen}-character login code from this card (older classes may still use {legacyLen} characters). Print this page to hand out.",
         accessCode: "Access Code",
         joinAt: "Join at: {url}",
         printCards: "Print Cards",
@@ -1163,6 +1164,8 @@ const englishPack = {
         nicknameWithValue: "Nickname: {name}",
         ariaLabelEdit: "Edit",
         ariaLabelDelete: "Delete",
+        studentManagerMoveUpAriaLabel: "Move student up",
+        studentManagerMoveDownAriaLabel: "Move student down",
         toastStudentProfileSaveSuccessTitle: "Student updated",
         toastStudentProfileSaveSuccessDesc: "Student details were saved.",
         toastStudentProfileSaveFailTitle: "Could not save student",
@@ -1194,9 +1197,10 @@ const englishPack = {
         studentMetaSection: "Details",
         studentLoginCodeLabel: "Login code",
         studentPortalTitle: "Student login",
-        studentPortalSubtitle: "Enter the 6-character code from your teacher to open your classroom.",
+        studentPortalSubtitle:
+            "Enter the login code from your teacher. The app accepts legacy {legacyLen}-character codes and new {newLen}-character codes.",
         studentPortalGoDashboard: "Go to your dashboard",
-        studentPortalCodePlaceholder: "6-character code",
+        studentPortalCodePlaceholder: "Full code from your teacher’s card",
         studentPortalSubmit: "Enter classroom",
         studentPortalSubmitLoading: "Opening...",
         studentPortalGmailHint:

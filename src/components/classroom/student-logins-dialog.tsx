@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Key, Printer } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
+import {
+    LEGACY_STUDENT_LOGIN_CODE_LENGTH,
+    STUDENT_LOGIN_CODE_LENGTH,
+} from "@/lib/student-login-code";
 
 type StudentLoginCard = {
     id: string
@@ -33,7 +37,10 @@ export function StudentLoginsDialog({ students, classId, theme }: { students: St
                 <DialogHeader className="shrink-0 border-b border-amber-100/90 bg-gradient-to-b from-white to-[#faf8f5] px-5 py-5 print:hidden sm:px-6">
                     <DialogTitle className="text-lg font-extrabold tracking-tight text-slate-900 sm:text-2xl">{t("studentAccessCodes")}</DialogTitle>
                     <DialogDescription className="mt-2 text-sm font-medium leading-relaxed text-slate-700 sm:text-base">
-                        {t("accessCodesDesc")}
+                        {t("accessCodesDesc", {
+                            legacyLen: LEGACY_STUDENT_LOGIN_CODE_LENGTH,
+                            newLen: STUDENT_LOGIN_CODE_LENGTH,
+                        })}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/40 p-4 sm:p-6">

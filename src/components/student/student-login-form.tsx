@@ -8,6 +8,11 @@ import { AlertCircle, Backpack, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "@/components/providers/language-provider";
 import { LanguageToggle } from "@/components/language-toggle";
+import {
+    LEGACY_STUDENT_LOGIN_CODE_LENGTH,
+    MAX_STUDENT_LOGIN_CODE_LENGTH,
+    STUDENT_LOGIN_CODE_LENGTH,
+} from "@/lib/student-login-code";
 
 export function StudentLoginForm({ isLoggedIn }: { isLoggedIn: boolean }) {
     const [code, setCode] = useState("");
@@ -39,7 +44,12 @@ export function StudentLoginForm({ isLoggedIn }: { isLoggedIn: boolean }) {
                 
                 <div className="space-y-2">
                     <h1 className="text-3xl font-black text-slate-800 tracking-tight">{t("studentPortalTitle")}</h1>
-                    <p className="text-slate-500">{t("studentPortalSubtitle")}</p>
+                    <p className="text-slate-500">
+                        {t("studentPortalSubtitle", {
+                            legacyLen: LEGACY_STUDENT_LOGIN_CODE_LENGTH,
+                            newLen: STUDENT_LOGIN_CODE_LENGTH,
+                        })}
+                    </p>
                 </div>
 
                 {invalidCode ? (
@@ -65,14 +75,17 @@ export function StudentLoginForm({ isLoggedIn }: { isLoggedIn: boolean }) {
                             value={code}
                             onChange={(e) => setCode(e.target.value)}
                             className="text-center text-2xl tracking-widest font-mono py-6 uppercase placeholder:normal-case placeholder:tracking-normal placeholder:text-sm"
-                            maxLength={6}
+                            maxLength={MAX_STUDENT_LOGIN_CODE_LENGTH}
                             required
                         />
                     </div>
                     <Button 
                         type="submit" 
                         className="w-full py-6 text-lg font-bold bg-indigo-600 hover:bg-indigo-700 shadow-md transition-all rounded-2xl"
-                        disabled={isLoading || code.length < 5}
+                        disabled={
+                            isLoading ||
+                            code.trim().length < LEGACY_STUDENT_LOGIN_CODE_LENGTH
+                        }
                     >
                         {isLoading ? t("studentPortalSubmitLoading") : t("studentPortalSubmit")}
                     </Button>

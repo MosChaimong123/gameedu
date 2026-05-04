@@ -33,7 +33,12 @@ function extractReferencedStudentIds(rawStudentIds: string[]): string[] | null {
             const parsed = JSON.parse(trimmedEntry) as { studentIds?: unknown } | unknown[];
 
             if (Array.isArray(parsed)) {
-                if (!parsed.every((studentId) => typeof studentId === "string" && studentId.trim().length > 0)) {
+                if (
+                    !parsed.every(
+                        (studentId): studentId is string =>
+                            typeof studentId === "string" && studentId.trim().length > 0
+                    )
+                ) {
                     return null;
                 }
                 referencedIds.push(...parsed.map((studentId) => studentId.trim()));
@@ -42,8 +47,12 @@ function extractReferencedStudentIds(rawStudentIds: string[]): string[] | null {
 
             if (
                 !parsed ||
+                typeof parsed !== "object" ||
                 !Array.isArray(parsed.studentIds) ||
-                !parsed.studentIds.every((studentId) => typeof studentId === "string" && studentId.trim().length > 0)
+                !parsed.studentIds.every(
+                    (studentId): studentId is string =>
+                        typeof studentId === "string" && studentId.trim().length > 0
+                )
             ) {
                 return null;
             }

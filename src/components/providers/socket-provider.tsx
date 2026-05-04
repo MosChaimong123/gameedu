@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { io as ClientIO, type Socket } from "socket.io-client"
+import { resolveSocketClientBaseUrl } from "@/lib/resolve-socket-client-url"
 
 type SocketContextType = {
     socket: Socket | null
@@ -21,10 +22,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     const [socket] = useState<Socket | null>(() => {
         if (typeof window === "undefined") return null
 
-        const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || undefined
-        return ClientIO(socketUrl, {
+        const baseUrl = resolveSocketClientBaseUrl()
+        return ClientIO(baseUrl || undefined, {
             path: "/socket.io",
             addTrailingSlash: false,
+            withCredentials: true,
         })
     })
     const [isConnected, setIsConnected] = useState(false)

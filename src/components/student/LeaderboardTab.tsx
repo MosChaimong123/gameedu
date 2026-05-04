@@ -100,7 +100,9 @@ export function LeaderboardTab({
     setGroupLoading(true);
     setGroupError(false);
     try {
-      const r = await fetch(`/api/classrooms/${classId}/groups/scores`);
+      const r = await fetch(
+        `/api/classrooms/${classId}/groups/scores?code=${encodeURIComponent(studentCode)}`
+      );
       if (!r.ok) throw new Error("fetch failed");
       const d = await r.json();
       const sets: GroupSet[] = d.groupSets ?? [];
@@ -111,7 +113,7 @@ export function LeaderboardTab({
     } finally {
       setGroupLoading(false);
     }
-  }, [classId]);
+  }, [classId, studentCode]);
 
   useEffect(() => {
     if (mode === "group" && groupSets.length === 0 && !groupError) {

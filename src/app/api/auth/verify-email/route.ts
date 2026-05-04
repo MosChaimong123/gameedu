@@ -21,13 +21,23 @@ export async function GET(req: Request) {
         return fail("invalid_or_expired");
     }
 
-    const email = record.identifier;
-    await db.user.updateMany({
-        where: { email, emailVerified: null },
+    const email = record.identifier.trim();
+    const emailVariants = [...new Set([email, email.toLowerCase()])];
+
+    // Do not require `emailVerified: null`. Malformed or oddly-typed values in Mongo
+    // can make that filter match zero rows while the user is still blocked at login.
+    const updated = await db.user.updateMany({
+        where: { email: { in: emailVariants } },
         data: { emailVerified: new Date() },
     });
 
-    await db.verificationToken.deleteMany({ where: { identifier: email } });
+    if (updated.count === 0) {
+        return fail("user_not_found");
+    }
+
+    await db.verificationToken.deleteMany({
+        where: { identifier: { in: emailVariants } },
+    });
 
     return NextResponse.redirect(new URL("/login?verified=1", origin));
 }

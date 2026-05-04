@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import { FORBIDDEN_MESSAGE } from "@/lib/api-error";
 
 export const CLASSROOM_ATTENDANCE_INVALID_DATA = "classroomAttendanceInvalidData";
 export const CLASSROOM_ATTENDANCE_STUDENT_NOT_FOUND = "classroomAttendanceStudentNotFound";
@@ -21,7 +21,7 @@ export type SaveClassroomAttendanceArgs = {
 };
 
 export type SaveClassroomAttendanceResult =
-    | { ok: false; status: 400 | 401 | 404; message: string }
+    | { ok: false; status: 400 | 403 | 404; message: string }
     | {
         ok: true;
         classroomId: string;
@@ -47,7 +47,7 @@ export async function saveClassroomAttendance(
     });
 
     if (!classroom) {
-        return { ok: false, status: 401, message: AUTH_REQUIRED_MESSAGE };
+        return { ok: false, status: 403, message: FORBIDDEN_MESSAGE };
     }
 
     const students = await deps.db.student.findMany({

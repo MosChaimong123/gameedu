@@ -9,6 +9,10 @@ import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
 import { getThemeBgStyle, getThemeHorizontalBgClass } from "@/lib/classroom-utils";
 import type { Student } from "@prisma/client";
+import {
+    getLocalizedErrorMessageFromResponse,
+    tryLocalizeFetchNetworkFailureMessage,
+} from "@/lib/ui-error-messages";
 
 interface StudentEntry { name: string; nickname: string; }
 
@@ -19,7 +23,7 @@ interface AddStudentDialogProps {
 }
 
 export function AddStudentDialog({ classId, theme, onStudentAdded }: AddStudentDialogProps) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
@@ -50,6 +54,18 @@ export function AddStudentDialog({ classId, theme, onStudentAdded }: AddStudentD
 
     const validRows = rows.filter(r => r.name.trim().length > 0);
 
+    const resolveMutationFailureDescription = (
+        error: unknown,
+        fallbackTranslationKey: string
+    ) => {
+        const raw = error instanceof Error ? error.message : null;
+        return (
+            tryLocalizeFetchNetworkFailureMessage(raw, t) ??
+            raw ??
+            t(fallbackTranslationKey)
+        );
+    };
+
     const onSubmit = async () => {
         if (validRows.length === 0) {
             toast({
@@ -66,7 +82,16 @@ export function AddStudentDialog({ classId, theme, onStudentAdded }: AddStudentD
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ students: validRows.map(r => ({ name: r.name.trim(), nickname: r.nickname.trim() || null })) })
             });
-            if (!res.ok) throw new Error();
+            if (!res.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "toastAddStudentFailDesc",
+                        t,
+                        language
+                    )
+                );
+            }
             const createdStudents = await res.json() as Student[];
             toast({
                 title: t("toastAddStudentSuccessTitle"),
@@ -75,10 +100,13 @@ export function AddStudentDialog({ classId, theme, onStudentAdded }: AddStudentD
             setOpen(false);
             setRows([emptyRow()]);
             onStudentAdded?.(createdStudents);
-        } catch {
+        } catch (error) {
             toast({
                 title: t("toastAddStudentFailTitle"),
-                description: t("toastAddStudentFailDesc"),
+                description: resolveMutationFailureDescription(
+                    error,
+                    "toastAddStudentFailDesc"
+                ),
                 variant: "destructive",
             });
         } finally {

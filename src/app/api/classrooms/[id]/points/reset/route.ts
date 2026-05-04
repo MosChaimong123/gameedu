@@ -3,10 +3,12 @@ import { auth } from "@/auth";
 import {
     createAppErrorResponse,
     AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
     INTERNAL_ERROR_MESSAGE,
 } from "@/lib/api-error";
 import { logAuditEvent } from "@/lib/security/audit-log";
 import { resetClassroomPoints } from "@/lib/services/classroom-points/reset-classroom-points";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 export async function POST(
     req: Request,
@@ -21,6 +23,9 @@ export async function POST(
     if (!session.user.id) {
         return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+    }
 
     try {
         const result = await resetClassroomPoints({
@@ -29,7 +34,7 @@ export async function POST(
         });
 
         if (!result.ok) {
-            return createAppErrorResponse("AUTH_REQUIRED", result.message, result.status);
+            return createAppErrorResponse("FORBIDDEN", result.message, result.status);
         }
 
         logAuditEvent({

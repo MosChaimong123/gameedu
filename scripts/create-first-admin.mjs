@@ -77,6 +77,7 @@ try {
       password: hashedPassword,
       role: "ADMIN",
       name: "Admin",
+      emailVerified: new Date(),
     },
   });
 

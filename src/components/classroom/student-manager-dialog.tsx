@@ -28,6 +28,15 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { getThemeBgStyle, getThemeHorizontalBgClass } from "@/lib/classroom-utils";
+import {
+    getLocalizedErrorMessageFromResponse,
+    tryLocalizeFetchNetworkFailureMessage,
+} from "@/lib/ui-error-messages";
+import {
+    removeStudentManagerRosterStudent,
+    sortStudentManagerRoster,
+    updateStudentManagerRosterStudent,
+} from "./student-manager-dialog.helpers";
 
 type StudentWithSubmissions = Student & { submissions: { score: number }[] };
 
@@ -126,20 +135,35 @@ export function StudentManagerDialog({
     initialStudentId = null,
     auditContext = null,
 }: StudentManagerDialogProps) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [editStudent, setEditStudent] = useState<StudentWithSubmissions | null>(null);
 
-    const [localStudents, setLocalStudents] = useState<StudentWithSubmissions[]>(initialStudents);
-    if (initialStudents.length !== localStudents.length && initialStudents !== localStudents) {
-        setLocalStudents([...initialStudents].sort((a, b) => a.order - b.order));
-    }
+    const [localStudents, setLocalStudents] = useState<StudentWithSubmissions[]>(
+        () => sortStudentManagerRoster(initialStudents)
+    );
 
     const [editName, setEditName] = useState("");
     const [editNickname, setEditNickname] = useState("");
     const [searchTerm, setSearchTerm] = useState(initialSearchTerm ?? "");
+
+    useEffect(() => {
+        setLocalStudents(sortStudentManagerRoster(initialStudents));
+    }, [initialStudents]);
+
+    const resolveMutationFailureDescription = (
+        error: unknown,
+        fallbackTranslationKey: string
+    ) => {
+        const raw = error instanceof Error ? error.message : null;
+        return (
+            tryLocalizeFetchNetworkFailureMessage(raw, t) ??
+            raw ??
+            t(fallbackTranslationKey)
+        );
+    };
 
     const startEdit = (s: StudentWithSubmissions) => {
         setEditStudent(s);
@@ -166,18 +190,25 @@ export function StudentManagerDialog({
                     auditContext,
                 }),
             });
-            if (!res.ok) throw new Error();
+            if (!res.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "toastStudentProfileSaveFailDesc",
+                        t,
+                        language
+                    )
+                );
+            }
 
-            setLocalStudents(prev => prev.map(s => s.id === editStudent.id
-                ? { ...s, name: editName.trim(), nickname: editNickname.trim() || null }
-                : s
-            ).sort((a, b) => a.order - b.order));
-
-            const nextStudents = localStudents.map((student) =>
-                student.id === editStudent.id
-                    ? { ...student, name: editName.trim(), nickname: editNickname.trim() || null }
-                    : student
-            ).sort((a, b) => a.order - b.order);
+            const nextStudents = updateStudentManagerRosterStudent(
+                localStudents,
+                editStudent.id,
+                {
+                    name: editName.trim(),
+                    nickname: editNickname.trim() || null,
+                }
+            );
             setLocalStudents(nextStudents);
 
             toast({
@@ -186,10 +217,13 @@ export function StudentManagerDialog({
             });
             onChanged(nextStudents);
             cancelEdit();
-        } catch {
+        } catch (error) {
             toast({
                 title: t("toastStudentProfileSaveFailTitle"),
-                description: t("toastStudentProfileSaveFailDesc"),
+                description: resolveMutationFailureDescription(
+                    error,
+                    "toastStudentProfileSaveFailDesc"
+                ),
                 variant: "destructive",
             });
         } finally {
@@ -202,9 +236,18 @@ export function StudentManagerDialog({
         setLoading(true);
         try {
             const res = await fetch(`/api/classrooms/${classId}/students/${deleteId}`, { method: "DELETE" });
-            if (!res.ok) throw new Error();
+            if (!res.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "toastStudentRemoveFailDesc",
+                        t,
+                        language
+                    )
+                );
+            }
 
-            const nextStudents = localStudents.filter((student) => student.id !== deleteId);
+            const nextStudents = removeStudentManagerRosterStudent(localStudents, deleteId);
             setLocalStudents(nextStudents);
             if (editStudent?.id === deleteId) cancelEdit();
 
@@ -214,10 +257,13 @@ export function StudentManagerDialog({
             });
             onChanged(nextStudents);
             setDeleteId(null);
-        } catch {
+        } catch (error) {
             toast({
                 title: t("toastStudentRemoveFailTitle"),
-                description: t("toastStudentRemoveFailDesc"),
+                description: resolveMutationFailureDescription(
+                    error,
+                    "toastStudentRemoveFailDesc"
+                ),
                 variant: "destructive",
             });
         } finally {
@@ -280,23 +326,37 @@ export function StudentManagerDialog({
         const { active, over } = event;
         if (!over || active.id === over.id) return;
 
+        const previousStudents = localStudents;
         const oldIndex = localStudents.findIndex(s => s.id === active.id);
         const newIndex = localStudents.findIndex(s => s.id === over.id);
         const reordered = arrayMove(localStudents, oldIndex, newIndex);
         setLocalStudents(reordered);
 
         try {
-            await fetch(`/api/classrooms/${classId}/students`, {
+            const res = await fetch(`/api/classrooms/${classId}/students`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(reordered.map((s, i) => ({ id: s.id, order: i }))),
             });
+            if (!res.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "toastStudentOrderFailDesc",
+                        t,
+                        language
+                    )
+                );
+            }
             onChanged(reordered.map((student, index) => ({ ...student, order: index })));
-        } catch {
-            setLocalStudents(localStudents);
+        } catch (error) {
+            setLocalStudents(previousStudents);
             toast({
                 title: t("toastStudentOrderFailTitle"),
-                description: t("toastStudentOrderFailDesc"),
+                description: resolveMutationFailureDescription(
+                    error,
+                    "toastStudentOrderFailDesc"
+                ),
                 variant: "destructive",
             });
         }

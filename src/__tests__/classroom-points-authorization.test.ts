@@ -44,7 +44,7 @@ vi.mock("@/lib/notifications", () => ({
 describe("classroom points authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockAuth.mockResolvedValue({ user: { id: "teacher-1" } });
+    mockAuth.mockResolvedValue({ user: { id: "teacher-1", role: "TEACHER" } });
     mockClassroomFindUnique.mockResolvedValue({ id: "class-1", teacherId: "teacher-1" });
     mockSkillFindUnique.mockResolvedValue({ id: "skill-1", name: "Helping", weight: 5 });
   });

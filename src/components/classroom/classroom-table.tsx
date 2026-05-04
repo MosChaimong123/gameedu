@@ -19,6 +19,10 @@ import { formatDeadlineDisplayTh, isAssignmentDeadlinePast } from "@/lib/datetim
 import { shouldFlagIntegrityForTeacher } from "@/lib/quiz-integrity";
 import { checklistCheckedScore } from "@/lib/academic-score";
 import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
+import {
+    getLocalizedErrorMessageFromResponse,
+    tryLocalizeFetchNetworkFailureMessage,
+} from "@/lib/ui-error-messages";
 
 type ChecklistItem = string | { text?: string; points?: number };
 
@@ -50,7 +54,7 @@ export function ClassroomTable({
     onStudentClick,
     highlightAssignmentId = null,
 }: ClassroomTableProps) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
 
     useEffect(() => {
         if (!highlightAssignmentId) return;
@@ -77,6 +81,18 @@ export function ClassroomTable({
     const [scores, setScores] = useState(initialScores);
     const [savingChecklist, setSavingChecklist] = useState<string | null>(null);
     const { toast } = useToast();
+
+    const resolveMutationFailureDescription = (
+        error: unknown,
+        fallbackTranslationKey: string
+    ) => {
+        const raw = error instanceof Error ? error.message : null;
+        return (
+            tryLocalizeFetchNetworkFailureMessage(raw, t) ??
+            raw ??
+            t(fallbackTranslationKey)
+        );
+    };
 
     const handleScoreChange = (studentId: string, assignmentId: string, value: string, maxScore: number) => {
         let numValue = value === "" ? 0 : parseInt(value, 10);
@@ -108,14 +124,26 @@ export function ClassroomTable({
                 body: JSON.stringify({ studentId, score: currentScore })
             });
 
-            if (!res.ok) throw new Error("Failed");
+            if (!res.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "toastAcademicScoreSaveFailedDesc",
+                        t,
+                        language
+                    )
+                );
+            }
             await res.json();
             // student.behaviorPoints tracks behavior (skill) points only.
             // Academic scores are stored in submissions, computed separately.
-        } catch {
+        } catch (error) {
             toast({
                 title: t("toastAcademicScoreSaveFailedTitle"),
-                description: t("toastAcademicScoreSaveFailedDesc"),
+                description: resolveMutationFailureDescription(
+                    error,
+                    "toastAcademicScoreSaveFailedDesc"
+                ),
                 variant: "destructive",
             });
             setScores(prev => ({
@@ -161,12 +189,24 @@ export function ClassroomTable({
                 body: JSON.stringify({ studentId, score: newScore })
             });
 
-            if (!res.ok) throw new Error();
+            if (!res.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "toastChecklistSaveFailedDesc",
+                        t,
+                        language
+                    )
+                );
+            }
             await res.json();
-        } catch {
+        } catch (error) {
             toast({
                 title: t("toastChecklistSaveFailedTitle"),
-                description: t("toastChecklistSaveFailedDesc"),
+                description: resolveMutationFailureDescription(
+                    error,
+                    "toastChecklistSaveFailedDesc"
+                ),
                 variant: "destructive",
             });
             setScores(prev => ({

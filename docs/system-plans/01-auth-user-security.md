@@ -646,3 +646,27 @@ Practical status:
 - The `Expired session does not leave broken loading states` checklist item is now closed for dev-local QA
 - The `Unauthorized API-driven UI surfaces a readable localized error` checklist item is now closed for the main notification, My Sets, and OMR surfaces
 - Remaining auth manual QA is now mostly staging access plus a narrower proof for teacher/admin-only API calls from a live non-privileged session
+
+## Progress Note 29
+
+Completed on 2026-05-04:
+
+- Closed the final dev-local auth manual QA evidence gap for teacher/admin-only API calls from a live non-privileged session
+- Verified with a real student session on `/student/home` that the following protected APIs reject consistently with structured `403` responses:
+  - `GET /api/folders`
+  - `POST /api/omr/quizzes`
+  - `POST /api/admin/register`
+- Each live-session response returned the same stable shape:
+  - `{ "error": { "code": "FORBIDDEN", "message": "Forbidden" } }`
+- Updated `docs/auth-manual-qa-checklist.md` to mark:
+  - `Teacher/admin-only API calls fail with stable UX when called from a non-privileged session`
+  - `Dev manual QA complete`
+
+Validation passed:
+
+- `npm.cmd run predev` passed
+
+Practical status:
+
+- Auth/User/Security dev manual QA is now complete
+- The remaining auth checklist blocker is staging validation plus the separate local `build` instability from the Prisma engine file lock

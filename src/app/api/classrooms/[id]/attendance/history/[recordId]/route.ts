@@ -69,9 +69,23 @@ export async function PATCH(
             }
         });
 
+        const latestRecord = await db.attendanceRecord.findFirst({
+            where: {
+                classId: id,
+                studentId: updatedRecord.studentId,
+            },
+            orderBy: [
+                { date: "desc" },
+                { createdAt: "desc" },
+            ],
+            select: {
+                status: true,
+            },
+        });
+
         await db.student.update({
             where: { id: updatedRecord.studentId },
-            data: { attendance: status }
+            data: { attendance: latestRecord?.status ?? status }
         });
 
         return NextResponse.json(updatedRecord);

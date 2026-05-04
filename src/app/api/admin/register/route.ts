@@ -10,7 +10,16 @@ import {
 
 export async function POST(req: Request) {
     try {
-        const { email, password, adminSecret } = await req.json();
+        const body = (await req.json()) as {
+            email?: unknown;
+            password?: unknown;
+            adminSecret?: unknown;
+        };
+        const email =
+            typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+        const password = typeof body.password === "string" ? body.password : "";
+        const adminSecret =
+            typeof body.adminSecret === "string" ? body.adminSecret : undefined;
 
         if (!email || !password) {
             return createAppErrorResponse("INVALID_PAYLOAD", "Missing credentials", 400);
@@ -40,7 +49,8 @@ export async function POST(req: Request) {
         if (!existing) {
             // Create a new admin user
             const hashedPassword = await bcrypt.hash(password, 12);
-            
+            const verifiedAt = new Date();
+
             // Generate a unique username for admin
             const usernameSuffix = Math.floor(1000 + Math.random() * 9000);
             const adminUsername = `admin_${usernameSuffix}`;
@@ -52,6 +62,7 @@ export async function POST(req: Request) {
                     password: hashedPassword,
                     role: "ADMIN",
                     name: "Admin",
+                    emailVerified: verifiedAt,
                 }
             });
             return NextResponse.json({ ok: true, result: "ADMIN_CREATED", userId: newUser.id, username: adminUsername });
@@ -72,10 +83,13 @@ export async function POST(req: Request) {
             return createAppErrorResponse("FORBIDDEN", "Invalid credentials", 403);
         }
 
-        // Upgrade existing user to ADMIN
+        // Upgrade existing user to ADMIN (ensure they can sign in with credentials)
         await db.user.update({
             where: { email },
-            data: { role: "ADMIN" }
+            data: {
+                role: "ADMIN",
+                emailVerified: existing.emailVerified ?? new Date(),
+            },
         });
 
         return NextResponse.json({ ok: true, result: "USER_UPGRADED_TO_ADMIN" });

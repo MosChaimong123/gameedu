@@ -22,7 +22,7 @@ Last updated: 2026-05-03
 - [x] Test student account
 - [x] Test admin account
 - [x] One classroom with at least one student
-- [ ] One account with expired/invalid session scenario available
+- [x] One account with expired/invalid session scenario available
 
 ## Login
 
@@ -57,7 +57,7 @@ Last updated: 2026-05-03
 - [x] Teacher lands on teacher-facing dashboard routes
 - [x] Student does not gain access to teacher-only pages
 - [x] Admin-only flows reject non-admin sessions cleanly
-- [ ] Teacher/admin-only API calls fail with stable UX when called from a non-privileged session
+- [x] Teacher/admin-only API calls fail with stable UX when called from a non-privileged session
 
 ## Teacher Flows
 
@@ -75,7 +75,7 @@ Last updated: 2026-05-03
 
 ## Exit Condition
 
-- [ ] Dev manual QA complete
+- [x] Dev manual QA complete
 - [ ] Staging manual QA complete
 - [x] Any remaining issues logged back into the relevant system plan
 
@@ -108,10 +108,15 @@ Completed on 2026-05-03 (dev local only):
   - notifications tray now surfaces a readable sign-in-required message instead of failing silently
   - My Sets folder creation shows a readable sign-in-required banner
   - OMR create flow shows a readable sign-in-required message instead of leaking raw auth response text
+- Verified teacher/admin-only API proof from a live non-privileged session:
+  - logged in as a real student session on `/student/home`
+  - `GET /api/folders` returned `403` with structured `{ error: { code: "FORBIDDEN" } }`
+  - `POST /api/omr/quizzes` returned `403` with structured `{ error: { code: "FORBIDDEN" } }`
+  - `POST /api/admin/register` returned `403` with structured `{ error: { code: "FORBIDDEN" } }`
+  - these responses are stable and localizable by the existing UI error-handling path
 
 Open findings / remaining blockers:
 
-- Teacher/admin-only API calls from a live non-privileged session still are not closed as a separate dedicated browser proof; this pass focused on expired-session and unauthenticated auth loss.
 - Staging manual QA is blocked because no staging URL or staging credentials were provided.
 - Full production build verification for the latest auth callback fix is currently blocked by a local Prisma engine file lock during `prisma generate`, while `npm.cmd run predev` still passes.
 

@@ -10,6 +10,7 @@ const mockIsTeacherOrAdmin = vi.fn();
 const mockLogAuditEvent = vi.fn();
 const mockClassroomFindUnique = vi.fn();
 const mockAttendanceRecordFindUnique = vi.fn();
+const mockAttendanceRecordFindFirst = vi.fn();
 const mockAttendanceRecordUpdate = vi.fn();
 const mockStudentUpdate = vi.fn();
 const mockClassroomCreate = vi.fn();
@@ -34,6 +35,7 @@ vi.mock("@/lib/db", () => ({
     },
     attendanceRecord: {
       findUnique: mockAttendanceRecordFindUnique,
+      findFirst: mockAttendanceRecordFindFirst,
       update: mockAttendanceRecordUpdate,
     },
     student: {
@@ -69,6 +71,9 @@ describe("classroom tail auth contract", () => {
       id: "record-1",
       classId: "class-1",
       studentId: "student-1",
+      status: "PRESENT",
+    });
+    mockAttendanceRecordFindFirst.mockResolvedValue({
       status: "PRESENT",
     });
     mockStudentUpdate.mockResolvedValue({ id: "student-1" });
@@ -124,6 +129,62 @@ describe("classroom tail auth contract", () => {
       status: 404,
       code: "NOT_FOUND",
       message: "Not found",
+    });
+  });
+
+  it("syncs student attendance from the latest record after editing historical attendance", async () => {
+    mockAttendanceRecordUpdate.mockResolvedValueOnce({
+      id: "record-1",
+      classId: "class-1",
+      studentId: "student-1",
+      status: "ABSENT",
+    });
+    mockAttendanceRecordFindFirst.mockResolvedValueOnce({
+      status: "PRESENT",
+    });
+    const { PATCH } = await import("@/app/api/classrooms/[id]/attendance/history/[recordId]/route");
+
+    const response = await PATCH(
+      makeJsonRequest({ status: "ABSENT" }),
+      makeRouteParams({ id: "class-1", recordId: "record-1" })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockAttendanceRecordFindFirst).toHaveBeenCalledWith({
+      where: {
+        classId: "class-1",
+        studentId: "student-1",
+      },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      select: {
+        status: true,
+      },
+    });
+    expect(mockStudentUpdate).toHaveBeenCalledWith({
+      where: { id: "student-1" },
+      data: { attendance: "PRESENT" },
+    });
+  });
+
+  it("falls back to the edited status when no newer attendance record exists", async () => {
+    mockAttendanceRecordUpdate.mockResolvedValueOnce({
+      id: "record-1",
+      classId: "class-1",
+      studentId: "student-1",
+      status: "LATE",
+    });
+    mockAttendanceRecordFindFirst.mockResolvedValueOnce(null);
+    const { PATCH } = await import("@/app/api/classrooms/[id]/attendance/history/[recordId]/route");
+
+    const response = await PATCH(
+      makeJsonRequest({ status: "LATE" }),
+      makeRouteParams({ id: "class-1", recordId: "record-1" })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockStudentUpdate).toHaveBeenCalledWith({
+      where: { id: "student-1" },
+      data: { attendance: "LATE" },
     });
   });
 

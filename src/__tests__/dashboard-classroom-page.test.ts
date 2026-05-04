@@ -14,7 +14,7 @@ vi.mock("@/auth", () => ({
 }));
 
 vi.mock("@/lib/services/classroom-dashboard/get-classroom-dashboard", () => ({
-  getClassroomDashboard: mockClassroomFindUnique,
+  getClassroomDashboardForTeacher: mockClassroomFindUnique,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -61,21 +61,24 @@ describe("dashboard classroom page", () => {
     vi.clearAllMocks();
     mockAuth.mockResolvedValue({ user: { id: "teacher-1" } });
     mockClassroomFindUnique.mockResolvedValue({
-      id: "class-1",
-      teacherId: "teacher-1",
-      name: "Class 1",
-      emoji: null,
-      image: null,
-      theme: null,
-      grade: null,
-      gamifiedSettings: null,
-      levelConfig: null,
-      quizReviewMode: null,
-      createdAt: new Date("2026-04-02T00:00:00.000Z"),
-      updatedAt: new Date("2026-04-02T00:00:00.000Z"),
-      students: [],
-      skills: [],
-      assignments: [],
+      status: "ok",
+      classroom: {
+        id: "class-1",
+        teacherId: "teacher-1",
+        name: "Class 1",
+        emoji: null,
+        image: null,
+        theme: null,
+        grade: null,
+        gamifiedSettings: null,
+        levelConfig: null,
+        quizReviewMode: null,
+        createdAt: new Date("2026-04-02T00:00:00.000Z"),
+        updatedAt: new Date("2026-04-02T00:00:00.000Z"),
+        students: [],
+        skills: [],
+        assignments: [],
+      },
     });
   });
 
@@ -87,7 +90,7 @@ describe("dashboard classroom page", () => {
       searchParams: Promise.resolve({}),
     });
 
-    expect(mockClassroomFindUnique).toHaveBeenCalledWith("class-1");
+    expect(mockClassroomFindUnique).toHaveBeenCalledWith("class-1", "teacher-1");
   });
 
   it("normalizes valid deep-link query for assignments focus", async () => {
@@ -189,23 +192,7 @@ describe("dashboard classroom page", () => {
   });
 
   it("redirects away when the classroom is owned by another teacher", async () => {
-    mockClassroomFindUnique.mockResolvedValue({
-      id: "class-1",
-      teacherId: "teacher-2",
-      name: "Class 1",
-      emoji: null,
-      image: null,
-      theme: null,
-      grade: null,
-      gamifiedSettings: null,
-      levelConfig: null,
-      quizReviewMode: null,
-      createdAt: new Date("2026-04-02T00:00:00.000Z"),
-      updatedAt: new Date("2026-04-02T00:00:00.000Z"),
-      students: [],
-      skills: [],
-      assignments: [],
-    });
+    mockClassroomFindUnique.mockResolvedValue({ status: "forbidden" });
     const ClassroomPage = (await import("@/app/dashboard/classrooms/[id]/page")).default;
 
     await expect(
@@ -215,5 +202,18 @@ describe("dashboard classroom page", () => {
       })
     ).rejects.toThrow("NEXT_REDIRECT");
     expect(mockRedirect).toHaveBeenCalledWith("/dashboard/classrooms");
+  });
+
+  it("renders not found when the classroom no longer exists", async () => {
+    mockClassroomFindUnique.mockResolvedValueOnce({ status: "not_found" });
+    const ClassroomPage = (await import("@/app/dashboard/classrooms/[id]/page")).default;
+
+    await expect(
+      ClassroomPage({
+        params: Promise.resolve({ id: "class-missing" }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(mockNotFound).toHaveBeenCalled();
   });
 });

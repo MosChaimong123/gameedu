@@ -5,45 +5,39 @@ import Image from "next/image";
 import { format } from "date-fns";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-
-interface AttendanceRecord {
-    id: string;
-    studentId: string;
-    student: {
-        name: string;
-        avatar: string | null;
-    };
-    status: string;
-    date: string;
-}
+import { Button } from "@/components/ui/button";
+import { loadAttendanceHistory, type AttendanceHistoryRecord } from "@/lib/classroom-tab-loaders";
+import {
+    getLocalizedErrorMessageFromResponse,
+    tryLocalizeFetchNetworkFailureMessage,
+} from "@/lib/ui-error-messages";
 
 interface AttendanceHistoryTabProps {
     classId: string;
 }
 
 export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const { toast } = useToast();
-    const [records, setRecords] = useState<AttendanceRecord[]>([]);
+    const [records, setRecords] = useState<AttendanceHistoryRecord[]>([]);
     const [loading, setLoading] = useState(true);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
 
     const fetchHistory = useCallback(async () => {
         setLoading(true);
-        try {
-            const res = await fetch(`/api/classrooms/${classId}/attendance/history?date=${selectedDate}`);
-            if (res.ok) {
-                const data = await res.json();
-                setRecords(data.records);
-            }
-        } catch (error) {
-            console.error("Failed to load attendance history", error);
-        } finally {
-            setLoading(false);
+        const result = await loadAttendanceHistory(fetch, classId, selectedDate, t, language);
+        if (result.ok) {
+            setRecords(result.records);
+            setErrorMessage(null);
+        } else {
+            setRecords([]);
+            setErrorMessage(result.message);
         }
-    }, [classId, selectedDate]);
+        setLoading(false);
+    }, [classId, language, selectedDate, t]);
 
     useEffect(() => {
         void fetchHistory();
@@ -60,14 +54,25 @@ export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
                 body: JSON.stringify({ status: newStatus })
             });
             if (!res.ok) {
-                throw new Error();
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "toastAttendanceSaveFailDesc",
+                        t,
+                        language
+                    )
+                );
             }
         } catch (error) {
             console.error("Failed to update status", error);
             setRecords(previousRecords);
+            const raw = error instanceof Error ? error.message : null;
             toast({
                 title: t("toastAttendanceSaveFailTitle"),
-                description: t("toastAttendanceSaveFailDesc"),
+                description:
+                    tryLocalizeFetchNetworkFailureMessage(raw, t) ??
+                    raw ??
+                    t("toastAttendanceSaveFailDesc"),
                 variant: "destructive",
             });
         }
@@ -104,6 +109,21 @@ export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
                     {loading ? (
                         <div className="flex items-center justify-center p-12 text-slate-400">
                             <Loader2 className="w-8 h-8 animate-spin" />
+                        </div>
+                    ) : errorMessage ? (
+                        <div className="flex flex-col items-center justify-center gap-3 p-8 text-center">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-500">
+                                <AlertCircle className="h-6 w-6" />
+                            </div>
+                            <p className="max-w-md text-sm font-medium text-red-600">{errorMessage}</p>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => void fetchHistory()}
+                                className="rounded-xl border-red-200 text-red-600"
+                            >
+                                {t("leaderboardRetry")}
+                            </Button>
                         </div>
                     ) : records.length === 0 ? (
                         <div className="text-center p-8 text-slate-500">

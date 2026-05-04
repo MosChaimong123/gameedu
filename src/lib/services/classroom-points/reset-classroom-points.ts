@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
+import { FORBIDDEN_MESSAGE } from "@/lib/api-error";
 
 type ResetClassroomPointsDeps = {
     db: PrismaClient;
@@ -11,7 +12,7 @@ export type ResetClassroomPointsArgs = {
 };
 
 export type ResetClassroomPointsResult =
-    | { ok: false; status: 401; message: string }
+    | { ok: false; status: 403; message: string }
     | {
         ok: true;
         classroomId: string;
@@ -38,7 +39,7 @@ export async function resetClassroomPoints(
     });
 
     if (!classroom) {
-        return { ok: false, status: 401, message: "Unauthorized" };
+        return { ok: false, status: 403, message: FORBIDDEN_MESSAGE };
     }
 
     const students = await deps.db.student.findMany({

@@ -26,6 +26,33 @@ function parseSavedGroupRecord(group: SavedGroupApiRecord): SavedGroupSummary {
     };
 }
 
+export function normalizeSavedGroupsForRoster(
+    savedGroups: SavedGroupSummary[],
+    studentIds: string[]
+): SavedGroupSummary[] {
+    const allowedStudentIds = new Set(studentIds);
+
+    return savedGroups
+        .map((group) => ({
+            ...group,
+            studentIds: group.studentIds.filter((studentId) => allowedStudentIds.has(studentId)),
+        }))
+        .filter((group) => group.studentIds.length > 0);
+}
+
+export function filterSelectedStudentIdsForRoster(
+    selectedStudentIds: string[],
+    studentIds: string[]
+): string[] {
+    const allowedStudentIds = new Set(studentIds);
+    const next = selectedStudentIds.filter((studentId) => allowedStudentIds.has(studentId));
+    const unchanged =
+        next.length === selectedStudentIds.length &&
+        next.every((studentId, index) => studentId === selectedStudentIds[index]);
+
+    return unchanged ? selectedStudentIds : next;
+}
+
 export function useClassroomSelectionFlow(args: {
     classroomId: string;
     studentIds: string[];
@@ -35,6 +62,7 @@ export function useClassroomSelectionFlow(args: {
     const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
     const [groupFilter, setGroupFilter] = useState<string>("all");
     const [savedGroups, setSavedGroups] = useState<SavedGroupSummary[]>([]);
+    const studentIdsKey = useMemo(() => studentIds.join("|"), [studentIds]);
 
     useEffect(() => {
         if (!isSelectMultiple || savedGroups.length > 0) return;
@@ -46,6 +74,30 @@ export function useClassroomSelectionFlow(args: {
             })
             .catch(() => {});
     }, [isSelectMultiple, classroomId, savedGroups.length]);
+
+    useEffect(() => {
+        setSavedGroups((prev) => {
+            const next = normalizeSavedGroupsForRoster(prev, studentIds);
+            const unchanged =
+                next.length === prev.length &&
+                next.every((group, index) =>
+                    group.id === prev[index]?.id &&
+                    group.name === prev[index]?.name &&
+                    group.studentIds.length === prev[index]?.studentIds.length &&
+                    group.studentIds.every((studentId, studentIndex) => studentId === prev[index]?.studentIds[studentIndex])
+                );
+
+            return unchanged ? prev : next;
+        });
+
+        setSelectedStudentIds((prev) => filterSelectedStudentIdsForRoster(prev, studentIds));
+    }, [studentIds, studentIdsKey]);
+
+    useEffect(() => {
+        if (groupFilter === "all") return;
+        if (savedGroups.some((group) => group.id === groupFilter)) return;
+        setGroupFilter("all");
+    }, [groupFilter, savedGroups]);
 
     const visibleStudentIds = useMemo(() => (
         groupFilter === "all"

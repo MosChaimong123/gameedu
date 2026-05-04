@@ -74,7 +74,7 @@ describe("verify email route GET", () => {
     expect(mockUserUpdateMany).not.toHaveBeenCalled();
   });
 
-  it("marks matching unverified users as verified and redirects with success banner", async () => {
+  it("marks matching users as verified and redirects with success banner", async () => {
     mockVerificationTokenFindUnique.mockResolvedValue({
       identifier: "alice@example.com",
       token: "abc123",
@@ -89,11 +89,31 @@ describe("verify email route GET", () => {
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost:3000/login?verified=1");
     expect(mockUserUpdateMany).toHaveBeenCalledWith({
-      where: { email: "alice@example.com", emailVerified: null },
+      where: { email: { in: ["alice@example.com"] } },
       data: { emailVerified: expect.any(Date) },
     });
     expect(mockVerificationTokenDeleteMany).toHaveBeenCalledWith({
-      where: { identifier: "alice@example.com" },
+      where: { identifier: { in: ["alice@example.com"] } },
     });
+  });
+
+  it("redirects with user_not_found when no user matches the token identifier", async () => {
+    mockVerificationTokenFindUnique.mockResolvedValue({
+      identifier: "ghost@example.com",
+      token: "abc123",
+      expires: new Date(Date.now() + 60_000),
+    });
+    mockUserUpdateMany.mockResolvedValue({ count: 0 });
+    const { GET } = await import("@/app/api/auth/verify-email/route");
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/auth/verify-email?token=abc123")
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:3000/login?verifyError=user_not_found"
+    );
+    expect(mockVerificationTokenDeleteMany).not.toHaveBeenCalled();
   });
 });

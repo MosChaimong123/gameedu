@@ -15,6 +15,48 @@ type StudentGroupPatchData = {
     studentIds?: string[]
 };
 
+function extractReferencedStudentIds(rawStudentIds: string[]): string[] | null {
+    const referencedIds: string[] = [];
+
+    for (const rawEntry of rawStudentIds) {
+        if (typeof rawEntry !== "string" || rawEntry.trim().length === 0) {
+            return null;
+        }
+
+        const trimmedEntry = rawEntry.trim();
+        if (!trimmedEntry.startsWith("{") && !trimmedEntry.startsWith("[")) {
+            referencedIds.push(trimmedEntry);
+            continue;
+        }
+
+        try {
+            const parsed = JSON.parse(trimmedEntry) as { studentIds?: unknown } | unknown[];
+
+            if (Array.isArray(parsed)) {
+                if (!parsed.every((studentId) => typeof studentId === "string" && studentId.trim().length > 0)) {
+                    return null;
+                }
+                referencedIds.push(...parsed.map((studentId) => studentId.trim()));
+                continue;
+            }
+
+            if (
+                !parsed ||
+                !Array.isArray(parsed.studentIds) ||
+                !parsed.studentIds.every((studentId) => typeof studentId === "string" && studentId.trim().length > 0)
+            ) {
+                return null;
+            }
+
+            referencedIds.push(...parsed.studentIds.map((studentId) => studentId.trim()));
+        } catch {
+            return null;
+        }
+    }
+
+    return referencedIds;
+}
+
 export async function DELETE(
     req: Request,
     { params }: { params: Promise<{ id: string, groupId: string }> }
@@ -110,10 +152,16 @@ export async function PATCH(
         const updatedData: StudentGroupPatchData = {};
         if (name !== undefined) updatedData.name = name;
         if (studentIds !== undefined) {
+            const referencedStudentIds = extractReferencedStudentIds(studentIds);
+            if (!referencedStudentIds) {
+                return createAppErrorResponse("INVALID_PAYLOAD", "Missing data", 400);
+            }
+
+            const uniqueReferencedStudentIds = [...new Set(referencedStudentIds)];
             const students = await db.student.findMany({
                 where: {
                     id: {
-                        in: studentIds,
+                        in: uniqueReferencedStudentIds,
                     },
                 },
                 select: {
@@ -122,7 +170,10 @@ export async function PATCH(
                 },
             });
 
-            if (students.length !== studentIds.length || students.some((student) => student.classId !== id)) {
+            if (
+                students.length !== uniqueReferencedStudentIds.length ||
+                students.some((student) => student.classId !== id)
+            ) {
                 return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
             }
 

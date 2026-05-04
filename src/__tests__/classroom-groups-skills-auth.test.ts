@@ -1,4 +1,4 @@
-import { beforeEach, describe, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   expectAppErrorResponse,
   makeJsonRequest,
@@ -75,6 +75,7 @@ describe("classroom groups and skills auth contract", () => {
       id: "group-1",
       name: "Updated Group",
       classId: "class-1",
+      studentIds: ['{"name":"A","studentIds":["student-1"]}'],
     });
     mockStudentFindMany.mockResolvedValue([{ id: "student-1", classId: "class-1" }]);
     mockSkillFindMany.mockResolvedValue([]);
@@ -170,6 +171,57 @@ describe("classroom groups and skills auth contract", () => {
       status: 404,
       code: "NOT_FOUND",
       message: "Not found",
+    });
+  });
+
+  it("updates serialized subgroup payloads without treating them as raw student ids", async () => {
+    mockStudentFindMany.mockResolvedValueOnce([{ id: "student-1", classId: "class-1" }]);
+    const { PATCH } = await import("@/app/api/classrooms/[id]/groups/[groupId]/route");
+    const serializedSubGroups = ['{"name":"Team 1","studentIds":["student-1"]}'];
+
+    const response = await PATCH(
+      makeJsonRequest({
+        name: "Saved Teams",
+        studentIds: serializedSubGroups,
+      }),
+      makeRouteParams({ id: "class-1", groupId: "group-1" })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockStudentFindMany).toHaveBeenCalledWith({
+      where: {
+        id: {
+          in: ["student-1"],
+        },
+      },
+      select: {
+        id: true,
+        classId: true,
+      },
+    });
+    expect(mockStudentGroupUpdate).toHaveBeenCalledWith({
+      where: { id: "group-1" },
+      data: {
+        name: "Saved Teams",
+        studentIds: serializedSubGroups,
+      },
+    });
+  });
+
+  it("returns invalid payload when subgroup json cannot be parsed", async () => {
+    const { PATCH } = await import("@/app/api/classrooms/[id]/groups/[groupId]/route");
+
+    const response = await PATCH(
+      makeJsonRequest({
+        studentIds: ['{"name":"Broken","studentIds":not-json}'],
+      }),
+      makeRouteParams({ id: "class-1", groupId: "group-1" })
+    );
+
+    await expectAppErrorResponse(response, {
+      status: 400,
+      code: "INVALID_PAYLOAD",
+      message: "Missing data",
     });
   });
 

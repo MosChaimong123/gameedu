@@ -2,7 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { sendNotification } from "@/lib/notifications";
 import { notifyNegamonRankUpIfNeeded } from "@/lib/negamon/negamon-rank-notify";
-import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import { FORBIDDEN_MESSAGE } from "@/lib/api-error";
 
 export const CLASSROOM_POINTS_STUDENT_NOT_FOUND = "classroomPointsStudentNotFound";
 export const CLASSROOM_POINTS_SKILL_NOT_FOUND = "classroomPointsSkillNotFound";
@@ -35,8 +35,10 @@ export type AwardBatchClassroomPointsArgs = ClassroomPointsContext & {
 };
 
 export type ClassroomPointsResult =
-    | { ok: false; status: 400 | 401 | 404; message: string }
+    | { ok: false; status: 400 | 403 | 404; message: string }
     | {
+        skillId: string;
+        skillName: string;
         ok: true;
         skillWeight: number;
         classroomId: string;
@@ -77,7 +79,7 @@ export async function awardSingleClassroomPoint(
 ): Promise<ClassroomPointsResult> {
     const classroom = await getAuthorizedClassroom(args.classroomId, args.teacherId, deps);
     if (!classroom) {
-        return { ok: false, status: 401, message: AUTH_REQUIRED_MESSAGE };
+        return { ok: false, status: 403, message: FORBIDDEN_MESSAGE };
     }
 
     const student = await deps.db.student.findUnique({
@@ -136,6 +138,8 @@ export async function awardSingleClassroomPoint(
     return {
         ok: true,
         classroomId: classroom.id,
+        skillId: skill.id,
+        skillName: skill.name,
         skillWeight: skill.weight,
         updatedStudents: [updatedStudent],
     };
@@ -151,7 +155,7 @@ export async function awardBatchClassroomPoints(
 
     const classroom = await getAuthorizedClassroom(args.classroomId, args.teacherId, deps);
     if (!classroom) {
-        return { ok: false, status: 401, message: AUTH_REQUIRED_MESSAGE };
+        return { ok: false, status: 403, message: FORBIDDEN_MESSAGE };
     }
 
     const students = await deps.db.student.findMany({
@@ -243,6 +247,8 @@ export async function awardBatchClassroomPoints(
     return {
         ok: true,
         classroomId: classroom.id,
+        skillId: skill.id,
+        skillName: skill.name,
         skillWeight: skill.weight,
         updatedStudents,
     };

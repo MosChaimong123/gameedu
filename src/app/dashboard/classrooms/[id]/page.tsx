@@ -8,7 +8,7 @@ import { TranslatedTabsTriggers } from "@/components/classroom/translated-tabs-t
 import { ClassBoard } from "@/components/board/ClassBoard";
 import { ClassroomEconomyLedgerTab } from "@/components/classroom/classroom-economy-ledger-tab";
 import { ClassroomPageBackLink } from "./classroom-page-back-link";
-import { getClassroomDashboard } from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
+import { getClassroomDashboardForTeacher } from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
 import { normalizeClassroomPageQuery } from "./classroom-page-query";
 
 interface ClassroomPageProps {
@@ -40,17 +40,19 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
     } = normalizeClassroomPageQuery(searchParams);
     const session = await auth();
     if (!session?.user) return redirect("/");
+    if (!session.user.id) return redirect("/dashboard/classrooms");
 
-    const classroom = await getClassroomDashboard(params.id);
+    const classroomResult = await getClassroomDashboardForTeacher(params.id, session.user.id);
 
-    if (!classroom) {
+    if (classroomResult.status === "not_found") {
         return notFound();
     }
 
-    // Authorization Check
-    if (classroom.teacherId !== session.user.id) {
+    if (classroomResult.status === "forbidden") {
         return redirect("/dashboard/classrooms");
     }
+
+    const classroom = classroomResult.classroom;
 
     return (
         <div className="flex min-h-[calc(100dvh-6rem)] flex-col">

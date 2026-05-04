@@ -37,6 +37,10 @@ import {
 import { cn } from "@/lib/utils";
 import { getThemeBgStyle, getThemeHorizontalBgClass } from "@/lib/classroom-utils";
 import {
+    getLocalizedErrorMessageFromResponse,
+    tryLocalizeFetchNetworkFailureMessage,
+} from "@/lib/ui-error-messages";
+import {
     DndContext,
     closestCenter,
     KeyboardSensor,
@@ -215,7 +219,7 @@ export function AddAssignmentDialog({
     onAdded,
     assignments: initialAssignments,
 }: AddAssignmentDialogProps) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -273,6 +277,18 @@ export function AddAssignmentDialog({
         setQuizSetId("");
         setQuizReviewPolicy(QUIZ_REVIEW_INHERIT);
     }, []);
+
+    const resolveMutationFailureDescription = (
+        error: unknown,
+        fallbackTranslationKey: string
+    ) => {
+        const raw = error instanceof Error ? error.message : null;
+        return (
+            tryLocalizeFetchNetworkFailureMessage(raw, t) ??
+            raw ??
+            t(fallbackTranslationKey)
+        );
+    };
 
     /** Reset form when modal closes so checklist mode does not stick. */
     useEffect(() => {
@@ -393,7 +409,18 @@ export function AddAssignmentDialog({
                 });
             }
 
-            if (!res.ok) throw new Error();
+            if (!res.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        editId
+                            ? "toastAssignmentSaveFailUpdateDesc"
+                            : "toastAssignmentSaveFailCreateDesc",
+                        t,
+                        language
+                    )
+                );
+            }
 
             const savedAssignment = await res.json() as Assignment;
             const nextAssignments = editId
@@ -411,12 +438,15 @@ export function AddAssignmentDialog({
 
             resetForm();
             onAdded(nextAssignments);
-        } catch {
+        } catch (error) {
             toast({
                 title: t("toastAssignmentSaveFailTitle"),
-                description: editId
-                    ? t("toastAssignmentSaveFailUpdateDesc")
-                    : t("toastAssignmentSaveFailCreateDesc"),
+                description: resolveMutationFailureDescription(
+                    error,
+                    editId
+                        ? "toastAssignmentSaveFailUpdateDesc"
+                        : "toastAssignmentSaveFailCreateDesc"
+                ),
                 variant: "destructive",
             });
         } finally {
@@ -425,34 +455,41 @@ export function AddAssignmentDialog({
     };
 
     const handleToggleVisible = async (id: string, visible: boolean) => {
-        setVisibilityLoading(id);
-        setLocalAssignments((prev) =>
-            prev.map((a) => (a.id === id ? { ...a, visible } : a))
+        const previousAssignments = localAssignments;
+        const nextAssignments = localAssignments.map((assignment) =>
+            assignment.id === id ? { ...assignment, visible } : assignment
         );
+        setVisibilityLoading(id);
+        setLocalAssignments(nextAssignments);
         try {
             const res = await fetch(`/api/classrooms/${classId}/assignments/${id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ visible }),
             });
-            if (!res.ok) throw new Error();
+            if (!res.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "toastAssignmentVisibleFailDesc",
+                        t,
+                        language
+                    )
+                );
+            }
             toast({
                 title: visible ? t("toastAssignmentVisibleShownTitle") : t("toastAssignmentVisibleHiddenTitle"),
                 description: visible ? t("toastAssignmentVisibleShownDesc") : t("toastAssignmentVisibleHiddenDesc"),
             });
-            onAdded(
-                localAssignments.map((assignment) =>
-                    assignment.id === id ? { ...assignment, visible } : assignment
-                )
-            );
-        } catch {
-            // revert
-            setLocalAssignments((prev) =>
-                prev.map((a) => (a.id === id ? { ...a, visible: !visible } : a))
-            );
+            onAdded(nextAssignments);
+        } catch (error) {
+            setLocalAssignments(previousAssignments);
             toast({
                 title: t("toastAssignmentVisibleFailTitle"),
-                description: t("toastAssignmentVisibleFailDesc"),
+                description: resolveMutationFailureDescription(
+                    error,
+                    "toastAssignmentVisibleFailDesc"
+                ),
                 variant: "destructive",
             });
         } finally {
@@ -467,7 +504,16 @@ export function AddAssignmentDialog({
             const res = await fetch(`/api/classrooms/${classId}/assignments/${deleteId}`, {
                 method: "DELETE",
             });
-            if (!res.ok) throw new Error();
+            if (!res.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "toastAssignmentDeleteFailDesc",
+                        t,
+                        language
+                    )
+                );
+            }
             toast({
                 title: t("toastAssignmentDeleteSuccessTitle"),
                 description: t("toastAssignmentDeleteSuccessDesc"),
@@ -477,10 +523,13 @@ export function AddAssignmentDialog({
             onAdded(nextAssignments);
             setDeleteId(null);
             if (editId === deleteId) resetForm();
-        } catch {
+        } catch (error) {
             toast({
                 title: t("toastAssignmentDeleteFailTitle"),
-                description: t("toastAssignmentDeleteFailDesc"),
+                description: resolveMutationFailureDescription(
+                    error,
+                    "toastAssignmentDeleteFailDesc"
+                ),
                 variant: "destructive",
             });
         } finally {
@@ -500,23 +549,37 @@ export function AddAssignmentDialog({
         const { active, over } = event;
         if (!over || active.id === over.id) return;
 
+        const previousAssignments = localAssignments;
         const oldIndex = localAssignments.findIndex((a) => a.id === active.id);
         const newIndex = localAssignments.findIndex((a) => a.id === over.id);
         const reordered = arrayMove(localAssignments, oldIndex, newIndex);
         setLocalAssignments(reordered);
 
         try {
-            await fetch(`/api/classrooms/${classId}/assignments`, {
+            const res = await fetch(`/api/classrooms/${classId}/assignments`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(reordered.map((a, i) => ({ id: a.id, order: i }))),
             });
+            if (!res.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "toastAssignmentReorderFailDesc",
+                        t,
+                        language
+                    )
+                );
+            }
             onAdded(reordered.map((assignment, index) => ({ ...assignment, order: index })));
-        } catch {
-            setLocalAssignments(localAssignments); // revert
+        } catch (error) {
+            setLocalAssignments(previousAssignments);
             toast({
                 title: t("toastAssignmentReorderFailTitle"),
-                description: t("toastAssignmentReorderFailDesc"),
+                description: resolveMutationFailureDescription(
+                    error,
+                    "toastAssignmentReorderFailDesc"
+                ),
                 variant: "destructive",
             });
         }

@@ -8,6 +8,7 @@
   "scripts": {
     "predev": "tsc --project tsconfig.server.json",
     "check:auth": "npm.cmd run test:auth && npm.cmd run predev",
+    "check:classroom-core": "npm.cmd run test:classroom-core && npm.cmd run predev",
     "dev": "node run-server.cjs",
     "dev:clear-lock": "rimraf .next/dev/lock",
     "dev:fresh": "rimraf .next && npm run dev",
@@ -22,6 +23,7 @@
     "load:phase1:http": "node scripts/phase1-http-load-smoke.mjs",
     "test": "node ./node_modules/vitest/vitest.mjs run --config vitest.config.mts --pool threads",
     "test:auth": "node ./node_modules/vitest/vitest.mjs run --config vitest.config.mts --pool threads src/__tests__/auth-credentials-authorize.test.ts src/__tests__/auth-core-callbacks.test.ts src/__tests__/verify-email-route.test.ts src/__tests__/auth-config-authorized.test.ts src/__tests__/oauth-intent-route.test.ts src/__tests__/resend-verification-route.test.ts src/__tests__/complete-oauth-route.test.ts src/lib/auth/__tests__/callback-url.test.ts src/lib/auth/__tests__/post-auth-destination.test.ts src/__tests__/register-route.test.ts src/__tests__/profile-route.test.ts src/__tests__/user-settings-route.test.ts src/__tests__/folders-route-auth.test.ts src/__tests__/sets-route-auth.test.ts src/__tests__/notifications-route.test.ts src/__tests__/classrooms-route-auth.test.ts src/__tests__/classroom-groups-skills-auth.test.ts src/__tests__/classroom-students-assignments-auth.test.ts src/__tests__/omr-route-auth.test.ts src/__tests__/classroom-analytics-route.test.ts src/__tests__/classroom-tail-auth.test.ts src/__tests__/user-upgrade-route.test.ts src/__tests__/admin-register-route.test.ts src/__tests__/rate-limit.test.ts src/lib/authorization/__tests__/resource-access.test.ts",
+    "test:classroom-core": "node ./node_modules/vitest/vitest.mjs run --config vitest.config.mts --pool threads src/__tests__/classrooms-route-auth.test.ts src/__tests__/classroom-group-scores-route-auth.test.ts src/__tests__/classroom-groups-skills-auth.test.ts src/__tests__/classroom-students-assignments-auth.test.ts src/__tests__/classroom-points-attendance-contract.test.ts src/__tests__/classroom-points-authorization.test.ts src/__tests__/classroom-dashboard-access.test.ts src/__tests__/dashboard-classroom-page.test.ts src/__tests__/classroom-tail-auth.test.ts src/__tests__/classroom-tab-loaders.test.ts src/__tests__/classroom-audit-log-routes.test.ts src/__tests__/classroom-analytics-assignment-stats.test.ts src/__tests__/classroom-analytics-route.test.ts src/__tests__/classroom-selection-flow.test.ts src/__tests__/classroom-dashboard-component.test.ts src/__tests__/student-manager-dialog.helpers.test.ts src/__tests__/ui-error-messages.test.ts",
     "test:unit": "node ./node_modules/vitest/vitest.mjs run --config vitest.config.mts --pool threads --exclude src/lib/socket/__tests__/**/*.integration.test.ts",
     "test:integration": "node ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.mts --pool threads",
     "test:watch": "node ./node_modules/vitest/vitest.mjs --config vitest.config.mts --pool threads",

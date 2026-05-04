@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error";
+import {
+    createAppErrorResponse,
+    AUTH_REQUIRED_MESSAGE,
+    FORBIDDEN_MESSAGE,
+    INTERNAL_ERROR_MESSAGE,
+} from "@/lib/api-error";
 import {
     CLASSROOM_ATTENDANCE_INVALID_DATA,
     saveClassroomAttendance,
     type AttendanceUpdateInput,
 } from "@/lib/services/classroom-attendance/save-classroom-attendance";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 export async function POST(
     req: Request,
@@ -19,6 +25,9 @@ export async function POST(
     }
     if (!session.user.id) {
         return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
+    if (!isTeacherOrAdmin(session.user.role)) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
     }
 
     try {
@@ -38,9 +47,11 @@ export async function POST(
         if (!result.ok) {
             const code = result.status === 400
                 ? "INVALID_PAYLOAD"
+                : result.status === 403
+                    ? "FORBIDDEN"
                 : result.status === 404
                     ? "NOT_FOUND"
-                    : "AUTH_REQUIRED";
+                    : "INTERNAL_ERROR";
             return createAppErrorResponse(code, result.message, result.status);
         }
 

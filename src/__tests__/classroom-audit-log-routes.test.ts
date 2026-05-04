@@ -61,6 +61,7 @@ describe("classroom privileged routes audit logging", () => {
     mockAuth.mockResolvedValue({
       user: {
         id: "teacher-1",
+        role: "TEACHER",
       },
     });
     mockClassroomUpdate.mockResolvedValue({});

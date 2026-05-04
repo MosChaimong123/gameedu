@@ -13,36 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/components/providers/language-provider";
-
-type AnalyticsHistoryEntry = {
-  createdAt?: string;
-  reason?: string;
-  value?: number;
-};
-
-type AnalyticsStudentStat = {
-  name: string;
-  nickname?: string | null;
-  behaviorPoints: number;
-  totalPositive: number;
-  totalNeedsWork: number;
-  achievementCount: number;
-  attendance: string;
-};
-
-type AssignmentStat = {
-  id: string;
-  name: string;
-  type: string | null;
-  maxScore: number;
-  passScore: number | null;
-  submittedCount: number;
-  totalStudents: number;
-  submissionRate: number;
-  avgScore: number;
-  passCount: number | null;
-  notSubmitted: { id: string; name: string }[];
-};
+import { loadClassroomAnalytics, type AnalyticsData } from "@/lib/classroom-tab-loaders";
 
 function attendanceSegmentLabel(
   t: (key: string, params?: Record<string, string | number>) => string,
@@ -61,34 +32,33 @@ function csvCell(value: string | number | null | undefined): string {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
-interface AnalyticsData {
-  summary: { name: string; value: number; fill: string }[];
-  growthData: { date: string; points: number }[];
-  skillDistribution: { name: string; count: number }[];
-  recentHistory: AnalyticsHistoryEntry[];
-  studentStats: AnalyticsStudentStat[];
-  attendanceSummary: { status?: string; name?: string; value: number; fill: string }[];
-  achievementSummary: {
-    total: number;
-    avgPerStudent: number;
-  };
-  achievementDistribution: { id: string; count: number }[];
-  assignmentStats: AssignmentStat[];
-}
-
 export function AnalyticsDashboard({ classId }: { classId: string }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [expandedAssignment, setExpandedAssignment] = useState<string | null>(null);
   const [assignmentSearch, setAssignmentSearch] = useState("");
 
   useEffect(() => {
-    fetch(`/api/classrooms/${classId}/analytics`)
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [classId]);
+    let active = true;
+
+    void loadClassroomAnalytics(fetch, classId, t, language).then((result) => {
+      if (!active) return;
+      if (result.ok) {
+        setData(result.data);
+        setErrorMessage(null);
+      } else {
+        setData(null);
+        setErrorMessage(result.message);
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [classId, language, t]);
 
   const handleExportCsv = () => {
     if (!data) return;
@@ -138,7 +108,35 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
       <Loader2 className="w-10 h-10 animate-spin" />
     </div>
   );
-  if (!data) return <div className="p-8 text-center text-red-500">{t("analyticsLoadFailed")}</div>;
+  if (!data) return (
+    <div className="flex h-64 flex-col items-center justify-center gap-3 p-8 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-500">
+        <AlertCircle className="h-6 w-6" />
+      </div>
+      <p className="max-w-md text-sm font-medium text-red-600">{errorMessage ?? t("analyticsLoadFailed")}</p>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => {
+          setLoading(true);
+          setErrorMessage(null);
+          void loadClassroomAnalytics(fetch, classId, t, language).then((result) => {
+            if (result.ok) {
+              setData(result.data);
+              setErrorMessage(null);
+            } else {
+              setData(null);
+              setErrorMessage(result.message);
+            }
+            setLoading(false);
+          });
+        }}
+        className="rounded-xl border-red-200 text-red-600"
+      >
+        {t("leaderboardRetry")}
+      </Button>
+    </div>
+  );
 
   const barData = [...data.studentStats]
     .sort((a, b) => b.behaviorPoints - a.behaviorPoints)

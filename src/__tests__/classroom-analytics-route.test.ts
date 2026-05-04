@@ -41,6 +41,7 @@ describe("classroom analytics route", () => {
             id: true,
             name: true,
             type: true,
+            checklists: true,
             maxScore: true,
             passScore: true,
             deadline: true,

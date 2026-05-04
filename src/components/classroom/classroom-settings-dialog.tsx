@@ -24,6 +24,10 @@ import {
 import { Settings, Palette, School, Upload, RefreshCw, AlertTriangle, ClipboardList } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
+import {
+    getLocalizedErrorMessageFromResponse,
+    tryLocalizeFetchNetworkFailureMessage,
+} from "@/lib/ui-error-messages";
 
 const THEMES = [
     { label: "Ocean Blue",    value: "from-blue-400 to-cyan-500" },
@@ -67,7 +71,7 @@ export function ClassroomSettingsDialog({
     onPointsReset,
 }: ClassroomSettingsDialogProps) {
     const classroomWithGrade = classroom as Classroom & { grade?: string | null };
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [loading, setLoading] = useState(false);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const { toast } = useToast();
@@ -99,6 +103,18 @@ export function ClassroomSettingsDialog({
             setClassroomQuizReview(CLASSROOM_QUIZ_REVIEW_INHERIT);
         }
     }, [open, classroom.id, classroom.quizReviewMode]);
+
+    const resolveMutationFailureDescription = (
+        error: unknown,
+        fallbackTranslationKey: string
+    ) => {
+        const raw = error instanceof Error ? error.message : null;
+        return (
+            tryLocalizeFetchNetworkFailureMessage(raw, t) ??
+            raw ??
+            t(fallbackTranslationKey)
+        );
+    };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -150,17 +166,28 @@ export function ClassroomSettingsDialog({
                             : classroomQuizReview,
                 })
             });
-            if (res.ok) {
-                const updatedClassroom = await res.json() as Classroom;
-                toast({ title: t("settingsSaved") });
-                onSaved?.(updatedClassroom);
-                onOpenChange(false);
-            } else throw new Error("Failed");
-        } catch {
+            if (!res.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "settingsSaveFailedDesc",
+                        t,
+                        language
+                    )
+                );
+            }
+            const updatedClassroom = await res.json() as Classroom;
+            toast({ title: t("settingsSaved") });
+            onSaved?.(updatedClassroom);
+            onOpenChange(false);
+        } catch (error) {
             toast({
                 title: t("settingsSaveFailedTitle"),
                 variant: "destructive",
-                description: t("settingsSaveFailedDesc"),
+                description: resolveMutationFailureDescription(
+                    error,
+                    "settingsSaveFailedDesc"
+                ),
             });
         } finally {
             setLoading(false);
@@ -187,17 +214,29 @@ export function ClassroomSettingsDialog({
             const res = await fetch(`/api/classrooms/${classroom.id}/points/reset`, {
                 method: "POST"
             });
-            if (!res.ok) throw new Error("Failed");
+            if (!res.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "resetPointsFailDesc",
+                        t,
+                        language
+                    )
+                );
+            }
             toast({
                 title: t("success"),
                 description: t("resetPointsSuccessDesc"),
             });
             onPointsReset?.();
-        } catch {
+        } catch (error) {
             toast({
                 title: t("error"),
                 variant: "destructive",
-                description: t("resetPointsFailDesc"),
+                description: resolveMutationFailureDescription(
+                    error,
+                    "resetPointsFailDesc"
+                ),
             });
         } finally {
             setLoading(false);

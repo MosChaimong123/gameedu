@@ -1,6 +1,8 @@
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { requireSessionUser } from "@/lib/auth-guards";
+import { checklistCheckedScore } from "@/lib/academic-score";
+import { dbAssignmentTypeToFormType } from "@/lib/assignment-type";
 import {
   AUTH_REQUIRED_MESSAGE,
   INTERNAL_ERROR_MESSAGE,
@@ -39,6 +41,17 @@ type AnalyticsStudent = {
   }[];
 };
 
+type AnalyticsAssignment = {
+  id: string;
+  name: string;
+  type: string | null;
+  maxScore: number | null;
+  passScore: number | null;
+  deadline: Date | null;
+  visible: boolean | null;
+  checklists?: unknown;
+};
+
 // GET /api/classrooms/[id]/analytics — behavior + custom-achievement counts (no RPG economy)
 export async function GET(
   req: NextRequest,
@@ -58,6 +71,7 @@ export async function GET(
             id: true,
             name: true,
             type: true,
+            checklists: true,
             maxScore: true,
             passScore: true,
             deadline: true,
@@ -191,12 +205,16 @@ export async function GET(
       }
     }
 
-    const assignmentStats = (classroom.assignments ?? [])
+    const assignmentStats = ((classroom.assignments ?? []) as AnalyticsAssignment[])
       .filter((a) => a.visible !== false)
       .map((assignment) => {
         const subs = subMap.get(assignment.id) ?? new Map<string, number>();
         const submittedCount = subs.size;
-        const scores = [...subs.values()];
+        const scores = [...subs.values()].map((score) =>
+          dbAssignmentTypeToFormType(assignment.type) === "checklist"
+            ? checklistCheckedScore(score, assignment.checklists as never)
+            : score
+        );
         const avgScore = scores.length > 0
           ? Math.round((scores.reduce((s, v) => s + v, 0) / scores.length) * 10) / 10
           : 0;

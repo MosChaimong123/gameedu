@@ -17,6 +17,9 @@ export async function POST(
         if (result.reason === "student_not_found") {
             return createAppErrorResponse("NOT_FOUND", "Student not found", 404);
         }
+        if (result.reason === "item_not_equippable") {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Item is not equippable", 400);
+        }
         return createAppErrorResponse("FORBIDDEN", "Not in inventory", 403);
     }
 

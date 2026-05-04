@@ -107,6 +107,35 @@ describe("upload route POST", () => {
     );
   });
 
+  it("rejects files that exceed the allowed size for their MIME type", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "user-1" } });
+    const oversizedText = new File(
+      [new Uint8Array(10 * 1024 * 1024 + 1)],
+      "large.txt",
+      { type: "text/plain" }
+    );
+    const { POST } = await import("@/app/api/upload/route");
+
+    const response = await POST(createUploadRequest(oversizedText) as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(413);
+    expect(body).toEqual({
+      error: {
+        code: "FILE_TOO_LARGE",
+        message: "File too large",
+      },
+    });
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(mockLogAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId: "user-1",
+        action: "upload.denied",
+        metadata: expect.objectContaining({ reason: "file_too_large" }),
+      })
+    );
+  });
+
   it("accepts allowed authenticated uploads", async () => {
     mockAuth.mockResolvedValue({ user: { id: "user-1" } });
     const { POST } = await import("@/app/api/upload/route");

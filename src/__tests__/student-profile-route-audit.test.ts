@@ -29,7 +29,7 @@ vi.mock("@/lib/db", () => ({
 describe("student profile patch audit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockAuth.mockResolvedValue({ user: { id: "teacher-1" } });
+    mockAuth.mockResolvedValue({ user: { id: "teacher-1", role: "TEACHER" } });
     mockClassroomFindUnique.mockResolvedValue({ id: "class-1" });
     mockStudentFindUnique.mockResolvedValue({
       id: "student-1",

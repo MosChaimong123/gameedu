@@ -10,8 +10,12 @@ import {
   SOCKET_ERROR_INVALID_GAME_CODE,
   SOCKET_ERROR_INVALID_STUDENT_CODE,
   SOCKET_ERROR_JOIN_CLASSROOM_FIRST,
+  SOCKET_ERROR_GAME_LOCKED,
+  SOCKET_ERROR_GAME_NOT_FOUND,
   SOCKET_ERROR_NEGAMON_MID_MATCH,
   SOCKET_ERROR_LOBBY_FULL,
+  SOCKET_ERROR_NICKNAME_IN_USE,
+  SOCKET_ERROR_ONLY_HOST_CAN_END,
   SOCKET_ERROR_ONLY_HOST_CAN_START,
   SOCKET_ERROR_TOO_MANY_SUBMISSIONS,
   SOCKET_ERROR_UNAUTHORIZED,
@@ -303,6 +307,51 @@ describe("registerGameSocketHandlers integration", () => {
     reconnectedPlayer.disconnect();
   });
 
+  it("rejects join-game for invalid, locked, ended, and duplicate nickname rooms", async () => {
+    const stray = await connectClient();
+    stray.emit("join-game", { pin: "000000", nickname: "Ghost" });
+    const notFound = await new Promise<{ message: string }>((resolve) => stray.once("error", resolve));
+    expect(notFound.message).toBe(SOCKET_ERROR_GAME_NOT_FOUND);
+    stray.disconnect();
+
+    const host = await connectClient("teacher-1");
+    host.emit("create-game", { setId: "set-1", settings: { allowLateJoin: false }, mode: "GOLD_QUEST" });
+    const lockedRoom = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+
+    const first = await connectClient();
+    first.emit("join-game", { pin: lockedRoom.pin, nickname: "Alice" });
+    await new Promise<void>((resolve) => first.once("joined-success", () => resolve()));
+
+    const duplicate = await connectClient();
+    duplicate.emit("join-game", { pin: lockedRoom.pin, nickname: "Alice" });
+    const duplicateDenied = await new Promise<{ message: string }>((resolve) => duplicate.once("error", resolve));
+    expect(duplicateDenied.message).toBe(SOCKET_ERROR_NICKNAME_IN_USE);
+
+    host.emit("start-game", { pin: lockedRoom.pin });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const late = await connectClient();
+    late.emit("join-game", { pin: lockedRoom.pin, nickname: "Late" });
+    const lockedDenied = await new Promise<{ message: string }>((resolve) => late.once("error", resolve));
+    expect(lockedDenied.message).toBe(SOCKET_ERROR_GAME_LOCKED);
+
+    host.emit("create-game", { setId: "set-1", settings: { allowLateJoin: true }, mode: "GOLD_QUEST" });
+    const endedRoom = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+    const endedGame = games.get(endedRoom.pin);
+    endedGame?.endGame();
+
+    const afterEnd = await connectClient();
+    afterEnd.emit("join-game", { pin: endedRoom.pin, nickname: "AfterEnd" });
+    const endedDenied = await new Promise<{ message: string }>((resolve) => afterEnd.once("error", resolve));
+    expect(endedDenied.message).toBe(SOCKET_ERROR_GAME_LOCKED);
+
+    host.disconnect();
+    first.disconnect();
+    duplicate.disconnect();
+    late.disconnect();
+    afterEnd.disconnect();
+  });
+
   it("allows only the host socket to start the game and supports host reconnect", async () => {
     const host = await connectClient("teacher-1");
     host.emit("create-game", { setId: "set-1", hostId: "spoofed-host", settings: { allowLateJoin: true }, mode: "GOLD_QUEST" });
@@ -334,6 +383,30 @@ describe("registerGameSocketHandlers integration", () => {
     expect(game?.status).toBe("PLAYING");
 
     reconnectedHost.disconnect();
+    player.disconnect();
+  });
+
+  it("allows only the host socket to end the game", async () => {
+    const host = await connectClient("teacher-1");
+    host.emit("create-game", { setId: "set-1", settings: { allowLateJoin: true }, mode: "GOLD_QUEST" });
+    const gameCreated = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+
+    const player = await connectClient();
+    player.emit("join-game", { pin: gameCreated.pin, nickname: "EndTester" });
+    await new Promise<void>((resolve) => player.once("joined-success", () => resolve()));
+
+    player.emit("end-game", { pin: gameCreated.pin });
+    const denied = await new Promise<{ message: string }>((resolve) => player.once("error", resolve));
+    expect(denied.message).toBe(SOCKET_ERROR_ONLY_HOST_CAN_END);
+
+    host.emit("end-game", { pin: gameCreated.pin });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const game = games.get(gameCreated.pin);
+    expect(game?.endGameCalls).toBe(1);
+    expect(game?.status).toBe("ENDED");
+
+    host.disconnect();
     player.disconnect();
   });
 
@@ -890,6 +963,38 @@ describe("registerGameSocketHandlers integration", () => {
     player.emit("submit-answer", { pin: gameB.pin, questionId: "x", answerIndex: 0 });
     const err = await new Promise<{ message: string }>((resolve) => player.once("error", resolve));
     expect(err.message).toBe(SOCKET_ERROR_PLAY_ROOM_PIN_MISMATCH);
+
+    host.disconnect();
+    player.disconnect();
+  });
+
+  it("uses the same socket-bound pin authorization for reward events", async () => {
+    const host = await connectClient("teacher-1");
+    host.emit("create-game", {
+      setId: "set-1",
+      settings: { allowLateJoin: true },
+      mode: "GOLD_QUEST",
+    });
+    const gameCreated = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+
+    const player = await connectClient();
+    player.emit("join-game", { pin: gameCreated.pin, nickname: "RewardGuard" });
+    await new Promise<void>((resolve) => player.once("joined-success", () => resolve()));
+
+    player.emit("request-rewards", { pin: "wrong-pin" });
+    const err = await new Promise<{ message: string }>((resolve) => player.once("error", resolve));
+    expect(err.message).toBe(SOCKET_ERROR_PLAY_ROOM_PIN_MISMATCH);
+    expect(games.get(gameCreated.pin)?.handleEventCalls).toEqual([]);
+
+    player.emit("select-box", { pin: gameCreated.pin, boxId: "box-1" });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(games.get(gameCreated.pin)?.handleEventCalls).toEqual([
+      expect.objectContaining({
+        event: "select-box",
+        payload: expect.objectContaining({ pin: gameCreated.pin, boxId: "box-1" }),
+        socketId: player.id,
+      }),
+    ]);
 
     host.disconnect();
     player.disconnect();

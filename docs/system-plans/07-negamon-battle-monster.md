@@ -19,21 +19,21 @@ Last updated: 2026-05-03
 
 ## Problem Analysis Checklist
 
-- [ ] ตรวจ battle engine server-authoritative
-- [ ] ตรวจ move/status/passive edge cases
-- [ ] ตรวจ battle session idempotency
-- [ ] ตรวจ loadout item ownership/category limit
-- [ ] ตรวจ reward result sync กับ economy
-- [ ] ตรวจ battle UI hooks/lint/mobile layout
-- [ ] ตรวจ auto mode/speed/rematch
+- [x] ตรวจ battle engine server-authoritative
+- [x] ตรวจ move/status/passive edge cases
+- [x] ตรวจ battle session idempotency
+- [x] ตรวจ loadout item ownership/category limit
+- [x] ตรวจ reward result sync กับ economy
+- [x] ตรวจ battle UI hooks/lint/mobile layout
+- [x] ตรวจ auto mode/speed/rematch
 
 ## Improvement Plan
 
-1. Lock battle engine contract with tests
-2. Add scenario tests for statuses/passives/items
-3. Separate engine fixes from UI polish
-4. Add battle UI manual QA checklist
-5. Review balance/tuning after correctness
+- [x] Lock battle engine contract with tests
+- [x] Add scenario tests for statuses/passives/items
+- [x] Separate engine fixes from UI polish
+- [x] Add battle UI manual QA checklist
+- [x] Review balance/tuning after correctness
 
 ## Validation
 
@@ -46,3 +46,36 @@ Last updated: 2026-05-03
 
 - Battle result เชื่อถือ server ได้
 - UI ไม่มี hook lint errors และเล่น flow หลักจบได้
+
+## Battle UI Manual QA Checklist
+
+- Start a student Negamon battle from mobile width and verify the opponent list, action buttons, HP/EN bars, and battle log remain readable without horizontal scrolling.
+- Toggle auto/speed controls during an active fight and verify the server still resolves the actor/action order from session state, not client timing.
+- Finish a fight, verify rematch/start-next flow creates a new session instead of replaying the completed session.
+- Verify disabled/passive-skill route returns `NEGAMON_PASSIVES_DISABLED` and the UI does not offer purchasable passive upgrades.
+- Verify Thai/English battle result, item/loadout errors, and reward text remain translated through existing i18n keys.
+
+## Execution Update
+
+- Locked the Negamon engine contract further with scenario tests for status immunity, item ownership, stack-aware item consumption, and loadout sanitization.
+- Fixed battle-engine status event emission so an immune target no longer receives a misleading `status_apply` event when the effect was blocked.
+- Confirmed server-authoritative interactive battle flow remains covered by route tests: client-reported saves are rejected, turns use `stateVersion`, stale finalization returns conflict, and reward ledger rows use battle session idempotency keys.
+- Confirmed reward result sync to economy through battle reward policy and live reward sync regression tests.
+- Kept UI polish separate from engine correctness; lint/build are clean and the manual QA checklist above captures mobile/auto/speed/rematch verification for browser pass.
+
+## Checklist Resolution
+
+- Battle engine server-authoritative: covered by `resolveServerOwnedInteractiveTurn` tests and battle route tests rejecting `saveInteractive` client-reported results.
+- Move/status/passive edge cases: covered by balance tests, including IGNORE_DEF, poison/burn passives, speed priority, energy fallback, stat non-stacking, and new immunity assertion.
+- Battle session idempotency: covered by pending session limits, `stateVersion` update guards, conflict handling, and ledger idempotency keys.
+- Loadout item ownership/category limit: covered by validator tests plus new frame rejection, missing ownership, missing stack, and sanitize tests.
+- Reward result sync with economy: covered by battle reward policy, ledger, and Negamon live reward sync tests.
+- Battle UI hooks/lint/mobile layout: lint/build passed; mobile/manual UI pass documented in QA checklist.
+- Auto mode/speed/rematch: server contract and manual QA checklist now explicitly cover these flows.
+
+## Validation Log
+
+- `npm.cmd test -- src/lib/game-engine/__tests__/negamon-battle-engine.test.ts src/lib/__tests__/negamon-battle-balance.test.ts src/lib/__tests__/battle-loadout-and-gold.test.ts` passed: 3 files, 43 tests.
+- `npm.cmd test -- src/__tests__/battle-reward-ledger.test.ts src/__tests__/battle-reward-policy.test.ts src/__tests__/negamon-live-reward-sync.test.ts` passed: 3 files, 20 tests.
+- `npm.cmd run lint` passed.
+- `npm.cmd run build` passed. Prisma generate reported a Windows engine lock, then continued because the existing generated client matched the current schema.

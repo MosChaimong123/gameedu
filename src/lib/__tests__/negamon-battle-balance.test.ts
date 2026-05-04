@@ -11,6 +11,7 @@ import {
     resolveServerOwnedInteractiveTurn,
     type BattleFighter,
     type InteractiveTurnPending,
+    type TurnEvent,
 } from "@/lib/battle-engine";
 import { getMoveEnergyCost } from "@/lib/negamon-energy";
 import { DEFAULT_NEGAMON_SPECIES } from "@/lib/negamon-species";
@@ -334,6 +335,26 @@ describe("Negamon battle balance patch", () => {
         resolveOneTurn(player, opponent, "sap-en", () => 0.5);
         expect(opponent.effects.some((e) => e.effect === "LOWER_EN_REGEN")).toBe(true);
         expect(opponent.currentEnergy).toBe(5);
+    });
+
+    it("respects status immunities before applying move effects", () => {
+        const player = makeFighter({
+            studentId: "player",
+            moves: [burnTestMove],
+            actionMeter: 110,
+        });
+        const opponent = makeFighter({
+            studentId: "opponent",
+            studentName: "Opponent",
+            moves: [],
+            actionMeter: 0,
+            immunities: ["BURN"],
+        });
+
+        const out = resolveOneTurn(player, opponent, "test-burn", () => 0.5);
+
+        expect(opponent.effects.some((entry) => entry.effect === "BURN")).toBe(false);
+        expect(out.events.some((event) => event.kind === "status_apply" && event.effect === "BURN")).toBe(false);
     });
 
     /** Skip action meter loop; run only end-of-turn ticks (MAX_ACTIONS_PER_TURN = 4). */

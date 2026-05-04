@@ -448,6 +448,8 @@ export const thaiPack = {
         boardYoutubePlaceholder: "https://www.youtube.com/watch?v=ตัวอย่าง",
         hostPlayUrlLabel: "gameedu-app.onrender.com/play",
         loginAuthErrorRateLimited: "มีความพยายามเข้าสู่ระบบมากเกินไป โปรดรอสักครู่แล้วลองใหม่",
+        registerErrorInvalidPayload: "ข้อมูลสมัครสมาชิกไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง",
+        registerErrorFailed: "สมัครสมาชิกไม่สำเร็จ โปรดลองอีกครั้ง",
         signupLegalSuffix: "",
         omrCvLoadingShort: "กำลังโหลดไลบรารีคอมพิวเตอร์วิทัศน์ (ไฟล์ขนาดใหญ่)",
         omrCvLargeFileHint: "OpenCV.js เป็นไฟล์ขนาดใหญ่ (8MB+) โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ต",

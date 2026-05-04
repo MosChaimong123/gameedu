@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { applyConsumeInventory, validateBattleLoadout } from "@/lib/battle-loadout";
+import {
+    applyConsumeInventory,
+    removeBattleItemsFromInventory,
+    sanitizeLoadoutAgainstInventory,
+    validateBattleLoadout,
+} from "@/lib/battle-loadout";
 import { calcGoldReward, BATTLE_GOLD_MULT_CAP } from "@/lib/battle-engine";
 import type { BattleFighter } from "@/lib/battle-engine";
 
@@ -56,11 +61,37 @@ describe("validateBattleLoadout", () => {
         );
         expect(v.ok).toBe(true);
     });
+
+    it("rejects profile frames and unowned battle items", () => {
+        const frame = validateBattleLoadout(["frame_fire_t1"], ["frame_fire_t1"]);
+        expect(frame.ok).toBe(false);
+        expect(!frame.ok && frame.code).toBe("UNKNOWN_ITEM");
+
+        const missing = validateBattleLoadout(["item_buckler"], ["item_lucky_coin"]);
+        expect(missing.ok).toBe(false);
+        expect(!missing.ok && missing.code).toBe("NOT_IN_STOCK");
+    });
 });
 
 describe("applyConsumeInventory", () => {
     it("removes one occurrence per id", () => {
         expect(applyConsumeInventory(["a", "b", "a"], ["a", "a"])).toEqual(["b"]);
+    });
+});
+
+describe("battle item inventory mutation", () => {
+    it("throws when finalizing would consume an item stack that no longer exists", () => {
+        expect(() => removeBattleItemsFromInventory(["item_buckler"], ["item_buckler", "item_buckler"]))
+            .toThrow("MISSING_ITEM:item_buckler");
+    });
+
+    it("sanitizes saved loadout against remaining inventory one stack at a time", () => {
+        expect(
+            sanitizeLoadoutAgainstInventory(
+                ["item_buckler", "item_buckler", "item_lucky_coin"],
+                ["item_buckler", "frame_fire_t1"]
+            )
+        ).toEqual(["item_buckler"]);
     });
 });
 

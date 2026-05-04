@@ -10,6 +10,7 @@ import {
 } from "@/lib/security/rate-limit"
 import { logAuditEvent } from "@/lib/security/audit-log"
 import { getLimitsForUser } from "@/lib/plan/plan-access"
+import { normalizeGeneratedQuestions } from "@/lib/question-set-schema"
 
 type GeminiContentPart =
     | { text: string }
@@ -19,13 +20,6 @@ type GeminiContentPart =
             mimeType: string
         }
     }
-
-type GeneratedQuestion = {
-    question: string
-    options: string[]
-    correctAnswer: number
-    explanation?: string
-}
 
 // Initialize inside the handler for better environment variable reliability
 
@@ -158,18 +152,7 @@ export async function POST(req: Request) {
             text = text.replace(/```json/g, "").replace(/```/g, "").trim()
         }
         
-        // Parse and add IDs and default values to match GameEdu format
-        const questions = (JSON.parse(text) as GeneratedQuestion[]).map((q) => ({
-            id: crypto.randomUUID(),
-            question: q.question,
-            image: null,
-            timeLimit: 20,
-            options: q.options,
-            optionTypes: ["TEXT", "TEXT", "TEXT", "TEXT"],
-            questionType: "MULTIPLE_CHOICE",
-            correctAnswer: q.correctAnswer,
-            explanation: q.explanation || "",
-        }))
+        const questions = normalizeGeneratedQuestions(JSON.parse(text), () => crypto.randomUUID())
 
         logAuditEvent({
             actorUserId,

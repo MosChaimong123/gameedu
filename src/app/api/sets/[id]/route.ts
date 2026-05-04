@@ -11,6 +11,7 @@ import {
 } from "@/lib/api-error";
 import { countQuestionsInJson, getLimitsForUser } from "@/lib/plan/plan-access";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
+import { validateQuestionSetQuestions } from "@/lib/question-set-schema";
 
 type UpdateSetRequest = {
     title?: string
@@ -89,6 +90,12 @@ export async function PATCH(
         }
 
         const limits = getLimitsForUser(session.user.role, session.user.plan)
+        if (questions !== undefined) {
+            const validatedQuestions = validateQuestionSetQuestions(questions)
+            if (!validatedQuestions.ok) {
+                return createAppErrorResponse("INVALID_PAYLOAD", "Invalid question data", 400)
+            }
+        }
         const nextQuestionCount =
             questions !== undefined
                 ? countQuestionsInJson(questions)

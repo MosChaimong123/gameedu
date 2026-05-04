@@ -1,4 +1,4 @@
-import { beforeEach, describe, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   expectAppErrorResponse,
   makeJsonRequest,
@@ -139,6 +139,35 @@ describe("sets route auth contract", () => {
       code: "NOT_FOUND",
       message: "Not found",
     });
+  });
+
+  it("rejects corrupt question payloads before updating a set", async () => {
+    const { PATCH } = await import("@/app/api/sets/[id]/route");
+
+    const response = await PATCH(
+      makeJsonRequest({
+        questions: [
+          {
+            id: "q1",
+            question: "Broken",
+            options: ["Only one option"],
+            optionTypes: ["TEXT"],
+            questionType: "MULTIPLE_CHOICE",
+            correctAnswer: 4,
+            timeLimit: 20,
+            explanation: "",
+          },
+        ],
+      }),
+      makeRouteParams({ id: "set-1" })
+    );
+
+    await expectAppErrorResponse(response, {
+      status: 400,
+      code: "INVALID_PAYLOAD",
+      message: "Invalid question data",
+    });
+    expect(mockQuestionSetUpdate).not.toHaveBeenCalled();
   });
 
   it("rejects unauthenticated delete requests", async () => {

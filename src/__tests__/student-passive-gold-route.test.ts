@@ -84,6 +84,45 @@ describe("student passive gold route", () => {
     });
   });
 
+  it("does not write a ledger row when a duplicate passive claim loses the lastGoldAt race", async () => {
+    mockStudentFindFirst.mockResolvedValue({
+      id: "student-1",
+      classId: "class-1",
+      gold: 10,
+      equippedFrame: null,
+      createdAt: new Date("2026-04-05T00:00:00.000Z"),
+      lastGoldAt: new Date("2026-04-05T08:00:00.000Z"),
+      classroom: {
+        levelConfig: [{ name: "Bronze", minScore: 0, goldRate: 3 }],
+        gamifiedSettings: {},
+        assignments: [],
+      },
+      submissions: [],
+    });
+    mockStudentUpdateMany.mockResolvedValue({ count: 0 });
+    mockStudentFindUnique.mockResolvedValue({
+      gold: 16,
+      lastGoldAt: new Date("2026-04-05T10:00:00.000Z"),
+    });
+
+    const { POST } = await import("@/app/api/student/[code]/claim-passive-gold/route");
+    vi.setSystemTime(new Date("2026-04-05T10:00:00.000Z"));
+
+    const response = await POST({} as Request, {
+      params: Promise.resolve({ code: "abc123" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      alreadyClaimed: true,
+      goldEarned: 0,
+      newGold: 16,
+      lastGoldAt: "2026-04-05T10:00:00.000Z",
+    });
+    expect(mockEconomyTransactionCreate).not.toHaveBeenCalled();
+  });
+
   it("returns not found when the student code does not exist", async () => {
     mockStudentFindFirst.mockResolvedValue(null);
 

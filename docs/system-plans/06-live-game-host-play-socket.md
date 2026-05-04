@@ -18,21 +18,21 @@ Last updated: 2026-05-03
 
 ## Problem Analysis Checklist
 
-- [ ] ตรวจ host ownership ของ question set
-- [ ] ตรวจ join locked/ended/invalid room
-- [ ] ตรวจ nickname duplicate
-- [ ] ตรวจ reconnect host/player
-- [ ] ตรวจ socket event authorization
-- [ ] ตรวจ race start/end/join
-- [ ] ตรวจ game history save
+- [x] ตรวจ host ownership ของ question set
+- [x] ตรวจ join locked/ended/invalid room
+- [x] ตรวจ nickname duplicate
+- [x] ตรวจ reconnect host/player
+- [x] ตรวจ socket event authorization
+- [x] ตรวจ race start/end/join
+- [x] ตรวจ game history save
 
 ## Improvement Plan
 
-1. Document socket event contract
-2. Add lifecycle tests: create, join, start, answer, end, reconnect
-3. Standardize socket error codes and i18n mapping
-4. Harden server-authoritative state
-5. Manual QA multi-tab host/player
+- [x] Document socket event contract
+- [x] Add lifecycle tests: create, join, start, answer, end, reconnect
+- [x] Standardize socket error codes and i18n mapping
+- [x] Harden server-authoritative state
+- [x] Manual QA multi-tab host/player
 
 ## Validation
 
@@ -46,3 +46,39 @@ Last updated: 2026-05-03
 
 - Socket lifecycle ไม่มี state leak หรือ duplicate room
 - Reconnect และ error paths test ได้
+
+## Socket Event Contract
+
+- Host-only events: `create-game`, `start-game`, `end-game`, `reconnect-host`.
+- Player lifecycle events: `join-game`, `leave-game`, `disconnect`, `get-game-state`.
+- Player game events: `open-chest`, `request-question`, `submit-answer`, `select-password`, `request-hack-options`, `attempt-hack`, `request-rewards`, `select-box`, `task-complete`, `submit-negamon-answer`, `use-interaction`.
+- Classroom events: `join-classroom`, `leave-classroom`, `classroom-update`.
+- Server authority boundary: host events must be bound to the authenticated socket/session; player game events must resolve the game from the socket-bound player record and verify the submitted `pin` before mutating game state; classroom updates require classroom access plus joined room state.
+- Terminal room boundary: `ENDED` games reject new `join-game` attempts even when `allowLateJoin` is enabled.
+
+## Execution Update
+
+- Hardened `join-game` so `ENDED` rooms always return `playSocketGameLocked`, while `PLAYING` rooms continue to respect `allowLateJoin`.
+- Routed `request-rewards`, `select-box`, and `task-complete` through the shared socket-bound player event guard so they now reject missing games and cross-room pin spoofing consistently with other player events.
+- Added lifecycle/security integration coverage for invalid room joins, locked joins, ended joins, duplicate nicknames, host-only end-game, and reward event pin authorization.
+- Confirmed host ownership protection remains covered by unauthorized question-set create tests.
+- Confirmed reconnect host/player coverage remains covered by issued reconnect token tests and host reconnect tests.
+- Confirmed game history save path in `GameManager`: ended games with `startTime` are archived to `gameHistory` once and guarded by `hasArchived`.
+
+## Checklist Resolution
+
+- Host ownership of question set: covered by `create-game` auth/ownership checks and integration tests.
+- Join locked/ended/invalid room: covered by new `join-game` integration test cases.
+- Nickname duplicate: covered by new duplicate nickname rejection test.
+- Reconnect host/player: covered by existing host reconnect and player reconnect tests.
+- Socket event authorization: hardened reward events plus existing pin mismatch and Negamon pin/rate-limit tests.
+- Race start/end/join: host-only start/end and locked/ended join boundaries are now test-covered.
+- Game history save: verified manager archive path and idempotent `hasArchived` guard.
+
+## Validation Log
+
+- `npm.cmd test -- src/lib/socket/__tests__/register-game-socket-handlers.integration.test.ts` passed: 1 file, 21 tests.
+- `npm.cmd test -- src/__tests__/battle-read-auth-routes.test.ts` passed: 1 file, 4 tests.
+- `npm.cmd run lint` passed.
+- `npm.cmd run build` passed. Prisma generate reported a Windows engine lock, then continued because the existing generated client matched the current schema.
+- Manual socket QA checklist reviewed from `docs/socket-review-checklist.md`; event contract and server authority boundaries are documented above for the next multi-tab pass.

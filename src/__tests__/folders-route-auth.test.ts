@@ -155,4 +155,30 @@ describe("folders route auth contract", () => {
     expect(mockQuestionSetUpdateMany).not.toHaveBeenCalled();
     expect(mockFolderDelete).not.toHaveBeenCalled();
   });
+
+  it("clears owned question sets before deleting a folder", async () => {
+    const { DELETE } = await import("@/app/api/folders/[folderId]/route");
+
+    const response = await DELETE(
+      new Request("http://localhost/api/folders/folder-1", { method: "DELETE" }),
+      makeRouteParams({ folderId: "folder-1" })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockQuestionSetUpdateMany).toHaveBeenCalledWith({
+      where: {
+        folderId: "folder-1",
+        creatorId: "teacher-1",
+      },
+      data: {
+        folderId: null,
+      },
+    });
+    expect(mockFolderDelete).toHaveBeenCalledWith({
+      where: {
+        id: "folder-1",
+        creatorId: "teacher-1",
+      },
+    });
+  });
 });

@@ -4,7 +4,8 @@ import type { AppErrorCode } from "@/lib/api-error";
 import { formatBoardActionErrorMessage } from "@/lib/board-action-error-messages";
 import { getLocalizedOmrErrorMessageFromResponse } from "@/lib/omr-ui-messages";
 import { formatSocketErrorMessage } from "@/lib/socket-error-messages";
-import { getTranslationText, type Language } from "@/lib/translation-lookup";
+import type { Language } from "@/lib/translations";
+import { getTranslationText } from "@/lib/translation-lookup";
 import {
   getLocalizedErrorMessageFromResponse,
   getLocalizedMessageFromApiErrorBody,

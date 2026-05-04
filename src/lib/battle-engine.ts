@@ -303,8 +303,8 @@ function addEffect(
         regenPenalty?: number;
         ignoreDefRetained?: number;
     }
-) {
-    if (fighter.immunities.includes(eff)) return;
+): boolean {
+    if (fighter.immunities.includes(eff)) return false;
     if (eff === "POISON" || eff === "BADLY_POISON") {
         fighter.acidRainPoisonStacks = 0;
     }
@@ -325,7 +325,7 @@ function addEffect(
             const prev = existing.ignoreDefRetained ?? IGNORE_DEF_RETAINED_DEF_MULTIPLIER;
             existing.ignoreDefRetained = Math.min(prev, incoming);
         }
-        return;
+        return true;
     }
     const entry: EffectEntry = { effect: eff, turnsLeft: turns };
     if (eff === "PARALYZE" && opts?.paralyzeFullSkip) {
@@ -341,6 +341,7 @@ function addEffect(
         entry.ignoreDefRetained = opts?.ignoreDefRetained ?? IGNORE_DEF_RETAINED_DEF_MULTIPLIER;
     }
     fighter.effects.push(entry);
+    return true;
 }
 
 const BASE_CRIT_RATE = 0.0625; // 6.25%
@@ -937,25 +938,25 @@ function applyEffect(
         case "BURN": {
             const burnTurns = Math.max(1, applyOpts?.durationTurns ?? BURN_DURATION_TURNS);
             const burnRate = applyOpts?.burnDotRate ?? BURN_DOT_RATE;
-            addEffect(defender, "BURN", burnTurns, { burnDotRate: burnRate });
+            applied = addEffect(defender, "BURN", burnTurns, { burnDotRate: burnRate });
             break;
         }
         case "PARALYZE": {
             const paraTurns = Math.max(1, applyOpts?.durationTurns ?? PARALYZE_DURATION_TURNS);
-            addEffect(defender, "PARALYZE", paraTurns, {
+            applied = addEffect(defender, "PARALYZE", paraTurns, {
                 paralyzeFullSkip: applyOpts?.paralyzeFullSkip === true,
             });
             break;
         }
-        case "SLEEP":        addEffect(defender, "SLEEP", SLEEP_DURATION_TURNS);  break;
+        case "SLEEP":        applied = addEffect(defender, "SLEEP", SLEEP_DURATION_TURNS);  break;
         case "POISON":
-            addEffect(defender, "POISON", POISON_DURATION_TURNS);
+            applied = addEffect(defender, "POISON", POISON_DURATION_TURNS);
             break;
         case "BADLY_POISON":
-            addEffect(defender, "BADLY_POISON", BADLY_POISON_DURATION_TURNS);
+            applied = addEffect(defender, "BADLY_POISON", BADLY_POISON_DURATION_TURNS);
             break;
-        case "FREEZE":       addEffect(defender, "FREEZE", FREEZE_DURATION_TURNS);  break;
-        case "CONFUSE":      addEffect(defender, "CONFUSE", CONFUSE_DURATION_TURNS);  break;
+        case "FREEZE":       applied = addEffect(defender, "FREEZE", FREEZE_DURATION_TURNS);  break;
+        case "CONFUSE":      applied = addEffect(defender, "CONFUSE", CONFUSE_DURATION_TURNS);  break;
 
         case "BOOST_ATK":
             if (attacker.statStages.atk < BOOST_STAT_MULTIPLIER) {
@@ -1095,7 +1096,7 @@ function applyEffect(
         case "LOWER_EN_REGEN": {
             const enTurns = Math.max(1, applyOpts?.durationTurns ?? LOWER_STAT_DURATION_TURNS);
             const pen = Math.max(0, applyOpts?.regenPenalty ?? EN_REGEN_SAP_DEFAULT);
-            addEffect(defender, "LOWER_EN_REGEN", enTurns, { regenPenalty: pen });
+            applied = addEffect(defender, "LOWER_EN_REGEN", enTurns, { regenPenalty: pen });
             break;
         }
         case "HEAL_25": {
@@ -1107,7 +1108,7 @@ function applyEffect(
         case "IGNORE_DEF": {
             const igTurns = Math.max(1, applyOpts?.durationTurns ?? IGNORE_DEF_DURATION_TURNS);
             const igMult = applyOpts?.ignoreDefRetained ?? IGNORE_DEF_RETAINED_DEF_MULTIPLIER;
-            addEffect(defender, "IGNORE_DEF", igTurns, { ignoreDefRetained: igMult });
+            applied = addEffect(defender, "IGNORE_DEF", igTurns, { ignoreDefRetained: igMult });
             break;
         }
     }
@@ -1485,7 +1486,5 @@ export function calcGoldReward(winner: BattleFighter, loser: BattleFighter): num
     const mult = Math.min(BATTLE_GOLD_MULT_CAP, Math.max(1, winner.goldMultiplier));
     return Math.floor(base * mult);
 }
-
-
 
 

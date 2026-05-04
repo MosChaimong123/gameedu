@@ -30,7 +30,7 @@ vi.mock("@/lib/db", () => ({
 describe("student creation route login codes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockAuth.mockResolvedValue({ user: { id: "teacher-1" } });
+    mockAuth.mockResolvedValue({ user: { id: "teacher-1", role: "TEACHER" } });
     mockClassroomFindUnique.mockResolvedValue({ id: "class-1", students: [] });
     mockStudentFindMany.mockResolvedValue([]);
     mockStudentCreateMany.mockResolvedValue({ count: 2 });

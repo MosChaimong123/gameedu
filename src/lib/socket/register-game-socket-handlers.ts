@@ -321,7 +321,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         return;
       }
 
-      if (game.status !== "LOBBY" && !game.settings.allowLateJoin) {
+      if (game.status === "ENDED" || (game.status !== "LOBBY" && !game.settings.allowLateJoin)) {
         socket.emit("error", { message: SOCKET_ERROR_GAME_LOCKED });
         return;
       }
@@ -511,18 +511,9 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
     socket.on("request-hack-options", (payload) => forwardPlayerGameEvent("request-hack-options", payload));
     socket.on("attempt-hack", (payload) => forwardPlayerGameEvent("attempt-hack", payload));
 
-    socket.on("request-rewards", (payload) => {
-      const game = gameManager.findGameBySocket(socket.id);
-      if (game) game.handleEvent("request-rewards", payload, socket);
-    });
-    socket.on("select-box", (payload) => {
-      const game = gameManager.findGameBySocket(socket.id);
-      if (game) game.handleEvent("select-box", payload, socket);
-    });
-    socket.on("task-complete", (payload) => {
-      const game = gameManager.findGameBySocket(socket.id);
-      if (game) game.handleEvent("task-complete", payload, socket);
-    });
+    socket.on("request-rewards", (payload) => forwardPlayerGameEvent("request-rewards", payload));
+    socket.on("select-box", (payload) => forwardPlayerGameEvent("select-box", payload));
+    socket.on("task-complete", (payload) => forwardPlayerGameEvent("task-complete", payload));
     socket.on("submit-negamon-answer", (payload) => {
       const game = gameManager.findGameBySocket(socket.id);
       if (!game || game.gameMode !== "NEGAMON_BATTLE") return;

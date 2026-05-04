@@ -26,7 +26,7 @@ describe("student economy command routes", () => {
 
     const { POST } = await import("@/app/api/student/[code]/shop/equip/route");
     const request = {
-      json: vi.fn().mockResolvedValue({ itemId: "frame_b" }),
+      json: vi.fn().mockResolvedValue({ itemId: "frame_water_t1" }),
     } as unknown as NextRequest;
 
     const response = await POST(request, {
@@ -43,15 +43,58 @@ describe("student economy command routes", () => {
     expect(mockStudentUpdate).not.toHaveBeenCalled();
   });
 
-  it("returns disabled when Negamon unlock-skill is called", async () => {
-    const { POST } = await import("@/app/api/student/[code]/negamon/unlock-skill/route");
+  it("rejects battle items on the frame equip endpoint even when owned", async () => {
+    mockStudentFindFirst.mockResolvedValue({
+      id: "student-1",
+      inventory: ["item_buckler"],
+    });
+
+    const { POST } = await import("@/app/api/student/[code]/shop/equip/route");
     const request = {
-      json: vi.fn().mockResolvedValue({ skillId: "gold_flow" }),
+      json: vi.fn().mockResolvedValue({ itemId: "item_buckler" }),
     } as unknown as NextRequest;
 
     const response = await POST(request, {
       params: Promise.resolve({ code: "abc123" }),
     });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "INVALID_PAYLOAD",
+        message: "Item is not equippable",
+      },
+    });
+    expect(mockStudentUpdate).not.toHaveBeenCalled();
+  });
+
+  it("equips only owned frame items and trims the submitted id", async () => {
+    mockStudentFindFirst.mockResolvedValue({
+      id: "student-1",
+      inventory: ["frame_fire_t1"],
+    });
+    mockStudentUpdate.mockResolvedValue({});
+
+    const { POST } = await import("@/app/api/student/[code]/shop/equip/route");
+    const request = {
+      json: vi.fn().mockResolvedValue({ itemId: " frame_fire_t1 " }),
+    } as unknown as NextRequest;
+
+    const response = await POST(request, {
+      params: Promise.resolve({ code: "abc123" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockStudentUpdate).toHaveBeenCalledWith({
+      where: { id: "student-1" },
+      data: { equippedFrame: "frame_fire_t1" },
+    });
+  });
+
+  it("returns disabled when Negamon unlock-skill is called", async () => {
+    const { POST } = await import("@/app/api/student/[code]/negamon/unlock-skill/route");
+
+    const response = await POST();
 
     expect(response.status).toBe(410);
     await expect(response.json()).resolves.toEqual({

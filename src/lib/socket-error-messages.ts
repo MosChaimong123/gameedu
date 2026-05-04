@@ -24,6 +24,16 @@ export const SOCKET_ERROR_CRYPTO_PASSWORD_TAKEN = "playCryptoPasswordTaken";
 export const SOCKET_ERROR_CRYPTO_SELECTION_INVALID = "playCryptoSelectionInvalid";
 export const SOCKET_ERROR_CRYPTO_SELECTION_SERVER = "playCryptoSelectionServerError";
 export const SOCKET_ERROR_CRYPTO_SYSTEM_GLITCHED = "playCryptoSystemGlitched";
+/** Socket is not associated with any live game player session */
+export const SOCKET_ERROR_PLAY_NOT_IN_GAME = "playSocketNotInGameRoom";
+/** Client pin does not match the game bound to this socket */
+export const SOCKET_ERROR_PLAY_ROOM_PIN_MISMATCH = "playSocketRoomPinMismatch";
+/** Gold Quest: must open chest before requesting the next question */
+export const SOCKET_ERROR_GOLD_QUEST_CHEST_PENDING = "playSocketGoldQuestChestPending";
+/** Gold Quest: open chest only after a correct answer */
+export const SOCKET_ERROR_GOLD_QUEST_CHEST_NOT_READY = "playSocketGoldQuestChestNotReady";
+/** Gold Quest: interaction target invalid or stale */
+export const SOCKET_ERROR_GOLD_QUEST_INTERACTION_INVALID = "playSocketGoldQuestInteractionInvalid";
 
 const LEGACY_SOCKET_ERROR_KEYS: Record<string, string> = {
   "Invalid question set": SOCKET_ERROR_INVALID_QUESTION_SET,

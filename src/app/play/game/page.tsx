@@ -80,7 +80,6 @@ export default function PlayerGamePage() {
         gameModeRef,
         navigationTimer,
         hasRequestedFirstQuestion,
-        view,
         setView,
         setGameMode,
         setPlayer,
@@ -266,6 +265,8 @@ export default function PlayerGamePage() {
                         socket={socket}
                         player={player as GoldQuestPlayer}
                         otherPlayers={otherPlayers.filter((other): other is GoldQuestPlayer => !isCryptoHackPlayer(other))}
+                        toast={toast}
+                        t={t}
                         onNavigate={(v) => {
                             setView(v as GameView)
                             if (v === "QUESTION") {

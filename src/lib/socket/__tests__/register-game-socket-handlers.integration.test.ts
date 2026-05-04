@@ -10,6 +10,7 @@ import {
   SOCKET_ERROR_INVALID_GAME_CODE,
   SOCKET_ERROR_INVALID_STUDENT_CODE,
   SOCKET_ERROR_JOIN_CLASSROOM_FIRST,
+  SOCKET_ERROR_NEGAMON_MID_MATCH,
   SOCKET_ERROR_LOBBY_FULL,
   SOCKET_ERROR_ONLY_HOST_CAN_START,
   SOCKET_ERROR_TOO_MANY_SUBMISSIONS,
@@ -17,6 +18,8 @@ import {
   SOCKET_ERROR_UNAUTHORIZED_CLASSROOM_ACCESS,
   SOCKET_ERROR_UNAUTHORIZED_CLASSROOM_EVENT,
   SOCKET_ERROR_UNAUTHORIZED_QUESTION_SET,
+  SOCKET_ERROR_PLAY_NOT_IN_GAME,
+  SOCKET_ERROR_PLAY_ROOM_PIN_MISMATCH,
 } from "../../socket-error-messages";
 
 class FakeGame {
@@ -64,7 +67,14 @@ class FakeGame {
   }
 
   canReconnectPlayer(playerName: string, reconnectToken?: string): boolean {
-    return !!reconnectToken && reconnectToken === this.playerReconnectTokens.get(playerName);
+    if (!reconnectToken) return false;
+    const expected = this.playerReconnectTokens.get(playerName);
+    if (expected === reconnectToken) return true;
+    const player = this.players.find((entry) => entry.name === playerName);
+    if (player && player.id === "" && expected === undefined) {
+      return true;
+    }
+    return false;
   }
 
   addPlayer(
@@ -785,7 +795,7 @@ describe("registerGameSocketHandlers integration", () => {
     p2.emit("join-game", { pin: gameCreated.pin, nickname: "Latecomer" });
 
     const denied = await new Promise<{ message: string }>((resolve) => p2.once("error", resolve));
-    expect(denied.message).toBe("Negamon Battle already started — new players cannot join mid-match");
+    expect(denied.message).toBe(SOCKET_ERROR_NEGAMON_MID_MATCH);
 
     host.disconnect();
     p1.disconnect();
@@ -853,5 +863,79 @@ describe("registerGameSocketHandlers integration", () => {
     first.disconnect();
     second.disconnect();
     livePlayerCapForTest = undefined;
+  });
+
+  it("emits error when player event pin does not match socket-bound game", async () => {
+    const host = await connectClient("teacher-1");
+    host.emit("create-game", {
+      setId: "set-1",
+      hostId: "spoofed-host",
+      settings: { allowLateJoin: true },
+      mode: "GOLD_QUEST",
+    });
+    const gameA = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+
+    host.emit("create-game", {
+      setId: "set-1",
+      hostId: "spoofed-host",
+      settings: { allowLateJoin: true },
+      mode: "GOLD_QUEST",
+    });
+    const gameB = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+
+    const player = await connectClient();
+    player.emit("join-game", { pin: gameA.pin, nickname: "PinMismatch" });
+    await new Promise<void>((resolve) => player.once("joined-success", () => resolve()));
+
+    player.emit("submit-answer", { pin: gameB.pin, questionId: "x", answerIndex: 0 });
+    const err = await new Promise<{ message: string }>((resolve) => player.once("error", resolve));
+    expect(err.message).toBe(SOCKET_ERROR_PLAY_ROOM_PIN_MISMATCH);
+
+    host.disconnect();
+    player.disconnect();
+  });
+
+  it("emits error when socket is not in any game for submit-answer", async () => {
+    const stray = await connectClient();
+    stray.emit("submit-answer", { pin: "FAKE", questionId: "x", answerIndex: 0 });
+    const err = await new Promise<{ message: string }>((resolve) => stray.once("error", resolve));
+    expect(err.message).toBe(SOCKET_ERROR_PLAY_NOT_IN_GAME);
+    stray.disconnect();
+  });
+
+  it("allows player rejoin after simulated DB recover (cleared socket id and reconnect tokens)", async () => {
+    const host = await connectClient("teacher-1");
+    host.emit("create-game", {
+      setId: "set-1",
+      hostId: "spoofed-host",
+      settings: { allowLateJoin: true },
+      mode: "GOLD_QUEST",
+    });
+    const gameCreated = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+
+    const player = await connectClient();
+    player.emit("join-game", { pin: gameCreated.pin, nickname: "RecoverMe" });
+    const joined = await new Promise<{ reconnectToken: string }>((resolve) => player.once("joined-success", resolve));
+
+    const game = games.get(gameCreated.pin)!;
+    player.disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    game.players[0]!.id = "";
+    (game as unknown as { playerReconnectTokens: Map<string, string> }).playerReconnectTokens.clear();
+
+    const again = await connectClient();
+    again.emit("join-game", {
+      pin: gameCreated.pin,
+      nickname: "RecoverMe",
+      reconnectToken: joined.reconnectToken,
+    });
+    await new Promise<void>((resolve) => again.once("joined-success", () => resolve()));
+
+    expect(game.players[0]?.id).toBe(again.id);
+    expect(game.getPlayerReconnectToken("RecoverMe")).toBe(joined.reconnectToken);
+
+    host.disconnect();
+    again.disconnect();
   });
 });

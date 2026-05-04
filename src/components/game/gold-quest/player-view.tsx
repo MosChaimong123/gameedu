@@ -12,11 +12,21 @@ type Props = {
     otherPlayers?: GoldQuestPlayer[];
     onOpenChest: (index: number) => void;
     onInteraction?: (targetId: string) => void;
+    /** Gold / multiplier / etc. — advance immediately without waiting for timer */
+    onContinueSimple?: () => void;
     currentReward: ChestReward | null;
     isChestOpen: boolean;
 }
 
-export function GoldQuestPlayerView({ player, otherPlayers = [], onOpenChest, onInteraction, currentReward, isChestOpen }: Props) {
+export function GoldQuestPlayerView({
+    player,
+    otherPlayers = [],
+    onOpenChest,
+    onInteraction,
+    onContinueSimple,
+    currentReward,
+    isChestOpen,
+}: Props) {
     const { t } = useLanguage()
     void player;
     // Mock chest visuals
@@ -164,6 +174,8 @@ export function GoldQuestPlayerView({ player, otherPlayers = [], onOpenChest, on
                                 onClick={() => {
                                     if (isInteraction && interactionTarget && onInteraction) {
                                         onInteraction(interactionTarget)
+                                    } else if (!isInteraction && onContinueSimple) {
+                                        onContinueSimple()
                                     }
                                 }}
                             >

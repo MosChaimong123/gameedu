@@ -61,6 +61,7 @@ export function createInitialPlayer(name: string): GoldQuestPlayer {
         score: 0,
         correctAnswers: 0,
         incorrectAnswers: 0,
+        pendingChest: false,
     }
 }
 

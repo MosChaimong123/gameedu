@@ -56,4 +56,21 @@ describe("AbstractGameEngine auth guards", () => {
 
     expect(game.getPlayerReconnectToken("Alice")).toBeUndefined();
   });
+
+  it("allows reconnect with any stored client token after recover (empty socket id, token map cleared)", () => {
+    const game = new TestGameEngine("123456", "host-user", "set-1", {}, [], mockIo);
+    game.addPlayer(
+      {
+        id: "",
+        name: "Bob",
+        isConnected: false,
+        score: 0,
+        correctAnswers: 0,
+        incorrectAnswers: 0,
+      },
+      {} as Socket
+    );
+
+    expect(game.canReconnectPlayer("Bob", "client-token-after-restart")).toBe(true);
+  });
 });

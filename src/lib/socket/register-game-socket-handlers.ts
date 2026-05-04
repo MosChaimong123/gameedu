@@ -19,6 +19,8 @@ import {
   SOCKET_ERROR_NICKNAME_IN_USE,
   SOCKET_ERROR_ONLY_HOST_CAN_END,
   SOCKET_ERROR_ONLY_HOST_CAN_START,
+  SOCKET_ERROR_PLAY_NOT_IN_GAME,
+  SOCKET_ERROR_PLAY_ROOM_PIN_MISMATCH,
   SOCKET_ERROR_SET_NOT_FOUND,
   SOCKET_ERROR_TOO_MANY_SUBMISSIONS,
   SOCKET_ERROR_UNAUTHORIZED,
@@ -376,6 +378,9 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         }
 
         game.handleReconnection(existingPlayer, socket);
+        if (reconnectToken) {
+          game.registerPlayerReconnectToken(existingPlayer.name, reconnectToken);
+        }
         socket.join(pin);
         socket.emit("joined-success", {
           pin,
@@ -485,19 +490,26 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
       gameManager.findGameByHostSocket(socket.id);
     });
 
-    const forwardToGame = (eventName: string, payload: { pin?: string }) => {
-      const pin = payload.pin;
-      if (!pin) return;
-      const game = gameManager.getGame(pin);
-      if (game) game.handleEvent(eventName, payload, socket);
+    const forwardPlayerGameEvent = (eventName: string, payload: { pin?: string }) => {
+      const game = gameManager.findGameBySocket(socket.id);
+      if (!game) {
+        socket.emit("error", { message: SOCKET_ERROR_PLAY_NOT_IN_GAME });
+        return;
+      }
+      const pin = payload?.pin;
+      if (typeof pin !== "string" || pin.length === 0 || pin !== game.pin) {
+        socket.emit("error", { message: SOCKET_ERROR_PLAY_ROOM_PIN_MISMATCH });
+        return;
+      }
+      game.handleEvent(eventName, payload, socket);
     };
 
-    socket.on("open-chest", (payload) => forwardToGame("open-chest", payload));
-    socket.on("request-question", (payload) => forwardToGame("request-question", payload));
-    socket.on("submit-answer", (payload) => forwardToGame("submit-answer", payload));
-    socket.on("select-password", (payload) => forwardToGame("select-password", payload));
-    socket.on("request-hack-options", (payload) => forwardToGame("request-hack-options", payload));
-    socket.on("attempt-hack", (payload) => forwardToGame("attempt-hack", payload));
+    socket.on("open-chest", (payload) => forwardPlayerGameEvent("open-chest", payload));
+    socket.on("request-question", (payload) => forwardPlayerGameEvent("request-question", payload));
+    socket.on("submit-answer", (payload) => forwardPlayerGameEvent("submit-answer", payload));
+    socket.on("select-password", (payload) => forwardPlayerGameEvent("select-password", payload));
+    socket.on("request-hack-options", (payload) => forwardPlayerGameEvent("request-hack-options", payload));
+    socket.on("attempt-hack", (payload) => forwardPlayerGameEvent("attempt-hack", payload));
 
     socket.on("request-rewards", (payload) => {
       const game = gameManager.findGameBySocket(socket.id);
@@ -562,10 +574,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         still.handleEvent("submit-negamon-answer", payload, socket);
       })();
     });
-    socket.on("use-interaction", (payload) => {
-      const game = gameManager.findGameBySocket(socket.id);
-      if (game) game.handleEvent("use-interaction", payload, socket);
-    });
+    socket.on("use-interaction", (payload) => forwardPlayerGameEvent("use-interaction", payload));
 
     socket.on("join-classroom", async (classId) => {
       if (typeof classId !== "string" || classId.length === 0) return;

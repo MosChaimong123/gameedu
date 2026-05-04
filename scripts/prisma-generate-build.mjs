@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 
 const isWindows = process.platform === "win32";
@@ -44,13 +44,43 @@ function hasPrismaEngineLock(result) {
   return combined.includes("query_engine-windows.dll.node") && combined.includes("EPERM");
 }
 
-function hasExistingPrismaClient() {
+function getPrismaClientPaths() {
   const clientDir = path.join(process.cwd(), "node_modules", ".prisma", "client");
+  return {
+    clientDir,
+    enginePath: path.join(clientDir, "query_engine-windows.dll.node"),
+    indexPath: path.join(clientDir, "index.js"),
+    generatedSchemaPath: path.join(clientDir, "schema.prisma"),
+    sourceSchemaPath: path.join(process.cwd(), "prisma", "schema.prisma"),
+  };
+}
+
+function hasExistingPrismaClient() {
+  const { enginePath, indexPath, generatedSchemaPath } = getPrismaClientPaths();
   return (
-    existsSync(path.join(clientDir, "query_engine-windows.dll.node")) &&
-    existsSync(path.join(clientDir, "index.js")) &&
-    existsSync(path.join(clientDir, "schema.prisma"))
+    existsSync(enginePath) &&
+    existsSync(indexPath) &&
+    existsSync(generatedSchemaPath)
   );
+}
+
+function hasSchemaSynchronizedClient() {
+  if (!hasExistingPrismaClient()) {
+    return false;
+  }
+
+  const { generatedSchemaPath, sourceSchemaPath } = getPrismaClientPaths();
+  if (!existsSync(sourceSchemaPath)) {
+    return false;
+  }
+
+  try {
+    const generatedSchemaStat = statSync(generatedSchemaPath);
+    const sourceSchemaStat = statSync(sourceSchemaPath);
+    return generatedSchemaStat.mtimeMs >= sourceSchemaStat.mtimeMs;
+  } catch {
+    return false;
+  }
 }
 
 function exitWith(result, command, args) {
@@ -78,6 +108,14 @@ if (!isWindows || !hasPrismaEngineLock(primaryResult)) {
 }
 
 writeOutput(primaryResult);
+
+if (hasSchemaSynchronizedClient()) {
+  console.warn(
+    "Prisma generate hit a Windows engine lock, but the existing generated client matches the current schema. Continuing without stopping the dev server."
+  );
+  process.exit(0);
+}
+
 console.warn(
   "Prisma generate hit a Windows engine lock. Retrying with the repository unlock script."
 );

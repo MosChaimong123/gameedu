@@ -331,3 +331,34 @@ Practical status:
 
 - `02-classroom-core` is now ready for a real browser/manual QA pass without re-deriving the scope from scratch
 - Follow-up work can cleanly branch into either manual QA execution or the next system plan
+
+## Progress Note 15
+
+Completed on 2026-05-04:
+
+- Closed the student-manager reorder persistence gap that was still open in dev browser QA
+- `src/components/classroom/student-manager-dialog.tsx` now exposes explicit move-up / move-down controls alongside drag handles so roster ordering remains operable even when drag-and-drop is awkward in browser QA or accessibility flows
+- `src/components/classroom/student-manager-dialog.helpers.ts` now includes a shared `moveStudentManagerRosterStudent()` helper so button-driven reorder and drag-driven reorder use the same order-normalization rules
+- Added focused regression coverage in `src/__tests__/student-manager-dialog.helpers.test.ts`
+- Re-ran the targeted classroom regression slice and confirmed the browser flow on the dev classroom fixture: reorder changed the roster immediately and persisted after a full page refresh
+
+Practical status:
+
+- The remaining open Classroom Core manual QA work is now concentrated in failure-path verification rather than baseline mutation persistence
+- Student roster management is in a better place both for operators and for repeatable QA because reorder no longer depends on drag interaction alone
+
+## Progress Note 16
+
+Completed on 2026-05-04:
+
+- Hardened the student-manager reorder rollback path so the optimistic UI and the rollback decision now share an explicit helper contract
+- Added `commitStudentManagerRosterOrder()` in `src/components/classroom/student-manager-dialog.helpers.ts`
+- Updated `src/components/classroom/student-manager-dialog.tsx` to use that helper when persisting roster order, keeping success and rollback outcomes explicit instead of burying the revert inside an inline `try/catch`
+- Extended `src/__tests__/student-manager-dialog.helpers.test.ts` with focused coverage for:
+  - successful reorder persistence keeping the reordered roster
+  - failed reorder persistence restoring the previous roster
+
+Practical status:
+
+- The reorder failure path is now much better locked at the code level
+- The remaining gap for this checklist item is a fresh live browser failure-path pass, which could not be rerun in this session because the browser/test runtime hit environment usage limits

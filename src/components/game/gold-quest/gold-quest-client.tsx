@@ -5,14 +5,18 @@ import { GoldQuestPlayerView } from "./player-view";
 import { useSound } from "@/hooks/use-sound";
 import { getPlayerSession } from "@/lib/player-session";
 
+type ToastLike = (args: { title: string; description?: string; variant?: "default" | "destructive" }) => void;
+
 type Props = {
     socket: Socket | null;
     player: GoldQuestPlayer;
     otherPlayers: GoldQuestPlayer[];
     onNavigate: (view: string) => void; // Callback to request navigation (e.g. back to question)
+    toast?: ToastLike;
+    t: (key: string, params?: Record<string, string | number>) => string;
 }
 
-export function GoldQuestClient({ socket, player, otherPlayers, onNavigate }: Props) {
+export function GoldQuestClient({ socket, player, otherPlayers, onNavigate, toast, t }: Props) {
     const { play } = useSound();
 
     // Local State for Gold Quest Mode
@@ -64,15 +68,35 @@ export function GoldQuestClient({ socket, player, otherPlayers, onNavigate }: Pr
         const pin = getPlayerSession()?.pin;
         if (!pin) {
             console.error("No game PIN found");
+            toast?.({
+                title: t("playToastRoomPinMissingTitle"),
+                description: t("playToastRoomPinMissingDesc"),
+                variant: "destructive",
+            });
             return;
         }
 
         socket.emit("open-chest", { pin, chestIndex: index });
     };
 
+    const finishNonInteractionReward = () => {
+        setIsChestOpen(false);
+        setCurrentReward(null);
+        onNavigate("QUESTION");
+    };
+
     const handleInteraction = (targetId: string) => {
         if (!socket) return;
-        socket.emit("use-interaction", { targetId, type: currentReward?.type });
+        const pin = getPlayerSession()?.pin;
+        if (!pin) {
+            toast?.({
+                title: t("playToastRoomPinMissingTitle"),
+                description: t("playToastRoomPinMissingDesc"),
+                variant: "destructive",
+            });
+            return;
+        }
+        socket.emit("use-interaction", { pin, targetId, type: currentReward?.type });
 
         setTimeout(() => {
             setIsChestOpen(false);
@@ -87,6 +111,7 @@ export function GoldQuestClient({ socket, player, otherPlayers, onNavigate }: Pr
             otherPlayers={otherPlayers}
             onOpenChest={handleOpenChest}
             onInteraction={handleInteraction}
+            onContinueSimple={finishNonInteractionReward}
             currentReward={currentReward}
             isChestOpen={isChestOpen}
         />

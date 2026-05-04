@@ -46,7 +46,6 @@ export type UsePlayGameSocketParams = {
     gameModeRef: MutableRefObject<PlayerMode>
     navigationTimer: MutableRefObject<NodeJS.Timeout | null>
     hasRequestedFirstQuestion: MutableRefObject<boolean>
-    view: GameView
     setView: Dispatch<SetStateAction<GameView>>
     setGameMode: Dispatch<SetStateAction<PlayerMode>>
     setPlayer: Dispatch<SetStateAction<PlayerState>>
@@ -75,7 +74,6 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
         gameModeRef,
         navigationTimer,
         hasRequestedFirstQuestion,
-        view,
         setView,
         setGameMode,
         setPlayer,
@@ -589,5 +587,5 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
         }
         // This effect manages the socket subscription boundary. Setter and ref params are stable by contract.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [socket, router, play, stopBGM, view, toast, language, t])
+    }, [socket, router, play, stopBGM, toast, language, t])
 }

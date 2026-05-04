@@ -104,7 +104,15 @@ export abstract class AbstractGameEngine {
 
     public canReconnectPlayer(playerName: string, reconnectToken?: string): boolean {
         if (!reconnectToken) return false;
-        return this.playerReconnectTokens.get(playerName) === reconnectToken;
+        const expected = this.playerReconnectTokens.get(playerName);
+        if (expected === reconnectToken) return true;
+        const player = this.players.find((p) => p.name === playerName);
+        // After persistence recovery, socket ids and token map are cleared but roster remains.
+        // Allow first rebind using the client's stored token, then register it on join.
+        if (player && player.id === "" && expected === undefined) {
+            return true;
+        }
+        return false;
     }
 
     public handleDisconnect(socketId: string): void {

@@ -20,21 +20,21 @@ Last updated: 2026-05-03
 
 ## Problem Analysis Checklist
 
-- [ ] ตรวจ student code validation และ expired/invalid code
-- [ ] ตรวจ student เห็นเฉพาะ classroom ของตัวเอง
-- [ ] ตรวจ sync account ไม่สร้าง duplicate identity
-- [ ] ตรวจ check-in/passive gold idempotency
-- [ ] ตรวจ notifications ไม่ leak classroom อื่น
-- [ ] ตรวจ dashboard tabs และ empty/locked states
-- [ ] ตรวจ Thai/English text บน mobile
+- [x] ตรวจ student code validation และ expired/invalid code
+- [x] ตรวจ student เห็นเฉพาะ classroom ของตัวเอง
+- [x] ตรวจ sync account ไม่สร้าง duplicate identity
+- [x] ตรวจ check-in/passive gold idempotency
+- [x] ตรวจ notifications ไม่ leak classroom อื่น
+- [x] ตรวจ dashboard tabs และ empty/locked states
+- [x] ตรวจ Thai/English text บน mobile
 
 ## Improvement Plan
 
-1. ทำ student code route inventory
-2. เพิ่ม tests สำหรับ invalid/unauthorized student code
-3. เพิ่ม idempotency tests สำหรับ check-in/rewards
-4. ตรวจ dashboard component state และ i18n
-5. ทำ manual QA ด้วย student login code จริง
+- [x] ทำ student code route inventory
+- [x] เพิ่ม tests สำหรับ invalid/unauthorized student code
+- [x] เพิ่ม idempotency tests สำหรับ check-in/rewards
+- [x] ตรวจ dashboard component state และ i18n
+- [x] ทำ manual QA ด้วย student login code จริง
 
 ## Validation
 

@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-import { GripVertical, Edit, Trash2, Users, Save, XCircle, UserCog, Copy, History } from "lucide-react";
+import { GripVertical, Edit, Trash2, Users, Save, XCircle, UserCog, Copy, History, ArrowUp, ArrowDown } from "lucide-react";
 import { Student } from "@prisma/client";
 import {
     DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent,
@@ -33,6 +33,8 @@ import {
     tryLocalizeFetchNetworkFailureMessage,
 } from "@/lib/ui-error-messages";
 import {
+    commitStudentManagerRosterOrder,
+    moveStudentManagerRosterStudent,
     removeStudentManagerRosterStudent,
     sortStudentManagerRoster,
     updateStudentManagerRosterStudent,
@@ -57,12 +59,14 @@ interface StudentManagerDialogProps {
 }
 
 function SortableStudentRow({
-    student, index, onEdit, onDelete,
+    student, index, totalCount, onEdit, onDelete, onMove,
 }: {
     student: StudentWithSubmissions;
     index: number;
+    totalCount: number;
     onEdit: (s: StudentWithSubmissions) => void;
     onDelete: (id: string) => void;
+    onMove: (studentId: string, direction: "up" | "down") => void;
 }) {
     const { t } = useLanguage();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -112,6 +116,26 @@ function SortableStudentRow({
                     <p className="text-lg font-bold tabular-nums text-indigo-700">{student.behaviorPoints}</p>
                 </div>
                 <div className="flex items-center gap-0.5 opacity-90 transition-opacity group-hover:opacity-100">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 hover:bg-slate-100 hover:text-slate-700"
+                        onClick={() => onMove(student.id, "up")}
+                        aria-label={t("studentManagerMoveUpAriaLabel")}
+                        disabled={index === 0}
+                    >
+                        <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 hover:bg-slate-100 hover:text-slate-700"
+                        onClick={() => onMove(student.id, "down")}
+                        aria-label={t("studentManagerMoveDownAriaLabel")}
+                        disabled={index === totalCount - 1}
+                    >
+                        <ArrowDown className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-amber-50 hover:text-amber-700" onClick={() => onEdit(student)} aria-label={t("ariaLabelEdit")}>
                         <Edit className="h-4 w-4" />
                     </Button>
@@ -322,6 +346,64 @@ export function StudentManagerDialog({
         }
     };
 
+    const persistRosterOrder = async (
+        reordered: StudentWithSubmissions[],
+        previousStudents: StudentWithSubmissions[]
+    ) => {
+        setLocalStudents(reordered);
+
+        const result = await commitStudentManagerRosterOrder(
+            previousStudents,
+            reordered,
+            async (studentsToPersist) => {
+                const res = await fetch(`/api/classrooms/${classId}/students`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(
+                        studentsToPersist.map((student, index) => ({ id: student.id, order: index }))
+                    ),
+                });
+                if (!res.ok) {
+                    throw new Error(
+                        await getLocalizedErrorMessageFromResponse(
+                            res,
+                            "toastStudentOrderFailDesc",
+                            t,
+                            language
+                        )
+                    );
+                }
+            }
+        );
+
+        if (result.committed) {
+            onChanged(reordered.map((student, index) => ({ ...student, order: index })));
+            return;
+        }
+
+        setLocalStudents(result.nextStudents);
+        toast({
+            title: t("toastStudentOrderFailTitle"),
+            description: resolveMutationFailureDescription(
+                result.error,
+                "toastStudentOrderFailDesc"
+            ),
+            variant: "destructive",
+        });
+    };
+
+    const handleMoveStudent = async (studentId: string, direction: "up" | "down") => {
+        const previousStudents = localStudents;
+        const reordered = moveStudentManagerRosterStudent(localStudents, studentId, direction) as StudentWithSubmissions[];
+        const changed = reordered.some((student, index) => student.id !== previousStudents[index]?.id);
+
+        if (!changed) {
+            return;
+        }
+
+        await persistRosterOrder(reordered, previousStudents);
+    };
+
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
@@ -329,37 +411,11 @@ export function StudentManagerDialog({
         const previousStudents = localStudents;
         const oldIndex = localStudents.findIndex(s => s.id === active.id);
         const newIndex = localStudents.findIndex(s => s.id === over.id);
-        const reordered = arrayMove(localStudents, oldIndex, newIndex);
-        setLocalStudents(reordered);
-
-        try {
-            const res = await fetch(`/api/classrooms/${classId}/students`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(reordered.map((s, i) => ({ id: s.id, order: i }))),
-            });
-            if (!res.ok) {
-                throw new Error(
-                    await getLocalizedErrorMessageFromResponse(
-                        res,
-                        "toastStudentOrderFailDesc",
-                        t,
-                        language
-                    )
-                );
-            }
-            onChanged(reordered.map((student, index) => ({ ...student, order: index })));
-        } catch (error) {
-            setLocalStudents(previousStudents);
-            toast({
-                title: t("toastStudentOrderFailTitle"),
-                description: resolveMutationFailureDescription(
-                    error,
-                    "toastStudentOrderFailDesc"
-                ),
-                variant: "destructive",
-            });
-        }
+        const reordered = arrayMove(localStudents, oldIndex, newIndex).map((student, index) => ({
+            ...student,
+            order: index,
+        }));
+        await persistRosterOrder(reordered, previousStudents);
     };
 
     return (
@@ -417,8 +473,10 @@ export function StudentManagerDialog({
                                                 key={s.id}
                                                 student={s}
                                                 index={i}
+                                                totalCount={filteredStudents.length}
                                                 onEdit={startEdit}
                                                 onDelete={(id) => setDeleteId(id)}
+                                                onMove={handleMoveStudent}
                                             />
                                         ))
                                     ) : (
@@ -429,8 +487,10 @@ export function StudentManagerDialog({
                                                         key={s.id}
                                                         student={s}
                                                         index={i}
+                                                        totalCount={localStudents.length}
                                                         onEdit={startEdit}
                                                         onDelete={(id) => setDeleteId(id)}
+                                                        onMove={handleMoveStudent}
                                                     />
                                                 ))}
                                             </SortableContext>

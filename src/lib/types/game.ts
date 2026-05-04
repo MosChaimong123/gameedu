@@ -50,6 +50,8 @@ export interface GoldQuestPlayer extends BasePlayer {
     gold: number;
     multiplier: number; // Current multiplier (usually 1)
     streak: number; // For feedback/visuals
+    /** Server: true after a correct answer until the chest is resolved */
+    pendingChest?: boolean;
 }
 
 /** Negamon Battle — HP แบบเรียลไทม์ (โหมดห้องสด) */

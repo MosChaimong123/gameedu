@@ -72,9 +72,13 @@ app.prepare().then(async () => {
                     return [];
                 })
             );
+            const publicUrl = (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "").trim();
+            const secureCookie =
+                process.env.NODE_ENV === "production" || publicUrl.startsWith("https://");
             const token = await getToken({
                 req: { headers },
                 secret: resolveAuthSecret(),
+                secureCookie,
             });
             return typeof token?.id === "string" ? token.id : null;
         },

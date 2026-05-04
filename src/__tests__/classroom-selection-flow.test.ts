@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   filterSelectedStudentIdsForRoster,
   normalizeSavedGroupsForRoster,
+  resolveActiveGroupFilter,
 } from "@/components/classroom/use-classroom-selection-flow";
 
 describe("classroom selection flow helpers", () => {
@@ -70,5 +71,13 @@ describe("classroom selection flow helpers", () => {
         ["student-2", "student-4"]
       )
     ).toEqual(["student-2"]);
+  });
+
+  it("falls back to the all filter when the saved group no longer exists", () => {
+    expect(
+      resolveActiveGroupFilter("group-2", [
+        { id: "group-1", name: "Team A", studentIds: ["student-1"] },
+      ])
+    ).toBe("all");
   });
 });

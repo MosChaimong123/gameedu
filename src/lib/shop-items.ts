@@ -341,7 +341,7 @@ export function getFallbackShopItemDesc(id: string, locale: "th" | "en"): string
     if (locale === "th") {
         return `กรอบพลังธาตุ${elementTh} ระดับ ${tier} ดีไซน์ประกายชั้น ${FRAME_TIER_NAME_TH[tier]} เน้นความหรูมินิมอล`;
     }
-    return `${elementEn} elemental frame in tier ${tier}, designed with a premium minimal glow.`;
+    return `${elementEn} elemental frame in tier ${tier} (${FRAME_TIER_NAME_EN[tier]}), designed with a premium minimal glow.`;
 }
 
 export function getItemById(id: string): ShopItem | undefined {

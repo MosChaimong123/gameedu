@@ -48,3 +48,40 @@ Last updated: 2026-05-03
 
 - Student code flow ปลอดภัยและไม่ leak ข้อมูล
 - Dashboard ใช้งานได้ครบทั้ง teacher-linked และ code-only states
+## Execution Update
+
+Updated: 2026-05-04
+
+Completed in this pass:
+
+- Verified student login code coverage via `src/__tests__/student-login-code.test.ts`
+- Verified removed legacy sync endpoint behavior via `src/__tests__/student-sync-route.test.ts`
+- Verified check-in and passive gold award behavior, including idempotent date-key ledger writes, via `src/__tests__/student-checkin-route.test.ts` and `src/__tests__/student-passive-gold-route.test.ts`
+- Verified notification deletion stays scoped to the student resolved from the login code via `src/__tests__/student-notifications-route.test.ts`
+- Verified dashboard read-model flow and invalid code redirect via `src/__tests__/student-dashboard-page.test.ts`
+- Verified extracted dashboard tab wiring and locked board state via `src/__tests__/student-dashboard-main-tabs.test.ts` and related dashboard component tests
+- Fixed the shared classroom selection hook lint blocker in `src/components/classroom/use-classroom-selection-flow.ts` by switching roster cleanup to derived state helpers instead of synchronous effect-based state writes
+- Added helper coverage for the derived group-filter fallback in `src/__tests__/classroom-selection-flow.test.ts`
+- Updated `package.json` build flow to use `scripts/prisma-generate-build.mjs`, which retries `prisma generate` through the repository Windows unlock flow when the Prisma engine DLL is locked
+- Hardened `scripts/prisma-generate-build.mjs` so Windows builds can continue with the existing generated Prisma client when the engine DLL remains locked after the unlock retry
+- Cleaned remaining lint warnings across Stripe scripts, student dashboard tests, Negamon settings/helpers, and shop/plan utility modules
+
+Validation run on 2026-05-04:
+
+- Passed: `npm.cmd test -- src/__tests__/student-login-code.test.ts src/__tests__/student-sync-route.test.ts`
+- Passed: `npm.cmd test -- src/__tests__/student-checkin-route.test.ts src/__tests__/student-passive-gold-route.test.ts src/__tests__/student-notifications-route.test.ts`
+- Passed: `npm.cmd test -- src/__tests__/student-dashboard-board-tab.test.ts src/__tests__/student-dashboard-client.test.ts src/__tests__/student-dashboard-header.test.ts src/__tests__/student-dashboard-main-tabs.test.ts src/__tests__/student-dashboard-page.test.ts src/__tests__/student-dashboard-sidebar.test.ts`
+- Passed clean: `npm.cmd run lint`
+- Passed as build-safe validation without Prisma regeneration: `npm.cmd run clean; npx next build; npx tsc --project tsconfig.server.json`
+- Passed: `node --check scripts/prisma-generate-build.mjs`
+- Passed: `npm.cmd run build` via Windows Prisma lock fallback using the existing generated client
+
+## Checklist Resolution
+
+- [x] Student code validation and invalid-code handling verified by `src/__tests__/student-login-code.test.ts`, `src/__tests__/student-login-code-route.test.ts`, and `src/__tests__/student-dashboard-page.test.ts` (invalid code redirects to `/student?error=invalid_code`)
+- [x] Student dashboard stays scoped to the resolved classroom/student pair via `src/lib/services/student-dashboard/get-student-dashboard.ts` and `src/__tests__/student-dashboard-page.test.ts`
+- [x] Sync account flow avoids duplicate linking paths by exposing the CTA only when `currentUserId` exists and `student.userId` is still empty in `src/components/student/student-dashboard-header.tsx`, covered by `src/__tests__/student-dashboard-header.test.ts`; the removed legacy sync endpoint is locked down by `src/__tests__/student-sync-route.test.ts`
+- [x] Check-in and passive-gold idempotency verified by `src/__tests__/student-checkin-route.test.ts` and `src/__tests__/student-passive-gold-route.test.ts`, including date-key ledger writes and same-day re-entry guards
+- [x] Notifications remain student-scoped and do not leak across classrooms via `src/__tests__/student-notifications-route.test.ts` and `src/__tests__/student-notifications-validation.test.ts`
+- [x] Dashboard tabs plus locked/empty state wiring verified by `src/__tests__/student-dashboard-main-tabs.test.ts`, `src/__tests__/student-dashboard-client.test.ts`, `src/__tests__/student-dashboard-sidebar.test.ts`, and related dashboard component tests
+- [x] Thai/English text and mobile-oriented presentation verified in component coverage for responsive labels and language toggle wiring, especially `src/components/student/student-dashboard-header.tsx`, `src/__tests__/student-dashboard-header.test.ts`, and `src/__tests__/student-dashboard-client.test.ts`

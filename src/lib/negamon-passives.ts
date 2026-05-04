@@ -19,7 +19,7 @@ export interface NegamonPassive {
 /** @deprecated No purchasable passives; always empty. */
 export const NEGAMON_PASSIVES: NegamonPassive[] = [];
 
-export function getPassiveById(_id: string): NegamonPassive | undefined {
+export function getPassiveById(): NegamonPassive | undefined {
     return undefined;
 }
 
@@ -31,14 +31,14 @@ export function negamonPassiveDescKey(id: string): string {
     return `negamonPassive_${id}_desc`;
 }
 
-export function calcGoldRateBonus(_negamonSkills: string[]): number {
+export function calcGoldRateBonus(): number {
     return 0;
 }
 
-export function calcCheckinBonus(_negamonSkills: string[]): number {
+export function calcCheckinBonus(): number {
     return 0;
 }
 
-export function hasStreakShield(_negamonSkills: string[]): boolean {
+export function hasStreakShield(): boolean {
     return false;
 }

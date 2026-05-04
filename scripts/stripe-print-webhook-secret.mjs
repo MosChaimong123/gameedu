@@ -5,10 +5,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { loadEnvLocal } from "./load-env-local.mjs";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function resolveStripeExecutable() {
   if (process.platform === "win32") {

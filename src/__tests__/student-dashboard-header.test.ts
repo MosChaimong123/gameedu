@@ -27,7 +27,12 @@ vi.mock("framer-motion", () => {
     animate?: unknown;
     transition?: unknown;
   } & Record<string, unknown>) =>
-    React.createElement("div", rest as React.HTMLAttributes<HTMLDivElement>, children);
+    (void _whileHover,
+    void _whileTap,
+    void _initial,
+    void _animate,
+    void _transition,
+    React.createElement("div", rest as React.HTMLAttributes<HTMLDivElement>, children));
 
   return {
     motion: {

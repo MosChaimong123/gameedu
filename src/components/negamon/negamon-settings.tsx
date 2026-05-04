@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { motion } from "framer-motion";
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -32,6 +32,16 @@ import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 import { normalizeGamificationSettings } from "@/lib/services/classroom-settings/gamification-settings-schema";
 
 const UNASSIGNED_VALUE = "__negamon_unassigned__";
+
+function normalizeSelectedSpeciesIdsForPlan(
+    ids: string[] | undefined,
+    allowedSpeciesIds: Set<string>,
+    defaultSelectedSpeciesIds: string[]
+): string[] {
+    const source = ids ?? [];
+    const normalized = source.filter((id) => allowedSpeciesIds.has(id));
+    return normalized.length > 0 ? normalized : defaultSelectedSpeciesIds;
+}
 
 export type NegamonStudentOption = { id: string; name: string };
 
@@ -79,19 +89,22 @@ export function NegamonSettingsDialog({
             : ((session?.user?.plan ?? "FREE") as PlanId);
     const currentPlanLimits = currentPlan ? PLAN_LIMITS[currentPlan] : null;
     const maxSpeciesAllowed = currentPlanLimits?.maxNegamonSpeciesInClassroom ?? null;
-    const allowedSpeciesIds = currentPlanLimits
-        ? getAllowedNegamonSpeciesIdsForPlan(currentPlanLimits)
-        : new Set(DEFAULT_NEGAMON_SPECIES.map((s) => s.id));
-    const defaultSelectedSpeciesIds = DEFAULT_NEGAMON_SPECIES
-        .map((s) => s.id)
-        .filter((id) => allowedSpeciesIds.has(id));
-    const normalizeSelectedSpeciesIds = (ids: string[] | undefined): string[] => {
-        const source = ids ?? [];
-        const normalized = source.filter((id) => allowedSpeciesIds.has(id));
-        return normalized.length > 0 ? normalized : defaultSelectedSpeciesIds;
-    };
+    const allowedSpeciesIds = useMemo(() => (
+        currentPlanLimits
+            ? getAllowedNegamonSpeciesIdsForPlan(currentPlanLimits)
+            : new Set(DEFAULT_NEGAMON_SPECIES.map((s) => s.id))
+    ), [currentPlanLimits]);
+    const defaultSelectedSpeciesIds = useMemo(() => (
+        DEFAULT_NEGAMON_SPECIES
+            .map((s) => s.id)
+            .filter((id) => allowedSpeciesIds.has(id))
+    ), [allowedSpeciesIds]);
     const [selectedSpeciesIds, setSelectedSpeciesIds] = useState<string[]>(
-        normalizeSelectedSpeciesIds(currentSettings?.species?.map((s) => s.id))
+        normalizeSelectedSpeciesIdsForPlan(
+            currentSettings?.species?.map((s) => s.id),
+            allowedSpeciesIds,
+            defaultSelectedSpeciesIds
+        )
     );
     const disallowedSelectedSpeciesIds = selectedSpeciesIds.filter((id) => !allowedSpeciesIds.has(id));
     const planLimitExceeded =
@@ -130,11 +143,17 @@ export function NegamonSettingsDialog({
         setAllowStudentChoice(s?.allowStudentChoice ?? true);
         setExpPerPoint(s?.expPerPoint ?? 10);
         setExpPerAttendance(s?.expPerAttendance ?? 20);
-        setSelectedSpeciesIds(normalizeSelectedSpeciesIds(s?.species?.map((x) => x.id)));
+        setSelectedSpeciesIds(
+            normalizeSelectedSpeciesIdsForPlan(
+                s?.species?.map((x) => x.id),
+                allowedSpeciesIds,
+                defaultSelectedSpeciesIds
+            )
+        );
         setStudentMonsters({ ...(s?.studentMonsters ?? {}) });
         setDisabledMoves([...(s?.disabledMoves ?? [])]);
         setExpandedSpecies(null);
-    }, [currentSettings, open, normalizeSelectedSpeciesIds]);
+    }, [allowedSpeciesIds, currentSettings, defaultSelectedSpeciesIds, open]);
 
     useEffect(() => {
         if (!open) return;

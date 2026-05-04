@@ -53,57 +53,80 @@ export function filterSelectedStudentIdsForRoster(
     return unchanged ? selectedStudentIds : next;
 }
 
+export function resolveActiveGroupFilter(
+    groupFilter: string,
+    savedGroups: SavedGroupSummary[]
+): string {
+    if (groupFilter === "all") {
+        return groupFilter;
+    }
+
+    return savedGroups.some((group) => group.id === groupFilter) ? groupFilter : "all";
+}
+
 export function useClassroomSelectionFlow(args: {
     classroomId: string;
     studentIds: string[];
 }) {
     const { classroomId, studentIds } = args;
     const [isSelectMultiple, setIsSelectMultiple] = useState(false);
-    const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
-    const [groupFilter, setGroupFilter] = useState<string>("all");
-    const [savedGroups, setSavedGroups] = useState<SavedGroupSummary[]>([]);
-    const studentIdsKey = useMemo(() => studentIds.join("|"), [studentIds]);
+    const [rawSelectedStudentIds, setRawSelectedStudentIds] = useState<string[]>([]);
+    const [rawGroupFilter, setRawGroupFilter] = useState<string>("all");
+    const [rawSavedGroups, setRawSavedGroups] = useState<SavedGroupSummary[]>([]);
 
     useEffect(() => {
-        if (!isSelectMultiple || savedGroups.length > 0) return;
+        if (!isSelectMultiple || rawSavedGroups.length > 0) return;
 
         fetch(`/api/classrooms/${classroomId}/groups`)
             .then((response) => (response.ok ? response.json() : []))
             .then((groups: SavedGroupApiRecord[]) => {
-                setSavedGroups(groups.map(parseSavedGroupRecord));
+                setRawSavedGroups(groups.map(parseSavedGroupRecord));
             })
             .catch(() => {});
-    }, [isSelectMultiple, classroomId, savedGroups.length]);
+    }, [isSelectMultiple, classroomId, rawSavedGroups.length]);
 
-    useEffect(() => {
-        setSavedGroups((prev) => {
-            const next = normalizeSavedGroupsForRoster(prev, studentIds);
-            const unchanged =
-                next.length === prev.length &&
-                next.every((group, index) =>
-                    group.id === prev[index]?.id &&
-                    group.name === prev[index]?.name &&
-                    group.studentIds.length === prev[index]?.studentIds.length &&
-                    group.studentIds.every((studentId, studentIndex) => studentId === prev[index]?.studentIds[studentIndex])
-                );
-
-            return unchanged ? prev : next;
-        });
-
-        setSelectedStudentIds((prev) => filterSelectedStudentIdsForRoster(prev, studentIds));
-    }, [studentIds, studentIdsKey]);
-
-    useEffect(() => {
-        if (groupFilter === "all") return;
-        if (savedGroups.some((group) => group.id === groupFilter)) return;
-        setGroupFilter("all");
-    }, [groupFilter, savedGroups]);
+    const savedGroups = useMemo(
+        () => normalizeSavedGroupsForRoster(rawSavedGroups, studentIds),
+        [rawSavedGroups, studentIds]
+    );
+    const selectedStudentIds = useMemo(
+        () => filterSelectedStudentIdsForRoster(rawSelectedStudentIds, studentIds),
+        [rawSelectedStudentIds, studentIds]
+    );
+    const groupFilter = useMemo(
+        () => resolveActiveGroupFilter(rawGroupFilter, savedGroups),
+        [rawGroupFilter, savedGroups]
+    );
 
     const visibleStudentIds = useMemo(() => (
         groupFilter === "all"
             ? studentIds
             : (savedGroups.find((group) => group.id === groupFilter)?.studentIds ?? [])
     ), [groupFilter, savedGroups, studentIds]);
+
+    const setSelectedStudentIds = (value: string[] | ((prev: string[]) => string[])) => {
+        setRawSelectedStudentIds((prev) => {
+            const next = typeof value === "function"
+                ? (value as (previous: string[]) => string[])(filterSelectedStudentIdsForRoster(prev, studentIds))
+                : value;
+
+            return filterSelectedStudentIdsForRoster(next, studentIds);
+        });
+    };
+
+    const setGroupFilter = (value: string | ((prev: string) => string)) => {
+        setRawGroupFilter((prev) => (
+            typeof value === "function" ? value(resolveActiveGroupFilter(prev, savedGroups)) : value
+        ));
+    };
+
+    const setSavedGroups = (value: SavedGroupSummary[] | ((prev: SavedGroupSummary[]) => SavedGroupSummary[])) => {
+        setRawSavedGroups((prev) => {
+            const normalizedPrev = normalizeSavedGroupsForRoster(prev, studentIds);
+            const next = typeof value === "function" ? value(normalizedPrev) : value;
+            return normalizeSavedGroupsForRoster(next, studentIds);
+        });
+    };
 
     const toggleStudentSelection = (studentId: string) => {
         setSelectedStudentIds((prev) =>

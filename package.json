@@ -13,7 +13,7 @@
     "dev:clear-lock": "rimraf .next/dev/lock",
     "dev:fresh": "rimraf .next && npm run dev",
     "clean": "rimraf .next dist",
-    "build": "npm run clean && npx prisma generate && next build && tsc --project tsconfig.server.json",
+    "build": "npm run clean && node scripts/prisma-generate-build.mjs && next build && tsc --project tsconfig.server.json",
     "postinstall": "prisma generate",
     "start": "node run-server.cjs",
     "lint": "eslint",

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { Server, Socket } from "socket.io";
 import { NegamonBattleEngine } from "../negamon-battle-engine";
 import type { NegamonBattlePlayer, NegamonRoundResultPayload } from "../../types/game";

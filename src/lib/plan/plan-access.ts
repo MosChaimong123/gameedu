@@ -1,4 +1,3 @@
-import type { PlanId } from "@/constants/pricing";
 import { PLAN_LIMITS, type PlanLimits, type SubscriptionPlanId } from "@/constants/plan-limits";
 import { DEFAULT_NEGAMON_SPECIES } from "@/lib/negamon-species";
 import type { AppRole } from "@/lib/roles";

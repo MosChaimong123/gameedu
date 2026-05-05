@@ -8,7 +8,7 @@ import {
   createAppErrorResponse,
 } from "@/lib/api-error";
 import { OMISE_PENDING_CHARGE_COOKIE } from "@/lib/billing/omise-constants";
-import { resolveRequestOriginFromUrl } from "@/lib/billing/resolve-public-url";
+import { resolvePublicAppOrigin } from "@/lib/billing/resolve-public-url";
 import { resolveThaiBillingAdapter } from "@/lib/billing/providers/resolve-thai-adapter";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
 
@@ -64,7 +64,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const appOrigin = resolveRequestOriginFromUrl(req.url);
+    // Use public env URL for checkout return links.
+    // Request URL can be internal host on some platforms (e.g. 0.0.0.0:PORT).
+    const appOrigin = resolvePublicAppOrigin();
     const result = await adapter.startPlusPurchase({ userId, interval, appOrigin });
 
     if (!result.ok) {

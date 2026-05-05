@@ -362,3 +362,95 @@ Practical status:
 
 - The reorder failure path is now much better locked at the code level
 - The remaining gap for this checklist item is a fresh live browser failure-path pass, which could not be rerun in this session because the browser/test runtime hit environment usage limits
+
+## Progress Note 17
+
+Completed on 2026-05-05:
+
+- Closed a large batch of remaining Classroom Core dev-manual failure-path checks against the live local fixture by temporarily switching classroom ownership during the browser pass and verifying that dashboard mutations surfaced localized failure feedback instead of silently drifting state
+- Verified in browser on the dev fixture:
+  - add-student forbidden failure keeps the dialog open and shows readable localized feedback
+  - student-manager reorder failure shows localized feedback and restores the previous roster order
+  - assignment visibility toggle failure shows localized feedback and restores the previous visible/hidden state
+  - manual score save failure shows localized feedback and restores the prior score value
+  - checklist toggle failure shows localized feedback and restores the prior checked state
+  - attendance-history mounts an explicit error/retry state when access fails, distinct from the normal empty-state message
+  - saved-group filtering now survives roster add/remove changes after fixing raw student-id parsing in the selection-flow saved-group loader
+- Re-ran the focused automated Classroom Core regression suite:
+  - `npm.cmd run test:classroom-core` passed `102/102`
+  - `npm.cmd run predev` passed
+
+Practical status:
+
+- The remaining Classroom Core manual-QA backlog is now effectively staging-only once access exists
+
+## Progress Note 18
+
+Completed on 2026-05-05:
+
+- Closed the remaining local follow-up note in the student-manager edit panel
+- `src/components/classroom/student-manager-dialog.tsx` now resolves the active edited student from the latest local roster state, so metadata like behavior points and login code stay fresh after external mutations such as bulk point awards
+- This keeps the edit form inputs (`editName`, `editNickname`) under teacher control while still refreshing read-only profile metadata in the side panel
+- Added focused helper coverage in `src/__tests__/student-manager-dialog.helpers.test.ts` for resolving the live edited-student snapshot
+- Re-ran the focused student-manager regression slice and predev successfully
+
+Practical status:
+
+- The Classroom Core local/dev backlog is now cleanly closed
+- Remaining work for this system is staging verification only
+
+## Progress Note 19
+
+Completed on 2026-05-05:
+
+- Ran the first real staging Classroom Core pass against `https://www.teachplayedu.com/` using the provided teacher account
+- The staging account initially had no classrooms, so a dedicated QA fixture classroom was created:
+  - `QA Classroom 2026-05-05`
+  - classroom id `69f9f17b06acd9c1d8f516a2`
+- Verified staging smoke basics:
+  - teacher sign-in succeeded
+  - empty classroom-list state rendered before setup
+  - the classroom dashboard opened successfully after classroom creation
+  - the dashboard exposed the expected top-level surfaces (`Classroom`, `Attendance`, `Idea Board`, `Analytics`, `Economy`)
+  - adding `Staging QA Student 1` succeeded, and `POST /api/classrooms/69f9f17b06acd9c1d8f516a2/students` returned HTTP `200`
+- Captured important staging-specific findings:
+  - the classroom-create flow displayed a false failure message (`Could not create classroom`) even though the classroom was actually created
+  - the add-student flow stayed on `Adding...` for several seconds before the dashboard reflected the new student
+  - `Attendance` and `Analytics` both failed on staging with the user-facing message `Could not reach the server. Check your connection and try again.`
+  - the browser run also saw repeated Socket.IO websocket failures, so staging mutation QA cannot yet be marked clean
+
+Practical status:
+
+- The staging smoke pass is no longer blocked on credentials or fixture setup
+- `02-classroom-core` is now down to staging bug-follow-up rather than missing QA access:
+  - false create-classroom failure feedback
+  - sticky add-student completion state
+  - staging `Attendance` and `Analytics` fetch failures
+  - repeated real-time/socket failures during classroom QA
+
+## Progress Note 20
+
+Completed on 2026-05-05:
+
+- Turned the first staging follow-up findings into code fixes and regression coverage
+- Updated `src/app/dashboard/classrooms/create-classroom-dialog.tsx` so the success path now:
+  - parses the created classroom id
+  - resets local form state
+  - navigates directly to `/dashboard/classrooms/[id]` after a successful create
+  - only falls back to `router.refresh()` when the id is unavailable
+- This removes the most likely local cause of the staging false-failure symptom where the classroom was created but the UI still surfaced `Could not create classroom`
+- Hardened `src/lib/classroom-tab-loaders.ts` so attendance-history and analytics fetches now retry one transient network failure before surfacing the localized error panel
+- Expanded `src/__tests__/classroom-tab-loaders.test.ts` to prove both loaders recover from a one-off network failure on the second attempt
+- Re-ran validation after the patch:
+  - focused loader regression passed `8/8`
+  - `npm.cmd run test:classroom-core` passed `105/105`
+  - `npm.cmd run predev` passed
+
+Practical status:
+
+- The remaining Classroom Core work is now explicitly a deploy-and-reverify step, not an unowned bug list
+- Once the latest patch is deployed, the next meaningful pass is a staging rerun focused on:
+  - false create-classroom failure feedback
+  - intermittent `Attendance` / `Analytics` network-state fallbacks
+  - sticky add-student completion timing
+  - whether the repeated Socket.IO failures are a real app issue or a browser-runner artifact

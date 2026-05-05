@@ -65,6 +65,34 @@ describe("classroom tab loaders", () => {
     });
   });
 
+  it("retries attendance fetch once after a transient network failure", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ records: [{ id: "record-1", studentId: "student-1", student: { name: "A", avatar: null }, status: "PRESENT", date: "2026-05-04" }] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+
+    const result = await loadAttendanceHistory(fetchImpl, "class-1", "2026-05-04", t, "en");
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({
+      ok: true,
+      records: [
+        {
+          id: "record-1",
+          studentId: "student-1",
+          student: { name: "A", avatar: null },
+          status: "PRESENT",
+          date: "2026-05-04",
+        },
+      ],
+    });
+  });
+
   it("returns analytics data on success", async () => {
     const payload = {
       summary: [],
@@ -116,6 +144,37 @@ describe("classroom tab loaders", () => {
     expect(result).toEqual({
       ok: false,
       message: "Could not load analytics.",
+    });
+  });
+
+  it("retries analytics fetch once after a transient network failure", async () => {
+    const payload = {
+      summary: [],
+      growthData: [],
+      skillDistribution: [],
+      recentHistory: [],
+      studentStats: [],
+      attendanceSummary: [],
+      achievementSummary: { total: 0, avgPerStudent: 0 },
+      achievementDistribution: [],
+      assignmentStats: [],
+    };
+    const fetchImpl = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(payload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+
+    const result = await loadClassroomAnalytics(fetchImpl, "class-1", t, "en");
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({
+      ok: true,
+      data: payload,
     });
   });
 });

@@ -10,6 +10,10 @@ import { Plus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
 
+type ClassroomCreateResponse = {
+    id?: string;
+};
+
 export function CreateClassroomDialog() {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState("");
@@ -32,7 +36,7 @@ export function CreateClassroomDialog() {
 
             if (!res.ok) throw new Error();
 
-            await res.json();
+            const classroom = (await res.json()) as ClassroomCreateResponse;
 
             toast({
                 title: t("classroomCreateSuccessTitle"),
@@ -40,7 +44,14 @@ export function CreateClassroomDialog() {
             });
 
             setOpen(false);
-            router.refresh(); // Refresh server components
+            setName("");
+            setGrade("");
+
+            if (classroom.id) {
+                router.push(`/dashboard/classrooms/${classroom.id}`);
+            } else {
+                router.refresh();
+            }
         } catch {
             toast({
                 title: t("classroomCreateFailTitle"),

@@ -19,28 +19,28 @@ Expected result:
 - [x] Teacher cannot open another teacher's classroom by URL
 - [x] Empty classroom state renders correctly and add-student CTA works
 - [x] Add student success path updates the roster immediately
-- [ ] Add student invalid/forbidden failure shows readable localized feedback
+- [x] Add student invalid/forbidden failure shows readable localized feedback
 - [x] Student manager save path updates name/nickname and keeps roster order stable
 - [x] Student manager delete path removes the student and closes edit state if needed
 - [x] Student manager reorder path persists after refresh
-- [ ] Student manager reorder failure rolls back cleanly and shows readable feedback
+- [x] Student manager reorder failure rolls back cleanly and shows readable feedback
 - [x] Attendance mode cycles student states and save persists them
-- [ ] Attendance history loads, retries, and surfaces failure states distinctly from empty states
+- [x] Attendance history loads, retries, and surfaces failure states distinctly from empty states
 - [x] Editing a historical attendance record does not corrupt the latest student attendance state
 - [x] Single-student point award updates behavior points and shows no stale selection state
 - [x] Multi-select point award updates the intended students only
 - [x] Reset behavior points succeeds and the dashboard reflects the reset immediately
 - [x] Assignment create/edit/delete flows keep the assignment list in sync
-- [ ] Assignment visibility toggle updates the list immediately and rolls back cleanly on failure
+- [x] Assignment visibility toggle updates the list immediately and rolls back cleanly on failure
 - [x] Assignment reorder persists after refresh
-- [ ] Manual score entry persists and failure restores the prior value
-- [ ] Checklist toggle persists and failure restores the prior state
+- [x] Manual score entry persists and failure restores the prior value
+- [x] Checklist toggle persists and failure restores the prior state
 - [x] Analytics tab loads successfully and displays data rather than an empty-state fallback when data exists
-- [ ] Group filter and selection state stay valid after adding/removing students
+- [x] Group filter and selection state stay valid after adding/removing students
 
 ## Staging QA
 
-- [ ] Staging classroom dashboard smoke pass completed with a real teacher account
+- [x] Staging classroom dashboard smoke pass completed with a real teacher account
 - [ ] Staging mutation flows checked with real data and no console-blocking API failures
 
 ## Notes
@@ -60,18 +60,44 @@ Expected result:
   - student manager save path
   - student manager delete path (including active edit-state closure)
   - student manager reorder persistence after refresh
+  - add-student forbidden failure feedback
+  - student-manager reorder failure rollback feedback
   - attendance save persistence
+  - attendance-history empty state vs error/retry state
   - historical attendance edit integrity
   - single-student point award path
   - multi-select point award path
   - reset behavior points flow
   - assignment create/edit/delete list sync
+  - assignment visibility rollback-on-failure
   - assignment reorder persistence
+  - manual score rollback-on-failure
+  - checklist toggle rollback-on-failure
+  - group filter remains valid through add/delete roster changes
   - analytics data rendering
+- Staging QA pass on 2026-05-05 used:
+  - site: `https://www.teachplayedu.com/`
+  - teacher account: `borisud29744@sikhiu.ac.th`
+  - classroom: `QA Classroom 2026-05-05`
+  - classroom id: `69f9f17b06acd9c1d8f516a2`
+- Verified on staging:
+  - teacher sign-in succeeded
+  - classroom list empty-state rendered before setup
+  - creating the QA classroom added a real classroom card and opened a usable dashboard target
+  - classroom dashboard loaded with the expected teacher-facing surfaces (`Classroom`, `Attendance`, `Idea Board`, `Analytics`, `Economy`)
+  - adding `Staging QA Student 1` succeeded via `POST /api/classrooms/69f9f17b06acd9c1d8f516a2/students` with HTTP `200`
+- Staging findings:
+  - the classroom-create flow showed `Could not create classroom / Check your details and try again.` even though the classroom card was created successfully
+  - the add-student dialog stayed on `Adding...` for several seconds before the dashboard refreshed to show the new student
+  - `Attendance` and `Analytics` both surfaced `Could not reach the server. Check your connection and try again.` instead of usable data/empty states
+  - the browser console emitted repeated Socket.IO websocket failures (`Insufficient resources` in this run), so staging mutation QA cannot be marked clean yet
+- Follow-up fix pass prepared on 2026-05-05 (local code, awaiting deploy/re-run):
+  - `CreateClassroomDialog` now routes directly to the created classroom id after a successful `POST /api/classrooms`, avoiding a false destructive toast when the follow-up refresh/navigation step is what fails
+  - classroom tab loaders now retry one transient network failure before surfacing the localized error state, targeting the flaky staging `Attendance` / `Analytics` behavior seen in browser QA
+  - focused loader tests passed `8/8`, and `npm.cmd run test:classroom-core` passed `105/105`
 - Current blockers / remaining work:
-  - Add-student failure-path QA still needs a live invalid or forbidden browser scenario, not just the success path.
-  - After a bulk point award, the student-manager list reflected fresh totals, but an already-open edit panel still showed the pre-award number until it was reopened. That looks like a follow-up UX consistency bug even though the award mutation itself persisted correctly.
-  - Assignment visibility toggle success path is verified, but the explicit rollback-on-failure branch is still unproven in browser QA.
-  - Student-manager reorder now passes through explicit move-up/move-down controls, and rollback logic is covered by focused regression in `src/__tests__/student-manager-dialog.helpers.test.ts`; the manual checkbox is still open until a live browser failure-path pass can be rerun.
-  - Group-filter and several assignment/checklist/manual-score failure-path items are still pending a dedicated browser pass.
-  - Staging QA is still blocked because no staging URL or staging credentials were provided.
+  - Deploy the latest Classroom Core follow-up fixes, then re-run staging QA
+  - Re-check whether the create-classroom false failure toast is gone after deploy
+  - Re-check whether `Attendance` and `Analytics` stop falling into the network error state after deploy
+  - Investigate the slow/sticky add-student completion state further if it persists after deploy
+  - Decide whether the repeated Socket.IO websocket failures are a real staging/runtime issue or only a browser-runner artifact

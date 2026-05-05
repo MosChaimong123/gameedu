@@ -3,6 +3,54 @@ import type { Language } from "@/lib/translations";
 
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
 
+const DEFAULT_CLASSROOM_TAB_RETRIES = 1;
+
+async function fetchClassroomTabJson<T>(
+  fetchImpl: typeof fetch,
+  url: string,
+  fallbackTranslationKey: string,
+  t: TranslateFn,
+  language: Language,
+  retries = DEFAULT_CLASSROOM_TAB_RETRIES
+): Promise<{ ok: true; data: T } | { ok: false; message: string }> {
+  let attemptsRemaining = retries;
+
+  while (true) {
+    try {
+      const res = await fetchImpl(url);
+      if (!res.ok) {
+        return {
+          ok: false,
+          message: await getLocalizedErrorMessageFromResponse(
+            res,
+            fallbackTranslationKey,
+            t,
+            language
+          ),
+        };
+      }
+
+      return {
+        ok: true,
+        data: (await res.json()) as T,
+      };
+    } catch (error) {
+      if (attemptsRemaining > 0) {
+        attemptsRemaining -= 1;
+        continue;
+      }
+
+      const raw = error instanceof Error ? error.message : null;
+      return {
+        ok: false,
+        message:
+          tryLocalizeFetchNetworkFailureMessage(raw, t) ??
+          t(fallbackTranslationKey),
+      };
+    }
+  }
+}
+
 export type AttendanceHistoryRecord = {
   id: string;
   studentId: string;
@@ -25,32 +73,22 @@ export async function loadAttendanceHistory(
   t: TranslateFn,
   language: Language
 ): Promise<AttendanceHistoryLoadResult> {
-  try {
-    const res = await fetchImpl(`/api/classrooms/${classId}/attendance/history?date=${selectedDate}`);
-    if (!res.ok) {
-      return {
-        ok: false,
-        message: await getLocalizedErrorMessageFromResponse(
-          res,
-          "toastGenericError",
-          t,
-          language
-        ),
-      };
-    }
+  const result = await fetchClassroomTabJson<{ records?: AttendanceHistoryRecord[] }>(
+    fetchImpl,
+    `/api/classrooms/${classId}/attendance/history?date=${selectedDate}`,
+    "toastGenericError",
+    t,
+    language
+  );
 
-    const data = (await res.json()) as { records?: AttendanceHistoryRecord[] };
+  if (result.ok) {
     return {
       ok: true,
-      records: Array.isArray(data.records) ? data.records : [],
-    };
-  } catch (error) {
-    const raw = error instanceof Error ? error.message : null;
-    return {
-      ok: false,
-      message: tryLocalizeFetchNetworkFailureMessage(raw, t) ?? t("toastGenericError"),
+      records: Array.isArray(result.data.records) ? result.data.records : [],
     };
   }
+
+  return result;
 }
 
 export type AnalyticsHistoryEntry = {
@@ -108,29 +146,11 @@ export async function loadClassroomAnalytics(
   t: TranslateFn,
   language: Language
 ): Promise<AnalyticsLoadResult> {
-  try {
-    const res = await fetchImpl(`/api/classrooms/${classId}/analytics`);
-    if (!res.ok) {
-      return {
-        ok: false,
-        message: await getLocalizedErrorMessageFromResponse(
-          res,
-          "analyticsLoadFailed",
-          t,
-          language
-        ),
-      };
-    }
-
-    return {
-      ok: true,
-      data: (await res.json()) as AnalyticsData,
-    };
-  } catch (error) {
-    const raw = error instanceof Error ? error.message : null;
-    return {
-      ok: false,
-      message: tryLocalizeFetchNetworkFailureMessage(raw, t) ?? t("analyticsLoadFailed"),
-    };
-  }
+  return fetchClassroomTabJson<AnalyticsData>(
+    fetchImpl,
+    `/api/classrooms/${classId}/analytics`,
+    "analyticsLoadFailed",
+    t,
+    language
+  );
 }

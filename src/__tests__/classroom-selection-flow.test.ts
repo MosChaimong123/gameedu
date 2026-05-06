@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   filterSelectedStudentIdsForRoster,
+  parseSavedGroupRecord,
+  parseSavedGroupStudentIds,
   normalizeSavedGroupsForRoster,
   resolveActiveGroupFilter,
 } from "@/components/classroom/use-classroom-selection-flow";
@@ -51,6 +53,26 @@ describe("classroom selection flow helpers", () => {
         studentIds: ["student-1", "student-2"],
       },
     ]);
+  });
+
+  it("parses raw student ids without dropping them", () => {
+    expect(
+      parseSavedGroupStudentIds(["student-1", "student-2"])
+    ).toEqual(["student-1", "student-2"]);
+  });
+
+  it("parses a saved-group API record with raw student ids", () => {
+    expect(
+      parseSavedGroupRecord({
+        id: "group-1",
+        name: "Team A",
+        studentIds: ["student-1", "student-2"],
+      })
+    ).toEqual({
+      id: "group-1",
+      name: "Team A",
+      studentIds: ["student-1", "student-2"],
+    });
   });
 
   it("returns the same selected-student array when the roster filter changes nothing", () => {

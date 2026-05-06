@@ -51,7 +51,12 @@ export async function POST(req: Request) {
             return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403)
         }
 
-        const planLimits = getLimitsForUser(session.user.role, session.user.plan)
+        const planLimits = getLimitsForUser(
+            session.user.role,
+            session.user.plan,
+            session.user.planStatus,
+            session.user.planExpiry
+        )
         if (!planLimits.aiQuestionGeneration) {
             logAuditEvent({
                 actorUserId,

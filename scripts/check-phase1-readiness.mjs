@@ -40,10 +40,20 @@ const requiredFiles = [
   "src/app/api/billing/create-checkout-session/route.ts",
   "src/app/api/billing/thai/start/route.ts",
   "docs/phase-1-launch-readiness-execution.md",
+  "docs/phase-1-payment-readiness.md",
+  "docs/revenue-plus-pilot-task-checklist.md",
+  "docs/phase-1-route-authorization-audit.md",
 ];
 
 for (const file of requiredFiles) {
   check(`file exists: ${file}`, exists(file));
+}
+
+if (exists("docs/revenue-plus-pilot-task-checklist.md")) {
+  check(
+    "revenue checklist links payment readiness doc",
+    includes("docs/revenue-plus-pilot-task-checklist.md", "phase-1-payment-readiness.md"),
+  );
 }
 
 if (exists("render.yaml")) {
@@ -152,3 +162,5 @@ if (failed.length > 0) {
 }
 
 console.log("\nPhase 1 readiness static checks passed.");
+console.log("Revenue / PLUS / pilot task checklist: docs/revenue-plus-pilot-task-checklist.md");
+console.log("Payment smoke steps: docs/phase-1-payment-readiness.md");

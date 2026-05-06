@@ -3,6 +3,7 @@ import {
     commitStudentManagerRosterOrder,
     moveStudentManagerRosterStudent,
     removeStudentManagerRosterStudent,
+    resolveStudentManagerEditStudent,
     sortStudentManagerRoster,
     updateStudentManagerRosterStudent,
 } from "@/components/classroom/student-manager-dialog.helpers";
@@ -85,5 +86,28 @@ describe("student manager roster helpers", () => {
             error,
         });
         expect(persist).toHaveBeenCalledWith(reordered);
+    });
+
+    it("prefers the live roster copy for the edited student metadata", () => {
+        const editStudent = {
+            id: "student-2",
+            order: 2,
+            name: "Bravo",
+            nickname: "B",
+            behaviorPoints: 1,
+            loginCode: "OLD",
+        };
+        const students = [
+            {
+                id: "student-2",
+                order: 2,
+                name: "Bravo",
+                nickname: "B",
+                behaviorPoints: 7,
+                loginCode: "NEW",
+            },
+        ];
+
+        expect(resolveStudentManagerEditStudent(editStudent, students)).toEqual(students[0]);
     });
 });

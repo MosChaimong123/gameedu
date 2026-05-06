@@ -51,6 +51,7 @@ describe("auth core callbacks", () => {
       settings: { language: "th" },
       plan: "PRO",
       planStatus: "ACTIVE",
+      planExpiry: new Date("2028-01-01T00:00:00.000Z"),
     });
     mockNextAuth.mockReturnValue({
       handlers: {},
@@ -91,6 +92,7 @@ describe("auth core callbacks", () => {
         settings: { language: "th" },
         plan: "PRO",
         planStatus: "ACTIVE",
+        planExpiry: "2028-01-01T00:00:00.000Z",
       })
     );
     expect(mockUserFindUnique).toHaveBeenCalledWith({
@@ -103,6 +105,7 @@ describe("auth core callbacks", () => {
         settings: true,
         plan: true,
         planStatus: true,
+        planExpiry: true,
       },
     });
   });
@@ -120,6 +123,7 @@ describe("auth core callbacks", () => {
       settings: { language: "en" },
       plan: "FREE",
       planStatus: "TRIALING",
+      planExpiry: null,
     });
 
     const token = await config.callbacks.jwt({
@@ -153,6 +157,7 @@ describe("auth core callbacks", () => {
         settings: { language: "en" },
         plan: "FREE",
         planStatus: "TRIALING",
+        planExpiry: null,
       },
     });
   });

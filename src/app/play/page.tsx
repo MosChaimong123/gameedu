@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useSocket } from "@/components/providers/socket-provider"
 import { Button } from "@/components/ui/button"
@@ -34,6 +35,9 @@ export default function PlayPage() {
     const [studentCode, setStudentCode] = useState(() => getStoredStudentCode())
     const [joining, setJoining] = useState(false)
     const [error, setError] = useState("")
+
+    const classroomCode = studentCode.trim() || getStoredStudentCode() || ""
+    const classroomHref = classroomCode ? `/student/${encodeURIComponent(classroomCode)}` : "/student"
 
     const handleJoin = () => {
         if (!socket || !isConnected) {
@@ -143,6 +147,17 @@ export default function PlayPage() {
                                 {t("playEnterGame")} <ArrowRight className="ml-2 w-5 h-5" />
                             </>
                         )}
+                    </Button>
+
+                    <Button
+                        variant="outline"
+                        className="h-11 w-full border-slate-200 bg-white/80 text-base font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                        asChild
+                    >
+                        <Link href={classroomHref} prefetch={false}>
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            {t("playBackToClassroom")}
+                        </Link>
                     </Button>
                 </CardContent>
             </Card>

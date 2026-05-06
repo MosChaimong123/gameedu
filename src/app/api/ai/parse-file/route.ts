@@ -17,7 +17,12 @@ export async function POST(req: Request) {
         if (!session?.user?.id) return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401)
         if (session.user.role === "STUDENT") return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403)
 
-        const planLimits = getLimitsForUser(session.user.role, session.user.plan)
+        const planLimits = getLimitsForUser(
+            session.user.role,
+            session.user.plan,
+            session.user.planStatus,
+            session.user.planExpiry
+        )
         if (!planLimits.aiFileParse) {
             return createAppErrorResponse(
                 "PLAN_LIMIT_AI_FEATURE",

@@ -63,7 +63,12 @@ export async function POST(req: Request) {
             return createAppErrorResponse("INVALID_PAYLOAD", "Name is required", 400);
         }
 
-        const limits = getLimitsForUser(session.user.role, session.user.plan);
+        const limits = getLimitsForUser(
+            session.user.role,
+            session.user.plan,
+            session.user.planStatus,
+            session.user.planExpiry
+        );
         if (Number.isFinite(limits.maxClassrooms)) {
             const n = await db.classroom.count({
                 where: { teacherId: session.user.id as string },

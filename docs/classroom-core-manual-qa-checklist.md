@@ -41,7 +41,7 @@ Expected result:
 ## Staging QA
 
 - [x] Staging classroom dashboard smoke pass completed with a real teacher account
-- [ ] Staging mutation flows checked with real data and no console-blocking API failures
+- [x] Staging mutation flows checked with real data and no console-blocking API failures
 
 ## Notes
 
@@ -95,9 +95,11 @@ Expected result:
   - `CreateClassroomDialog` now routes directly to the created classroom id after a successful `POST /api/classrooms`, avoiding a false destructive toast when the follow-up refresh/navigation step is what fails
   - classroom tab loaders now retry one transient network failure before surfacing the localized error state, targeting the flaky staging `Attendance` / `Analytics` behavior seen in browser QA
   - focused loader tests passed `8/8`, and `npm.cmd run test:classroom-core` passed `105/105`
+- Staging rerun after deploy on 2026-05-05 confirmed the four follow-up issues are cleared:
+  - creating `QA Classroom Rerun 2026-05-05T14-17-27` returned HTTP `200`, showed the success toast, and did not show the false failure toast
+  - add-student mutation in classroom `69f9fbf9eaecc54536c0cdf8` returned HTTP `200`, closed the dialog cleanly, and rendered the new student without the sticky `Adding...` state
+  - `Attendance` loaded its normal history shell and empty-state copy instead of the prior network error panel
+  - `Analytics` loaded normally without the prior network error panel
+  - no console-blocking Socket.IO failures were reproduced in this rerun
 - Current blockers / remaining work:
-  - Deploy the latest Classroom Core follow-up fixes, then re-run staging QA
-  - Re-check whether the create-classroom false failure toast is gone after deploy
-  - Re-check whether `Attendance` and `Analytics` stop falling into the network error state after deploy
-  - Investigate the slow/sticky add-student completion state further if it persists after deploy
-  - Decide whether the repeated Socket.IO websocket failures are a real staging/runtime issue or only a browser-runner artifact
+  - Classroom Core QA checklist is complete for dev and staging as of 2026-05-05

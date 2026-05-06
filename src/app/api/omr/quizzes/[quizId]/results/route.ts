@@ -35,7 +35,12 @@ export async function POST(
 
         if (!quiz) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404)
 
-        const limits = getLimitsForUser(session.user.role, session.user.plan)
+        const limits = getLimitsForUser(
+            session.user.role,
+            session.user.plan,
+            session.user.planStatus,
+            session.user.planExpiry
+        )
         if (Number.isFinite(limits.maxOmrScansPerMonth)) {
             const start = new Date()
             start.setDate(1)

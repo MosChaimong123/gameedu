@@ -9,15 +9,19 @@ type SavedGroupApiRecord = {
     studentIds: string[];
 };
 
-function parseSavedGroupRecord(group: SavedGroupApiRecord): SavedGroupSummary {
-    const ids = group.studentIds.flatMap((raw) => {
+export function parseSavedGroupStudentIds(studentIds: string[]): string[] {
+    return studentIds.flatMap((raw) => {
         try {
             const parsed = JSON.parse(raw) as { studentIds?: string[] } | string[];
             return Array.isArray(parsed) ? parsed : (parsed.studentIds ?? []);
         } catch {
-            return [];
+            return raw ? [raw] : [];
         }
     });
+}
+
+export function parseSavedGroupRecord(group: SavedGroupApiRecord): SavedGroupSummary {
+    const ids = parseSavedGroupStudentIds(group.studentIds);
 
     return {
         id: group.id,

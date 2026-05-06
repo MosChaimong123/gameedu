@@ -80,7 +80,14 @@ export default function EditSetPage() {
     const searchParams = useSearchParams()
 
     const planLimits =
-        session?.user != null ? getLimitsForUser(session.user.role, session.user.plan) : null
+        session?.user != null
+            ? getLimitsForUser(
+                  session.user.role,
+                  session.user.plan,
+                  session.user.planStatus,
+                  session.user.planExpiry
+              )
+            : null
     const aiAllowed = planLimits?.aiQuestionGeneration ?? false
 
     useEffect(() => {

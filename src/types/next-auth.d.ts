@@ -9,6 +9,8 @@ type AppUserFields = {
   settings?: unknown;
   plan?: string | null;
   planStatus?: string | null;
+  /** ISO 8601 from JWT sync (`User.planExpiry`). */
+  planExpiry?: string | null;
 };
 
 declare module "next-auth" {

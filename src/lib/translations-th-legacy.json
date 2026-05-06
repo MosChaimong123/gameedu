@@ -1129,6 +1129,7 @@
   "playPlaceholderPin": "รหัสเกม (PIN)",
   "playPlaceholderNickname": "ชื่อเล่น",
   "playEnterGame": "เข้าเกม",
+  "playBackToClassroom": "กลับไปห้องเรียน",
   "playLobbyWaitingHost": "รอโฮสต์เริ่มเกม",
   "playLobbyHostDisconnectedTitle": "โฮสต์ตัดการเชื่อมต่อ",
   "playLobbyHostDisconnectedDesc": "ห้องนี้ถูกปิดแล้ว ระบบจะพากลับไปหน้าเข้าร่วมเกม",

@@ -58,9 +58,14 @@ export async function PATCH(
         if (negamonSpecies?.length) {
             const user = await db.user.findUnique({
                 where: { id: session.user.id },
-                select: { plan: true, role: true },
+                select: { plan: true, role: true, planStatus: true, planExpiry: true },
             });
-            const limits = getLimitsForUser(user?.role, user?.plan);
+            const limits = getLimitsForUser(
+                user?.role,
+                user?.plan,
+                user?.planStatus,
+                user?.planExpiry
+            );
             const violation = validateNegamonSpeciesForPlan(limits, negamonSpecies);
             if (violation) {
                 return createAppErrorResponse(

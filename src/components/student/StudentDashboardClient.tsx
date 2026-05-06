@@ -81,8 +81,14 @@ export function StudentDashboardClient({
 
     useEffect(() => {
         const fetchEvents = async () => {
+            const trimmed = code.trim();
+            if (!trimmed) {
+                setLiveEvents([]);
+                return;
+            }
             try {
-                const res = await fetch(`/api/classrooms/${classroom.id}/events`);
+                const q = new URLSearchParams({ code: trimmed });
+                const res = await fetch(`/api/classrooms/${classroom.id}/events?${q.toString()}`);
                 const data = await res.json();
                 if (Array.isArray(data)) {
                     setLiveEvents(data.filter((event) => event.active));
@@ -95,7 +101,7 @@ export function StudentDashboardClient({
         fetchEvents();
         const interval = setInterval(fetchEvents, 30000);
         return () => clearInterval(interval);
-    }, [classroom.id, classroom.gamifiedSettings]);
+    }, [classroom.id, classroom.gamifiedSettings, code]);
 
     function toggleMode() {
         setMode((currentMode) => {

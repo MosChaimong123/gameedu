@@ -1,6 +1,6 @@
 # System Plan 08: Economy / Shop / Ledger
 
-Last updated: 2026-05-03
+Last updated: 2026-05-06
 
 ## Scope
 
@@ -76,9 +76,18 @@ Last updated: 2026-05-03
 - `npm.cmd test -- src/__tests__/economy-ledger-idempotency.test.ts src/__tests__/economy-reconciliation-service.test.ts src/__tests__/classroom-economy-adjust-route.test.ts src/__tests__/classroom-economy-analytics-route.test.ts src/__tests__/classroom-economy-ledger-export-route.test.ts src/__tests__/classroom-economy-ledger-route.test.ts src/__tests__/classroom-economy-reconciliation-route.test.ts src/__tests__/student-economy-command-routes.test.ts src/__tests__/student-shop-ledger.test.ts src/__tests__/student-quest-ledger.test.ts src/__tests__/student-passive-gold-route.test.ts` passed: 11 files, 28 tests.
 - `npm.cmd run lint` passed.
 - `npm.cmd run build` passed. Prisma generate reported a Windows engine lock, then continued because the existing generated client matched the current schema.
+- `npm.cmd run check:economy-shop-ledger` passed on `2026-05-06` with `11 files / 28 tests`.
 
 ## Follow-up Fix
 
 - Re-ran strict i18n after the shop equip error-path change; no suspicious hardcoded user-facing strings were found.
 - Re-ran full Plan 08 economy validation, lint, and build after the equip hardening to close the follow-up cleanly.
 - Build still reports the known Prisma Windows engine lock warning, but the generated client matches the current schema and the build succeeds without stopping the dev server.
+
+## Progress Note 1
+
+- Added one-command economy preflight in [package.json](/C:/Users/IHCK/GAMEEDU/gamedu/package.json): `npm.cmd run test:economy-shop-ledger` and `npm.cmd run check:economy-shop-ledger`.
+- Added dedicated handoff checklist in [economy-shop-ledger-manual-qa-checklist.md](/C:/Users/IHCK/GAMEEDU/gamedu/docs/economy-shop-ledger-manual-qa-checklist.md).
+- Staging smoke on `https://www.teachplayedu.com/` passed after creating a temporary classroom fixture: selected and all-class adjustments wrote consistent balances and ledger rows, blocked negative adjustment stayed rejected, shop buy/equip flows matched ledger writes, CSV export kept spreadsheet-like strings sanitized, and reconciliation reported a clean fixture with no warnings or mismatches.
+- Temporary staging classroom `69fb65ca93d9f1cbd256649a` was deleted after verification, returning the plan-limit slot immediately.
+- Passive-gold duplicate-claim guard was rechecked on the long-lived student fixture `P8JT3L3YBP8R`; repeated claims stayed `alreadyClaimed: true` and did not add ledger rows.

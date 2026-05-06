@@ -25,11 +25,72 @@ export function getEffectivePlan(plan: string | null | undefined): SubscriptionP
     return "FREE";
 }
 
-export function getLimitsForUser(role: string | null | undefined, plan: string | null | undefined): PlanLimits {
+function coercePlanExpiryDate(
+    value: Date | string | number | null | undefined
+): Date | null {
+    if (value == null) {
+        return null;
+    }
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? null : value;
+    }
+    if (typeof value === "number") {
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? null : d;
+    }
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Resolves which plan tier applies for quotas and feature gates, using billing fields
+ * so stale `User.plan` rows cannot extend PLUS after expiry or inactive status.
+ */
+export function resolvePlanIdForQuota(
+    plan: string | null | undefined,
+    planStatus: string | null | undefined,
+    planExpiry: Date | string | number | null | undefined,
+    now: Date = new Date()
+): SubscriptionPlanId {
+    const base = getEffectivePlan(plan);
+    if (base === "FREE") {
+        return "FREE";
+    }
+
+    const status = (planStatus ?? "").trim().toUpperCase();
+    if (status === "EXPIRED" || status === "INACTIVE") {
+        return "FREE";
+    }
+
+    const expiry = coercePlanExpiryDate(planExpiry);
+    if (expiry !== null && expiry.getTime() <= now.getTime()) {
+        return "FREE";
+    }
+
+    if (status === "ACTIVE" || status === "TRIALING") {
+        return base;
+    }
+
+    // Legacy rows: paid tier without status — trust `plan` if not past expiry.
+    if (!status) {
+        return base;
+    }
+
+    return "FREE";
+}
+
+export function getLimitsForUser(
+    role: string | null | undefined,
+    plan: string | null | undefined,
+    planStatus?: string | null | undefined,
+    planExpiry?: Date | string | number | null | undefined,
+    now?: Date
+): PlanLimits {
     if (role === "ADMIN") {
         return ADMIN_PLAN_LIMITS;
     }
-    return PLAN_LIMITS[getEffectivePlan(plan)];
+    const resolved = resolvePlanIdForQuota(plan, planStatus, planExpiry, now);
+    return PLAN_LIMITS[resolved];
 }
 
 export function normalizeRoleForPlan(role: string | null | undefined): AppRole {

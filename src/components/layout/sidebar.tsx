@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
-import { getEffectivePlan } from "@/lib/plan/plan-access"
+import { resolvePlanIdForQuota } from "@/lib/plan/plan-access"
 import {
     LayoutDashboard,
     BookOpen,
@@ -35,7 +35,11 @@ export function Sidebar({ className }: { className?: string }) {
     const pathname = usePathname()
     const { t } = useLanguage()
     const { data: session } = useSession()
-    const plan = getEffectivePlan(session?.user?.plan)
+    const plan = resolvePlanIdForQuota(
+        session?.user?.plan,
+        session?.user?.planStatus,
+        session?.user?.planExpiry
+    )
     const hideUpgradeCta = plan === "PRO"
 
     return (

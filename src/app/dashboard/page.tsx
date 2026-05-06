@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
 import { DashboardContent } from "@/components/dashboard/dashboard-content"
 import { getOptionalDbModel } from "@/lib/db"
-import { getEffectivePlan } from "@/lib/plan/plan-access"
+import { resolvePlanIdForQuota } from "@/lib/plan/plan-access"
 
 type TeacherNewsRow = {
     id: string
@@ -24,7 +24,11 @@ type TeacherMissionRow = {
 export default async function DashboardPage() {
     const session = await auth()
     const role = session?.user?.role ?? "STUDENT"
-    const plan = getEffectivePlan(session?.user?.plan)
+    const plan = resolvePlanIdForQuota(
+        session?.user?.plan,
+        session?.user?.planStatus,
+        session?.user?.planExpiry
+    )
     const teacherNewsItem = getOptionalDbModel<{
         findMany: (args: unknown) => Promise<TeacherNewsRow[]>
     }>("teacherNewsItem")

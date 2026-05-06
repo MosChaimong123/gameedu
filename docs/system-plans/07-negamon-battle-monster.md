@@ -1,6 +1,6 @@
 # System Plan 07: Negamon Battle / Monster
 
-Last updated: 2026-05-03
+Last updated: 2026-05-06
 
 ## Scope
 
@@ -79,3 +79,12 @@ Last updated: 2026-05-03
 - `npm.cmd test -- src/__tests__/battle-reward-ledger.test.ts src/__tests__/battle-reward-policy.test.ts src/__tests__/negamon-live-reward-sync.test.ts` passed: 3 files, 20 tests.
 - `npm.cmd run lint` passed.
 - `npm.cmd run build` passed. Prisma generate reported a Windows engine lock, then continued because the existing generated client matched the current schema.
+- `npm.cmd run check:negamon-battle` passed on `2026-05-06` with `9 files / 70 tests`.
+
+## Progress Note 1
+
+- Added one-command Negamon preflight in [package.json](/C:/Users/IHCK/GAMEEDU/gamedu/package.json): `npm.cmd run test:negamon-battle` and `npm.cmd run check:negamon-battle`.
+- Added dedicated handoff checklist in [negamon-battle-manual-qa-checklist.md](/C:/Users/IHCK/GAMEEDU/gamedu/docs/negamon-battle-manual-qa-checklist.md).
+- Added regression coverage in [negamon-passives-disabled-route.test.ts](/C:/Users/IHCK/GAMEEDU/gamedu/src/__tests__/negamon-passives-disabled-route.test.ts) so the deprecated passive unlock endpoint is locked to `NEGAMON_PASSIVES_DISABLED`.
+- Staging smoke on `https://www.teachplayedu.com/` passed after creating a temporary Negamon fixture: opponent lookup stayed classroom-scoped, invalid battle loadout returned `INVALID_BATTLE_LOADOUT`, passive unlock returned `NEGAMON_PASSIVES_DISABLED`, `saveInteractive` stayed blocked behind `SERVER_AUTHORITATIVE_REQUIRED`, auto battle created session `69fb5fea93d9f1cbd2566497`, interactive battle created session `69fb5feb93d9f1cbd2566499`, and reward sync honored `pair_cooldown` on the second battle.
+- Temporary staging classroom `69f9facaeaecc54536c0cdf1` was deleted after the pass, so the plan-limit slot was returned immediately.

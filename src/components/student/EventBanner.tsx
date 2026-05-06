@@ -17,17 +17,23 @@ interface ClassEvent {
   active: boolean;
 }
 
-export function EventBanner({ classId }: { classId: string }) {
+export function EventBanner({ classId, loginCode }: { classId: string; loginCode: string }) {
   const { t, language } = useLanguage();
   const [events, setEvents] = useState<ClassEvent[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const dateLocale = language === "th" ? "th-TH" : "en-US";
 
   useEffect(() => {
-    fetch(`/api/classrooms/${classId}/events`)
-      .then(r => r.json())
-      .then(d => setEvents(Array.isArray(d) ? d.filter((e: ClassEvent) => e.active) : []));
-  }, [classId]);
+    const code = loginCode.trim();
+    if (!code) {
+      setEvents([]);
+      return;
+    }
+    const q = new URLSearchParams({ code });
+    fetch(`/api/classrooms/${classId}/events?${q.toString()}`)
+      .then((r) => r.json())
+      .then((d) => setEvents(Array.isArray(d) ? d.filter((e: ClassEvent) => e.active) : []));
+  }, [classId, loginCode]);
 
   const visible = events.filter(e => !dismissed.has(e.id));
   if (visible.length === 0) return null;

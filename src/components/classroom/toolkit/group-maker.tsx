@@ -21,6 +21,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
 import { cn } from "@/lib/utils";
 import { getThemeBgStyle, getThemeHorizontalBgClass } from "@/lib/classroom-utils";
+import { parseSavedGroupStudentIds } from "../use-classroom-selection-flow";
 
 // Map icon strings to Lucide components
 const iconMap: Record<string, typeof Heart> = {
@@ -46,11 +47,6 @@ interface GroupMakerProps {
     onSavedGroupsChange?: (groups: SavedGroupSummary[]) => void;
 }
 
-type ParsedSavedGroup = {
-    name?: string;
-    studentIds?: string[];
-};
-
 export type SavedGroupSummary = {
     id: string;
     name: string;
@@ -59,17 +55,7 @@ export type SavedGroupSummary = {
 
 function toSavedGroupSummaries(groups: StudentGroup[]): SavedGroupSummary[] {
     return groups.map((group) => {
-        const studentIds = (group.studentIds as string[]).flatMap((raw) => {
-            try {
-                const parsed = JSON.parse(raw) as ParsedSavedGroup | string[];
-                if (Array.isArray(parsed)) {
-                    return parsed;
-                }
-                return parsed.studentIds ?? [];
-            } catch {
-                return [];
-            }
-        });
+        const studentIds = parseSavedGroupStudentIds(group.studentIds as string[]);
 
         return {
             id: group.id,

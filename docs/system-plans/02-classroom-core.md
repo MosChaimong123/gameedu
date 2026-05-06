@@ -454,3 +454,28 @@ Practical status:
   - intermittent `Attendance` / `Analytics` network-state fallbacks
   - sticky add-student completion timing
   - whether the repeated Socket.IO failures are a real app issue or a browser-runner artifact
+
+## Progress Note 21
+
+Completed on 2026-05-05:
+
+- Re-ran the staging Classroom Core pass on `https://www.teachplayedu.com/` after deploying commit `6aec395`
+- Verified the four staging follow-up items that were previously blocking full closure:
+  - create-classroom flow now returns a clean success path
+    - created `QA Classroom Rerun 2026-05-05T14-17-27`
+    - response returned HTTP `200`
+    - success toast was visible
+    - the previous false `Could not create classroom` toast did not appear
+  - add-student mutation no longer sticks in the loading state
+    - classroom id `69f9fbf9eaecc54536c0cdf8`
+    - `POST /api/classrooms/69f9fbf9eaecc54536c0cdf8/students` returned HTTP `200`
+    - the dialog closed normally
+    - the new student rendered immediately without the old `Adding...` hang
+  - `Attendance` now loads its normal history shell and empty-state copy instead of falling into the network error panel
+  - `Analytics` now loads normally instead of falling into the network error panel
+  - the rerun did not reproduce the earlier console-blocking Socket.IO failures
+
+Practical status:
+
+- `02-classroom-core` is now closed across code hardening, regression coverage, dev QA, and staging QA
+- The next system pass can move forward without carrying Classroom Core staging blockers

@@ -85,7 +85,7 @@ export function StudentDashboardMainTabs({
 }: StudentDashboardMainTabsProps) {
     return (
         <div className="md:col-span-3 space-y-8">
-            <EventBanner classId={student.classId} />
+            <EventBanner classId={student.classId} loginCode={code} />
 
             <Tabs
                 id="student-dashboard-tabs"

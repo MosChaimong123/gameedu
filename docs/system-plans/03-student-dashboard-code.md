@@ -1,6 +1,6 @@
 # System Plan 03: Student Dashboard / Student Code
 
-Last updated: 2026-05-03
+Last updated: 2026-05-05
 
 ## Scope
 
@@ -41,6 +41,8 @@ Last updated: 2026-05-03
 - `npm.cmd test -- src/__tests__/student-login-code.test.ts src/__tests__/student-sync-route.test.ts`
 - `npm.cmd test -- src/__tests__/student-checkin-route.test.ts src/__tests__/student-passive-gold-route.test.ts src/__tests__/student-notifications-route.test.ts`
 - `npm.cmd test -- src/__tests__/student-dashboard-*.test.ts`
+- `npm.cmd run test:student-dashboard`
+- `npm.cmd run check:student-dashboard`
 - `npm.cmd run lint`
 - `npm.cmd run build`
 
@@ -85,3 +87,48 @@ Validation run on 2026-05-04:
 - [x] Notifications remain student-scoped and do not leak across classrooms via `src/__tests__/student-notifications-route.test.ts` and `src/__tests__/student-notifications-validation.test.ts`
 - [x] Dashboard tabs plus locked/empty state wiring verified by `src/__tests__/student-dashboard-main-tabs.test.ts`, `src/__tests__/student-dashboard-client.test.ts`, `src/__tests__/student-dashboard-sidebar.test.ts`, and related dashboard component tests
 - [x] Thai/English text and mobile-oriented presentation verified in component coverage for responsive labels and language toggle wiring, especially `src/components/student/student-dashboard-header.tsx`, `src/__tests__/student-dashboard-header.test.ts`, and `src/__tests__/student-dashboard-client.test.ts`
+
+## Progress Note 1
+
+Completed on 2026-05-05:
+
+- Standardized the Student Dashboard / Student Code handoff so this system now matches the repeatable workflow used by Auth and Classroom Core
+- Added `npm.cmd run test:student-dashboard` to bundle the focused student-code and student-dashboard regression coverage into one command
+- Added `npm.cmd run check:student-dashboard` to run the focused student suite plus `predev`
+- Added `docs/student-dashboard-manual-qa-checklist.md` to capture:
+  - student-code login and invalid-code behavior
+  - linked-account versus code-only dashboard states
+  - check-in / passive-gold verification
+  - notification and shop scoping checks
+  - staging follow-up placeholders
+
+Practical status:
+
+- Plan 03 now has a clean automated preflight and a dedicated manual QA handoff instead of relying only on the narrative execution update
+- The next meaningful pass for this system is either:
+  - run `check:student-dashboard` and keep the preflight green
+  - or execute the new manual QA checklist on dev/staging once a real student code fixture is available
+
+## Progress Note 2
+
+Completed on 2026-05-05:
+
+- Closed `docs/student-dashboard-manual-qa-checklist.md` on staging using live code-only student fixtures at `https://www.teachplayedu.com/`
+- Verified real student-code access for:
+  - `Staging Student QA One` (`P8JT3L3YBP8R`)
+  - `Staging Student QA Two` (`GU644QX7WMTJ`)
+  - classroom `Student QA 2026-05-05T15-05-28-019Z` (`69fa0739d21a5314213f2e53`)
+- Confirmed the live dashboard renders the correct classroom and student identity from a real classroom code
+- Confirmed learn-mode tabs render on staging as `Tasks`, `Ideas`, `History`
+- Confirmed game-mode tabs render on staging as `Quests`, `Monster`, `Battle`, `Ranks`, `History`
+- Verified live passive-gold behavior via `/api/student/[code]/claim-passive-gold` returning `200` with `alreadyClaimed: true`, `goldEarned: 0`, `goldRate: 1`
+- Verified live check-in duplicate protection via `/api/student/[code]/checkin` returning `200` with `alreadyDone: true`
+- Confirmed student-scoped API isolation by comparing two real codes:
+  - student 1 traffic stayed under `/api/student/P8JT3L3YBP8R/...`
+  - student 2 traffic stayed under `/api/student/GU644QX7WMTJ/...`
+- Confirmed notification fetches and game-mode shop surface stay bound to the resolved student code during the staging pass
+
+Practical status:
+
+- Plan 03 now has automated preflight, dev QA, and staging QA closed
+- The Student Dashboard / Student Code system is ready to be treated as complete for Phase 1 unless a new production-only finding appears

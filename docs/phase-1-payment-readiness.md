@@ -1,5 +1,7 @@
 # Phase 1 Payment Readiness
 
+Broader revenue tasks (PLUS positioning, pilot program, funnel): [`revenue-plus-pilot-task-checklist.md`](./revenue-plus-pilot-task-checklist.md).
+
 ## Provider Decision
 
 Open one payment provider first. Do not enable Stripe and Omise together for public launch until one path is fully verified.
@@ -79,3 +81,16 @@ Never use `BILLING_THAI_PROVIDER=mock` for production paid launch.
 - Duplicate webhook grants entitlement twice.
 - Failed/unpaid/expired payment grants PLUS.
 - Session does not refresh plan after payment.
+
+## Today Closeout Checklist (Phase 1)
+
+Use this quick list to mark payment verification done today (production domain).
+
+- [ ] Choose one provider for launch (`stripe` or `omise`) and keep the other disabled.
+- [ ] Confirm required env vars for selected provider are set on Render.
+- [ ] Confirm webhook endpoint is configured in provider dashboard and points to `https://www.teachplayedu.com`.
+- [ ] Complete one real/sandbox payment from `/dashboard/upgrade` (teacher account).
+- [ ] Verify user plan fields updated to PLUS/ACTIVE and UI session reflects PLUS after refresh.
+- [ ] Replay the same webhook event once; verify idempotency (no duplicate entitlement).
+- [ ] Test one negative case (failed/unpaid/expired) and verify no PLUS grant.
+- [ ] Append result row to `docs/phase-1-production-readiness-status.md` log.

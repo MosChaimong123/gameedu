@@ -8,6 +8,11 @@ import {
   NOT_FOUND_MESSAGE,
 } from "@/lib/api-error";
 import {
+  canLoginCodeAccessClassroom,
+  canUserAccessClassroom,
+} from "@/lib/authorization/resource-access";
+import { db } from "@/lib/db";
+import {
   getClassEventsFromGamification,
   getClassroomGamificationRecord,
   updateGamificationSettings,
@@ -30,13 +35,31 @@ type GamifiedSettings = {
   events?: ClassEvent[];
 };
 
-// GET /api/classrooms/[id]/events — get all events (students + teacher)
+// GET /api/classrooms/[id]/events — class members only (teacher session or ?code= student login code)
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const session = await auth();
+    const loginCode = new URL(req.url).searchParams.get("code")?.trim().toUpperCase() ?? "";
+
+    if (!session?.user?.id && !loginCode) {
+      return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    }
+
+    let canAccess = false;
+    if (session?.user?.id) {
+      canAccess = await canUserAccessClassroom(db, session.user.id, id);
+    }
+    if (!canAccess && loginCode) {
+      canAccess = await canLoginCodeAccessClassroom(db, loginCode, id);
+    }
+    if (!canAccess) {
+      return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+    }
+
     const classroom = await getClassroomGamificationRecord(id);
     if (!classroom) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
 

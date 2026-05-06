@@ -1,6 +1,6 @@
 # System Plan 04: Assignment / Quiz / Manual Score
 
-Last updated: 2026-05-03
+Last updated: 2026-05-06
 
 ## Scope
 
@@ -67,3 +67,31 @@ Validation run on 2026-05-04:
 - [x] Manual score range, type, and checklist constraints are enforced by `src/lib/validate-manual-assignment-score.ts` and consumed by `src/app/api/classrooms/[id]/assignments/[assignmentId]/manual-scores/route.ts`, with coverage in `src/lib/__tests__/validate-manual-assignment-score.test.ts`
 - [x] Review policy does not leak answer correctness during stepping because `check-answer` only returns `{ accepted: true }` and `question` omits `correctAnswer`, covered by `src/__tests__/quiz-step-routes.test.ts`; integrity logs are sanitized and summarized by `src/__tests__/quiz-integrity.test.ts`
 - [x] Teacher overview counts stay aligned with submissions via `src/__tests__/teacher-assignment-overview-service.test.ts` and `src/__tests__/teacher-assignments-overview-route.test.ts`
+
+## Progress Note 1
+
+Completed on 2026-05-06:
+
+- Added focused preflight commands for this system:
+  - `npm.cmd run test:assignment-quiz`
+  - `npm.cmd run check:assignment-quiz`
+- Added the manual QA handoff in `docs/assignment-quiz-manual-qa-checklist.md`
+- Closed the staging QA pass using the existing QA classroom fixture on `https://www.teachplayedu.com/`
+- Verified live score, checklist, and quiz assignment creation with real teacher credentials
+- Verified live student dashboard rendering for the staged assignment trio on the real student code dashboard
+- Verified the live quiz lifecycle end to end:
+  - question step returns one question at a time
+  - `correctAnswer` does not leak
+  - check-answer only acknowledges acceptance
+  - first submit records the final score
+  - duplicate submit stays idempotent
+- Verified manual score handling end to end:
+  - valid score assignment update succeeds
+  - invalid checklist payload is rejected
+  - valid checklist bitmask score succeeds
+- Verified teacher assignment overview reflects the staged classroom state and assignment counts
+
+Practical status:
+
+- Plan 04 now has automated preflight, repeatable manual QA documentation, and a completed staging verification pass
+- Assignment / Quiz / Manual Score can be treated as closed for Phase 1 unless a new production-only finding appears

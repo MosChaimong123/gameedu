@@ -2,12 +2,23 @@ import { Resend } from "resend";
 
 export type SendVerificationEmailResult = { sent: boolean; verifyUrl: string };
 
+function normalizePublicOrigin(raw: string | undefined): string | undefined {
+    const value = raw?.trim();
+    if (!value) return undefined;
+    const noSlash = value.replace(/\/$/, "");
+    if (/^https?:\/\//i.test(noSlash)) return noSlash;
+    if (noSlash === "localhost" || noSlash.startsWith("localhost:")) {
+        return `http://${noSlash}`;
+    }
+    return `https://${noSlash}`;
+}
+
 function resolvePublicOrigin(): string | undefined {
-    const u =
+    return normalizePublicOrigin(
         process.env.NEXT_PUBLIC_APP_URL?.trim() ||
         process.env.NEXTAUTH_URL?.trim() ||
-        process.env.AUTH_URL?.trim();
-    return u?.replace(/\/$/, "");
+        process.env.AUTH_URL?.trim()
+    );
 }
 
 export async function sendVerificationEmail(email: string, token: string): Promise<SendVerificationEmailResult> {

@@ -5,6 +5,12 @@ type StudentManagerRosterStudent = {
     nickname: string | null;
 };
 
+type StudentManagerLiveStudent = StudentManagerRosterStudent & {
+    avatar?: string | null;
+    behaviorPoints?: number;
+    loginCode?: string | null;
+};
+
 export function sortStudentManagerRoster<T extends { order: number }>(students: T[]) {
     return [...students].sort((a, b) => a.order - b.order);
 }
@@ -76,4 +82,15 @@ export async function commitStudentManagerRosterOrder<T extends { id: string; or
             error,
         };
     }
+}
+
+export function resolveStudentManagerEditStudent<T extends StudentManagerLiveStudent>(
+    editStudent: T | null,
+    students: T[]
+) {
+    if (!editStudent) {
+        return null;
+    }
+
+    return students.find((student) => student.id === editStudent.id) ?? editStudent;
 }

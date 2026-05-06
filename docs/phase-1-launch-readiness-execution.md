@@ -44,7 +44,7 @@
 | OMR monthly | จำกัด | สูงกว่า | แนะนำไม่โปรโมต public launch |
 | Negamon species | จำกัด | สูงกว่า | เปิดเฉพาะ flow ที่ test ผ่าน |
 
-Known gap: `getLimitsForUser()` ใช้ `plan` เป็นหลัก ยังไม่ได้ enforce `planStatus`/`planExpiry` ใน quota logic โดยตรง จึงต้องระวังไม่ให้ user ที่หมดอายุยังมี `plan: "PLUS"` ค้างใน production
+Quota / feature gates: `getLimitsForUser()` ใช้ `resolvePlanIdForQuota()` (`src/lib/plan/plan-access.ts`) ร่วมกับ `planStatus` และ `planExpiry` (และ session sync `planExpiry` ใน `src/auth.ts`) เพื่อไม่ให้สิทธิ์ PLUS ค้างเมื่อสถานะหมดอายุหรือไม่ active — API routes ที่เรียก `getLimitsForUser` ต้องส่ง `planStatus` / `planExpiry` จาก session หรือ DB ให้ครบ
 
 ## 2. Deployment และ Environment Checklist
 

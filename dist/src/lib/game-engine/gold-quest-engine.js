@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GoldQuestEngine = void 0;
 const abstract_game_1 = require("./abstract-game");
 const gold_quest_rewards_1 = require("./gold-quest-rewards");
+const socket_error_messages_1 = require("../socket-error-messages");
 class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
     constructor(pin, hostId, setId, settings, questions, io) {
         super(pin, hostId, setId, settings, questions, io);
@@ -21,12 +22,13 @@ class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
         player.streak = 0;
         player.correctAnswers = 0;
         player.incorrectAnswers = 0;
+        player.pendingChest = false;
         super.addPlayer(player, socket);
     }
     handleEvent(eventName, payload, socket) {
         switch (eventName) {
             case "open-chest":
-                this.handleOpenChest(socket);
+                this.handleOpenChest(socket, payload);
                 break;
             case "use-interaction":
                 this.handleInteraction(socket, payload);
@@ -43,20 +45,32 @@ class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
         super.tick(); // Checks Time Limit
         // Check Gold Goal
         if (this.status === "PLAYING" && this.settings.winCondition === "GOLD") {
-            const winner = this.players.find(p => { var _a; return p.gold >= ((_a = this.settings.goldGoal) !== null && _a !== void 0 ? _a : Infinity); });
+            const winner = this.players.find((p) => { var _a; return p.gold >= ((_a = this.settings.goldGoal) !== null && _a !== void 0 ? _a : Infinity); });
             if (winner) {
                 this.endGame();
             }
         }
     }
     // --- Specific Logic ---
-    handleOpenChest(socket) {
+    handleOpenChest(socket, payload) {
         if (this.status !== "PLAYING")
             return;
         const player = this.getPlayer(socket.id);
-        if (!player)
+        if (!player) {
+            socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_PLAY_NOT_IN_GAME });
             return;
-        const reward = (0, gold_quest_rewards_1.generateChestReward)();
+        }
+        if (!player.pendingChest) {
+            socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_GOLD_QUEST_CHEST_NOT_READY });
+            return;
+        }
+        const rawIndex = payload === null || payload === void 0 ? void 0 : payload.chestIndex;
+        const chestIndex = typeof rawIndex === "number" && Number.isFinite(rawIndex) ? Math.floor(rawIndex) : 0;
+        const safeIndex = Math.min(2, Math.max(0, chestIndex));
+        const reward = (0, gold_quest_rewards_1.generateChestReward)({
+            seedSalt: `${this.pin}:${player.name}`,
+            chestIndex: safeIndex,
+        });
         let newTotal = player.gold;
         if (reward.type === "GOLD") {
             const amount = reward.value * player.multiplier;
@@ -72,6 +86,7 @@ class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
             player.gold = Math.max(0, player.gold - loss);
             newTotal = player.gold;
         }
+        player.pendingChest = false;
         socket.emit("chest-result", { reward, newTotal });
         this.statusUpdate(); // Broadcast new scores
     }
@@ -79,8 +94,14 @@ class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
         const { targetId, type } = payload;
         const actor = this.getPlayer(socket.id);
         const victim = this.getPlayer(targetId);
-        if (!actor || !victim)
+        if (!actor || !victim) {
+            socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_GOLD_QUEST_INTERACTION_INVALID });
             return;
+        }
+        if (actor.id === victim.id) {
+            socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_GOLD_QUEST_INTERACTION_INVALID });
+            return;
+        }
         if (type === "SWAP") {
             const temp = actor.gold;
             actor.gold = victim.gold;
@@ -100,29 +121,34 @@ class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
             source: actor.name,
             target: victim.name,
             type,
-            amount: 0
+            amount: 0,
         });
         this.statusUpdate();
     }
     handleSubmitAnswer(socket, payload) {
         const { questionId, answerIndex } = payload;
-        const question = this.questions.find(q => q.id === questionId);
-        if (!question)
+        const question = this.questions.find((q) => q.id === questionId);
+        if (!question) {
+            socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_FAILED_TO_LOAD_QUESTIONS });
             return;
-        const isCorrect = question.correctAnswer === answerIndex;
+        }
         const player = this.getPlayer(socket.id);
-        if (player) {
-            // Initialize responses if not exists
-            if (!player.responses)
-                player.responses = {};
-            // Record the response (using questionId as key for robustness)
-            player.responses[Number(questionId)] = isCorrect;
-            if (isCorrect) {
-                player.correctAnswers = (player.correctAnswers || 0) + 1;
-            }
-            else {
-                player.incorrectAnswers = (player.incorrectAnswers || 0) + 1;
-            }
+        if (!player) {
+            socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_PLAY_NOT_IN_GAME });
+            return;
+        }
+        const isCorrect = question.correctAnswer === answerIndex;
+        // Initialize responses if not exists
+        if (!player.responses)
+            player.responses = {};
+        player.responses[Number(questionId)] = isCorrect;
+        if (isCorrect) {
+            player.correctAnswers = (player.correctAnswers || 0) + 1;
+            player.pendingChest = true;
+        }
+        else {
+            player.incorrectAnswers = (player.incorrectAnswers || 0) + 1;
+            player.pendingChest = false;
         }
         socket.emit("answer-result", { correct: isCorrect });
     }
@@ -130,14 +156,22 @@ class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
         if (!this.questions || this.questions.length === 0)
             return;
         const player = this.getPlayer(socket.id);
-        const key = player ? player.name : socket.id;
+        if (!player) {
+            socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_PLAY_NOT_IN_GAME });
+            return;
+        }
+        if (player.pendingChest) {
+            socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_GOLD_QUEST_CHEST_PENDING });
+            return;
+        }
+        const key = player.name;
         // Initialize set if not exists
         if (!this.seenQuestions.has(key)) {
             this.seenQuestions.set(key, new Set());
         }
         const seen = this.seenQuestions.get(key);
         // Filter available questions
-        const available = this.questions.filter(q => !seen.has(q.id));
+        const available = this.questions.filter((q) => !seen.has(q.id));
         let q;
         if (available.length > 0) {
             // Pick a random available question
@@ -157,12 +191,12 @@ class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
             question: q.question,
             options: q.options,
             timeLimit: q.timeLimit,
-            image: q.image
+            image: q.image,
         });
     }
     endGame() {
         // Sync gold to generic score for history/leaderboards
-        this.players.forEach(p => {
+        this.players.forEach((p) => {
             p.score = p.gold;
         });
         // Sort players before sending
@@ -176,7 +210,7 @@ class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
             ...base,
             gameMode: "GOLD_QUEST",
             // No extra global state for now, but good hook for later
-            state: {}
+            state: {},
         };
     }
     restore(data) {

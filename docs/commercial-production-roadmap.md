@@ -39,6 +39,9 @@ GameEdu ควรเริ่มขายจากแกนที่แข็ง
 - `prisma/schema.prisma`
 - `docs/production-readiness-runbook.md`
 - `docs/phase-1-production-readiness-status.md`
+- `docs/phase-1-payment-readiness.md` (Stripe/Omise env, smoke checklist)
+- `docs/revenue-plus-pilot-task-checklist.md` (PLUS packaging, pilot promo, funnel tasks)
+- `docs/phase-1-route-authorization-audit.md` (API auth patterns inventory)
 - `docs/operational-safety-contract.md`
 - `docs/security-pr-review-checklist.md`
 
@@ -143,6 +146,12 @@ GameEdu ควรเริ่มขายจากแกนที่แข็ง
 - มี test สำหรับ forbidden/unauthorized paths
 
 #### 4. Billing MVP
+
+เอกสารประกอบ:
+
+- เช็กลิสทางเทคนิคและ smoke กับ provider: [`phase-1-payment-readiness.md`](./phase-1-payment-readiness.md)
+- งานรายได้ / แพ็ก PLUS / โปร pilot / funnel: [`revenue-plus-pilot-task-checklist.md`](./revenue-plus-pilot-task-checklist.md)
+- Static readiness ใน repo: `npm run check:phase1` (ไม่แทนการทดสอบ checkout + webhook จริง)
 
 งาน:
 

@@ -36,6 +36,7 @@ import {
     commitStudentManagerRosterOrder,
     moveStudentManagerRosterStudent,
     removeStudentManagerRosterStudent,
+    resolveStudentManagerEditStudent,
     sortStudentManagerRoster,
     updateStudentManagerRosterStudent,
 } from "./student-manager-dialog.helpers";
@@ -172,6 +173,7 @@ export function StudentManagerDialog({
     const [editName, setEditName] = useState("");
     const [editNickname, setEditNickname] = useState("");
     const [searchTerm, setSearchTerm] = useState(initialSearchTerm ?? "");
+    const activeEditStudent = resolveStudentManagerEditStudent(editStudent, localStudents);
 
     useEffect(() => {
         setLocalStudents(sortStudentManagerRoster(initialStudents));
@@ -330,9 +332,9 @@ export function StudentManagerDialog({
     }, [editStudent?.id, filteredStudents, normalizedSearchTerm, open]);
 
     const handleCopyLoginCode = async () => {
-        if (!editStudent?.loginCode) return;
+        if (!activeEditStudent?.loginCode) return;
         try {
-            await navigator.clipboard.writeText(editStudent.loginCode);
+            await navigator.clipboard.writeText(activeEditStudent.loginCode);
             toast({
                 title: t("studentManagerCopyLoginCodeSuccessTitle"),
                 description: t("studentManagerCopyLoginCodeSuccessDesc"),
@@ -502,7 +504,7 @@ export function StudentManagerDialog({
                     </div>
 
                     <div className="flex max-h-[45vh] w-full shrink-0 flex-col border-t border-amber-100/80 bg-white lg:max-h-none lg:w-[min(100%,420px)] lg:border-l lg:border-t-0">
-                        {editStudent ? (
+                        {activeEditStudent ? (
                             <div className="flex flex-col h-full">
                                 <div className="p-5 border-b">
                                     <div
@@ -512,7 +514,7 @@ export function StudentManagerDialog({
                                         <Edit className="w-5 h-5 text-white/80 shrink-0" />
                                         <div className="min-w-0">
                                             <p className="font-bold text-base text-white">{t("studentEditFormTitle")}</p>
-                                            <p className="text-white/80 text-xs truncate">{editStudent.name}</p>
+                                            <p className="text-white/80 text-xs truncate">{activeEditStudent.name}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -521,7 +523,7 @@ export function StudentManagerDialog({
                                     <div className="flex justify-center">
                                         <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-amber-200 shadow-md bg-slate-50">
                                             <Image
-                                                src={`https://api.dicebear.com/7.x/bottts/svg?seed=${editStudent.avatar || editStudent.id}`}
+                                                src={`https://api.dicebear.com/7.x/bottts/svg?seed=${activeEditStudent.avatar || activeEditStudent.id}`}
                                                 alt=""
                                                 fill
                                                 sizes="96px"
@@ -554,13 +556,13 @@ export function StudentManagerDialog({
                                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t("studentMetaSection")}</p>
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-slate-500">{t("analyticsTableBehaviorColumn")}</span>
-                                            <span className="font-bold text-indigo-600">{editStudent.behaviorPoints}</span>
+                                            <span className="font-bold text-indigo-600">{activeEditStudent.behaviorPoints}</span>
                                         </div>
                                         <div className="flex items-center justify-between gap-3">
                                             <span className="text-sm text-slate-500">{t("studentLoginCodeLabel")}</span>
                                             <div className="flex items-center gap-2">
                                                 <span className="max-w-[16rem] break-all rounded bg-slate-200 px-2 py-0.5 font-mono font-bold text-slate-600">
-                                                    {editStudent.loginCode?.toUpperCase()}
+                                                    {activeEditStudent.loginCode?.toUpperCase()}
                                                 </span>
                                                 <Button
                                                     type="button"
@@ -568,7 +570,7 @@ export function StudentManagerDialog({
                                                     size="sm"
                                                     className="h-8 rounded-lg"
                                                     onClick={() => void handleCopyLoginCode()}
-                                                    disabled={!editStudent.loginCode}
+                                                    disabled={!activeEditStudent.loginCode}
                                                 >
                                                     <Copy className="mr-1 h-3.5 w-3.5" />
                                                     {t("studentManagerCopyLoginCode")}

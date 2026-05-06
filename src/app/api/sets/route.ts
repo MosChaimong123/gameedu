@@ -65,7 +65,12 @@ export async function POST(req: Request) {
             return createAppErrorResponse("INVALID_PAYLOAD", "Title is required", 400)
         }
 
-        const limits = getLimitsForUser(session.user.role, session.user.plan)
+        const limits = getLimitsForUser(
+            session.user.role,
+            session.user.plan,
+            session.user.planStatus,
+            session.user.planExpiry
+        )
         if (Number.isFinite(limits.maxQuestionSets)) {
             const existingCount = await db.questionSet.count({
                 where: { creatorId: session.user.id as string },

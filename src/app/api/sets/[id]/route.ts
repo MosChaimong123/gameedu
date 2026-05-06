@@ -89,7 +89,12 @@ export async function PATCH(
             return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404)
         }
 
-        const limits = getLimitsForUser(session.user.role, session.user.plan)
+        const limits = getLimitsForUser(
+            session.user.role,
+            session.user.plan,
+            session.user.planStatus,
+            session.user.planExpiry
+        )
         if (questions !== undefined) {
             const validatedQuestions = validateQuestionSetQuestions(questions)
             if (!validatedQuestions.ok) {

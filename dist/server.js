@@ -61,9 +61,12 @@ app.prepare().then(async () => {
                 }
                 return [];
             }));
+            const publicUrl = (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "").trim();
+            const secureCookie = process.env.NODE_ENV === "production" || publicUrl.startsWith("https://");
             const token = await (0, jwt_1.getToken)({
                 req: { headers },
                 secret: (0, env_3.resolveAuthSecret)(),
+                secureCookie,
             });
             return typeof (token === null || token === void 0 ? void 0 : token.id) === "string" ? token.id : null;
         },

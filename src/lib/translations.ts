@@ -1954,6 +1954,7 @@ const englishPack = {
         playPlaceholderStudentCode: "Student code (optional)",
         playStudentCodeHint: "For Negamon classroom rewards, enter your student login code so EXP goes to the right profile.",
         playEnterGame: "Enter",
+        playBackToClassroom: "Back to my classroom",
         playLobbyWaitingHost: "Waiting for host",
         playLobbyHostDisconnectedTitle: "Host disconnected",
         playLobbyHostDisconnectedDesc: "This room was closed. Returning you to join.",

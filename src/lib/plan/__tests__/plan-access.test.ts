@@ -3,6 +3,7 @@ import {
     countQuestionsInJson,
     getEffectivePlan,
     getLimitsForUser,
+    resolvePlanIdForQuota,
     validateNegamonSpeciesForPlan,
 } from "../plan-access";
 import { PLAN_LIMITS } from "@/constants/plan-limits";
@@ -22,6 +23,8 @@ describe("getEffectivePlan", () => {
 });
 
 describe("getLimitsForUser", () => {
+    const now = new Date("2026-06-15T12:00:00.000Z");
+
     it("ADMIN gets unlimited-style limits", () => {
         const lim = getLimitsForUser("ADMIN", "FREE");
         expect(lim.aiQuestionGeneration).toBe(true);
@@ -31,8 +34,43 @@ describe("getLimitsForUser", () => {
     it("TEACHER uses plan", () => {
         const free = getLimitsForUser("TEACHER", "FREE");
         expect(free.maxQuestionSets).toBe(PLAN_LIMITS.FREE.maxQuestionSets);
-        const plus = getLimitsForUser("TEACHER", "PLUS");
+        const plus = getLimitsForUser("TEACHER", "PLUS", "ACTIVE", null, now);
         expect(plus.aiQuestionGeneration).toBe(true);
+    });
+
+    it("downgrades PLUS when planStatus is EXPIRED", () => {
+        const lim = getLimitsForUser("TEACHER", "PLUS", "EXPIRED", null, now);
+        expect(lim.maxQuestionSets).toBe(PLAN_LIMITS.FREE.maxQuestionSets);
+    });
+
+    it("downgrades PLUS when planExpiry is in the past", () => {
+        const lim = getLimitsForUser(
+            "TEACHER",
+            "PLUS",
+            "ACTIVE",
+            new Date("2026-01-01T00:00:00.000Z"),
+            now
+        );
+        expect(lim.maxQuestionSets).toBe(PLAN_LIMITS.FREE.maxQuestionSets);
+    });
+
+    it("keeps legacy PLUS when status missing and no expiry", () => {
+        const lim = getLimitsForUser("TEACHER", "PLUS", undefined, undefined, now);
+        expect(lim.aiQuestionGeneration).toBe(PLAN_LIMITS.PLUS.aiQuestionGeneration);
+    });
+});
+
+describe("resolvePlanIdForQuota", () => {
+    const now = new Date("2026-06-15T12:00:00.000Z");
+
+    it("returns FREE for unknown paid status strings", () => {
+        expect(resolvePlanIdForQuota("PLUS", "WEIRD", null, now)).toBe("FREE");
+    });
+
+    it("accepts TRIALING with future expiry", () => {
+        expect(
+            resolvePlanIdForQuota("PLUS", "TRIALING", new Date("2026-12-31T00:00:00.000Z"), now)
+        ).toBe("PLUS");
     });
 });
 

@@ -1,6 +1,6 @@
 # System Plan 05: Question Sets / Editor / Upload / AI Import
 
-Last updated: 2026-05-03
+Last updated: 2026-05-06
 
 ## Scope
 
@@ -76,3 +76,32 @@ Validation run on 2026-05-04:
 - [x] AI parse/generate error paths are covered by `src/__tests__/ai-import-routes.test.ts`
 - [x] Editor save partial/corrupt state is rejected by `src/app/api/sets/[id]/route.ts` before persistence, covered by `src/__tests__/sets-route-auth.test.ts`
 - [x] Delete and move folder side effects are covered by `src/__tests__/folders-route-auth.test.ts`, including clearing owned sets before folder deletion
+
+## Progress Note 1
+
+Completed on 2026-05-06:
+
+- Added focused preflight commands for this system:
+  - `npm.cmd run test:question-sets`
+  - `npm.cmd run check:question-sets`
+- Added the manual QA handoff in `docs/question-sets-editor-upload-manual-qa-checklist.md`
+- Closed the staging QA pass using the real teacher account on `https://www.teachplayedu.com/`
+- Verified live folder lifecycle:
+  - create folder
+  - move a set into the folder
+  - delete folder
+  - confirm the owned set is detached instead of deleted
+- Verified live question-set lifecycle:
+  - create set
+  - save valid editor question data
+  - reject corrupt question data with `INVALID_PAYLOAD`
+  - delete the set cleanly after verification
+- Verified live upload behavior with a supported text file via `/api/upload`
+- Verified live AI route behavior for the real account plan:
+  - `/api/ai/parse-file` returns `PLAN_LIMIT_AI_FEATURE`
+  - `/api/ai/generate-questions` returns `PLAN_LIMIT_AI_FEATURE`
+
+Practical status:
+
+- Plan 05 now has automated preflight, repeatable manual QA documentation, and a completed staging verification pass
+- Question Sets / Editor / Upload / AI Import can be treated as closed for Phase 1 unless a new production-only finding appears

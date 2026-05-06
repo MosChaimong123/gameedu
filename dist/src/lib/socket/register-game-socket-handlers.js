@@ -154,10 +154,6 @@ function registerGameSocketHandlers(io, deps) {
                 socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_GAME_NOT_FOUND });
                 return;
             }
-            if (game.status !== "LOBBY" && !game.settings.allowLateJoin) {
-                socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_GAME_LOCKED });
-                return;
-            }
             const cleanStudentId = cleanOptionalString(studentId);
             const cleanStudentCode = cleanOptionalString(studentCode);
             let verifiedStudent = null;
@@ -184,6 +180,14 @@ function registerGameSocketHandlers(io, deps) {
             const existingPlayer = verifiedStudent
                 ? game.players.find((player) => player.studentId === verifiedStudent.id || player.name === joinedNickname)
                 : game.players.find((player) => player.name === nickname);
+            if (game.status === "ENDED") {
+                socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_GAME_LOCKED });
+                return;
+            }
+            if (!existingPlayer && game.status !== "LOBBY" && !game.settings.allowLateJoin) {
+                socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_GAME_LOCKED });
+                return;
+            }
             if (game.status === "PLAYING" &&
                 !existingPlayer &&
                 game.gameMode === "NEGAMON_BATTLE") {
@@ -198,6 +202,9 @@ function registerGameSocketHandlers(io, deps) {
                     return;
                 }
                 game.handleReconnection(existingPlayer, socket);
+                if (reconnectToken) {
+                    game.registerPlayerReconnectToken(existingPlayer.name, reconnectToken);
+                }
                 socket.join(pin);
                 socket.emit("joined-success", {
                     pin,
@@ -207,6 +214,14 @@ function registerGameSocketHandlers(io, deps) {
                     studentId: existingPlayer.studentId,
                     studentCode: existingPlayer.studentCode,
                 });
+                if (game.status === "PLAYING") {
+                    socket.emit("game-started", {
+                        startTime: game.startTime,
+                        settings: game.settings,
+                        gameMode: game.gameMode,
+                    });
+                    socket.emit("game-state-update", game.serialize());
+                }
                 return;
             }
             if (nickname === "HOST")
@@ -298,35 +313,28 @@ function registerGameSocketHandlers(io, deps) {
             }
             gameManager.findGameByHostSocket(socket.id);
         });
-        const forwardToGame = (eventName, payload) => {
-            const pin = payload.pin;
-            if (!pin)
+        const forwardPlayerGameEvent = (eventName, payload) => {
+            const game = gameManager.findGameBySocket(socket.id);
+            if (!game) {
+                socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_PLAY_NOT_IN_GAME });
                 return;
-            const game = gameManager.getGame(pin);
-            if (game)
-                game.handleEvent(eventName, payload, socket);
+            }
+            const pin = payload === null || payload === void 0 ? void 0 : payload.pin;
+            if (typeof pin !== "string" || pin.length === 0 || pin !== game.pin) {
+                socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_PLAY_ROOM_PIN_MISMATCH });
+                return;
+            }
+            game.handleEvent(eventName, payload, socket);
         };
-        socket.on("open-chest", (payload) => forwardToGame("open-chest", payload));
-        socket.on("request-question", (payload) => forwardToGame("request-question", payload));
-        socket.on("submit-answer", (payload) => forwardToGame("submit-answer", payload));
-        socket.on("select-password", (payload) => forwardToGame("select-password", payload));
-        socket.on("request-hack-options", (payload) => forwardToGame("request-hack-options", payload));
-        socket.on("attempt-hack", (payload) => forwardToGame("attempt-hack", payload));
-        socket.on("request-rewards", (payload) => {
-            const game = gameManager.findGameBySocket(socket.id);
-            if (game)
-                game.handleEvent("request-rewards", payload, socket);
-        });
-        socket.on("select-box", (payload) => {
-            const game = gameManager.findGameBySocket(socket.id);
-            if (game)
-                game.handleEvent("select-box", payload, socket);
-        });
-        socket.on("task-complete", (payload) => {
-            const game = gameManager.findGameBySocket(socket.id);
-            if (game)
-                game.handleEvent("task-complete", payload, socket);
-        });
+        socket.on("open-chest", (payload) => forwardPlayerGameEvent("open-chest", payload));
+        socket.on("request-question", (payload) => forwardPlayerGameEvent("request-question", payload));
+        socket.on("submit-answer", (payload) => forwardPlayerGameEvent("submit-answer", payload));
+        socket.on("select-password", (payload) => forwardPlayerGameEvent("select-password", payload));
+        socket.on("request-hack-options", (payload) => forwardPlayerGameEvent("request-hack-options", payload));
+        socket.on("attempt-hack", (payload) => forwardPlayerGameEvent("attempt-hack", payload));
+        socket.on("request-rewards", (payload) => forwardPlayerGameEvent("request-rewards", payload));
+        socket.on("select-box", (payload) => forwardPlayerGameEvent("select-box", payload));
+        socket.on("task-complete", (payload) => forwardPlayerGameEvent("task-complete", payload));
         socket.on("submit-negamon-answer", (payload) => {
             const game = gameManager.findGameBySocket(socket.id);
             if (!game || game.gameMode !== "NEGAMON_BATTLE")
@@ -375,11 +383,7 @@ function registerGameSocketHandlers(io, deps) {
                 still.handleEvent("submit-negamon-answer", payload, socket);
             })();
         });
-        socket.on("use-interaction", (payload) => {
-            const game = gameManager.findGameBySocket(socket.id);
-            if (game)
-                game.handleEvent("use-interaction", payload, socket);
-        });
+        socket.on("use-interaction", (payload) => forwardPlayerGameEvent("use-interaction", payload));
         socket.on("join-classroom", async (classId) => {
             if (typeof classId !== "string" || classId.length === 0)
                 return;

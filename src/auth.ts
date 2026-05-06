@@ -1,4 +1,6 @@
 import NextAuth from "next-auth"
+import type { Session } from "next-auth"
+import type { JWT } from "next-auth/jwt"
 import { CredentialsSignin } from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
@@ -163,7 +165,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
             return token
         },
-        async session({ session, token }) {
+        async session({ session, token }: { session: Session; token: JWT }): Promise<Session> {
             if (token) {
                 if (token.id) session.user.id = token.id as string
                 if (token.role != null) {

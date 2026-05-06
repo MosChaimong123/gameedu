@@ -47,6 +47,9 @@ interface GroupMakerProps {
     onSavedGroupsChange?: (groups: SavedGroupSummary[]) => void;
 }
 
+/** Result of JSON.parse on a saved group row (v2 array or v3 object). */
+type ParsedSavedGroup = string[] | { studentIds?: string[]; name?: string };
+
 export type SavedGroupSummary = {
     id: string;
     name: string;

@@ -1,6 +1,6 @@
 # System Plan 06: Live Game / Host / Play / Socket
 
-Last updated: 2026-05-03
+Last updated: 2026-05-06
 
 ## Scope
 
@@ -82,3 +82,12 @@ Last updated: 2026-05-03
 - `npm.cmd run lint` passed.
 - `npm.cmd run build` passed. Prisma generate reported a Windows engine lock, then continued because the existing generated client matched the current schema.
 - Manual socket QA checklist reviewed from `docs/socket-review-checklist.md`; event contract and server authority boundaries are documented above for the next multi-tab pass.
+
+## Progress Note 1
+
+- Added one-command live-game preflight in [package.json](/C:/Users/IHCK/GAMEEDU/gamedu/package.json): `npm.cmd run test:live-game` and `npm.cmd run check:live-game`.
+- Added dedicated handoff checklist in [live-game-host-play-socket-manual-qa-checklist.md](/C:/Users/IHCK/GAMEEDU/gamedu/docs/live-game-host-play-socket-manual-qa-checklist.md).
+- Fixed a real reconnect bug in [register-game-socket-handlers.ts](/C:/Users/IHCK/GAMEEDU/gamedu/src/lib/socket/register-game-socket-handlers.ts): an issued player reconnect token can now re-enter a `PLAYING` room even when `allowLateJoin` is `false`, while true late joiners still get `playSocketGameLocked`.
+- Added regression coverage in [register-game-socket-handlers.integration.test.ts](/C:/Users/IHCK/GAMEEDU/gamedu/src/lib/socket/__tests__/register-game-socket-handlers.integration.test.ts) for reconnect-during-`PLAYING` with late join disabled.
+- `npm.cmd run check:live-game` passed on `2026-05-06` with `26/26` tests green.
+- Staging smoke on `https://www.teachplayedu.com/` passed after deploy: unauthorized host create, invalid-room join, duplicate nickname, host reconnect, player reconnect during `PLAYING`, late join rejection, and post-end join rejection all behaved correctly. Temporary QA set `69fb5be5ac1eacca23a7ffc9` and room pin `720465` were cleaned up after verification.

@@ -3,10 +3,10 @@ import type { NextAuthConfig } from "next-auth"
 import type { Session } from "next-auth"
 import type { JWT } from "next-auth/jwt"
 import { CredentialsSignin } from "next-auth"
-import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import { db } from "@/lib/db"
 import { prismaAuthAdapter } from "@/lib/auth/prisma-auth-adapter"
+import { googleOauth2WebProvider } from "@/lib/auth/google-oauth2-provider"
 import { authConfig } from "./auth.config"
 import { isAppRole, type AppRole } from "@/lib/roles"
 import {
@@ -38,10 +38,7 @@ function resolveGoogleProvider() {
     if (!googleClientId || !googleClientSecret) {
         return null
     }
-    return Google({
-        clientId: googleClientId,
-        clientSecret: googleClientSecret,
-    })
+    return googleOauth2WebProvider(googleClientId, googleClientSecret)
 }
 
 function createAuthConfig(): NextAuthConfig {

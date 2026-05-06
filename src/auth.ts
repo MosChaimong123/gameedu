@@ -1,4 +1,5 @@
 import NextAuth from "next-auth"
+import type { NextAuthConfig } from "next-auth"
 import type { Session } from "next-auth"
 import type { JWT } from "next-auth/jwt"
 import { CredentialsSignin } from "next-auth"
@@ -22,32 +23,46 @@ class RateLimitedSignin extends CredentialsSignin {
     code = "rate_limited"
 }
 
-const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim()
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim()
-const googleProvider =
-    googleClientId && googleClientSecret
-        ? Google({
-              clientId: googleClientId,
-              clientSecret: googleClientSecret,
-          })
-        : null
-
-if (process.env.NODE_ENV === "production" && !googleProvider) {
-    console.error(
-        "[auth] Google OAuth disabled: GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET missing or empty at runtime. " +
-            "Sign-in with Google will return Configuration. Check Render (or host) environment for both variables and redeploy."
-    )
+/**
+ * Read Google OAuth env at request time (lazy NextAuth init).
+ * Avoids Next.js build-time inlining leaving client id/secret empty in the bundle
+ * when vars exist only on the host at runtime.
+ *
+ * Supports Auth.js convention AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET as fallback.
+ */
+function resolveGoogleProvider() {
+    const googleClientId =
+        process.env.GOOGLE_CLIENT_ID?.trim() || process.env.AUTH_GOOGLE_ID?.trim()
+    const googleClientSecret =
+        process.env.GOOGLE_CLIENT_SECRET?.trim() || process.env.AUTH_GOOGLE_SECRET?.trim()
+    if (!googleClientId || !googleClientSecret) {
+        return null
+    }
+    return Google({
+        clientId: googleClientId,
+        clientSecret: googleClientSecret,
+    })
 }
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
-    ...authConfig,
-    // Custom server behind Render / reverse proxy: host comes from X-Forwarded-Host
-    trustHost: true,
-    adapter: PrismaAdapter(db),
-    session: { strategy: "jwt" },
-    providers: [
-        ...(googleProvider ? [googleProvider] : []),
-        Credentials({
+function createAuthConfig(): NextAuthConfig {
+    const googleProvider = resolveGoogleProvider()
+
+    if (process.env.NODE_ENV === "production" && !googleProvider) {
+        console.error(
+            "[auth] Google OAuth disabled: set GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET " +
+                "(or AUTH_GOOGLE_ID + AUTH_GOOGLE_SECRET) on the server. " +
+                "Sign-in with Google will return Configuration until both are non-empty at runtime."
+        )
+    }
+
+    return {
+        ...authConfig,
+        trustHost: true,
+        adapter: PrismaAdapter(db),
+        session: { strategy: "jwt" },
+        providers: [
+            ...(googleProvider ? [googleProvider] : []),
+            Credentials({
             // ... (keep credentials as is)
             credentials: {
                 email: { label: "Email", type: "email" },
@@ -182,5 +197,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             }
             return session
         }
+    },
     }
-})
+}
+
+export const { handlers, signIn, signOut, auth } = NextAuth(() => createAuthConfig())

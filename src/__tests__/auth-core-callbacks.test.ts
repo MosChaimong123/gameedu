@@ -39,6 +39,11 @@ vi.mock("@/lib/security/rate-limit", () => ({
   getRequestClientIdentifier: vi.fn(() => "test-client"),
 }));
 
+function getLastNextAuthConfigArg(mock: typeof mockNextAuth) {
+  const arg = mock.mock.calls.at(-1)?.[0];
+  return typeof arg === "function" ? arg() : arg;
+}
+
 describe("auth core callbacks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -63,7 +68,7 @@ describe("auth core callbacks", () => {
 
   it("hydrates jwt tokens from the user and refreshes them from the database", async () => {
     const mod = await import("@/auth");
-    const config = mockNextAuth.mock.calls.at(-1)?.[0];
+    const config = getLastNextAuthConfigArg(mockNextAuth);
     expect(mod).toBeTruthy();
     expect(config?.callbacks?.jwt).toBeTypeOf("function");
 
@@ -112,7 +117,7 @@ describe("auth core callbacks", () => {
 
   it("falls back to USER for invalid roles and projects token fields into the session", async () => {
     const mod = await import("@/auth");
-    const config = mockNextAuth.mock.calls.at(-1)?.[0];
+    const config = getLastNextAuthConfigArg(mockNextAuth);
     expect(mod).toBeTruthy();
 
     mockUserFindUnique.mockResolvedValue({
@@ -164,7 +169,7 @@ describe("auth core callbacks", () => {
 
   it("keeps the existing token when db refresh fails during jwt sync", async () => {
     const mod = await import("@/auth");
-    const config = mockNextAuth.mock.calls.at(-1)?.[0];
+    const config = getLastNextAuthConfigArg(mockNextAuth);
     expect(mod).toBeTruthy();
 
     mockUserFindUnique.mockRejectedValue(new Error("db down"));

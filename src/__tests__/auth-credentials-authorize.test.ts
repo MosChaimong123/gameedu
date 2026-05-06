@@ -49,6 +49,11 @@ vi.mock("bcryptjs", () => ({
   compare: mockCompare,
 }));
 
+function getLastNextAuthConfigArg(mock: typeof mockNextAuth) {
+  const arg = mock.mock.calls.at(-1)?.[0];
+  return typeof arg === "function" ? arg() : arg;
+}
+
 describe("auth credentials authorize", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -78,9 +83,12 @@ describe("auth credentials authorize", () => {
 
   async function getAuthorize() {
     await import("@/auth");
-    const credentialsConfig = mockCredentialsProvider.mock.calls.at(-1)?.[0];
-    expect(credentialsConfig?.authorize).toBeTypeOf("function");
-    return credentialsConfig.authorize as (
+    const config = getLastNextAuthConfigArg(mockNextAuth);
+    const credentialsProvider = config.providers?.find(
+      (p: { id?: string; authorize?: unknown }) => p.id === "credentials"
+    );
+    expect(credentialsProvider?.authorize).toBeTypeOf("function");
+    return credentialsProvider!.authorize as (
       credentials: Record<string, unknown> | undefined,
       request: Request
     ) => Promise<unknown>;

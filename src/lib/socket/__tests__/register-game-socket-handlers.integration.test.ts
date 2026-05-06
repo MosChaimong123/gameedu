@@ -307,6 +307,57 @@ describe("registerGameSocketHandlers integration", () => {
     reconnectedPlayer.disconnect();
   });
 
+  it("allows an issued player reconnect token back into a PLAYING room even when late join is disabled", async () => {
+    const host = await connectClient("teacher-1");
+    host.emit("create-game", { setId: "set-1", settings: { allowLateJoin: false }, mode: "GOLD_QUEST" });
+    const gameCreated = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+
+    const player = await connectClient();
+    player.emit("join-game", { pin: gameCreated.pin, nickname: "ReconnectMe" });
+    const joined = await new Promise<{ reconnectToken: string }>((resolve) => player.once("joined-success", resolve));
+
+    host.emit("start-game", { pin: gameCreated.pin });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    player.disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const reconnectedPlayer = await connectClient();
+    const rejoinedPromise = new Promise<{ reconnectToken: string }>((resolve) =>
+      reconnectedPlayer.once("joined-success", resolve)
+    );
+    const replayStartedPromise = new Promise<{ gameMode: string }>((resolve) =>
+      reconnectedPlayer.once("game-started", resolve)
+    );
+    const replayStatePromise = new Promise<{ players: Array<{ name: string; isConnected: boolean }> }>((resolve) =>
+      reconnectedPlayer.once("game-state-update", resolve)
+    );
+    reconnectedPlayer.emit("join-game", {
+      pin: gameCreated.pin,
+      nickname: "ReconnectMe",
+      reconnectToken: joined.reconnectToken,
+    });
+
+    const rejoined = await rejoinedPromise;
+    const replayStarted = await replayStartedPromise;
+    const replayState = await replayStatePromise;
+
+    expect(rejoined.reconnectToken).toBe(joined.reconnectToken);
+    expect(replayStarted.gameMode).toBe("GOLD_QUEST");
+    expect(replayState.players).toEqual([
+      expect.objectContaining({ name: "ReconnectMe", isConnected: true }),
+    ]);
+
+    const lateJoiner = await connectClient();
+    lateJoiner.emit("join-game", { pin: gameCreated.pin, nickname: "TooLate" });
+    const lateDenied = await new Promise<{ message: string }>((resolve) => lateJoiner.once("error", resolve));
+    expect(lateDenied.message).toBe(SOCKET_ERROR_GAME_LOCKED);
+
+    host.disconnect();
+    reconnectedPlayer.disconnect();
+    lateJoiner.disconnect();
+  });
+
   it("rejects join-game for invalid, locked, ended, and duplicate nickname rooms", async () => {
     const stray = await connectClient();
     stray.emit("join-game", { pin: "000000", nickname: "Ghost" });

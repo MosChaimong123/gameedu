@@ -321,11 +321,6 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         return;
       }
 
-      if (game.status === "ENDED" || (game.status !== "LOBBY" && !game.settings.allowLateJoin)) {
-        socket.emit("error", { message: SOCKET_ERROR_GAME_LOCKED });
-        return;
-      }
-
       const cleanStudentId = cleanOptionalString(studentId);
       const cleanStudentCode = cleanOptionalString(studentCode);
       let verifiedStudent:
@@ -360,6 +355,16 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         ? game.players.find((player) => player.studentId === verifiedStudent.id || player.name === joinedNickname)
         : game.players.find((player) => player.name === nickname);
 
+      if (game.status === "ENDED") {
+        socket.emit("error", { message: SOCKET_ERROR_GAME_LOCKED });
+        return;
+      }
+
+      if (!existingPlayer && game.status !== "LOBBY" && !game.settings.allowLateJoin) {
+        socket.emit("error", { message: SOCKET_ERROR_GAME_LOCKED });
+        return;
+      }
+
       if (
         game.status === "PLAYING" &&
         !existingPlayer &&
@@ -390,6 +395,14 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           studentId: existingPlayer.studentId,
           studentCode: existingPlayer.studentCode,
         });
+        if (game.status === "PLAYING") {
+          socket.emit("game-started", {
+            startTime: game.startTime,
+            settings: game.settings,
+            gameMode: game.gameMode,
+          });
+          socket.emit("game-state-update", game.serialize());
+        }
         return;
       }
 

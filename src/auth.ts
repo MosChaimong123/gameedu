@@ -30,8 +30,17 @@ const googleProvider =
           })
         : null
 
+if (process.env.NODE_ENV === "production" && !googleProvider) {
+    console.error(
+        "[auth] Google OAuth disabled: GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET missing or empty at runtime. " +
+            "Sign-in with Google will return Configuration. Check Render (or host) environment for both variables and redeploy."
+    )
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
     ...authConfig,
+    // Custom server behind Render / reverse proxy: host comes from X-Forwarded-Host
+    trustHost: true,
     adapter: PrismaAdapter(db),
     session: { strategy: "jwt" },
     providers: [
@@ -115,9 +124,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     // We only do this if we can actually reach the DB
                     const freshUser = await db.user.findUnique({
                         where: { id: token.id as string },
-                        select: { name: true, image: true, role: true, school: true, settings: true, plan: true, planStatus: true }
+                        select: {
+                            name: true,
+                            image: true,
+                            role: true,
+                            school: true,
+                            settings: true,
+                            plan: true,
+                            planStatus: true,
+                            planExpiry: true,
+                        },
                     })
-                    
+
                     if (freshUser) {
                         if (freshUser.name !== undefined) token.name = freshUser.name
                         token.picture = freshUser.image
@@ -126,6 +144,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         token.settings = freshUser.settings
                         token.plan = freshUser.plan
                         token.planStatus = freshUser.planStatus
+                        token.planExpiry =
+                            freshUser.planExpiry instanceof Date && !Number.isNaN(freshUser.planExpiry.getTime())
+                                ? freshUser.planExpiry.toISOString()
+                                : null
                     }
                 } catch {
                     // If it's an edge error, we just keep the existing token
@@ -154,6 +176,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 session.user.settings = token.settings
                 session.user.plan = token.plan
                 session.user.planStatus = token.planStatus
+                session.user.planExpiry = token.planExpiry ?? null
             }
             return session
         }

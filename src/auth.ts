@@ -5,8 +5,8 @@ import type { JWT } from "next-auth/jwt"
 import { CredentialsSignin } from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
-import { PrismaAdapter } from "@auth/prisma-adapter"
 import { db } from "@/lib/db"
+import { prismaAuthAdapter } from "@/lib/auth/prisma-auth-adapter"
 import { authConfig } from "./auth.config"
 import { isAppRole, type AppRole } from "@/lib/roles"
 import {
@@ -58,7 +58,7 @@ function createAuthConfig(): NextAuthConfig {
     return {
         ...authConfig,
         trustHost: true,
-        adapter: PrismaAdapter(db),
+        adapter: prismaAuthAdapter(db),
         session: { strategy: "jwt" },
         providers: [
             ...(googleProvider ? [googleProvider] : []),

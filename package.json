@@ -56,6 +56,7 @@
     "db:report-duplicate-emails": "node scripts/report-duplicate-user-emails.mjs",
     "db:merge-duplicate-users": "node scripts/merge-duplicate-user-emails.mjs",
     "db:fix-null-usernames": "node scripts/fix-null-user-usernames.mjs",
+    "db:prune-orphan-oauth": "node scripts/prune-orphan-oauth-accounts.mjs",
     "prisma:regen": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/prisma-generate-unlock.ps1",
     "db:cleanup-rpg": "node scripts/cleanup-rpg-data.mjs",
     "db:cleanup-rpg:dry-run": "node scripts/cleanup-rpg-data.mjs --dry-run",

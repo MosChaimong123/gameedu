@@ -4,6 +4,9 @@
  * setting `SENTRY_DIAG_ENABLED=true` on Render and call as an
  * authenticated TEACHER / ADMIN user.
  *
+ * URL: POST `/api/admin/diag/sentry-test` — uses `diag` (not `_diag`)
+ * because Next.js omits `_`-prefixed folders from the route path.
+ *
  * The route never returns information about Sentry secrets and
  * always responds with a synthetic error so the caller can verify
  * the matching event in https://teachplayedu.sentry.io/issues/.

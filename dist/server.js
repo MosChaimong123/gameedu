@@ -1,12 +1,73 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
+var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 const env_1 = require("@next/env");
 (0, env_1.loadEnvConfig)(process.cwd()); // โหลด .env.local ก่อน import อื่นใดทั้งหมด
 const env_2 = require("./src/lib/env");
 (0, env_2.normalizePublicUrlEnvsInProcess)();
+const Sentry = __importStar(require("@sentry/nextjs"));
+const sentry_pii_1 = require("./src/lib/observability/sentry-pii");
+// Custom-server boot path: instrumentation.ts is also called by Next, but
+// Socket.IO handlers run before the Next request pipeline takes over, so we
+// initialize Sentry here too. Sentry's SDK is a no-op without DSN.
+if (process.env.SENTRY_DSN && !Sentry.getClient()) {
+    const tracesSampleRate = (() => {
+        var _a;
+        const raw = (_a = process.env.SENTRY_TRACES_SAMPLE_RATE) === null || _a === void 0 ? void 0 : _a.trim();
+        if (!raw)
+            return 0.05;
+        const n = Number(raw);
+        if (!Number.isFinite(n))
+            return 0.05;
+        return Math.min(1, Math.max(0, n));
+    })();
+    Sentry.init({
+        dsn: process.env.SENTRY_DSN,
+        environment: ((_a = process.env.SENTRY_ENVIRONMENT) === null || _a === void 0 ? void 0 : _a.trim()) ||
+            process.env.NODE_ENV ||
+            "production",
+        release: ((_b = process.env.SENTRY_RELEASE) === null || _b === void 0 ? void 0 : _b.trim()) || undefined,
+        tracesSampleRate,
+        sendDefaultPii: false,
+        beforeSend: sentry_pii_1.scrubSentryEvent,
+    });
+}
 const node_http_1 = require("node:http");
 const node_crypto_1 = require("node:crypto");
 const next_1 = __importDefault(require("next"));
@@ -82,9 +143,27 @@ app.prepare().then(async () => {
             return (0, plan_access_1.getLimitsForUser)(role, user === null || user === void 0 ? void 0 : user.plan).maxLiveGamePlayers;
         },
     });
+    io.on("connection", (socket) => {
+        socket.on("error", (err) => {
+            console.error("[socket.io] connection error", err);
+            Sentry.captureException(err, {
+                tags: { component: "socket.io", scope: "connection" },
+            });
+        });
+    });
+    io.engine.on("connection_error", (err) => {
+        console.error("[socket.io] engine connection_error", err);
+        Sentry.captureException(err, {
+            tags: { component: "socket.io", scope: "engine" },
+        });
+    });
     httpServer
         .once("error", (err) => {
         console.error(err);
+        Sentry.captureException(err, {
+            tags: { component: "http", scope: "listen" },
+            level: "fatal",
+        });
         process.exit(1);
     })
         .listen(port, () => {

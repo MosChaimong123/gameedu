@@ -39,6 +39,18 @@ const appEnvSchema = z.object({
   RESEND_API_KEY: trimOrUnset,
   /** From address for Resend (e.g. GameEdu <notify@yourdomain.com>) */
   EMAIL_FROM: trimOrUnset,
+  /** Sentry observability (optional in dev; required to ship errors in prod) */
+  SENTRY_DSN: trimOrUnset,
+  NEXT_PUBLIC_SENTRY_DSN: trimOrUnset,
+  SENTRY_AUTH_TOKEN: trimOrUnset,
+  SENTRY_ORG: trimOrUnset,
+  SENTRY_PROJECT: trimOrUnset,
+  SENTRY_ENVIRONMENT: trimOrUnset,
+  NEXT_PUBLIC_SENTRY_ENVIRONMENT: trimOrUnset,
+  SENTRY_RELEASE: trimOrUnset,
+  NEXT_PUBLIC_SENTRY_RELEASE: trimOrUnset,
+  SENTRY_TRACES_SAMPLE_RATE: trimOrUnset,
+  NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE: trimOrUnset,
 });
 
 export type AppEnv = z.infer<typeof appEnvSchema>;
@@ -117,6 +129,17 @@ export function getAppEnv(env: NodeJS.ProcessEnv = process.env): AppEnv {
     OMISE_PLUS_YEARLY_SATANG: env.OMISE_PLUS_YEARLY_SATANG,
     RESEND_API_KEY: env.RESEND_API_KEY,
     EMAIL_FROM: env.EMAIL_FROM,
+    SENTRY_DSN: env.SENTRY_DSN,
+    NEXT_PUBLIC_SENTRY_DSN: env.NEXT_PUBLIC_SENTRY_DSN,
+    SENTRY_AUTH_TOKEN: env.SENTRY_AUTH_TOKEN,
+    SENTRY_ORG: env.SENTRY_ORG,
+    SENTRY_PROJECT: env.SENTRY_PROJECT,
+    SENTRY_ENVIRONMENT: env.SENTRY_ENVIRONMENT,
+    NEXT_PUBLIC_SENTRY_ENVIRONMENT: env.NEXT_PUBLIC_SENTRY_ENVIRONMENT,
+    SENTRY_RELEASE: env.SENTRY_RELEASE,
+    NEXT_PUBLIC_SENTRY_RELEASE: env.NEXT_PUBLIC_SENTRY_RELEASE,
+    SENTRY_TRACES_SAMPLE_RATE: env.SENTRY_TRACES_SAMPLE_RATE,
+    NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE: env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE,
   });
 
   if (env === process.env) {

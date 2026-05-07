@@ -5,6 +5,33 @@ loadEnvConfig(process.cwd()); // โหลด .env.local ก่อน import อ
 import { normalizePublicUrlEnvsInProcess } from "./src/lib/env";
 normalizePublicUrlEnvsInProcess();
 
+import * as Sentry from "@sentry/nextjs";
+import { scrubSentryEvent } from "./src/lib/observability/sentry-pii";
+
+// Custom-server boot path: instrumentation.ts is also called by Next, but
+// Socket.IO handlers run before the Next request pipeline takes over, so we
+// initialize Sentry here too. Sentry's SDK is a no-op without DSN.
+if (process.env.SENTRY_DSN && !Sentry.getClient()) {
+    const tracesSampleRate = (() => {
+        const raw = process.env.SENTRY_TRACES_SAMPLE_RATE?.trim();
+        if (!raw) return 0.05;
+        const n = Number(raw);
+        if (!Number.isFinite(n)) return 0.05;
+        return Math.min(1, Math.max(0, n));
+    })();
+    Sentry.init({
+        dsn: process.env.SENTRY_DSN,
+        environment:
+            process.env.SENTRY_ENVIRONMENT?.trim() ||
+            process.env.NODE_ENV ||
+            "production",
+        release: process.env.SENTRY_RELEASE?.trim() || undefined,
+        tracesSampleRate,
+        sendDefaultPii: false,
+        beforeSend: scrubSentryEvent,
+    });
+}
+
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import next from "next";
@@ -98,9 +125,28 @@ app.prepare().then(async () => {
     });
 
 
+    io.on("connection", (socket) => {
+        socket.on("error", (err) => {
+            console.error("[socket.io] connection error", err);
+            Sentry.captureException(err, {
+                tags: { component: "socket.io", scope: "connection" },
+            });
+        });
+    });
+    io.engine.on("connection_error", (err) => {
+        console.error("[socket.io] engine connection_error", err);
+        Sentry.captureException(err, {
+            tags: { component: "socket.io", scope: "engine" },
+        });
+    });
+
     httpServer
         .once("error", (err) => {
             console.error(err);
+            Sentry.captureException(err, {
+                tags: { component: "http", scope: "listen" },
+                level: "fatal",
+            });
             process.exit(1);
         })
         .listen(port, () => {

@@ -93,11 +93,17 @@ export async function POST() {
       // Keep the cookie when the PromptPay charge is still pending so the
       // browser can poll/retry. Clear it on any final outcome.
       const stillPending = outcome === "skipped_not_paid";
+      const isTestMode = secret.startsWith("skey_test_");
       const body = {
         ok: true,
         outcome,
+        chargeId: retrieved.charge.id ?? chargeId,
         chargeStatus: retrieved.charge.status ?? null,
         chargePaid: retrieved.charge.paid ?? null,
+        testMode: isTestMode,
+        omiseDashboardUrl: retrieved.charge.id
+          ? `https://dashboard.omise.co/charges/${retrieved.charge.id}`
+          : null,
       };
       return stillPending
         ? jsonKeepingChargeCookie(body)

@@ -57,9 +57,19 @@ export function UpgradePageClient({
     type ReconcileResponse = {
         ok: boolean;
         outcome?: string;
+        chargeId?: string | null;
         chargeStatus?: string | null;
         chargePaid?: boolean | null;
+        testMode?: boolean;
+        omiseDashboardUrl?: string | null;
     };
+
+    const [reconcileDetails, setReconcileDetails] = useState<{
+        chargeId: string | null;
+        chargeStatus: string | null;
+        testMode: boolean;
+        omiseDashboardUrl: string | null;
+    } | null>(null);
 
     async function runReconcileOnce(): Promise<ReconcileResponse | null> {
         try {
@@ -93,6 +103,7 @@ export function UpgradePageClient({
         let cancelled = false;
         setReconcilePolling(true);
         setReconcileOutcome(null);
+        setReconcileDetails(null);
         const POLLS = 10;
         const DELAY_MS = 3000;
 
@@ -103,6 +114,14 @@ export function UpgradePageClient({
                 if (cancelled) return;
                 const outcome = json?.outcome ?? (json?.ok === false ? "error" : null);
                 if (outcome) setReconcileOutcome(outcome);
+                if (json) {
+                    setReconcileDetails({
+                        chargeId: json.chargeId ?? null,
+                        chargeStatus: json.chargeStatus ?? null,
+                        testMode: Boolean(json.testMode),
+                        omiseDashboardUrl: json.omiseDashboardUrl ?? null,
+                    });
+                }
                 if (outcome && outcome !== "skipped_not_paid") {
                     if (outcome === "applied" || outcome === "duplicate") {
                         await update();
@@ -318,6 +337,38 @@ export function UpgradePageClient({
                                 >
                                     Recheck Omise charge
                                 </button>
+                            ) : null}
+                            {checkoutFlag === "omise_return" &&
+                            reconcileOutcome === "skipped_not_paid" &&
+                            reconcileDetails?.testMode ? (
+                                <div className="mt-3 rounded-xl border border-amber-300 bg-amber-100/60 p-3 text-xs leading-relaxed text-amber-950">
+                                    <div className="font-bold">
+                                        Omise อยู่ในโหมดทดสอบ (test mode)
+                                    </div>
+                                    <div className="mt-1 font-medium">
+                                        ใน test mode PromptPay จะไม่ถูกชำระอัตโนมัติ — ต้องเปิด Omise
+                                        Dashboard แล้วกด <span className="font-black">&quot;Mark as paid&quot;</span> เอง
+                                        จากนั้นกลับมากด Recheck
+                                    </div>
+                                    {reconcileDetails.omiseDashboardUrl ? (
+                                        <div className="mt-2 break-all">
+                                            <a
+                                                href={reconcileDetails.omiseDashboardUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="font-black text-amber-900 underline"
+                                            >
+                                                เปิด charge นี้ใน Omise Dashboard →
+                                            </a>
+                                            <div className="mt-1 font-mono text-[11px] text-amber-900/80">
+                                                {reconcileDetails.chargeId}
+                                                {reconcileDetails.chargeStatus
+                                                    ? ` • status: ${reconcileDetails.chargeStatus}`
+                                                    : ""}
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
                             ) : null}
                         </div>
                     ) : null}

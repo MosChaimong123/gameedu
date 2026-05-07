@@ -1,9 +1,21 @@
 import { cookies } from "next/headers";
+import type { Metadata } from "next";
 import Link from "next/link";
 
+import { LegalParagraphs } from "@/components/legal/legal-paragraphs";
 import { LANGUAGE_COOKIE_NAME } from "@/lib/language-cookie";
 import type { Language } from "@/lib/translations";
 import { termsContent } from "../../../content/public-pages";
+
+export async function generateMetadata(): Promise<Metadata> {
+    const cookieStore = await cookies();
+    const language: Language = cookieStore.get(LANGUAGE_COOKIE_NAME)?.value === "th" ? "th" : "en";
+    const copy = termsContent[language];
+    return {
+        title: `${copy.title} · GameEdu`,
+        description: copy.intro.slice(0, 155),
+    };
+}
 
 export default async function TermsPage() {
     const cookieStore = await cookies();
@@ -29,11 +41,11 @@ export default async function TermsPage() {
                 {copy.sections.map(([title, body]) => (
                     <section key={title} className="space-y-2">
                         <h2 className="text-xl font-bold text-slate-950">{title}</h2>
-                        <p>{body}</p>
+                        <LegalParagraphs text={body} />
                     </section>
                 ))}
 
-                <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+                <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-800">
                     {copy.note}
                 </p>
             </div>

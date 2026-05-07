@@ -94,6 +94,12 @@ export async function POST() {
       // browser can poll/retry. Clear it on any final outcome.
       const stillPending = outcome === "skipped_not_paid";
       const isTestMode = secret.startsWith("skey_test_");
+      // Omise dashboard puts test-mode charges under /test/charges/<id>; live
+      // charges live at the bare /charges/<id>. Sending the user to the wrong
+      // path lands them on a 404.
+      const dashboardCharge = retrieved.charge.id
+        ? `https://dashboard.omise.co${isTestMode ? "/test" : ""}/charges/${retrieved.charge.id}`
+        : null;
       const body = {
         ok: true,
         outcome,
@@ -101,9 +107,7 @@ export async function POST() {
         chargeStatus: retrieved.charge.status ?? null,
         chargePaid: retrieved.charge.paid ?? null,
         testMode: isTestMode,
-        omiseDashboardUrl: retrieved.charge.id
-          ? `https://dashboard.omise.co/charges/${retrieved.charge.id}`
-          : null,
+        omiseDashboardUrl: dashboardCharge,
       };
       return stillPending
         ? jsonKeepingChargeCookie(body)

@@ -27,8 +27,14 @@ type OmiseStatus = {
  *
  * Defaults to closed; collapsible to keep the marketing page clean.
  */
-export function OmiseStatusPanel() {
-    const [open, setOpen] = useState(false);
+export function OmiseStatusPanel({
+    autoOpen = false,
+    refreshKey = 0,
+}: {
+    autoOpen?: boolean;
+    refreshKey?: number;
+} = {}) {
+    const [open, setOpen] = useState(autoOpen);
     const [data, setData] = useState<OmiseStatus | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -56,10 +62,17 @@ export function OmiseStatusPanel() {
     }
 
     useEffect(() => {
-        if (open && !data && !loading) {
+        if (autoOpen) {
+            setOpen(true);
+        }
+    }, [autoOpen, refreshKey]);
+
+    useEffect(() => {
+        if (open && !loading) {
             void load();
         }
-    }, [open, data, loading]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, refreshKey]);
 
     return (
         <div

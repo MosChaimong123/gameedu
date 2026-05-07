@@ -49,6 +49,7 @@ export function UpgradePageClient({
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [thaiLoading, setThaiLoading] = useState(false);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
+    const [thaiFailureCount, setThaiFailureCount] = useState(0);
 
     useEffect(() => {
         const checkout = searchParams.get("checkout");
@@ -137,6 +138,7 @@ export function UpgradePageClient({
                         language
                     )
                 );
+                setThaiFailureCount((n) => n + 1);
                 return;
             }
             const data = (await res.json().catch(() => ({}))) as { url?: string };
@@ -159,10 +161,12 @@ export function UpgradePageClient({
                 return;
             }
             setCheckoutError(t("upgradeCheckoutFailed"));
+            setThaiFailureCount((n) => n + 1);
         } catch (error: unknown) {
             const raw = error instanceof Error ? error.message : null;
             const net = tryLocalizeFetchNetworkFailureMessage(raw, t);
             setCheckoutError(net ?? (raw || t("upgradeCheckoutFailed")));
+            setThaiFailureCount((n) => n + 1);
         } finally {
             setThaiLoading(false);
         }
@@ -222,7 +226,12 @@ export function UpgradePageClient({
                             {checkoutError}
                         </div>
                     ) : null}
-                    {isStaff && thaiBillingEnabled ? <OmiseStatusPanel /> : null}
+                    {isStaff && thaiBillingEnabled ? (
+                        <OmiseStatusPanel
+                            autoOpen={thaiFailureCount > 0}
+                            refreshKey={thaiFailureCount}
+                        />
+                    ) : null}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

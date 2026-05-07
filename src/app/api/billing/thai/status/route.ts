@@ -47,12 +47,17 @@ export async function GET() {
     const yearlySatang = resolveOmisePlusAmountSatang("year", env);
     const appOrigin = resolvePublicAppOrigin();
 
+    const keyModeMismatch = Boolean(
+        omiseSecretMode && omisePublicKeyMode && omiseSecretMode !== omisePublicKeyMode
+    );
+
     const ready =
         providerId === "omise" &&
         hasOmiseSecret &&
         Boolean(appOrigin) &&
         monthlySatang >= 2000 &&
-        yearlySatang >= 2000;
+        yearlySatang >= 2000 &&
+        !keyModeMismatch;
 
     const issues: string[] = [];
     if (!providerId) issues.push("BILLING_THAI_PROVIDER not set");
@@ -60,7 +65,7 @@ export async function GET() {
         issues.push(`BILLING_THAI_PROVIDER="${providerId}" not implemented`);
     }
     if (providerId === "omise" && !hasOmiseSecret) issues.push("OMISE_SECRET_KEY missing");
-    if (providerId === "omise" && omiseSecretMode && omisePublicKeyMode && omiseSecretMode !== omisePublicKeyMode) {
+    if (providerId === "omise" && keyModeMismatch) {
         issues.push(
             `Omise key mode mismatch: secret=${omiseSecretMode} public=${omisePublicKeyMode}`
         );

@@ -2,7 +2,7 @@
 
 Single place to see **what is done vs still open** for Phase 1 (from `docs/commercial-production-roadmap.md`).
 
-Last updated: 2026-05-07
+Last updated: 2026-05-07 (Sentry production verified)
 
 ---
 
@@ -48,8 +48,8 @@ Last updated: 2026-05-07
 | หัวข้อ | รายละเอียด |
 | --- | --- |
 | MongoDB Atlas (Phase 2) | ย้าย **backup + restore drill** ไป Phase 2; ใน Phase 1 คงยืนยัน **`DATABASE_URL`** / network access |
-| ชำระเงิน | **Done (Stripe test, Omise test):** ทั้งสอง provider verify บนโดเมนจริงแล้ว — Stripe test (2026-05-06), Omise test end-to-end + UX hardening (2026-05-07). **Omise live mode KYC อยู่ระหว่าง review** (ยื่นใบสมัคร 2026-05-07; Omise ปกติใช้ 1–3 วันทำการ + อาจขอ DBD/สมุดบัญชีเพิ่ม). |
-| Monitoring | Sentry, uptime ฯลฯ |
+| ชำระเงิน | **Done (Stripe test, Omise test):** ทั้งสอง provider verify บนโดเมนจริงแล้ว — Stripe test (2026-05-06), Omise test end-to-end + UX hardening (2026-05-07). **Stripe live mode setup ใน flight** (Products + webhook + sk_live_/whsec_ ใส่ Render แล้ว 2026-05-07; ยังไม่ได้ smoke 290 บาทจริง). **Omise live mode KYC อยู่ระหว่าง review** (ยื่นใบสมัคร 2026-05-07; Omise ปกติใช้ 1–3 วันทำการ + อาจขอ DBD/สมุดบัญชีเพิ่ม). |
+| Monitoring | **Sentry (live verified, 2026-05-07).** Uptime monitor ยังไม่ตั้ง (UptimeRobot แนะนำ). |
 | กฎหมาย | ทนายตรวจ Terms / Privacy |
 | Smoke production (ส่วนขยาย) | ถ้าเปิดใช้: Negamon rewards, economy, billing — ทดสอบมือตาม [รายการท้ายเอกสาร](#external-actions-checklist) |
 | Render | แผน **Free** = cold start หลังหยุดใช้ — ถ้าต้องการ latency คงที่ → **แผน paid** |
@@ -117,6 +117,60 @@ npm run db:ensure-indexes
 
 ---
 
+## Ops: Sentry observability (production)
+
+โปรเจ็กต์ Sentry: **`teachplayedu.sentry.io`** / project slug **`javascript-nextjs`** (rename ทีหลังที่ Settings → Projects ได้ ถ้าต้องการให้ตรงกับชื่อ service)
+
+### สถาปัตยกรรมในโค้ด
+
+| ไฟล์ | ทำหน้าที่ |
+| --- | --- |
+| `instrumentation.ts` | hook ของ Next.js — init Sentry บน Node + Edge runtime + forward `onRequestError` |
+| `instrumentation-client.ts` | init Sentry ใน browser bundle + capture router transitions |
+| `server.ts` | early `Sentry.init` ก่อน Next ขึ้น เพื่อให้ Socket.IO + HTTP listen errors เข้า Sentry |
+| `next.config.ts` | wrap ด้วย `withSentryConfig` (source-map upload เฉพาะเมื่อมี `SENTRY_AUTH_TOKEN`) |
+| `src/lib/observability/sentry-pii.ts` | shared `beforeSend` scrubber — กรอง cookie/auth/Stripe sig/password/card/OTP/national-ID/bank ฟิลด์ก่อนส่ง |
+| `src/lib/env.ts` | validate Sentry envs (DSN, AUTH_TOKEN, ORG, PROJECT, ENVIRONMENT, RELEASE, TRACES_SAMPLE_RATE + `NEXT_PUBLIC_*` peers) |
+
+### Render env ขั้นต่ำสำหรับเปิด Sentry
+
+```text
+SENTRY_DSN=https://<key>@oXXXX.ingest.us.sentry.io/<project>
+NEXT_PUBLIC_SENTRY_DSN=<same as SENTRY_DSN>          # NEXT_PUBLIC_ จำเป็นเพราะ browser bundle ใช้ตัวนี้
+SENTRY_AUTH_TOKEN=sntrys_…                            # build-time only, scope: org:read + project:read + project:releases
+SENTRY_ORG=teachplayedu
+SENTRY_PROJECT=javascript-nextjs
+SENTRY_ENVIRONMENT=production
+NEXT_PUBLIC_SENTRY_ENVIRONMENT=production
+SENTRY_TRACES_SAMPLE_RATE=0.05                        # 0..1; 5% sample = ปลอดภัยสำหรับ free tier
+NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=0.05
+# ออปชัน — เปิดเฉพาะตอน verify เท่านั้น แล้วลบทิ้ง:
+# SENTRY_DIAG_ENABLED=true
+```
+
+> ถ้าไม่มี `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` SDK จะ no-op (ไม่ส่ง event, ไม่เพิ่ม latency) — dev/branch deploys จึงไม่เปลือง quota.
+
+### Verify Sentry (admin-only)
+
+1. เปิด `SENTRY_DIAG_ENABLED=true` ใน Render → save → wait deploy live.
+2. Login เป็น TEACHER/ADMIN บน `https://www.teachplayedu.com`.
+3. เปิด address bar: `https://www.teachplayedu.com/api/admin/diag/sentry-test` → ต้องได้ JSON `ok:true` พร้อม `correlation` id.
+4. ที่ Sentry Issues feed (`https://teachplayedu.sentry.io/issues/`) ภายใน ~30s ต้องเห็น `SentryDiagnosticError` ที่ tag `correlation_id` ตรงกัน + `environment=production`.
+5. ปิด `SENTRY_DIAG_ENABLED` กลับเป็น `false` (หรือลบ env) → save → ให้ Render redeploy เพื่อกันยิง endpoint นี้สุ่ม.
+6. ถ้าต้องการเทส 500 path: เพิ่ม `?mode=throw` ที่ URL → handler จะ `throw` แทน return JSON, `onRequestError` จะ capture ให้.
+
+### PII scrubber — เพิ่มฟิลด์เมื่อมี secret ใหม่
+
+แก้ `src/lib/observability/sentry-pii.ts` → เพิ่ม key (lowercase, ตัด `_`/`-` ออก) ใน `SECRET_FIELD_NAMES` หรือ header ใน `SECRET_HEADER_NAMES` แล้ว rebuild — sanitizer ใช้ทั้ง server + client + edge runtime.
+
+### Quota / cost-control hints
+
+- **Free tier:** 5,000 errors / 10,000 transactions / 50 replays ต่อเดือน — sample rate `0.05` กัน traces ล้น.
+- เปิด **inbound filters** ใน Sentry → Settings → Inbound Filters เพื่อกรอง browser extension errors / known bots.
+- ถ้า quota ใกล้หมด → `tracesSampleRate=0` ปิด traces แต่เก็บ errors ไว้.
+
+---
+
 ## Completed production setup (log)
 
 **Maintainers: append dated rows here when something ships.**
@@ -139,6 +193,8 @@ npm run db:ensure-indexes
 | 2026-05-07 (confirmed) | **Omise test-mode end-to-end verified** on production domain: PromptPay charge → webhook `charge.complete` 200 → PLUS applied; in-app one-click "จ่ายเลย (test mode)" via `POST /charges/<id>/mark_as_paid`. |
 | 2026-05-07 (in repo) | **Omise UX hardening (6 commits):** diagnostic endpoint + UI panel, reconcile poll loop + Recheck, test-mode dashboard link, mark-as-paid shortcut, Mobile Banking deep links (SCB/KBank/BAY/BBL/KTB), test-mode dashboard URL fix. |
 | 2026-05-07 (in flight) | **Omise live mode KYC submitted** at `dashboard.omise.co/v2/registrations` (Education Services / Online subscription, 290 THB/charge avg, website channel only). Omise team is reviewing; need to follow up with DBD e-commerce certificate + bank book scan when requested. |
+| 2026-05-07 (in flight) | **Stripe live mode onboarding** — completed business profile (Individual, Thai), ID verification, statement descriptor (`TEACHPLAYEDU.COM` / `GAMEDU`), weekly auto payouts (Monday). Created Products `GameEdu PLUS — Monthly` (290 THB) + `GameEdu PLUS — Yearly` (2,900 THB), webhook endpoint `TeachPlayEdu-Production` → `https://www.teachplayedu.com/api/webhooks/stripe` (`checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`). Live keys (`sk_live_…`, `whsec_…`) + `price_…` IDs deployed to Render env; Stripe Checkout already returns `cs_live_…` URLs from `/api/billing/create-checkout-session`. **Live smoke (real 290 THB charge) deferred** — code path verified, payment will be exercised when ready. |
+| 2026-05-07 (confirmed) | **Sentry observability live on production** (`teachplayedu.sentry.io` / `javascript-nextjs`). In repo: `@sentry/nextjs@10.52.0`, `instrumentation.ts` (Node + Edge), `instrumentation-client.ts` (browser), early `Sentry.init` in `server.ts` to cover Socket.IO + HTTP listen errors, shared `src/lib/observability/sentry-pii.ts` `beforeSend` scrubber (drops cookies, auth headers, Stripe signatures, password / card / OTP / national ID / bank fields, redacts IP), `withSentryConfig` in `next.config.ts` with conditional source-map upload. On Render: `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_AUTH_TOKEN` + org `teachplayedu` + project `javascript-nextjs` + env `production` + traces sample rate `0.05`. Verified end-to-end via admin-only `GET /api/admin/diag/sentry-test` (gated by `SENTRY_DIAG_ENABLED`) — `SentryDiagnosticError` event landed in Issues with matching `correlation_id` tag within seconds; `View Sample Error` from the Sentry wizard also ingested, confirming client-side capture. |
 
 **Agents:** if an item appears here, treat it as **done (นอก repo)** unless the user reports a regression.
 
@@ -185,8 +241,8 @@ Phase 1 is code-ready for a production beta foundation. Hosting and primary doma
 | Route authorization | Done in repo | [`phase-1-route-authorization-audit.md`](./phase-1-route-authorization-audit.md) |
 | Production DB backup + drill | Deferred to Phase 2 | Track in Phase 2 ops scope |
 | Domain and hosting | Done | See log |
-| Payment provider verification | Done (Stripe test) | Checkout + webhook 2xx verified on production domain |
-| Monitoring | **Open** | Sentry / uptime |
+| Payment provider verification | Done (Stripe test, Omise test) + Stripe live wiring in flight | Checkout + webhook 2xx verified on production domain. Live keys + Products on Render; live 290 THB smoke deferred. |
+| Monitoring | Done (Sentry); uptime open | Sentry verified 2026-05-07 (`teachplayedu.sentry.io`, env-gated diag endpoint, PII scrubber). UptimeRobot/health ping not yet configured. |
 
 ## External actions (checklist)
 

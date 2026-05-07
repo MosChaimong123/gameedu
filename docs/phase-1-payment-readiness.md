@@ -65,6 +65,25 @@ Never use `BILLING_THAI_PROVIDER=mock` for production paid launch.
 10. Confirm duplicate idempotency through `BillingProviderEvent`.
 11. Test unpaid/expired charge and confirm no entitlement.
 
+### Omise Server-side Diagnostic
+
+If the PromptPay button does nothing or shows a generic error, use the
+diagnostic endpoint (teacher/admin only) to inspect the live config of the
+running server without opening Render shell:
+
+- HTTP: `GET https://YOUR_DOMAIN/api/billing/thai/status`
+- UI: open `/dashboard/upgrade` while signed in as teacher/admin; an "Omise /
+  Thai billing diagnostic" panel appears under the banner. Click to expand.
+
+The endpoint never returns secrets — only presence flags, key mode
+(`test`/`live`), resolved app origin, computed satang amounts, and an
+`issues` array describing the first thing to fix
+(`OMISE_SECRET_KEY missing`, `Omise key mode mismatch`, etc.).
+
+Render server logs also tag Omise failures with `[omise]` and
+`[billing/thai/start]` plus the Omise `code`/`location`/`message`, so
+"button does nothing" can usually be diagnosed from a single log line.
+
 ## Static Findings
 
 - Stripe webhook verifies signature and claims event idempotency.

@@ -17,6 +17,7 @@ import {
     getLocalizedErrorMessageFromResponse,
     tryLocalizeFetchNetworkFailureMessage,
 } from "@/lib/ui-error-messages";
+import { OmiseStatusPanel } from "./omise-status-panel";
 
 function formatPlusDisplayAmount(n: number): string {
     if (Number.isInteger(n) || Math.abs(n - Math.round(n)) < 0.001) {
@@ -40,6 +41,8 @@ export function UpgradePageClient({
     const searchParams = useSearchParams();
     const { t, language } = useLanguage();
     const currentPlan = session?.user?.plan ?? "FREE";
+    const userRole = session?.user?.role;
+    const isStaff = userRole === "TEACHER" || userRole === "ADMIN";
     const contactHref = `mailto:support@gamedu.local?subject=${encodeURIComponent(t("upgradeContactSubject"))}`;
 
     const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
@@ -219,6 +222,7 @@ export function UpgradePageClient({
                             {checkoutError}
                         </div>
                     ) : null}
+                    {isStaff && thaiBillingEnabled ? <OmiseStatusPanel /> : null}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

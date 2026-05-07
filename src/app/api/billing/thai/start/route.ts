@@ -10,6 +10,8 @@ import {
 import { OMISE_PENDING_CHARGE_COOKIE } from "@/lib/billing/omise-constants";
 import { resolvePublicAppOrigin } from "@/lib/billing/resolve-public-url";
 import { resolveThaiBillingAdapter } from "@/lib/billing/providers/resolve-thai-adapter";
+import { getThaiBillingProviderId } from "@/lib/billing/thai-billing-env";
+import { getAppEnv } from "@/lib/env";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 const bodySchema = z.object({
@@ -20,9 +22,21 @@ export async function POST(req: Request) {
   try {
     const adapter = resolveThaiBillingAdapter();
     if (!adapter) {
+      const providerId = getThaiBillingProviderId();
+      const env = getAppEnv();
+      console.error("[billing/thai/start] adapter unavailable", {
+        BILLING_THAI_PROVIDER: providerId ?? null,
+        hasOmiseSecret: Boolean(env.OMISE_SECRET_KEY),
+      });
+      const reason =
+        providerId === "omise" && !env.OMISE_SECRET_KEY
+          ? "Omise secret key not set on server (OMISE_SECRET_KEY)."
+          : !providerId
+            ? "BILLING_THAI_PROVIDER is not set on server."
+            : `Provider \"${providerId}\" is not implemented.`;
       return createAppErrorResponse(
         "BILLING_THAI_NOT_CONFIGURED",
-        "Thai/local billing is not configured",
+        reason,
         503
       );
     }
@@ -70,6 +84,13 @@ export async function POST(req: Request) {
     const result = await adapter.startPlusPurchase({ userId, interval, appOrigin });
 
     if (!result.ok) {
+      console.error("[billing/thai/start] adapter rejected", {
+        provider: adapter.id,
+        userId,
+        interval,
+        appOrigin,
+        message: result.message,
+      });
       return createAppErrorResponse("BILLING_PROCESSING_FAILED", result.message, 500);
     }
 

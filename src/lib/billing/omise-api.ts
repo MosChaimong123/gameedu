@@ -63,16 +63,20 @@ export async function omiseCreatePromptPayCharge(params: {
     body,
   });
 
-  const jsonUnknown = await res.json();
-  const json = jsonUnknown as OmiseChargeJson | OmiseErrorJson;
+  const jsonUnknown = await res.json().catch(() => null);
+  const json = jsonUnknown as OmiseChargeJson | OmiseErrorJson | null;
 
-  if (!res.ok || json.object === "error") {
-    const msg =
-      json.object === "error"
-        ? (json as OmiseErrorJson).message ??
-          (json as OmiseErrorJson).code ??
-          BILLING_OMISE_CHARGE_FAILED
-        : BILLING_OMISE_CHARGE_FAILED;
+  if (!res.ok || !json || json.object === "error") {
+    const err = json?.object === "error" ? (json as OmiseErrorJson) : null;
+    console.error("[omise] charges create failed", {
+      httpStatus: res.status,
+      omiseCode: err?.code ?? null,
+      omiseLocation: err?.location ?? null,
+      omiseMessage: err?.message ?? null,
+      amountSatang,
+      mode: secretKey.startsWith("skey_test_") ? "test" : "live",
+    });
+    const msg = err?.message ?? err?.code ?? BILLING_OMISE_CHARGE_FAILED;
     return { ok: false, message: msg };
   }
 
@@ -80,6 +84,11 @@ export async function omiseCreatePromptPayCharge(params: {
   const authorizeUri = charge.authorize_uri?.trim();
   const chargeId = charge.id;
   if (!authorizeUri || !chargeId) {
+    console.error("[omise] charge missing authorize_uri/id", {
+      chargeId: charge.id ?? null,
+      hasAuthorizeUri: Boolean(authorizeUri),
+      status: charge.status ?? null,
+    });
     return {
       ok: false,
       message: BILLING_OMISE_MISSING_AUTHORIZE_URI,

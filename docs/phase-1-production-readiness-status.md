@@ -2,7 +2,7 @@
 
 Single place to see **what is done vs still open** for Phase 1 (from `docs/commercial-production-roadmap.md`).
 
-Last updated: 2026-05-07 (Sentry production verified)
+Last updated: 2026-05-07 (Sentry + UptimeRobot live)
 
 ---
 
@@ -49,7 +49,7 @@ Last updated: 2026-05-07 (Sentry production verified)
 | --- | --- |
 | MongoDB Atlas (Phase 2) | ย้าย **backup + restore drill** ไป Phase 2; ใน Phase 1 คงยืนยัน **`DATABASE_URL`** / network access |
 | ชำระเงิน | **Done (Stripe test, Omise test):** ทั้งสอง provider verify บนโดเมนจริงแล้ว — Stripe test (2026-05-06), Omise test end-to-end + UX hardening (2026-05-07). **Stripe live mode setup ใน flight** (Products + webhook + sk_live_/whsec_ ใส่ Render แล้ว 2026-05-07; ยังไม่ได้ smoke 290 บาทจริง). **Omise live mode KYC อยู่ระหว่าง review** (ยื่นใบสมัคร 2026-05-07; Omise ปกติใช้ 1–3 วันทำการ + อาจขอ DBD/สมุดบัญชีเพิ่ม). |
-| Monitoring | **Sentry (live verified, 2026-05-07).** Uptime monitor ยังไม่ตั้ง (UptimeRobot แนะนำ). |
+| Monitoring | **Sentry (live verified, 2026-05-07) + UptimeRobot (live, 2026-05-07).** ครบ error + uptime monitoring สำหรับ Phase 1. |
 | กฎหมาย | ทนายตรวจ Terms / Privacy |
 | Smoke production (ส่วนขยาย) | ถ้าเปิดใช้: Negamon rewards, economy, billing — ทดสอบมือตาม [รายการท้ายเอกสาร](#external-actions-checklist) |
 | Render | แผน **Free** = cold start หลังหยุดใช้ — ถ้าต้องการ latency คงที่ → **แผน paid** |
@@ -171,6 +171,37 @@ NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=0.05
 
 ---
 
+## Ops: UptimeRobot uptime monitors (production)
+
+Free tier (50 monitors / interval 5 นาที) — เพียงพอสำหรับ Phase 1
+
+### Monitors ที่ตั้งไว้
+
+| ชื่อ | URL | Method | Interval | Timeout | Alert |
+| --- | --- | --- | --- | --- | --- |
+| `teachplayedu.com/api/health` | `https://www.teachplayedu.com/api/health` | HEAD* | 5m | 30s | email, 2 ครั้งติด |
+| `teachplayedu.com/api/ready` | `https://www.teachplayedu.com/api/ready` | HEAD* | 5m | 30s | email, 2 ครั้งติด |
+
+> *Free tier ล็อก method ที่ `HEAD` — Next.js App Router (13.4+) auto-derive `HEAD` จาก `GET` handler โดยส่ง response เดียวกันแต่ตัด body ออก ดังนั้นทั้ง `/api/health` และ `/api/ready` ตอบ 200 ปกติ ไม่ต้องแก้โค้ด
+
+### Behavior ที่ได้
+
+- **Outage detect:** down ≥ 2 รอบติด (รวม ~10 นาที) → email alert
+- **Cold-start mitigation:** Render Free spin down หลัง 50 วินาที — UptimeRobot ping ทุก 5 นาทีช่วยให้ instance ตื่นอยู่เกือบตลอด (ผู้ใช้ใหม่ ไม่ต้องรอ cold start หลายวินาที)
+- **Public status page:** dashboard.uptimerobot.com ดู uptime % รายเดือน/ปี ฟรี
+
+### เพิ่ม alert ช่องทางอื่น
+
+ถ้าต้องการเตือนทาง LINE/SMS/Discord/Slack: My Settings → Alert Contacts → Add Alert Contact (Free tier รองรับ email + webhooks; LINE Notify ใช้ผ่าน webhook ได้)
+
+### ปรับเปลี่ยน monitors
+
+- เพิ่ม URL อื่น (เช่น landing page): My Settings → Add New Monitor → ใช้ template เดียวกัน
+- ปิด monitor ชั่วคราว (deploy ใหญ่): กดปุ่ม `Pause` ที่ monitor row
+- ดู response time history: เปิด monitor → "Response time" graph
+
+---
+
 ## Completed production setup (log)
 
 **Maintainers: append dated rows here when something ships.**
@@ -194,7 +225,9 @@ NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=0.05
 | 2026-05-07 (in repo) | **Omise UX hardening (6 commits):** diagnostic endpoint + UI panel, reconcile poll loop + Recheck, test-mode dashboard link, mark-as-paid shortcut, Mobile Banking deep links (SCB/KBank/BAY/BBL/KTB), test-mode dashboard URL fix. |
 | 2026-05-07 (in flight) | **Omise live mode KYC submitted** at `dashboard.omise.co/v2/registrations` (Education Services / Online subscription, 290 THB/charge avg, website channel only). Omise team is reviewing; need to follow up with DBD e-commerce certificate + bank book scan when requested. |
 | 2026-05-07 (in flight) | **Stripe live mode onboarding** — completed business profile (Individual, Thai), ID verification, statement descriptor (`TEACHPLAYEDU.COM` / `GAMEDU`), weekly auto payouts (Monday). Created Products `GameEdu PLUS — Monthly` (290 THB) + `GameEdu PLUS — Yearly` (2,900 THB), webhook endpoint `TeachPlayEdu-Production` → `https://www.teachplayedu.com/api/webhooks/stripe` (`checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`). Live keys (`sk_live_…`, `whsec_…`) + `price_…` IDs deployed to Render env; Stripe Checkout already returns `cs_live_…` URLs from `/api/billing/create-checkout-session`. **Live smoke (real 290 THB charge) deferred** — code path verified, payment will be exercised when ready. |
+| 2026-05-07 (confirmed) | **UptimeRobot uptime monitoring live** — บัญชี Free tier, 2 monitors บน production: (1) `https://www.teachplayedu.com/api/health` (2) `https://www.teachplayedu.com/api/ready` — interval 5 นาที, timeout 30s, method `HEAD` (Free tier ล็อก แต่ Next.js App Router auto-derive HEAD จาก GET handler ตั้งแต่ 13.4 ขึ้นไป — เราใช้ Next 16.x), alert ทาง email ถ้า down 2 รอบติด. ผลข้างเคียง: ping ทุก 5 นาทีช่วยกัน Render Free spin-down (~50s cold start) ระหว่างช่วงที่ไม่มีคนเข้าเว็บ. Status page: dashboard.uptimerobot.com. |
 | 2026-05-07 (confirmed) | **Sentry observability live on production** (`teachplayedu.sentry.io` / `javascript-nextjs`). In repo: `@sentry/nextjs@10.52.0`, `instrumentation.ts` (Node + Edge), `instrumentation-client.ts` (browser), early `Sentry.init` in `server.ts` to cover Socket.IO + HTTP listen errors, shared `src/lib/observability/sentry-pii.ts` `beforeSend` scrubber (drops cookies, auth headers, Stripe signatures, password / card / OTP / national ID / bank fields, redacts IP), `withSentryConfig` in `next.config.ts` with conditional source-map upload. On Render: `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_AUTH_TOKEN` + org `teachplayedu` + project `javascript-nextjs` + env `production` + traces sample rate `0.05`. Verified end-to-end via admin-only `GET /api/admin/diag/sentry-test` (gated by `SENTRY_DIAG_ENABLED`) — `SentryDiagnosticError` event landed in Issues with matching `correlation_id` tag within seconds; `View Sample Error` from the Sentry wizard also ingested, confirming client-side capture. |
+| 2026-05-07 (confirmed) | **Sentry diagnostic disabled in production** — removed `SENTRY_DIAG_ENABLED` from Render env after verification; `GET /api/admin/diag/sentry-test` now responds **404** `ENDPOINT_NO_LONGER_AVAILABLE` unless temporarily re-enabled for a probe. |
 
 **Agents:** if an item appears here, treat it as **done (นอก repo)** unless the user reports a regression.
 
@@ -210,13 +243,14 @@ NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=0.05
 - [x] เปลี่ยน `.env.local` กลับ local (`localhost`) หลังจบงาน production
 - [x] แก้ route เริ่ม Omise ให้ใช้ public origin จาก env แทน request internal host (`0.0.0.0`)
 - [x] Payment provider verification (Stripe test) สำเร็จ
-- [ ] งานคงค้าง: monitoring, legal text review
+- [x] monitoring (Sentry + UptimeRobot, 2026-05-07); Sentry diag env removed after verify
+- [ ] งานคงค้าง: legal text review
 
 ---
 
 ## Summary (legacy narrative)
 
-Phase 1 is code-ready for a production beta foundation. Hosting and primary domain are in place; **core production smoke (auth, classroom, student code, live game + Socket)** is confirmed. Remaining risk is mostly **data durability (backup)**, **billing verification**, **monitoring**, **legal text**, and **extended smoke** (Negamon rewards, economy, billing) when those paths matter for the pilot.
+Phase 1 is code-ready for a production beta foundation. Hosting and primary domain are in place; **core production smoke (auth, classroom, student code, live game + Socket)** is confirmed. Remaining risk is mostly **data durability (backup)** (Phase 2 drill), **billing live verification** (Stripe smoke / Omise live approval), **legal text**, and **extended smoke** (Negamon rewards, economy, billing) when those paths matter for the pilot. **Monitoring** (Sentry + UptimeRobot) is live (2026-05-07).
 
 ## Revenue / PLUS / pilot
 
@@ -242,7 +276,7 @@ Phase 1 is code-ready for a production beta foundation. Hosting and primary doma
 | Production DB backup + drill | Deferred to Phase 2 | Track in Phase 2 ops scope |
 | Domain and hosting | Done | See log |
 | Payment provider verification | Done (Stripe test, Omise test) + Stripe live wiring in flight | Checkout + webhook 2xx verified on production domain. Live keys + Products on Render; live 290 THB smoke deferred. |
-| Monitoring | Done (Sentry); uptime open | Sentry verified 2026-05-07 (`teachplayedu.sentry.io`, env-gated diag endpoint, PII scrubber). UptimeRobot/health ping not yet configured. |
+| Monitoring | Done (Sentry + UptimeRobot) | Sentry verified 2026-05-07 (`teachplayedu.sentry.io`, env-gated diag endpoint, PII scrubber). UptimeRobot 2 monitors (`/api/health`, `/api/ready`) every 5m + email alert on 2 consecutive failures (2026-05-07). |
 
 ## External actions (checklist)
 
@@ -256,7 +290,7 @@ Phase 1 is code-ready for a production beta foundation. Hosting and primary doma
 4. Confirm **production env** complete (secrets not documented here).
 5. ~~Run **`npm run db:ensure-indexes`** on production~~ — **Done** (2026-05-02); optional: confirm index names in Atlas UI.
 6. ~~**Payment:** sandbox/live + webhooks~~ — **Done (Stripe test, 2026-05-06)** — [`phase-1-payment-readiness.md`](./phase-1-payment-readiness.md).
-7. **Monitoring:** errors + uptime.
+7. ~~**Monitoring:** errors + uptime~~ — **Done** (Sentry + UptimeRobot, 2026-05-07).
 8. **Legal:** replace starter Terms/Privacy after review.
 9. **Production smoke** (manual):
    - ~~`/api/health`, `/api/ready`~~ — **Done** (automated + 2026-05-02).

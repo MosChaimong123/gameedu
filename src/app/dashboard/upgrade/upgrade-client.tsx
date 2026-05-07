@@ -50,7 +50,35 @@ export function UpgradePageClient({
     const [thaiLoading, setThaiLoading] = useState(false);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const [thaiFailureCount, setThaiFailureCount] = useState(0);
+    const [reconcileOutcome, setReconcileOutcome] = useState<string | null>(null);
+    const [reconcilePolling, setReconcilePolling] = useState(false);
+    const [reconcileTick, setReconcileTick] = useState(0);
 
+    type ReconcileResponse = {
+        ok: boolean;
+        outcome?: string;
+        chargeStatus?: string | null;
+        chargePaid?: boolean | null;
+    };
+
+    async function runReconcileOnce(): Promise<ReconcileResponse | null> {
+        try {
+            const res = await fetch("/api/billing/omise/reconcile", {
+                method: "POST",
+                credentials: "same-origin",
+            });
+            const json = (await res.json().catch(() => ({}))) as ReconcileResponse;
+            return json;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * After returning from Omise PromptPay the charge can stay `pending` for a
+     * few seconds until the user finishes scanning. Poll reconcile up to
+     * ~30 seconds; stop early on any final outcome.
+     */
     useEffect(() => {
         const checkout = searchParams.get("checkout");
         if (status !== "authenticated") return;
@@ -60,18 +88,77 @@ export function UpgradePageClient({
             return;
         }
 
-        if (checkout === "omise_return") {
-            void (async () => {
-                await fetch("/api/billing/omise/reconcile", {
-                    method: "POST",
-                    credentials: "same-origin",
-                });
-                await update();
-            })();
-        }
-    }, [searchParams, status, update]);
+        if (checkout !== "omise_return") return;
+
+        let cancelled = false;
+        setReconcilePolling(true);
+        setReconcileOutcome(null);
+        const POLLS = 10;
+        const DELAY_MS = 3000;
+
+        void (async () => {
+            for (let i = 0; i < POLLS; i++) {
+                if (cancelled) return;
+                const json = await runReconcileOnce();
+                if (cancelled) return;
+                const outcome = json?.outcome ?? (json?.ok === false ? "error" : null);
+                if (outcome) setReconcileOutcome(outcome);
+                if (outcome && outcome !== "skipped_not_paid") {
+                    if (outcome === "applied" || outcome === "duplicate") {
+                        await update();
+                    }
+                    setReconcilePolling(false);
+                    return;
+                }
+                await new Promise((r) => setTimeout(r, DELAY_MS));
+            }
+            if (!cancelled) setReconcilePolling(false);
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [searchParams, status, update, reconcileTick]);
 
     const checkoutFlag = searchParams.get("checkout");
+
+    function buildOmiseReturnBanner() {
+        const base = t("upgradeOmiseReturnHint");
+        if (reconcileOutcome === "applied") {
+            return {
+                tone: "emerald" as const,
+                message: `${base} (status: applied — PLUS activated)`,
+            };
+        }
+        if (reconcileOutcome === "duplicate") {
+            return {
+                tone: "emerald" as const,
+                message: `${base} (status: already applied)`,
+            };
+        }
+        if (reconcileOutcome === "skipped_not_paid" || reconcilePolling) {
+            return {
+                tone: "amber" as const,
+                message: reconcilePolling
+                    ? `${base} (waiting for PromptPay confirmation…)`
+                    : `${base} (charge is still pending — tap Recheck below)`,
+            };
+        }
+        if (reconcileOutcome === "no_pending_charge") {
+            return {
+                tone: "amber" as const,
+                message: `${base} (no pending charge found)`,
+            };
+        }
+        if (reconcileOutcome === "error") {
+            return {
+                tone: "amber" as const,
+                message: `${base} (could not retrieve charge — Recheck)`,
+            };
+        }
+        return { tone: "emerald" as const, message: base };
+    }
+
     const statusBanner =
         checkoutFlag === "success"
             ? { tone: "emerald" as const, message: t("upgradeCheckoutSuccessHint") }
@@ -80,7 +167,7 @@ export function UpgradePageClient({
               : checkoutFlag === "thai_mock"
                 ? { tone: "sky" as const, message: t("upgradeThaiMockRedirectNotice") }
                 : checkoutFlag === "omise_return"
-                  ? { tone: "emerald" as const, message: t("upgradeOmiseReturnHint") }
+                  ? buildOmiseReturnBanner()
                   : null;
 
     async function startPlusCheckout() {
@@ -218,7 +305,20 @@ export function UpgradePageClient({
                                       : "border-amber-200 bg-amber-50 text-amber-950"
                             )}
                         >
-                            {statusBanner.message}
+                            <div>{statusBanner.message}</div>
+                            {checkoutFlag === "omise_return" &&
+                            (reconcileOutcome === "skipped_not_paid" ||
+                                reconcileOutcome === "error" ||
+                                reconcileOutcome === "no_pending_charge") &&
+                            !reconcilePolling ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setReconcileTick((n) => n + 1)}
+                                    className="mt-2 inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-amber-900 shadow-sm hover:bg-amber-100"
+                                >
+                                    Recheck Omise charge
+                                </button>
+                            ) : null}
                         </div>
                     ) : null}
                     {checkoutError ? (

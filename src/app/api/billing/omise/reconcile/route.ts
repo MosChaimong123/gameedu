@@ -17,6 +17,10 @@ function jsonWithClearedChargeCookie(body: unknown, status = 200) {
   return res;
 }
 
+function jsonKeepingChargeCookie(body: unknown, status = 200) {
+  return NextResponse.json(body, { status });
+}
+
 /**
  * Called when the user lands on `/dashboard/upgrade?checkout=omise_return`.
  * Applies PLUS if the pending Omise charge is paid (covers local dev without a public webhook).
@@ -60,7 +64,8 @@ export async function POST() {
 
     const retrieved = await omiseRetrieveCharge(secret, chargeId);
     if (!retrieved.ok) {
-      return jsonWithClearedChargeCookie(
+      // Keep cookie so the user can retry from the UI without losing the charge id.
+      return jsonKeepingChargeCookie(
         { ok: false, error: retrieved.message },
         502
       );
@@ -85,10 +90,21 @@ export async function POST() {
       const outcome = await applyPlusFromPaidOmiseCharge(retrieved.charge, {
         source: "reconcile",
       });
-      return jsonWithClearedChargeCookie({ ok: true, outcome });
+      // Keep the cookie when the PromptPay charge is still pending so the
+      // browser can poll/retry. Clear it on any final outcome.
+      const stillPending = outcome === "skipped_not_paid";
+      const body = {
+        ok: true,
+        outcome,
+        chargeStatus: retrieved.charge.status ?? null,
+        chargePaid: retrieved.charge.paid ?? null,
+      };
+      return stillPending
+        ? jsonKeepingChargeCookie(body)
+        : jsonWithClearedChargeCookie(body);
     } catch (e) {
       console.error("[billing/omise/reconcile] apply", e);
-      return jsonWithClearedChargeCookie(
+      return jsonKeepingChargeCookie(
         {
           ok: false,
           ...createAppError("BILLING_PROCESSING_FAILED", "Processing failed"),

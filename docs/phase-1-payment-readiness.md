@@ -84,6 +84,27 @@ Render server logs also tag Omise failures with `[omise]` and
 `[billing/thai/start]` plus the Omise `code`/`location`/`message`, so
 "button does nothing" can usually be diagnosed from a single log line.
 
+### Test-mode "Pay now" Shortcut
+
+Omise PromptPay charges in **test mode** stay `pending` forever — Omise
+never fires `charge.complete` until somebody flips the charge in their
+dashboard. To avoid that round trip during QA we added an in-app shortcut:
+
+- Click PromptPay on `/dashboard/upgrade` and return.
+- Wait for the polled return banner to say the charge is still pending
+  *and* mention test mode (the panel detects the `skey_test_` prefix).
+- Click **"จ่ายเลย (test mode)"** — it POSTs to
+  `/api/billing/omise/mark-as-paid`, which calls Omise's test endpoint
+  `POST /charges/<id>/mark_as_paid`, then immediately reconciles and
+  applies PLUS. The polling loop continues so the banner flips green
+  within a couple of seconds.
+- Refuses outside test mode and verifies the charge belongs to the
+  signed-in teacher/admin via the `ge_omise_charge` cookie metadata.
+
+For **live mode** there is no shortcut — the user scans the PromptPay QR
+in their banking app, Omise emits `charge.complete`, and PLUS activates
+through either the webhook or the same poll loop.
+
 ## Static Findings
 
 - Stripe webhook verifies signature and claims event idempotency.

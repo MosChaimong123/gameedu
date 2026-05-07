@@ -53,6 +53,8 @@ export function UpgradePageClient({
     const [reconcileOutcome, setReconcileOutcome] = useState<string | null>(null);
     const [reconcilePolling, setReconcilePolling] = useState(false);
     const [reconcileTick, setReconcileTick] = useState(0);
+    const [markPaidLoading, setMarkPaidLoading] = useState(false);
+    const [markPaidError, setMarkPaidError] = useState<string | null>(null);
 
     type ReconcileResponse = {
         ok: boolean;
@@ -81,6 +83,40 @@ export function UpgradePageClient({
             return json;
         } catch {
             return null;
+        }
+    }
+
+    /** Test-mode helper: ask Omise to mark the pending charge paid, then poll. */
+    async function markChargeAsPaidTestMode() {
+        setMarkPaidError(null);
+        setMarkPaidLoading(true);
+        try {
+            const res = await fetch("/api/billing/omise/mark-as-paid", {
+                method: "POST",
+                credentials: "same-origin",
+            });
+            const json = (await res.json().catch(() => ({}))) as {
+                ok?: boolean;
+                outcome?: string;
+                error?: string;
+            };
+            if (!res.ok || json.ok === false) {
+                setMarkPaidError(
+                    json.error || `mark-as-paid failed (HTTP ${res.status})`,
+                );
+                setReconcileTick((n) => n + 1);
+                return;
+            }
+            if (json.outcome === "applied" || json.outcome === "duplicate") {
+                await update();
+            }
+            setReconcileTick((n) => n + 1);
+        } catch (e) {
+            setMarkPaidError(
+                e instanceof Error ? e.message : "Network error during mark-as-paid",
+            );
+        } finally {
+            setMarkPaidLoading(false);
         }
     }
 
@@ -346,26 +382,44 @@ export function UpgradePageClient({
                                         Omise อยู่ในโหมดทดสอบ (test mode)
                                     </div>
                                     <div className="mt-1 font-medium">
-                                        ใน test mode PromptPay จะไม่ถูกชำระอัตโนมัติ — ต้องเปิด Omise
-                                        Dashboard แล้วกด <span className="font-black">&quot;Mark as paid&quot;</span> เอง
-                                        จากนั้นกลับมากด Recheck
+                                        ใน test mode PromptPay ไม่มีการจ่ายจริง —
+                                        กดปุ่มด้านล่างเพื่อให้ Omise mark charge นี้เป็น
+                                        &quot;paid&quot; ทันที (เทียบเท่าการกด Mark as paid ใน
+                                        Omise dashboard)
                                     </div>
-                                    {reconcileDetails.omiseDashboardUrl ? (
-                                        <div className="mt-2 break-all">
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                        <button
+                                            type="button"
+                                            disabled={markPaidLoading}
+                                            onClick={() => void markChargeAsPaidTestMode()}
+                                            className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-black text-white shadow-sm hover:bg-amber-700 disabled:opacity-60"
+                                        >
+                                            {markPaidLoading
+                                                ? "กำลังจ่าย…"
+                                                : "จ่ายเลย (test mode)"}
+                                        </button>
+                                        {reconcileDetails.omiseDashboardUrl ? (
                                             <a
                                                 href={reconcileDetails.omiseDashboardUrl}
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                className="font-black text-amber-900 underline"
+                                                className="font-bold text-amber-900 underline"
                                             >
-                                                เปิด charge นี้ใน Omise Dashboard →
+                                                หรือเปิดใน Omise Dashboard →
                                             </a>
-                                            <div className="mt-1 font-mono text-[11px] text-amber-900/80">
-                                                {reconcileDetails.chargeId}
-                                                {reconcileDetails.chargeStatus
-                                                    ? ` • status: ${reconcileDetails.chargeStatus}`
-                                                    : ""}
-                                            </div>
+                                        ) : null}
+                                    </div>
+                                    {reconcileDetails.chargeId ? (
+                                        <div className="mt-2 break-all font-mono text-[11px] text-amber-900/80">
+                                            {reconcileDetails.chargeId}
+                                            {reconcileDetails.chargeStatus
+                                                ? ` • status: ${reconcileDetails.chargeStatus}`
+                                                : ""}
+                                        </div>
+                                    ) : null}
+                                    {markPaidError ? (
+                                        <div className="mt-2 rounded-lg bg-red-50 px-2 py-1 text-[11px] font-bold text-red-900">
+                                            {markPaidError}
                                         </div>
                                     ) : null}
                                 </div>

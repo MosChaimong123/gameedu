@@ -122,3 +122,54 @@ export async function omiseRetrieveCharge(
 
   return { ok: true, charge: json as OmiseChargeJson };
 }
+
+/**
+ * Test-mode only. Asks Omise to mark a `pending` charge as paid; only works
+ * when the secret key is `skey_test_...` and the account permits it.
+ * Used by the upgrade UI's one-click "simulate payment" button so testers
+ * don't need to leave the app to flip a charge in the Omise dashboard.
+ */
+export async function omiseMarkChargeAsPaid(
+  secretKey: string,
+  chargeId: string
+): Promise<{ ok: true; charge: OmiseChargeJson } | { ok: false; message: string; httpStatus: number }> {
+  if (!secretKey.startsWith("skey_test_")) {
+    return {
+      ok: false,
+      message: "Mark-as-paid is only available in Omise test mode.",
+      httpStatus: 400,
+    };
+  }
+  const res = await fetch(
+    `${OMISE_API}/charges/${encodeURIComponent(chargeId)}/mark_as_paid`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: basicAuth(secretKey),
+        "Content-Length": "0",
+      },
+      cache: "no-store",
+    }
+  );
+
+  const jsonUnknown = await res.json().catch(() => null);
+  const json = jsonUnknown as OmiseChargeJson | OmiseErrorJson | null;
+
+  if (!res.ok || !json || json.object === "error") {
+    const err = json?.object === "error" ? (json as OmiseErrorJson) : null;
+    console.error("[omise] mark_as_paid failed", {
+      httpStatus: res.status,
+      omiseCode: err?.code ?? null,
+      omiseLocation: err?.location ?? null,
+      omiseMessage: err?.message ?? null,
+      chargeId,
+    });
+    return {
+      ok: false,
+      message: err?.message ?? err?.code ?? `Omise mark_as_paid failed (HTTP ${res.status})`,
+      httpStatus: res.status,
+    };
+  }
+
+  return { ok: true, charge: json as OmiseChargeJson };
+}

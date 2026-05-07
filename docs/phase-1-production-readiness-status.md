@@ -2,7 +2,7 @@
 
 Single place to see **what is done vs still open** for Phase 1 (from `docs/commercial-production-roadmap.md`).
 
-Last updated: 2026-05-05
+Last updated: 2026-05-07
 
 ---
 
@@ -48,7 +48,7 @@ Last updated: 2026-05-05
 | หัวข้อ | รายละเอียด |
 | --- | --- |
 | MongoDB Atlas (Phase 2) | ย้าย **backup + restore drill** ไป Phase 2; ใน Phase 1 คงยืนยัน **`DATABASE_URL`** / network access |
-| ชำระเงิน | **Done (Stripe test):** ทดสอบชำระเงินสำเร็จ + webhook ทำงานบนโดเมนจริง (ดู log) — [`phase-1-payment-readiness.md`](./phase-1-payment-readiness.md) |
+| ชำระเงิน | **Done (Stripe test, Omise test):** ทั้งสอง provider verify บนโดเมนจริงแล้ว — Stripe test (2026-05-06), Omise test end-to-end + UX hardening (2026-05-07). **Omise live mode KYC อยู่ระหว่าง review** (ยื่นใบสมัคร 2026-05-07; Omise ปกติใช้ 1–3 วันทำการ + อาจขอ DBD/สมุดบัญชีเพิ่ม). |
 | Monitoring | Sentry, uptime ฯลฯ |
 | กฎหมาย | ทนายตรวจ Terms / Privacy |
 | Smoke production (ส่วนขยาย) | ถ้าเปิดใช้: Negamon rewards, economy, billing — ทดสอบมือตาม [รายการท้ายเอกสาร](#external-actions-checklist) |
@@ -136,6 +136,9 @@ npm run db:ensure-indexes
 | 2026-05-05 | **Scope decision:** moved Atlas backup/restore drill to **Phase 2**; today focus is **Payment verification** completion. |
 | 2026-05-05 | **Payment return URL hardening (in repo):** Thai billing start route now uses public app origin env for Omise return URL (prevents `0.0.0.0:10000` browser redirect). |
 | 2026-05-06 (confirmed) | **Payment verification (Stripe test):** checkout success + webhook delivery 2xx observed; test subscription/payment appears in Stripe dashboard. |
+| 2026-05-07 (confirmed) | **Omise test-mode end-to-end verified** on production domain: PromptPay charge → webhook `charge.complete` 200 → PLUS applied; in-app one-click "จ่ายเลย (test mode)" via `POST /charges/<id>/mark_as_paid`. |
+| 2026-05-07 (in repo) | **Omise UX hardening (6 commits):** diagnostic endpoint + UI panel, reconcile poll loop + Recheck, test-mode dashboard link, mark-as-paid shortcut, Mobile Banking deep links (SCB/KBank/BAY/BBL/KTB), test-mode dashboard URL fix. |
+| 2026-05-07 (in flight) | **Omise live mode KYC submitted** at `dashboard.omise.co/v2/registrations` (Education Services / Online subscription, 290 THB/charge avg, website channel only). Omise team is reviewing; need to follow up with DBD e-commerce certificate + bank book scan when requested. |
 
 **Agents:** if an item appears here, treat it as **done (นอก repo)** unless the user reports a regression.
 

@@ -16,6 +16,16 @@ import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 const bodySchema = z.object({
   interval: z.enum(["month", "year"]).default("month"),
+  paymentMethod: z
+    .enum([
+      "promptpay",
+      "mobile_banking_scb",
+      "mobile_banking_kbank",
+      "mobile_banking_bay",
+      "mobile_banking_bbl",
+      "mobile_banking_ktb",
+    ])
+    .default("promptpay"),
 });
 
 export async function POST(req: Request) {
@@ -60,6 +70,7 @@ export async function POST(req: Request) {
     }
 
     const interval = parsed.data.interval;
+    const paymentMethod = parsed.data.paymentMethod;
 
     const dbUser = await db.user.findUnique({
       where: { id: userId },
@@ -81,13 +92,19 @@ export async function POST(req: Request) {
     // Use public env URL for checkout return links.
     // Request URL can be internal host on some platforms (e.g. 0.0.0.0:PORT).
     const appOrigin = resolvePublicAppOrigin();
-    const result = await adapter.startPlusPurchase({ userId, interval, appOrigin });
+    const result = await adapter.startPlusPurchase({
+      userId,
+      interval,
+      appOrigin,
+      paymentMethod,
+    });
 
     if (!result.ok) {
       console.error("[billing/thai/start] adapter rejected", {
         provider: adapter.id,
         userId,
         interval,
+        paymentMethod,
         appOrigin,
         message: result.message,
       });

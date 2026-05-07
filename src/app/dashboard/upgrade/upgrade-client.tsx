@@ -18,6 +18,7 @@ import {
     tryLocalizeFetchNetworkFailureMessage,
 } from "@/lib/ui-error-messages";
 import { OmiseStatusPanel } from "./omise-status-panel";
+import { ThaiPaymentMethodPicker } from "./thai-payment-method-picker";
 
 function formatPlusDisplayAmount(n: number): string {
     if (Number.isInteger(n) || Math.abs(n - Math.round(n)) < 0.001) {
@@ -50,6 +51,14 @@ export function UpgradePageClient({
     const [thaiLoading, setThaiLoading] = useState(false);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const [thaiFailureCount, setThaiFailureCount] = useState(0);
+    const [thaiPaymentMethod, setThaiPaymentMethod] = useState<
+        | "promptpay"
+        | "mobile_banking_scb"
+        | "mobile_banking_kbank"
+        | "mobile_banking_bay"
+        | "mobile_banking_bbl"
+        | "mobile_banking_ktb"
+    >("promptpay");
     const [reconcileOutcome, setReconcileOutcome] = useState<string | null>(null);
     const [reconcilePolling, setReconcilePolling] = useState(false);
     const [reconcileTick, setReconcileTick] = useState(0);
@@ -269,7 +278,10 @@ export function UpgradePageClient({
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "same-origin",
-                body: JSON.stringify({ interval: billingInterval }),
+                body: JSON.stringify({
+                    interval: billingInterval,
+                    paymentMethod: thaiPaymentMethod,
+                }),
             });
             if (!res.ok) {
                 setCheckoutError(
@@ -572,6 +584,13 @@ export function UpgradePageClient({
                                                 </Button>
                                             ) : null}
                                             {thaiBillingEnabled ? (
+                                                <ThaiPaymentMethodPicker
+                                                    value={thaiPaymentMethod}
+                                                    onChange={setThaiPaymentMethod}
+                                                    disabled={thaiLoading}
+                                                />
+                                            ) : null}
+                                            {thaiBillingEnabled ? (
                                                 <Button
                                                     type="button"
                                                     variant="outline"
@@ -579,7 +598,11 @@ export function UpgradePageClient({
                                                     onClick={() => void startThaiChannelCheckout()}
                                                     className="h-14 w-full rounded-2xl border-2 border-indigo-200 bg-white text-base font-black text-indigo-900 hover:bg-indigo-50"
                                                 >
-                                                    {thaiLoading ? t("upgradeCheckoutWorking") : t("upgradePayThaiChannel")}
+                                                    {thaiLoading
+                                                        ? t("upgradeCheckoutWorking")
+                                                        : thaiPaymentMethod === "promptpay"
+                                                          ? t("upgradePayThaiChannel")
+                                                          : "ไปที่แอปธนาคาร"}
                                                 </Button>
                                             ) : null}
                                             {thaiBillingEnabled ? (

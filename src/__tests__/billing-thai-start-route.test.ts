@@ -28,19 +28,19 @@ vi.mock("@/lib/billing/resolve-public-url", () => ({
 describe("billing thai start route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
+    mockAuth.mockResolvedValue({ user: { id: "user-1", role: "TEACHER" } });
+    mockFindUnique.mockResolvedValue({ plan: "FREE" });
+    mockResolvePublicAppOrigin.mockReturnValue("https://www.teachplayedu.com");
   });
 
-  it("uses public app origin for Omise return URL", async () => {
+  it("defaults to PromptPay and uses the public app origin for the return URL", async () => {
     const startPlusPurchase = vi.fn().mockResolvedValue({
       ok: true,
       redirectUrl: "https://pay.omise.co/abc",
       pendingChargeId: "chrg_test_123",
     });
-
-    mockAuth.mockResolvedValue({ user: { id: "user-1", role: "TEACHER" } });
-    mockFindUnique.mockResolvedValue({ plan: "FREE" });
     mockResolveThaiBillingAdapter.mockReturnValue({ startPlusPurchase });
-    mockResolvePublicAppOrigin.mockReturnValue("https://www.teachplayedu.com");
 
     const { POST } = await import("@/app/api/billing/thai/start/route");
     const response = await POST(
@@ -59,7 +59,57 @@ describe("billing thai start route", () => {
       userId: "user-1",
       interval: "month",
       appOrigin: "https://www.teachplayedu.com",
+      paymentMethod: "promptpay",
     });
+  });
+
+  it("forwards a mobile-banking paymentMethod choice to the adapter", async () => {
+    const startPlusPurchase = vi.fn().mockResolvedValue({
+      ok: true,
+      redirectUrl: "https://pay.omise.co/scb",
+      pendingChargeId: "chrg_test_scb",
+    });
+    mockResolveThaiBillingAdapter.mockReturnValue({ startPlusPurchase });
+
+    const { POST } = await import("@/app/api/billing/thai/start/route");
+    const response = await POST(
+      new Request("http://0.0.0.0:10000/api/billing/thai/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          interval: "year",
+          paymentMethod: "mobile_banking_scb",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(startPlusPurchase).toHaveBeenCalledWith({
+      userId: "user-1",
+      interval: "year",
+      appOrigin: "https://www.teachplayedu.com",
+      paymentMethod: "mobile_banking_scb",
+    });
+  });
+
+  it("rejects unknown paymentMethod values with 400", async () => {
+    const startPlusPurchase = vi.fn();
+    mockResolveThaiBillingAdapter.mockReturnValue({ startPlusPurchase });
+
+    const { POST } = await import("@/app/api/billing/thai/start/route");
+    const response = await POST(
+      new Request("http://0.0.0.0:10000/api/billing/thai/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          interval: "month",
+          paymentMethod: "mobile_banking_truemoney",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(startPlusPurchase).not.toHaveBeenCalled();
   });
 });
 

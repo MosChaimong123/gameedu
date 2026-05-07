@@ -30,16 +30,34 @@ export type OmiseErrorJson = {
   message?: string;
 };
 
-export async function omiseCreatePromptPayCharge(params: {
+/**
+ * Omise authorize-uri payment sources we currently support. All of these
+ * return a redirect/deep link in `charge.authorize_uri` and emit the same
+ * `charge.complete` webhook flow as PromptPay, so the rest of the billing
+ * pipeline does not need to know which one the user picked.
+ *
+ * Mobile banking sources require enabling the matching channel in the
+ * Omise dashboard (Settings → Payment methods).
+ */
+export type OmiseAuthorizeUriSource =
+  | "promptpay"
+  | "mobile_banking_scb"
+  | "mobile_banking_kbank"
+  | "mobile_banking_bay"
+  | "mobile_banking_bbl"
+  | "mobile_banking_ktb";
+
+export async function omiseCreateAuthorizeUriCharge(params: {
   secretKey: string;
   amountSatang: number;
+  sourceType: OmiseAuthorizeUriSource;
   metadata: Record<string, string>;
   returnUri: string;
 }): Promise<
   | { ok: true; authorizeUri: string; chargeId: string }
   | { ok: false; message: string }
 > {
-  const { secretKey, amountSatang, metadata, returnUri } = params;
+  const { secretKey, amountSatang, sourceType, metadata, returnUri } = params;
 
   if (amountSatang < 2000) {
     return { ok: false, message: BILLING_OMISE_MINIMUM_AMOUNT };
@@ -48,7 +66,7 @@ export async function omiseCreatePromptPayCharge(params: {
   const body = new URLSearchParams();
   body.set("amount", String(amountSatang));
   body.set("currency", "THB");
-  body.set("source[type]", "promptpay");
+  body.set("source[type]", sourceType);
   body.set("return_uri", returnUri);
   for (const [k, v] of Object.entries(metadata)) {
     body.set(`metadata[${k}]`, v);
@@ -73,6 +91,7 @@ export async function omiseCreatePromptPayCharge(params: {
       omiseCode: err?.code ?? null,
       omiseLocation: err?.location ?? null,
       omiseMessage: err?.message ?? null,
+      sourceType,
       amountSatang,
       mode: secretKey.startsWith("skey_test_") ? "test" : "live",
     });
@@ -88,6 +107,7 @@ export async function omiseCreatePromptPayCharge(params: {
       chargeId: charge.id ?? null,
       hasAuthorizeUri: Boolean(authorizeUri),
       status: charge.status ?? null,
+      sourceType,
     });
     return {
       ok: false,
@@ -96,6 +116,16 @@ export async function omiseCreatePromptPayCharge(params: {
   }
 
   return { ok: true, authorizeUri, chargeId };
+}
+
+/** @deprecated Use `omiseCreateAuthorizeUriCharge` with sourceType "promptpay". */
+export function omiseCreatePromptPayCharge(params: {
+  secretKey: string;
+  amountSatang: number;
+  metadata: Record<string, string>;
+  returnUri: string;
+}) {
+  return omiseCreateAuthorizeUriCharge({ ...params, sourceType: "promptpay" });
 }
 
 export async function omiseRetrieveCharge(

@@ -4,8 +4,14 @@
  * setting `SENTRY_DIAG_ENABLED=true` on Render and call as an
  * authenticated TEACHER / ADMIN user.
  *
- * URL: POST `/api/admin/diag/sentry-test` — uses `diag` (not `_diag`)
- * because Next.js omits `_`-prefixed folders from the route path.
+ * URL: GET / POST `/api/admin/diag/sentry-test` — uses `diag`
+ * (not `_diag`) because Next.js omits `_`-prefixed folders from the
+ * route path. GET is supported so an admin can verify Sentry transport
+ * by simply visiting the URL in a browser (cookies authenticate the
+ * session automatically); POST exists for scripted runs.
+ *
+ * Use `?mode=throw` to make the route 500 instead of returning JSON,
+ * exercising the `onRequestError` instrumentation hook.
  *
  * The route never returns information about Sentry secrets and
  * always responds with a synthetic error so the caller can verify
@@ -28,7 +34,7 @@ export const dynamic = "force-dynamic";
 
 const DIAG_TAG = "sentry-diag";
 
-export async function POST(req: Request) {
+async function runDiag(req: Request): Promise<Response> {
   if (process.env.SENTRY_DIAG_ENABLED !== "true") {
     return createAppErrorResponse(
       "ENDPOINT_NO_LONGER_AVAILABLE",
@@ -59,7 +65,7 @@ export async function POST(req: Request) {
       mode = "thrown";
     }
   } catch {
-    /* ignore — body is optional */
+    /* ignore — query parsing is optional */
   }
 
   const probeError = new Error(
@@ -68,7 +74,7 @@ export async function POST(req: Request) {
   probeError.name = "SentryDiagnosticError";
 
   if (mode === "thrown") {
-    // Returns 500 so onRequestError instrumentation captures it.
+    // Throws so onRequestError instrumentation captures + 500 is observable.
     throw probeError;
   }
 
@@ -89,4 +95,12 @@ export async function POST(req: Request) {
     expectedNextStep:
       "Open https://teachplayedu.sentry.io/issues/ and search for the correlation tag (above) to confirm transport.",
   });
+}
+
+export async function GET(req: Request): Promise<Response> {
+  return runDiag(req);
+}
+
+export async function POST(req: Request): Promise<Response> {
+  return runDiag(req);
 }

@@ -5,3 +5,8 @@
 export function isTeacherOrAdmin(role?: string | null) {
     return role === "TEACHER" || role === "ADMIN" || role === "USER";
 }
+
+/** Platform operator — full gamification / Negamon classroom controls, etc. */
+export function isPlatformAdmin(role?: string | null) {
+    return role === "ADMIN";
+}

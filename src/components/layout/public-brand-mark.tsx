@@ -1,63 +1,81 @@
-import Link from "next/link"
-import { Gamepad2 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+import { siteMetadata } from "../../../content/public-pages";
+import { BrandLogo, type BrandLogoSize } from "./brand-logo";
 
 type PublicBrandMarkProps = {
-    /** `default`: gradient mark on light bg. `onDark`: for gradient/hero panels (white text). */
-    variant?: "default" | "onDark"
-    href?: string
-    className?: string
-    size?: "sm" | "md" | "lg"
-}
-
-const sizeConfig = {
-    sm: { box: "h-8 w-8", icon: "h-4 w-4", text: "text-lg" },
-    md: { box: "h-9 w-9", icon: "h-5 w-5", text: "text-xl" },
-    lg: { box: "h-11 w-11", icon: "h-6 w-6", text: "text-2xl" },
-} as const
+    /** Kept for API compatibility; logo reads equally on light or dark panels. */
+    variant?: "default" | "onDark";
+    href?: string;
+    className?: string;
+    /** Center the mark horizontally (hero panels). */
+    centered?: boolean;
+    /** Extra classes on the image (e.g. drop-shadow). */
+    logoClassName?: string;
+    /** Show site name beside the logo (light nav: navy; onDark: white). */
+    showTitle?: boolean;
+    /** Override label; defaults to `siteMetadata.title`. */
+    title?: string;
+    size?: BrandLogoSize;
+    /** Set on LCP pages (e.g. home). */
+    priority?: boolean;
+};
 
 export function PublicBrandMark({
     variant = "default",
     href,
     className,
+    centered = false,
+    logoClassName,
+    showTitle = false,
+    title,
     size = "md",
+    priority = false,
 }: PublicBrandMarkProps) {
-    const s = sizeConfig[size]
+    const label = title ?? siteMetadata.title;
+    const titleClassName = cn(
+        "min-w-0 truncate font-black tracking-tight leading-none",
+        variant === "onDark" ? "text-white" : "text-brand-navy",
+        size === "sm" && "text-sm",
+        size === "md" && "text-base sm:text-lg",
+        size === "lg" && "text-lg sm:text-xl",
+        size === "xl" && "text-xl sm:text-2xl",
+        size === "2xl" && "text-2xl sm:text-3xl",
+        size === "3xl" && "text-3xl sm:text-4xl"
+    );
+
     const inner = (
         <>
-            <div
+            <BrandLogo
+                size={size}
+                priority={priority}
                 className={cn(
-                    "flex shrink-0 items-center justify-center rounded-xl shadow-md",
-                    s.box,
-                    variant === "onDark"
-                        ? "bg-white/20 ring-1 ring-white/30"
-                        : "bg-gradient-to-br from-indigo-600 to-purple-600 shadow-indigo-200/50"
+                    centered && "object-center",
+                    showTitle && "shrink-0",
+                    logoClassName
                 )}
-            >
-                <Gamepad2 className={cn(s.icon, "text-white")} aria-hidden />
-            </div>
-            <span
-                className={cn(
-                    "font-black tracking-tighter",
-                    s.text,
-                    variant === "onDark"
-                        ? "text-white"
-                        : "bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent"
-                )}
-            >
-                GameEdu
-            </span>
+            />
+            {showTitle ? (
+                <span className={titleClassName}>{label}</span>
+            ) : (
+                <span className="sr-only">{siteMetadata.title}</span>
+            )}
         </>
-    )
+    );
 
-    const wrap = cn("inline-flex items-center gap-2.5", className)
+    const wrap = cn(
+        "inline-flex min-w-0 items-center",
+        showTitle && "gap-2 sm:gap-2.5",
+        centered && "w-full justify-center",
+        className
+    );
 
     if (href) {
         return (
             <Link href={href} className={wrap}>
                 {inner}
             </Link>
-        )
+        );
     }
-    return <div className={wrap}>{inner}</div>
+    return <div className={wrap}>{inner}</div>;
 }

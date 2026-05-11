@@ -16,7 +16,7 @@ export type RankEntry = {
 
 /** Helpers for custom classroom themes */
 export function getThemeBgClass(theme?: string | null): string {
-    if (!theme) return "from-indigo-500 to-purple-600";
+    if (!theme) return "from-brand-purple to-brand-sky";
     if (theme.startsWith("custom:")) return "";
     return theme;
 }
@@ -27,7 +27,7 @@ export function getThemeBgClass(theme?: string | null): string {
  * For `custom:…` themes, returns "" — use `getThemeBgStyle(theme)` on the same element.
  */
 export function getThemeHorizontalBgClass(theme?: string | null): string {
-    if (!theme) return "bg-gradient-to-r from-indigo-500 to-purple-600";
+    if (!theme) return "bg-gradient-to-r from-brand-purple to-brand-sky";
     if (theme.startsWith("custom:")) return "";
     return `bg-gradient-to-r ${theme}`;
 }
@@ -35,8 +35,8 @@ export function getThemeHorizontalBgClass(theme?: string | null): string {
 export function getThemeBgStyle(theme?: string | null): { backgroundImage?: string } {
     if (!theme || !theme.startsWith("custom:")) return {};
     const parts = theme.replace("custom:", "").split(",");
-    const color1 = parts[0] || "#6366f1";
-    const color2 = parts[1] || "#a855f7";
+    const color1 = parts[0] || "#f43f8a";
+    const color2 = parts[1] || "#22d3ee";
     return { backgroundImage: `linear-gradient(to right, ${color1}, ${color2})` };
 }
 
@@ -72,7 +72,7 @@ const THEME_HUE_TO_HEX: Record<string, string> = {
  */
 export function getThemeAccentColor(theme?: string | null): string {
     if (theme == null || theme === "") {
-        return "#1863dc";
+        return "#f43f8a";
     }
     const trimmed = theme.trim();
     if (trimmed.startsWith("custom:")) {
@@ -85,13 +85,13 @@ export function getThemeAccentColor(theme?: string | null): string {
         if (/^[0-9a-fA-F]{6}$/.test(first)) {
             return `#${first}`;
         }
-        return "#6366f1";
+        return "#f43f8a";
     }
     const m = trimmed.match(/from-([a-z]+)-/);
     if (m?.[1] && THEME_HUE_TO_HEX[m[1]]) {
         return THEME_HUE_TO_HEX[m[1]];
     }
-    return "#1863dc";
+    return "#f43f8a";
 }
 
 /** RGBA string from theme accent (for light fills). */
@@ -104,7 +104,7 @@ export function getThemeAccentRgba(theme: string | null | undefined, alpha: numb
             .join("");
     }
     if (hex.length !== 6 || Number.isNaN(parseInt(hex, 16))) {
-        return `rgba(24, 99, 220, ${alpha})`;
+        return `rgba(244, 63, 138, ${alpha})`;
     }
     const r = parseInt(hex.slice(0, 2), 16);
     const g = parseInt(hex.slice(2, 4), 16);
@@ -120,7 +120,7 @@ export function getClassroomTheme(theme?: string | null) {
 }
 
 export function getThemeTextClass(theme?: string | null): string {
-    if (!theme) return "from-indigo-500 to-purple-600";
+    if (!theme) return "from-brand-purple to-brand-sky";
     if (theme.startsWith("custom:")) return "";
     return theme;
 }

@@ -13,6 +13,7 @@ const mockUseUiState = vi.fn();
 const mockUseAttendanceFlow = vi.fn();
 const mockUsePointsFlow = vi.fn();
 const mockUseSelectionFlow = vi.fn();
+const mockUseSession = vi.fn();
 
 const toolbarPropsSpy = vi.fn();
 const attendanceBannerPropsSpy = vi.fn();
@@ -52,6 +53,10 @@ vi.mock("@/components/classroom/use-classroom-points-flow", () => ({
 
 vi.mock("@/components/classroom/use-classroom-selection-flow", () => ({
   useClassroomSelectionFlow: mockUseSelectionFlow,
+}));
+
+vi.mock("next-auth/react", () => ({
+  useSession: mockUseSession,
 }));
 
 vi.mock("@/components/classroom/classroom-dashboard-toolbar", () => ({
@@ -204,6 +209,11 @@ describe("classroom dashboard component", () => {
       awardPoints: vi.fn(),
       resetPoints: vi.fn(),
     });
+
+    mockUseSession.mockReturnValue({
+      data: { user: { role: "TEACHER" } },
+      status: "authenticated",
+    });
   });
 
   it(
@@ -223,11 +233,13 @@ describe("classroom dashboard component", () => {
     const toolbarProps = toolbarPropsSpy.mock.calls[0][0] as {
       viewMode: string;
       isConnected: boolean;
+      gamificationToolbarMode: string;
       onSelectViewMode: (mode: "grid" | "table" | "negamon") => void;
     };
 
     expect(toolbarProps.viewMode).toBe("grid");
     expect(toolbarProps.isConnected).toBe(true);
+    expect(toolbarProps.gamificationToolbarMode).toBe("comingSoon");
 
     toolbarProps.onSelectViewMode("table");
 

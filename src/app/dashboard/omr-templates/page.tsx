@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { OMRPrintableSheet } from "@/components/omr/omr-printable-sheet"
 import { useLanguage } from "@/components/providers/language-provider"
 import { isTeacherOrAdmin } from "@/lib/role-guards"
+import { isOmrDashboardEnabled } from "@/lib/omr-dashboard-enabled"
+import { Loader2 } from "lucide-react"
 
 type TemplateSize = "20" | "50" | "80"
 
@@ -23,6 +25,7 @@ export default function OMRTemplatesPage() {
     const { data: session, status } = useSession()
     const { t } = useLanguage()
     const [selectedSize, setSelectedSize] = useState<TemplateSize>("20")
+    const omrEnabled = isOmrDashboardEnabled()
 
     const templates: TemplateOption[] = useMemo(
         () => [
@@ -49,6 +52,12 @@ export default function OMRTemplatesPage() {
     )
 
     useEffect(() => {
+        if (!omrEnabled) {
+            router.replace("/dashboard")
+        }
+    }, [omrEnabled, router])
+
+    useEffect(() => {
         if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
             router.replace("/dashboard")
         }
@@ -68,6 +77,14 @@ export default function OMRTemplatesPage() {
 
     if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
         return null
+    }
+
+    if (!omrEnabled) {
+        return (
+            <div className="flex min-h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-cyan-600" />
+            </div>
+        )
     }
 
     return (
@@ -111,7 +128,7 @@ export default function OMRTemplatesPage() {
                             </button>
                         ))}
 
-                        <div className="relative mt-12 overflow-hidden rounded-[2.5rem] bg-purple-600 p-8 text-white shadow-xl shadow-purple-200">
+                        <div className="relative mt-12 overflow-hidden rounded-[2.5rem] bg-brand-purple p-8 text-white shadow-xl shadow-brand-purple/25">
                             <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
                             <h3 className="relative z-10 mb-3 text-xl font-black">{t("omrTemplatesProTipTitle")}</h3>
                             <p className="relative z-10 text-xs font-bold leading-relaxed opacity-90">

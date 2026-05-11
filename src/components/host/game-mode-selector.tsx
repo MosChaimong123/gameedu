@@ -55,8 +55,8 @@ const MODE_DEFS: GameModeBase[] = [
         imageSrc: "/assets/gold-quest-v2.png",
         playersKey: "hostModePlayers2to60",
         durationKey: "hostModeDurationGoldQuest",
-        color: "bg-gradient-to-br from-indigo-900/90 to-violet-950 border-amber-400/80",
-        previewAccent: "from-amber-500/30 to-indigo-900/80",
+        color: "bg-brand-pink border-brand-yellow/80",
+        previewAccent: "bg-brand-navy/55",
         active: true,
     },
     {
@@ -66,8 +66,8 @@ const MODE_DEFS: GameModeBase[] = [
         imageSrc: "/assets/crypto-hack-v2.png",
         playersKey: "hostModePlayers2to60",
         durationKey: "hostModeDurationCrypto",
-        color: "bg-gradient-to-br from-emerald-900/90 to-slate-950 border-emerald-400/70",
-        previewAccent: "from-emerald-500/25 to-slate-900/90",
+        color: "bg-emerald-900 border-emerald-400/70",
+        previewAccent: "bg-slate-950/60",
         active: true,
     },
     {
@@ -77,8 +77,8 @@ const MODE_DEFS: GameModeBase[] = [
         imageSrc: "/assets/tower-defense.png",
         playersKey: "hostModePlayers2to60",
         durationKey: "hostModeDurationNegamon",
-        color: "bg-gradient-to-br from-fuchsia-900/90 to-slate-950 border-fuchsia-400/70",
-        previewAccent: "from-fuchsia-500/30 to-violet-950/90",
+        color: "bg-fuchsia-900 border-fuchsia-400/70",
+        previewAccent: "bg-brand-navy/55",
         active: isNegamonBattleHostEnabled(),
     },
     {
@@ -88,8 +88,8 @@ const MODE_DEFS: GameModeBase[] = [
         imageSrc: "/assets/fishing-frenzy-v2.png",
         playersKey: "hostModePlayers2to60",
         durationKey: "hostModeDurationFishing",
-        color: "bg-gradient-to-br from-sky-900/90 to-indigo-950 border-sky-400/60",
-        previewAccent: "from-sky-500/20 to-indigo-950/90",
+        color: "bg-brand-sky border-brand-sky/55",
+        previewAccent: "bg-brand-navy/55",
         active: false,
     },
     {
@@ -99,8 +99,8 @@ const MODE_DEFS: GameModeBase[] = [
         imageSrc: "/assets/tower-defense.png",
         playersKey: "hostModePlayers1to60",
         durationKey: "hostModeDurationTower",
-        color: "bg-gradient-to-br from-violet-700/90 to-indigo-950 border-violet-300/50",
-        previewAccent: "from-violet-600/30 to-indigo-950/90",
+        color: "bg-brand-pink border-brand-pink/45",
+        previewAccent: "bg-brand-navy/55",
         active: false,
     },
     {
@@ -110,8 +110,8 @@ const MODE_DEFS: GameModeBase[] = [
         imageSrc: "/assets/cafe.png",
         playersKey: "hostModePlayers2to60",
         durationKey: "hostModeDurationCafe",
-        color: "bg-gradient-to-br from-rose-700/90 to-slate-950 border-rose-300/50",
-        previewAccent: "from-rose-500/25 to-slate-900/90",
+        color: "bg-rose-700 border-rose-300/50",
+        previewAccent: "bg-slate-950/60",
         active: false,
     },
     {
@@ -121,8 +121,8 @@ const MODE_DEFS: GameModeBase[] = [
         imageSrc: "/assets/factory.png",
         playersKey: "hostModePlayers2to60",
         durationKey: "hostModeDurationFactory",
-        color: "bg-gradient-to-br from-indigo-700/90 to-slate-950 border-indigo-300/50",
-        previewAccent: "from-indigo-500/30 to-slate-950/90",
+        color: "bg-brand-navy border-brand-sky/45",
+        previewAccent: "bg-slate-950/65",
         active: false,
     },
     {
@@ -132,8 +132,8 @@ const MODE_DEFS: GameModeBase[] = [
         imageSrc: "/assets/racing.png",
         playersKey: "hostModePlayers2to60",
         durationKey: "hostModeDurationRacing",
-        color: "bg-gradient-to-br from-orange-700/90 to-slate-950 border-orange-300/50",
-        previewAccent: "from-orange-500/25 to-slate-950/90",
+        color: "bg-orange-700 border-orange-300/50",
+        previewAccent: "bg-slate-950/60",
         active: false,
     },
 ]
@@ -178,17 +178,9 @@ export function GameModeSelector({ onSelect, onBack }: GameModeSelectorProps) {
     const selectedMode = modes.find((m) => m.id === selectedId) || modes[0]
 
     return (
-        <div className="min-h-[100dvh] w-full overflow-x-hidden bg-gradient-to-b from-slate-100 via-white to-indigo-50/70 font-sans lg:min-h-screen">
+        <div className="min-h-[100dvh] w-full overflow-x-hidden bg-brand-surface font-sans lg:min-h-screen">
             <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col lg:flex-row lg:items-stretch">
             <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-                <div
-                    className="pointer-events-none absolute inset-0 opacity-[0.35]"
-                    style={{
-                        backgroundImage: "radial-gradient(rgb(99 102 241 / 0.15) 1px, transparent 1px)",
-                        backgroundSize: "24px 24px",
-                    }}
-                />
-
                 <div className="relative z-10 flex h-full min-h-0 flex-col px-3 py-4 sm:px-5 sm:py-6 lg:px-6 lg:py-8">
                     <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center">
                         <PageBackLink
@@ -196,8 +188,8 @@ export function GameModeSelector({ onSelect, onBack }: GameModeSelectorProps) {
                             labelKey="navBackMySets"
                             className="shrink-0 self-start shadow-sm shadow-slate-200/50"
                         />
-                        <div className="min-w-0 flex-1 rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-4 text-center shadow-sm shadow-indigo-100/50 backdrop-blur-sm sm:py-5">
-                            <h1 className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-xl font-black tracking-tight text-transparent sm:text-2xl md:text-3xl">
+                        <div className="min-w-0 flex-1 rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-4 text-center shadow-sm shadow-brand-pink/10 backdrop-blur-sm sm:py-5">
+                            <h1 className="text-xl font-black tracking-tight text-brand-pink sm:text-2xl md:text-3xl">
                                 {t("hostSelectModeTitle")}
                             </h1>
                             <p className="mt-1 text-xs font-medium text-slate-500 sm:text-sm">
@@ -214,9 +206,9 @@ export function GameModeSelector({ onSelect, onBack }: GameModeSelectorProps) {
                                 onClick={() => setSelectedId(mode.id)}
                                 className={cn(
                                     "group relative aspect-[4/3] rounded-2xl text-left transition-all duration-200",
-                                    "border-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2",
+                                    "border-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/50 focus-visible:ring-offset-2",
                                     selectedId === mode.id
-                                        ? "z-10 scale-[1.02] border-indigo-500 shadow-lg shadow-indigo-200/60 ring-2 ring-indigo-200/80"
+                                        ? "z-10 scale-[1.02] border-brand-pink shadow-lg shadow-brand-pink/20 ring-2 ring-brand-yellow/40"
                                         : "border-transparent opacity-90 hover:z-10 hover:scale-[1.02] hover:opacity-100"
                                 )}
                             >
@@ -236,7 +228,7 @@ export function GameModeSelector({ onSelect, onBack }: GameModeSelectorProps) {
                                     </span>
                                     {!mode.active && (
                                         <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-slate-950/55 backdrop-blur-[1px]">
-                                            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/95 px-3 py-1.5 text-xs font-bold text-indigo-900 shadow-md">
+                                            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/95 px-3 py-1.5 text-xs font-bold text-brand-navy shadow-md">
                                                 <Lock className="h-3.5 w-3.5" />
                                                 {t("hostComingSoon")}
                                             </span>
@@ -249,25 +241,14 @@ export function GameModeSelector({ onSelect, onBack }: GameModeSelectorProps) {
                 </div>
             </div>
 
-            <aside className="flex w-full shrink-0 flex-col border-t border-slate-200/90 bg-white/95 shadow-[0_-8px_40px_-12px_rgba(79,70,229,0.15)] backdrop-blur-md lg:max-w-md lg:w-[min(100%,420px)] lg:border-l lg:border-t-0 lg:shadow-2xl xl:max-w-[min(420px,32vw)]">
+            <aside className="flex w-full shrink-0 flex-col border-t border-slate-200/90 bg-white/95 shadow-[0_-8px_40px_-12px_rgb(244_63_138_/_0.1)] backdrop-blur-md lg:max-w-md lg:w-[min(100%,420px)] lg:border-l lg:border-t-0 lg:shadow-2xl xl:max-w-[min(420px,32vw)]">
                 <div
                     className={cn(
                         "relative flex min-h-[13rem] flex-col items-center justify-center gap-3 overflow-hidden px-4 pt-6 sm:h-64 sm:px-6 sm:pt-8",
                         selectedMode.color.replace(/\/[0-9]+/g, "").replace(/border-[\w-]+/g, "")
                     )}
                 >
-                    <div
-                        className={cn("absolute inset-0 opacity-40", "bg-gradient-to-br", selectedMode.previewAccent)}
-                    />
-                    <div className="pointer-events-none absolute inset-0 opacity-30 mix-blend-soft-light">
-                        <div
-                            className="h-full w-full"
-                            style={{
-                                backgroundImage:
-                                    "radial-gradient(circle at 30% 20%, rgb(255 255 255 / 0.12), transparent 45%)",
-                            }}
-                        />
-                    </div>
+                    <div className={cn("absolute inset-0 opacity-40", selectedMode.previewAccent)} />
 
                     <div className="relative z-10 flex aspect-square w-32 max-w-[40vw] items-center justify-center overflow-hidden rounded-[2rem] bg-white/10 shadow-2xl ring-1 ring-white/25 backdrop-blur-md sm:w-48 sm:rounded-[2.5rem]">
                         {renderModeIcon(selectedMode.icon)}
@@ -296,7 +277,7 @@ export function GameModeSelector({ onSelect, onBack }: GameModeSelectorProps) {
                         className={cn(
                             "w-full rounded-2xl py-6 text-lg font-bold shadow-md transition-all sm:py-7 sm:text-xl md:py-8 md:text-2xl",
                             selectedMode.active
-                                ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-indigo-200/50 hover:from-indigo-700 hover:to-purple-700 active:translate-y-0.5"
+                                ? "bg-brand-pink text-white shadow-brand-pink/20 hover:opacity-95 active:translate-y-0.5"
                                 : "cursor-not-allowed bg-slate-200 text-slate-500 shadow-none"
                         )}
                         disabled={!selectedMode.active}

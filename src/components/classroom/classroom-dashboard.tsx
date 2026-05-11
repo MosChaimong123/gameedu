@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/dialog";
 import { Users } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
+import { useSession } from "next-auth/react";
+import { isPlatformAdmin } from "@/lib/role-guards";
 import { useToast } from "@/components/ui/use-toast";
 import { useSocket } from "@/components/providers/socket-provider";
 import useSound from "use-sound";
@@ -69,6 +71,7 @@ export function ClassroomDashboard({
     initialRewardGamePin = null,
 }: ClassroomDashboardProps) {
     const { t } = useLanguage();
+    const { data: session, status: sessionStatus } = useSession();
     const [selectedStudent, setSelectedStudent] = useState<ClassroomDashboardViewModel["students"][number] | null>(null);
     const { toast } = useToast();
     const { socket, isConnected } = useSocket();
@@ -237,6 +240,25 @@ export function ClassroomDashboard({
         setHistoryStudentId(initialHistoryStudentId);
     }, [initialHistoryStudentId, setHistoryStudentId]);
 
+    const gamificationToolbarMode =
+        sessionStatus === "loading"
+            ? "loading"
+            : isPlatformAdmin(session?.user?.role)
+              ? "live"
+              : "comingSoon";
+
+    useEffect(() => {
+        if (gamificationToolbarMode !== "live" && viewMode === "negamon") {
+            setViewMode("grid");
+        }
+    }, [gamificationToolbarMode, viewMode, setViewMode]);
+
+    useEffect(() => {
+        if (gamificationToolbarMode !== "live") {
+            setShowNegamonSettings(false);
+        }
+    }, [gamificationToolbarMode, setShowNegamonSettings]);
+
     return (
         <div className="flex flex-col h-full space-y-6 relative">
             {/* Toolbar */}
@@ -244,6 +266,7 @@ export function ClassroomDashboard({
                 <ClassroomDashboardToolbar
                     t={t}
                     classroom={classroom}
+                    gamificationToolbarMode={gamificationToolbarMode}
                     isConnected={isConnected}
                     viewMode={viewMode}
                     mobileToolbarOpen={mobileToolbarOpen}
@@ -513,7 +536,7 @@ export function ClassroomDashboard({
             />
 
             <NegamonSettingsDialog
-                open={showNegamonSettings}
+                open={showNegamonSettings && gamificationToolbarMode === "live"}
                 onOpenChange={setShowNegamonSettings}
                 classroomId={classroom.id}
                 students={classroom.students.map((s) => ({ id: s.id, name: s.name }))}

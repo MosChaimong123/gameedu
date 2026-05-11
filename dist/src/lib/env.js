@@ -43,7 +43,7 @@ const appEnvSchema = zod_1.z.object({
     OMISE_PLUS_YEARLY_SATANG: trimOrUnset,
     /** Resend API key — optional in dev; verification emails log link to console if unset */
     RESEND_API_KEY: trimOrUnset,
-    /** From address for Resend (e.g. GameEdu <notify@yourdomain.com>) */
+    /** From address for Resend (e.g. TeachPlayEdu <notify@yourdomain.com>) */
     EMAIL_FROM: trimOrUnset,
     /** Sentry observability (optional in dev; required to ship errors in prod) */
     SENTRY_DSN: trimOrUnset,

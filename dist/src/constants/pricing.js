@@ -15,7 +15,7 @@ exports.PLUS_PLANS = [
     },
     {
         id: "PLUS",
-        name: "GameEdu Plus",
+        name: "TeachPlayEdu Plus",
         /** Fallback when Stripe prices are not loaded (misconfigured env). */
         price: "199",
         unitKey: "planPlusUnit",

@@ -66,7 +66,7 @@ export function PageBackLink({
 
     const styles = cn(
         "group inline-flex items-center justify-center gap-2 rounded-full transition-all duration-200",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 focus-visible:ring-offset-2",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/50 focus-visible:ring-offset-2",
         variant === "default" &&
             "border border-[#d9d9dd] bg-white px-4 py-2.5 text-[#212121] shadow-none hover:border-[#1863dc] hover:text-[#1863dc]",
         variant === "inverse" &&

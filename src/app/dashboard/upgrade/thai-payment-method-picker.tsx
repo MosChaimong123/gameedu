@@ -40,8 +40,8 @@ const OPTIONS: readonly Option[] = [
         label: "SCB EASY",
         sub: "ไทยพาณิชย์",
         monogram: "SCB",
-        bgClass: "bg-purple-50",
-        textClass: "text-purple-700",
+        bgClass: "bg-brand-pink/10",
+        textClass: "text-brand-pink",
     },
     {
         id: "mobile_banking_kbank",
@@ -99,8 +99,8 @@ export function ThaiPaymentMethodPicker({
                         className={cn(
                             "group flex items-center gap-2 rounded-xl border-2 p-2 text-left transition-all",
                             active
-                                ? "border-indigo-600 bg-indigo-50 shadow-sm"
-                                : "border-slate-200 bg-white hover:border-indigo-300",
+                                ? "border-brand-pink bg-brand-pink/10 shadow-sm"
+                                : "border-slate-200 bg-white hover:border-brand-pink/40",
                             disabled && "opacity-60 cursor-not-allowed"
                         )}
                     >

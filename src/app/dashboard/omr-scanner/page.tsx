@@ -15,6 +15,7 @@ import { getLocalizedOmrErrorMessageFromResponse } from "@/lib/omr-ui-messages"
 import { tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages"
 import { useLanguage } from "@/components/providers/language-provider"
 import { isTeacherOrAdmin } from "@/lib/role-guards"
+import { isOmrDashboardEnabled } from "@/lib/omr-dashboard-enabled"
 import { parseOmrScannerQaFlags } from "@/lib/omr-scanner-fallbacks"
 
 type OMRResultItem = {
@@ -48,6 +49,7 @@ export default function OMRInferencePage() {
     const [result, setResult] = useState<OMRProcessResult | null>(null)
     const [selectedSet, setSelectedSet] = useState<OMRQuizSet | null>(null)
     const [score, setScore] = useState<{ correct: number, total: number } | null>(null)
+    const omrEnabled = isOmrDashboardEnabled()
 
     const applyProcessResult = async (res: OMRProcessResult) => {
         setResult(res)
@@ -102,6 +104,12 @@ export default function OMRInferencePage() {
     }
 
     useEffect(() => {
+        if (!omrEnabled) {
+            router.replace("/dashboard")
+        }
+    }, [omrEnabled, router])
+
+    useEffect(() => {
         if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
             router.replace("/dashboard")
         }
@@ -109,6 +117,7 @@ export default function OMRInferencePage() {
 
     // Fetch OMR Quiz on load if ID provided
     useEffect(() => {
+        if (!omrEnabled) return
         if (status !== "authenticated" || !isTeacherOrAdmin(session.user.role)) {
             return
         }
@@ -137,18 +146,26 @@ export default function OMRInferencePage() {
                 })
         }
         // `t` is listed so locale changes refresh messages.
-    }, [session, status, language, t])
+    }, [session, status, language, t, omrEnabled])
 
     if (status === "loading") {
         return (
             <div className="flex min-h-[50vh] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
             </div>
         )
     }
 
     if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
         return null
+    }
+
+    if (!omrEnabled) {
+        return (
+            <div className="flex min-h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-cyan-600" />
+            </div>
+        )
     }
 
     const handleCapture = async (imageData: string) => {
@@ -205,7 +222,7 @@ export default function OMRInferencePage() {
                             <PageBackLink href="/dashboard/omr" labelKey="navBackOmr" variant="inverse" />
                             <div>
                                 <h1 className="text-2xl font-black text-white tracking-tight">{t("omrScannerTitle")}</h1>
-                                <p className="text-purple-400 font-bold uppercase tracking-widest text-[10px]">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-sky">
                                     {selectedSet
                                         ? t("omrScannerChecking", { title: selectedSet.title })
                                         : t("omrScannerWait")}
@@ -216,7 +233,7 @@ export default function OMRInferencePage() {
                         {selectedSet && (
                             <Button 
                                 onClick={() => setShowScanner(true)}
-                                className="bg-white text-slate-900 rounded-2xl h-12 px-6 font-black hover:bg-purple-600 hover:text-white transition-all shadow-xl shadow-white/5"
+                                className="h-12 rounded-2xl bg-white px-6 font-black text-slate-900 shadow-xl shadow-white/5 transition-all hover:bg-brand-purple hover:text-white"
                             >
                                 <Camera className="mr-2 w-5 h-5" />
                                 {t("omrScannerScanNext")}
@@ -232,7 +249,7 @@ export default function OMRInferencePage() {
                                     <Image src={capturedImage} alt={t("omrCapturedSheetAlt")} width={1200} height={900} unoptimized className="w-full rounded-[2.5rem] shadow-2xl border-4 border-white/5 aspect-[4/3] object-cover" />
                                     {isProcessing && (
                                         <div className="absolute inset-0 bg-black/80 backdrop-blur-md rounded-[2.5rem] flex flex-col items-center justify-center text-white">
-                                            <Loader2 className="w-12 h-12 animate-spin mb-4 text-purple-400" />
+                                            <Loader2 className="mb-4 h-12 w-12 animate-spin text-brand-sky" />
                                             <p className="font-black text-xl tracking-tight">{t("omrScannerProcessing")}</p>
                                         </div>
                                     )}
@@ -246,7 +263,7 @@ export default function OMRInferencePage() {
                                             className="space-y-6"
                                         >
                                             {score && (
-                                                <div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-10 rounded-[2.5rem] text-white text-center shadow-2xl relative overflow-hidden">
+                                                <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-brand-purple to-brand-navy p-10 text-center text-white shadow-2xl">
                                                     <div className="absolute top-0 right-0 p-4 opacity-10">
                                                         <CheckCircle2 className="w-24 h-24 rotate-12" />
                                                     </div>

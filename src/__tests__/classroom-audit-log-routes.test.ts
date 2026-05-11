@@ -82,6 +82,12 @@ describe("classroom privileged routes audit logging", () => {
   });
 
   it("logs when creating a custom achievement", async () => {
+    mockAuth.mockResolvedValue({
+      user: {
+        id: "admin-1",
+        role: "ADMIN",
+      },
+    });
     mockClassroomFindUnique.mockResolvedValue({
       teacherId: "teacher-1",
       gamifiedSettings: { customAchievements: [] },
@@ -103,7 +109,7 @@ describe("classroom privileged routes audit logging", () => {
     expect(response.status).toBe(200);
     expect(mockLogAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        actorUserId: "teacher-1",
+        actorUserId: "admin-1",
         action: "classroom.custom_achievement.created",
         targetType: "classroom",
         targetId: "class-1",
@@ -156,6 +162,12 @@ describe("classroom privileged routes audit logging", () => {
   });
 
   it("logs when creating a classroom event", async () => {
+    mockAuth.mockResolvedValue({
+      user: {
+        id: "admin-1",
+        role: "ADMIN",
+      },
+    });
     mockClassroomFindUnique.mockResolvedValue({
       teacherId: "teacher-1",
       gamifiedSettings: { events: [] },
@@ -178,7 +190,7 @@ describe("classroom privileged routes audit logging", () => {
     expect(response.status).toBe(200);
     expect(mockLogAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        actorUserId: "teacher-1",
+        actorUserId: "admin-1",
         action: "classroom.event.created",
         targetType: "classroom",
         targetId: "class-1",

@@ -94,7 +94,7 @@ describe("register route POST", () => {
         email: "alice@example.com",
         password: "secret123",
         role: "ADMIN",
-        school: "GameEdu Academy",
+        school: "TeachPlayEdu Academy",
       })
     );
 

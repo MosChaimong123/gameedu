@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar as CalendarIcon, Loader2, BookOpen, School, Target } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
+import { getLocalizedErrorMessageFromResponse, tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages";
 
 interface Classroom {
     id: string;
@@ -30,7 +31,7 @@ export function AssignmentCreateModal({
     setId,
     setTitle,
 }: AssignmentCreateModalProps) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [classrooms, setClassrooms] = useState<Classroom[]>([]);
@@ -74,11 +75,11 @@ export function AssignmentCreateModal({
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    name,
-                    description,
-                    type: "quiz", // Homework type is always a quiz for this path
-                    setId,
-                    deadline: deadline || null,
+                    name: name.trim(),
+                    description: description.trim() || null,
+                    type: "quiz",
+                    quizSetId: setId,
+                    deadline: deadline.trim() ? deadline : null,
                 }),
             });
 
@@ -89,13 +90,25 @@ export function AssignmentCreateModal({
                 });
                 onOpenChange(false);
             } else {
-                throw new Error("Failed");
+                const msg = await getLocalizedErrorMessageFromResponse(
+                    res,
+                    "failedToCreateAssignment",
+                    t,
+                    language
+                );
+                toast({
+                    title: t("error"),
+                    variant: "destructive",
+                    description: msg,
+                });
             }
-        } catch {
+        } catch (err) {
+            const raw = err instanceof Error ? err.message : null;
+            const net = tryLocalizeFetchNetworkFailureMessage(raw, t);
             toast({
                 title: t("error"),
                 variant: "destructive",
-                description: t("failedToCreateAssignment"),
+                description: net ?? t("failedToCreateAssignment"),
             });
         } finally {
             setLoading(false);
@@ -105,7 +118,7 @@ export function AssignmentCreateModal({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-[2rem] border-0 shadow-2xl">
-                <div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-6 text-white">
+                <div className="bg-brand-pink p-6 text-white">
                     <DialogHeader>
                         <DialogTitle className="text-2xl font-black flex items-center gap-3 text-white">
                             <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm border border-white/30">
@@ -120,7 +133,7 @@ export function AssignmentCreateModal({
                     {/* Class Selection */}
                     <div className="space-y-2">
                         <Label className="text-sm font-bold text-slate-600 flex items-center gap-2">
-                            <School className="w-4 h-4 text-purple-500" />
+                            <School className="w-4 h-4 text-brand-pink" />
                             {t("assignmentSelectClassLabel")}
                         </Label>
                         <Select value={selectedClassId} onValueChange={setSelectedClassId}>
@@ -153,7 +166,7 @@ export function AssignmentCreateModal({
                     {/* Assignment Name */}
                     <div className="space-y-2">
                         <Label className="text-sm font-bold text-slate-600 flex items-center gap-2">
-                            <Target className="w-4 h-4 text-purple-500" />
+                            <Target className="w-4 h-4 text-brand-pink" />
                             {t("assignmentNameLabel")}
                         </Label>
                         <Input
@@ -178,7 +191,7 @@ export function AssignmentCreateModal({
                     {/* Deadline */}
                     <div className="space-y-2">
                         <Label className="text-sm font-bold text-slate-600 flex items-center gap-2">
-                            <CalendarIcon className="w-4 h-4 text-purple-500" />
+                            <CalendarIcon className="w-4 h-4 text-brand-pink" />
                             {t("assignmentDeadlineLabel")}
                         </Label>
                         <Input
@@ -202,7 +215,7 @@ export function AssignmentCreateModal({
                         <Button
                             onClick={handleCreate}
                             disabled={loading || !selectedClassId || !name.trim()}
-                            className="flex-1 h-12 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black shadow-lg shadow-purple-200 transition-all active:scale-95 disabled:opacity-50"
+                            className="flex-1 h-12 rounded-xl bg-brand-pink font-black text-white shadow-lg shadow-brand-pink/20 transition-all hover:opacity-95 active:scale-95 disabled:opacity-50"
                         >
                             {loading ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />

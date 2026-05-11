@@ -66,6 +66,7 @@ describe("classroom dashboard toolbar", () => {
       React.createElement(ClassroomDashboardToolbar, {
         t: (key: string) => key,
         classroom: baseClassroom,
+        gamificationToolbarMode: "live",
         isConnected: true,
         viewMode: "table",
         mobileToolbarOpen: true,
@@ -92,5 +93,36 @@ describe("classroom dashboard toolbar", () => {
 
     expect(mockRankSettingsSpy).toHaveBeenCalled();
     expect((mockRankSettingsSpy.mock.calls[0][0] as { classroom: { id: string } }).classroom.id).toBe("class-1");
+  });
+
+  it("shows coming soon for gamification when mode is comingSoon", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(ClassroomDashboardToolbar, {
+        t: (key: string) => key,
+        classroom: baseClassroom,
+        gamificationToolbarMode: "comingSoon",
+        isConnected: true,
+        viewMode: "table",
+        mobileToolbarOpen: true,
+        isSelectMultiple: false,
+        selectedStudentIds: [],
+        onToggleMobileToolbar: vi.fn(),
+        onOpenAddAssignment: vi.fn(),
+        onSelectViewMode: vi.fn(),
+        onOpenTimer: vi.fn(),
+        onOpenRandomPicker: vi.fn(),
+        onOpenGroupMaker: vi.fn(),
+        onStudentsAdded: vi.fn(),
+        onOpenStudentManager: vi.fn(),
+        onRankSettingsSaved: vi.fn(),
+        onOpenNegamonSettings: vi.fn(),
+        onEnterAttendanceMode: vi.fn(),
+        onToggleSelectMultiple: vi.fn(),
+        onOpenSettings: vi.fn(),
+      })
+    );
+
+    expect(html).toContain("hostComingSoon");
+    expect(mockRankSettingsSpy).not.toHaveBeenCalled();
   });
 });

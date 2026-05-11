@@ -94,7 +94,7 @@ export default function PlayPage() {
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-slate-100 via-white to-indigo-50/80 px-4 py-8 sm:px-6">
             <div className="mb-8">
-                <PublicBrandMark href="/" size="md" />
+                <PublicBrandMark href="/" size="md" showTitle title={t("appName")} />
             </div>
             <Card className="w-full max-w-md border border-slate-200/80 shadow-2xl shadow-indigo-200/40">
                 <CardHeader className="pb-2 text-center">

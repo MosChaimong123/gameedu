@@ -15,9 +15,10 @@ import {
     Settings,
     UserCircle,
     Sparkles,
-    Gamepad2,
 } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
+import { isOmrDashboardEnabled } from "@/lib/omr-dashboard-enabled"
+import { BrandLogo } from "@/components/layout/brand-logo"
 
 const navItems = [
     { icon: LayoutDashboard, labelKey: "dashboard", href: "/dashboard" },
@@ -34,6 +35,7 @@ const navItems = [
 export function Sidebar({ className }: { className?: string }) {
     const pathname = usePathname()
     const { t } = useLanguage()
+    const omrLive = isOmrDashboardEnabled()
     const { data: session } = useSession()
     const plan = resolvePlanIdForQuota(
         session?.user?.plan,
@@ -43,16 +45,19 @@ export function Sidebar({ className }: { className?: string }) {
     const hideUpgradeCta = plan === "PRO"
 
     return (
-        <div className={cn("flex h-full w-64 flex-col border-r border-slate-200/80 bg-white/95 backdrop-blur-sm", className)}>
+        <div
+            className={cn(
+                "flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground backdrop-blur-sm",
+                className
+            )}
+        >
             <Link
                 href="/dashboard"
-                className="flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 px-5 transition-opacity hover:opacity-90"
+                className="flex h-16 shrink-0 items-center gap-2.5 border-b border-sidebar-border px-3 transition-opacity hover:opacity-90"
             >
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 shadow-md shadow-indigo-200">
-                    <Gamepad2 className="h-5 w-5 text-white" aria-hidden />
-                </div>
-                <span className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
-                    GameEdu
+                <BrandLogo size="md" className="shrink-0" />
+                <span className="min-w-0 truncate text-sm font-black leading-tight tracking-tight text-sidebar-foreground">
+                    {t("appName")}
                 </span>
             </Link>
             <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-4" aria-label={t("mainNavigation")}>
@@ -64,6 +69,23 @@ export function Sidebar({ className }: { className?: string }) {
                     const label = t(item.labelKey)
                     const isUpgrade = item.href === "/dashboard/upgrade"
                     const dimmed = isUpgrade && hideUpgradeCta
+                    const omrLocked = item.href === "/dashboard/omr" && !omrLive
+                    if (omrLocked) {
+                        return (
+                            <div
+                                key={item.href}
+                                className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-500"
+                                aria-disabled="true"
+                                title={t("hostComingSoon")}
+                            >
+                                <item.icon className="h-5 w-5 shrink-0 text-slate-500" aria-hidden />
+                                <span className="min-w-0 flex-1 truncate">{label}</span>
+                                <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-slate-400">
+                                    {t("hostComingSoon")}
+                                </span>
+                            </div>
+                        )
+                    }
                     return (
                         <Link
                             key={item.href}
@@ -71,8 +93,8 @@ export function Sidebar({ className }: { className?: string }) {
                             className={cn(
                                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
                                 isActive
-                                    ? "bg-indigo-50 text-indigo-800 shadow-sm ring-1 ring-indigo-100"
-                                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                                    ? "bg-white/10 text-white shadow-sm ring-1 ring-brand-cyan/55"
+                                    : "text-slate-300 hover:bg-white/5 hover:text-white",
                                 dimmed && "opacity-45"
                             )}
                             title={dimmed ? t("sidebarUpgradeDimmedHint") : undefined}
@@ -80,7 +102,7 @@ export function Sidebar({ className }: { className?: string }) {
                             <item.icon
                                 className={cn(
                                     "h-5 w-5 shrink-0",
-                                    isActive ? "text-indigo-600" : "text-slate-400"
+                                    isActive ? "text-brand-pink" : "text-slate-400"
                                 )}
                                 aria-hidden
                             />

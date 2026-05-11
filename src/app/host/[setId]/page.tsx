@@ -440,7 +440,7 @@ export default function HostLobbyPage() {
 
     const sessionLoadingShell = (
         <div className="flex h-screen flex-col items-center justify-center gap-4">
-            <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
+            <Loader2 className="h-10 w-10 animate-spin text-brand-pink" />
             <p className="text-slate-500">{t("hostLoading")}</p>
         </div>
     )
@@ -464,7 +464,7 @@ export default function HostLobbyPage() {
     if (creatingGame) {
         return (
             <div className="flex h-screen flex-col items-center justify-center gap-4">
-                <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
+                <Loader2 className="h-10 w-10 animate-spin text-brand-pink" />
                 <p className="text-slate-500">{t("hostCreatingRoom")}</p>
             </div>
         )
@@ -599,7 +599,7 @@ export default function HostLobbyPage() {
                 <Button
                     size="lg"
                     onClick={() => router.push("/dashboard")}
-                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xl px-12 py-6 rounded-full shadow-[0_4px_0_rgb(107,33,168)] active:translate-y-1 transition-all"
+                    className="rounded-full bg-brand-pink px-12 py-6 text-xl font-bold text-white shadow-[0_4px_0_rgb(190,24,93)] transition-all hover:opacity-95 active:translate-y-1"
                 >
                     {t("hostBackToMyQuestionSets")}
                 </Button>
@@ -613,7 +613,7 @@ export default function HostLobbyPage() {
 
             {/* Top Bar */}
             <div className="p-6 flex justify-between items-center border-b border-slate-800">
-                <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
+                <h1 className="text-2xl font-bold text-brand-pink">
                     {t("appName")}
                 </h1>
                 <div className="flex items-center space-x-4">

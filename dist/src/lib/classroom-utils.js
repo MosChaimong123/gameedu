@@ -29,7 +29,7 @@ const gamification_settings_1 = require("@/lib/services/classroom-settings/gamif
 /** Helpers for custom classroom themes */
 function getThemeBgClass(theme) {
     if (!theme)
-        return "from-indigo-500 to-purple-600";
+        return "from-brand-purple to-brand-sky";
     if (theme.startsWith("custom:"))
         return "";
     return theme;
@@ -41,7 +41,7 @@ function getThemeBgClass(theme) {
  */
 function getThemeHorizontalBgClass(theme) {
     if (!theme)
-        return "bg-gradient-to-r from-indigo-500 to-purple-600";
+        return "bg-gradient-to-r from-brand-purple to-brand-sky";
     if (theme.startsWith("custom:"))
         return "";
     return `bg-gradient-to-r ${theme}`;
@@ -50,8 +50,8 @@ function getThemeBgStyle(theme) {
     if (!theme || !theme.startsWith("custom:"))
         return {};
     const parts = theme.replace("custom:", "").split(",");
-    const color1 = parts[0] || "#6366f1";
-    const color2 = parts[1] || "#a855f7";
+    const color1 = parts[0] || "#f43f8a";
+    const color2 = parts[1] || "#22d3ee";
     return { backgroundImage: `linear-gradient(to right, ${color1}, ${color2})` };
 }
 /** Maps first gradient hue (from-*-*) to a solid accent for borders, text, and rings. */
@@ -86,7 +86,7 @@ const THEME_HUE_TO_HEX = {
 function getThemeAccentColor(theme) {
     var _a, _b;
     if (theme == null || theme === "") {
-        return "#1863dc";
+        return "#f43f8a";
     }
     const trimmed = theme.trim();
     if (trimmed.startsWith("custom:")) {
@@ -99,13 +99,13 @@ function getThemeAccentColor(theme) {
         if (/^[0-9a-fA-F]{6}$/.test(first)) {
             return `#${first}`;
         }
-        return "#6366f1";
+        return "#f43f8a";
     }
     const m = trimmed.match(/from-([a-z]+)-/);
     if ((m === null || m === void 0 ? void 0 : m[1]) && THEME_HUE_TO_HEX[m[1]]) {
         return THEME_HUE_TO_HEX[m[1]];
     }
-    return "#1863dc";
+    return "#f43f8a";
 }
 /** RGBA string from theme accent (for light fills). */
 function getThemeAccentRgba(theme, alpha) {
@@ -117,7 +117,7 @@ function getThemeAccentRgba(theme, alpha) {
             .join("");
     }
     if (hex.length !== 6 || Number.isNaN(parseInt(hex, 16))) {
-        return `rgba(24, 99, 220, ${alpha})`;
+        return `rgba(244, 63, 138, ${alpha})`;
     }
     const r = parseInt(hex.slice(0, 2), 16);
     const g = parseInt(hex.slice(2, 4), 16);
@@ -132,7 +132,7 @@ function getClassroomTheme(theme) {
 }
 function getThemeTextClass(theme) {
     if (!theme)
-        return "from-indigo-500 to-purple-600";
+        return "from-brand-purple to-brand-sky";
     if (theme.startsWith("custom:"))
         return "";
     return theme;

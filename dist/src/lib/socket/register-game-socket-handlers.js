@@ -5,6 +5,7 @@ const audit_log_1 = require("@/lib/security/audit-log");
 const rate_limit_1 = require("@/lib/security/rate-limit");
 const student_login_code_1 = require("@/lib/student-login-code");
 const socket_error_messages_1 = require("@/lib/socket-error-messages");
+const negamon_battle_host_enabled_1 = require("@/lib/negamon-battle-host-enabled");
 const allowedClassroomEventTypes = new Set([
     "BOARD_UPDATE",
     "POINT_UPDATE",
@@ -73,6 +74,10 @@ function registerGameSocketHandlers(io, deps) {
                     : rawMode === "NEGAMON_BATTLE"
                         ? "NEGAMON_BATTLE"
                         : "GOLD_QUEST";
+                if (normalizedMode === "NEGAMON_BATTLE" && !(0, negamon_battle_host_enabled_1.isNegamonBattleHostEnabled)()) {
+                    socket.emit("error", { message: socket_error_messages_1.SOCKET_ERROR_NEGAMON_BATTLE_HOST_DISABLED });
+                    return;
+                }
                 const sanitized = settings && typeof settings === "object" ? { ...settings } : {};
                 delete sanitized.negamonRewardClassroomId;
                 let gameSettings = { ...defaultSettings, ...sanitized };

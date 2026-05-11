@@ -174,7 +174,7 @@ export default function MySetsPage() {
     if (status === "loading") {
         return (
             <div className="flex min-h-[50vh] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                <Loader2 className="h-8 w-8 animate-spin text-brand-pink" />
             </div>
         )
     }
@@ -349,7 +349,7 @@ export default function MySetsPage() {
                         <AlertDialogAction 
                             onClick={handleCreateFolder}
                             disabled={!newFolderName.trim()}
-                            className="bg-indigo-600 hover:bg-indigo-700"
+                            className="bg-brand-pink hover:opacity-95"
                         >
                             {t("create")}
                         </AlertDialogAction>
@@ -383,7 +383,7 @@ export default function MySetsPage() {
                         className={cn(
                             "shrink-0 shadow-md shadow-slate-200/50",
                             activeFolderDropId === "main" &&
-                                "border-indigo-300 bg-indigo-50 ring-2 ring-indigo-400/60 ring-offset-2"
+                                "border-brand-pink/40 bg-brand-pink/10 ring-2 ring-brand-cyan/40 ring-offset-2"
                         )}
                         dragZoneProps={{
                             onDragOver: (e) => handleDragOver(e, "main"),
@@ -408,7 +408,7 @@ export default function MySetsPage() {
                         {t("createFolder")}
                     </Button>
                     <Link href="/dashboard/create-set">
-                        <Button className="bg-purple-600 hover:bg-purple-700">
+                        <Button className="bg-brand-pink hover:opacity-95">
                             <Plus className="mr-2 h-4 w-4" />
                             {t("createSet")}
                         </Button>
@@ -441,12 +441,12 @@ export default function MySetsPage() {
 
             {loading ? (
                 <div className="flex h-32 items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                    <Loader2 className="h-8 w-8 animate-spin text-brand-pink" />
                 </div>
             ) : (filteredSets.length === 0 && folders.filter((f) => f.parentFolderId === currentFolderId).length === 0) ? (
                 <div className="flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-in fade-in-50">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
-                        <BookOpen className="h-6 w-6 text-purple-600" />
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-pink/15">
+                        <BookOpen className="h-6 w-6 text-brand-pink" />
                     </div>
                     <h3 className="mt-4 text-lg font-semibold">{searchQuery ? t("noSearchResults") : t("noSetsTitle")}</h3>
                     <p className="mb-4 mt-2 text-sm text-muted-foreground max-w-sm">
@@ -479,8 +479,8 @@ export default function MySetsPage() {
                                     exit={{ opacity: 0, scale: 0.9 }}
                                     className={`group relative flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all cursor-pointer overflow-hidden ${
                                         activeFolderDropId === folder.id 
-                                        ? "border-indigo-500 bg-indigo-50 shadow-2xl scale-105 ring-4 ring-indigo-500/20" 
-                                        : "border-slate-100 bg-white hover:border-indigo-200 hover:shadow-xl"
+                                        ? "scale-105 border-brand-pink bg-brand-pink/10 shadow-2xl ring-4 ring-brand-cyan/25"
+                                        : "border-slate-100 bg-white hover:border-brand-pink/30 hover:shadow-xl"
                                     }`}
                                     onClick={() => setCurrentFolderId(folder.id)}
                                     onDragOver={(e) => handleDragOver(e, folder.id)}
@@ -506,8 +506,8 @@ export default function MySetsPage() {
                                         </DropdownMenu>
                                     </div>
                                     <div className="relative mb-4">
-                                        <div className="absolute inset-0 bg-indigo-500/10 blur-xl rounded-full scale-150 transform transition-transform group-hover:scale-[2]" />
-                                        <FolderIcon className="w-16 h-16 text-indigo-500 relative z-10 fill-indigo-500/10 transition-transform group-hover:scale-110" />
+                                        <div className="absolute inset-0 scale-150 transform rounded-full bg-brand-pink/10 blur-xl transition-transform group-hover:scale-[2]" />
+                                        <FolderIcon className="relative z-10 h-16 w-16 fill-brand-pink/10 text-brand-pink transition-transform group-hover:scale-110" />
                                     </div>
                                     <h3 className="text-lg font-bold text-slate-800 text-center line-clamp-1">{folder.name}</h3>
                                     <p className="text-xs text-slate-400 mt-1">
@@ -548,7 +548,7 @@ export default function MySetsPage() {
                             <CardHeader className="p-4 pb-2 flex-grow space-y-2">
                                 <div className="flex justify-between items-start">
                                     <Link href={`/dashboard/edit-set/${set.id}`} className="flex-grow">
-                                        <CardTitle className="line-clamp-1 text-xl font-bold text-slate-800 hover:text-purple-600 transition-colors" title={set.title}>{set.title}</CardTitle>
+                                        <CardTitle className="line-clamp-1 text-xl font-bold text-slate-800 transition-colors hover:text-brand-pink" title={set.title}>{set.title}</CardTitle>
                                     </Link>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
@@ -570,7 +570,7 @@ export default function MySetsPage() {
                                                     )}
                                                     {folders.filter((f) => f.id !== set.folderId).map((folder) => (
                                                         <DropdownMenuItem key={folder.id} onClick={() => handleMoveToFolder(set.id, folder.id)}>
-                                                            <FolderIcon className="mr-2 h-4 w-4 text-indigo-400" />
+                                                            <FolderIcon className="mr-2 h-4 w-4 text-brand-sky" />
                                                             <span>{folder.name}</span>
                                                         </DropdownMenuItem>
                                                     ))}
@@ -609,7 +609,7 @@ export default function MySetsPage() {
                             <CardFooter className="p-4 pt-0 mt-auto">
                                 <div className="flex w-full items-center gap-2">
                                     <Link href={`/host/${set.id}${hostQuerySuffix}`} className="flex-[1.5]">
-                                        <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm transition-all hover:-translate-y-0.5" size="sm">
+                                        <Button className="w-full bg-brand-pink font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:opacity-95" size="sm">
                                             {t("host")}
                                         </Button>
                                     </Link>
@@ -618,14 +618,14 @@ export default function MySetsPage() {
                                             setAssignSetId(set.id);
                                             setAssignSetTitle(set.title);
                                         }}
-                                        className="flex-[1.5] bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-sm transition-all hover:-translate-y-0.5"
+                                        className="flex-[1.5] bg-brand-sky font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:opacity-95"
                                         size="sm"
                                     >
                                         <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
                                         {t("mySetsAssignBtn")}
                                     </Button>
                                     <Link href={`/dashboard/edit-set/${set.id}`} className="flex-[1.5]">
-                                        <Button variant="outline" className="w-full border-2 border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-600 font-bold transition-all" size="sm">
+                                        <Button variant="outline" className="w-full border-2 border-slate-200 font-bold text-slate-600 transition-all hover:border-brand-pink/40 hover:bg-brand-pink/5" size="sm">
                                             {t("edit")}
                                         </Button>
                                     </Link>

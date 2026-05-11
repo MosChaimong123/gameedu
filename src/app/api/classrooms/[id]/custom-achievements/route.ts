@@ -50,6 +50,9 @@ export async function POST(
   try {
     const session = await auth();
     if (!session?.user?.id) return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    if (session.user.role !== "ADMIN") {
+      return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+    }
 
     const { id } = await params;
     const { name, description, icon, goldReward } = await req.json();
@@ -58,8 +61,8 @@ export async function POST(
 
     const classroom = await getClassroomGamificationRecord(id);
     if (!classroom) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
-    if (classroom.teacherId !== session.user.id) {
-      return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+    if (!classroom.teacherId) {
+      return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
     }
 
     const settings = classroom.gamifiedSettings as GamifiedSettings;
@@ -74,7 +77,7 @@ export async function POST(
       createdAt: new Date().toISOString(),
     };
 
-    await updateGamificationSettings(id, session.user.id, {
+    await updateGamificationSettings(id, classroom.teacherId, {
       ...settings,
       customAchievements: [...existing, newAchievement],
     });
@@ -106,20 +109,23 @@ export async function DELETE(
   try {
     const session = await auth();
     if (!session?.user?.id) return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
+    if (session.user.role !== "ADMIN") {
+      return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+    }
 
     const { id } = await params;
     const { achievementId } = await req.json();
 
     const classroom = await getClassroomGamificationRecord(id);
     if (!classroom) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
-    if (classroom.teacherId !== session.user.id) {
-      return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+    if (!classroom.teacherId) {
+      return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
     }
 
     const settings = classroom.gamifiedSettings as GamifiedSettings;
     const updated = getCustomAchievementsFromGamification(settings).filter((a) => a.id !== achievementId);
 
-    await updateGamificationSettings(id, session.user.id, {
+    await updateGamificationSettings(id, classroom.teacherId, {
       ...settings,
       customAchievements: updated,
     });

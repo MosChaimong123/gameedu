@@ -5,14 +5,14 @@ import Link from "next/link";
 import { LegalParagraphs } from "@/components/legal/legal-paragraphs";
 import { LANGUAGE_COOKIE_NAME } from "@/lib/language-cookie";
 import type { Language } from "@/lib/translations";
-import { privacyContent } from "../../../content/public-pages";
+import { privacyContent, siteMetadata } from "../../../content/public-pages";
 
 export async function generateMetadata(): Promise<Metadata> {
     const cookieStore = await cookies();
     const language: Language = cookieStore.get(LANGUAGE_COOKIE_NAME)?.value === "th" ? "th" : "en";
     const copy = privacyContent[language];
     return {
-        title: `${copy.title} · GameEdu`,
+        title: `${copy.title} · ${siteMetadata.title}`,
         description: copy.intro.slice(0, 155),
     };
 }
@@ -23,8 +23,12 @@ export default async function PrivacyPage() {
     const copy = privacyContent[language];
 
     return (
-        <main className="mx-auto max-w-3xl px-6 py-12 text-slate-800">
-            <Link href="/" className="text-sm font-semibold text-indigo-600 hover:text-indigo-800">
+        <div className="min-h-screen bg-brand-surface">
+            <main className="mx-auto max-w-3xl px-6 py-12 text-slate-800">
+            <Link
+                href="/"
+                className="text-sm font-semibold text-brand-pink underline-offset-4 hover:text-brand-navy hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan focus-visible:ring-offset-2"
+            >
                 {copy.back}
             </Link>
             <div className="mt-6 space-y-6">
@@ -45,10 +49,11 @@ export default async function PrivacyPage() {
                     </section>
                 ))}
 
-                <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-800">
+                <p className="rounded-xl border border-brand-lavender/40 bg-white/80 p-4 text-sm leading-6 text-slate-800 shadow-sm backdrop-blur-sm">
                     {copy.note}
                 </p>
             </div>
         </main>
+        </div>
     );
 }

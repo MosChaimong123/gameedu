@@ -312,7 +312,7 @@ export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
                         </Button>
                         <div className="ml-auto text-sm font-medium text-slate-500">
                             {t("signupRegisteringAs")}{" "}
-                            <span className="font-bold text-purple-600">
+                            <span className="font-bold text-brand-pink">
                                 {role === "STUDENT" ? t("signupRoleStudent") : t("signupRoleTeacher")}
                             </span>
                         </div>
@@ -397,7 +397,7 @@ export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
                     )}
 
                     <Button
-                        className="h-11 w-full rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 font-bold text-white shadow-md hover:from-indigo-700 hover:to-purple-700"
+                        className="h-11 w-full rounded-xl bg-brand-pink font-bold text-white shadow-md hover:opacity-95"
                         type="submit"
                         disabled={isLoading}
                     >
@@ -407,11 +407,11 @@ export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
 
                     <p className="text-center text-xs font-medium leading-5 text-slate-500">
                         {t("signupLegalPrefix")}{" "}
-                        <Link href="/terms" className="font-bold text-indigo-600 hover:text-indigo-800">
+                        <Link href="/terms" className="font-bold text-brand-pink hover:text-brand-navy">
                             {t("signupLegalTerms")}
                         </Link>{" "}
                         {t("signupLegalAnd")}{" "}
-                        <Link href="/privacy" className="font-bold text-indigo-600 hover:text-indigo-800">
+                        <Link href="/privacy" className="font-bold text-brand-pink hover:text-brand-navy">
                             {t("signupLegalPrivacy")}
                         </Link>
                         {t("signupLegalSuffix")}
@@ -431,7 +431,7 @@ export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
                         type="button"
                         disabled={isLoading}
                         onClick={handleGoogleLogin}
-                        className="h-11 w-full gap-3 rounded-xl border-2 border-slate-200 font-semibold hover:border-indigo-300 hover:bg-indigo-50"
+                        className="h-11 w-full gap-3 rounded-xl border-2 border-slate-200 font-semibold hover:border-brand-pink/40 hover:bg-brand-pink/5"
                     >
                         <svg className="h-5 w-5" viewBox="0 0 488 512" xmlns="http://www.w3.org/2000/svg">
                             <path
@@ -445,7 +445,7 @@ export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
                     {role === "STUDENT" ? (
                         <p className="text-center text-xs text-slate-500">
                             {t("signupStudentAfterRegisterHint")}{" "}
-                            <Link href="/student" className="font-semibold text-indigo-600 hover:text-indigo-800">
+                            <Link href="/student" className="font-semibold text-brand-pink hover:text-brand-navy">
                                 {t("authStudentCodeCta")}
                             </Link>
                         </p>
@@ -463,13 +463,13 @@ function RoleCard({ icon, title, description, selected, onClick }: RoleCardProps
             className={cn(
                 "relative cursor-pointer rounded-xl border-2 p-6 transition-all duration-200 hover:shadow-md",
                 selected
-                    ? "border-purple-600 bg-purple-50 ring-1 ring-purple-600"
-                    : "border-slate-200 bg-white hover:border-purple-300"
+                    ? "border-brand-pink bg-brand-pink/10 ring-1 ring-brand-pink"
+                    : "border-slate-200 bg-white hover:border-brand-pink/40"
             )}
         >
             {selected && (
-                <div className="absolute right-3 top-3 text-purple-600">
-                    <CheckCircle2 className="h-6 w-6 fill-purple-100" />
+                <div className="absolute right-3 top-3 text-brand-pink">
+                    <CheckCircle2 className="h-6 w-6 fill-brand-pink/15" />
                 </div>
             )}
             <div className="flex flex-col items-center text-center">

@@ -13,7 +13,7 @@ function subscriptionCurrentPeriodEndUnix(sub: Stripe.Subscription): number | un
 }
 
 /**
- * Maps a Stripe subscription to GameEdu plan fields. PRO (sales-led) is never set here.
+ * Maps a Stripe subscription to TeachPlayEdu plan fields. PRO (sales-led) is never set here.
  */
 export function derivePlanFieldsFromStripeSubscription(sub: Stripe.Subscription): PlanFields {
   const periodEnd = subscriptionCurrentPeriodEndUnix(sub);

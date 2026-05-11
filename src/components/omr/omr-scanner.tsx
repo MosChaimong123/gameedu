@@ -80,12 +80,12 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
             {/* Header Toolbar */}
             <div className="absolute top-0 left-0 right-0 p-6 flex items-center justify-between z-10 bg-gradient-to-b from-black/80 to-transparent">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-purple shadow-lg shadow-brand-purple/25">
                         <ScanLine className="w-6 h-6 text-white" />
                     </div>
                     <div>
                         <h2 className="text-white font-black text-lg">{t("omrScannerHeader")}</h2>
-                        <p className="text-purple-300 text-xs font-bold uppercase tracking-widest">
+                        <p className="text-xs font-bold uppercase tracking-widest text-brand-yellow/90">
                             {t("omrScannerAlignmentMode")}
                         </p>
                     </div>
@@ -116,16 +116,16 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
                         {/* Overlay Alignment Guide */}
                         <div className="absolute inset-0 pointer-events-none border-[40px] border-black/40">
                             {/* Target Corners */}
-                            <div className="absolute top-4 left-4 w-12 h-12 border-t-4 border-l-4 border-purple-500 rounded-tl-xl shadow-[0_0_20px_purple]"></div>
-                            <div className="absolute top-4 right-4 w-12 h-12 border-t-4 border-r-4 border-purple-500 rounded-tr-xl shadow-[0_0_20px_purple]"></div>
-                            <div className="absolute bottom-4 left-4 w-12 h-12 border-b-4 border-l-4 border-purple-500 rounded-bl-xl shadow-[0_0_20px_purple]"></div>
-                            <div className="absolute bottom-4 right-4 w-12 h-12 border-b-4 border-r-4 border-purple-500 rounded-br-xl shadow-[0_0_20px_purple]"></div>
+                            <div className="absolute left-4 top-4 h-12 w-12 rounded-tl-xl border-l-4 border-t-4 border-brand-purple shadow-[0_0_20px_rgb(145,50,225)]"></div>
+                            <div className="absolute right-4 top-4 h-12 w-12 rounded-tr-xl border-r-4 border-t-4 border-brand-purple shadow-[0_0_20px_rgb(145,50,225)]"></div>
+                            <div className="absolute bottom-4 left-4 h-12 w-12 rounded-bl-xl border-b-4 border-l-4 border-brand-purple shadow-[0_0_20px_rgb(145,50,225)]"></div>
+                            <div className="absolute bottom-4 right-4 h-12 w-12 rounded-br-xl border-b-4 border-r-4 border-brand-purple shadow-[0_0_20px_rgb(145,50,225)]"></div>
                             
                             {/* Scanning Animation Line */}
                             <motion.div 
                                 animate={{ top: ["10%", "90%"] }}
                                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                                className="absolute left-4 right-4 h-1 bg-gradient-to-r from-transparent via-purple-400 to-transparent shadow-[0_0_15px_purple] z-20"
+                                className="absolute left-4 right-4 z-20 h-1 bg-gradient-to-r from-transparent via-brand-sky to-transparent shadow-[0_0_15px_rgb(145,50,225)]"
                             />
                         </div>
 
@@ -154,7 +154,7 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
                     className="w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.4)] active:scale-95 transition-all group disabled:opacity-50"
                 >
                     <div className="w-16 h-16 rounded-full border-4 border-black/5 flex items-center justify-center">
-                        <div className="w-14 h-14 rounded-full bg-slate-900 group-hover:bg-purple-600 transition-colors"></div>
+                        <div className="h-14 w-14 rounded-full bg-slate-900 transition-colors group-hover:bg-brand-purple"></div>
                     </div>
                 </button>
 

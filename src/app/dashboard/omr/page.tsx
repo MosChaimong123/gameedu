@@ -34,6 +34,7 @@ import { getLocalizedOmrErrorMessageFromResponse } from "@/lib/omr-ui-messages"
 import { tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages"
 import { useLanguage } from "@/components/providers/language-provider"
 import { isTeacherOrAdmin } from "@/lib/role-guards"
+import { isOmrDashboardEnabled } from "@/lib/omr-dashboard-enabled"
 
 type OMRQuiz = {
     id: string
@@ -68,6 +69,13 @@ export default function OMRDashboardPage() {
     
     // New Quiz State
     const [newQuiz, setNewQuiz] = useState({ title: "", questionCount: 20 })
+    const omrEnabled = isOmrDashboardEnabled()
+
+    useEffect(() => {
+        if (!omrEnabled) {
+            router.replace("/dashboard")
+        }
+    }, [omrEnabled, router])
 
     useEffect(() => {
         if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
@@ -98,22 +106,31 @@ export default function OMRDashboardPage() {
     }, [toast, language, t])
 
     useEffect(() => {
+        if (!omrEnabled) return
         if (status !== "authenticated" || !isTeacherOrAdmin(session.user.role)) {
             return
         }
         fetchQuizzes()
-    }, [fetchQuizzes, session, status])
+    }, [fetchQuizzes, session, status, omrEnabled])
 
     if (status === "loading") {
         return (
             <div className="flex min-h-[50vh] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
             </div>
         )
     }
 
     if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
         return null
+    }
+
+    if (!omrEnabled) {
+        return (
+            <div className="flex min-h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-cyan-600" />
+            </div>
+        )
     }
 
     const handleCreateQuiz = async () => {
@@ -210,7 +227,7 @@ export default function OMRDashboardPage() {
                     </div>
                     <Button 
                         onClick={() => setIsCreateModalOpen(true)}
-                        className="h-16 px-8 rounded-[2rem] bg-slate-900 text-white font-black text-lg shadow-xl shadow-slate-200 hover:bg-purple-600 transition-all hover:scale-105"
+                        className="h-16 rounded-[2rem] bg-slate-900 px-8 text-lg font-black text-white shadow-xl shadow-slate-200 transition-all hover:scale-105 hover:bg-brand-purple"
                     >
                         <Plus className="mr-2 w-6 h-6" />
                         {t("omrPageCreateNew")}
@@ -247,12 +264,12 @@ export default function OMRDashboardPage() {
                                     <motion.div 
                                         key={quiz.id}
                                         layoutId={quiz.id}
-                                        className="group bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-xl hover:border-purple-200 transition-all"
+                                        className="group rounded-[2.5rem] border border-slate-100 bg-white p-6 shadow-sm transition-all hover:border-brand-purple/30 hover:shadow-xl"
                                     >
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-6">
-                                                <div className="w-20 h-20 rounded-[1.5rem] bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center border border-purple-100 group-hover:from-purple-600 group-hover:to-indigo-600 transition-all">
-                                                    <CheckCircle2 className="w-10 h-10 text-purple-400 group-hover:text-white transition-colors" />
+                                                <div className="flex h-20 w-20 items-center justify-center rounded-[1.5rem] border border-brand-purple/20 bg-gradient-to-br from-brand-purple/10 to-brand-sky/10 transition-all group-hover:from-brand-purple group-hover:to-brand-navy">
+                                                    <CheckCircle2 className="h-10 w-10 text-brand-purple transition-colors group-hover:text-white" />
                                                 </div>
                                                 <div>
                                                     <h3 className="text-2xl font-black text-slate-800 mb-1">{quiz.title}</h3>
@@ -260,7 +277,7 @@ export default function OMRDashboardPage() {
                                                         <span className="text-xs font-black text-slate-400 uppercase bg-slate-100 px-2 py-0.5 rounded-lg">
                                                             {t("omrPageQuestionsBadge", { count: quiz.questionCount })}
                                                         </span>
-                                                        <span className="text-xs font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded-lg">
+                                                        <span className="rounded-lg bg-brand-purple/10 px-2 py-0.5 text-xs font-black text-brand-purple">
                                                             {t("omrPageScansSuccess", {
                                                                 count: quiz.results?.length || quiz._count?.results || 0,
                                                             })}
@@ -287,7 +304,7 @@ export default function OMRDashboardPage() {
                                                     <Trash2 className="w-5 h-5" />
                                                 </Button>
                                                 <Link href={`/dashboard/omr-scanner?quizId=${quiz.id}`}>
-                                                    <Button className="h-14 px-8 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black shadow-lg shadow-purple-200">
+                                                    <Button className="h-14 rounded-2xl bg-brand-purple px-8 font-black text-white shadow-lg shadow-brand-purple/25 hover:opacity-95">
                                                         <Camera className="mr-2 w-5 h-5" />
                                                         {t("omrPageScanScores")}
                                                     </Button>
@@ -303,12 +320,12 @@ export default function OMRDashboardPage() {
                     {/* Quick Tools & Tips */}
                     <div className="space-y-6">
                         <div className="bg-slate-900 rounded-[3rem] p-8 text-white relative overflow-hidden shadow-2xl">
-                            <div className="absolute -top-10 -right-10 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl"></div>
+                            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand-purple/20 blur-3xl"></div>
                             <h2 className="text-2xl font-black mb-6 relative z-10">{t("omrPageQuickTools")}</h2>
                             <div className="space-y-4 relative z-10">
                                 <Link href="/dashboard/omr-templates" className="flex items-center justify-between p-4 bg-white/10 rounded-2xl border border-white/10 hover:bg-white/20 transition-all group">
                                     <div className="flex items-center gap-4">
-                                        <Printer className="w-6 h-6 text-indigo-400" />
+                                        <Printer className="h-6 w-6 text-brand-sky" />
                                         <span className="font-bold">{t("omrPagePrintSheets")}</span>
                                     </div>
                                     <ChevronRight className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-all" />
@@ -342,7 +359,7 @@ export default function OMRDashboardPage() {
                                         placeholder={t("omrPlaceholderExamName")}
                                         value={newQuiz.title}
                                         onChange={(e) => setNewQuiz({...newQuiz, title: e.target.value})}
-                                        className="w-full h-14 px-4 rounded-2xl bg-slate-50 border-2 border-slate-100 outline-none focus:border-purple-600 font-bold transition-all mt-2"
+                                        className="mt-2 h-14 w-full rounded-2xl border-2 border-slate-100 bg-slate-50 font-bold outline-none transition-all focus:border-brand-purple"
                                     />
                                 </div>
                                 <div>
@@ -415,7 +432,7 @@ export default function OMRDashboardPage() {
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <Button variant="ghost" onClick={() => setIsKeyModalOpen(false)} className="rounded-full font-black text-slate-400">{t("omrClose")}</Button>
-                                    <Button className="rounded-2xl bg-purple-600 text-white font-black px-8 h-12" onClick={() => handleUpdateKey(selectedQuiz.answerKey)}>
+                                    <Button className="h-12 rounded-2xl bg-brand-purple px-8 font-black text-white hover:opacity-95" onClick={() => handleUpdateKey(selectedQuiz.answerKey)}>
                                         {t("omrSaveKey")}
                                     </Button>
                                 </div>
@@ -460,7 +477,7 @@ export default function OMRDashboardPage() {
                                                                 <div className="text-[10px] text-slate-400 font-bold">{new Date(res.scannedAt).toLocaleString()}</div>
                                                             </td>
                                                             <td className="py-4 text-center">
-                                                                <span className="text-xl font-black text-purple-600">{res.score}</span>
+                                                                <span className="text-xl font-black text-brand-purple">{res.score}</span>
                                                                 <span className="text-xs text-slate-400 font-black">/{res.total}</span>
                                                             </td>
                                                             <td className="py-4 text-right">

@@ -1,7 +1,7 @@
 export type PublicPageLanguage = "en" | "th";
 
 export const siteMetadata = {
-  title: "GameEdu",
+  title: "TeachPlayEdu",
   description: "Educational game platform for interactive classrooms.",
 } as const;
 
@@ -15,6 +15,9 @@ export const homeContent = {
       "Join the fun! Create interactive quizzes, compete in real-time, and make learning an adventure.",
     joinGame: "Join a Game",
     hostGame: "Host a Game",
+    homeBand1: "Live games",
+    homeBand2: "Quizzes & reports",
+    homeBand3: "Built for class",
     footerBuiltWith: "Built with Next.js & Socket.io",
   },
   th: {
@@ -26,6 +29,9 @@ export const homeContent = {
       "สร้างควิซแบบโต้ตอบ แข่งขันแบบเรียลไทม์ และเปลี่ยนการเรียนรู้ให้สนุกเหมือนการผจญภัย",
     joinGame: "เข้าร่วมเกม",
     hostGame: "เริ่มโฮสต์เกม",
+    homeBand1: "เกมเรียลไทม์",
+    homeBand2: "ควิซและรายงาน",
+    homeBand3: "สำหรับห้องเรียน",
     footerBuiltWith: "พัฒนาด้วย Next.js และ Socket.io",
   },
 } as const;
@@ -36,15 +42,15 @@ export const LEGAL_CONTACT_EMAIL = "support@teachplayedu.com";
 export const privacyContent = {
   en: {
     updatedAt: "May 7, 2026",
-    back: "Back to GameEdu",
+    back: "Back to TeachPlayEdu",
     updated: "Last updated",
     title: "Privacy Policy",
     intro:
-      "This Privacy Policy describes how GameEdu (“we”, “us”) collects, uses, stores, and shares personal data when you use our websites and related services at teachplayedu.com and associated domains that link here (the “Service”). It is written for users based primarily in Thailand and references practices aligned with the Thai Personal Data Protection Act B.E. 2562 (PDPA) where applicable. This Policy does not replace independent legal advice for your school or organization.",
+      "This Privacy Policy describes how TeachPlayEdu (“we”, “us”) collects, uses, stores, and shares personal data when you use our websites and related services at teachplayedu.com and associated domains that link here (the “Service”). It is written for users based primarily in Thailand and references practices aligned with the Thai Personal Data Protection Act B.E. 2562 (PDPA) where applicable. This Policy does not replace independent legal advice for your school or organization.",
     sections: [
       [
         "1. Who we are",
-        `GameEdu is operated as an online educational platform. For privacy requests relating to this Policy, contact us at ${LEGAL_CONTACT_EMAIL}.`,
+        `TeachPlayEdu is operated as an online educational platform. For privacy requests relating to this Policy, contact us at ${LEGAL_CONTACT_EMAIL}.`,
       ],
       [
         "2. Scope",
@@ -52,7 +58,7 @@ export const privacyContent = {
       ],
       [
         "3. Categories of personal data",
-        "Depending on how you use GameEdu, we may process: account and authentication data (such as name, email address, username, password hash, OAuth identifiers when you choose Google sign-in, role such as teacher or student); classroom and learning activity data (class names, student display names or nicknames, join codes, quiz scores, attendance-style markers, participation in live games, progression or rewards in gamified features such as Negamon, classroom economy transactions); technical data (IP address, device/browser type, timestamps, diagnostic identifiers sent to error monitoring when enabled); communications you send to support; and records needed for security (audit logs, rate-limit counters).\n\nWe aim to collect only what is reasonably necessary to operate the Service and support classrooms.",
+        "Depending on how you use TeachPlayEdu, we may process: account and authentication data (such as name, email address, username, password hash, OAuth identifiers when you choose Google sign-in, role such as teacher or student); classroom and learning activity data (class names, student display names or nicknames, join codes, quiz scores, attendance-style markers, participation in live games, progression or rewards in gamified features such as Negamon, classroom economy transactions); technical data (IP address, device/browser type, timestamps, diagnostic identifiers sent to error monitoring when enabled); communications you send to support; and records needed for security (audit logs, rate-limit counters).\n\nWe aim to collect only what is reasonably necessary to operate the Service and support classrooms.",
       ],
       [
         "4. Sources of data",
@@ -68,7 +74,7 @@ export const privacyContent = {
       ],
       [
         "7. Payments",
-        "When you subscribe to paid plans, payment details are collected and processed by our payment partners (for example, Stripe for cards and Omise for Thai local methods). GameEdu typically receives limited billing metadata (such as customer identifiers, subscription status, amounts, and timestamps) rather than full card numbers, which are handled by the payment processor according to its terms and security standards.",
+        "When you subscribe to paid plans, payment details are collected and processed by our payment partners (for example, Stripe for cards and Omise for Thai local methods). TeachPlayEdu typically receives limited billing metadata (such as customer identifiers, subscription status, amounts, and timestamps) rather than full card numbers, which are handled by the payment processor according to its terms and security standards.",
       ],
       [
         "8. Sharing and subprocessors",
@@ -92,7 +98,7 @@ export const privacyContent = {
       ],
       [
         "13. Children and schools",
-        "GameEdu is designed for use in educational contexts. Schools and teachers should enter student information only as permitted by their institution and applicable law. If you believe a child’s information was provided without appropriate authority, contact us and we will take reasonable steps to investigate.",
+        "TeachPlayEdu is designed for use in educational contexts. Schools and teachers should enter student information only as permitted by their institution and applicable law. If you believe a child’s information was provided without appropriate authority, contact us and we will take reasonable steps to investigate.",
       ],
       [
         "14. Changes and contact",
@@ -104,15 +110,15 @@ export const privacyContent = {
   },
   th: {
     updatedAt: "7 พฤษภาคม 2026",
-    back: "กลับไป GameEdu",
+    back: "กลับไป TeachPlayEdu",
     updated: "อัปเดตล่าสุด",
     title: "นโยบายความเป็นส่วนตัว",
     intro:
-      "นโยบายฉบับนี้อธิบายว่า GameEdu (“เรา”) เก็บ ใช้ จัดเก็บ และเปิดเผยข้อมูลส่วนบุคคลอย่างไรเมื่อคุณใช้เว็บไซต์และบริการที่เชื่อมโยงที่ teachplayedu.com และโดเมนที่เกี่ยวข้อง (“บริการ”) เอกสารนี้จัดทำโดยคำนึงถึงผู้ใช้ที่อยู่ในไทยเป็นหลัก และอ้างอิงหลักการตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA) โดยสรุปเท่าที่เกี่ยวข้อง นโยบายนี้ไม่ใช่คำปรึกษาทางกฎหมายแทนการว่าจ้างทนายหรือที่ปรึกษาของสถาบัน",
+      "นโยบายฉบับนี้อธิบายว่า TeachPlayEdu (“เรา”) เก็บ ใช้ จัดเก็บ และเปิดเผยข้อมูลส่วนบุคคลอย่างไรเมื่อคุณใช้เว็บไซต์และบริการที่เชื่อมโยงที่ teachplayedu.com และโดเมนที่เกี่ยวข้อง (“บริการ”) เอกสารนี้จัดทำโดยคำนึงถึงผู้ใช้ที่อยู่ในไทยเป็นหลัก และอ้างอิงหลักการตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA) โดยสรุปเท่าที่เกี่ยวข้อง นโยบายนี้ไม่ใช่คำปรึกษาทางกฎหมายแทนการว่าจ้างทนายหรือที่ปรึกษาของสถาบัน",
     sections: [
       [
         "1. ผู้ควบคุมข้อมูล",
-        `GameEdu ให้บริการแพลตฟอร์มการศึกษาออนไลน์ หากมีคำขอหรือข้อสงสัยเกี่ยวกับนโยบายนี้ ติดต่อ ${LEGAL_CONTACT_EMAIL}`,
+        `TeachPlayEdu ให้บริการแพลตฟอร์มการศึกษาออนไลน์ หากมีคำขอหรือข้อสงสัยเกี่ยวกับนโยบายนี้ ติดต่อ ${LEGAL_CONTACT_EMAIL}`,
       ],
       [
         "2. ขอบเขต",
@@ -136,7 +142,7 @@ export const privacyContent = {
       ],
       [
         "7. การชำระเงิน",
-        "เมื่อคุณสมัครแพ็กเกจแบบมีค่าใช้จ่าย รายละเอียดการชำระเงินจะถูกเก็บและประมวลผลโดยพันธมิตรการชำระเงิน (เช่น Stripe สำหรับบัตร Omise สำหรับช่องทางในประเทศไทย) GameEdu โดยทั่วไปได้รับเฉพาะข้อมูลการเรียกเก็บเงินขั้นต่ำ (เช่น ตัวระบุลูกค้า สถานะการสมัคร จำนวนเงิน เวลา) ไม่ใช่เลขบัตรเต็ม ซึ่งผู้ให้บริการการชำระเงินจัดการตามข้อกำหนดและมาตรฐานความปลอดภัยของตน",
+        "เมื่อคุณสมัครแพ็กเกจแบบมีค่าใช้จ่าย รายละเอียดการชำระเงินจะถูกเก็บและประมวลผลโดยพันธมิตรการชำระเงิน (เช่น Stripe สำหรับบัตร Omise สำหรับช่องทางในประเทศไทย) TeachPlayEdu โดยทั่วไปได้รับเฉพาะข้อมูลการเรียกเก็บเงินขั้นต่ำ (เช่น ตัวระบุลูกค้า สถานะการสมัคร จำนวนเงิน เวลา) ไม่ใช่เลขบัตรเต็ม ซึ่งผู้ให้บริการการชำระเงินจัดการตามข้อกำหนดและมาตรฐานความปลอดภัยของตน",
       ],
       [
         "8. การเปิดเผยและผู้ประมวลผลแทน",
@@ -160,7 +166,7 @@ export const privacyContent = {
       ],
       [
         "13. เด็กและโรงเรียน",
-        "GameEdu ออกแบบให้ใช้ในบริบทการศึกษา โรงเรียนและครูควรป้อนข้อมูลนักเรียนตามที่สถาบันและกฎหมายอนุญาต หากคุณเชื่อว่ามีการให้ข้อมูลของเด็กโดยไม่มีอำนาจเหมาะสม โปรดแจ้งเราเพื่อให้ดำเนินการตรวจสอบตามสมควร",
+        "TeachPlayEdu ออกแบบให้ใช้ในบริบทการศึกษา โรงเรียนและครูควรป้อนข้อมูลนักเรียนตามที่สถาบันและกฎหมายอนุญาต หากคุณเชื่อว่ามีการให้ข้อมูลของเด็กโดยไม่มีอำนาจเหมาะสม โปรดแจ้งเราเพื่อให้ดำเนินการตรวจสอบตามสมควร",
       ],
       [
         "14. การเปลี่ยนแปลงและการติดต่อ",
@@ -175,15 +181,15 @@ export const privacyContent = {
 export const termsContent = {
   en: {
     updatedAt: "May 7, 2026",
-    back: "Back to GameEdu",
+    back: "Back to TeachPlayEdu",
     updated: "Last updated",
     title: "Terms of Service",
     intro:
-      "These Terms of Service (“Terms”) govern your access to and use of GameEdu’s websites and related services (the “Service”). By creating an account or using the Service, you agree to these Terms. If you use the Service on behalf of a school or organization, you represent that you are authorized to bind that entity to these Terms where applicable.",
+      "These Terms of Service (“Terms”) govern your access to and use of TeachPlayEdu’s websites and related services (the “Service”). By creating an account or using the Service, you agree to these Terms. If you use the Service on behalf of a school or organization, you represent that you are authorized to bind that entity to these Terms where applicable.",
     sections: [
       [
         "1. The Service",
-        "GameEdu provides tools for teachers and students to manage classrooms, run interactive quizzes and live learning games, track participation and progress (including features such as Negamon and classroom economy experiences where enabled), and view related reports. Features may change over time; descriptions on the product at the time of use control unless we expressly agree otherwise in writing.",
+        "TeachPlayEdu provides tools for teachers and students to manage classrooms, run interactive quizzes and live learning games, track participation and progress (including features such as Negamon and classroom economy experiences where enabled), and view related reports. Features may change over time; descriptions on the product at the time of use control unless we expressly agree otherwise in writing.",
       ],
       [
         "2. Eligibility and accounts",
@@ -199,7 +205,7 @@ export const termsContent = {
       ],
       [
         "5. Paid plans and billing",
-        "Paid subscriptions (such as GameEdu PLUS) are billed through checkout flows presented at purchase time. Pricing, currency, taxes, renewal intervals, quotas, and refund policies are shown by our payment partners (for example Stripe or Omise) and/or on in-product pricing screens and supersede conflicting informal communications. Subscriptions renew until canceled according to the controls offered by the payment provider and your selections at checkout. Chargebacks and disputes may result in suspension pending resolution.",
+        "Paid subscriptions (such as TeachPlayEdu PLUS) are billed through checkout flows presented at purchase time. Pricing, currency, taxes, renewal intervals, quotas, and refund policies are shown by our payment partners (for example Stripe or Omise) and/or on in-product pricing screens and supersede conflicting informal communications. Subscriptions renew until canceled according to the controls offered by the payment provider and your selections at checkout. Chargebacks and disputes may result in suspension pending resolution.",
       ],
       [
         "6. Third-party services",
@@ -207,7 +213,7 @@ export const termsContent = {
       ],
       [
         "7. Intellectual property",
-        "GameEdu names, logos, and the Service’s software and documentation are protected by intellectual property laws. Except for the limited rights expressly granted to use the Service, no rights are transferred to you. Feedback you provide may be used to improve the Service without obligation to you.",
+        "TeachPlayEdu names, logos, and the Service’s software and documentation are protected by intellectual property laws. Except for the limited rights expressly granted to use the Service, no rights are transferred to you. Feedback you provide may be used to improve the Service without obligation to you.",
       ],
       [
         "8. Disclaimers",
@@ -215,11 +221,11 @@ export const termsContent = {
       ],
       [
         "9. Limitation of liability",
-        "To the maximum extent permitted by applicable law, neither GameEdu nor its suppliers will be liable for indirect, incidental, special, consequential, or punitive damages, or loss of profits, data, or goodwill. Our aggregate liability arising out of these Terms or the Service is limited to the greater of (a) the amounts you paid to GameEdu for the Service in the three months before the claim or (b) where no fees apply, one hundred Thai baht (THB 100). Some jurisdictions do not allow certain limitations; in those cases our liability is limited to the fullest extent permitted.",
+        "To the maximum extent permitted by applicable law, neither TeachPlayEdu nor its suppliers will be liable for indirect, incidental, special, consequential, or punitive damages, or loss of profits, data, or goodwill. Our aggregate liability arising out of these Terms or the Service is limited to the greater of (a) the amounts you paid to TeachPlayEdu for the Service in the three months before the claim or (b) where no fees apply, one hundred Thai baht (THB 100). Some jurisdictions do not allow certain limitations; in those cases our liability is limited to the fullest extent permitted.",
       ],
       [
         "10. Indemnity",
-        "You will defend and indemnify GameEdu against third-party claims arising from your misuse of the Service, your content, or your violation of these Terms or applicable law, subject to procedures consistent with applicable law.",
+        "You will defend and indemnify TeachPlayEdu against third-party claims arising from your misuse of the Service, your content, or your violation of these Terms or applicable law, subject to procedures consistent with applicable law.",
       ],
       [
         "11. Suspension, termination, and changes",
@@ -239,15 +245,15 @@ export const termsContent = {
   },
   th: {
     updatedAt: "7 พฤษภาคม 2026",
-    back: "กลับไป GameEdu",
+    back: "กลับไป TeachPlayEdu",
     updated: "อัปเดตล่าสุด",
     title: "ข้อกำหนดการให้บริการ",
     intro:
-      "ข้อกำหนดการให้บริการฉบับนี้ (“ข้อกำหนด”) ควบคุมการเข้าถึงและการใช้งานเว็บไซต์และบริการของ GameEdu (“บริการ”) เมื่อคุณสร้างบัญชีหรือใช้บริการ ถือว่าคุณยอมรับข้อกำหนดนี้ หากคุณใช้บริการในนามโรงเรียนหรือองค์กร คุณแสดงว่ามีอำนาจผูกพันองค์กรนั้นตามข้อกำหนดที่เกี่ยวข้อง",
+      "ข้อกำหนดการให้บริการฉบับนี้ (“ข้อกำหนด”) ควบคุมการเข้าถึงและการใช้งานเว็บไซต์และบริการของ TeachPlayEdu (“บริการ”) เมื่อคุณสร้างบัญชีหรือใช้บริการ ถือว่าคุณยอมรับข้อกำหนดนี้ หากคุณใช้บริการในนามโรงเรียนหรือองค์กร คุณแสดงว่ามีอำนาจผูกพันองค์กรนั้นตามข้อกำหนดที่เกี่ยวข้อง",
     sections: [
       [
         "1. บริการ",
-        "GameEdu ให้เครื่องมือแก่ครูและนักเรียนในการจัดการห้องเรียน จัดควิซและเกมการเรียนรู้แบบโต้ตอบ ติดตามการมีส่วนร่วมและความก้าวหน้า (รวมฟีเจอร์เช่น Negamon และประสบการณ์เศรษฐกิจในห้องเรียนเมื่อเปิดใช้งาน) และดูรายงานที่เกี่ยวข้อง ฟีเจอร์อาจเปลี่ยนแปลงการอธิบายตามผลิตภัณฑ์ ณ เวลาใช้งานมีผลบังคับ เว้นแต่เราตกลงเป็นลายลักษณ์อักษรอย่างอื่น",
+        "TeachPlayEdu ให้เครื่องมือแก่ครูและนักเรียนในการจัดการห้องเรียน จัดควิซและเกมการเรียนรู้แบบโต้ตอบ ติดตามการมีส่วนร่วมและความก้าวหน้า (รวมฟีเจอร์เช่น Negamon และประสบการณ์เศรษฐกิจในห้องเรียนเมื่อเปิดใช้งาน) และดูรายงานที่เกี่ยวข้อง ฟีเจอร์อาจเปลี่ยนแปลงการอธิบายตามผลิตภัณฑ์ ณ เวลาใช้งานมีผลบังคับ เว้นแต่เราตกลงเป็นลายลักษณ์อักษรอย่างอื่น",
       ],
       [
         "2. คุณสมบัติและบัญชี",
@@ -263,7 +269,7 @@ export const termsContent = {
       ],
       [
         "5. แพ็กเกจแบบชำระเงินและการเรียกเก็บเงิน",
-        "การสมัครแบบมีค่าใช้จ่าย (เช่น GameEdu PLUS) เรียกเก็บผ่านขั้นตอนชำระเงินที่แสดงตอนสั่งซื้อ ราคา สกุลเงิน ภาษี รอบการต่ออายุ โควตา และนโยบายการคืนเงินตามที่แสดงโดยผู้ให้บริการการชำระเงิน (เช่น Stripe หรือ Omise) และ/หรือบนหน้าจอราคาในแอป และมีผลเหนือการสื่อสารอื่นที่ไม่เป็นทางการ การสมัครจะต่ออายุจนกว่าจะยกเลิกตามเครื่องมือของผู้ให้บริการการชำระเงินและการเลือกของคุณตอนชำระเงิน การขอคืนเงินหรือข้อพิพาทอาจทำให้ระงับชั่วคราวจนกว่าจะได้ข้อยุติ",
+        "การสมัครแบบมีค่าใช้จ่าย (เช่น TeachPlayEdu PLUS) เรียกเก็บผ่านขั้นตอนชำระเงินที่แสดงตอนสั่งซื้อ ราคา สกุลเงิน ภาษี รอบการต่ออายุ โควตา และนโยบายการคืนเงินตามที่แสดงโดยผู้ให้บริการการชำระเงิน (เช่น Stripe หรือ Omise) และ/หรือบนหน้าจอราคาในแอป และมีผลเหนือการสื่อสารอื่นที่ไม่เป็นทางการ การสมัครจะต่ออายุจนกว่าจะยกเลิกตามเครื่องมือของผู้ให้บริการการชำระเงินและการเลือกของคุณตอนชำระเงิน การขอคืนเงินหรือข้อพิพาทอาจทำให้ระงับชั่วคราวจนกว่าจะได้ข้อยุติ",
       ],
       [
         "6. บริการของบุคคลที่สาม",
@@ -271,7 +277,7 @@ export const termsContent = {
       ],
       [
         "7. ทรัพย์สินทางปัญญา",
-        "ชื่อ เครื่องหมาย ซอฟต์แวร์ และเอกสารของ GameEdu อยู่ภายใต้กฎหมายคุ้มครองทรัพย์สินทางปัญญา นอกจากสิทธิ์จำกัดที่ให้โดยชัดแจ้งในการใช้บริการ ไม่มีการโอนสิทธิ์เพิ่มเติมให้คุณ ความคิดเห็นหรือข้อเสนอแนะที่คุณให้อาจถูกนำไปปรับปรุงบริการโดยไม่มีภาระผูกพันต่อคุณ",
+        "ชื่อ เครื่องหมาย ซอฟต์แวร์ และเอกสารของ TeachPlayEdu อยู่ภายใต้กฎหมายคุ้มครองทรัพย์สินทางปัญญา นอกจากสิทธิ์จำกัดที่ให้โดยชัดแจ้งในการใช้บริการ ไม่มีการโอนสิทธิ์เพิ่มเติมให้คุณ ความคิดเห็นหรือข้อเสนอแนะที่คุณให้อาจถูกนำไปปรับปรุงบริการโดยไม่มีภาระผูกพันต่อคุณ",
       ],
       [
         "8. การปฏิเสธความรับผิดชอบ",
@@ -279,11 +285,11 @@ export const termsContent = {
       ],
       [
         "9. ข้อจำกัดความรับผิด",
-        "ภายในขอบเขตสูงสุดที่กฎหมายที่ใช้บังคับอนุญาต GameEdu และผู้ให้บริการของเราจะไม่รับผิดชอบต่อความเสียหายทางอ้อม โดยบังเอิญ พิเศษ เป็นผลตามมา หรือลงโทษ หรือการสูญเสียกำไร ข้อมูล หรือชื่อเสียง ความรับผิดรวมจากข้อกำหนดหรือบริการจำกัดไม่เกินค่าที่คุณชำระแก่ GameEdu สำหรับบริการในสามเดือนก่อนเกิดข้อเรียกร้อง หรือหากไม่มีค่าธรรมเนียม ไม่เกินหนึ่งร้อยบาท (100 บาท) บางเขตอำนาจไม่อนุญาตข้อจำกัดบางประเภท — ในกรณีนั้นความรับผิดของเราจำกัดเท่าที่กฎหมายอนุญาตสูงสุด",
+        "ภายในขอบเขตสูงสุดที่กฎหมายที่ใช้บังคับอนุญาต TeachPlayEdu และผู้ให้บริการของเราจะไม่รับผิดชอบต่อความเสียหายทางอ้อม โดยบังเอิญ พิเศษ เป็นผลตามมา หรือลงโทษ หรือการสูญเสียกำไร ข้อมูล หรือชื่อเสียง ความรับผิดรวมจากข้อกำหนดหรือบริการจำกัดไม่เกินค่าที่คุณชำระแก่ TeachPlayEdu สำหรับบริการในสามเดือนก่อนเกิดข้อเรียกร้อง หรือหากไม่มีค่าธรรมเนียม ไม่เกินหนึ่งร้อยบาท (100 บาท) บางเขตอำนาจไม่อนุญาตข้อจำกัดบางประเภท — ในกรณีนั้นความรับผิดของเราจำกัดเท่าที่กฎหมายอนุญาตสูงสุด",
       ],
       [
         "10. การชดใช้",
-        "คุณจะปกป้องและชดใช้ให้ GameEdu จากข้อเรียกร้องของบุคคลที่สามที่เกิดจากการใช้บริการของคุณในทางที่ผิด เนื้อหาของคุณ หรือการละเมิดข้อกำหนดหรือกฎหมาย ภายใต้ขั้นตอนที่สอดคล้องกับกฎหมายที่ใช้บังคับ",
+        "คุณจะปกป้องและชดใช้ให้ TeachPlayEdu จากข้อเรียกร้องของบุคคลที่สามที่เกิดจากการใช้บริการของคุณในทางที่ผิด เนื้อหาของคุณ หรือการละเมิดข้อกำหนดหรือกฎหมาย ภายใต้ขั้นตอนที่สอดคล้องกับกฎหมายที่ใช้บังคับ",
       ],
       [
         "11. การระงับ การสิ้นสุด และการเปลี่ยนแปลง",

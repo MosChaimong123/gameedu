@@ -28,7 +28,7 @@ export async function sendVerificationEmail(email: string, token: string): Promi
     }
     const verifyUrl = `${origin}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
     const apiKey = process.env.RESEND_API_KEY?.trim();
-    const from = process.env.EMAIL_FROM?.trim() || "GameEdu <onboarding@resend.dev>";
+    const from = process.env.EMAIL_FROM?.trim() || "TeachPlayEdu <onboarding@resend.dev>";
 
     if (!apiKey) {
         if (process.env.NODE_ENV === "production") {
@@ -42,7 +42,7 @@ export async function sendVerificationEmail(email: string, token: string): Promi
     const { error } = await resend.emails.send({
         from,
         to: email,
-        subject: "Verify your GameEdu email",
+        subject: "Verify your TeachPlayEdu email",
         html: `<p>Please verify your email to sign in.</p><p><a href="${verifyUrl}">Verify email</a></p><p>If you did not sign up, you can ignore this message.</p>`,
     });
 

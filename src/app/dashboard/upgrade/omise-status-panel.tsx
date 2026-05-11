@@ -160,7 +160,7 @@ export function OmiseStatusPanel({
                     <button
                         type="button"
                         onClick={() => void load()}
-                        className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800"
+                        className="inline-flex items-center gap-1 text-xs font-bold text-brand-pink hover:text-brand-navy"
                     >
                         <RefreshCw className="h-3 w-3" /> {t("refresh")}
                     </button>

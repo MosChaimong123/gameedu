@@ -119,7 +119,7 @@ export async function POST(req: Request) {
         })
 
         const prompt = `
-            You are an expert educational content creator for GameEdu.
+            You are an expert educational content creator for TeachPlayEdu.
             Generate ${count} high-quality multiple choice questions based on the provided content.
             Target Difficulty Level: ${difficulty === "EASY" ? "Easy/Basic (Recall of facts)" : difficulty === "HARD" ? "Hard/Professional (Application and Critical Thinking)" : "Normal (Understanding and Analysis)"}
             The response language should be ${language === "th" ? "Thai" : "English"}.

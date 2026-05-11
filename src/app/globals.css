@@ -6,6 +6,19 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand-navy: #0a1128;
+  --color-brand-navy-mid: #1e1b4b;
+  /* Candy palette: pink, yellow, cyan, lavender + soft purple (maps old brand-purple usages) */
+  --color-brand-pink: #f43f8a;
+  --color-brand-lavender: #c4b5fd;
+  --color-brand-surface: #f5f3ff;
+  --color-brand-purple: #a78bfa;
+  --color-brand-yellow: #fde047;
+  --color-brand-sky: #38bdf8;
+  --color-brand-cyan: #22d3ee;
+  --color-brand-gold: #facc15;
+  --color-brand-orange: #fb7185;
+  --color-brand-red-orange: #ff4500;
   --font-sans: var(--font-geist-sans), var(--font-noto-sans-thai), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -47,38 +60,40 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.875rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
+  /* CTA / links — candy cyan */
+  --primary: oklch(0.78 0.12 215);
+  --primary-foreground: oklch(0.18 0.05 264);
+  --secondary: oklch(0.96 0.02 240);
+  --secondary-foreground: oklch(0.22 0.06 264);
+  --muted: oklch(0.97 0.01 240);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --accent: oklch(0.94 0.06 95);
+  --accent-foreground: oklch(0.22 0.06 264);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: oklch(0.72 0.14 330);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Dashboard sidebar — plum/lavender (candy, softer than navy) */
+  --sidebar: oklch(0.22 0.07 300);
+  --sidebar-foreground: oklch(0.97 0.02 280);
+  --sidebar-primary: oklch(0.72 0.18 330);
+  --sidebar-primary-foreground: oklch(0.18 0.05 264);
+  --sidebar-accent: oklch(0.3 0.08 300);
+  --sidebar-accent-foreground: oklch(0.97 0.02 280);
+  --sidebar-border: oklch(0.34 0.07 300);
+  --sidebar-ring: oklch(0.78 0.14 330);
 }
 
 @utility perspective-1000 {
@@ -95,6 +110,44 @@
 
 @utility backface-hidden {
   backface-visibility: hidden;
+}
+
+@utility shadow-brand-sticker {
+  box-shadow:
+    0 0 0 3px oklch(1 0 0),
+    0 4px 16px rgb(244 63 138 / 0.22),
+    0 2px 8px rgb(56 189 248 / 0.18);
+}
+
+/* Solid fills (no linear gradients) — keep utility names for backward compatibility */
+@utility bg-brand-hero-gradient {
+  background-color: #312e81;
+}
+
+@utility bg-brand-hero-playful {
+  background-color: #f43f8a;
+}
+
+@utility bg-brand-cta-gradient {
+  background-color: #f43f8a;
+}
+
+@utility bg-brand-cta-warm {
+  background-color: #fde047;
+}
+
+@utility bg-brand-surface-gradient {
+  background-color: #f5f3ff;
+}
+
+@utility text-on-yellow {
+  color: #0a1128;
+}
+
+@utility ring-sticker {
+  box-shadow:
+    0 0 0 4px oklch(1 0 0),
+    0 4px 12px rgb(0 0 0 / 0.12);
 }
 
 @layer base {

@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { BarChart3, Gamepad2, ShieldCheck, Sparkles, Trophy } from "lucide-react"
+import { motion } from "framer-motion"
 import { PublicBrandMark } from "@/components/layout/public-brand-mark"
 import { useLanguage } from "@/components/providers/language-provider"
 import { PageBackLink } from "@/components/ui/page-back-link"
@@ -39,51 +40,69 @@ export function AuthSplitLayout({ mode, children, registerHref, loginHref }: Aut
     return (
         <div className="flex min-h-screen w-full">
             <div
-                className={`relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-violet-700 p-12 lg:flex ${
+                className={`relative hidden flex-col justify-between overflow-hidden bg-brand-hero-gradient p-12 lg:flex ${
                     isLogin ? "lg:w-1/2" : "lg:w-2/5"
                 }`}
             >
-                <div className="absolute top-0 right-0 h-96 w-96 -translate-y-1/2 translate-x-1/2 rounded-full bg-white/10 blur-3xl" />
-                <div className="absolute bottom-0 left-0 h-64 w-64 translate-y-1/2 -translate-x-1/2 rounded-full bg-white/10 blur-3xl" />
+                <div className="pointer-events-none absolute inset-0 z-0 bg-black/10" aria-hidden />
 
-                <div className="relative z-10">
-                    <div className="mb-16">
-                        <PublicBrandMark variant="onDark" size="lg" />
-                    </div>
+                <div className="relative z-10 flex flex-col items-center text-center">
+                    <motion.div
+                        className="mb-12 w-full"
+                        initial={{ opacity: 0, y: 24 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                        <motion.div
+                            animate={{ y: [0, -8, 0] }}
+                            transition={{
+                                duration: 5,
+                                repeat: Number.POSITIVE_INFINITY,
+                                ease: "easeInOut",
+                            }}
+                        >
+                            <PublicBrandMark
+                                variant="onDark"
+                                size="xl"
+                                centered
+                                logoClassName="drop-shadow-[0_8px_24px_rgb(0_0_0_/_0.35)]"
+                            />
+                        </motion.div>
+                    </motion.div>
 
-                    <h1 className="mb-4 text-4xl font-black leading-tight text-white">
+                    <h1 className="mb-4 max-w-xl text-4xl font-black leading-tight text-white">
                         {heroLine1}
                         <br />
-                        <span className="text-white/80">{heroLine2}</span>
+                        <span className="text-brand-yellow">{heroLine2}</span>
                     </h1>
-                    <p className="max-w-sm text-lg leading-relaxed text-white/70">{heroBody}</p>
+                    <p className="max-w-md text-lg leading-relaxed text-white/70">{heroBody}</p>
                 </div>
 
-                <div className="relative z-10">
+                <div className="relative z-10 w-full">
                     {isLogin ? (
-                        <div className="flex flex-col gap-3">
+                        <div className="mx-auto flex max-w-md flex-col gap-3">
                             {loginFeatures.map((item) => (
                                 <div
                                     key={item.text}
-                                    className="flex items-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-sm"
+                                    className="ring-sticker flex items-center gap-3 rounded-2xl border border-white/25 bg-white/10 px-4 py-3 backdrop-blur-sm"
                                 >
-                                    <item.icon className="h-6 w-6 text-white" />
+                                    <item.icon className="h-6 w-6 text-brand-lavender" />
                                     <span className="font-semibold text-white">{item.text}</span>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <div className="space-y-4">
-                            <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
+                        <div className="mx-auto max-w-md space-y-4">
+                            <div className="ring-sticker rounded-2xl border border-white/25 bg-white/10 p-4 backdrop-blur-sm">
                                 <div className="mb-1 flex items-center gap-3">
-                                    <Sparkles className="h-5 w-5 text-white" />
+                                    <Sparkles className="h-5 w-5 text-brand-lavender" />
                                     <p className="font-bold text-white">{t("registerBullet1Title")}</p>
                                 </div>
                                 <p className="pl-9 text-sm text-white/60">{t("registerBullet1Desc")}</p>
                             </div>
-                            <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
+                            <div className="ring-sticker rounded-2xl border border-white/25 bg-white/10 p-4 backdrop-blur-sm">
                                 <div className="mb-1 flex items-center gap-3">
-                                    <ShieldCheck className="h-5 w-5 text-white" />
+                                    <ShieldCheck className="h-5 w-5 text-brand-lavender" />
                                     <p className="font-bold text-white">{t("registerBullet2Title")}</p>
                                 </div>
                                 <p className="pl-9 text-sm text-white/60">{t("registerBullet2Desc")}</p>
@@ -93,28 +112,48 @@ export function AuthSplitLayout({ mode, children, registerHref, loginHref }: Aut
                 </div>
             </div>
 
-            <div className="relative flex flex-1 flex-col items-center justify-center overflow-y-auto bg-slate-50 p-6 sm:p-8">
+            <div className="relative flex flex-1 flex-col items-center justify-center overflow-y-auto bg-brand-surface p-6 sm:p-8">
                 <div className="absolute left-4 top-4 sm:left-6 sm:top-6">
                     <PageBackLink href="/" labelKey="pageBackHome" />
                 </div>
 
                 <div className={`w-full py-6 sm:py-8 ${isLogin ? "max-w-md" : "max-w-lg"}`}>
-                    <div className="mb-8 lg:hidden">
-                        <PublicBrandMark href="/" size="md" />
-                    </div>
+                    <motion.div
+                        className="mb-8 flex justify-center lg:hidden"
+                        initial={{ opacity: 0, scale: 0.94 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                        <motion.div
+                            animate={{ y: [0, -5, 0] }}
+                            transition={{
+                                duration: 4.5,
+                                repeat: Number.POSITIVE_INFINITY,
+                                ease: "easeInOut",
+                            }}
+                        >
+                            <PublicBrandMark
+                                href="/"
+                                size="lg"
+                                logoClassName="drop-shadow-md"
+                            />
+                        </motion.div>
+                    </motion.div>
 
                     <div className="mb-8">
                         <h2 className="text-3xl font-black text-slate-800">{formTitle}</h2>
                         <p className="mt-2 text-slate-500">{formSubtitle}</p>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-100 bg-white p-8 shadow-lg">{children}</div>
+                    <div className="rounded-2xl border border-brand-lavender/30 bg-white/90 p-8 shadow-lg shadow-brand-lavender/10 backdrop-blur-sm">
+                        {children}
+                    </div>
 
                     <p className="mt-6 text-center text-sm text-slate-500">
                         {footerPrompt}{" "}
                         <Link
                             href={footerHref}
-                            className="font-bold text-indigo-600 transition-colors hover:text-indigo-500"
+                            className="font-bold text-brand-pink transition-colors hover:text-brand-navy"
                         >
                             {footerLinkText}
                         </Link>

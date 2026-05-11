@@ -4,6 +4,7 @@ import {
   makeJsonRequest,
   makeRouteParams,
 } from "@/__tests__/utils/route-test-helpers";
+import { FORBIDDEN_MESSAGE } from "@/lib/api-error";
 
 const mockAuth = vi.fn();
 const mockClassroomFindUnique = vi.fn();
@@ -29,7 +30,7 @@ vi.mock("@/lib/prisma-json", () => ({
 describe("classroom gamification settings route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockAuth.mockResolvedValue({ user: { id: "teacher-1" } });
+    mockAuth.mockResolvedValue({ user: { id: "teacher-1", role: "TEACHER" } });
   });
 
   it("returns normalized gamified settings for the owning teacher", async () => {
@@ -47,6 +48,7 @@ describe("classroom gamification settings route", () => {
   });
 
   it("rejects non-object payloads", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } });
     const { PATCH } = await import("@/app/api/classrooms/[id]/gamification-settings/route");
     const response = await PATCH(
       makeJsonRequest({ gamifiedSettings: "bad" }) as never,
@@ -62,6 +64,7 @@ describe("classroom gamification settings route", () => {
   });
 
   it("rejects invalid negamon structure", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } });
     const { PATCH } = await import("@/app/api/classrooms/[id]/gamification-settings/route");
     const response = await PATCH(
       makeJsonRequest({ gamifiedSettings: { negamon: { enabled: "yes" } } }) as never,
@@ -76,7 +79,8 @@ describe("classroom gamification settings route", () => {
     expect(mockClassroomUpdate).not.toHaveBeenCalled();
   });
 
-  it("updates gamified settings for the owning teacher", async () => {
+  it("updates gamified settings when caller is platform admin", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } });
     mockClassroomUpdate.mockResolvedValue({
       gamifiedSettings: { negamon: { enabled: true } },
     });
@@ -94,7 +98,6 @@ describe("classroom gamification settings route", () => {
     expect(mockClassroomUpdate).toHaveBeenCalledWith({
       where: {
         id: "class-1",
-        teacherId: "teacher-1",
       },
       data: {
         gamifiedSettings: { negamon: { enabled: true } },
@@ -103,5 +106,21 @@ describe("classroom gamification settings route", () => {
         gamifiedSettings: true,
       },
     });
+  });
+
+  it("rejects PATCH for non-admin teachers", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "teacher-1", role: "TEACHER" } });
+    const { PATCH } = await import("@/app/api/classrooms/[id]/gamification-settings/route");
+    const response = await PATCH(
+      makeJsonRequest({ gamifiedSettings: { negamon: { enabled: true } } }) as never,
+      makeRouteParams({ id: "class-1" })
+    );
+
+    await expectAppErrorResponse(response, {
+      status: 403,
+      code: "FORBIDDEN",
+      message: FORBIDDEN_MESSAGE,
+    });
+    expect(mockClassroomUpdate).not.toHaveBeenCalled();
   });
 });

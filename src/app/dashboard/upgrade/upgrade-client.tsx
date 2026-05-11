@@ -355,13 +355,13 @@ export function UpgradePageClient({
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 text-sm font-black uppercase tracking-widest"
+                        className="inline-flex items-center gap-2 rounded-full border border-brand-pink/25 bg-brand-pink/10 px-4 py-1.5 text-sm font-black uppercase tracking-widest text-brand-pink"
                     >
                         <Sparkles className="w-4 h-4" /> {t("upgradeBadge")}
                     </motion.div>
                     <h1 className="text-5xl md:text-6xl font-black tracking-tight text-slate-900 leading-none">
                         {t("upgradeHeroLine1")} <br />{" "}
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
+                        <span className="text-brand-pink">
                             {t("upgradeHeroPro")}
                         </span>
                     </h1>
@@ -460,10 +460,10 @@ export function UpgradePageClient({
                             transition={{ delay: index * 0.1 }}
                         >
                             <Card
-                                className={`relative h-full border-0 shadow-2xl rounded-[3rem] overflow-hidden flex flex-col ${plan.highlight ? "ring-4 ring-indigo-600 ring-offset-8 scale-105 z-10" : "bg-white"}`}
+                                className={`relative h-full border-0 shadow-2xl rounded-[3rem] overflow-hidden flex flex-col ${plan.highlight ? "z-10 scale-105 ring-4 ring-brand-pink ring-offset-8" : "bg-white"}`}
                             >
                                 {plan.highlight && (
-                                    <div className="absolute top-0 right-0 left-0 bg-indigo-600 text-white text-center py-2 text-xs font-black uppercase tracking-widest">
+                                    <div className="absolute left-0 right-0 top-0 bg-brand-pink py-2 text-center text-xs font-black uppercase tracking-widest text-white">
                                         {t("upgradeBestValue")}
                                     </div>
                                 )}
@@ -472,7 +472,7 @@ export function UpgradePageClient({
                                     <div
                                         className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 ${
                                             plan.color === "indigo"
-                                                ? "bg-indigo-600 text-white"
+                                                ? "bg-brand-pink text-white"
                                                 : plan.color === "emerald"
                                                   ? "bg-emerald-500 text-white"
                                                   : "bg-slate-100 text-slate-500"
@@ -561,7 +561,7 @@ export function UpgradePageClient({
                                                 currentPlan === plan.id
                                                     ? "bg-slate-100 text-slate-400 cursor-default"
                                                     : plan.highlight
-                                                      ? "bg-indigo-600 hover:bg-slate-900 text-white shadow-xl shadow-indigo-200"
+                                                      ? "bg-brand-pink text-white shadow-xl shadow-brand-pink/25 hover:opacity-95"
                                                       : "bg-slate-900 hover:bg-black text-white"
                                             }`}
                                         >
@@ -576,7 +576,7 @@ export function UpgradePageClient({
                                                     onClick={() => void startPlusCheckout()}
                                                     className={`h-16 w-full rounded-2xl text-lg font-black transition-all hover:scale-[1.02] active:scale-[0.98] ${
                                                         plan.highlight
-                                                            ? "bg-indigo-600 hover:bg-slate-900 text-white shadow-xl shadow-indigo-200"
+                                                            ? "bg-brand-pink text-white shadow-xl shadow-brand-pink/25 hover:opacity-95"
                                                             : "bg-slate-900 hover:bg-black text-white"
                                                     }`}
                                                 >
@@ -596,7 +596,7 @@ export function UpgradePageClient({
                                                     variant="outline"
                                                     disabled={thaiLoading}
                                                     onClick={() => void startThaiChannelCheckout()}
-                                                    className="h-14 w-full rounded-2xl border-2 border-indigo-200 bg-white text-base font-black text-indigo-900 hover:bg-indigo-50"
+                                                    className="h-14 w-full rounded-2xl border-2 border-brand-pink/25 bg-white text-base font-black text-brand-navy hover:bg-brand-pink/5"
                                                 >
                                                     {thaiLoading
                                                         ? t("upgradeCheckoutWorking")
@@ -614,7 +614,7 @@ export function UpgradePageClient({
                                             asChild
                                             className={`w-full h-16 rounded-2xl text-lg font-black transition-all hover:scale-[1.02] active:scale-[0.98] ${
                                                 plan.highlight
-                                                    ? "bg-indigo-600 hover:bg-slate-900 text-white shadow-xl shadow-indigo-200"
+                                                            ? "bg-brand-pink text-white shadow-xl shadow-brand-pink/25 hover:opacity-95"
                                                     : "bg-slate-900 hover:bg-black text-white"
                                             }`}
                                         >
@@ -633,7 +633,7 @@ export function UpgradePageClient({
                 <div className="text-center">
                     <p className="text-slate-400 font-medium">
                         {t("upgradeSchoolLine")}
-                        <Link href={contactHref} className="text-indigo-600 font-black hover:underline ml-1">
+                        <Link href={contactHref} className="ml-1 font-black text-brand-pink hover:underline">
                             {t("upgradeSchoolLink")}
                         </Link>
                     </p>

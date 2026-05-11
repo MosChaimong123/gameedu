@@ -11,7 +11,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { LogOut, User, Settings, Sparkles, Search, Gamepad2 } from "lucide-react"
+import { LogOut, User, Settings, Sparkles, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { useState } from "react"
@@ -19,9 +19,10 @@ import { useState } from "react"
 import { LanguageToggle } from "@/components/language-toggle"
 import { useLanguage } from "@/components/providers/language-provider"
 import { NotificationTray } from "@/components/dashboard/notification-tray"
+import { BrandLogo } from "@/components/layout/brand-logo"
 import { motion } from "framer-motion"
 type TopbarProps = {
-    /** When the layout shows a desktop sidebar with the same GameEdu brand, hide this block to avoid duplication. */
+    /** When the layout shows a desktop sidebar with the same app brand mark, hide this block to avoid duplication. */
     hideLeadingBrand?: boolean
 }
 
@@ -44,14 +45,12 @@ export function Topbar({ hideLeadingBrand = false }: TopbarProps) {
                     <motion.div
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="group flex cursor-pointer items-center gap-2"
+                        className="group flex min-w-0 cursor-pointer items-center gap-2"
                         onClick={() => router.push("/dashboard")}
                     >
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 shadow-lg shadow-indigo-200 transition-transform group-hover:rotate-6">
-                            <Gamepad2 className="h-5 w-5 text-white" />
-                        </div>
-                        <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-2xl font-black tracking-tighter text-transparent">
-                            GameEdu
+                        <BrandLogo size="md" className="shrink-0" />
+                        <span className="min-w-0 truncate font-black tracking-tight text-foreground">
+                            {t("appName")}
                         </span>
                         <motion.div
                             animate={{
@@ -63,7 +62,7 @@ export function Topbar({ hideLeadingBrand = false }: TopbarProps) {
                                 repeat: Infinity,
                                 ease: "easeInOut",
                             }}
-                            className="h-2 w-2 rounded-full bg-purple-500 shadow-[0_0_10px_purple]"
+                            className="h-2 w-2 rounded-full bg-brand-pink shadow-[0_0_12px_rgb(244,63,138)]"
                         />
                     </motion.div>
                 </div>
@@ -71,14 +70,12 @@ export function Topbar({ hideLeadingBrand = false }: TopbarProps) {
                 <div className="flex shrink-0 items-center md:hidden">
                     <button
                         type="button"
-                        className="flex items-center gap-2 rounded-xl py-1 pr-2 text-left transition-opacity hover:opacity-90"
+                        className="flex min-w-0 max-w-[min(100%,14rem)] items-center gap-2 rounded-xl py-1 pr-2 text-left transition-opacity hover:opacity-90"
                         onClick={() => router.push("/dashboard")}
                     >
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 shadow-md shadow-indigo-200">
-                            <Gamepad2 className="h-4 w-4 text-white" />
-                        </div>
-                        <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-lg font-black tracking-tighter text-transparent">
-                            GameEdu
+                        <BrandLogo size="sm" className="shrink-0" />
+                        <span className="min-w-0 truncate text-sm font-black tracking-tight text-foreground">
+                            {t("appName")}
                         </span>
                     </button>
                 </div>
@@ -91,7 +88,7 @@ export function Topbar({ hideLeadingBrand = false }: TopbarProps) {
                     <Input
                         type="text"
                         placeholder={t("discover") + "..."}
-                        className="h-10 w-full touch-manipulation rounded-full border-transparent bg-muted/50 pl-9 text-base transition-all focus-visible:bg-background focus-visible:ring-indigo-500 sm:h-9 sm:pl-10"
+                        className="h-10 w-full touch-manipulation rounded-full border-transparent bg-muted/50 pl-9 text-base transition-all focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-brand-cyan/50 sm:h-9 sm:pl-10"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -102,7 +99,7 @@ export function Topbar({ hideLeadingBrand = false }: TopbarProps) {
                 {session?.user?.plan === "PLUS" ? (
                     <motion.div
                         whileHover={{ scale: 1.05 }}
-                        className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-200"
+                        className="hidden md:flex items-center gap-2 rounded-full bg-brand-pink px-4 py-1.5 text-white shadow-lg shadow-brand-pink/25"
                     >
                         <Sparkles className="w-4 h-4" />
                         <span className="text-xs font-black uppercase tracking-widest">{t("planPlusBadge")}</span>
@@ -110,7 +107,7 @@ export function Topbar({ hideLeadingBrand = false }: TopbarProps) {
                 ) : (
                     <Button 
                         onClick={() => router.push("/dashboard/upgrade")}
-                        className="hidden md:flex bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-sm border-0 h-9 transition-all active:scale-95 shadow-indigo-100"
+                        className="hidden md:flex h-9 border-0 bg-brand-pink text-white shadow-sm shadow-brand-pink/25 transition-all hover:opacity-95 active:scale-95"
                     >
                         <Sparkles className="w-4 h-4 mr-2" />
                         {t("upgradeToPlus")}
@@ -126,7 +123,7 @@ export function Topbar({ hideLeadingBrand = false }: TopbarProps) {
                         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                             <Avatar className="h-10 w-10 border-2 border-slate-100">
                                 <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name || ""} />
-                                <AvatarFallback className="bg-purple-100 text-purple-700">
+                                <AvatarFallback className="bg-brand-pink/15 text-brand-pink">
                                     {session?.user?.name?.[0]?.toUpperCase() || "U"}
                                 </AvatarFallback>
                             </Avatar>
@@ -136,9 +133,9 @@ export function Topbar({ hideLeadingBrand = false }: TopbarProps) {
                         <DropdownMenuLabel className="p-4">
                             <div className="flex flex-col space-y-2">
                                 <div className="flex items-center gap-3">
-                                    <Avatar className="h-10 w-10 border-2 border-indigo-100 shadow-sm">
+                                    <Avatar className="h-10 w-10 border-2 border-brand-pink/25 shadow-sm">
                                         <AvatarImage src={session?.user?.image || ""} />
-                                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-black">
+                                        <AvatarFallback className="bg-brand-pink font-black text-white">
                                             {session?.user?.name?.[0]?.toUpperCase()}
                                         </AvatarFallback>
                                     </Avatar>
@@ -150,7 +147,7 @@ export function Topbar({ hideLeadingBrand = false }: TopbarProps) {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 pt-2">
-                                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-[9px] font-black text-indigo-600 border border-indigo-100 uppercase tracking-tighter">
+                                    <span className="rounded-full border border-brand-pink/25 bg-brand-pink/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter text-brand-pink">
                                         {session?.user?.role || "STUDENT"}
                                     </span>
                                     <span className="px-2 py-0.5 rounded-full bg-amber-50 text-[9px] font-black text-amber-600 border border-amber-100 uppercase tracking-tighter">
@@ -163,19 +160,19 @@ export function Topbar({ hideLeadingBrand = false }: TopbarProps) {
                         <div className="p-1 space-y-1">
                             <DropdownMenuItem 
                                 onClick={() => router.push("/dashboard/profile")}
-                                className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all focus:bg-indigo-50 focus:text-indigo-600 group"
+                                className="group flex cursor-pointer items-center gap-3 rounded-xl p-3 transition-all focus:bg-brand-pink/10 focus:text-brand-pink"
                             >
-                                <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center group-focus:bg-indigo-100 transition-colors">
-                                    <User className="h-4 w-4 text-slate-500 group-focus:text-indigo-600" />
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 transition-colors group-focus:bg-brand-pink/15">
+                                    <User className="h-4 w-4 text-slate-500 group-focus:text-brand-pink" />
                                 </div>
                                 <span className="text-sm font-bold">{t("profile")}</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                                 onClick={() => router.push("/dashboard/settings")}
-                                className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all focus:bg-indigo-50 focus:text-indigo-600 group"
+                                className="group flex cursor-pointer items-center gap-3 rounded-xl p-3 transition-all focus:bg-brand-pink/10 focus:text-brand-pink"
                             >
-                                <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center group-focus:bg-indigo-100 transition-colors">
-                                    <Settings className="h-4 w-4 text-slate-500 group-focus:text-indigo-600" />
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 transition-colors group-focus:bg-brand-pink/15">
+                                    <Settings className="h-4 w-4 text-slate-500 group-focus:text-brand-pink" />
                                 </div>
                                 <span className="text-sm font-bold">{t("settings")}</span>
                             </DropdownMenuItem>

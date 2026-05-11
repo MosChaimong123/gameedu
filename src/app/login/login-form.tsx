@@ -208,7 +208,7 @@ export default function LoginForm({ audience }: LoginFormProps) {
                                 <FormControl>
                                     <Input
                                         placeholder={t("loginPlaceholderEmail")}
-                                        className="h-11 rounded-xl border-slate-200 focus:border-indigo-400 focus:ring-indigo-400"
+                                        className="h-11 rounded-xl border-slate-200 focus:border-brand-pink focus:ring-brand-pink"
                                         {...field}
                                     />
                                 </FormControl>
@@ -227,7 +227,7 @@ export default function LoginForm({ audience }: LoginFormProps) {
                                         <Input
                                             type={showPassword ? "text" : "password"}
                                             placeholder={t("loginPlaceholderPassword")}
-                                            className="h-11 rounded-xl border-slate-200 pr-10 focus:border-indigo-400 focus:ring-indigo-400"
+                                            className="h-11 rounded-xl border-slate-200 pr-10 focus:border-brand-pink focus:ring-brand-pink"
                                             {...field}
                                         />
                                         <button
@@ -245,7 +245,7 @@ export default function LoginForm({ audience }: LoginFormProps) {
                     />
                     <Button
                         type="submit"
-                        className="h-11 w-full rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 font-bold text-white shadow-md transition-all hover:from-indigo-700 hover:to-purple-700 hover:shadow-lg"
+                        className="h-11 w-full rounded-xl bg-brand-pink font-bold text-white shadow-md transition-all hover:opacity-95 hover:shadow-lg"
                         disabled={isLoading}
                     >
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -267,7 +267,7 @@ export default function LoginForm({ audience }: LoginFormProps) {
                 variant="outline"
                 type="button"
                 disabled={isLoading}
-                className="h-11 w-full gap-3 rounded-xl border-2 border-slate-200 font-semibold hover:border-indigo-300 hover:bg-indigo-50"
+                className="h-11 w-full gap-3 rounded-xl border-2 border-slate-200 font-semibold hover:border-brand-pink/40 hover:bg-brand-pink/5"
                 onClick={() => void onGoogleClick()}
             >
                 <svg className="h-5 w-5" viewBox="0 0 488 512" xmlns="http://www.w3.org/2000/svg" aria-hidden>

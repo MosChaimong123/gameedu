@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/providers/language-provider";
+import { isNegamonBattleHostEnabled } from "@/lib/negamon-battle-host-enabled";
 
 type QuestionSet = {
     id: string;
@@ -43,6 +44,10 @@ export function NegamonBattleLauncher({ classroomId }: NegamonBattleLauncherProp
             .finally(() => setLoading(false));
         return () => window.clearTimeout(timer);
     }, [open]);
+
+    if (!isNegamonBattleHostEnabled()) {
+        return null;
+    }
 
     const handleLaunch = () => {
         if (!selected) return;

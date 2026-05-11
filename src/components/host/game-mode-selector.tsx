@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Lock } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
+import { isNegamonBattleHostEnabled } from "@/lib/negamon-battle-host-enabled"
+import { PageBackLink } from "@/components/ui/page-back-link"
 
 type GameModeBase = {
     id: string
@@ -77,7 +79,7 @@ const MODE_DEFS: GameModeBase[] = [
         durationKey: "hostModeDurationNegamon",
         color: "bg-gradient-to-br from-fuchsia-900/90 to-slate-950 border-fuchsia-400/70",
         previewAccent: "from-fuchsia-500/30 to-violet-950/90",
-        active: true,
+        active: isNegamonBattleHostEnabled(),
     },
     {
         id: "fishing-frenzy",
@@ -138,9 +140,11 @@ const MODE_DEFS: GameModeBase[] = [
 
 interface GameModeSelectorProps {
     onSelect: (modeId: string) => void
+    /** กลับไปหน้าก่อน (เช่น ชุดคำถามของฉัน) */
+    onBack: () => void
 }
 
-export function GameModeSelector({ onSelect }: GameModeSelectorProps) {
+export function GameModeSelector({ onSelect, onBack }: GameModeSelectorProps) {
     const { t, language } = useLanguage()
     const modes: GameMode[] = useMemo(
         () =>
@@ -174,8 +178,9 @@ export function GameModeSelector({ onSelect }: GameModeSelectorProps) {
     const selectedMode = modes.find((m) => m.id === selectedId) || modes[0]
 
     return (
-        <div className="flex min-h-screen flex-col overflow-hidden bg-gradient-to-b from-slate-100 via-white to-indigo-50/70 font-sans lg:flex-row">
-            <div className="relative flex flex-1 flex-col">
+        <div className="min-h-[100dvh] w-full overflow-x-hidden bg-gradient-to-b from-slate-100 via-white to-indigo-50/70 font-sans lg:min-h-screen">
+            <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col lg:flex-row lg:items-stretch">
+            <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
                 <div
                     className="pointer-events-none absolute inset-0 opacity-[0.35]"
                     style={{
@@ -184,15 +189,24 @@ export function GameModeSelector({ onSelect }: GameModeSelectorProps) {
                     }}
                 />
 
-                <div className="relative z-10 flex h-full flex-col p-4 sm:p-6 lg:p-8">
-                    <div className="mb-6 rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-4 text-center shadow-sm shadow-indigo-100/50 backdrop-blur-sm sm:py-5">
-                        <h1 className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-2xl font-black tracking-tight text-transparent sm:text-3xl">
-                            {t("hostSelectModeTitle")}
-                        </h1>
-                        <p className="mt-1 text-sm font-medium text-slate-500">{t("hostSelectModeSubtitle")}</p>
+                <div className="relative z-10 flex h-full min-h-0 flex-col px-3 py-4 sm:px-5 sm:py-6 lg:px-6 lg:py-8">
+                    <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center">
+                        <PageBackLink
+                            onClick={onBack}
+                            labelKey="navBackMySets"
+                            className="shrink-0 self-start shadow-sm shadow-slate-200/50"
+                        />
+                        <div className="min-w-0 flex-1 rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-4 text-center shadow-sm shadow-indigo-100/50 backdrop-blur-sm sm:py-5">
+                            <h1 className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-xl font-black tracking-tight text-transparent sm:text-2xl md:text-3xl">
+                                {t("hostSelectModeTitle")}
+                            </h1>
+                            <p className="mt-1 text-xs font-medium text-slate-500 sm:text-sm">
+                                {t("hostSelectModeSubtitle")}
+                            </p>
+                        </div>
                     </div>
 
-                    <div className="custom-scrollbar grid flex-1 grid-cols-2 gap-3 overflow-y-auto pb-8 pr-1 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
+                    <div className="custom-scrollbar grid min-h-0 flex-1 grid-cols-2 gap-2 overflow-y-auto pb-6 [grid-auto-rows:minmax(0,auto)] sm:gap-3 sm:pb-8 md:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:gap-4">
                         {modes.map((mode) => (
                             <button
                                 key={mode.id}
@@ -213,11 +227,11 @@ export function GameModeSelector({ onSelect }: GameModeSelectorProps) {
                                     )}
                                 >
                                     <div className="flex w-full flex-1 items-center justify-center p-3">
-                                        <div className="relative flex aspect-square h-auto w-24 sm:w-28 items-center justify-center overflow-hidden rounded-[1.5rem] bg-black/20 shadow-lg ring-1 ring-white/10">
+                                        <div className="relative flex aspect-square h-auto w-[4.5rem] min-[400px]:w-24 sm:w-28 items-center justify-center overflow-hidden rounded-[1.25rem] bg-black/20 shadow-lg ring-1 ring-white/10 sm:rounded-[1.5rem]">
                                             {renderModeIcon(mode.icon)}
                                         </div>
                                     </div>
-                                    <span className="line-clamp-2 px-1 text-center text-xl font-black leading-tight tracking-wide text-white drop-shadow-md sm:text-2xl">
+                                    <span className="line-clamp-2 px-0.5 text-center text-base font-black leading-tight tracking-wide text-white drop-shadow-md min-[400px]:text-lg sm:px-1 sm:text-xl md:text-2xl">
                                         {mode.title}
                                     </span>
                                     {!mode.active && (
@@ -235,10 +249,10 @@ export function GameModeSelector({ onSelect }: GameModeSelectorProps) {
                 </div>
             </div>
 
-            <aside className="flex w-full flex-col border-t border-slate-200/90 bg-white/95 shadow-[0_-8px_40px_-12px_rgba(79,70,229,0.15)] backdrop-blur-md lg:w-[min(100%,420px)] lg:max-w-md lg:border-l lg:border-t-0 lg:shadow-2xl">
+            <aside className="flex w-full shrink-0 flex-col border-t border-slate-200/90 bg-white/95 shadow-[0_-8px_40px_-12px_rgba(79,70,229,0.15)] backdrop-blur-md lg:max-w-md lg:w-[min(100%,420px)] lg:border-l lg:border-t-0 lg:shadow-2xl xl:max-w-[min(420px,32vw)]">
                 <div
                     className={cn(
-                        "relative flex h-56 flex-col items-center justify-center gap-3 overflow-hidden px-6 pt-8 sm:h-64",
+                        "relative flex min-h-[13rem] flex-col items-center justify-center gap-3 overflow-hidden px-4 pt-6 sm:h-64 sm:px-6 sm:pt-8",
                         selectedMode.color.replace(/\/[0-9]+/g, "").replace(/border-[\w-]+/g, "")
                     )}
                 >
@@ -255,12 +269,12 @@ export function GameModeSelector({ onSelect }: GameModeSelectorProps) {
                         />
                     </div>
 
-                    <div className="relative z-10 flex aspect-square w-40 items-center justify-center overflow-hidden rounded-[2.5rem] bg-white/10 shadow-2xl ring-1 ring-white/25 backdrop-blur-md sm:w-48">
+                    <div className="relative z-10 flex aspect-square w-32 max-w-[40vw] items-center justify-center overflow-hidden rounded-[2rem] bg-white/10 shadow-2xl ring-1 ring-white/25 backdrop-blur-md sm:w-48 sm:rounded-[2.5rem]">
                         {renderModeIcon(selectedMode.icon)}
                     </div>
 
                     <div className="relative z-10 text-center">
-                        <h2 className="text-2xl font-black tracking-tight text-white drop-shadow-sm sm:text-3xl">
+                        <h2 className="text-xl font-black tracking-tight text-white drop-shadow-sm sm:text-2xl md:text-3xl">
                             {selectedMode.title}
                         </h2>
                         <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-white/70">
@@ -272,15 +286,15 @@ export function GameModeSelector({ onSelect }: GameModeSelectorProps) {
                     </div>
                 </div>
 
-                <div className="flex flex-1 flex-col p-6 sm:p-8">
-                    <p className="mb-8 flex-1 text-base leading-relaxed text-slate-600 sm:text-lg">
+                <div className="flex flex-1 flex-col p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 md:p-8">
+                    <p className="mb-6 flex-1 text-sm leading-relaxed text-slate-600 sm:mb-8 sm:text-base md:text-lg">
                         {selectedMode.description}
                     </p>
 
                     <Button
                         size="lg"
                         className={cn(
-                            "w-full rounded-2xl py-7 text-xl font-bold shadow-md transition-all sm:py-8 sm:text-2xl",
+                            "w-full rounded-2xl py-6 text-lg font-bold shadow-md transition-all sm:py-7 sm:text-xl md:py-8 md:text-2xl",
                             selectedMode.active
                                 ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-indigo-200/50 hover:from-indigo-700 hover:to-purple-700 active:translate-y-0.5"
                                 : "cursor-not-allowed bg-slate-200 text-slate-500 shadow-none"
@@ -294,6 +308,7 @@ export function GameModeSelector({ onSelect }: GameModeSelectorProps) {
                     </Button>
                 </div>
             </aside>
+            </div>
         </div>
     )
 }

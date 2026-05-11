@@ -16,6 +16,7 @@ import {
   SOCKET_ERROR_JOIN_CLASSROOM_FIRST,
   SOCKET_ERROR_LOBBY_FULL,
   SOCKET_ERROR_NEGAMON_MID_MATCH,
+  SOCKET_ERROR_NEGAMON_BATTLE_HOST_DISABLED,
   SOCKET_ERROR_NICKNAME_IN_USE,
   SOCKET_ERROR_ONLY_HOST_CAN_END,
   SOCKET_ERROR_ONLY_HOST_CAN_START,
@@ -28,6 +29,7 @@ import {
   SOCKET_ERROR_UNAUTHORIZED_CLASSROOM_EVENT,
   SOCKET_ERROR_UNAUTHORIZED_QUESTION_SET,
 } from "@/lib/socket-error-messages";
+import { isNegamonBattleHostEnabled } from "@/lib/negamon-battle-host-enabled";
 
 type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE";
 
@@ -220,6 +222,11 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
               : rawMode === "NEGAMON_BATTLE"
                 ? "NEGAMON_BATTLE"
                 : "GOLD_QUEST";
+
+          if (normalizedMode === "NEGAMON_BATTLE" && !isNegamonBattleHostEnabled()) {
+            socket.emit("error", { message: SOCKET_ERROR_NEGAMON_BATTLE_HOST_DISABLED });
+            return;
+          }
 
           const sanitized: Partial<GameSettings> =
             settings && typeof settings === "object" ? { ...settings } : {};

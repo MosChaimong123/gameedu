@@ -10,6 +10,7 @@ export const SOCKET_ERROR_HOST_RECONNECTION_DENIED = "playSocketHostReconnection
 export const SOCKET_ERROR_GAME_LOCKED = "playSocketGameLocked";
 export const SOCKET_ERROR_INVALID_STUDENT_CODE = "playSocketInvalidStudentCode";
 export const SOCKET_ERROR_NEGAMON_MID_MATCH = "playNegamonSocketMidMatch";
+export const SOCKET_ERROR_NEGAMON_BATTLE_HOST_DISABLED = "hostNegamonBattleDisabled";
 export const SOCKET_ERROR_NICKNAME_IN_USE = "playSocketNicknameInUse";
 export const SOCKET_ERROR_LOBBY_FULL = "apiError_PLAN_LIMIT_LIVE_PLAYERS";
 export const SOCKET_ERROR_ONLY_HOST_CAN_START = "playSocketOnlyHostCanStart";
@@ -67,7 +68,8 @@ function resolveSocketErrorTranslationKey(raw: string): string {
     raw.startsWith("playSocket") ||
     raw.startsWith("playNegamonSocket") ||
     raw.startsWith("playCrypto") ||
-    raw.startsWith("apiError_")
+    raw.startsWith("apiError_") ||
+    raw.startsWith("hostNegamon")
   ) {
     return raw;
   }

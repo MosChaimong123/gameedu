@@ -16,7 +16,8 @@ export const questionSetQuestionSchema = generatedQuestionInputSchema.extend({
   timeLimit: z.number().int().min(1).max(600),
   optionTypes: z.array(optionTypeSchema).length(4),
   questionType: questionTypeSchema,
-  explanation: z.string(),
+  // Editor payload often omits this key; must not fail validation.
+  explanation: z.string().default(""),
 });
 
 export type QuestionSetQuestion = z.infer<typeof questionSetQuestionSchema>;

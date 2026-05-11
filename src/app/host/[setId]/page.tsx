@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { formatSocketErrorMessage } from "@/app/play/game/play-game-types"
 import { isSocketSessionResetError } from "@/lib/socket-error-messages"
+import { isNegamonBattleHostEnabled } from "@/lib/negamon-battle-host-enabled"
 
 type HostView = "SELECT_MODE" | "SETTINGS" | "LOBBY" | "PLAYING" | "ENDED"
 type GameMode = "GOLD_QUEST" | "CRYPTO_HACK" | "NEGAMON_BATTLE"
@@ -119,8 +120,12 @@ export default function HostLobbyPage() {
 
             // Pre-select game mode from ?mode= query param (e.g. from NegamonBattleLauncher)
             const rawMode = params.get("mode") as GameMode | null
-            if (rawMode === "NEGAMON_BATTLE" || rawMode === "GOLD_QUEST" || rawMode === "CRYPTO_HACK") {
+            const negamonOk = isNegamonBattleHostEnabled()
+            if (rawMode === "GOLD_QUEST" || rawMode === "CRYPTO_HACK") {
                 setSelectedMode(rawMode)
+                setView("SETTINGS")
+            } else if (rawMode === "NEGAMON_BATTLE" && negamonOk) {
+                setSelectedMode("NEGAMON_BATTLE")
                 setView("SETTINGS")
             }
         }, 0)
@@ -366,6 +371,16 @@ export default function HostLobbyPage() {
         if (pin) navigator.clipboard.writeText(pin)
     }
 
+    const handleBackFromSelectMode = () => {
+        if (typeof window === "undefined") return
+        const cid = new URLSearchParams(window.location.search).get("classroomId")?.trim()
+        router.push(
+            cid
+                ? `/dashboard/my-sets?classroomId=${encodeURIComponent(cid)}`
+                : "/dashboard/my-sets"
+        )
+    }
+
     const handleSelectMode = (modeId: string) => {
         console.log("handleSelectMode called with:", modeId);
         if (modeId === "gold-quest") {
@@ -375,6 +390,7 @@ export default function HostLobbyPage() {
             setSelectedMode("CRYPTO_HACK");
             setView("SETTINGS");
         } else if (modeId === "negamon-battle") {
+            if (!isNegamonBattleHostEnabled()) return
             setSelectedMode("NEGAMON_BATTLE");
             setView("SETTINGS");
         }
@@ -458,7 +474,7 @@ export default function HostLobbyPage() {
         // Audio Toggle
         return <>
             <SoundController className="fixed top-4 right-4" />
-            <GameModeSelector onSelect={handleSelectMode} />
+            <GameModeSelector onSelect={handleSelectMode} onBack={handleBackFromSelectMode} />
         </>
     }
 

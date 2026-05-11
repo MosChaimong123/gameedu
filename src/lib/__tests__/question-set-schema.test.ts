@@ -24,6 +24,15 @@ describe("question set schema", () => {
     });
   });
 
+  it("accepts questions without explanation (editor save)", () => {
+    const { explanation: _omit, ...withoutExplanation } = validQuestion;
+    void _omit;
+    expect(validateQuestionSetQuestions([withoutExplanation])).toEqual({
+      ok: true,
+      questions: [validQuestion],
+    });
+  });
+
   it("rejects corrupt question arrays before saving", () => {
     expect(
       validateQuestionSetQuestions([

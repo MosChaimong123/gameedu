@@ -36,6 +36,7 @@ export const thaiPack = {
             "เชื่อมโปรไฟล์นักเรียนแล้ว {linked}/{total} คน ผู้เล่นที่มีเฉพาะชื่อยังเล่นได้ แต่ EXP อาจไม่ซิงก์อัตโนมัติหากชื่อซ้ำหรือไม่ชัดเจน",
         hostNegamonIdentityStartBack: "กลับไปล็อบบี้",
         hostNegamonIdentityStartAnyway: "เริ่มต่อไป",
+        hostNegamonBattleDisabled: "โหมด Negamon Battle ปิดชั่วคราว — โปรดใช้โหมดอื่นก่อน",
         boardCreateTitle: "✨ แชร์อะไรดีวันนี้?",
         boardPostCommentPlaceholder: "พิมพ์ความคิดเห็น...",
         boardPostCreateFail: "ไม่สามารถสร้างโพสต์ได้ในขณะนี้",
@@ -2116,6 +2117,7 @@ const englishPack = {
         hostModeNegamonTitle: "Negamon Battle",
         hostModeNegamonDesc:
             "Live HP battle: answer correctly to attack rivals. Last player standing wins — uses the same question set as other modes.",
+        hostNegamonBattleDisabled: "Negamon Battle is temporarily unavailable — please use another game mode.",
         hostModeFishingTitle: "Fishing Frenzy",
         hostModeFishingDesc: "Cast your line and reel in big answers! A relaxing yet competitive mode.",
         hostModeTowerTitle: "Tower Defense",

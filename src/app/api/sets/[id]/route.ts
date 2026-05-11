@@ -11,7 +11,10 @@ import {
 } from "@/lib/api-error";
 import { countQuestionsInJson, getLimitsForUser } from "@/lib/plan/plan-access";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
-import { validateQuestionSetQuestions } from "@/lib/question-set-schema";
+import {
+    validateQuestionSetQuestions,
+    type QuestionSetQuestion,
+} from "@/lib/question-set-schema";
 
 type UpdateSetRequest = {
     title?: string
@@ -95,15 +98,17 @@ export async function PATCH(
             session.user.planStatus,
             session.user.planExpiry
         )
+        let validatedQuestionsPayload: QuestionSetQuestion[] | undefined
         if (questions !== undefined) {
             const validatedQuestions = validateQuestionSetQuestions(questions)
             if (!validatedQuestions.ok) {
                 return createAppErrorResponse("INVALID_PAYLOAD", "Invalid question data", 400)
             }
+            validatedQuestionsPayload = validatedQuestions.questions
         }
         const nextQuestionCount =
-            questions !== undefined
-                ? countQuestionsInJson(questions)
+            validatedQuestionsPayload !== undefined
+                ? countQuestionsInJson(validatedQuestionsPayload)
                 : countQuestionsInJson(existingSet.questions)
         if (Number.isFinite(limits.maxQuestionsPerSet) && nextQuestionCount > limits.maxQuestionsPerSet) {
             return createAppErrorResponse(
@@ -136,7 +141,9 @@ export async function PATCH(
             data: {
                 title,
                 description,
-                questions,
+                ...(validatedQuestionsPayload !== undefined
+                    ? { questions: validatedQuestionsPayload as unknown as Prisma.InputJsonValue }
+                    : {}),
                 isPublic,
                 coverImage,
                 folderId,

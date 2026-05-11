@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Server } from "socket.io";
 import { io as clientIo, type Socket as ClientSocket } from "socket.io-client";
 import { registerGameSocketHandlers } from "../register-game-socket-handlers";
@@ -25,6 +25,10 @@ import {
   SOCKET_ERROR_PLAY_NOT_IN_GAME,
   SOCKET_ERROR_PLAY_ROOM_PIN_MISMATCH,
 } from "../../socket-error-messages";
+
+beforeAll(() => {
+  vi.stubEnv("NEXT_PUBLIC_NEGAMON_BATTLE_HOST_ENABLED", "true");
+});
 
 class FakeGame {
   public pin: string;

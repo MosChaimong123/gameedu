@@ -8,6 +8,10 @@ import {
     omiseMarkChargeAsPaid,
     omiseRetrieveCharge,
 } from "@/lib/billing/omise-api";
+import {
+    BILLING_OMISE_NO_PENDING_CHARGE,
+    BILLING_OMISE_TEST_MODE_ONLY,
+} from "@/lib/billing/billing-error-keys";
 import { getThaiBillingProviderId } from "@/lib/billing/thai-billing-env";
 import { createAppError } from "@/lib/api-error";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
@@ -55,7 +59,10 @@ export async function POST() {
             return NextResponse.json(
                 {
                     ok: false,
-                    error: "mark-as-paid is only available in Omise test mode",
+                    ...createAppError(
+                        "BILLING_PROCESSING_FAILED",
+                        BILLING_OMISE_TEST_MODE_ONLY
+                    ),
                 },
                 { status: 400 }
             );
@@ -81,7 +88,10 @@ export async function POST() {
         const chargeId = jar.get(OMISE_PENDING_CHARGE_COOKIE)?.value?.trim();
         if (!chargeId?.startsWith("chrg_")) {
             return NextResponse.json(
-                { ok: false, error: "no pending charge cookie" },
+                {
+                    ok: false,
+                    ...createAppError("NOT_FOUND", BILLING_OMISE_NO_PENDING_CHARGE),
+                },
                 { status: 404 }
             );
         }

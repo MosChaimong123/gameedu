@@ -137,10 +137,10 @@ app.prepare().then(async () => {
         resolveLivePlayerCapForHost: async (hostId) => {
             const user = await db_1.db.user.findUnique({
                 where: { id: hostId },
-                select: { plan: true, role: true },
+                select: { plan: true, role: true, planStatus: true, planExpiry: true },
             });
             const role = (user === null || user === void 0 ? void 0 : user.role) && (0, roles_1.isAppRole)(user.role) ? user.role : "USER";
-            return (0, plan_access_1.getLimitsForUser)(role, user === null || user === void 0 ? void 0 : user.plan).maxLiveGamePlayers;
+            return (0, plan_access_1.getLimitsForUser)(role, user === null || user === void 0 ? void 0 : user.plan, user === null || user === void 0 ? void 0 : user.planStatus, user === null || user === void 0 ? void 0 : user.planExpiry).maxLiveGamePlayers;
         },
     });
     io.on("connection", (socket) => {
@@ -152,9 +152,24 @@ app.prepare().then(async () => {
         });
     });
     io.engine.on("connection_error", (err) => {
-        console.error("[socket.io] engine connection_error", err);
-        Sentry.captureException(err, {
-            tags: { component: "socket.io", scope: "engine" },
+        var _a, _b, _c, _d, _e, _f;
+        // Engine.IO attaches `req` to the error; logging the raw object spams logs / Sentry.
+        const e = err;
+        const originHeader = (_b = (_a = e.req) === null || _a === void 0 ? void 0 : _a.headers) === null || _b === void 0 ? void 0 : _b.origin;
+        const origin = Array.isArray(originHeader) ? originHeader[0] : originHeader;
+        const summary = {
+            message: (_c = e.message) !== null && _c !== void 0 ? _c : (err instanceof Error ? err.message : String(err)),
+            code: e.code,
+            context: e.context,
+            method: (_d = e.req) === null || _d === void 0 ? void 0 : _d.method,
+            url: (_e = e.req) === null || _e === void 0 ? void 0 : _e.url,
+            origin: typeof origin === "string" ? origin : undefined,
+        };
+        console.error("[socket.io] engine connection_error", summary);
+        Sentry.captureMessage(`socket.io engine: ${summary.message}`, {
+            level: "warning",
+            tags: { component: "socket.io", scope: "engine", code: String((_f = summary.code) !== null && _f !== void 0 ? _f : "") },
+            extra: summary,
         });
     });
     httpServer

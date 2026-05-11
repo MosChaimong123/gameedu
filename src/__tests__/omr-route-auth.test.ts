@@ -1,4 +1,4 @@
-import { beforeEach, describe, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   expectAppErrorResponse,
   makeJsonRequest,
@@ -15,6 +15,7 @@ const mockOmrQuizUpdate = vi.fn();
 const mockOmrQuizDelete = vi.fn();
 const mockOmrResultCreate = vi.fn();
 const mockOmrResultCount = vi.fn();
+const mockStudentFindUnique = vi.fn();
 
 vi.mock("@/auth", () => ({
   auth: mockAuth,
@@ -41,6 +42,9 @@ vi.mock("@/lib/db", () => ({
       create: mockOmrResultCreate,
       count: mockOmrResultCount,
     },
+    student: {
+      findUnique: mockStudentFindUnique,
+    },
   },
 }));
 
@@ -61,6 +65,12 @@ describe("omr route auth contract", () => {
     mockOmrQuizDelete.mockResolvedValue({ id: "quiz-1" });
     mockOmrResultCreate.mockResolvedValue({ id: "result-1", quizId: "quiz-1" });
     mockOmrResultCount.mockResolvedValue(0);
+    mockStudentFindUnique.mockResolvedValue({
+      id: "student-1",
+      classId: "class-1",
+      name: "Alice",
+      nickname: "Ali",
+    });
   });
 
   it("rejects unauthenticated OMR quiz reads", async () => {
@@ -101,6 +111,18 @@ describe("omr route auth contract", () => {
       status: 400,
       code: "INVALID_PAYLOAD",
       message: "Title is required",
+    });
+  });
+
+  it("returns invalid payload when OMR quiz question count is not a positive integer", async () => {
+    const { POST } = await import("@/app/api/omr/quizzes/route");
+
+    const response = await POST(makeJsonRequest({ title: "OMR Quiz", questionCount: 0 }));
+
+    await expectAppErrorResponse(response, {
+      status: 400,
+      code: "INVALID_PAYLOAD",
+      message: "Question count must be a positive integer",
     });
   });
 
@@ -152,6 +174,80 @@ describe("omr route auth contract", () => {
       status: 404,
       code: "NOT_FOUND",
       message: "Not found",
+    });
+  });
+
+  it("returns invalid payload when saving a result with impossible score data", async () => {
+    const { POST } = await import("@/app/api/omr/quizzes/[quizId]/results/route");
+
+    const response = await POST(
+      makeJsonRequest({ studentName: "Alice", score: 12, total: 10, answers: {} }),
+      makeRouteParams({ quizId: "quiz-1" })
+    );
+
+    await expectAppErrorResponse(response, {
+      status: 400,
+      code: "INVALID_PAYLOAD",
+      message: "Score and total are invalid",
+    });
+  });
+
+  it("returns invalid payload when result answers are missing a JSON structure", async () => {
+    const { POST } = await import("@/app/api/omr/quizzes/[quizId]/results/route");
+
+    const response = await POST(
+      makeJsonRequest({ studentName: "Alice", score: 8, total: 10, answers: "bad" }),
+      makeRouteParams({ quizId: "quiz-1" })
+    );
+
+    await expectAppErrorResponse(response, {
+      status: 400,
+      code: "INVALID_PAYLOAD",
+      message: "Answers must be an object or array",
+    });
+  });
+
+  it("returns invalid payload when a provided student belongs to another classroom", async () => {
+    mockOmrQuizFindFirst.mockResolvedValueOnce({ id: "quiz-1", teacherId: "teacher-1", classId: "class-1" });
+    mockStudentFindUnique.mockResolvedValueOnce({
+      id: "student-2",
+      classId: "class-2",
+      name: "Bob",
+      nickname: null,
+    });
+    const { POST } = await import("@/app/api/omr/quizzes/[quizId]/results/route");
+
+    const response = await POST(
+      makeJsonRequest({ studentId: "student-2", score: 8, total: 10, answers: {} }),
+      makeRouteParams({ quizId: "quiz-1" })
+    );
+
+    await expectAppErrorResponse(response, {
+      status: 400,
+      code: "INVALID_PAYLOAD",
+      message: "Student does not belong to this quiz classroom",
+    });
+  });
+
+  it("derives the student name from the linked student record when omitted", async () => {
+    mockOmrQuizFindFirst.mockResolvedValueOnce({ id: "quiz-1", teacherId: "teacher-1", classId: "class-1" });
+    const { POST } = await import("@/app/api/omr/quizzes/[quizId]/results/route");
+
+    const response = await POST(
+      makeJsonRequest({ studentId: "student-1", score: 8, total: 10, answers: {} }),
+      makeRouteParams({ quizId: "quiz-1" })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockOmrResultCreate).toHaveBeenCalledWith({
+      data: {
+        quizId: "quiz-1",
+        studentId: "student-1",
+        studentName: "Ali",
+        score: 8,
+        total: 10,
+        answers: {},
+      },
     });
   });
 

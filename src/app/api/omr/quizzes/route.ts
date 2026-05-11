@@ -9,6 +9,10 @@ import {
     createAppErrorResponse,
 } from "@/lib/api-error";
 
+function isPositiveInteger(value: unknown) {
+    return Number.isInteger(value) && Number(value) > 0
+}
+
 // GET /api/omr/quizzes - List all OMR quizzes for the teacher
 export async function GET() {
     try {
@@ -47,6 +51,18 @@ export async function POST(req: Request) {
         const { title, description, questionCount, classId } = body
 
         if (!title) return createAppErrorResponse("INVALID_PAYLOAD", "Title is required", 400)
+        if (typeof title !== "string" || !title.trim()) {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Title is required", 400)
+        }
+        if (!isPositiveInteger(questionCount)) {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Question count must be a positive integer", 400)
+        }
+        if (description !== undefined && description !== null && typeof description !== "string") {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Description must be a string", 400)
+        }
+        if (classId !== undefined && classId !== null && typeof classId !== "string") {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Classroom id must be a string", 400)
+        }
 
         // Initialize empty answer key
         const answerKey: Record<string, string> = {}
@@ -56,7 +72,7 @@ export async function POST(req: Request) {
 
         const quiz = await prisma.oMRQuiz.create({
             data: {
-                title,
+                title: title.trim(),
                 description,
                 questionCount,
                 answerKey,

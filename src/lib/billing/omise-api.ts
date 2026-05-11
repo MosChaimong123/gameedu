@@ -4,7 +4,9 @@ import {
   BILLING_OMISE_CHARGE_FAILED,
   BILLING_OMISE_MINIMUM_AMOUNT,
   BILLING_OMISE_MISSING_AUTHORIZE_URI,
+  BILLING_OMISE_MARK_AS_PAID_FAILED,
   BILLING_OMISE_RETRIEVE_FAILED,
+  BILLING_OMISE_TEST_MODE_ONLY,
 } from "@/lib/billing/billing-error-keys";
 
 const OMISE_API = "https://api.omise.co";
@@ -166,7 +168,7 @@ export async function omiseMarkChargeAsPaid(
   if (!secretKey.startsWith("skey_test_")) {
     return {
       ok: false,
-      message: "Mark-as-paid is only available in Omise test mode.",
+      message: BILLING_OMISE_TEST_MODE_ONLY,
       httpStatus: 400,
     };
   }
@@ -196,7 +198,7 @@ export async function omiseMarkChargeAsPaid(
     });
     return {
       ok: false,
-      message: err?.message ?? err?.code ?? `Omise mark_as_paid failed (HTTP ${res.status})`,
+      message: err?.message ?? err?.code ?? BILLING_OMISE_MARK_AS_PAID_FAILED,
       httpStatus: res.status,
     };
   }

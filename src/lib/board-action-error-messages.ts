@@ -11,6 +11,8 @@ export const BOARD_ACTION_ERROR_MESSAGE_KEYS: Record<string, string> = {
     "Post not found": "boardErrPostNotFound",
     "This poll is closed": "boardErrPollClosed",
     "Poll not found": "boardErrNoPoll",
+    boardErrInvalidContent: "boardErrInvalidContent",
+    boardErrInvalidMedia: "boardErrInvalidMedia",
 };
 
 export function formatBoardActionErrorMessage(

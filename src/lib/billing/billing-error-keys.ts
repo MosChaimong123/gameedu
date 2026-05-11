@@ -6,3 +6,6 @@ export const BILLING_OMISE_MINIMUM_AMOUNT = "billingOmiseMinimumAmount";
 export const BILLING_OMISE_CHARGE_FAILED = "billingOmiseChargeFailed";
 export const BILLING_OMISE_MISSING_AUTHORIZE_URI = "billingOmiseMissingAuthorizeUri";
 export const BILLING_OMISE_RETRIEVE_FAILED = "billingOmiseRetrieveFailed";
+export const BILLING_OMISE_TEST_MODE_ONLY = "billingOmiseTestModeOnly";
+export const BILLING_OMISE_NO_PENDING_CHARGE = "billingOmiseNoPendingCharge";
+export const BILLING_OMISE_MARK_AS_PAID_FAILED = "billingOmiseMarkAsPaidFailed";

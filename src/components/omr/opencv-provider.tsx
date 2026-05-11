@@ -4,12 +4,23 @@ import { useEffect, useState } from "react"
 import Script from "next/script"
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/components/providers/language-provider"
+import { parseOmrScannerQaFlags } from "@/lib/omr-scanner-fallbacks"
 
 export function OpenCVProvider({ children }: { children: React.ReactNode }) {
     const { t } = useLanguage()
     const [cvStatus, setCvStatus] = useState<"loading" | "loaded" | "error">("loading")
 
     useEffect(() => {
+        const qaFlags = parseOmrScannerQaFlags(window.location.search)
+        if (qaFlags.forceCvError) {
+            setCvStatus("error")
+            return
+        }
+        if (qaFlags.forceProcessSuccess) {
+            setCvStatus("loaded")
+            return
+        }
+
         // Polling fallback
         const poll = setInterval(() => {
             // @ts-expect-error window.cv is injected by the OpenCV script at runtime
@@ -35,37 +46,39 @@ export function OpenCVProvider({ children }: { children: React.ReactNode }) {
 
     return (
         <>
-            <Script 
-                src="/opencv.js" 
-                strategy="afterInteractive" 
-                onLoad={() => {
-                    // @ts-expect-error window.cv is injected by the OpenCV script at runtime
-                    if (window.cv) {
+            {cvStatus !== "error" ? (
+                <Script 
+                    src="/opencv.js" 
+                    strategy="afterInteractive" 
+                    onLoad={() => {
                         // @ts-expect-error window.cv is injected by the OpenCV script at runtime
-                        window.cv.onRuntimeInitialized = () => setCvStatus("loaded")
-                        // Check if already ready
-                        // @ts-expect-error window.cv is injected by the OpenCV script at runtime
-                        if (window.cv.Mat) setCvStatus("loaded")
-                    }
-                }}
-                onError={() => {
-                    // Fallback to CDN if local fails
-                    const script = document.createElement('script');
-                    script.src = "https://unpkg.com/opencv.js@4.5.5/opencv.js";
-                    script.async = true;
-                    script.onload = () => {
-                         // @ts-expect-error window.cv is injected by the OpenCV script at runtime
                         if (window.cv) {
                             // @ts-expect-error window.cv is injected by the OpenCV script at runtime
                             window.cv.onRuntimeInitialized = () => setCvStatus("loaded")
+                            // Check if already ready
                             // @ts-expect-error window.cv is injected by the OpenCV script at runtime
                             if (window.cv.Mat) setCvStatus("loaded")
                         }
-                    };
-                    script.onerror = () => setCvStatus("error");
-                    document.head.appendChild(script);
-                }}
-            />
+                    }}
+                    onError={() => {
+                        // Fallback to CDN if local fails
+                        const script = document.createElement('script');
+                        script.src = "https://unpkg.com/opencv.js@4.5.5/opencv.js";
+                        script.async = true;
+                        script.onload = () => {
+                             // @ts-expect-error window.cv is injected by the OpenCV script at runtime
+                            if (window.cv) {
+                                // @ts-expect-error window.cv is injected by the OpenCV script at runtime
+                                window.cv.onRuntimeInitialized = () => setCvStatus("loaded")
+                                // @ts-expect-error window.cv is injected by the OpenCV script at runtime
+                                if (window.cv.Mat) setCvStatus("loaded")
+                            }
+                        };
+                        script.onerror = () => setCvStatus("error");
+                        document.head.appendChild(script);
+                    }}
+                />
+            ) : null}
             {cvStatus === "loaded" ? children : (
                 <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white p-8">
                     <div className={`w-16 h-16 border-4 ${cvStatus === "error" ? "border-red-500" : "border-purple-500 border-t-transparent animate-spin"} rounded-full mb-6 text-center flex items-center justify-center font-black`}>

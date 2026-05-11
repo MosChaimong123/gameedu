@@ -32,7 +32,7 @@ if (process.env.SENTRY_DSN && !Sentry.getClient()) {
     });
 }
 
-import { createServer } from "node:http";
+import { createServer, type IncomingHttpHeaders } from "node:http";
 import { randomUUID } from "node:crypto";
 import next from "next";
 import { getToken } from "next-auth/jwt";
@@ -117,10 +117,15 @@ app.prepare().then(async () => {
         resolveLivePlayerCapForHost: async (hostId) => {
             const user = await db.user.findUnique({
                 where: { id: hostId },
-                select: { plan: true, role: true },
+                select: { plan: true, role: true, planStatus: true, planExpiry: true },
             });
             const role = user?.role && isAppRole(user.role) ? user.role : "USER";
-            return getLimitsForUser(role, user?.plan).maxLiveGamePlayers;
+            return getLimitsForUser(
+                role,
+                user?.plan,
+                user?.planStatus,
+                user?.planExpiry
+            ).maxLiveGamePlayers;
         },
     });
 
@@ -133,10 +138,29 @@ app.prepare().then(async () => {
             });
         });
     });
-    io.engine.on("connection_error", (err) => {
-        console.error("[socket.io] engine connection_error", err);
-        Sentry.captureException(err, {
-            tags: { component: "socket.io", scope: "engine" },
+    io.engine.on("connection_error", (err: unknown) => {
+        // Engine.IO attaches `req` to the error; logging the raw object spams logs / Sentry.
+        const e = err as {
+            message?: string;
+            code?: string | number;
+            context?: unknown;
+            req?: { url?: string; method?: string; headers?: IncomingHttpHeaders };
+        };
+        const originHeader = e.req?.headers?.origin;
+        const origin = Array.isArray(originHeader) ? originHeader[0] : originHeader;
+        const summary = {
+            message: e.message ?? (err instanceof Error ? err.message : String(err)),
+            code: e.code,
+            context: e.context,
+            method: e.req?.method,
+            url: e.req?.url,
+            origin: typeof origin === "string" ? origin : undefined,
+        };
+        console.error("[socket.io] engine connection_error", summary);
+        Sentry.captureMessage(`socket.io engine: ${summary.message}`, {
+            level: "warning",
+            tags: { component: "socket.io", scope: "engine", code: String(summary.code ?? "") },
+            extra: summary,
         });
     });
 

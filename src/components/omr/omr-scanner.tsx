@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { RefreshCw, X, ScanLine } from "lucide-react"
 import { motion } from "framer-motion"
 import { useLanguage } from "@/components/providers/language-provider"
+import { getOmrCameraErrorMessage, parseOmrScannerQaFlags } from "@/lib/omr-scanner-fallbacks"
 
 interface OMRScannerProps {
     onCapture: (imageData: string) => void
@@ -19,6 +20,11 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
     const [error, setError] = useState<string | null>(null)
     const startCamera = useCallback(async () => {
         try {
+            const qaFlags = parseOmrScannerQaFlags(window.location.search)
+            if (qaFlags.forceCameraError) {
+                setError(getOmrCameraErrorMessage(null, t, qaFlags))
+                return
+            }
             const mediaStream = await navigator.mediaDevices.getUserMedia({
                 video: { 
                     facingMode: "environment", // Use back camera
@@ -33,7 +39,7 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
             setError(null)
         } catch (err) {
             console.error("Error accessing camera:", err)
-            setError(t("omrCameraError"))
+            setError(getOmrCameraErrorMessage(err, t))
         }
     }, [t])
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/providers/language-provider";
 
 type OmiseStatus = {
     ready: boolean;
@@ -38,6 +39,7 @@ export function OmiseStatusPanel({
     const [data, setData] = useState<OmiseStatus | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const { t } = useLanguage();
 
     async function load() {
         setLoading(true);
@@ -55,7 +57,7 @@ export function OmiseStatusPanel({
             const json = (await res.json()) as OmiseStatus;
             setData(json);
         } catch (e) {
-            setError(e instanceof Error ? e.message : "Network error");
+            setError(e instanceof Error ? e.message : t("billingNetworkError"));
         } finally {
             setLoading(false);
         }
@@ -98,7 +100,7 @@ export function OmiseStatusPanel({
                                   : "bg-amber-500"
                         )}
                     />
-                    Omise / Thai billing diagnostic
+                    {t("billingOmiseDiagnosticTitle")}
                 </span>
                 {open ? (
                     <ChevronUp className="h-4 w-4 text-slate-400" />
@@ -108,7 +110,7 @@ export function OmiseStatusPanel({
             </button>
             {open ? (
                 <div className="space-y-3 border-t border-slate-100 px-4 py-3 text-slate-700">
-                    {loading ? <div className="text-slate-400">Loading…</div> : null}
+                    {loading ? <div className="text-slate-400">{t("loading")}</div> : null}
                     {error ? (
                         <div className="rounded-xl bg-red-50 px-3 py-2 text-red-900">
                             {error}
@@ -116,36 +118,36 @@ export function OmiseStatusPanel({
                     ) : null}
                     {data ? (
                         <div className="space-y-2">
-                            <Row k="Ready" v={data.ready ? "✅ yes" : "⚠️ no"} />
-                            <Row k="Provider" v={data.provider ?? "—"} />
+                            <Row k={t("billingReadyLabel")} v={data.ready ? t("yes") : t("no")} />
+                            <Row k={t("billingProviderLabel")} v={data.provider ?? "-"} />
                             <Row
-                                k="Secret key"
+                                k={t("billingSecretKeyLabel")}
                                 v={
                                     data.omise.hasSecretKey
-                                        ? `present (${data.omise.secretKeyMode ?? "?"})`
-                                        : "missing"
+                                        ? t("billingKeyPresent", { mode: data.omise.secretKeyMode ?? "?" })
+                                        : t("billingKeyMissing")
                                 }
                             />
                             <Row
-                                k="Public key"
+                                k={t("billingPublicKeyLabel")}
                                 v={
                                     data.omise.hasPublicKey
-                                        ? `present (${data.omise.publicKeyMode ?? "?"})`
-                                        : "missing"
+                                        ? t("billingKeyPresent", { mode: data.omise.publicKeyMode ?? "?" })
+                                        : t("billingKeyMissing")
                                 }
                             />
-                            <Row k="App origin" v={data.appOrigin ?? "—"} />
+                            <Row k={t("billingAppOriginLabel")} v={data.appOrigin ?? "-"} />
                             <Row
-                                k="Monthly amount"
+                                k={t("billingMonthlyAmountLabel")}
                                 v={`${(data.omise.monthlySatang / 100).toFixed(2)} THB (${data.omise.monthlySatang} satang)`}
                             />
                             <Row
-                                k="Yearly amount"
+                                k={t("billingYearlyAmountLabel")}
                                 v={`${(data.omise.yearlySatang / 100).toFixed(2)} THB (${data.omise.yearlySatang} satang)`}
                             />
                             {data.issues.length > 0 ? (
                                 <div className="mt-2 space-y-1 rounded-xl bg-amber-50 px-3 py-2 text-amber-900">
-                                    <div className="font-bold">Issues:</div>
+                                    <div className="font-bold">{t("billingIssuesLabel")}</div>
                                     <ul className="ml-4 list-disc">
                                         {data.issues.map((it) => (
                                             <li key={it}>{it}</li>
@@ -160,7 +162,7 @@ export function OmiseStatusPanel({
                         onClick={() => void load()}
                         className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800"
                     >
-                        <RefreshCw className="h-3 w-3" /> Refresh
+                        <RefreshCw className="h-3 w-3" /> {t("refresh")}
                     </button>
                 </div>
             ) : null}

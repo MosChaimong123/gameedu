@@ -104,15 +104,24 @@ export function UpgradePageClient({
                 method: "POST",
                 credentials: "same-origin",
             });
+            if (!res.ok) {
+                setMarkPaidError(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "billingMarkAsPaidFailed",
+                        t,
+                        language
+                    ),
+                );
+                setReconcileTick((n) => n + 1);
+                return;
+            }
             const json = (await res.json().catch(() => ({}))) as {
                 ok?: boolean;
                 outcome?: string;
-                error?: string;
             };
-            if (!res.ok || json.ok === false) {
-                setMarkPaidError(
-                    json.error || `mark-as-paid failed (HTTP ${res.status})`,
-                );
+            if (json.ok === false) {
+                setMarkPaidError(t("billingMarkAsPaidFailed"));
                 setReconcileTick((n) => n + 1);
                 return;
             }
@@ -122,7 +131,7 @@ export function UpgradePageClient({
             setReconcileTick((n) => n + 1);
         } catch (e) {
             setMarkPaidError(
-                e instanceof Error ? e.message : "Network error during mark-as-paid",
+                e instanceof Error ? e.message : t("billingMarkAsPaidNetworkError"),
             );
         } finally {
             setMarkPaidLoading(false);
@@ -383,22 +392,15 @@ export function UpgradePageClient({
                                     onClick={() => setReconcileTick((n) => n + 1)}
                                     className="mt-2 inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-amber-900 shadow-sm hover:bg-amber-100"
                                 >
-                                    Recheck Omise charge
+                                    {t("billingRecheckOmiseCharge")}
                                 </button>
                             ) : null}
                             {checkoutFlag === "omise_return" &&
                             reconcileOutcome === "skipped_not_paid" &&
                             reconcileDetails?.testMode ? (
                                 <div className="mt-3 rounded-xl border border-amber-300 bg-amber-100/60 p-3 text-xs leading-relaxed text-amber-950">
-                                    <div className="font-bold">
-                                        Omise อยู่ในโหมดทดสอบ (test mode)
-                                    </div>
-                                    <div className="mt-1 font-medium">
-                                        ใน test mode PromptPay ไม่มีการจ่ายจริง —
-                                        กดปุ่มด้านล่างเพื่อให้ Omise mark charge นี้เป็น
-                                        &quot;paid&quot; ทันที (เทียบเท่าการกด Mark as paid ใน
-                                        Omise dashboard)
-                                    </div>
+                                    <div className="font-bold">{t("billingOmiseTestModeTitle")}</div>
+                                    <div className="mt-1 font-medium">{t("billingOmiseTestModeDesc")}</div>
                                     <div className="mt-2 flex flex-wrap items-center gap-2">
                                         <button
                                             type="button"
@@ -406,9 +408,7 @@ export function UpgradePageClient({
                                             onClick={() => void markChargeAsPaidTestMode()}
                                             className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-black text-white shadow-sm hover:bg-amber-700 disabled:opacity-60"
                                         >
-                                            {markPaidLoading
-                                                ? "กำลังจ่าย…"
-                                                : "จ่ายเลย (test mode)"}
+                                            {markPaidLoading ? t("billingMarkAsPaidLoading") : t("billingMarkAsPaidButton")}
                                         </button>
                                         {reconcileDetails.omiseDashboardUrl ? (
                                             <a
@@ -417,7 +417,7 @@ export function UpgradePageClient({
                                                 rel="noreferrer"
                                                 className="font-bold text-amber-900 underline"
                                             >
-                                                หรือเปิดใน Omise Dashboard →
+                                                {t("billingOpenOmiseDashboard")}
                                             </a>
                                         ) : null}
                                     </div>
@@ -602,7 +602,7 @@ export function UpgradePageClient({
                                                         ? t("upgradeCheckoutWorking")
                                                         : thaiPaymentMethod === "promptpay"
                                                           ? t("upgradePayThaiChannel")
-                                                          : "ไปที่แอปธนาคาร"}
+                                                          : t("upgradePayMobileBanking")}
                                                 </Button>
                                             ) : null}
                                             {thaiBillingEnabled ? (

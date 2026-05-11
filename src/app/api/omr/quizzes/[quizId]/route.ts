@@ -10,6 +10,14 @@ import {
     NOT_FOUND_MESSAGE,
 } from "@/lib/api-error";
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function isPositiveInteger(value: unknown) {
+    return Number.isInteger(value) && Number(value) > 0
+}
+
 interface IParams {
     quizId: string
 }
@@ -70,10 +78,26 @@ export async function PUT(
         })
         if (!existing) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404)
 
+        if (title !== undefined && (typeof title !== "string" || !title.trim())) {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Title is required", 400)
+        }
+        if (description !== undefined && description !== null && typeof description !== "string") {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Description must be a string", 400)
+        }
+        if (questionCount !== undefined && !isPositiveInteger(questionCount)) {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Question count must be a positive integer", 400)
+        }
+        if (classId !== undefined && classId !== null && typeof classId !== "string") {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Classroom id must be a string", 400)
+        }
+        if (answerKey !== undefined && !isPlainObject(answerKey)) {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Answer key must be an object", 400)
+        }
+
         const quiz = await prisma.oMRQuiz.update({
             where: { id: quizId },
             data: {
-                title,
+                title: typeof title === "string" ? title.trim() : title,
                 description,
                 answerKey,
                 classId,

@@ -9,6 +9,16 @@ const BOARD_ERR_BOARD_NOT_FOUND = "boardErrBoardNotFound";
 const BOARD_ERR_POST_NOT_FOUND = "boardErrPostNotFound";
 const BOARD_ERR_POLL_CLOSED = "boardErrPollClosed";
 const BOARD_ERR_NO_POLL = "boardErrNoPoll";
+const BOARD_ERR_INVALID_CONTENT = "boardErrInvalidContent";
+const BOARD_ERR_INVALID_MEDIA = "boardErrInvalidMedia";
+
+const BOARD_POST_TYPES = new Set(["file", "album", "video", "youtube", "poll", "link"]);
+const BOARD_REACTION_TYPES = new Set(["HEART"]);
+const MAX_BOARD_TEXT_LENGTH = 5000;
+const MAX_BOARD_TITLE_LENGTH = 160;
+const MAX_POLL_OPTION_LENGTH = 160;
+
+const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
 type BoardPollOptionInput = {
     id: string;
@@ -53,6 +63,107 @@ async function requireSessionUserId() {
     }
 
     return userId;
+}
+
+function assertBoundedText(value: string | undefined, max: number) {
+    if (value !== undefined && value.length > max) {
+        throw new Error(BOARD_ERR_INVALID_CONTENT);
+    }
+}
+
+function assertSafeUrl(value: string | undefined) {
+    if (!value) return;
+
+    let parsed: URL;
+    try {
+        parsed = new URL(value);
+    } catch {
+        throw new Error(BOARD_ERR_INVALID_MEDIA);
+    }
+
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+        throw new Error(BOARD_ERR_INVALID_MEDIA);
+    }
+}
+
+function normalizeBoardPostInput(data: CreateBoardPostInput): CreateBoardPostInput {
+    const type = data.type ?? "file";
+    if (!BOARD_POST_TYPES.has(type)) {
+        throw new Error(BOARD_ERR_INVALID_CONTENT);
+    }
+
+    const content = data.content.trim();
+    const title = data.title?.trim();
+    assertBoundedText(content, MAX_BOARD_TEXT_LENGTH);
+    assertBoundedText(title, MAX_BOARD_TITLE_LENGTH);
+
+    const linkUrl = data.linkUrl?.trim();
+    const fileUrl = data.fileUrl?.trim();
+    const videoUrl = data.videoUrl?.trim();
+    const image = data.image?.trim();
+    const youtubeId = data.youtubeId?.trim();
+    const albumImages = data.albumImages?.map((image) => image.trim()).filter(Boolean);
+
+    if (linkUrl) assertSafeUrl(linkUrl);
+    if (fileUrl) assertSafeUrl(fileUrl);
+    if (videoUrl) assertSafeUrl(videoUrl);
+    if (image) assertSafeUrl(image);
+    for (const image of albumImages ?? []) {
+        assertSafeUrl(image.trim());
+    }
+
+    if (youtubeId && !YOUTUBE_ID_PATTERN.test(youtubeId)) {
+        throw new Error(BOARD_ERR_INVALID_MEDIA);
+    }
+
+    const pollQuestion = data.pollQuestion?.trim();
+    const pollOptions = (data.pollOptions ?? [])
+        .map((option) => ({ id: option.id.trim(), text: option.text.trim() }))
+        .filter((option) => option.id && option.text);
+
+    if (type === "poll") {
+        if (!pollQuestion || pollOptions.length < 2) {
+            throw new Error(BOARD_ERR_INVALID_CONTENT);
+        }
+        assertBoundedText(pollQuestion, MAX_BOARD_TITLE_LENGTH);
+        for (const option of pollOptions) {
+            assertBoundedText(option.text, MAX_POLL_OPTION_LENGTH);
+        }
+    }
+
+    if (type === "link" && !linkUrl) {
+        throw new Error(BOARD_ERR_INVALID_MEDIA);
+    }
+    if (type === "video" && !videoUrl) {
+        throw new Error(BOARD_ERR_INVALID_MEDIA);
+    }
+    if (type === "youtube" && !youtubeId) {
+        throw new Error(BOARD_ERR_INVALID_MEDIA);
+    }
+    if (type === "album" && !albumImages?.length) {
+        throw new Error(BOARD_ERR_INVALID_MEDIA);
+    }
+
+    const hasBody = Boolean(content || title);
+    const hasAttachment = Boolean(linkUrl || fileUrl || videoUrl || image || youtubeId || albumImages?.length);
+    if (!hasBody && !hasAttachment && type !== "poll") {
+        throw new Error(BOARD_ERR_INVALID_CONTENT);
+    }
+
+    return {
+        ...data,
+        type,
+        content,
+        title,
+        linkUrl,
+        fileUrl,
+        videoUrl,
+        image,
+        youtubeId,
+        pollQuestion,
+        pollOptions,
+        albumImages,
+    };
 }
 
 async function resolveClassroomActor(classId: string, userId: string): Promise<BoardActor> {
@@ -196,30 +307,31 @@ export async function getBoardWithPosts(boardId: string) {
 
 export async function createBoardPost(data: CreateBoardPostInput) {
     const userId = await requireSessionUserId();
-    const { actor } = await resolveBoardActor(data.boardId, userId);
+    const normalized = normalizeBoardPostInput(data);
+    const { actor } = await resolveBoardActor(normalized.boardId, userId);
 
     const post = await db.boardPost.create({
         data: {
-            boardId: data.boardId,
-            content: data.content,
-            type: data.type,
-            title: data.title,
-            image: data.image,
-            color: data.color,
-            linkUrl: data.linkUrl,
-            fileUrl: data.fileUrl,
-            fileName: data.fileName,
-            videoUrl: data.videoUrl,
-            videoName: data.videoName,
-            youtubeId: data.youtubeId,
-            images: data.albumImages ?? [],
+            boardId: normalized.boardId,
+            content: normalized.content,
+            type: normalized.type,
+            title: normalized.title,
+            image: normalized.image,
+            color: normalized.color,
+            linkUrl: normalized.linkUrl,
+            fileUrl: normalized.fileUrl,
+            fileName: normalized.fileName,
+            videoUrl: normalized.videoUrl,
+            videoName: normalized.videoName,
+            youtubeId: normalized.youtubeId,
+            images: normalized.albumImages ?? [],
             authorStudentId: actor.authorStudentId,
             authorUserId: actor.authorUserId,
-            poll: data.pollQuestion && data.pollOptions?.length
+            poll: normalized.pollQuestion && normalized.pollOptions?.length
                 ? {
                     create: {
-                        question: data.pollQuestion,
-                        options: data.pollOptions,
+                        question: normalized.pollQuestion,
+                        options: normalized.pollOptions,
                     },
                 }
                 : undefined,
@@ -269,6 +381,9 @@ export async function toggleBoardReaction(data: {
     type: string;
 }) {
     const userId = await requireSessionUserId();
+    if (!BOARD_REACTION_TYPES.has(data.type)) {
+        throw new Error(BOARD_ERR_INVALID_CONTENT);
+    }
     const post = await fetchBoardPostById(data.postId);
 
     if (!post) {
@@ -308,6 +423,10 @@ export async function addBoardComment(data: {
     content: string;
 }) {
     const userId = await requireSessionUserId();
+    const content = data.content.trim();
+    if (!content || content.length > MAX_BOARD_TEXT_LENGTH) {
+        throw new Error(BOARD_ERR_INVALID_CONTENT);
+    }
     const post = await fetchBoardPostById(data.postId);
 
     if (!post) {
@@ -319,7 +438,7 @@ export async function addBoardComment(data: {
     const comment = await db.boardComment.create({
         data: {
             postId: data.postId,
-            content: data.content,
+            content,
             authorStudentId: actor.authorStudentId,
             authorUserId: actor.authorUserId,
         },
@@ -355,6 +474,10 @@ export async function voteBoardPoll(data: {
     optionId: string;
 }) {
     const userId = await requireSessionUserId();
+    const optionId = data.optionId.trim();
+    if (!optionId) {
+        throw new Error(BOARD_ERR_INVALID_CONTENT);
+    }
     const post = await fetchBoardPostById(data.postId);
 
     if (!post) {
@@ -367,6 +490,13 @@ export async function voteBoardPoll(data: {
 
     if (!post.poll) {
         throw new Error(BOARD_ERR_NO_POLL);
+    }
+
+    const pollOptions = Array.isArray(post.poll.options)
+        ? (post.poll.options as BoardPollOptionInput[])
+        : [];
+    if (!pollOptions.some((option) => option.id === optionId)) {
+        throw new Error(BOARD_ERR_INVALID_CONTENT);
     }
 
     const actor = await resolveClassroomActor(post.board.classId, userId);
@@ -382,13 +512,13 @@ export async function voteBoardPoll(data: {
     if (existing) {
         return db.boardPollVote.update({
             where: { id: existing.id },
-            data: { optionId: data.optionId },
+            data: { optionId },
         });
     }
 
     return db.boardPollVote.create({
         data: {
-            optionId: data.optionId,
+            optionId,
             pollId: post.poll.id,
             postId: data.postId,
             authorStudentId: actor.authorStudentId,

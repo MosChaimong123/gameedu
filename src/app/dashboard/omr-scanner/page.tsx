@@ -15,6 +15,7 @@ import { getLocalizedOmrErrorMessageFromResponse } from "@/lib/omr-ui-messages"
 import { tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages"
 import { useLanguage } from "@/components/providers/language-provider"
 import { isTeacherOrAdmin } from "@/lib/role-guards"
+import { parseOmrScannerQaFlags } from "@/lib/omr-scanner-fallbacks"
 
 type OMRResultItem = {
     question: number
@@ -35,6 +36,8 @@ type OMRQuizSet = {
     answerKey: Record<string, string>
 }
 
+const QA_PROCESS_SUCCESS_DATA: OMRResultItem[] = [{ question: 1, answer: "A" }]
+
 export default function OMRInferencePage() {
     const router = useRouter()
     const { data: session, status } = useSession()
@@ -45,6 +48,58 @@ export default function OMRInferencePage() {
     const [result, setResult] = useState<OMRProcessResult | null>(null)
     const [selectedSet, setSelectedSet] = useState<OMRQuizSet | null>(null)
     const [score, setScore] = useState<{ correct: number, total: number } | null>(null)
+
+    const applyProcessResult = async (res: OMRProcessResult) => {
+        setResult(res)
+
+        if (!res.success || !selectedSet || !res.data) {
+            return
+        }
+
+        const answerKey = selectedSet.answerKey as Record<string, string>
+        let correctCount = 0
+        const total = res.data.length
+
+        res.data.forEach((item: OMRResultItem) => {
+            const correctVal = answerKey[item.question.toString()]
+            if (correctVal && item.answer === correctVal) {
+                correctCount++
+                item.isCorrect = true
+            } else {
+                item.isCorrect = false
+                item.correctAnswer = correctVal
+            }
+        })
+
+        const scoreData = { correct: correctCount, total }
+        setScore(scoreData)
+
+        const qaFlags = parseOmrScannerQaFlags(window.location.search)
+        if (qaFlags.forceSaveResultError) {
+            setResult({ success: false, message: t("omrSaveResultError"), data: res.data })
+            return
+        }
+
+        const saveRes = await fetch(`/api/omr/quizzes/${selectedSet.id}/results`, {
+            method: "POST",
+            body: JSON.stringify({
+                score: correctCount,
+                total,
+                answers: res.data,
+                studentName: `Student ${new Date().toLocaleTimeString()}`
+            })
+        })
+
+        if (!saveRes.ok) {
+            const message = await getLocalizedOmrErrorMessageFromResponse(
+                saveRes,
+                "omrSaveResultError",
+                t,
+                language
+            )
+            setResult({ success: false, message, data: res.data })
+        }
+    }
 
     useEffect(() => {
         if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
@@ -103,61 +158,41 @@ export default function OMRInferencePage() {
         setResult(null)
         setScore(null)
 
-        const img = new window.Image()
-        img.src = imageData
-        img.onload = async () => {
+        const qaFlags = parseOmrScannerQaFlags(window.location.search)
+        if (qaFlags.forceProcessSuccess) {
             try {
-                // @ts-expect-error window.cv is injected by the OpenCV script at runtime
-                const cv = window.cv
-                const res = await processOMR(cv, img)
-                setResult(res)
-
-                // Calculate score using OMRQuiz answerKey
-                if (res.success && selectedSet && res.data) {
-                    const answerKey = selectedSet.answerKey as Record<string, string>
-                    let correctCount = 0
-                    const total = res.data.length
-
-                    res.data.forEach((item: OMRResultItem) => {
-                        const correctVal = answerKey[item.question.toString()]
-                        if (correctVal && item.answer === correctVal) {
-                            correctCount++
-                            item.isCorrect = true
-                        } else {
-                            item.isCorrect = false
-                            item.correctAnswer = correctVal
-                        }
-                    })
-
-                    const scoreData = { correct: correctCount, total }
-                    setScore(scoreData)
-
-                    // Auto-save result if it's a valid scan
-                    const saveRes = await fetch(`/api/omr/quizzes/${selectedSet.id}/results`, {
-                        method: "POST",
-                        body: JSON.stringify({
-                            score: correctCount,
-                            total,
-                            answers: res.data,
-                            studentName: `Student ${new Date().toLocaleTimeString()}` // Placeholder
-                        })
-                    })
-
-                    if (!saveRes.ok) {
-                        const message = await getLocalizedOmrErrorMessageFromResponse(
-                            saveRes,
-                            "omrSaveResultError",
-                            t,
-                            language
-                        )
-                        setResult({ success: false, message, data: res.data })
-                    }
-                }
+                await applyProcessResult({
+                    success: true,
+                    message: t("omrScanComplete"),
+                    data: QA_PROCESS_SUCCESS_DATA.map((item) => ({ ...item })),
+                })
             } catch {
                 setResult({ success: false, message: t("omrProcessingError") })
             } finally {
                 setIsProcessing(false)
             }
+            return
+        }
+
+        const img = new window.Image()
+        img.src = imageData
+        img.onload = async () => {
+            try {
+                const res = await processOMR(
+                    // @ts-expect-error window.cv is injected by the OpenCV script at runtime
+                    window.cv,
+                    img
+                )
+                await applyProcessResult(res)
+            } catch {
+                setResult({ success: false, message: t("omrProcessingError") })
+            } finally {
+                setIsProcessing(false)
+            }
+        }
+        img.onerror = () => {
+            setResult({ success: false, message: t("omrProcessingError") })
+            setIsProcessing(false)
         }
     }
 
@@ -264,14 +299,30 @@ export default function OMRInferencePage() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center py-32 text-center opacity-20 group">
-                                <div className="w-32 h-32 rounded-full border-4 border-dashed border-white flex items-center justify-center mb-8 rotate-12 group-hover:rotate-0 transition-transform duration-500">
-                                    <Camera className="w-12 h-12 text-white" />
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                {result ? (
+                                    <div className={`mb-8 w-full max-w-2xl p-6 rounded-[2rem] border-2 flex items-center gap-4 ${result.success ? "bg-emerald-500/10 border-emerald-500/20" : "bg-red-500/10 border-red-500/20"}`}>
+                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${result.success ? "bg-emerald-500" : "bg-red-500"}`}>
+                                            {result.success ? <CheckCircle2 className="text-white w-6 h-6" /> : <AlertCircle className="text-white w-6 h-6" />}
+                                        </div>
+                                        <div className="text-left">
+                                            <h3 className={`font-black text-lg ${result.success ? "text-emerald-400" : "text-red-400"}`}>
+                                                {result.success ? t("omrScanComplete") : t("omrScanFailed")}
+                                            </h3>
+                                            <p className="text-white/60 text-xs font-bold uppercase tracking-wider">{result.message}</p>
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                <div className="opacity-20 group">
+                                    <div className="w-32 h-32 rounded-full border-4 border-dashed border-white flex items-center justify-center mb-8 rotate-12 group-hover:rotate-0 transition-transform duration-500">
+                                        <Camera className="w-12 h-12 text-white" />
+                                    </div>
+                                    <h3 className="text-3xl font-black text-white mb-2">{t("omrScannerNoScanYet")}</h3>
+                                    <p className="text-white font-bold uppercase tracking-[0.3em] text-[10px]">
+                                        {t("omrAwaitingCapture")}
+                                    </p>
                                 </div>
-                                <h3 className="text-3xl font-black text-white mb-2">{t("omrScannerNoScanYet")}</h3>
-                                <p className="text-white font-bold uppercase tracking-[0.3em] text-[10px]">
-                                    {t("omrAwaitingCapture")}
-                                </p>
                             </div>
                         )}
                     </div>

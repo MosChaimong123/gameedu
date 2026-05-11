@@ -18,7 +18,7 @@ The production shape is:
 - Start command: `npm run start`
 - Health check path: `/api/ready`
 
-If you are deploying from GitHub, use the Blueprint in [render.yaml](/C:/Users/IHCK/GAMEEDU/gamedu/render.yaml).
+If you are deploying from GitHub, use the Blueprint in [render.yaml](render.yaml).
 
 ## 2. Infrastructure You Must Bring
 
@@ -41,7 +41,7 @@ Fill these in Render before the first successful boot:
 | `NEXTAUTH_URL` | Yes | Public app URL, e.g. `https://gamedu-app.onrender.com` |
 | `NEXT_PUBLIC_APP_URL` | Yes | Same public URL as above |
 | `NEXT_PUBLIC_SOCKET_URL` | Yes | Same origin as the app on Render |
-| `SOCKET_IO_CORS_ORIGIN` | Recommended | Set to the same public app URL |
+| `SOCKET_IO_CORS_ORIGIN` | Recommended | Same public app URL(s), comma-separated if you truly have multiple front-end origins (see §9) |
 | `ADMIN_SECRET` | Yes | Required for admin account bootstrap/protected admin flows |
 | `AUTH_TRUST_HOST` | Yes | Set to `true` behind Render proxy |
 
@@ -131,8 +131,15 @@ Check:
 
 Check:
 - `NEXT_PUBLIC_SOCKET_URL` equals the public app URL
-- `SOCKET_IO_CORS_ORIGIN` includes that same origin
+- `SOCKET_IO_CORS_ORIGIN` (or `NEXTAUTH_URL` / `NEXT_PUBLIC_APP_URL` fallback) lists every origin users actually open in the browser. You can set a single canonical URL such as `https://www.example.com`: the server expands an automatic **www ↔ apex** pair for standard apex domains (e.g. also allows `https://example.com`). For two unrelated domains, use a comma-separated list.
+- On boot, confirm the log line `[startup] socketIoCors=...` lists the origins you expect.
 - the app is deployed as a `Web Service`, not a static site
+
+**Behind Cloudflare (or another reverse proxy):**
+
+- WebSockets must be allowed on the route to Render (Cloudflare proxy normally supports this).
+- Use SSL/TLS mode compatible with your Render setup (often **Full** or **Full (strict)**).
+- Ensure no Page Rule, WAF rule, or Transform blocks or strips requests to `/socket.io` or the WebSocket upgrade.
 
 ### Prisma errors after first deploy
 
@@ -145,7 +152,7 @@ npx prisma db push
 ## 10. Render URL
 
 Blueprint entry:
-- [render.yaml](/C:/Users/IHCK/GAMEEDU/gamedu/render.yaml)
+- [render.yaml](render.yaml)
 
 Repo:
 - [https://github.com/MosChaimong123/gameedu](https://github.com/MosChaimong123/gameedu)

@@ -14,7 +14,7 @@ export function DashboardContent({
     insightsMissions: DashboardInsightMission[]
 }) {
     return (
-        <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden bg-slate-50/50">
+        <div className="relative min-h-[calc(100vh-4rem)] overflow-x-hidden bg-slate-50/50">
             <div className="absolute top-0 left-0 h-full w-full overflow-hidden pointer-events-none">
                 <motion.div
                     initial={{ opacity: 0 }}

@@ -6,9 +6,8 @@ This app is a **single Web Service** (Node): Next.js UI plus a custom `server.ts
 
 - GitHub repo connected to Render (this project: `MosChaimong123/gameedu`).
 - **MongoDB** cluster (e.g. MongoDB Atlas) and a connection string compatible with Prisma (`DATABASE_URL`).
-- After the first successful deploy, open **Render Shell** for the service and run:
-  - `npx prisma db push`
-  - Optional: `npm run db:seed`
+- Blueprint `preDeployCommand` runs `npx prisma db push` before each release. If a deploy fails at that step, open **Render Shell** and run `npx prisma db push` manually, then redeploy.
+- Optional after first boot: **Render Shell** → `npm run db:seed`
 
 ## 2. Create the Blueprint
 
@@ -43,7 +42,7 @@ In Google Cloud Console, add **Authorized redirect URI**:
 
 ## 5. Health check
 
-The service uses `healthCheckPath: /api/health` in `render.yaml`.
+Render uses **`healthCheckPath: /api/ready`** in `render.yaml` (readiness: env + DB). **`/api/health`** is a lighter liveness probe for monitoring; do not point the Render service health check at `/api/health` unless you change `render.yaml` to match.
 
 ## 6. Optional app env (set in Dashboard if needed)
 

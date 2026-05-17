@@ -8,6 +8,7 @@ import { PLUS_PLANS } from "@/constants/pricing";
 import type { PlusPricesFromStripe } from "@/lib/billing/plus-price-types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Check, Sparkles, Rocket, Zap, ShieldCheck, Mail, Info } from "lucide-react";
 import { motion } from "framer-motion";
 import { PageBackLink } from "@/components/ui/page-back-link";
@@ -42,6 +43,7 @@ export function UpgradePageClient({
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [promptPayLoading, setPromptPayLoading] = useState(false);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
+    const [promotionCode, setPromotionCode] = useState("");
 
     useEffect(() => {
         if (status !== "authenticated") return;
@@ -68,11 +70,16 @@ export function UpgradePageClient({
         const setLoading = channel === "card" ? setCheckoutLoading : setPromptPayLoading;
         setLoading(true);
         try {
+            const trimmedPromo = promotionCode.trim();
             const res = await fetch("/api/billing/create-checkout-session", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "same-origin",
-                body: JSON.stringify({ interval: billingInterval, channel }),
+                body: JSON.stringify({
+                    interval: billingInterval,
+                    channel,
+                    ...(trimmedPromo ? { promotionCode: trimmedPromo } : {}),
+                }),
             });
             if (!res.ok) {
                 setCheckoutError(
@@ -80,7 +87,12 @@ export function UpgradePageClient({
                         res,
                         "upgradeCheckoutFailed",
                         t,
-                        language
+                        language,
+                        {
+                            overrideTranslationKeys: {
+                                BILLING_PROMO_INVALID: "apiError_BILLING_PROMO_INVALID",
+                            },
+                        }
                     )
                 );
                 return;
@@ -262,7 +274,28 @@ export function UpgradePageClient({
                                             {t(plan.buttonTextKey)}
                                         </Button>
                                     ) : plan.id === "PLUS" && checkoutEnabled ? (
-                                        <div className="flex w-full flex-col gap-3">
+                                        <motion.div className="flex w-full flex-col gap-3">
+                                            <div className="space-y-2">
+                                                <label
+                                                    htmlFor="plus-promotion-code"
+                                                    className="block text-xs font-bold uppercase tracking-wide text-slate-500"
+                                                >
+                                                    {t("upgradePromoCodeLabel")}
+                                                </label>
+                                                <Input
+                                                    id="plus-promotion-code"
+                                                    type="text"
+                                                    autoComplete="off"
+                                                    spellCheck={false}
+                                                    placeholder={t("upgradePromoCodePlaceholder")}
+                                                    value={promotionCode}
+                                                    onChange={(e) => setPromotionCode(e.target.value)}
+                                                    className="h-11 rounded-xl border-slate-200 font-semibold uppercase"
+                                                />
+                                                <p className="text-xs font-medium leading-relaxed text-slate-500">
+                                                    {t("upgradePromoCodeHint")}
+                                                </p>
+                                            </div>
                                             <Button
                                                 type="button"
                                                 size="wrap"
@@ -295,7 +328,7 @@ export function UpgradePageClient({
                                                     ? t("upgradePromptPayHintMonthly")
                                                     : t("upgradePromptPayHintYearly")}
                                             </p>
-                                        </div>
+                                        </motion.div>
                                     ) : (
                                         <Button
                                             asChild

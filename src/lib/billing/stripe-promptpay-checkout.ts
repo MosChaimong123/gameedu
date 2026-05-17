@@ -10,7 +10,7 @@ import {
   STRIPE_CHECKOUT_KIND_PROMPTPAY_PASS,
 } from "@/lib/billing/stripe-promptpay-pass";
 
-async function resolvePlusAmountSatang(
+export async function resolvePlusAmountSatang(
   stripe: Stripe,
   interval: PlusBillingInterval
 ): Promise<number> {
@@ -38,10 +38,13 @@ export async function createPlusPromptPayCheckoutSession(params: {
   userId: string;
   customerId: string;
   interval: PlusBillingInterval;
+  unitAmountSatang?: number;
+  promotionCode?: string;
 }): Promise<Stripe.Checkout.Session> {
   const stripe = getStripeClient();
   const origin = resolvePublicAppOrigin();
-  const unitAmount = await resolvePlusAmountSatang(stripe, params.interval);
+  const unitAmount =
+    params.unitAmountSatang ?? (await resolvePlusAmountSatang(stripe, params.interval));
 
   return stripe.checkout.sessions.create({
     mode: "payment",
@@ -66,6 +69,7 @@ export async function createPlusPromptPayCheckoutSession(params: {
       userId: params.userId,
       plusInterval: params.interval,
       checkoutKind: STRIPE_CHECKOUT_KIND_PROMPTPAY_PASS,
+      ...(params.promotionCode ? { promotionCode: params.promotionCode } : {}),
     },
   });
 }

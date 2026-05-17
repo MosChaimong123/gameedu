@@ -51,6 +51,7 @@ const DEFAULT_THAI_ERROR_MESSAGES: Record<AppErrorCode, string> = {
     BILLING_PRICE_NOT_CONFIGURED: "ยังไม่ได้ตั้งค่าราคาสำหรับรอบบิลนี้",
     BILLING_PRO_MANAGED: "บัญชี School Pro ถูกจัดการโดยองค์กรของคุณ กรุณาติดต่อทีมงานเรื่องการชำระเงิน",
     BILLING_CHECKOUT_CREATE_FAILED: "ไม่สามารถเริ่มหน้าชำระเงินได้ในขณะนี้",
+    BILLING_PROMO_INVALID: "รหัสโปรโมชันไม่ถูกต้อง หมดอายุ หรือใช้ครบแล้ว",
     BILLING_THAI_NOT_CONFIGURED: "ช่องทางชำระเงินไทยยังไม่ได้ตั้งค่า",
     BILLING_CHARGE_SESSION_MISMATCH: "รายการชำระเงินนี้ไม่ตรงกับเซสชันปัจจุบัน",
     BILLING_PROCESSING_FAILED: "ระบบไม่สามารถยืนยันการชำระเงินให้เสร็จสมบูรณ์ได้",

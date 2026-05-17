@@ -9,7 +9,15 @@ import {
 } from "@/lib/api-error";
 import { ensureStripeCustomerForUser } from "@/lib/billing/ensure-stripe-customer";
 import { resolvePublicAppOrigin } from "@/lib/billing/resolve-public-url";
-import { createPlusPromptPayCheckoutSession } from "@/lib/billing/stripe-promptpay-checkout";
+import {
+  StripePromotionCodeError,
+  normalizePromotionCodeInput,
+  resolveStripePromotionForPlus,
+} from "@/lib/billing/resolve-stripe-promotion-code";
+import {
+  createPlusPromptPayCheckoutSession,
+  resolvePlusAmountSatang,
+} from "@/lib/billing/stripe-promptpay-checkout";
 import {
   getStripeCheckoutConfigured,
   getStripeClient,
@@ -20,6 +28,7 @@ import { isTeacherOrAdmin } from "@/lib/role-guards";
 const bodySchema = z.object({
   interval: z.enum(["month", "year"]).default("month"),
   channel: z.enum(["card", "promptpay"]).default("card"),
+  promotionCode: z.string().max(64).optional(),
 });
 
 export async function POST(req: Request) {
@@ -46,7 +55,7 @@ export async function POST(req: Request) {
       return createAppErrorResponse("INVALID_PAYLOAD", "Invalid payload", 400);
     }
 
-    const { interval, channel } = parsed.data;
+    const { interval, channel, promotionCode } = parsed.data;
     const priceId = resolvePlusStripePriceId(interval);
     if (!priceId) {
       return createAppErrorResponse(
@@ -83,12 +92,33 @@ export async function POST(req: Request) {
       existingCustomerId: dbUser.customerId,
     });
 
+    const trimmedPromo = normalizePromotionCodeInput(promotionCode);
+    let resolvedPromo: Awaited<ReturnType<typeof resolveStripePromotionForPlus>> = null;
+    if (trimmedPromo) {
+      const stripe = getStripeClient();
+      const baseAmountSatang = await resolvePlusAmountSatang(stripe, interval);
+      try {
+        resolvedPromo = await resolveStripePromotionForPlus(
+          stripe,
+          trimmedPromo,
+          baseAmountSatang
+        );
+      } catch (e) {
+        if (e instanceof StripePromotionCodeError) {
+          return createAppErrorResponse("BILLING_PROMO_INVALID", e.message, 400);
+        }
+        throw e;
+      }
+    }
+
     const checkoutSession =
       channel === "promptpay"
         ? await createPlusPromptPayCheckoutSession({
             userId,
             customerId,
             interval,
+            unitAmountSatang: resolvedPromo?.discountedAmountSatang,
+            promotionCode: resolvedPromo?.code,
           })
         : await (async () => {
             const stripe = getStripeClient();
@@ -100,10 +130,16 @@ export async function POST(req: Request) {
               line_items: [{ price: priceId, quantity: 1 }],
               success_url: `${origin}/dashboard/upgrade?checkout=success`,
               cancel_url: `${origin}/dashboard/upgrade?checkout=cancelled`,
-              metadata: { userId },
+              metadata: {
+                userId,
+                ...(resolvedPromo?.code ? { promotionCode: resolvedPromo.code } : {}),
+              },
               subscription_data: {
                 metadata: { userId },
               },
+              ...(resolvedPromo
+                ? { discounts: [{ promotion_code: resolvedPromo.promotionCodeId }] }
+                : { allow_promotion_codes: true }),
             });
           })();
 

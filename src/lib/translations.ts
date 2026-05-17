@@ -200,6 +200,11 @@ export const thaiPack = {
             "PromptPay ไม่ต่ออายุอัตโนมัติ — จ่ายครั้งนี้ได้ PLUS 30 วัน ต้องสแกน QR จ่ายใหม่ทุกเดือน",
         upgradePromptPayHintYearly:
             "PromptPay ไม่ต่ออายุอัตโนมัติ — จ่ายครั้งนี้ได้ PLUS 12 เดือน",
+        upgradePromoCodeLabel: "รหัสโปรโมชัน (ไม่บังคับ)",
+        upgradePromoCodePlaceholder: "เช่น PROMO99",
+        upgradePromoCodeHint:
+            "ใส่รหัสก่อนกดชำระเงิน — บัตรลดเฉพาะรอบแรก, PromptPay หักยอดทันที (ถ้ารหัสยังใช้ได้ใน Stripe)",
+        apiError_BILLING_PROMO_INVALID: "รหัสโปรโมชันไม่ถูกต้อง หมดอายุ หรือใช้ครบแล้ว",
         signupLegalPrefix: "เมื่อสร้างบัญชี คุณยอมรับ",
         signupLegalTerms: "ข้อกำหนดการให้บริการ",
         signupLegalAnd: "และ",
@@ -2813,6 +2818,10 @@ const englishPack = {
             "PromptPay does not auto-renew. Each payment gives 30 days of PLUS — pay again next month to continue.",
         upgradePromptPayHintYearly:
             "PromptPay does not auto-renew. One payment gives 12 months of PLUS.",
+        upgradePromoCodeLabel: "Promotion code (optional)",
+        upgradePromoCodePlaceholder: "e.g. PROMO99",
+        upgradePromoCodeHint:
+            "Enter your code before checkout — card: first billing cycle only; PromptPay: discounted amount when the code is valid in Stripe.",
         upgradeCheckoutWorking: "Redirecting to checkout...",
         upgradeCheckoutFailed: "Could not start checkout. Try again or contact support.",
         upgradeContactSubject: "TeachPlayEdu plan upgrade",
@@ -3073,6 +3082,7 @@ const englishPack = {
         apiError_BILLING_PRICE_NOT_CONFIGURED: "This billing interval is not configured yet.",
         apiError_BILLING_PRO_MANAGED: "School Pro billing is managed by your organization.",
         apiError_BILLING_CHECKOUT_CREATE_FAILED: "Could not start checkout right now.",
+        apiError_BILLING_PROMO_INVALID: "This promotion code is invalid, expired, or fully redeemed.",
         apiError_BILLING_THAI_NOT_CONFIGURED: "Thai/local billing is not configured right now.",
         apiError_BILLING_CHARGE_SESSION_MISMATCH: "This payment does not belong to the current session.",
         apiError_BILLING_PROCESSING_FAILED: "We couldn't finish processing the payment.",

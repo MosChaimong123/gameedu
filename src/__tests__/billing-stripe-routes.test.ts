@@ -48,9 +48,13 @@ vi.mock("@/lib/billing/stripe-idempotency", () => ({
   releaseStripeWebhookClaim: mockReleaseStripeWebhookClaim,
 }));
 
-vi.mock("@/lib/billing/stripe-promptpay-checkout", () => ({
-  createPlusPromptPayCheckoutSession: mockCreatePlusPromptPayCheckoutSession,
-}));
+vi.mock("@/lib/billing/stripe-promptpay-checkout", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/billing/stripe-promptpay-checkout")>();
+  return {
+    ...actual,
+    createPlusPromptPayCheckoutSession: mockCreatePlusPromptPayCheckoutSession,
+  };
+});
 
 vi.mock("@/lib/billing/ensure-stripe-customer", () => ({
   ensureStripeCustomerForUser: mockEnsureStripeCustomerForUser,
@@ -181,8 +185,80 @@ describe("billing stripe routes", () => {
         success_url: "https://www.teachplayedu.com/dashboard/upgrade?checkout=success",
         cancel_url: "https://www.teachplayedu.com/dashboard/upgrade?checkout=cancelled",
         line_items: [{ price: "price_plus_month", quantity: 1 }],
+        allow_promotion_codes: true,
       }),
     );
+  });
+
+  it("applies promotion code to card checkout when provided", async () => {
+    const stripe = {
+      ...stripeClientMock(),
+      promotionCodes: {
+        list: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: "promo_test",
+              code: "PROMO99",
+              coupon: { valid: true, amount_off: 19100, currency: "thb" },
+            },
+          ],
+        }),
+      },
+    };
+    mockGetStripeClient.mockReturnValue(stripe);
+
+    const { POST } = await import("@/app/api/billing/create-checkout-session/route");
+    const response = await POST(
+      new Request("http://localhost/api/billing/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interval: "month", channel: "card", promotionCode: "PROMO99" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(stripe.promotionCodes.list).toHaveBeenCalled();
+    expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        discounts: [{ promotion_code: "promo_test" }],
+      }),
+    );
+  });
+
+  it("passes discounted PromptPay amount when promotion code is valid", async () => {
+    const stripe = {
+      ...stripeClientMock(),
+      promotionCodes: {
+        list: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: "promo_test",
+              code: "PROMO99",
+              coupon: { valid: true, amount_off: 19100, currency: "thb" },
+            },
+          ],
+        }),
+      },
+    };
+    mockGetStripeClient.mockReturnValue(stripe);
+
+    const { POST } = await import("@/app/api/billing/create-checkout-session/route");
+    const response = await POST(
+      new Request("http://localhost/api/billing/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interval: "month", channel: "promptpay", promotionCode: "PROMO99" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockCreatePlusPromptPayCheckoutSession).toHaveBeenCalledWith({
+      userId: "user-1",
+      customerId: "cus_test",
+      interval: "month",
+      unitAmountSatang: 9900,
+      promotionCode: "PROMO99",
+    });
   });
 
   it("ignores duplicate Stripe webhook events without reprocessing", async () => {

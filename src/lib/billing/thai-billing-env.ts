@@ -7,7 +7,7 @@ export function getThaiBillingProviderId(): string | undefined {
   return raw;
 }
 
-/** Show Thai/local bank payment option on upgrade page (mock or future PSP). */
+/** Dev-only: mock Thai billing UI (never shown on production — use Stripe). */
 export function isThaiBillingUiEnabled(): boolean {
-  return Boolean(getThaiBillingProviderId());
+  return getThaiBillingProviderId() === "mock";
 }

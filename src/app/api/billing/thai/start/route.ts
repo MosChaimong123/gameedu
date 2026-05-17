@@ -7,11 +7,9 @@ import {
   FORBIDDEN_MESSAGE,
   createAppErrorResponse,
 } from "@/lib/api-error";
-import { OMISE_PENDING_CHARGE_COOKIE } from "@/lib/billing/omise-constants";
 import { resolvePublicAppOrigin } from "@/lib/billing/resolve-public-url";
 import { resolveThaiBillingAdapter } from "@/lib/billing/providers/resolve-thai-adapter";
 import { getThaiBillingProviderId } from "@/lib/billing/thai-billing-env";
-import { getAppEnv } from "@/lib/env";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 const bodySchema = z.object({
@@ -33,22 +31,13 @@ export async function POST(req: Request) {
     const adapter = resolveThaiBillingAdapter();
     if (!adapter) {
       const providerId = getThaiBillingProviderId();
-      const env = getAppEnv();
       console.error("[billing/thai/start] adapter unavailable", {
         BILLING_THAI_PROVIDER: providerId ?? null,
-        hasOmiseSecret: Boolean(env.OMISE_SECRET_KEY),
       });
-      const reason =
-        providerId === "omise" && !env.OMISE_SECRET_KEY
-          ? "Omise secret key not set on server (OMISE_SECRET_KEY)."
-          : !providerId
-            ? "BILLING_THAI_PROVIDER is not set on server."
-            : `Provider \"${providerId}\" is not implemented.`;
-      return createAppErrorResponse(
-        "BILLING_THAI_NOT_CONFIGURED",
-        reason,
-        503
-      );
+      const reason = !providerId
+        ? "BILLING_THAI_PROVIDER is not set (use mock for dev only)."
+        : `Provider "${providerId}" is not supported (only mock for dev).`;
+      return createAppErrorResponse("BILLING_THAI_NOT_CONFIGURED", reason, 503);
     }
 
     const session = await auth();
@@ -111,17 +100,7 @@ export async function POST(req: Request) {
       return createAppErrorResponse("BILLING_PROCESSING_FAILED", result.message, 500);
     }
 
-    const res = NextResponse.json({ url: result.redirectUrl });
-    if (result.pendingChargeId) {
-      res.cookies.set(OMISE_PENDING_CHARGE_COOKIE, result.pendingChargeId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 3,
-      });
-    }
-    return res;
+    return NextResponse.json({ url: result.redirectUrl });
   } catch (e) {
     console.error("[billing/thai/start]", e);
     return createAppErrorResponse("INTERNAL_ERROR", "Internal error", 500);

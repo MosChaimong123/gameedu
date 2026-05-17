@@ -5,11 +5,6 @@ import { createAppError, createAppErrorResponse } from "@/lib/api-error";
 import { getAppEnv } from "@/lib/env";
 import { applyPlusPlanEntitlement } from "@/lib/billing/apply-plus-entitlement";
 import { BILLING_PROVIDER_THAI_MOCK } from "@/lib/billing/billing-providers";
-import { omiseRetrieveCharge } from "@/lib/billing/omise-api";
-import {
-  applyPlusFromPaidOmiseCharge,
-  extractOmiseEventChargeId,
-} from "@/lib/billing/omise-entitlement";
 import {
   claimBillingProviderEvent,
   releaseBillingProviderEvent,
@@ -88,82 +83,6 @@ export async function POST(
     }
 
     return NextResponse.json({ received: true });
-  }
-
-  if (provider === "omise") {
-    if (getThaiBillingProviderId() !== "omise") {
-      return createAppErrorResponse("BILLING_OMISE_INACTIVE", "Omise provider is not active", 503);
-    }
-
-    const secret = getAppEnv().OMISE_SECRET_KEY;
-    if (!secret) {
-      return createAppErrorResponse("BILLING_OMISE_NOT_CONFIGURED", "Omise is not configured", 500);
-    }
-
-    let body: unknown;
-    try {
-      body = JSON.parse(rawBody);
-    } catch {
-      return createAppErrorResponse("INVALID_PAYLOAD", "Invalid JSON", 400);
-    }
-
-    const evt = body as {
-      object?: string;
-      key?: string;
-      id?: string;
-      data?: unknown;
-    };
-
-    if (evt.object !== "event") {
-      return createAppErrorResponse("INVALID_PAYLOAD", "Not an Omise event", 400);
-    }
-
-    if (evt.key !== "charge.complete") {
-      return NextResponse.json({ received: true, ignored: true });
-    }
-
-    const chargeId = extractOmiseEventChargeId(evt.data);
-    if (!chargeId) {
-      return createAppErrorResponse("INVALID_PAYLOAD", "Missing charge id", 400);
-    }
-
-    const retrieved = await omiseRetrieveCharge(secret, chargeId);
-    if (!retrieved.ok) {
-      console.error("[webhooks/billing/omise] retrieve failed:", retrieved.message);
-      return createAppErrorResponse("BILLING_PROCESSING_FAILED", "Could not verify charge", 502);
-    }
-
-    try {
-      const outcome = await applyPlusFromPaidOmiseCharge(retrieved.charge, {
-        source: "webhook",
-        omiseEventId: typeof evt.id === "string" ? evt.id : undefined,
-      });
-
-      if (outcome === "skipped_not_paid") {
-        return NextResponse.json({
-          received: true,
-          skipped: true,
-          status: retrieved.charge.status ?? "unknown",
-        });
-      }
-      if (outcome === "duplicate") {
-        return NextResponse.json({ received: true, duplicate: true });
-      }
-      if (outcome === "missing_charge_id") {
-        return createAppErrorResponse("INVALID_PAYLOAD", "Invalid charge payload", 400);
-      }
-      if (outcome === "missing_user_metadata") {
-        return createAppErrorResponse("INVALID_PAYLOAD", "Missing user metadata on charge", 400);
-      }
-      if (outcome === "user_not_found") {
-        return createAppErrorResponse("NOT_FOUND", "User not found", 400);
-      }
-
-      return NextResponse.json({ received: true });
-    } catch (e) {
-      console.error("[webhooks/billing/omise]", e);
-      return createAppErrorResponse("INTERNAL_ERROR", "Handler failed", 500);
-    }
   }
 
   return NextResponse.json(

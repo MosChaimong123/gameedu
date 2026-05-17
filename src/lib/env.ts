@@ -23,18 +23,10 @@ const appEnvSchema = z.object({
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: trimOrUnset,
   STRIPE_PRICE_PLUS_MONTHLY: trimOrUnset,
   STRIPE_PRICE_PLUS_YEARLY: trimOrUnset,
-  /** Thai PSP: none | mock | omise | two_c_two_p — mock enables placeholder UI + webhook */
+  /** Dev-only mock Thai billing: unset | none | mock — production uses Stripe only */
   BILLING_THAI_PROVIDER: trimOrUnset,
-  /** Shared secret for POST /api/webhooks/billing/mock (local/dev; replace with PSP signing for prod) */
+  /** Shared secret for POST /api/webhooks/billing/mock (local/dev only) */
   BILLING_THAI_WEBHOOK_SECRET: trimOrUnset,
-  /** Omise secret key (skey_...) — server-only; required when BILLING_THAI_PROVIDER=omise */
-  OMISE_SECRET_KEY: trimOrUnset,
-  /** Omise public key (pkey_...) — optional here; use NEXT_PUBLIC_OMISE_PUBLIC_KEY for Omise.js on the client */
-  OMISE_PUBLIC_KEY: trimOrUnset,
-  NEXT_PUBLIC_OMISE_PUBLIC_KEY: trimOrUnset,
-  /** PLUS amounts in satang (THB × 100). Min PromptPay 2000. Defaults: 29000 / monthly×12 if unset */
-  OMISE_PLUS_MONTHLY_SATANG: trimOrUnset,
-  OMISE_PLUS_YEARLY_SATANG: trimOrUnset,
   /** Resend API key — optional in dev; verification emails log link to console if unset */
   RESEND_API_KEY: trimOrUnset,
   /** From address for Resend (e.g. TeachPlayEdu <notify@yourdomain.com>) */
@@ -122,11 +114,6 @@ export function getAppEnv(env: NodeJS.ProcessEnv = process.env): AppEnv {
     STRIPE_PRICE_PLUS_YEARLY: env.STRIPE_PRICE_PLUS_YEARLY,
     BILLING_THAI_PROVIDER: env.BILLING_THAI_PROVIDER,
     BILLING_THAI_WEBHOOK_SECRET: env.BILLING_THAI_WEBHOOK_SECRET,
-    OMISE_SECRET_KEY: env.OMISE_SECRET_KEY,
-    OMISE_PUBLIC_KEY: env.OMISE_PUBLIC_KEY,
-    NEXT_PUBLIC_OMISE_PUBLIC_KEY: env.NEXT_PUBLIC_OMISE_PUBLIC_KEY,
-    OMISE_PLUS_MONTHLY_SATANG: env.OMISE_PLUS_MONTHLY_SATANG,
-    OMISE_PLUS_YEARLY_SATANG: env.OMISE_PLUS_YEARLY_SATANG,
     RESEND_API_KEY: env.RESEND_API_KEY,
     EMAIL_FROM: env.EMAIL_FROM,
     SENTRY_DSN: env.SENTRY_DSN,

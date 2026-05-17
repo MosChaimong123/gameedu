@@ -32,7 +32,13 @@ const navItems = [
     { icon: Sparkles, labelKey: "upgradeToPlus", href: "/dashboard/upgrade" },
 ] as const
 
-export function Sidebar({ className }: { className?: string }) {
+type SidebarProps = {
+    className?: string
+    /** Called when a nav link is activated (e.g. close mobile sheet). */
+    onNavigate?: () => void
+}
+
+export function Sidebar({ className, onNavigate }: SidebarProps) {
     const pathname = usePathname()
     const { t } = useLanguage()
     const omrLive = isOmrDashboardEnabled()
@@ -53,6 +59,7 @@ export function Sidebar({ className }: { className?: string }) {
         >
             <Link
                 href="/dashboard"
+                onClick={onNavigate}
                 className="flex h-16 shrink-0 items-center gap-2.5 border-b border-sidebar-border px-3 transition-opacity hover:opacity-90"
             >
                 <BrandLogo size="md" className="shrink-0" />
@@ -90,6 +97,7 @@ export function Sidebar({ className }: { className?: string }) {
                         <Link
                             key={item.href}
                             href={item.href}
+                            onClick={onNavigate}
                             className={cn(
                                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
                                 isActive

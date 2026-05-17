@@ -62,7 +62,7 @@ export const privacyContent = {
       ],
       [
         "4. Sources of data",
-        "We obtain information directly from you when you register, update your profile, create classrooms, invite students, host activities, or contact support. We may also receive limited technical data automatically when you use the Service and when integrated providers return confirmations (for example, payment success metadata from Stripe or Omise, or authentication tokens from Google when you use Google sign-in).",
+        "We obtain information directly from you when you register, update your profile, create classrooms, invite students, host activities, or contact support. We may also receive limited technical data automatically when you use the Service and when integrated providers return confirmations (for example, payment success metadata from Stripe (including PromptPay where offered), or authentication tokens from Google when you use Google sign-in).",
       ],
       [
         "5. Purposes and legal bases",
@@ -74,11 +74,11 @@ export const privacyContent = {
       ],
       [
         "7. Payments",
-        "When you subscribe to paid plans, payment details are collected and processed by our payment partners (for example, Stripe for cards and Omise for Thai local methods). TeachPlayEdu typically receives limited billing metadata (such as customer identifiers, subscription status, amounts, and timestamps) rather than full card numbers, which are handled by the payment processor according to its terms and security standards.",
+        "When you subscribe to paid plans, payment details are collected and processed by our payment partners (for example, Stripe for card subscriptions and Stripe PromptPay for one-time PLUS passes in Thailand). TeachPlayEdu typically receives limited billing metadata (such as customer identifiers, subscription status, amounts, and timestamps) rather than full card numbers, which are handled by the payment processor according to its terms and security standards.",
       ],
       [
         "8. Sharing and subprocessors",
-        "We share personal data with service providers that help us deliver the Service, such as cloud hosting, databases (for example MongoDB Atlas), email delivery, authentication providers (for example Google OAuth when enabled), payment processors (Stripe, Omise), and monitoring tools (for example Sentry) when configured. These providers may process data only as instructed and must implement appropriate safeguards. We may disclose information if required by law, court order, or to protect users and the Service.",
+        "We share personal data with service providers that help us deliver the Service, such as cloud hosting, databases (for example MongoDB Atlas), email delivery, authentication providers (for example Google OAuth when enabled), payment processors (Stripe), and monitoring tools (for example Sentry) when configured. These providers may process data only as instructed and must implement appropriate safeguards. We may disclose information if required by law, court order, or to protect users and the Service.",
       ],
       [
         "9. International transfers",
@@ -130,7 +130,7 @@ export const privacyContent = {
       ],
       [
         "4. แหล่งที่ได้ข้อมูล",
-        "เราได้รับข้อมูลจากคุณโดยตรงเมื่อสมัคร แก้โปรไฟล์ สร้างห้องเรียน เชิญนักเรียน จัดกิจกรรม หรือติดต่อสนับสนุน และอาจได้รับข้อมูลทางเทคนิคโดยอัตโนมัติเมื่อคุณใช้บริการ รวมถึงข้อมูลยืนยันจำกัดจากผู้ให้บริการรวม (เช่น ข้อมูลการชำระเงินจาก Stripe หรือ Omise หรือการยืนยันตัวตนจาก Google เมื่อใช้ล็อกอิน Google)",
+        "เราได้รับข้อมูลจากคุณโดยตรงเมื่อสมัคร แก้โปรไฟล์ สร้างห้องเรียน เชิญนักเรียน จัดกิจกรรม หรือติดต่อสนับสนุน และอาจได้รับข้อมูลทางเทคนิคโดยอัตโนมัติเมื่อคุณใช้บริการ รวมถึงข้อมูลยืนยันจำกัดจากผู้ให้บริการรวม (เช่น ข้อมูลการชำระเงินจาก Stripe (รวม PromptPay เมื่อมีให้ใช้) หรือการยืนยันตัวตนจาก Google เมื่อใช้ล็อกอิน Google)",
       ],
       [
         "5. วัตถุประสงค์และฐานทางกฎหมาย",
@@ -142,11 +142,11 @@ export const privacyContent = {
       ],
       [
         "7. การชำระเงิน",
-        "เมื่อคุณสมัครแพ็กเกจแบบมีค่าใช้จ่าย รายละเอียดการชำระเงินจะถูกเก็บและประมวลผลโดยพันธมิตรการชำระเงิน (เช่น Stripe สำหรับบัตร Omise สำหรับช่องทางในประเทศไทย) TeachPlayEdu โดยทั่วไปได้รับเฉพาะข้อมูลการเรียกเก็บเงินขั้นต่ำ (เช่น ตัวระบุลูกค้า สถานะการสมัคร จำนวนเงิน เวลา) ไม่ใช่เลขบัตรเต็ม ซึ่งผู้ให้บริการการชำระเงินจัดการตามข้อกำหนดและมาตรฐานความปลอดภัยของตน",
+        "เมื่อคุณสมัครแพ็กเกจแบบมีค่าใช้จ่าย รายละเอียดการชำระเงินจะถูกเก็บและประมวลผลโดยพันธมิตรการชำระเงิน (เช่น Stripe สำหรับบัตรและ Stripe PromptPay สำหรับการชำระแบบครั้งเดียวในประเทศไทย) TeachPlayEdu โดยทั่วไปได้รับเฉพาะข้อมูลการเรียกเก็บเงินขั้นต่ำ (เช่น ตัวระบุลูกค้า สถานะการสมัคร จำนวนเงิน เวลา) ไม่ใช่เลขบัตรเต็ม ซึ่งผู้ให้บริการการชำระเงินจัดการตามข้อกำหนดและมาตรฐานความปลอดภัยของตน",
       ],
       [
         "8. การเปิดเผยและผู้ประมวลผลแทน",
-        "เราเปิดเผยข้อมูลแก่ผู้ให้บริการที่ช่วยให้บริการ เช่น โฮสติงคลาวด์ ฐานข้อมูล (เช่น MongoDB Atlas) การส่งอีเมล ผู้ให้บริการยืนยันตัวตน (เช่น Google OAuth เมื่อเปิดใช้) ผู้ประมวลผลการชำระเงิน (Stripe Omise) และเครื่องมือมอนิเตอร์ (เช่น Sentry) เมื่อมีการตั้งค่า ผู้ให้บริการเหล่านี้ประมวลผลตามคำสั่งและต้องมีมาตรการคุ้มครองที่เหมาะสม เราอาจเปิดเผยข้อมูลหากกฎหมายหรือคำสั่งศาลกำหนด หรือเพื่อปกป้องผู้ใช้และบริการ",
+        "เราเปิดเผยข้อมูลแก่ผู้ให้บริการที่ช่วยให้บริการ เช่น โฮสติงคลาวด์ ฐานข้อมูล (เช่น MongoDB Atlas) การส่งอีเมล ผู้ให้บริการยืนยันตัวตน (เช่น Google OAuth เมื่อเปิดใช้) ผู้ประมวลผลการชำระเงิน (Stripe) และเครื่องมือมอนิเตอร์ (เช่น Sentry) เมื่อมีการตั้งค่า ผู้ให้บริการเหล่านี้ประมวลผลตามคำสั่งและต้องมีมาตรการคุ้มครองที่เหมาะสม เราอาจเปิดเผยข้อมูลหากกฎหมายหรือคำสั่งศาลกำหนด หรือเพื่อปกป้องผู้ใช้และบริการ",
       ],
       [
         "9. การถ่ายโอนข้อมูลไปต่างประเทศ",
@@ -205,7 +205,7 @@ export const termsContent = {
       ],
       [
         "5. Paid plans and billing",
-        "Paid subscriptions (such as TeachPlayEdu PLUS) are billed through checkout flows presented at purchase time. Pricing, currency, taxes, renewal intervals, quotas, and refund policies are shown by our payment partners (for example Stripe or Omise) and/or on in-product pricing screens and supersede conflicting informal communications. Subscriptions renew until canceled according to the controls offered by the payment provider and your selections at checkout. Chargebacks and disputes may result in suspension pending resolution.",
+        "Paid subscriptions (such as TeachPlayEdu PLUS) are billed through checkout flows presented at purchase time. Pricing, currency, taxes, renewal intervals, quotas, and refund policies are shown by our payment partners (for example Stripe) and/or on in-product pricing screens and supersede conflicting informal communications. Subscriptions renew until canceled according to the controls offered by the payment provider and your selections at checkout. Chargebacks and disputes may result in suspension pending resolution.",
       ],
       [
         "6. Third-party services",
@@ -269,7 +269,7 @@ export const termsContent = {
       ],
       [
         "5. แพ็กเกจแบบชำระเงินและการเรียกเก็บเงิน",
-        "การสมัครแบบมีค่าใช้จ่าย (เช่น TeachPlayEdu PLUS) เรียกเก็บผ่านขั้นตอนชำระเงินที่แสดงตอนสั่งซื้อ ราคา สกุลเงิน ภาษี รอบการต่ออายุ โควตา และนโยบายการคืนเงินตามที่แสดงโดยผู้ให้บริการการชำระเงิน (เช่น Stripe หรือ Omise) และ/หรือบนหน้าจอราคาในแอป และมีผลเหนือการสื่อสารอื่นที่ไม่เป็นทางการ การสมัครจะต่ออายุจนกว่าจะยกเลิกตามเครื่องมือของผู้ให้บริการการชำระเงินและการเลือกของคุณตอนชำระเงิน การขอคืนเงินหรือข้อพิพาทอาจทำให้ระงับชั่วคราวจนกว่าจะได้ข้อยุติ",
+        "การสมัครแบบมีค่าใช้จ่าย (เช่น TeachPlayEdu PLUS) เรียกเก็บผ่านขั้นตอนชำระเงินที่แสดงตอนสั่งซื้อ ราคา สกุลเงิน ภาษี รอบการต่ออายุ โควตา และนโยบายการคืนเงินตามที่แสดงโดยผู้ให้บริการการชำระเงิน (เช่น Stripe) และ/หรือบนหน้าจอราคาในแอป และมีผลเหนือการสื่อสารอื่นที่ไม่เป็นทางการ การสมัครจะต่ออายุจนกว่าจะยกเลิกตามเครื่องมือของผู้ให้บริการการชำระเงินและการเลือกของคุณตอนชำระเงิน การขอคืนเงินหรือข้อพิพาทอาจทำให้ระงับชั่วคราวจนกว่าจะได้ข้อยุติ",
       ],
       [
         "6. บริการของบุคคลที่สาม",

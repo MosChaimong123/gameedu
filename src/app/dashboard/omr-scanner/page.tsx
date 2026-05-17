@@ -263,7 +263,7 @@ export default function OMRInferencePage() {
                                             className="space-y-6"
                                         >
                                             {score && (
-                                                <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-brand-purple to-brand-navy p-10 text-center text-white shadow-2xl">
+                                                <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-brand-purple to-brand-navy p-5 text-center text-white shadow-2xl sm:p-8 md:p-10">
                                                     <div className="absolute top-0 right-0 p-4 opacity-10">
                                                         <CheckCircle2 className="w-24 h-24 rotate-12" />
                                                     </div>

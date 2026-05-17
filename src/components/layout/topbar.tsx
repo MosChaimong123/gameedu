@@ -20,6 +20,7 @@ import { LanguageToggle } from "@/components/language-toggle"
 import { useLanguage } from "@/components/providers/language-provider"
 import { NotificationTray } from "@/components/dashboard/notification-tray"
 import { BrandLogo } from "@/components/layout/brand-logo"
+import { MobileDashboardNav } from "@/components/layout/mobile-dashboard-nav"
 import { motion } from "framer-motion"
 type TopbarProps = {
     /** When the layout shows a desktop sidebar with the same app brand mark, hide this block to avoid duplication. */
@@ -67,10 +68,11 @@ export function Topbar({ hideLeadingBrand = false }: TopbarProps) {
                     </motion.div>
                 </div>
             ) : (
-                <div className="flex shrink-0 items-center md:hidden">
+                <motion.div className="flex min-w-0 shrink-0 items-center gap-1 md:hidden">
+                    <MobileDashboardNav />
                     <button
                         type="button"
-                        className="flex min-w-0 max-w-[min(100%,14rem)] items-center gap-2 rounded-xl py-1 pr-2 text-left transition-opacity hover:opacity-90"
+                        className="flex min-w-0 max-w-[min(100%,10rem)] items-center gap-2 rounded-xl py-1 pr-1 text-left transition-opacity hover:opacity-90 sm:max-w-[14rem]"
                         onClick={() => router.push("/dashboard")}
                     >
                         <BrandLogo size="sm" className="shrink-0" />
@@ -78,7 +80,7 @@ export function Topbar({ hideLeadingBrand = false }: TopbarProps) {
                             {t("appName")}
                         </span>
                     </button>
-                </div>
+                </motion.div>
             )}
 
             {/* Centered Search Bar */}
@@ -105,13 +107,23 @@ export function Topbar({ hideLeadingBrand = false }: TopbarProps) {
                         <span className="text-xs font-black uppercase tracking-widest">{t("planPlusBadge")}</span>
                     </motion.div>
                 ) : (
-                    <Button 
-                        onClick={() => router.push("/dashboard/upgrade")}
-                        className="hidden md:flex h-9 border-0 bg-brand-pink text-white shadow-sm shadow-brand-pink/25 transition-all hover:opacity-95 active:scale-95"
-                    >
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        {t("upgradeToPlus")}
-                    </Button>
+                    <>
+                        <Button
+                            onClick={() => router.push("/dashboard/upgrade")}
+                            size="icon"
+                            aria-label={t("upgradeToPlus")}
+                            className="touch-target flex md:hidden h-9 w-9 shrink-0 border-0 bg-brand-pink text-white shadow-sm shadow-brand-pink/25 hover:opacity-95 active:scale-95"
+                        >
+                            <Sparkles className="h-4 w-4" aria-hidden />
+                        </Button>
+                        <Button
+                            onClick={() => router.push("/dashboard/upgrade")}
+                            className="hidden h-9 border-0 bg-brand-pink text-white shadow-sm shadow-brand-pink/25 transition-all hover:opacity-95 active:scale-95 md:flex"
+                        >
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            {t("upgradeToPlus")}
+                        </Button>
+                    </>
                 )}
 
                 <NotificationTray />

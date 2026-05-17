@@ -37,8 +37,7 @@ describe("billing thai start route", () => {
   it("defaults to PromptPay and uses the public app origin for the return URL", async () => {
     const startPlusPurchase = vi.fn().mockResolvedValue({
       ok: true,
-      redirectUrl: "https://pay.omise.co/abc",
-      pendingChargeId: "chrg_test_123",
+      redirectUrl: "https://www.teachplayedu.com/dashboard/upgrade?checkout=thai_mock",
     });
     mockResolveThaiBillingAdapter.mockReturnValue({ startPlusPurchase });
 
@@ -53,7 +52,7 @@ describe("billing thai start route", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      url: "https://pay.omise.co/abc",
+      url: "https://www.teachplayedu.com/dashboard/upgrade?checkout=thai_mock",
     });
     expect(startPlusPurchase).toHaveBeenCalledWith({
       userId: "user-1",
@@ -66,8 +65,7 @@ describe("billing thai start route", () => {
   it("forwards a mobile-banking paymentMethod choice to the adapter", async () => {
     const startPlusPurchase = vi.fn().mockResolvedValue({
       ok: true,
-      redirectUrl: "https://pay.omise.co/scb",
-      pendingChargeId: "chrg_test_scb",
+      redirectUrl: "https://www.teachplayedu.com/dashboard/upgrade?checkout=thai_mock&interval=year",
     });
     mockResolveThaiBillingAdapter.mockReturnValue({ startPlusPurchase });
 

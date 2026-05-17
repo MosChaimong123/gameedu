@@ -156,7 +156,7 @@ export function ProfileCard({ role }: { role?: string }) {
                                         <Button 
                                             onClick={handleSave} 
                                             disabled={loading}
-                                            className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11 px-8 min-w-[120px]"
+                                            className="h-11 w-full rounded-xl bg-indigo-600 px-8 font-bold text-white hover:bg-indigo-700 sm:w-auto sm:min-w-[120px]"
                                         >
                                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : t("save")}
                                         </Button>

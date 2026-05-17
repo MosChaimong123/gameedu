@@ -214,8 +214,8 @@ export default async function ReportDetailPage(props: { params: Promise<{ id: st
                     <CardTitle>{t("gameReportStudentPerformance")}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-lg border overflow-hidden">
-                        <table className="w-full text-left bg-white">
+                    <div className="overflow-x-auto rounded-lg border">
+                        <table className="w-full min-w-[32rem] text-left bg-white">
                             <thead className="bg-slate-50 text-slate-500 text-sm uppercase font-semibold">
                                 <tr>
                                     <th className="px-6 py-4">{t("gameReportRank")}</th>

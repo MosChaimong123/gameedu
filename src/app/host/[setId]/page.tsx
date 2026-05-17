@@ -439,7 +439,7 @@ export default function HostLobbyPage() {
     }
 
     const sessionLoadingShell = (
-        <div className="flex h-screen flex-col items-center justify-center gap-4">
+        <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4">
             <Loader2 className="h-10 w-10 animate-spin text-brand-pink" />
             <p className="text-slate-500">{t("hostLoading")}</p>
         </div>
@@ -463,7 +463,7 @@ export default function HostLobbyPage() {
 
     if (creatingGame) {
         return (
-            <div className="flex h-screen flex-col items-center justify-center gap-4">
+            <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-brand-pink" />
                 <p className="text-slate-500">{t("hostCreatingRoom")}</p>
             </div>
@@ -608,11 +608,11 @@ export default function HostLobbyPage() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-900 text-white flex flex-col">
+        <div className="flex min-h-[100dvh] flex-col bg-slate-900 text-white">
             <SoundController className="fixed top-6 right-6" />
 
             {/* Top Bar */}
-            <div className="p-6 flex justify-between items-center border-b border-slate-800">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 p-4 sm:p-6">
                 <h1 className="text-2xl font-bold text-brand-pink">
                     {t("appName")}
                 </h1>
@@ -631,7 +631,7 @@ export default function HostLobbyPage() {
                 <div className="text-center space-y-2 animate-in zoom-in-50 duration-500">
                     <p className="text-slate-400 uppercase tracking-widest text-sm font-semibold">{t("hostJoinWithGameCode")}</p>
                     <div className="relative group cursor-pointer" onClick={copyPin}>
-                        <h1 className="text-8xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(168,85,247,0.5)]">
+                        <h1 className="text-5xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(168,85,247,0.5)] sm:text-8xl">
                             {pin}
                         </h1>
                         <div className="absolute -right-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -710,18 +710,18 @@ export default function HostLobbyPage() {
             </div>
 
             {/* Bottom Bar */}
-            <div className="p-6 border-t border-slate-800 flex justify-end gap-4">
+            <div className="safe-bottom flex flex-wrap justify-end gap-3 border-t border-slate-800 p-4 sm:gap-4 sm:p-6">
                 <Button
                     variant="destructive"
                     size="lg"
-                    className="font-bold text-xl px-8 py-8 rounded-xl"
+                    className="min-h-11 w-full rounded-xl px-6 py-4 text-base font-bold sm:w-auto sm:px-8 sm:py-6 sm:text-xl"
                     onClick={() => setIsCancelLobbyDialogOpen(true)}
                 >
                     {t("hostCancelLobby")}
                 </Button>
                 <Button
                     size="lg"
-                    className="bg-green-500 hover:bg-green-600 text-white font-bold text-xl px-12 py-8 rounded-xl shadow-[0_4px_0_rgb(21,128,61)] active:shadow-none active:translate-y-1 transition-all"
+                    className="min-h-11 w-full rounded-xl bg-green-500 px-8 py-4 text-base font-bold text-white shadow-[0_4px_0_rgb(21,128,61)] transition-all hover:bg-green-600 active:translate-y-1 active:shadow-none sm:w-auto sm:px-12 sm:py-6 sm:text-xl"
                     onClick={startGame}
                     disabled={players.length === 0}
                 >

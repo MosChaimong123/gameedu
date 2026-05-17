@@ -5,7 +5,7 @@ import type { ThaiBillingAdapter } from "@/lib/billing/providers/types";
 
 /**
  * Dev-only placeholder: redirects back to upgrade with query flags (no real charge).
- * Real PromptPay/bank flows replace this when Omise or 2C2P adapter is implemented.
+ * Production PLUS uses Stripe card + Stripe PromptPay on /dashboard/upgrade.
  */
 export const thaiMockBillingAdapter: ThaiBillingAdapter = {
   id: BILLING_PROVIDER_THAI_MOCK,

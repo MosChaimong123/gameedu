@@ -204,6 +204,7 @@ const sharedUtilityKeys = [
   "connected",
   "disconnected",
   "mainNavigation",
+  "openMenu",
   "coverImageAlt",
   "editQuestion",
   "addEquation",
@@ -246,8 +247,6 @@ const adminBillingKeys = [
   "apiError_BILLING_PRO_MANAGED",
   "apiError_BILLING_CHECKOUT_CREATE_FAILED",
   "apiError_BILLING_THAI_NOT_CONFIGURED",
-  "apiError_BILLING_OMISE_INACTIVE",
-  "apiError_BILLING_OMISE_NOT_CONFIGURED",
   "apiError_BILLING_CHARGE_SESSION_MISMATCH",
   "apiError_BILLING_PROCESSING_FAILED",
   "apiError_INVALID_ACCESSIBILITY_SETTINGS",
@@ -257,10 +256,6 @@ const adminBillingKeys = [
   "billingReturnUrlUnavailable",
   "billingRedirectUrlUnavailable",
   "billingStripeSecretMissing",
-  "billingOmiseMinimumAmount",
-  "billingOmiseChargeFailed",
-  "billingOmiseMissingAuthorizeUri",
-  "billingOmiseRetrieveFailed",
 ] as const;
 
 const classroomAssessmentKeys = [

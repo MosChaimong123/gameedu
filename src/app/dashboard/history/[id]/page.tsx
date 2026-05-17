@@ -156,8 +156,8 @@ export default async function HistoryDetailPage(props: { params: Promise<{ id: s
                     <CardTitle>{t("gameReportFinalStandings")}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-lg border overflow-hidden">
-                        <table className="w-full text-left">
+                    <div className="overflow-x-auto rounded-lg border">
+                        <table className="w-full min-w-[32rem] text-left">
                             <thead className="bg-slate-50 text-slate-500 text-sm uppercase font-semibold">
                                 <tr>
                                     <th className="px-6 py-4">{t("gameReportRank")}</th>

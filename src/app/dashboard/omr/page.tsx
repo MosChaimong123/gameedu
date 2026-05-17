@@ -421,7 +421,7 @@ export default function OMRDashboardPage() {
                             initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
-                            className="bg-white w-full max-w-4xl rounded-[3.5rem] p-10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                            className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[3.5rem] bg-white p-5 shadow-2xl sm:p-8 md:p-10"
                         >
                             <div className="flex items-center justify-between mb-8">
                                 <div>

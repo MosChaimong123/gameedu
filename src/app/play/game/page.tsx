@@ -136,7 +136,7 @@ export default function PlayerGamePage() {
     }
 
     return (
-        <div className="flex flex-col h-screen bg-slate-900 overflow-hidden text-white font-sans">
+        <div className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden bg-slate-900 font-sans text-white">
             <SoundController className="absolute bottom-4 right-16 z-50" />
 
             {notification && (
@@ -167,7 +167,7 @@ export default function PlayerGamePage() {
                         clearPlayerSession()
                         window.location.href = "/play"
                     }}
-                    className="absolute bottom-4 left-4 z-50 bg-red-600/80 hover:bg-red-500 text-white px-4 py-2 rounded-full font-bold text-xs shadow-lg backdrop-blur-sm transition-all hover:scale-105 active:scale-95"
+                    className="safe-bottom touch-target absolute bottom-4 left-4 z-50 rounded-full bg-red-600/80 px-4 py-2 text-xs font-bold text-white shadow-lg backdrop-blur-sm transition-all hover:scale-105 hover:bg-red-500 active:scale-95"
                 >
                     {t("playLeaveGame")}
                 </button>

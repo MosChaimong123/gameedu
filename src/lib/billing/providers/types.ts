@@ -25,7 +25,7 @@ export type StartThaiPlusResult =
   | { ok: true; redirectUrl: string; pendingChargeId?: string }
   | { ok: false; message: string };
 
-/** Contract for Thailand-facing PSP adapters (Omise / 2C2P / mock). */
+/** Contract for dev-only mock Thai billing (`BILLING_THAI_PROVIDER=mock`). Production uses Stripe PromptPay. */
 export type ThaiBillingAdapter = {
   readonly id: string;
   startPlusPurchase(input: StartThaiPlusInput): Promise<StartThaiPlusResult>;

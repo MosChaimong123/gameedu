@@ -398,17 +398,17 @@ export default function MySetsPage() {
                         <p className="text-slate-500">{t("manageSetsDesc")}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                     <Button 
                         variant="outline"
-                        className="border-slate-200 text-slate-600"
+                        className="border-slate-200 text-slate-600 max-sm:flex-1"
                         onClick={() => setIsCreateFolderOpen(true)}
                     >
                         <FolderPlus className="mr-2 h-4 w-4" />
                         {t("createFolder")}
                     </Button>
-                    <Link href="/dashboard/create-set">
-                        <Button className="bg-brand-pink hover:opacity-95">
+                    <Link href="/dashboard/create-set" className="max-sm:flex-1">
+                        <Button className="w-full bg-brand-pink hover:opacity-95 sm:w-auto">
                             <Plus className="mr-2 h-4 w-4" />
                             {t("createSet")}
                         </Button>
@@ -453,7 +453,7 @@ export default function MySetsPage() {
                         {searchQuery ? t("tryDifferentSearch") : t("noSetsDesc")}
                     </p>
                     {!searchQuery && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-center gap-2">
                              <Button onClick={() => setIsCreateFolderOpen(true)} variant="outline">
                                 {t("createFolder")}
                             </Button>

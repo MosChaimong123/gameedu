@@ -260,10 +260,10 @@ export default function EditSetPage() {
     if (!set) return <div>{t("noSetsTitle")}</div>
 
     return (
-        <div className="flex h-[calc(100dvh-6rem)] min-h-0 overflow-hidden rounded-xl bg-slate-50">
-            {/* Left Sidebar - Fixed Layout */}
-            <div className="w-80 bg-white border-r flex-shrink-0 flex flex-col h-full overflow-y-auto">
-                <div className="p-6 space-y-6">
+        <div className="relative flex h-[calc(100dvh-6rem)] min-h-0 flex-col overflow-hidden rounded-xl bg-slate-50 md:flex-row">
+            {/* Left Sidebar */}
+            <div className="flex w-full max-h-[40vh] shrink-0 flex-col overflow-y-auto border-b border-slate-200 bg-white md:h-full md:max-h-none md:w-80 md:border-b-0 md:border-r">
+                <div className="space-y-4 p-4 sm:p-6 md:space-y-6">
                     <PageBackLink href="/dashboard/my-sets" labelKey="navBackMySets" />
                     {/* Cover Image & Title Block */}
                     <div className="space-y-4">
@@ -291,25 +291,26 @@ export default function EditSetPage() {
                         </div>
                     </div>
 
-                    {/* Main Save Action */}
                     <Button
                         onClick={handleSaveSet}
                         disabled={saving}
-                        className="w-full h-12 text-lg font-bold bg-teal-500 hover:bg-teal-600 shadow-sm transition-all active:scale-95"
+                        className="hidden h-12 w-full bg-teal-500 text-lg font-bold shadow-sm transition-all hover:bg-teal-600 active:scale-95 md:flex"
                     >
-                        {saving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2 w-5 h-5" />}
+                        {saving ? <Loader2 className="mr-2 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
                         {t("saveSet")}
                     </Button>
 
-                    {/* Secondary Actions */}
-                    {/* Secondary Actions */}
-                    <Button variant="outline" className="w-full h-10 border-2 font-bold text-slate-600" onClick={() => setIsInfoDialogOpen(true)}>
-                        <PenSquare className="w-4 h-4 mr-2" />
+                    <Button
+                        variant="outline"
+                        className="h-10 w-full border-2 font-bold text-slate-600"
+                        onClick={() => setIsInfoDialogOpen(true)}
+                    >
+                        <PenSquare className="mr-2 h-4 w-4" />
                         {t("editInfo")}
                     </Button>
 
-                    {/* Import/Add Options Grid */}
-                    <div className="grid grid-cols-2 gap-3 pt-6 border-t font-black">
+                    {/* Import/Add Options Grid — desktop only */}
+                    <div className="hidden grid-cols-2 gap-3 border-t pt-6 font-black md:grid">
                         <Button
                             className="h-24 flex flex-col items-center justify-center bg-purple-600 hover:bg-purple-700 p-0 shadow-lg shadow-purple-100 border-0 transition-all hover:scale-[1.02] active:scale-95 text-white"
                             onClick={addNewQuestion}
@@ -339,10 +340,8 @@ export default function EditSetPage() {
             </div>
 
             {/* Right Content - Scrollable */}
-            <div className="flex-1 flex flex-col h-full min-w-0">
-                {/* Top Bar */}
-                {/* Top Bar */}
-                <div className="h-20 border-b bg-white px-8 flex items-center justify-between flex-shrink-0">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col pb-20 md:pb-0">
+                <div className="flex h-16 shrink-0 items-center justify-between border-b bg-white px-4 sm:px-8 md:h-20">
                     <div className="text-xl font-bold text-slate-700">
                         {set.questions.length} <span className="text-slate-400 ml-1">{t("questionsCount")}</span>
                     </div>
@@ -355,6 +354,25 @@ export default function EditSetPage() {
                     onEditQuestion={editQuestion}
                     onDeleteQuestion={setPendingDeleteQuestionId}
                 />
+            </div>
+
+            {/* Mobile sticky actions */}
+            <div className="safe-bottom fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-slate-200 bg-white/95 p-3 backdrop-blur-md md:hidden">
+                <Button
+                    onClick={handleSaveSet}
+                    disabled={saving}
+                    className="min-h-11 flex-1 bg-teal-500 text-base font-bold hover:bg-teal-600"
+                >
+                    {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    {t("saveSet")}
+                </Button>
+                <Button
+                    onClick={addNewQuestion}
+                    className="min-h-11 flex-1 bg-purple-600 font-bold hover:bg-purple-700"
+                >
+                    <Plus className="mr-2 h-4 w-4" />
+                    {t("addQuestion")}
+                </Button>
             </div>
 
             {/* Dialogs */}

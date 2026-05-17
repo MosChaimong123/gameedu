@@ -112,7 +112,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] bg-slate-50/50 pb-12">
+        <div className="min-h-[calc(100dvh-4rem)] bg-slate-50/50 pb-12">
             <div className="mx-auto w-full max-w-4xl space-y-10 py-2 animate-in fade-in slide-in-from-bottom-6 duration-700 sm:py-4">
                 <PageBackLink href="/dashboard" labelKey="navBackDashboard" />
                 <div className="flex flex-col gap-6 border-b border-border pb-10 md:flex-row md:items-end md:justify-between">
@@ -128,7 +128,7 @@ export default function SettingsPage() {
                         <p className="max-w-md text-lg font-medium leading-relaxed text-muted-foreground">{t("settingsDesc")}</p>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
                         <AnimatePresence mode="wait">
                             {saved ? (
                                 <motion.div
@@ -148,7 +148,7 @@ export default function SettingsPage() {
                                     key="save"
                                     onClick={handleSave}
                                     disabled={loading}
-                                    className="group h-14 gap-3 rounded-2xl border-0 bg-slate-900 px-10 font-black text-white shadow-2xl transition-all hover:scale-105 hover:bg-black active:scale-95"
+                                    className="group h-14 w-full gap-3 rounded-2xl border-0 bg-slate-900 px-6 font-black text-white shadow-2xl transition-all hover:scale-105 hover:bg-black active:scale-95 sm:w-auto sm:px-10"
                                 >
                                     {loading ? (
                                         <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />

@@ -68,6 +68,14 @@ export function UnifiedAuthFlow() {
                         <p className="text-sm text-slate-500">{t("authEntrySubtitle")}</p>
                     </div>
                     <div className="grid grid-cols-1 gap-3">
+                        <Link
+                            href="/student"
+                            className="flex w-full flex-col items-center rounded-xl border-2 border-indigo-400 bg-indigo-50 p-6 text-center shadow-sm transition-all hover:border-indigo-500 hover:bg-indigo-100/80"
+                        >
+                            <KeyRound className="h-10 w-10 text-indigo-600" />
+                            <h3 className="mt-3 text-lg font-bold text-slate-800">{t("authEntryCodeOnly")}</h3>
+                            <p className="mt-1 text-sm text-slate-600">{t("authEntryCodeOnlyDesc")}</p>
+                        </Link>
                         <RolePickCard
                             icon={<User className="h-10 w-10 text-purple-500" />}
                             title={t("authEntryTeacher")}
@@ -80,14 +88,6 @@ export function UnifiedAuthFlow() {
                             description={t("authEntryStudentDesc")}
                             onClick={() => router.replace(appendCallbackUrl("/login?audience=student", callbackUrl))}
                         />
-                        <Link
-                            href="/student"
-                            className="flex w-full flex-col items-center rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 p-6 text-center transition-all hover:border-indigo-400 hover:bg-indigo-50"
-                        >
-                            <KeyRound className="h-10 w-10 text-indigo-600" />
-                            <h3 className="mt-3 text-lg font-bold text-slate-800">{t("authEntryCodeOnly")}</h3>
-                            <p className="mt-1 text-sm text-slate-600">{t("authEntryCodeOnlyDesc")}</p>
-                        </Link>
                     </div>
                 </div>
             </AuthSplitLayout>
@@ -112,12 +112,13 @@ export function UnifiedAuthFlow() {
                     {t("authBackToRolePick")}
                 </Button>
                 {audience === "student" ? (
-                    <div className="rounded-xl border border-emerald-100 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-900">
-                        {t("authStudentLoginHint")}
-                        <div className="mt-2">
-                            <Link href="/student" className="font-semibold text-emerald-800 underline hover:text-emerald-950">
-                                {t("authStudentCodeCta")}
-                            </Link>
+                    <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-950">
+                        <p className="font-semibold">{t("authStudentCodePrimaryTitle")}</p>
+                        <p className="mt-1 text-indigo-900/90">{t("authStudentLoginHint")}</p>
+                        <div className="mt-3">
+                            <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-700">
+                                <Link href="/student">{t("authStudentCodeCta")}</Link>
+                            </Button>
                         </div>
                     </div>
                 ) : null}

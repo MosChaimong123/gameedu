@@ -1249,6 +1249,9 @@ const englishPack = {
         studentPortalSubmitLoading: "Opening...",
         studentPortalGmailHint:
             "If you use Gmail, your classrooms are remembered automatically when you sign in.",
+        studentPortalGmailHintPrefix: "Most students enter with a class code on the",
+        studentPortalGmailHintSuffix: "Optional: sign in with a student Google account at",
+        studentPortalGmailAccountLink: "student login",
         studentPickToEditTitle: "Select a student to edit",
         deleteStudentConfirmTitle: "Remove this student?",
         deleteStudentConfirmAction: "Remove student",
@@ -1903,11 +1906,17 @@ const englishPack = {
         authEntryTeacher: "Teacher / school",
         authEntryTeacherDesc: "Manage classes, question sets, and live games.",
         authEntryStudent: "Student account",
-        authEntryStudentDesc: "Sign in with email or Google, then join class with your teacher’s code.",
+        authEntryStudentDesc: "Email or Google account — use this if your school set up student accounts.",
         authEntryCodeOnly: "I only have a class code",
-        authEntryCodeOnlyDesc: "Use the code from your teacher on the student portal.",
+        authEntryCodeOnlyDesc: "Recommended for most students — enter the code from your teacher (no Google needed).",
+        authStudentCodePrimaryTitle: "Have a class code? Use the student portal first",
         authStudentLoginHint:
-            "Students need a class code from their teacher after signing in. You can open the student portal to enter a code anytime.",
+            "Enter your teacher’s code on the student portal. You do not need Google unless your school asked you to create a student account.",
+        loginAuthErrorOAuthNotConfigured:
+            "Google sign-in is not available on this server. Use your class code at the student portal, or sign in with email and password.",
+        loginGoogleUnavailable: "Google sign-in is temporarily unavailable. Use email and password.",
+        loginGoogleUnavailableStudent:
+            "Google sign-in is not available. Enter your class code on the student portal instead:",
         authStudentCodeCta: "Open student portal (class code)",
         authBackToRolePick: "Back to account type",
         authOAuthIntentFailed: "Could not start Google sign-in. Please try again.",

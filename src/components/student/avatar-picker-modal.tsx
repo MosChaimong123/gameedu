@@ -76,14 +76,14 @@ export function AvatarPickerModal({
                     {/* Current selected big preview */}
                     <div className="flex justify-center mb-5">
                         <div className="relative">
-                            <div className="w-28 h-28 rounded-2xl bg-white border-4 border-indigo-400 shadow-xl overflow-hidden">
+                            <div className="relative h-28 w-28 overflow-hidden rounded-2xl border-4 border-indigo-400 bg-white shadow-xl">
                                 <Image
                                     src={`https://api.dicebear.com/7.x/bottts/svg?seed=${selected}&backgroundColor=transparent`}
                                     alt={t("avatarPickerImageAltSelected")}
                                     fill
                                     sizes="112px"
                                     unoptimized
-                                    className="object-cover"
+                                    className="object-contain p-1"
                                 />
                             </div>
                             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-xs px-3 py-0.5 rounded-full font-semibold whitespace-nowrap shadow">
@@ -99,8 +99,9 @@ export function AvatarPickerModal({
                             return (
                                 <button
                                     key={seed}
+                                    type="button"
                                     onClick={() => setSelected(seed)}
-                                    className={`relative rounded-xl p-1.5 border-2 transition-all hover:scale-105 active:scale-95 ${
+                                    className={`relative aspect-square w-full overflow-hidden rounded-xl border-2 transition-all hover:scale-105 active:scale-95 ${
                                         isSelected
                                             ? "border-indigo-500 bg-indigo-50 shadow-md"
                                             : "border-transparent bg-white hover:border-indigo-200 shadow-sm"
@@ -110,9 +111,9 @@ export function AvatarPickerModal({
                                         src={`https://api.dicebear.com/7.x/bottts/svg?seed=${seed}&backgroundColor=transparent`}
                                         alt={`${t("avatarPickerImageAltOption")} ${seed}`}
                                         fill
-                                        sizes="64px"
+                                        sizes="(max-width: 600px) 16vw, 64px"
                                         unoptimized
-                                        className="object-cover"
+                                        className="object-contain p-1"
                                         loading="lazy"
                                     />
                                     {isSelected && (

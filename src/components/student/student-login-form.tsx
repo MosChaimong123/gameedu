@@ -91,8 +91,20 @@ export function StudentLoginForm({ isLoggedIn }: { isLoggedIn: boolean }) {
                     </Button>
                 </form>
 
-                <div className="pt-6 border-t border-slate-100 w-full text-xs text-slate-400">
-                    <p>{t("studentPortalGmailHint")}</p>
+                <div className="pt-6 border-t border-slate-100 w-full text-xs text-slate-500">
+                    <p>
+                        {t("studentPortalGmailHintPrefix")}{" "}
+                        <Link href="/student" className="font-semibold text-indigo-600 underline hover:text-indigo-800">
+                            {t("authStudentCodeCta")}
+                        </Link>
+                        . {t("studentPortalGmailHintSuffix")}{" "}
+                        <Link
+                            href="/login?audience=student"
+                            className="font-semibold text-indigo-600 underline hover:text-indigo-800"
+                        >
+                            {t("studentPortalGmailAccountLink")}
+                        </Link>
+                    </p>
                 </div>
             </div>
         </div>

@@ -15,6 +15,8 @@ import { getNextAuthResultCode } from "@/lib/auth/next-auth-result";
 import { getLocalizedAuthErrorMessage, tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages";
 import { useLanguage } from "@/components/providers/language-provider";
 import { signInWithGoogleRole } from "@/lib/auth/google-sign-in-client";
+import { useAuthProvidersStatus } from "@/lib/auth/use-auth-providers-status";
+import Link from "next/link";
 
 export type LoginAudience = "teacher" | "student";
 
@@ -35,6 +37,8 @@ export default function LoginForm({ audience }: LoginFormProps) {
     const pendingVerify = searchParams.get("pendingVerify") === "1";
     const verifyError = searchParams.get("verifyError");
     const callbackUrl = searchParams.get("callbackUrl");
+    const urlAuthError = searchParams.get("error");
+    const { loading: providersLoading, googleEnabled } = useAuthProvidersStatus();
 
     const formSchema = React.useMemo(
         () =>
@@ -55,6 +59,12 @@ export default function LoginForm({ audience }: LoginFormProps) {
             setNeedsVerify(true);
         }
     }, [pendingVerify]);
+
+    React.useEffect(() => {
+        if (urlAuthError === "oauth_not_configured") {
+            setErrorMsg(getLocalizedAuthErrorMessage("oauth_not_configured", language, t));
+        }
+    }, [urlAuthError, language, t]);
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setIsLoading(true);
@@ -254,30 +264,48 @@ export default function LoginForm({ audience }: LoginFormProps) {
                 </form>
             </Form>
 
-            <div className="relative my-1">
-                <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-slate-500">{t("signupOrContinueWith")}</span>
-                </div>
-            </div>
+            {!providersLoading && googleEnabled ? (
+                <>
+                    <div className="relative my-1">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-background px-2 text-slate-500">{t("signupOrContinueWith")}</span>
+                        </div>
+                    </div>
 
-            <Button
-                variant="outline"
-                type="button"
-                disabled={isLoading}
-                className="h-11 w-full gap-3 rounded-xl border-2 border-slate-200 font-semibold hover:border-brand-pink/40 hover:bg-brand-pink/5"
-                onClick={() => void onGoogleClick()}
-            >
-                <svg className="h-5 w-5" viewBox="0 0 488 512" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                    <path
-                        fill="#4285F4"
-                        d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"
-                    />
-                </svg>
-                {t("signupWithGoogle")}
-            </Button>
+                    <Button
+                        variant="outline"
+                        type="button"
+                        disabled={isLoading}
+                        className="h-11 w-full gap-3 rounded-xl border-2 border-slate-200 font-semibold hover:border-brand-pink/40 hover:bg-brand-pink/5"
+                        onClick={() => void onGoogleClick()}
+                    >
+                        <svg className="h-5 w-5" viewBox="0 0 488 512" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                            <path
+                                fill="#4285F4"
+                                d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"
+                            />
+                        </svg>
+                        {t("signupWithGoogle")}
+                    </Button>
+                </>
+            ) : null}
+
+            {!providersLoading && !googleEnabled ? (
+                <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-sm text-slate-600">
+                    {audience === "student" ? t("loginGoogleUnavailableStudent") : t("loginGoogleUnavailable")}
+                    {audience === "student" ? (
+                        <>
+                            {" "}
+                            <Link href="/student" className="font-semibold text-indigo-700 underline hover:text-indigo-900">
+                                {t("authStudentCodeCta")}
+                            </Link>
+                        </>
+                    ) : null}
+                </p>
+            ) : null}
         </div>
     );
 }

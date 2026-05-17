@@ -14,6 +14,7 @@ import {
     consumeRateLimitWithStore,
     getRequestClientIdentifier,
 } from "@/lib/security/rate-limit"
+import { isGoogleOAuthConfigured } from "@/lib/auth/google-oauth-env"
 
 class EmailNotVerified extends CredentialsSignin {
     code = "email_not_verified"
@@ -31,16 +32,16 @@ class RateLimitedSignin extends CredentialsSignin {
  * Supports Auth.js convention AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET as fallback.
  */
 function resolveGoogleProvider() {
+    if (!isGoogleOAuthConfigured()) {
+        return null
+    }
     const googleClientId =
         process.env.GOOGLE_CLIENT_ID?.trim() || process.env.AUTH_GOOGLE_ID?.trim()
     const googleClientSecret =
         process.env.GOOGLE_CLIENT_SECRET?.trim() || process.env.AUTH_GOOGLE_SECRET?.trim()
-    if (!googleClientId || !googleClientSecret) {
-        return null
-    }
     return Google({
-        clientId: googleClientId,
-        clientSecret: googleClientSecret,
+        clientId: googleClientId!,
+        clientSecret: googleClientSecret!,
     })
 }
 

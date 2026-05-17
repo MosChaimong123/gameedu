@@ -123,9 +123,18 @@ Check:
 ### Login callback issues
 
 Check:
-- `NEXTAUTH_URL`
+- `NEXTAUTH_URL` (no trailing slash; e.g. `https://www.teachplayedu.com`)
 - `NEXT_PUBLIC_APP_URL`
-- Google OAuth redirect URL matches the Render domain
+- `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (or `AUTH_GOOGLE_ID` + `AUTH_GOOGLE_SECRET`) — if missing, Google sign-in returns `error=Configuration` and the login UI hides the Google button
+- Google OAuth redirect URL: `https://<your-domain>/api/auth/callback/google`
+- After deploy, Render logs should **not** show `[auth] Google OAuth disabled`
+
+**Student auth smoke (production):**
+
+1. `GET https://<your-domain>/api/auth/providers-status` — expect `google: true` when OAuth env is set; `credentials: true` when `AUTH_SECRET` is set
+2. **Class code only:** `https://<your-domain>/student` → enter a valid code → `/student/{CODE}` dashboard loads (no Google)
+3. **Invalid code:** wrong code → redirect to `/student?error=invalid_code` (not Configuration)
+4. **Google (optional):** `https://<your-domain>/login?audience=student` → Continue with Google only if `providers-status` reports `google: true`
 
 ### Socket connection issues
 

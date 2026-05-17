@@ -226,6 +226,9 @@ export function getThaiErrorMessageFromAuthResult(error: string | null | undefin
     if (error === "oauth_intent_failed" || error.includes("oauth_intent_failed")) {
         return "ไม่สามารถเริ่มล็อกอิน Google ได้ โปรดลองอีกครั้ง";
     }
+    if (error === "oauth_not_configured" || error.includes("oauth_not_configured")) {
+        return "ล็อกอิน Google ยังไม่เปิดบนเซิร์ฟเวอร์นี้ ใช้รหัสห้องที่หน้านักเรียน หรือล็อกอินด้วยอีเมลและรหัสผ่าน";
+    }
 
     return getThaiErrorMessageFromLegacyText(
         error,
@@ -249,6 +252,9 @@ export function getLocalizedAuthErrorMessage(
     }
     if (error === "oauth_intent_failed" || error.includes("oauth_intent_failed")) {
         return t("authOAuthIntentFailed");
+    }
+    if (error === "oauth_not_configured" || error.includes("oauth_not_configured")) {
+        return t("loginAuthErrorOAuthNotConfigured");
     }
     if (language === "th") {
         return getThaiErrorMessageFromAuthResult(error);

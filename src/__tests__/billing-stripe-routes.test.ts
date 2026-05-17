@@ -199,9 +199,16 @@ describe("billing stripe routes", () => {
             {
               id: "promo_test",
               code: "PROMO99",
-              coupon: { valid: true, amount_off: 19100, currency: "thb" },
+              active: true,
+              times_redeemed: 0,
+              max_redemptions: 10,
             },
           ],
+        }),
+        retrieve: vi.fn().mockResolvedValue({
+          id: "promo_test",
+          code: "PROMO99",
+          coupon: { valid: true, amount_off: 19100, currency: "thb" },
         }),
       },
     };
@@ -234,9 +241,16 @@ describe("billing stripe routes", () => {
             {
               id: "promo_test",
               code: "PROMO99",
-              coupon: { valid: true, amount_off: 19100, currency: "thb" },
+              active: true,
+              times_redeemed: 0,
+              max_redemptions: 10,
             },
           ],
+        }),
+        retrieve: vi.fn().mockResolvedValue({
+          id: "promo_test",
+          code: "PROMO99",
+          coupon: { valid: true, amount_off: 19100, currency: "thb" },
         }),
       },
     };

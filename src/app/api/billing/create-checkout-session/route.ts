@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import Stripe from "stripe";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
@@ -11,6 +12,7 @@ import { ensureStripeCustomerForUser } from "@/lib/billing/ensure-stripe-custome
 import { resolvePublicAppOrigin } from "@/lib/billing/resolve-public-url";
 import {
   StripePromotionCodeError,
+  isStripePromotionCheckoutError,
   normalizePromotionCodeInput,
   resolveStripePromotionForPlus,
 } from "@/lib/billing/resolve-stripe-promotion-code";
@@ -32,6 +34,7 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
+  let trimmedPromo: string | null = null;
   try {
     if (!getStripeCheckoutConfigured()) {
       return createAppErrorResponse("BILLING_NOT_CONFIGURED", "Billing is not configured", 503);
@@ -92,7 +95,7 @@ export async function POST(req: Request) {
       existingCustomerId: dbUser.customerId,
     });
 
-    const trimmedPromo = normalizePromotionCodeInput(promotionCode);
+    trimmedPromo = normalizePromotionCodeInput(promotionCode);
     let resolvedPromo: Awaited<ReturnType<typeof resolveStripePromotionForPlus>> = null;
     if (trimmedPromo) {
       const stripe = getStripeClient();
@@ -154,6 +157,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ url: checkoutSession.url });
   } catch (e) {
     console.error("[billing/create-checkout-session]", e);
+    if (e instanceof Stripe.errors.StripeError) {
+      const message = e.message ?? "Checkout failed";
+      if (trimmedPromo || isStripePromotionCheckoutError(message)) {
+        return createAppErrorResponse("BILLING_PROMO_INVALID", message, 400);
+      }
+      return createAppErrorResponse("BILLING_CHECKOUT_CREATE_FAILED", message, 502);
+    }
     return createAppErrorResponse("INTERNAL_ERROR", "Internal error", 500);
   }
 }

@@ -203,7 +203,7 @@ export const thaiPack = {
         upgradePromoCodeLabel: "รหัสโปรโมชัน (ไม่บังคับ)",
         upgradePromoCodePlaceholder: "เช่น PROMO99",
         upgradePromoCodeHint:
-            "ใส่รหัสก่อนกดชำระเงิน — บัตรลดเฉพาะรอบแรก, PromptPay หักยอดทันที (ถ้ารหัสยังใช้ได้ใน Stripe)",
+            "ใส่รหัสก่อนกดชำระเงิน — โปรรายเดือนใช้กับแท็บ รายเดือน เท่านั้น บัตรลดรอบแรก PromptPay หักยอดทันที ถ้ารหัสใช้ครบแล้วจะขึ้นข้อความแจ้ง",
         apiError_BILLING_PROMO_INVALID: "รหัสโปรโมชันไม่ถูกต้อง หมดอายุ หรือใช้ครบแล้ว",
         signupLegalPrefix: "เมื่อสร้างบัญชี คุณยอมรับ",
         signupLegalTerms: "ข้อกำหนดการให้บริการ",
@@ -2821,7 +2821,7 @@ const englishPack = {
         upgradePromoCodeLabel: "Promotion code (optional)",
         upgradePromoCodePlaceholder: "e.g. PROMO99",
         upgradePromoCodeHint:
-            "Enter your code before checkout — card: first billing cycle only; PromptPay: discounted amount when the code is valid in Stripe.",
+            "Enter your code before checkout — monthly promo works with the Monthly tab only. Card: first cycle discount; PromptPay: immediate discount. Fully redeemed codes show an error.",
         upgradeCheckoutWorking: "Redirecting to checkout...",
         upgradeCheckoutFailed: "Could not start checkout. Try again or contact support.",
         upgradeContactSubject: "TeachPlayEdu plan upgrade",

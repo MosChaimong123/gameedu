@@ -70,7 +70,7 @@ export function UpgradePageClient({
         const setLoading = channel === "card" ? setCheckoutLoading : setPromptPayLoading;
         setLoading(true);
         try {
-            const trimmedPromo = promotionCode.trim();
+            const trimmedPromo = promotionCode.trim().toUpperCase();
             const res = await fetch("/api/billing/create-checkout-session", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

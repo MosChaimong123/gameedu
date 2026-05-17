@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   StripePromotionCodeError,
   normalizePromotionCodeInput,
@@ -27,7 +27,17 @@ describe("resolve-stripe-promotion-code", () => {
     ).rejects.toBeInstanceOf(StripePromotionCodeError);
   });
 
-  it("applies fixed THB discount for PromptPay amount", async () => {
+  it("applies fixed THB discount after retrieving expanded coupon", async () => {
+    const retrieve = vi.fn().mockResolvedValue({
+      id: "promo_1",
+      code: "PROMO99",
+      coupon: {
+        valid: true,
+        amount_off: 19100,
+        currency: "thb",
+      },
+    });
+
     const stripe = {
       promotionCodes: {
         list: async () => ({
@@ -35,11 +45,45 @@ describe("resolve-stripe-promotion-code", () => {
             {
               id: "promo_1",
               code: "PROMO99",
-              coupon: {
-                valid: true,
-                amount_off: 19100,
-                currency: "thb",
-              },
+              active: true,
+              times_redeemed: 0,
+              max_redemptions: 10,
+            },
+          ],
+        }),
+        retrieve,
+      },
+      coupons: {
+        retrieve: vi.fn(),
+      },
+    };
+
+    const { resolveStripePromotionForPlus } = await import(
+      "@/lib/billing/resolve-stripe-promotion-code"
+    );
+
+    const result = await resolveStripePromotionForPlus(stripe as never, "PROMO99", 29000);
+    expect(retrieve).toHaveBeenCalledWith("promo_1", {
+      expand: ["coupon", "promotion.coupon"],
+    });
+    expect(result).toEqual({
+      promotionCodeId: "promo_1",
+      code: "PROMO99",
+      discountedAmountSatang: 9900,
+    });
+  });
+
+  it("rejects exhausted promotion codes", async () => {
+    const stripe = {
+      promotionCodes: {
+        list: async () => ({
+          data: [
+            {
+              id: "promo_1",
+              code: "PROMO99",
+              active: true,
+              times_redeemed: 1,
+              max_redemptions: 1,
             },
           ],
         }),
@@ -50,11 +94,8 @@ describe("resolve-stripe-promotion-code", () => {
       "@/lib/billing/resolve-stripe-promotion-code"
     );
 
-    const result = await resolveStripePromotionForPlus(stripe as never, "PROMO99", 29000);
-    expect(result).toEqual({
-      promotionCodeId: "promo_1",
-      code: "PROMO99",
-      discountedAmountSatang: 9900,
-    });
+    await expect(
+      resolveStripePromotionForPlus(stripe as never, "PROMO99", 29000)
+    ).rejects.toThrow(/fully redeemed/i);
   });
 });

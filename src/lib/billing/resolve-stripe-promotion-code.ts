@@ -32,6 +32,46 @@ function applyCouponToAmountSatang(baseAmountSatang: number, coupon: Stripe.Coup
   return Math.max(PROMPTPAY_MIN_UNIT_AMOUNT_SATANG, amount);
 }
 
+function isPromotionExhausted(promo: Stripe.PromotionCode): boolean {
+  if (promo.active === false) return true;
+  const max = promo.max_redemptions;
+  const used = promo.times_redeemed ?? 0;
+  return typeof max === "number" && max > 0 && used >= max;
+}
+
+type PromotionCodeWithCoupon = Stripe.PromotionCode & {
+  coupon?: string | Stripe.Coupon | null;
+  promotion?: { coupon?: string | Stripe.Coupon | null } | string | null;
+};
+
+async function loadCouponForPromotionCode(
+  stripe: Stripe,
+  promo: Stripe.PromotionCode
+): Promise<Stripe.Coupon> {
+  const expanded = (await stripe.promotionCodes.retrieve(promo.id, {
+    expand: ["coupon", "promotion.coupon"],
+  })) as PromotionCodeWithCoupon;
+
+  const couponRef =
+    expanded.coupon ??
+    (typeof expanded.promotion === "object" && expanded.promotion !== null
+      ? expanded.promotion.coupon
+      : undefined);
+
+  if (!couponRef) {
+    throw new StripePromotionCodeError();
+  }
+
+  const coupon =
+    typeof couponRef === "string" ? await stripe.coupons.retrieve(couponRef) : couponRef;
+
+  if (coupon.valid === false) {
+    throw new StripePromotionCodeError();
+  }
+
+  return coupon;
+}
+
 /**
  * Resolves a customer-facing promotion code and computes the PromptPay amount after discount.
  * Subscription checkout should pass `promotionCodeId` via Checkout `discounts` instead.
@@ -48,22 +88,25 @@ export async function resolveStripePromotionForPlus(
     code,
     active: true,
     limit: 1,
-    expand: ["data.coupon"],
   });
 
-  const promo = list.data[0];
+  let promo: Stripe.PromotionCode | undefined = list.data[0];
+
+  if (!promo) {
+    const fallbackList = await stripe.promotionCodes.list({ active: true, limit: 100 });
+    const codeUpper = code.toUpperCase();
+    promo = fallbackList.data.find((row) => row.code?.toUpperCase() === codeUpper);
+  }
+
   if (!promo?.id) {
     throw new StripePromotionCodeError();
   }
 
-  const coupon = (promo as Stripe.PromotionCode & { coupon?: Stripe.Coupon | string | null })
-    .coupon;
-  if (!coupon || typeof coupon === "string") {
-    throw new StripePromotionCodeError();
+  if (isPromotionExhausted(promo)) {
+    throw new StripePromotionCodeError("Promotion code has been fully redeemed");
   }
-  if (coupon.valid === false) {
-    throw new StripePromotionCodeError();
-  }
+
+  const coupon = await loadCouponForPromotionCode(stripe, promo);
 
   const discountedAmountSatang = applyCouponToAmountSatang(baseAmountSatang, coupon);
   if (discountedAmountSatang >= baseAmountSatang) {
@@ -75,4 +118,14 @@ export async function resolveStripePromotionForPlus(
     code: promo.code,
     discountedAmountSatang,
   };
+}
+
+export function isStripePromotionCheckoutError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("promotion") ||
+    lower.includes("coupon") ||
+    lower.includes("discount") ||
+    lower.includes("does not apply")
+  );
 }

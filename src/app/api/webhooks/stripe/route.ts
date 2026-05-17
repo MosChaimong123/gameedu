@@ -5,6 +5,7 @@ import { getStripeClient, getStripeSecretKey, getStripeWebhookSecret } from "@/l
 import { claimStripeWebhookEvent, releaseStripeWebhookClaim } from "@/lib/billing/stripe-idempotency";
 import {
   handleStripeCheckoutSessionCompleted,
+  handleStripePromptPayCheckoutPaid,
   handleStripeSubscriptionDeleted,
   handleStripeSubscriptionUpdated,
 } from "@/lib/billing/stripe-webhook-handlers";
@@ -46,6 +47,11 @@ export async function POST(req: Request) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         await handleStripeCheckoutSessionCompleted(session);
+        break;
+      }
+      case "checkout.session.async_payment_succeeded": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        await handleStripePromptPayCheckoutPaid(session);
         break;
       }
       case "customer.subscription.updated": {

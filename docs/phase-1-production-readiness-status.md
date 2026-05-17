@@ -48,7 +48,7 @@ Last updated: 2026-05-07 (Terms/Privacy full draft + Stripe + monitoring)
 | หัวข้อ | รายละเอียด |
 | --- | --- |
 | MongoDB Atlas (Phase 2) | ย้าย **backup + restore drill** ไป Phase 2; ใน Phase 1 คงยืนยัน **`DATABASE_URL`** / network access |
-| ชำระเงิน | **Done:** Stripe test + **Stripe live smoke (PLUS Monthly 290 THB, 2026-05-07)** + Omise test บนโดเมนจริง. **Omise live mode KYC** อยู่ระหว่าง review (ยื่น 2026-05-07; อาจขอเอกสารเพิ่ม). |
+| ชำระเงิน | **Done:** Stripe test + **Stripe live smoke (card, 290 THB, 2026-05-07)** + Omise test. **In repo:** Stripe PromptPay pass (Checkout `payment` + QR; month=30d, year=12mo) — enable PromptPay + `async_payment_succeeded` webhook on Stripe. **Omise live KYC** still pending review. |
 | Monitoring | **Sentry (live verified, 2026-05-07) + UptimeRobot (live, 2026-05-07).** ครบ error + uptime monitoring สำหรับ Phase 1. |
 | กฎหมาย | **Terms / Privacy สาธารณะจัดทำใน repo แล้ว (2026-05-07)** — สัญญาจัดซื้อระดับโรงเรียนเป็นเรื่องแยก (ทนายตามความจำเป็น) |
 | Smoke production (ส่วนขยาย) | ถ้าเปิดใช้: Negamon rewards, economy, billing — ทดสอบมือตาม [รายการท้ายเอกสาร](#external-actions-checklist) |

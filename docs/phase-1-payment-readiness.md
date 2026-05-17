@@ -21,6 +21,21 @@ Recommended order for Thai teacher MVP:
 - `STRIPE_PRICE_PLUS_YEARLY`
 - optional: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 - webhook URL: `https://YOUR_DOMAIN/api/webhooks/stripe`
+- Stripe Dashboard → Payment methods → enable **PromptPay** (Thailand live account)
+- Webhook events (minimum): `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.updated`, `customer.subscription.deleted`
+
+### Stripe PromptPay (hosted Checkout QR)
+
+PLUS upgrade supports two Stripe paths (see `POST /api/billing/create-checkout-session` body `channel`):
+
+| Channel | Checkout mode | Renewal |
+| --- | --- | --- |
+| `card` (default) | `subscription` | Auto-renew monthly/yearly |
+| `promptpay` | `payment` + `payment_method_types: [promptpay]` | **No auto-renew** — month pass = 30 days, year pass = 12 months |
+
+PromptPay entitlement is applied on `checkout.session.async_payment_succeeded` (and `checkout.session.completed` when `payment_status` is already `paid`). Metadata: `checkoutKind=promptpay_pass`, `plusInterval=month|year`.
+
+For production without Omise live, set `BILLING_THAI_PROVIDER=none` so the upgrade page shows Stripe card + Stripe PromptPay only.
 
 ### Omise
 
@@ -50,6 +65,17 @@ Never use `BILLING_THAI_PROVIDER=mock` for production paid launch.
 9. Confirm duplicate webhook does not apply duplicate entitlement.
 10. Cancel subscription in Stripe test mode.
 11. Confirm subscription deletion/update maps plan correctly.
+
+## Stripe PromptPay Smoke Checklist
+
+1. Enable PromptPay on the Stripe account (live) and add `checkout.session.async_payment_succeeded` to the production webhook.
+2. Log in as teacher on production (or test mode with PromptPay enabled).
+3. Open `/dashboard/upgrade`, choose monthly or yearly.
+4. Click **Pay with PromptPay (QR)** (not the card button).
+5. Complete QR payment on `checkout.stripe.com`.
+6. Return with `checkout=success`; wait for webhook (may take up to ~1 minute).
+7. Confirm user `plan: PLUS`, `planStatus: ACTIVE`, `planExpiry` ~30 days (month) or ~1 year (year).
+8. Sign out and sign in to refresh JWT session.
 
 ## Omise Smoke Checklist
 

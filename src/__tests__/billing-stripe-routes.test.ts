@@ -12,8 +12,11 @@ const mockResolvePublicAppOrigin = vi.fn();
 const mockClaimStripeWebhookEvent = vi.fn();
 const mockReleaseStripeWebhookClaim = vi.fn();
 const mockHandleStripeCheckoutSessionCompleted = vi.fn();
+const mockHandleStripePromptPayCheckoutPaid = vi.fn();
 const mockHandleStripeSubscriptionUpdated = vi.fn();
 const mockHandleStripeSubscriptionDeleted = vi.fn();
+const mockCreatePlusPromptPayCheckoutSession = vi.fn();
+const mockEnsureStripeCustomerForUser = vi.fn();
 
 vi.mock("@/auth", () => ({
   auth: mockAuth,
@@ -45,8 +48,17 @@ vi.mock("@/lib/billing/stripe-idempotency", () => ({
   releaseStripeWebhookClaim: mockReleaseStripeWebhookClaim,
 }));
 
+vi.mock("@/lib/billing/stripe-promptpay-checkout", () => ({
+  createPlusPromptPayCheckoutSession: mockCreatePlusPromptPayCheckoutSession,
+}));
+
+vi.mock("@/lib/billing/ensure-stripe-customer", () => ({
+  ensureStripeCustomerForUser: mockEnsureStripeCustomerForUser,
+}));
+
 vi.mock("@/lib/billing/stripe-webhook-handlers", () => ({
   handleStripeCheckoutSessionCompleted: mockHandleStripeCheckoutSessionCompleted,
+  handleStripePromptPayCheckoutPaid: mockHandleStripePromptPayCheckoutPaid,
   handleStripeSubscriptionUpdated: mockHandleStripeSubscriptionUpdated,
   handleStripeSubscriptionDeleted: mockHandleStripeSubscriptionDeleted,
 }));
@@ -57,6 +69,9 @@ function stripeClientMock(event: unknown = null) {
       retrieve: vi.fn(),
       create: vi.fn().mockResolvedValue({ id: "cus_new" }),
       update: vi.fn().mockResolvedValue({ id: "cus_existing" }),
+    },
+    prices: {
+      retrieve: vi.fn().mockResolvedValue({ unit_amount: 29000 }),
     },
     checkout: {
       sessions: {
@@ -87,8 +102,13 @@ describe("billing stripe routes", () => {
     mockClaimStripeWebhookEvent.mockResolvedValue(true);
     mockReleaseStripeWebhookClaim.mockResolvedValue(undefined);
     mockHandleStripeCheckoutSessionCompleted.mockResolvedValue({ handled: true });
+    mockHandleStripePromptPayCheckoutPaid.mockResolvedValue({ handled: true });
     mockHandleStripeSubscriptionUpdated.mockResolvedValue({ handled: true });
     mockHandleStripeSubscriptionDeleted.mockResolvedValue({ handled: true });
+    mockEnsureStripeCustomerForUser.mockResolvedValue("cus_test");
+    mockCreatePlusPromptPayCheckoutSession.mockResolvedValue({
+      url: "https://checkout.stripe.test/promptpay",
+    });
   });
 
   it("returns a structured 503 when Stripe checkout is not configured", async () => {
@@ -121,6 +141,25 @@ describe("billing stripe routes", () => {
 
     expect(response.status).toBe(403);
     expect(mockUserFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("creates PromptPay checkout in payment mode with promptpay method", async () => {
+    const { POST } = await import("@/app/api/billing/create-checkout-session/route");
+    const response = await POST(
+      new Request("http://localhost/api/billing/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interval: "year", channel: "promptpay" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockCreatePlusPromptPayCheckoutSession).toHaveBeenCalledWith({
+      userId: "user-1",
+      customerId: "cus_test",
+      interval: "year",
+    });
+    expect(mockGetStripeClient).not.toHaveBeenCalled();
   });
 
   it("creates Stripe checkout with public success and cancel URLs", async () => {
@@ -167,6 +206,32 @@ describe("billing stripe routes", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ received: true, duplicate: true });
     expect(mockHandleStripeCheckoutSessionCompleted).not.toHaveBeenCalled();
+  });
+
+  it("routes async_payment_succeeded to the PromptPay handler", async () => {
+    const event = {
+      id: "evt_async_pp",
+      type: "checkout.session.async_payment_succeeded",
+      data: {
+        object: {
+          mode: "payment",
+          metadata: { checkoutKind: "promptpay_pass" },
+        },
+      },
+    };
+    mockGetStripeClient.mockReturnValue(stripeClientMock(event));
+
+    const { POST } = await import("@/app/api/webhooks/stripe/route");
+    const response = await POST(
+      new Request("http://localhost/api/webhooks/stripe", {
+        method: "POST",
+        headers: { "stripe-signature": "sig" },
+        body: "{}",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockHandleStripePromptPayCheckoutPaid).toHaveBeenCalledTimes(1);
   });
 
   it("releases the Stripe webhook claim when handler processing fails", async () => {

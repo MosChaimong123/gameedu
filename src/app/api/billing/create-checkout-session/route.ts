@@ -7,12 +7,19 @@ import {
   FORBIDDEN_MESSAGE,
   createAppErrorResponse,
 } from "@/lib/api-error";
-import { getStripeCheckoutConfigured, getStripeClient, resolvePlusStripePriceId } from "@/lib/billing/stripe";
+import { ensureStripeCustomerForUser } from "@/lib/billing/ensure-stripe-customer";
 import { resolvePublicAppOrigin } from "@/lib/billing/resolve-public-url";
+import { createPlusPromptPayCheckoutSession } from "@/lib/billing/stripe-promptpay-checkout";
+import {
+  getStripeCheckoutConfigured,
+  getStripeClient,
+  resolvePlusStripePriceId,
+} from "@/lib/billing/stripe";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 const bodySchema = z.object({
   interval: z.enum(["month", "year"]).default("month"),
+  channel: z.enum(["card", "promptpay"]).default("card"),
 });
 
 export async function POST(req: Request) {
@@ -39,7 +46,7 @@ export async function POST(req: Request) {
       return createAppErrorResponse("INVALID_PAYLOAD", "Invalid payload", 400);
     }
 
-    const interval = parsed.data.interval;
+    const { interval, channel } = parsed.data;
     const priceId = resolvePlusStripePriceId(interval);
     if (!priceId) {
       return createAppErrorResponse(
@@ -70,47 +77,35 @@ export async function POST(req: Request) {
       );
     }
 
-    const stripe = getStripeClient();
-    let customerId = dbUser.customerId?.trim() ?? null;
-
-    if (customerId) {
-      try {
-        await stripe.customers.retrieve(customerId);
-      } catch {
-        customerId = null;
-      }
-    }
-
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: dbUser.email ?? undefined,
-        metadata: { userId },
-      });
-      customerId = customer.id;
-      await db.user.update({
-        where: { id: userId },
-        data: { customerId },
-      });
-    } else {
-      await stripe.customers.update(customerId, {
-        metadata: { userId },
-      });
-    }
-
-    const origin = resolvePublicAppOrigin();
-
-    const checkoutSession = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      customer: customerId,
-      client_reference_id: userId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${origin}/dashboard/upgrade?checkout=success`,
-      cancel_url: `${origin}/dashboard/upgrade?checkout=cancelled`,
-      metadata: { userId },
-      subscription_data: {
-        metadata: { userId },
-      },
+    const customerId = await ensureStripeCustomerForUser({
+      userId,
+      email: dbUser.email,
+      existingCustomerId: dbUser.customerId,
     });
+
+    const checkoutSession =
+      channel === "promptpay"
+        ? await createPlusPromptPayCheckoutSession({
+            userId,
+            customerId,
+            interval,
+          })
+        : await (async () => {
+            const stripe = getStripeClient();
+            const origin = resolvePublicAppOrigin();
+            return stripe.checkout.sessions.create({
+              mode: "subscription",
+              customer: customerId,
+              client_reference_id: userId,
+              line_items: [{ price: priceId, quantity: 1 }],
+              success_url: `${origin}/dashboard/upgrade?checkout=success`,
+              cancel_url: `${origin}/dashboard/upgrade?checkout=cancelled`,
+              metadata: { userId },
+              subscription_data: {
+                metadata: { userId },
+              },
+            });
+          })();
 
     if (!checkoutSession.url) {
       return createAppErrorResponse(

@@ -48,6 +48,7 @@ export function UpgradePageClient({
 
     const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
     const [checkoutLoading, setCheckoutLoading] = useState(false);
+    const [promptPayLoading, setPromptPayLoading] = useState(false);
     const [thaiLoading, setThaiLoading] = useState(false);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const [thaiFailureCount, setThaiFailureCount] = useState(0);
@@ -243,15 +244,16 @@ export function UpgradePageClient({
                   ? buildOmiseReturnBanner()
                   : null;
 
-    async function startPlusCheckout() {
+    async function startCheckout(channel: "card" | "promptpay") {
         setCheckoutError(null);
-        setCheckoutLoading(true);
+        const setLoading = channel === "card" ? setCheckoutLoading : setPromptPayLoading;
+        setLoading(true);
         try {
             const res = await fetch("/api/billing/create-checkout-session", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "same-origin",
-                body: JSON.stringify({ interval: billingInterval }),
+                body: JSON.stringify({ interval: billingInterval, channel }),
             });
             if (!res.ok) {
                 setCheckoutError(
@@ -275,8 +277,16 @@ export function UpgradePageClient({
             const net = tryLocalizeFetchNetworkFailureMessage(raw, t);
             setCheckoutError(net ?? (raw || t("upgradeCheckoutFailed")));
         } finally {
-            setCheckoutLoading(false);
+            setLoading(false);
         }
+    }
+
+    async function startPlusCheckout() {
+        return startCheckout("card");
+    }
+
+    async function startPromptPayCheckout() {
+        return startCheckout("promptpay");
     }
 
     async function startThaiChannelCheckout() {
@@ -570,18 +580,38 @@ export function UpgradePageClient({
                                     ) : plan.id === "PLUS" && plusPaymentEnabled ? (
                                         <div className="flex w-full flex-col gap-3">
                                             {checkoutEnabled ? (
-                                                <Button
-                                                    type="button"
-                                                    disabled={checkoutLoading}
-                                                    onClick={() => void startPlusCheckout()}
-                                                    className={`h-16 w-full rounded-2xl text-lg font-black transition-all hover:scale-[1.02] active:scale-[0.98] ${
-                                                        plan.highlight
-                                                            ? "bg-brand-pink text-white shadow-xl shadow-brand-pink/25 hover:opacity-95"
-                                                            : "bg-slate-900 hover:bg-black text-white"
-                                                    }`}
-                                                >
-                                                    {checkoutLoading ? t("upgradeCheckoutWorking") : t("upgradeCheckoutSubscribe")}
-                                                </Button>
+                                                <>
+                                                    <Button
+                                                        type="button"
+                                                        disabled={checkoutLoading || promptPayLoading}
+                                                        onClick={() => void startPlusCheckout()}
+                                                        className={`h-16 w-full rounded-2xl text-lg font-black transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                                                            plan.highlight
+                                                                ? "bg-brand-pink text-white shadow-xl shadow-brand-pink/25 hover:opacity-95"
+                                                                : "bg-slate-900 hover:bg-black text-white"
+                                                        }`}
+                                                    >
+                                                        {checkoutLoading
+                                                            ? t("upgradeCheckoutWorking")
+                                                            : t("upgradeCheckoutSubscribe")}
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        disabled={checkoutLoading || promptPayLoading}
+                                                        onClick={() => void startPromptPayCheckout()}
+                                                        className="h-14 w-full rounded-2xl border-2 border-brand-pink/25 bg-white text-base font-black text-brand-navy hover:bg-brand-pink/5"
+                                                    >
+                                                        {promptPayLoading
+                                                            ? t("upgradeCheckoutWorking")
+                                                            : t("upgradeCheckoutPromptPay")}
+                                                    </Button>
+                                                    <p className="text-center text-xs font-medium leading-relaxed text-slate-500">
+                                                        {billingInterval === "month"
+                                                            ? t("upgradePromptPayHintMonthly")
+                                                            : t("upgradePromptPayHintYearly")}
+                                                    </p>
+                                                </>
                                             ) : null}
                                             {thaiBillingEnabled ? (
                                                 <ThaiPaymentMethodPicker

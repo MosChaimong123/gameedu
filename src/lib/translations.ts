@@ -199,6 +199,12 @@ export const thaiPack = {
         omrCapturedSheetAlt: "ภาพกระดาษ OMR ที่ถ่ายไว้",
         upgradeContactSubject: "อัปเกรดแผน TeachPlayEdu",
         upgradeLoading: "กำลังโหลด...",
+        upgradeCheckoutSubscribe: "สมัครด้วยบัตร (ต่ออายุอัตโนมัติ)",
+        upgradeCheckoutPromptPay: "ชำระด้วย PromptPay (QR)",
+        upgradePromptPayHintMonthly:
+            "PromptPay ไม่ต่ออายุอัตโนมัติ — จ่ายครั้งนี้ได้ PLUS 30 วัน ต้องสแกน QR จ่ายใหม่ทุกเดือน",
+        upgradePromptPayHintYearly:
+            "PromptPay ไม่ต่ออายุอัตโนมัติ — จ่ายครั้งนี้ได้ PLUS 12 เดือน",
         signupLegalPrefix: "เมื่อสร้างบัญชี คุณยอมรับ",
         signupLegalTerms: "ข้อกำหนดการให้บริการ",
         signupLegalAnd: "และ",
@@ -2812,6 +2818,11 @@ const englishPack = {
         upgradeBillingMonthly: "Monthly",
         upgradeBillingYearly: "Yearly",
         upgradeCheckoutSubscribe: "Subscribe with card",
+        upgradeCheckoutPromptPay: "Pay with PromptPay (QR)",
+        upgradePromptPayHintMonthly:
+            "PromptPay does not auto-renew. Each payment gives 30 days of PLUS — pay again next month to continue.",
+        upgradePromptPayHintYearly:
+            "PromptPay does not auto-renew. One payment gives 12 months of PLUS.",
         upgradeCheckoutWorking: "Redirecting to checkout...",
         upgradeCheckoutFailed: "Could not start checkout. Try again or contact support.",
         upgradeContactSubject: "TeachPlayEdu plan upgrade",

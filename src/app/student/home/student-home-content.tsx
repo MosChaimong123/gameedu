@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpen, ClipboardList, PlayCircle, Star, Trophy } from "lucide-react";
+import { BookOpen, ClipboardList, LogOut, PlayCircle, Star, Trophy } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { JoinClassDialog } from "@/components/student/join-class-dialog";
 import { getThemeBgStyle } from "@/lib/classroom-utils";
 import {
@@ -77,6 +78,14 @@ export function StudentHomeContent({
                     <div className="flex flex-wrap items-center justify-end gap-3">
                         <LanguageToggle className="border-white/50 bg-white/15 text-white hover:bg-white/25 hover:text-white" />
                         <JoinClassDialog />
+                        <button
+                            type="button"
+                            onClick={() => signOut()}
+                            className="inline-flex h-10 items-center gap-2 rounded-2xl border border-white/40 bg-white/15 px-4 text-sm font-bold text-white transition-colors hover:bg-white/25"
+                        >
+                            <LogOut className="h-4 w-4" />
+                            <span>{t("logout")}</span>
+                        </button>
                     </div>
                 </div>
             </div>

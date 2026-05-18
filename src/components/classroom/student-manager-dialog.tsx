@@ -83,13 +83,17 @@ function SortableStudentRow({
         <div
             ref={setNodeRef}
             style={style}
-            className="group flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm transition-all hover:border-indigo-300 hover:shadow-md sm:flex-row sm:items-center sm:gap-3 sm:px-4"
+            className="group rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm transition-all hover:border-indigo-300 hover:shadow-md sm:px-4"
         >
-            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-                <div {...listeners} {...attributes} className="cursor-grab touch-none text-slate-400 hover:text-slate-600 active:cursor-grabbing shrink-0">
+            <div className="flex min-w-0 items-start gap-2 sm:gap-3">
+                <div
+                    {...listeners}
+                    {...attributes}
+                    className="mt-2 shrink-0 cursor-grab touch-none text-slate-400 hover:text-slate-600 active:cursor-grabbing"
+                >
                     <GripVertical className="h-5 w-5" />
                 </div>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-indigo-100 bg-indigo-50 text-sm font-bold text-indigo-700">
+                <div className="mt-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-indigo-100 bg-indigo-50 text-sm font-bold text-indigo-700">
                     {index + 1}
                 </div>
                 <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border-2 border-slate-200 bg-slate-100 sm:h-12 sm:w-12">
@@ -102,25 +106,31 @@ function SortableStudentRow({
                         className="object-cover"
                     />
                 </div>
-                <div className="min-w-0 flex-1">
-                    <p className="text-base font-bold leading-tight text-slate-900">{student.name}</p>
+                <div className="min-w-0 flex-1 pt-0.5">
+                    <p className="break-words text-[15px] font-bold leading-6 text-slate-900 sm:text-base">
+                        {student.name}
+                    </p>
                     {student.nickname && (
-                        <p className="mt-0.5 text-sm text-slate-600">
+                        <p className="mt-1 break-words text-sm leading-5 text-slate-600">
                             {t("nicknameWithValue", { name: student.nickname ?? "" })}
                         </p>
                     )}
                 </div>
             </div>
-            <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-2 sm:w-auto sm:shrink-0 sm:border-t-0 sm:pt-0">
-                <div className="text-left sm:text-right">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("analyticsTableBehaviorColumn")}</p>
-                    <p className="text-lg font-bold tabular-nums text-indigo-700">{student.behaviorPoints}</p>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                <div className="flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-indigo-700">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-500">
+                        {t("analyticsTableBehaviorColumn")}
+                    </p>
+                    <p className="text-base font-bold tabular-nums text-indigo-700">
+                        {student.behaviorPoints}
+                    </p>
                 </div>
-                <div className="flex items-center gap-0.5 opacity-90 transition-opacity group-hover:opacity-100">
+                <div className="flex flex-wrap items-center justify-end gap-1 opacity-90 transition-opacity group-hover:opacity-100">
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-10 w-10 hover:bg-slate-100 hover:text-slate-700"
+                        className="h-9 w-9 hover:bg-slate-100 hover:text-slate-700"
                         onClick={() => onMove(student.id, "up")}
                         aria-label={t("studentManagerMoveUpAriaLabel")}
                         disabled={index === 0}
@@ -130,17 +140,17 @@ function SortableStudentRow({
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-10 w-10 hover:bg-slate-100 hover:text-slate-700"
+                        className="h-9 w-9 hover:bg-slate-100 hover:text-slate-700"
                         onClick={() => onMove(student.id, "down")}
                         aria-label={t("studentManagerMoveDownAriaLabel")}
                         disabled={index === totalCount - 1}
                     >
                         <ArrowDown className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-amber-50 hover:text-amber-700" onClick={() => onEdit(student)} aria-label={t("ariaLabelEdit")}>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-amber-50 hover:text-amber-700" onClick={() => onEdit(student)} aria-label={t("ariaLabelEdit")}>
                         <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-red-50 hover:text-red-600" onClick={() => onDelete(student.id)} aria-label={t("ariaLabelDelete")}>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-red-50 hover:text-red-600" onClick={() => onDelete(student.id)} aria-label={t("ariaLabelDelete")}>
                         <Trash2 className="h-4 w-4" />
                     </Button>
                 </div>

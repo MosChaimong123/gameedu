@@ -3,13 +3,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { LegalParagraphs } from "@/components/legal/legal-paragraphs";
-import { LANGUAGE_COOKIE_NAME } from "@/lib/language-cookie";
+import { LANGUAGE_COOKIE_NAME, resolveLanguageFromCookie } from "@/lib/language-cookie";
 import type { Language } from "@/lib/translations";
 import { privacyContent, siteMetadata } from "../../../content/public-pages";
 
 export async function generateMetadata(): Promise<Metadata> {
     const cookieStore = await cookies();
-    const language: Language = cookieStore.get(LANGUAGE_COOKIE_NAME)?.value === "th" ? "th" : "en";
+    const language: Language = resolveLanguageFromCookie(cookieStore.get(LANGUAGE_COOKIE_NAME)?.value);
     const copy = privacyContent[language];
     return {
         title: `${copy.title} · ${siteMetadata.title}`,
@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function PrivacyPage() {
     const cookieStore = await cookies();
-    const language: Language = cookieStore.get(LANGUAGE_COOKIE_NAME)?.value === "th" ? "th" : "en";
+    const language: Language = resolveLanguageFromCookie(cookieStore.get(LANGUAGE_COOKIE_NAME)?.value);
     const copy = privacyContent[language];
 
     return (

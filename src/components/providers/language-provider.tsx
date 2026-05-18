@@ -2,7 +2,7 @@
 
 import React, { createContext, startTransition, useContext, useEffect, useState } from "react"
 import { Language } from "@/lib/translations"
-import { LANGUAGE_COOKIE_MAX_AGE_SEC, LANGUAGE_COOKIE_NAME } from "@/lib/language-cookie"
+import { DEFAULT_LANGUAGE, LANGUAGE_COOKIE_MAX_AGE_SEC, LANGUAGE_COOKIE_NAME } from "@/lib/language-cookie"
 import { getTranslationText } from "@/lib/translation-lookup"
 
 type LanguageContextType = {
@@ -25,7 +25,7 @@ type LanguageProviderProps = {
     initialLanguage?: Language
 }
 
-export function LanguageProvider({ children, initialLanguage = "en" }: LanguageProviderProps) {
+export function LanguageProvider({ children, initialLanguage = DEFAULT_LANGUAGE }: LanguageProviderProps) {
     const [language, setLanguage] = useState<Language>(initialLanguage)
 
     useEffect(() => {

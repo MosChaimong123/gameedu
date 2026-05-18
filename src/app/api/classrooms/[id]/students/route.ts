@@ -111,6 +111,9 @@ export async function POST(
             orderBy: {
                 order: "asc",
             },
+            include: {
+                submissions: true,
+            },
         });
 
         return NextResponse.json(createdStudents);

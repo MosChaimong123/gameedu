@@ -279,6 +279,8 @@
   "accessCode": "รหัสเข้าใช้งาน",
   "joinAt": "เข้าร่วมได้ที่: {url}",
   "printCards": "พิมพ์การ์ด",
+  "studentLoginsExportExcel": "ส่งออก Excel",
+  "studentLoginsPrintPopupBlocked": "เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาตป๊อปอัปสำหรับเว็บไซต์นี้ แล้วลองพิมพ์อีกครั้ง",
   "exportCSV": "ส่งออก CSV",
   "classOverview": "ภาพรวมชั้นเรียน",
   "positiveVsNeedsWork": "แต้มที่ให้ vs แต้มที่หัก (บันทึกพฤติกรรม)",

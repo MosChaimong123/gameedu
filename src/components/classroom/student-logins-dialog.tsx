@@ -2,7 +2,9 @@
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Key, Printer } from "lucide-react";
+import { FileSpreadsheet, Key, Printer } from "lucide-react";
+import { downloadStudentLoginCodesExcel } from "@/lib/export/student-login-codes-spreadsheet";
+import { printStudentLoginCards } from "@/lib/print/print-student-login-cards";
 import { useLanguage } from "@/components/providers/language-provider";
 import { getThemeBgClass, getThemeBgStyle } from "@/lib/classroom-utils";
 import {
@@ -22,7 +24,44 @@ export function StudentLoginsDialog({ students, classId, theme }: { students: St
     const joinUrl = `${process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || ""}/student`.replace(/^\/{2,}/, "/");
 
     const handlePrint = () => {
-        window.print();
+        const printRows = students
+            .map((student) => ({
+                name: student.name.trim(),
+                loginCode: (student.loginCode ?? "").trim(),
+            }))
+            .filter((row) => row.name.length > 0 && row.loginCode.length > 0);
+
+        printStudentLoginCards({
+            students: printRows,
+            labels: {
+                documentTitle: t("studentAccessCodes"),
+                accessCode: t("accessCode"),
+                joinLine: t("joinAt", { url: joinUrl || "/student" }),
+            },
+        });
+    };
+
+    const handleExportExcel = () => {
+        const exportRows = students
+            .map((student) => ({
+                name: student.name.trim(),
+                loginCode: (student.loginCode ?? "").trim().toUpperCase(),
+            }))
+            .filter((row) => row.name.length > 0 && row.loginCode.length > 0);
+
+        if (exportRows.length === 0) {
+            return;
+        }
+
+        const dateStamp = new Date().toLocaleDateString("th-TH").replace(/\//g, "-");
+        downloadStudentLoginCodesExcel(
+            exportRows,
+            {
+                name: t("studentName"),
+                code: t("accessCode"),
+            },
+            `student-login-codes-${dateStamp}`
+        );
     };
 
     return (
@@ -44,9 +83,12 @@ export function StudentLoginsDialog({ students, classId, theme }: { students: St
                     </DialogDescription>
                 </DialogHeader>
                 <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/40 p-4 sm:p-6">
-                    <div className="print-area mx-auto grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6">
+                    <div className="mx-auto grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6">
                         {students.map((student) => (
-                            <div key={student.id} className="group relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-4 text-center shadow-sm transition-colors hover:border-indigo-300 print:break-inside-avoid sm:p-5">
+                            <div
+                                key={student.id}
+                                className="student-logins-print-card group relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-4 text-center shadow-sm transition-colors hover:border-indigo-300 print:break-inside-avoid sm:p-5"
+                            >
                                 <div
                                     className={`absolute left-0 top-0 h-1.5 w-full bg-gradient-to-r ${getThemeBgClass(theme)} opacity-70 transition-opacity group-hover:opacity-100`}
                                     style={getThemeBgStyle(theme)}
@@ -69,8 +111,22 @@ export function StudentLoginsDialog({ students, classId, theme }: { students: St
                     </div>
                 </div>
 
-                <div className="flex shrink-0 justify-end border-t border-slate-100 bg-white p-4 print:hidden md:p-6">
-                    <Button onClick={handlePrint} className={`flex items-center gap-2 rounded-xl border-0 bg-gradient-to-r ${theme || "from-indigo-600 to-indigo-600"} text-white shadow-sm transition-opacity hover:opacity-90`}>
+                <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-slate-100 bg-white p-4 print:hidden md:p-6">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleExportExcel}
+                        disabled={students.length === 0}
+                        className="gap-2 rounded-xl border-2 border-emerald-200 bg-emerald-50 font-semibold text-emerald-800 hover:bg-emerald-100"
+                    >
+                        <FileSpreadsheet className="h-4 w-4" />
+                        {t("studentLoginsExportExcel")}
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={handlePrint}
+                        className={`flex items-center gap-2 rounded-xl border-0 bg-gradient-to-r ${theme || "from-indigo-600 to-indigo-600"} font-semibold text-white shadow-sm transition-opacity hover:opacity-90`}
+                    >
                         <Printer className="h-4 w-4" />
                         {t("printCards")}
                     </Button>

@@ -8,8 +8,7 @@ import { AccessibilityProvider } from "@/components/providers/accessibility-prov
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { SoundProvider } from "@/hooks/use-sound";
 import { Toaster } from "@/components/ui/toaster";
-import { LANGUAGE_COOKIE_NAME } from "@/lib/language-cookie";
-import type { Language } from "@/lib/translations";
+import { LANGUAGE_COOKIE_NAME, resolveLanguageFromCookie } from "@/lib/language-cookie";
 import { siteMetadata } from "../../content/public-pages";
 
 const geistSans = Geist({
@@ -46,7 +45,7 @@ export default async function RootLayout({
 }>) {
   const cookieStore = await cookies();
   const cookieLang = cookieStore.get(LANGUAGE_COOKIE_NAME)?.value;
-  const initialLanguage: Language = cookieLang === "th" ? "th" : "en";
+  const initialLanguage = resolveLanguageFromCookie(cookieLang);
 
   return (
     <html lang={initialLanguage}>

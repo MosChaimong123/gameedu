@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
-import { Loader2, Lock, Globe, FileText, Database } from "lucide-react"
+import { Loader2, Lock, Globe } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { ImageUpload } from "@/components/image-upload"
 import { PageBackLink } from "@/components/ui/page-back-link"
@@ -29,7 +29,6 @@ export default function CreateSetPage() {
     const [description, setDescription] = useState("")
     const [coverImage, setCoverImage] = useState("")
     const [isPublic, setIsPublic] = useState(true)
-    const [creationMethod, setCreationMethod] = useState<"manual" | "csv">("manual")
 
     useEffect(() => {
         if (status === "authenticated" && !isTeacherOrAdmin(session.user.role)) {
@@ -69,16 +68,9 @@ export default function CreateSetPage() {
                 const set = await res.json()
                 toast({
                     title: t("createSetSuccessTitle"),
-                    description:
-                        creationMethod === "csv"
-                            ? t("createSetSuccessDescCsv")
-                            : t("createSetSuccessDescManual"),
+                    description: t("createSetSuccessDescManual"),
                 })
-                if (creationMethod === "csv") {
-                    router.push(`/dashboard/edit-set/${set.id}?openImport=true`)
-                } else {
-                    router.push(`/dashboard/edit-set/${set.id}`)
-                }
+                router.push(`/dashboard/edit-set/${set.id}`)
                 router.refresh()
             } else {
                 const msg = await getLocalizedErrorMessageFromResponse(
@@ -197,35 +189,6 @@ export default function CreateSetPage() {
                                 rows={4}
                                 className="resize-none bg-slate-50 border-slate-200 focus-visible:ring-purple-500"
                             />
-                        </div>
-                    </Card>
-
-                    {/* Creation Method */}
-                    <Card className="p-6 bg-white shadow-sm rounded-xl space-y-4">
-                        <div className="space-y-1">
-                            <Label className="text-lg font-bold text-slate-700">{t("creationMethod")}</Label>
-                            <p className="text-xs text-slate-500">{t("methodDesc")}</p>
-                        </div>
-
-                        <div className="flex space-x-4">
-                            <Button
-                                type="button"
-                                variant={creationMethod === "manual" ? "default" : "outline"}
-                                className={`flex-1 h-12 font-bold ${creationMethod === "manual" ? "bg-teal-500 hover:bg-teal-600 border-none" : "border-2"}`}
-                                onClick={() => setCreationMethod("manual")}
-                            >
-                                <FileText className="mr-2 h-5 w-5" />
-                                {t("manual")}
-                            </Button>
-                            <Button
-                                type="button"
-                                variant={creationMethod === "csv" ? "default" : "outline"}
-                                className={`flex-1 h-12 font-bold ${creationMethod === "csv" ? "bg-teal-500 hover:bg-teal-600 border-none" : "border-2"}`}
-                                onClick={() => setCreationMethod("csv")}
-                            >
-                                <Database className="mr-2 h-5 w-5" />
-                                {t("csvImport")}
-                            </Button>
                         </div>
                     </Card>
 

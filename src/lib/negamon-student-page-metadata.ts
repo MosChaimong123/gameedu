@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { LANGUAGE_COOKIE_NAME } from "@/lib/language-cookie";
+import { LANGUAGE_COOKIE_NAME, resolveLanguageFromCookie } from "@/lib/language-cookie";
 import { getTranslationText } from "@/lib/translation-lookup";
 import type { Language } from "@/lib/translations";
 
 async function negamonLang(): Promise<Language> {
     const cookieStore = await cookies();
-    return cookieStore.get(LANGUAGE_COOKIE_NAME)?.value === "th" ? "th" : "en";
+    return resolveLanguageFromCookie(cookieStore.get(LANGUAGE_COOKIE_NAME)?.value);
 }
 
 export async function negamonProfileMetadata(): Promise<Metadata> {

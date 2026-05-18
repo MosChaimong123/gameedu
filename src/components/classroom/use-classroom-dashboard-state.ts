@@ -5,10 +5,22 @@ import type { Assignment } from "@prisma/client";
 import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 import type { ClassroomBasicsPatch, UpdatedStudentPoints } from "./classroom-dashboard.types";
 
+function normalizeDashboardStudent(
+    student: ClassroomDashboardViewModel["students"][number]
+): ClassroomDashboardViewModel["students"][number] {
+    return {
+        ...student,
+        submissions: student.submissions ?? [],
+    };
+}
+
 export function useClassroomDashboardState(
     initialClassroom: ClassroomDashboardViewModel
 ) {
-    const [classroom, setClassroom] = useState(initialClassroom);
+    const [classroom, setClassroom] = useState({
+        ...initialClassroom,
+        students: initialClassroom.students.map(normalizeDashboardStudent),
+    });
 
     const applyUpdatedStudentPoints = (updatedStudents: UpdatedStudentPoints[]) => {
         const updatedById = new Map(
@@ -38,14 +50,16 @@ export function useClassroomDashboardState(
     const updateStudents = (students: ClassroomDashboardViewModel["students"]) => {
         setClassroom((prev) => ({
             ...prev,
-            students,
+            students: students.map(normalizeDashboardStudent),
         }));
     };
 
     const appendStudents = (students: ClassroomDashboardViewModel["students"]) => {
         setClassroom((prev) => ({
             ...prev,
-            students: [...prev.students, ...students].sort((a, b) => a.order - b.order),
+            students: [...prev.students, ...students.map(normalizeDashboardStudent)].sort(
+                (a, b) => a.order - b.order
+            ),
         }));
     };
 

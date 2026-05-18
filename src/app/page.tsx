@@ -5,13 +5,14 @@ import { ArrowRight } from "lucide-react";
 import { PublicBrandMark } from "@/components/layout/public-brand-mark";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { Button } from "@/components/ui/button";
-import { LANGUAGE_COOKIE_NAME } from "@/lib/language-cookie";
+import { LANGUAGE_COOKIE_NAME, resolveLanguageFromCookie } from "@/lib/language-cookie";
 import { homeContent, siteMetadata, type PublicPageLanguage } from "../../content/public-pages";
 
 export default async function Home() {
     const cookieStore = await cookies();
-    const language: PublicPageLanguage =
-        cookieStore.get(LANGUAGE_COOKIE_NAME)?.value === "th" ? "th" : "en";
+    const language: PublicPageLanguage = resolveLanguageFromCookie(
+        cookieStore.get(LANGUAGE_COOKIE_NAME)?.value
+    );
     const copy = homeContent[language];
 
     return (

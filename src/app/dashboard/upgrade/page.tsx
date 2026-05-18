@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { getStripeCheckoutConfigured } from "@/lib/billing/stripe";
 import { getPlusPricesFromStripe } from "@/lib/billing/plus-price-display";
 import { UpgradePageClient } from "./upgrade-client";
-import { LANGUAGE_COOKIE_NAME } from "@/lib/language-cookie";
+import { LANGUAGE_COOKIE_NAME, resolveLanguageFromCookie } from "@/lib/language-cookie";
 import { getTranslationText } from "@/lib/translation-lookup";
 import type { Language } from "@/lib/translations";
 
@@ -17,7 +17,7 @@ function UpgradeFallback({ language }: { language: Language }) {
 
 export default async function UpgradePage() {
     const cookieStore = await cookies();
-    const language: Language = cookieStore.get(LANGUAGE_COOKIE_NAME)?.value === "th" ? "th" : "en";
+    const language: Language = resolveLanguageFromCookie(cookieStore.get(LANGUAGE_COOKIE_NAME)?.value);
     const checkoutEnabled = getStripeCheckoutConfigured();
     const plusPrices = await getPlusPricesFromStripe();
     return (

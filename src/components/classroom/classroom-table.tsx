@@ -34,6 +34,10 @@ type StudentScoreMap = Record<string, Record<string, number>>;
 
 type StudentWithSubmissions = ClassroomDashboardViewModel["students"][number];
 
+function getStudentSubmissions(student: StudentWithSubmissions) {
+    return student.submissions ?? [];
+}
+
 interface ClassroomTableProps {
     classId: string;
     students: StudentWithSubmissions[];
@@ -73,7 +77,7 @@ export function ClassroomTable({
     const initialScores: StudentScoreMap = {};
     sortedStudents.forEach(s => {
         initialScores[s.id] = {};
-        s.submissions.forEach(sub => {
+        getStudentSubmissions(s).forEach(sub => {
             initialScores[s.id][sub.assignmentId] = sub.score;
         });
     });
@@ -112,7 +116,10 @@ export function ClassroomTable({
 
     const handleBlur = async (studentId: string, assignmentId: string) => {
         const currentScore = scores[studentId][assignmentId] || 0;
-        const originalSubmission = students.find(s => s.id === studentId)?.submissions.find(sub => sub.assignmentId === assignmentId);
+        const matchedStudent = students.find(s => s.id === studentId);
+        const originalSubmission = matchedStudent
+            ? getStudentSubmissions(matchedStudent).find(sub => sub.assignmentId === assignmentId)
+            : undefined;
         const originalScore = originalSubmission?.score || 0;
         
         if (currentScore === originalScore) return;
@@ -423,7 +430,7 @@ export function ClassroomTable({
                                             {formType === "quiz" && (
                                                 <div className="space-y-1 text-center">
                                                     {(() => {
-                                                        const sub = student.submissions.find(
+                                                        const sub = getStudentSubmissions(student).find(
                                                             (s) => s.assignmentId === a.id
                                                         );
                                                         const flagged =
@@ -640,7 +647,7 @@ export function ClassroomTable({
                                         )}
                                         {dbAssignmentTypeToFormType(a.type) === "quiz" && (
                                             (() => {
-                                                const sub = student.submissions.find(
+                                                const sub = getStudentSubmissions(student).find(
                                                     (s) => s.assignmentId === a.id
                                                 );
                                                 const flagged =

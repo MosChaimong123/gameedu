@@ -44,8 +44,9 @@ export async function buildWordTemplateDocxBlob(language: "en" | "th"): Promise<
     );
     zip.folder("word")!.file("document.xml", documentXml);
 
-    const bytes = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
-    return new Blob([bytes], {
-        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    return zip.generateAsync({
+        type: "blob",
+        compression: "DEFLATE",
+        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
 }

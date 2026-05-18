@@ -4,7 +4,13 @@ import {
     detectQuestionImportLanguage,
     mapRowsToImportedQuestions,
 } from "@/lib/set-editor/question-import";
-import { parseQuestionsFromWordHtml } from "@/lib/set-editor/parse-word-document";
+import { buildWordTemplateDocxBlob } from "@/lib/set-editor/build-word-template-docx";
+import {
+    isSupportedWordImportFile,
+    parseQuestionsFromWordFile,
+    parseQuestionsFromWordHtml,
+} from "@/lib/set-editor/parse-word-document";
+import { WordImportError } from "@/lib/set-editor/word-import-errors";
 
 describe("question-import", () => {
     it("detects th and en headers", () => {
@@ -70,6 +76,152 @@ describe("parse-word-document", () => {
         expect(questions[0]?.answers[0]).toBe("ประจุไฟฟ้า");
         expect(questions[0]?.options).toContain("กระแสไฟฟ้า");
         expect(questions[1]?.answers[0]).toBe("สาม");
+    });
+
+    it("accepts downloaded .doc template extension", () => {
+        const file = { name: "question_template.doc", type: "application/msword" } as File;
+        expect(isSupportedWordImportFile(file)).toBe(true);
+    });
+
+    it("rejects legacy binary .doc without calling mammoth", async () => {
+        const oleHeader = new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0, 0, 0, 0]);
+        const file = new File([oleHeader], "saved-from-word.doc", { type: "application/msword" });
+
+        await expect(parseQuestionsFromWordFile(file, "th")).rejects.toBeInstanceOf(WordImportError);
+        await expect(parseQuestionsFromWordFile(file, "th")).rejects.toMatchObject({ code: "LEGACY_DOC" });
+    });
+
+    it("builds a valid docx template zip", async () => {
+        const blob = await buildWordTemplateDocxBlob("th");
+        const buffer = await blob.arrayBuffer();
+        const bytes = new Uint8Array(buffer.slice(0, 2));
+        expect(bytes[0]).toBe(0x50);
+        expect(bytes[1]).toBe(0x4b);
+    });
+
+    it("parses two-column Word table as column-first blocks", () => {
+        const html = `
+          <table>
+            <tr>
+              <td>
+                <p>1. จุดเริ่มแรกของสนามไฟฟ้าเกิดจากสิ่งใด</p>
+                <p>ก. กระแสไฟฟ้า</p>
+                <p>ข. ประจุไฟฟ้า</p>
+                <p>ค. สนามแม่เหล็ก</p>
+                <p>ง. ความร้อน</p>
+                <p>ตอบ ข.</p>
+              </td>
+              <td>
+                <p>2. ตัวอย่างคำถามข้อที่สอง?</p>
+                <p>ก. ตัวเลือก 1</p>
+                <p>ข. ตัวเลือก 2</p>
+                <p>ค. ตัวเลือก 3</p>
+                <p>ง. ตัวเลือก 4</p>
+                <p>ตอบ ค.</p>
+              </td>
+            </tr>
+          </table>
+        `;
+
+        const questions = parseQuestionsFromWordHtml(html, "", "th");
+        expect(questions).toHaveLength(2);
+        expect(questions[0]?.answers[0]).toBe("ประจุไฟฟ้า");
+        expect(questions[1]?.answers[0]).toBe("ตัวเลือก 3");
+    });
+
+    it("parses answer lines with extra column text on the same line", () => {
+        const text = `1. จุดเริ่มแรกของสนามไฟฟ้าเกิดจากสิ่งใด
+ก. กระแสไฟฟ้า
+ข. ประจุไฟฟ้า
+ค. สนามแม่เหล็ก
+ง. ความร้อน
+ตอบ ข.\tตอบ ข 7.`;
+
+        const questions = parseQuestionsFromWordHtml("", text, "th");
+        expect(questions).toHaveLength(1);
+        expect(questions[0]?.answers[0]).toBe("ประจุไฟฟ้า");
+    });
+
+    it("parses edited template with tabs, question marks, and footer hint", () => {
+        const text = `จัดรูปแบบแบบข้อสอบ — ใส่ ตอบ ก. ให้ตรงตัวเลือกที่ถูก (ไม่จำเป็นต้องใส่จุดหลังตัวอักษร)
+1.    จุดเริ่มแรกของสนามไฟฟ้าเกิดจากสิ่งใด?
+ก. กระแสไฟฟ้า
+ข. ประจุไฟฟ้า
+ค. สนามแม่เหล็ก
+ง. ความร้อน
+ตอบ ข.
+2.    หน่วยของความเข้มสนามไฟฟ้า (E) คืออะไร?
+ก. แอมแปร์ (A)
+ข. เทสลา (T)
+ค. นิวตันต่อคูลอมบ์ (N/C) หรือ โวลต์ต่อเมตร (V/m)
+ง. คูลอมบ์ต่อตารางเมตร (C/m2)
+ตอบ ค.
+ถ้าต้องการกำหนดเวลา: เพิ่มบรรทัด เวลา: 30 หลังคำถาม`;
+
+        const questions = parseQuestionsFromWordHtml("", text, "th");
+        expect(questions).toHaveLength(2);
+        expect(questions[0]?.answers[0]).toBe("ประจุไฟฟ้า");
+        expect(questions[1]?.answers[0]).toContain("นิวตัน");
+    });
+
+    it("parses Word numbered lists when digits are not in plain text", () => {
+        const html = `
+          <p>จัดรูปแบบแบบข้อสอบ</p>
+          <ol>
+            <li>จุดเริ่มแรกของสนามไฟฟ้าเกิดจากสิ่งใด?</li>
+          </ol>
+          <p>ก. กระแสไฟฟ้า</p>
+          <p>ข. ประจุไฟฟ้า</p>
+          <p>ค. สนามแม่เหล็ก</p>
+          <p>ง. ความร้อน</p>
+          <p>ตอบ ข.</p>
+          <ol>
+            <li>หน่วยของความเข้มสนามไฟฟ้า (E) คืออะไร?</li>
+          </ol>
+          <p>ก. แอมแปร์ (A)</p>
+          <p>ข. เทสลา (T)</p>
+          <p>ค. นิวตันต่อคูลอมบ์ (N/C)</p>
+          <p>ง. คูลอมบ์ต่อตารางเมตร</p>
+          <p>ตอบ ค.</p>
+        `;
+
+        const questions = parseQuestionsFromWordHtml(html, "", "th");
+        expect(questions).toHaveLength(2);
+        expect(questions[0]?.question).toContain("สนามไฟฟ้า");
+        expect(questions[1]?.answers[0]).toContain("นิวตัน");
+    });
+
+    it("parses wrapped option lines onto the previous choice", () => {
+        const text = `1. ตัวอย่าง?
+ก. หนึ่ง
+ข. สอง
+ค. บรรทัดแรก
+บรรทัดต่อ
+ง. สี่
+ตอบ ค.`;
+
+        const questions = parseQuestionsFromWordHtml("", text, "th");
+        expect(questions).toHaveLength(1);
+        expect(questions[0]?.answers[0]).toBe("บรรทัดแรก บรรทัดต่อ");
+    });
+
+    it("parses template header that mentions ตอบ in instructions without splitting early", () => {
+        const text = `จัดรูปแบบแบบข้อสอบ — ใส่ ตอบ ก. ให้ตรงตัวเลือกที่ถูก
+1. จุดเริ่มแรกของสนามไฟฟ้าเกิดจากสิ่งใด?
+ก. กระแสไฟฟ้า
+ข. ประจุไฟฟ้า
+ค. สนามแม่เหล็ก
+ง. ความร้อน
+ตอบ ข.
+2. หน่วยของความเข้มสนามไฟฟ้า (E) คืออะไร?
+ก. แอมแปร์ (A)
+ข. เทสลา (T)
+ค. นิวตันต่อคูลอมบ์ (N/C) หรือ โวลต์ต่อเมตร (V/m)
+ง. คูลอมบ์ต่อตารางเมตร (C/m2)
+ตอบ ค.`;
+
+        const questions = parseQuestionsFromWordHtml("", text, "th");
+        expect(questions).toHaveLength(2);
     });
 
     it("parses labeled text blocks when no table exists", () => {

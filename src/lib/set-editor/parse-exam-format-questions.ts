@@ -1,32 +1,55 @@
 import type { QuestionImportRow } from "@/lib/set-editor/question-import";
+import { normalizeExamImportDocument, normalizeExamImportLine } from "@/lib/set-editor/word-html-text";
 
 const THAI_OPTION_LETTERS = ["ก", "ข", "ค", "ง", "จ", "ฉ", "ช", "ซ", "ฌ", "ญ"] as const;
 const EN_OPTION_LETTERS = ["a", "b", "c", "d", "e"] as const;
 
 function normalizeLine(value: string): string {
-    return value.replace(/\s+/g, " ").trim();
+    return normalizeExamImportLine(value);
 }
 
 function normalizeOptionLetter(value: string): string {
     return value.trim().toLowerCase();
 }
 
-/** Split document into blocks starting at lines like "1. ..." */
+function isThaiOptionLine(line: string): boolean {
+    return /^[กขคงจฉชซฌญ]\s*[.)]/u.test(line);
+}
+
+function isEnOptionLine(line: string): boolean {
+    return /^[a-eA-E]\s*[.)]/i.test(line);
+}
+
+function isAnswerLineForSplit(line: string): boolean {
+    return /^ตอบ\s*[:：]?\s*[กขคงจฉชซฌญ]/u.test(line) || /^answer\s*[:：]?\s*[a-e]/i.test(line);
+}
+
+function containsAnswerMarker(line: string): boolean {
+    return isAnswerLineForSplit(line) || /(?:^|\s)ตอบ\s*[:：]?\s*[กขคงจฉชซฌญ]/u.test(line) || /(?:^|\s)answer\s*[:：]?\s*[a-e]/i.test(line);
+}
+
+function isTimeLine(line: string): boolean {
+    return /^(?:เวลา(?:\s*\(วินาที\))?|time(?:\s*limit)?)\s*[:：]\s*\d+\s*$/i.test(line);
+}
+
+/** Split document into question blocks (numbered lines or groups ending with ตอบ / Answer). */
 export function splitNumberedQuestionBlocks(text: string): string[] {
-    const lines = text.split(/\r?\n/).map((line) => line.trim());
+    const lines = normalizeExamImportDocument(text).split(/\n/);
     const blocks: string[][] = [];
     let current: string[] = [];
 
     for (const line of lines) {
-        if (!line) {
-            continue;
-        }
-
         if (/^\d+\.\s/.test(line) && current.length > 0) {
             blocks.push(current);
             current = [line];
-        } else {
-            current.push(line);
+            continue;
+        }
+
+        current.push(line);
+
+        if (isAnswerLineForSplit(line)) {
+            blocks.push(current);
+            current = [];
         }
     }
 
@@ -34,62 +57,98 @@ export function splitNumberedQuestionBlocks(text: string): string[] {
         blocks.push(current);
     }
 
-    return blocks.map((blockLines) => blockLines.join("\n"));
+    return blocks.map((blockLines) => blockLines.join("\n")).filter((block) => block.trim().length > 0);
 }
 
 function looksLikeExamFormat(text: string): boolean {
-    const hasNumberedQuestion = /^\d+\.\s/m.test(text);
-    const hasThaiOptions = /^[กขคงจฉชซ]\s*[.)]/m.test(text);
-    const hasEnOptions = /^[a-eA-E]\s*[.)]/m.test(text);
-    const hasAnswerLine = /^ตอบ\s/m.test(text) || /^answer\s*[:：]?/im.test(text);
-    return hasNumberedQuestion && (hasThaiOptions || hasEnOptions) && hasAnswerLine;
+    const normalized = normalizeExamImportDocument(text);
+    const hasNumberedQuestion = /^\d+\.\s/m.test(normalized);
+    const hasThaiOptions = /^[กขคงจฉชซฌญ]\s*[.)]/mu.test(normalized);
+    const hasEnOptions = /^[a-eA-E]\s*[.)]/m.test(normalized);
+    const hasAnswerLine =
+        /^ตอบ\s/m.test(normalized) || /^answer\s*[:：]?/im.test(normalized) || containsAnswerMarker(normalized);
+    const answerCount = (normalized.match(/^ตอบ\s*[กขคงจฉชซฌญ]/gmu) ?? []).length;
+    const hasExamShape = (hasThaiOptions || hasEnOptions) && hasAnswerLine;
+    return hasExamShape && (hasNumberedQuestion || answerCount >= 1);
 }
 
 export function parseExamFormatBlock(block: string, language: "en" | "th"): QuestionImportRow | null {
-    const lines = block
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean);
+    const lines = block.split(/\n/).map((line) => normalizeExamImportLine(line)).filter(Boolean);
 
     let question = "";
     let timeLimit = "";
     const optionsByLetter = new Map<string, string>();
     let answerLetter = "";
+    let lastOptionLetter: string | null = null;
 
     for (const line of lines) {
         const questionMatch = line.match(/^\d+\.\s*(.+)$/);
         if (questionMatch?.[1]) {
             question = normalizeLine(questionMatch[1]);
+            lastOptionLetter = null;
             continue;
         }
 
         const timeMatch = line.match(/^(?:เวลา(?:\s*\(วินาที\))?|time(?:\s*limit)?)\s*[:：]\s*(\d+)\s*$/i);
         if (timeMatch?.[1]) {
             timeLimit = timeMatch[1];
+            lastOptionLetter = null;
             continue;
         }
 
-        const thaiOptionMatch = line.match(/^([กขคงจฉชซฌญ])\s*[.)]\s*(.+)$/u);
-        if (thaiOptionMatch?.[1] && thaiOptionMatch[2]) {
-            optionsByLetter.set(thaiOptionMatch[1], normalizeLine(thaiOptionMatch[2]));
+        const thaiOptionMatch = line.match(/^([กขคงจฉชซฌญ])\s*[.)]\s*(.*)$/u);
+        if (thaiOptionMatch?.[1]) {
+            const optionText = normalizeLine(thaiOptionMatch[2]?.split(/\t/)[0] ?? thaiOptionMatch[2] ?? "");
+            optionsByLetter.set(thaiOptionMatch[1], optionText);
+            lastOptionLetter = thaiOptionMatch[1];
             continue;
         }
 
-        const enOptionMatch = line.match(/^([a-eA-E])\s*[.)]\s*(.+)$/);
-        if (enOptionMatch?.[1] && enOptionMatch[2]) {
-            optionsByLetter.set(normalizeOptionLetter(enOptionMatch[1]), normalizeLine(enOptionMatch[2]));
+        const enOptionMatch = line.match(/^([a-eA-E])\s*[.)]\s*(.*)$/i);
+        if (enOptionMatch?.[1]) {
+            const letter = normalizeOptionLetter(enOptionMatch[1]);
+            optionsByLetter.set(letter, normalizeLine(enOptionMatch[2] ?? ""));
+            lastOptionLetter = letter;
             continue;
         }
 
-        const thaiAnswerMatch = line.match(/^ตอบ\s*[:：]?\s*([กขคงจฉชซฌญ])\s*\.?\s*$/u);
+        const thaiAnswerMatch = line.match(/(?:^|\s)ตอบ\s*[:：]?\s*([กขคงจฉชซฌญ])\s*\.?/u);
         if (thaiAnswerMatch?.[1]) {
             answerLetter = thaiAnswerMatch[1];
+            lastOptionLetter = null;
             continue;
         }
 
-        const enAnswerMatch = line.match(/^answer\s*[:：]?\s*([a-eA-E])\s*\.?\s*$/i);
+        const enAnswerMatch = line.match(/(?:^|\s)answer\s*[:：]?\s*([a-eA-E])\s*\.?/i);
         if (enAnswerMatch?.[1]) {
             answerLetter = normalizeOptionLetter(enAnswerMatch[1]);
+            lastOptionLetter = null;
+            continue;
+        }
+
+        if (
+            lastOptionLetter &&
+            !containsAnswerMarker(line) &&
+            !isTimeLine(line) &&
+            !isThaiOptionLine(line) &&
+            !isEnOptionLine(line)
+        ) {
+            const previous = optionsByLetter.get(lastOptionLetter) ?? "";
+            optionsByLetter.set(lastOptionLetter, normalizeLine(`${previous} ${line}`.trim()));
+            continue;
+        }
+
+        if (
+            !question &&
+            !isThaiOptionLine(line) &&
+            !isEnOptionLine(line) &&
+            !containsAnswerMarker(line) &&
+            !isTimeLine(line) &&
+            !/^จัดรูปแบบ/u.test(line) &&
+            !/^ถ้าต้องการกำหนดเวลา/u.test(line)
+        ) {
+            question = normalizeLine(line);
+            lastOptionLetter = null;
         }
     }
 
@@ -146,11 +205,12 @@ export function parseExamFormatBlock(block: string, language: "en" | "th"): Ques
 }
 
 export function rowsFromExamFormatText(text: string, language: "en" | "th"): QuestionImportRow[] {
-    if (!looksLikeExamFormat(text)) {
+    const normalized = normalizeExamImportDocument(text);
+    if (!looksLikeExamFormat(normalized)) {
         return [];
     }
 
-    return splitNumberedQuestionBlocks(text)
+    return splitNumberedQuestionBlocks(normalized)
         .map((block) => parseExamFormatBlock(block, language))
         .filter((row): row is QuestionImportRow => row !== null);
 }

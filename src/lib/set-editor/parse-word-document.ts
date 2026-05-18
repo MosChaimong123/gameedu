@@ -5,6 +5,8 @@ import {
     type ImportedQuestionDraft,
     type QuestionImportRow,
 } from "@/lib/set-editor/question-import";
+import { isZipParseErrorMessage, WordImportError } from "@/lib/set-editor/word-import-errors";
+import { extractTextFromWordHtml } from "@/lib/set-editor/word-html-text";
 
 function normalizeCellText(value: string): string {
     return value.replace(/\s+/g, " ").trim();
@@ -185,32 +187,125 @@ export function parseQuestionsFromWordHtml(html: string, rawText: string, langua
         return mapRowsToImportedQuestions(tableRows);
     }
 
-    const examRows = rowsFromExamFormatText(rawText, language);
+    const structuredText = extractTextFromWordHtml(html);
+    const textForExam = structuredText.length > 0 ? structuredText : rawText;
+
+    const examRows = rowsFromExamFormatText(textForExam, language);
     if (examRows.length > 0) {
         return mapRowsToImportedQuestions(examRows);
     }
 
-    return mapRowsToImportedQuestions(rowsFromPlainText(rawText, language));
+    return mapRowsToImportedQuestions(rowsFromPlainText(textForExam, language));
+}
+
+function htmlToPlainText(html: string): string {
+    return html
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/p>/gi, "\n")
+        .replace(/<\/div>/gi, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/\u00a0/g, " ")
+        .replace(/\r\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+}
+
+function isOleWordDocument(buffer: ArrayBuffer): boolean {
+    const bytes = new Uint8Array(buffer.slice(0, 4));
+    return bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0;
+}
+
+function isZipOfficeDocument(buffer: ArrayBuffer): boolean {
+    const bytes = new Uint8Array(buffer.slice(0, 2));
+    return bytes[0] === 0x50 && bytes[1] === 0x4b;
+}
+
+function looksLikeHtmlWordDocument(buffer: ArrayBuffer): boolean {
+    const scanLength = Math.min(buffer.byteLength, 16384);
+    const slice = buffer.slice(0, scanLength);
+    const utf8 = new TextDecoder("utf-8", { fatal: false }).decode(slice).toLowerCase();
+    if (utf8.includes("<html") || utf8.includes("<!doctype")) {
+        return true;
+    }
+
+    const bom = new Uint8Array(buffer.slice(0, 2));
+    if (bom[0] === 0xff && bom[1] === 0xfe) {
+        const utf16 = new TextDecoder("utf-16le", { fatal: false }).decode(slice).toLowerCase();
+        return utf16.includes("<html") || utf16.includes("<!doctype");
+    }
+
+    return false;
 }
 
 export async function parseQuestionsFromDocxFile(
     file: File,
     language: "en" | "th"
 ): Promise<ImportedQuestionDraft[]> {
-    const mammoth = await import("mammoth");
-    const arrayBuffer = await file.arrayBuffer();
-    const [htmlResult, textResult] = await Promise.all([
-        mammoth.convertToHtml({ arrayBuffer }),
-        mammoth.extractRawText({ arrayBuffer }),
-    ]);
+    try {
+        const mammoth = await import("mammoth");
+        const arrayBuffer = await file.arrayBuffer();
+        const [htmlResult, textResult] = await Promise.all([
+            mammoth.convertToHtml({ arrayBuffer }),
+            mammoth.extractRawText({ arrayBuffer }),
+        ]);
 
-    return parseQuestionsFromWordHtml(htmlResult.value, textResult.value, language);
+        return parseQuestionsFromWordHtml(htmlResult.value, textResult.value, language);
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (isZipParseErrorMessage(message)) {
+            throw new WordImportError("CORRUPT_DOCX");
+        }
+        throw err;
+    }
 }
 
-export function isDocxFile(file: File): boolean {
+/** Supports .docx and the downloaded .doc template (HTML). */
+export async function parseQuestionsFromWordFile(
+    file: File,
+    language: "en" | "th"
+): Promise<ImportedQuestionDraft[]> {
+    const name = file.name.toLowerCase();
+
+    if (name.endsWith(".docx")) {
+        return parseQuestionsFromDocxFile(file, language);
+    }
+
+    if (name.endsWith(".doc")) {
+        const buffer = await file.arrayBuffer();
+
+        if (isZipOfficeDocument(buffer)) {
+            const docxFile = new File([buffer], file.name.replace(/\.doc$/i, ".docx"), {
+                type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            });
+            return parseQuestionsFromDocxFile(docxFile, language);
+        }
+
+        if (looksLikeHtmlWordDocument(buffer)) {
+            const html = new TextDecoder().decode(buffer);
+            return parseQuestionsFromWordHtml(html, htmlToPlainText(html), language);
+        }
+
+        if (isOleWordDocument(buffer)) {
+            throw new WordImportError("LEGACY_DOC");
+        }
+
+        throw new WordImportError("UNSUPPORTED");
+    }
+
+    throw new WordImportError("UNSUPPORTED");
+}
+
+export function isSupportedWordImportFile(file: File): boolean {
     const name = file.name.toLowerCase();
     return (
         name.endsWith(".docx") ||
-        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        name.endsWith(".doc") ||
+        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        file.type === "application/msword"
     );
+}
+
+/** @deprecated Use isSupportedWordImportFile */
+export function isDocxFile(file: File): boolean {
+    return isSupportedWordImportFile(file);
 }

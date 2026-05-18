@@ -77,46 +77,62 @@ export function buildCsvTemplateContent(language: "en" | "th"): string {
     return "Question Text,Time Limit,Correct Answer,Option 2,Option 3,Option 4\nExample Question?,30,Correct Answer,Wrong 1,Wrong 2,Wrong 3";
 }
 
-export function buildWordTemplateHtml(language: "en" | "th"): string {
+export function getWordTemplateExamLines(language: "en" | "th"): string[] {
     if (language === "th") {
-        return `<!DOCTYPE html>
-<html lang="th"><head><meta charset="utf-8"><title>แบบฟอร์มนำเข้าคำถาม</title></head>
-<body style="font-family: 'TH Sarabun New', 'Sarabun', sans-serif; font-size: 16pt; line-height: 1.6;">
-<p>จัดรูปแบบแบบข้อสอบ (บันทึกเป็น .docx) — ใส่ <strong>ตอบ ก.</strong> ให้ตรงตัวเลือกที่ถูก (ไม่จำเป็นต้องใส่จุดหลังตัวอักษร)</p>
-<p>1. จุดเริ่มแรกของสนามไฟฟ้าเกิดจากสิ่งใด</p>
-<p>ก. กระแสไฟฟ้า</p>
-<p>ข. ประจุไฟฟ้า</p>
-<p>ค. สนามแม่เหล็ก</p>
-<p>ง. ความร้อน</p>
-<p>ตอบ ข.</p>
-<p>&nbsp;</p>
-<p>2. ตัวอย่างคำถามข้อที่สอง?</p>
-<p>ก. ตัวเลือก 1</p>
-<p>ข. ตัวเลือก 2</p>
-<p>ค. ตัวเลือก 3</p>
-<p>ง. ตัวเลือก 4</p>
-<p>ตอบ ค.</p>
-<p>&nbsp;</p>
-<p><em>ถ้าต้องการกำหนดเวลา: เพิ่มบรรทัด เวลา: 30 หลังคำถาม</em></p>
-</body></html>`;
+        return [
+            "จัดรูปแบบแบบข้อสอบ — แต่ละข้อลงท้ายด้วยบรรทัด ตอบ ข. ให้ตรงตัวเลือกที่ถูก (ไม่จำเป็นต้องใส่จุดหลังตัวอักษร)",
+            "",
+            "1. จุดเริ่มแรกของสนามไฟฟ้าเกิดจากสิ่งใด",
+            "ก. กระแสไฟฟ้า",
+            "ข. ประจุไฟฟ้า",
+            "ค. สนามแม่เหล็ก",
+            "ง. ความร้อน",
+            "ตอบ ข.",
+            "",
+            "2. ตัวอย่างคำถามข้อที่สอง?",
+            "ก. ตัวเลือก 1",
+            "ข. ตัวเลือก 2",
+            "ค. ตัวเลือก 3",
+            "ง. ตัวเลือก 4",
+            "ตอบ ค.",
+            "",
+            "ถ้าต้องการกำหนดเวลา: เพิ่มบรรทัด เวลา: 30 หลังคำถาม",
+        ];
     }
 
+    return [
+        "Exam-style format. Mark the correct choice with Answer: b",
+        "",
+        "1. What is the source of an electric field?",
+        "a. Electric current",
+        "b. Electric charge",
+        "c. Magnetic field",
+        "d. Heat",
+        "Answer: b",
+        "",
+        "2. Second example question?",
+        "a. Choice 1",
+        "b. Choice 2",
+        "c. Choice 3",
+        "d. Choice 4",
+        "Answer: c",
+    ];
+}
+
+export function buildWordTemplateHtml(language: "en" | "th"): string {
+    const langAttr = language === "th" ? "th" : "en";
+    const title = language === "th" ? "แบบฟอร์มนำเข้าคำถาม" : "Question import template";
+    const font =
+        language === "th"
+            ? "'TH Sarabun New', 'Sarabun', sans-serif; font-size: 16pt"
+            : "Calibri, sans-serif; font-size: 12pt";
+    const paragraphs = getWordTemplateExamLines(language)
+        .map((line) => (line.length === 0 ? "<p>&nbsp;</p>" : `<p>${line}</p>`))
+        .join("\n");
+
     return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>Question import template</title></head>
-<body style="font-family: Calibri, sans-serif; font-size: 12pt; line-height: 1.6;">
-<p>Exam-style format (save as .docx). Mark the correct choice with <strong>Answer: b</strong></p>
-<p>1. What is the source of an electric field?</p>
-<p>a. Electric current</p>
-<p>b. Electric charge</p>
-<p>c. Magnetic field</p>
-<p>d. Heat</p>
-<p>Answer: b</p>
-<p>&nbsp;</p>
-<p>2. Second example question?</p>
-<p>a. Choice 1</p>
-<p>b. Choice 2</p>
-<p>c. Choice 3</p>
-<p>d. Choice 4</p>
-<p>Answer: c</p>
+<html lang="${langAttr}"><head><meta charset="utf-8"><title>${title}</title></head>
+<body style="font-family: ${font}; line-height: 1.6;">
+${paragraphs}
 </body></html>`;
 }

@@ -14,8 +14,14 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import { buildWordTemplateHtml, type ImportedQuestionDraft } from "@/lib/set-editor/question-import"
-import { isDocxFile, parseQuestionsFromDocxFile } from "@/lib/set-editor/parse-word-document"
+import { buildWordTemplateDocxBlob } from "@/lib/set-editor/build-word-template-docx"
+import type { ImportedQuestionDraft } from "@/lib/set-editor/question-import"
+import { isSupportedWordImportFile, parseQuestionsFromWordFile } from "@/lib/set-editor/parse-word-document"
+import {
+    isZipParseErrorMessage,
+    WORD_IMPORT_ERROR_TRANSLATION_KEYS,
+    WordImportError,
+} from "@/lib/set-editor/word-import-errors"
 import {
     getCsvMissingColumnsMessage,
     getCsvNoValidQuestionsMessage,
@@ -38,8 +44,8 @@ export function ImportWordDialog({ open, onOpenChange, onImport }: Props) {
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     const handleFile = async (file: File) => {
-        if (!isDocxFile(file)) {
-            setError(t("pleaseUploadDocx"))
+        if (!isSupportedWordImportFile(file)) {
+            setError(t("pleaseUploadWordFile"))
             return;
         }
 
@@ -47,7 +53,7 @@ export function ImportWordDialog({ open, onOpenChange, onImport }: Props) {
         setIsParsing(true)
 
         try {
-            const questions = await parseQuestionsFromDocxFile(file, importLanguage)
+            const questions = await parseQuestionsFromWordFile(file, importLanguage)
             if (questions.length === 0) {
                 setParsedData([])
                 setError(getCsvMissingColumnsMessage(importLanguage, t("wordMissingFormat")))
@@ -55,8 +61,16 @@ export function ImportWordDialog({ open, onOpenChange, onImport }: Props) {
                 setParsedData(questions)
             }
         } catch (err) {
-            const message = err instanceof Error ? err.message : String(err)
-            setError(getCsvParseErrorMessage(t("wordParseError"), message))
+            if (err instanceof WordImportError) {
+                setError(t(WORD_IMPORT_ERROR_TRANSLATION_KEYS[err.code]))
+            } else {
+                const message = err instanceof Error ? err.message : String(err)
+                if (isZipParseErrorMessage(message)) {
+                    setError(t("wordCorruptDocxHint"))
+                } else {
+                    setError(getCsvParseErrorMessage(t("wordParseError"), message))
+                }
+            }
             setParsedData([])
         } finally {
             setIsParsing(false)
@@ -71,9 +85,8 @@ export function ImportWordDialog({ open, onOpenChange, onImport }: Props) {
         }
     }
 
-    const downloadTemplate = () => {
-        const html = buildWordTemplateHtml(importLanguage)
-        const blob = new Blob([html], { type: "application/msword;charset=utf-8" })
+    const downloadTemplate = async () => {
+        const blob = await buildWordTemplateDocxBlob(importLanguage)
         const url = URL.createObjectURL(blob)
         const link = document.createElement("a")
         link.href = url
@@ -102,7 +115,7 @@ export function ImportWordDialog({ open, onOpenChange, onImport }: Props) {
                         {t("importWordDescription")}{" "}
                         <button
                             type="button"
-                            onClick={downloadTemplate}
+                            onClick={() => void downloadTemplate()}
                             className="text-purple-600 underline font-semibold hover:text-purple-700"
                         >
                             {t("downloadWordTemplate")}
@@ -124,7 +137,7 @@ export function ImportWordDialog({ open, onOpenChange, onImport }: Props) {
                                 type="file"
                                 ref={fileInputRef}
                                 className="hidden"
-                                accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                                 onChange={(e) => e.target.files?.[0] && void handleFile(e.target.files[0])}
                             />
                             <div className="bg-blue-100 p-4 rounded-full mb-4">
@@ -135,7 +148,7 @@ export function ImportWordDialog({ open, onOpenChange, onImport }: Props) {
                                 )}
                             </div>
                             <p className="text-lg font-semibold text-slate-700">{t("dragDropWord")}</p>
-                            <p className="text-sm text-slate-500 mt-2">{t("supportsDocx")}</p>
+                            <p className="text-sm text-slate-500 mt-2">{t("supportsWordFile")}</p>
                         </div>
                     ) : (
                         <div className="space-y-4">

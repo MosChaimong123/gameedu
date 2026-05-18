@@ -7,5 +7,6 @@ export function assignmentFormTypeLabel(
 ): string {
     if (formType === "checklist") return t("assignmentFormTypeChecklist");
     if (formType === "quiz") return t("assignmentFormTypeQuiz");
+    if (formType === "worksheet") return t("assignmentFormTypeWorksheet");
     return t("assignmentFormTypeScore");
 }

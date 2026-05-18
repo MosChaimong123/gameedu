@@ -3,6 +3,8 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { sendNotification } from "@/lib/notifications";
 import { parseQuizReviewModeFromRequest } from "@/lib/quiz-review-policy";
+import { sumWorksheetMaxScore } from "@/lib/worksheet-assignment";
+import { validateWorksheetData } from "@/lib/worksheet-schema";
 import {
     AUTH_REQUIRED_MESSAGE,
     FORBIDDEN_MESSAGE,
@@ -28,6 +30,7 @@ type AssignmentRequestBody = {
     quizSetId?: string | null;
     quizData?: unknown;
     quizReviewMode?: string | null;
+    worksheetData?: unknown;
 };
 
 export async function POST(
@@ -57,6 +60,13 @@ export async function POST(
             return createAppErrorResponse("INVALID_PAYLOAD", "Quiz requires a question set", 400);
         }
 
+        if (type === "worksheet") {
+            const parsedWorksheet = validateWorksheetData(body.worksheetData);
+            if (!parsedWorksheet.ok) {
+                return createAppErrorResponse("INVALID_PAYLOAD", "Worksheet data is invalid", 400);
+            }
+        }
+
         const classroom = await db.classroom.findUnique({
             where: { id: resolvedParams.id },
             include: {
@@ -70,6 +80,7 @@ export async function POST(
         }
 
         let quizData = body.quizData || null;
+        let resolvedMaxScore = maxScore || 10;
 
         if (quizSetId && type === "quiz") {
             const questionSet = await db.questionSet.findUnique({
@@ -80,6 +91,15 @@ export async function POST(
                 return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
             }
             quizData = { questions: questionSet.questions };
+        }
+
+        if (type === "worksheet") {
+            const parsedWorksheet = validateWorksheetData(body.worksheetData);
+            if (!parsedWorksheet.ok) {
+                return createAppErrorResponse("INVALID_PAYLOAD", "Worksheet data is invalid", 400);
+            }
+            quizData = parsedWorksheet.data;
+            resolvedMaxScore = sumWorksheetMaxScore(parsedWorksheet.data);
         }
 
         const effectiveType = String(type || "score").toLowerCase();
@@ -97,7 +117,7 @@ export async function POST(
                 classId: classroom.id,
                 name,
                 description,
-                maxScore: maxScore || 10,
+                maxScore: resolvedMaxScore,
                 type: type || "score",
                 checklists: checklists || [],
                 passScore: passScore ?? null,
@@ -116,6 +136,9 @@ export async function POST(
             assignmentType === "quiz"
                 ? (student: { loginCode: string }) =>
                       `/student/${student.loginCode}/quiz/${assignment.id}`
+                : assignmentType === "worksheet"
+                  ? (student: { loginCode: string }) =>
+                        `/student/${student.loginCode}/worksheet/${assignment.id}`
                 : (student: { loginCode: string }) => `/student/${student.loginCode}`;
 
         const dueStr = assignment.deadline

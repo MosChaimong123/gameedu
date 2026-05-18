@@ -1,6 +1,6 @@
 # System Plans Index
 
-Last updated: 2026-05-03
+Last updated: 2026-05-18
 
 ใช้โฟลเดอร์นี้สำหรับวิเคราะห์ปัญหาและวางแผนพัฒนาทีละระบบของ GameEdu
 
@@ -21,6 +21,7 @@ Last updated: 2026-05-03
 13. [Admin / Audit / Management](./13-admin-audit-management.md)
 14. [i18n / Localization / Accessibility](./14-i18n-localization-accessibility.md)
 15. [Ops / QA / Production Readiness](./15-ops-qa-production-readiness.md)
+16. [Interactive Worksheet](./16-interactive-worksheet.md)
 
 ## How To Use
 

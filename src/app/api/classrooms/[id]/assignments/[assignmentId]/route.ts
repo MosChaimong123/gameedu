@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
 import { parseQuizReviewModeFromRequest } from "@/lib/quiz-review-policy";
+import { sumWorksheetMaxScore } from "@/lib/worksheet-assignment";
+import { validateWorksheetData } from "@/lib/worksheet-schema";
 import {
     AUTH_REQUIRED_MESSAGE,
     FORBIDDEN_MESSAGE,
@@ -95,6 +97,17 @@ export async function PATCH(
             data.quizSetId = null;
             data.quizData = null;
             data.quizReviewMode = null;
+        }
+
+        if (explicitType === "worksheet") {
+            const parsedWorksheet = validateWorksheetData(body.worksheetData);
+            if (!parsedWorksheet.ok) {
+                return createAppErrorResponse("INVALID_PAYLOAD", "Worksheet data is invalid", 400);
+            }
+            data.quizSetId = null;
+            data.quizReviewMode = null;
+            data.quizData = parsedWorksheet.data;
+            data.maxScore = sumWorksheetMaxScore(parsedWorksheet.data);
         }
 
         if (effectiveType === "quiz" && body.quizReviewMode !== undefined) {

@@ -4,12 +4,13 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
-import { Loader2, Plus, Save, Globe, Lock, PenSquare, FileText, Image as ImageIcon, Sparkles } from "lucide-react"
+import { Loader2, Plus, Save, Globe, Lock, PenSquare, FileText, FileType, Image as ImageIcon, Sparkles } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { SettingsDialog } from "@/components/set-editor/settings-dialog"
 import { QuestionList, type QuestionListItem } from "@/components/set-editor/question-list"
 import { EditorDialog, type EditableQuestion } from "@/components/set-editor/editor-dialog"
 import { ImportSpreadsheetDialog } from "@/components/set-editor/import-spreadsheet-dialog"
+import { ImportWordDialog } from "@/components/set-editor/import-word-dialog"
 import { AIGeneratorDialog, type GeneratedQuestion } from "@/components/set-editor/ai-generator-dialog"
 import { PageBackLink } from "@/components/ui/page-back-link"
 import { useToast } from "@/components/ui/use-toast"
@@ -75,6 +76,7 @@ export default function EditSetPage() {
     const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false)
     const [isAIDialogOpen, setIsAIDialogOpen] = useState(false)
     const [isSpreadsheetOpen, setIsSpreadsheetOpen] = useState(false)
+    const [isWordOpen, setIsWordOpen] = useState(false)
     const [pendingDeleteQuestionId, setPendingDeleteQuestionId] = useState<string | null>(null)
 
     const searchParams = useSearchParams()
@@ -329,11 +331,19 @@ export default function EditSetPage() {
                         </Button>
                         <Button
                             variant="outline"
-                            className="h-14 col-span-2 flex items-center justify-center border-2 border-slate-200 hover:border-emerald-500 hover:text-emerald-600 font-bold mt-2"
+                            className="h-14 flex items-center justify-center border-2 border-slate-200 hover:border-emerald-500 hover:text-emerald-600 font-bold mt-2"
                             onClick={() => setIsSpreadsheetOpen(true)}
                         >
                             <FileText className="w-5 h-5 mr-2" />
                             <span className="text-sm">{t("spreadsheetImport")}</span>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="h-14 flex items-center justify-center border-2 border-slate-200 hover:border-blue-500 hover:text-blue-600 font-bold mt-2"
+                            onClick={() => setIsWordOpen(true)}
+                        >
+                            <FileType className="w-5 h-5 mr-2" />
+                            <span className="text-sm">{t("wordImport")}</span>
                         </Button>
                     </div>
                 </div>
@@ -410,6 +420,12 @@ export default function EditSetPage() {
             <ImportSpreadsheetDialog
                 open={isSpreadsheetOpen}
                 onOpenChange={setIsSpreadsheetOpen}
+                onImport={handleImportQuestions}
+            />
+
+            <ImportWordDialog
+                open={isWordOpen}
+                onOpenChange={setIsWordOpen}
                 onImport={handleImportQuestions}
             />
 

@@ -1,11 +1,10 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useRef, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/components/providers/language-provider"
-import { Upload, AlertCircle, FileSpreadsheet, CheckCircle2 } from "lucide-react"
-import Papa from "papaparse"
+import { Upload, AlertCircle, FileType, CheckCircle2, Loader2 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
     Table,
@@ -15,19 +14,13 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import { buildWordTemplateHtml, type ImportedQuestionDraft } from "@/lib/set-editor/question-import"
+import { isDocxFile, parseQuestionsFromDocxFile } from "@/lib/set-editor/parse-word-document"
 import {
-    getCsvInvalidFileMessage,
     getCsvMissingColumnsMessage,
     getCsvNoValidQuestionsMessage,
     getCsvParseErrorMessage,
 } from "@/lib/set-editor-messages"
-import {
-    buildCsvTemplateContent,
-    detectQuestionImportLanguage,
-    mapRowsToImportedQuestions,
-    type ImportedQuestionDraft,
-    type QuestionImportRow,
-} from "@/lib/set-editor/question-import"
 
 type Props = {
     open: boolean
@@ -35,64 +28,56 @@ type Props = {
     onImport: (questions: ImportedQuestionDraft[]) => void
 }
 
-export function ImportSpreadsheetDialog({ open, onOpenChange, onImport }: Props) {
+export function ImportWordDialog({ open, onOpenChange, onImport }: Props) {
     const { t, language } = useLanguage()
     const importLanguage = language === "th" ? "th" : "en"
     const [isDragging, setIsDragging] = useState(false)
     const [parsedData, setParsedData] = useState<ImportedQuestionDraft[]>([])
     const [error, setError] = useState<string | null>(null)
+    const [isParsing, setIsParsing] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    const handleFile = (file: File) => {
-        if (file.type !== "text/csv" && !file.name.endsWith(".csv")) {
-            setError(getCsvInvalidFileMessage(t("pleaseUploadCsv")))
-            return
+    const handleFile = async (file: File) => {
+        if (!isDocxFile(file)) {
+            setError(t("pleaseUploadDocx"))
+            return;
         }
+
         setError(null)
+        setIsParsing(true)
 
-        Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: (results) => {
-                const { data, meta } = results
-                const headers = meta.fields || []
-                const detectedLanguage = detectQuestionImportLanguage(headers)
-
-                if (!detectedLanguage) {
-                    setError(getCsvMissingColumnsMessage(importLanguage, t("missingColumns")))
-                    setParsedData([])
-                    return
-                }
-
-                const questions = mapRowsToImportedQuestions(data as QuestionImportRow[])
-
-                if (questions.length === 0) {
-                    setError(getCsvNoValidQuestionsMessage(t("noValidQuestions")))
-                } else {
-                    setParsedData(questions)
-                }
-            },
-            error: (err) => {
-                setError(getCsvParseErrorMessage(t("csvParseError"), err.message))
+        try {
+            const questions = await parseQuestionsFromDocxFile(file, importLanguage)
+            if (questions.length === 0) {
+                setParsedData([])
+                setError(getCsvMissingColumnsMessage(importLanguage, t("wordMissingFormat")))
+            } else {
+                setParsedData(questions)
             }
-        })
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            setError(getCsvParseErrorMessage(t("wordParseError"), message))
+            setParsedData([])
+        } finally {
+            setIsParsing(false)
+        }
     }
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault()
         setIsDragging(false)
         if (e.dataTransfer.files?.[0]) {
-            handleFile(e.dataTransfer.files[0])
+            void handleFile(e.dataTransfer.files[0])
         }
     }
 
     const downloadTemplate = () => {
-        const csvContent = buildCsvTemplateContent(importLanguage)
-        const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" })
+        const html = buildWordTemplateHtml(importLanguage)
+        const blob = new Blob([html], { type: "application/msword;charset=utf-8" })
         const url = URL.createObjectURL(blob)
         const link = document.createElement("a")
         link.href = url
-        link.setAttribute("download", t("csvTemplateDownloadFilename"))
+        link.setAttribute("download", t("wordTemplateDownloadFilename"))
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
@@ -110,11 +95,18 @@ export function ImportSpreadsheetDialog({ open, onOpenChange, onImport }: Props)
             <DialogContent className="max-w-3xl bg-white max-h-[85vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <FileSpreadsheet className="w-6 h-6 text-emerald-600" />
-                        {t("importSpreadsheetTitle")}
+                        <FileType className="w-6 h-6 text-blue-600" />
+                        {t("importWordTitle")}
                     </DialogTitle>
                     <DialogDescription>
-                        {t("importDescription")} <button type="button" onClick={downloadTemplate} className="text-purple-600 underline font-semibold hover:text-purple-700">{t("downloadTemplate")}</button>
+                        {t("importWordDescription")}{" "}
+                        <button
+                            type="button"
+                            onClick={downloadTemplate}
+                            className="text-purple-600 underline font-semibold hover:text-purple-700"
+                        >
+                            {t("downloadWordTemplate")}
+                        </button>
                     </DialogDescription>
                 </DialogHeader>
 
@@ -122,7 +114,7 @@ export function ImportSpreadsheetDialog({ open, onOpenChange, onImport }: Props)
                     {parsedData.length === 0 ? (
                         <div
                             className={`border-2 border-dashed rounded-xl h-64 flex flex-col items-center justify-center transition-colors cursor-pointer ${isDragging ? "border-purple-500 bg-purple-50" : "border-slate-300 hover:border-purple-400 hover:bg-slate-50"
-                                }`}
+                                } ${isParsing ? "pointer-events-none opacity-70" : ""}`}
                             onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
                             onDragLeave={() => setIsDragging(false)}
                             onDrop={handleDrop}
@@ -132,19 +124,23 @@ export function ImportSpreadsheetDialog({ open, onOpenChange, onImport }: Props)
                                 type="file"
                                 ref={fileInputRef}
                                 className="hidden"
-                                accept=".csv"
-                                onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+                                accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                onChange={(e) => e.target.files?.[0] && void handleFile(e.target.files[0])}
                             />
-                            <div className="bg-emerald-100 p-4 rounded-full mb-4">
-                                <Upload className="w-8 h-8 text-emerald-600" />
+                            <div className="bg-blue-100 p-4 rounded-full mb-4">
+                                {isParsing ? (
+                                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                                ) : (
+                                    <Upload className="w-8 h-8 text-blue-600" />
+                                )}
                             </div>
-                            <p className="text-lg font-semibold text-slate-700">{t("dragDropCsv")}</p>
-                            <p className="text-sm text-slate-500 mt-2">{t("supportsCsv")}</p>
+                            <p className="text-lg font-semibold text-slate-700">{t("dragDropWord")}</p>
+                            <p className="text-sm text-slate-500 mt-2">{t("supportsDocx")}</p>
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <div className="flex items-center justify-between bg-emerald-50 p-3 rounded-lg border border-emerald-200">
-                                <div className="flex items-center gap-2 text-emerald-700 font-medium">
+                            <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                <div className="flex items-center gap-2 text-blue-700 font-medium">
                                     <CheckCircle2 className="w-5 h-5" />
                                     {t("foundQuestions").replace("{count}", parsedData.length.toString())}
                                 </div>
@@ -194,7 +190,7 @@ export function ImportSpreadsheetDialog({ open, onOpenChange, onImport }: Props)
 
                 <DialogFooter className="mt-4">
                     <Button variant="outline" onClick={() => onOpenChange(false)}>{t("cancel")}</Button>
-                    <Button onClick={handleConfirm} disabled={parsedData.length === 0} className="bg-emerald-600 hover:bg-emerald-700">
+                    <Button onClick={handleConfirm} disabled={parsedData.length === 0 || isParsing} className="bg-blue-600 hover:bg-blue-700">
                         {t("importCount").replace("{count}", parsedData.length.toString())}
                     </Button>
                 </DialogFooter>

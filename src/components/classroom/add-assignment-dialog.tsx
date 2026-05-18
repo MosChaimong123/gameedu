@@ -18,7 +18,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/components/ui/use-toast";
 import {
     Plus, X, Star, Eye, EyeOff, Edit, Trash2, GripVertical,
-    Settings2, CheckSquare, BookOpen, Save, XCircle
+    Settings2, CheckSquare, BookOpen, Save, XCircle, PanelsTopLeft
 } from "lucide-react";
 import { Assignment } from "@prisma/client";
 import {
@@ -35,6 +35,7 @@ import {
     toDatetimeLocalValue,
 } from "@/lib/datetime-local";
 import { cn } from "@/lib/utils";
+import { WorksheetBuilder } from "@/components/classroom/worksheet-builder";
 import { getThemeBgStyle, getThemeHorizontalBgClass } from "@/lib/classroom-utils";
 import {
     getLocalizedErrorMessageFromResponse,
@@ -57,6 +58,17 @@ import {
     arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import {
+    buildDefaultWorksheetData,
+    type WorksheetData,
+    validateWorksheetData,
+} from "@/lib/worksheet-schema";
+import {
+    countWorksheetItems,
+    hasWorksheetBackgrounds,
+    parseWorksheetDataFromAssignmentPayload,
+    sumWorksheetMaxScore,
+} from "@/lib/worksheet-assignment";
 
 interface AddAssignmentDialogProps {
     classId: string;
@@ -264,6 +276,7 @@ export function AddAssignmentDialog({
     const [quizSetId, setQuizSetId] = useState("");
     const [quizReviewPolicy, setQuizReviewPolicy] = useState<string>(QUIZ_REVIEW_INHERIT);
     const [questionSets, setQuestionSets] = useState<QuestionSetOption[]>([]);
+    const [worksheetData, setWorksheetData] = useState<WorksheetData>(buildDefaultWorksheetData());
 
     const resetForm = useCallback(() => {
         setEditId(null);
@@ -276,6 +289,7 @@ export function AddAssignmentDialog({
         setDeadlineLocal("");
         setQuizSetId("");
         setQuizReviewPolicy(QUIZ_REVIEW_INHERIT);
+        setWorksheetData(buildDefaultWorksheetData());
     }, []);
 
     const resolveMutationFailureDescription = (
@@ -319,6 +333,8 @@ export function AddAssignmentDialog({
         setDescription(a.description?.trim() ? a.description : "");
         setDeadlineLocal(toDatetimeLocalValue(a.deadline));
         setQuizSetId(a.quizSetId ?? "");
+        const parsedWorksheet = parseWorksheetDataFromAssignmentPayload(a.quizData);
+        setWorksheetData(parsedWorksheet ?? buildDefaultWorksheetData());
         const arm = a.quizReviewMode;
         if (arm === "never" || arm === "end_only") {
             setQuizReviewPolicy(arm);
@@ -375,6 +391,21 @@ export function AddAssignmentDialog({
             calculatedMaxScore = n;
         }
 
+        if (type === "worksheet") {
+            const hasItems = countWorksheetItems(worksheetData) > 0;
+            const hasBackgrounds = hasWorksheetBackgrounds(worksheetData);
+            const worksheetValid = validateWorksheetData(worksheetData).ok;
+            if (!hasItems || !hasBackgrounds || !worksheetValid) {
+                toast({
+                    title: t("toastAssignmentIncompleteTitle"),
+                    description: t("toastAssignmentWorksheetRequiredDesc"),
+                    variant: "destructive",
+                });
+                return;
+            }
+            calculatedMaxScore = sumWorksheetMaxScore(worksheetData);
+        }
+
         const deadlineIso = fromDatetimeLocalToIso(deadlineLocal);
 
         setLoading(true);
@@ -392,6 +423,10 @@ export function AddAssignmentDialog({
                 payload.quizSetId = quizSetId;
                 payload.quizReviewMode =
                     quizReviewPolicy === QUIZ_REVIEW_INHERIT ? null : quizReviewPolicy;
+            }
+            if (type === "worksheet") {
+                payload.worksheetData = worksheetData;
+                payload.passScore = passScore ? parseInt(passScore, 10) : null;
             }
 
             let res: Response;
@@ -680,7 +715,7 @@ export function AddAssignmentDialog({
                                         setType(next);
                                         if (next !== "quiz") setQuizSetId("");
                                     }}
-                                    className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:grid sm:grid-cols-3 sm:gap-2 sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden"
+                                    className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:grid sm:grid-cols-4 sm:gap-2 sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden"
                                 >
                                     <Label
                                         htmlFor="scoreType"
@@ -717,6 +752,18 @@ export function AddAssignmentDialog({
                                         <RadioGroupItem value="quiz" id="quizType" className="sr-only" />
                                         <BookOpen className="w-8 h-8 mb-2" />
                                         <span className="font-bold text-xs">{t("assignmentFormTypeQuiz")}</span>
+                                    </Label>
+                                    <Label
+                                        htmlFor="worksheetType"
+                                        className={`flex min-h-[88px] min-w-[calc(33.333%-0.35rem)] shrink-0 snap-center flex-col items-center justify-center rounded-xl border-2 p-3 cursor-pointer transition-all sm:min-h-0 sm:min-w-0 ${
+                                            type === "worksheet"
+                                                ? "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700"
+                                                : "border-slate-100 bg-white text-slate-400 hover:border-fuchsia-200"
+                                        }`}
+                                    >
+                                        <RadioGroupItem value="worksheet" id="worksheetType" className="sr-only" />
+                                        <PanelsTopLeft className="w-8 h-8 mb-2" />
+                                        <span className="font-bold text-xs">{t("assignmentFormTypeWorksheet")}</span>
                                     </Label>
                                 </RadioGroup>
 
@@ -895,6 +942,42 @@ export function AddAssignmentDialog({
                                                 {t("assignmentQuizReviewPerQuestionNote")}
                                             </p>
                                         </div>
+                                    </div>
+                                )}
+
+                                {type === "worksheet" && (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <Label className="text-slate-600 font-bold text-xs uppercase tracking-wider">
+                                                    {t("assignmentMaxScoreLabel")}
+                                                </Label>
+                                                <Input
+                                                    type="number"
+                                                    value={sumWorksheetMaxScore(worksheetData)}
+                                                    readOnly
+                                                    className="h-12 border-fuchsia-200 bg-fuchsia-50 text-center text-xl font-bold text-fuchsia-700"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-slate-600 font-bold text-xs uppercase tracking-wider">
+                                                    {t("assignmentPassScoreLabel")}
+                                                </Label>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    placeholder="-"
+                                                    value={passScore}
+                                                    onChange={(e) => setPassScore(e.target.value)}
+                                                    className="h-12 border-fuchsia-200 bg-white text-center text-xl font-bold text-fuchsia-700"
+                                                />
+                                            </div>
+                                        </div>
+                                        <WorksheetBuilder
+                                            value={worksheetData}
+                                            onChange={setWorksheetData}
+                                            disabled={loading}
+                                        />
                                     </div>
                                 )}
                             </div>

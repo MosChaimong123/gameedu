@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpen, ClipboardList, LogOut, PlayCircle, Star, Trophy } from "lucide-react";
+import { BookOpen, ClipboardList, LogOut, PanelsTopLeft, PlayCircle, Star, Trophy } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { JoinClassDialog } from "@/components/student/join-class-dialog";
 import { getThemeBgStyle } from "@/lib/classroom-utils";
@@ -151,11 +151,14 @@ export function StudentHomeContent({
                                                 {pendingAssignments.slice(0, 3).map((a) => {
                                                     const formType = dbAssignmentTypeToFormType(a.type);
                                                     const isQuiz = formType === "quiz";
+                                                    const isWorksheet = formType === "worksheet";
                                                     const deadlinePast =
                                                         a.deadline != null && new Date(a.deadline) < new Date();
-                                                    const canOpenQuiz = isQuiz && !deadlinePast;
-                                                    const href = canOpenQuiz
-                                                        ? `/student/${record.loginCode}/quiz/${a.id}`
+                                                    const canOpenInteractive = (isQuiz || isWorksheet) && !deadlinePast;
+                                                    const href = canOpenInteractive
+                                                        ? isWorksheet
+                                                            ? `/student/${record.loginCode}/worksheet/${a.id}`
+                                                            : `/student/${record.loginCode}/quiz/${a.id}`
                                                         : `/student/${record.loginCode}`;
                                                     return (
                                                         <Link
@@ -190,7 +193,9 @@ export function StudentHomeContent({
                                                                 <span className="text-xs text-slate-400">
                                                                     {t("maxScore", { score: a.maxScore })}
                                                                 </span>
-                                                                {isQuiz ? (
+                                                                {isWorksheet ? (
+                                                                    <PanelsTopLeft className="h-5 w-5 text-purple-500" />
+                                                                ) : isQuiz ? (
                                                                     <PlayCircle className="h-5 w-5 text-purple-500" />
                                                                 ) : (
                                                                     <ClipboardList className="h-5 w-5 text-purple-500" />

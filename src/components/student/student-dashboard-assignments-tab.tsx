@@ -7,6 +7,7 @@ import {
     CheckSquare,
     Clock,
     Filter,
+    PanelsTopLeft,
     LayoutDashboard,
     SortAsc,
     Star,
@@ -61,7 +62,7 @@ export function StudentDashboardAssignmentsTab({
     );
 
     const visible = classroom.assignments?.filter((assignment) => assignment.visible !== false) ?? [];
-    const withMeta = visible.map((assignment) => {
+        const withMeta = visible.map((assignment) => {
         const submission = submissionMap.get(assignment.id);
         const formType = dbAssignmentTypeToFormType(assignment.type);
         const isChecklist = formType === "checklist";
@@ -96,6 +97,7 @@ export function StudentDashboardAssignmentsTab({
             formType,
             isChecklist,
             isQuiz: formType === "quiz",
+            isWorksheet: formType === "worksheet",
             deadlineAt,
             deadlineValid,
             isDeadlinePast: Boolean(deadlineValid && deadlineAt! < new Date()),
@@ -195,6 +197,7 @@ export function StudentDashboardAssignmentsTab({
                             formType,
                             isChecklist,
                             isQuiz,
+                            isWorksheet,
                             deadlineAt,
                             deadlineValid,
                             isDeadlinePast,
@@ -212,6 +215,8 @@ export function StudentDashboardAssignmentsTab({
                             const TypeIcon =
                                 formType === "quiz"
                                     ? BookOpen
+                                    : formType === "worksheet"
+                                      ? PanelsTopLeft
                                     : formType === "checklist"
                                       ? CheckSquare
                                       : Star;
@@ -301,19 +306,33 @@ export function StudentDashboardAssignmentsTab({
                                                 }`}
                                             />
                                         </div>
-                                        {isQuiz && !submission ? (
+                                        {(isQuiz || isWorksheet) && !submission ? (
                                             <div className="mt-4">
                                                 {isDeadlinePast ? (
                                                     <p className="text-center text-xs font-bold text-red-600">
-                                                        {t("studentDashQuizClosed")}
+                                                        {t(
+                                                            isWorksheet
+                                                                ? "studentDashWorksheetClosed"
+                                                                : "studentDashQuizClosed"
+                                                        )}
                                                     </p>
                                                 ) : (
                                                     <Button
                                                         asChild
                                                         className="h-11 w-full rounded-xl font-black shadow-md"
                                                     >
-                                                        <Link href={`/student/${code}/quiz/${assignment.id}`}>
-                                                            {t("studentDashTakeQuiz")}
+                                                        <Link
+                                                            href={
+                                                                isWorksheet
+                                                                    ? `/student/${code}/worksheet/${assignment.id}`
+                                                                    : `/student/${code}/quiz/${assignment.id}`
+                                                            }
+                                                        >
+                                                            {t(
+                                                                isWorksheet
+                                                                    ? "studentDashOpenWorksheet"
+                                                                    : "studentDashTakeQuiz"
+                                                            )}
                                                         </Link>
                                                     </Button>
                                                 )}

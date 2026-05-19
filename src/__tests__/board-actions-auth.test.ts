@@ -146,6 +146,48 @@ describe("board actions authorization", () => {
     expect(mockBoardPostCreate).not.toHaveBeenCalled();
   });
 
+  it("accepts relative upload paths for file posts", async () => {
+    const { createBoardPost } = await import("@/lib/actions/board-actions");
+
+    await createBoardPost({
+      boardId: "board-1",
+      content: "เฉลย ไฟฟ้าแม่เหล็ก",
+      type: "file",
+      title: "PDF",
+      color: "default",
+      fileUrl: "/uploads/test-uuid.pdf",
+      fileName: "เฉลย ไฟฟ้าแม่เหล็ก.pdf",
+    });
+
+    expect(mockBoardPostCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          fileUrl: "/uploads/test-uuid.pdf",
+          fileName: "เฉลย ไฟฟ้าแม่เหล็ก.pdf",
+        }),
+      })
+    );
+  });
+
+  it("rejects unsafe uploaded file urls", async () => {
+    const { createBoardPost } = await import("@/lib/actions/board-actions");
+
+    for (const fileUrl of ["javascript:alert(1)", "/uploads/../x.pdf"]) {
+      await expect(
+        createBoardPost({
+          boardId: "board-1",
+          content: "Bad file",
+          type: "file",
+          title: "Unsafe",
+          color: "default",
+          fileUrl,
+          fileName: "x.pdf",
+        })
+      ).rejects.toThrow("boardErrInvalidMedia");
+    }
+    expect(mockBoardPostCreate).not.toHaveBeenCalled();
+  });
+
   it("rejects polls without enough valid options", async () => {
     const { createBoardPost } = await import("@/lib/actions/board-actions");
 

@@ -3,6 +3,11 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
+import {
+    assertSafeHttpUrl,
+    assertSafeUploadedMediaUrl,
+    BOARD_ERR_INVALID_MEDIA,
+} from "@/lib/safe-media-url";
 
 const BOARD_ERR_CLASSROOM_NOT_FOUND = "boardErrClassroomNotFound";
 const BOARD_ERR_BOARD_NOT_FOUND = "boardErrBoardNotFound";
@@ -10,8 +15,6 @@ const BOARD_ERR_POST_NOT_FOUND = "boardErrPostNotFound";
 const BOARD_ERR_POLL_CLOSED = "boardErrPollClosed";
 const BOARD_ERR_NO_POLL = "boardErrNoPoll";
 const BOARD_ERR_INVALID_CONTENT = "boardErrInvalidContent";
-const BOARD_ERR_INVALID_MEDIA = "boardErrInvalidMedia";
-
 const BOARD_POST_TYPES = new Set(["file", "album", "video", "youtube", "poll", "link"]);
 const BOARD_REACTION_TYPES = new Set(["HEART"]);
 const MAX_BOARD_TEXT_LENGTH = 5000;
@@ -71,21 +74,6 @@ function assertBoundedText(value: string | undefined, max: number) {
     }
 }
 
-function assertSafeUrl(value: string | undefined) {
-    if (!value) return;
-
-    let parsed: URL;
-    try {
-        parsed = new URL(value);
-    } catch {
-        throw new Error(BOARD_ERR_INVALID_MEDIA);
-    }
-
-    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-        throw new Error(BOARD_ERR_INVALID_MEDIA);
-    }
-}
-
 function normalizeBoardPostInput(data: CreateBoardPostInput): CreateBoardPostInput {
     const type = data.type ?? "file";
     if (!BOARD_POST_TYPES.has(type)) {
@@ -104,12 +92,12 @@ function normalizeBoardPostInput(data: CreateBoardPostInput): CreateBoardPostInp
     const youtubeId = data.youtubeId?.trim();
     const albumImages = data.albumImages?.map((image) => image.trim()).filter(Boolean);
 
-    if (linkUrl) assertSafeUrl(linkUrl);
-    if (fileUrl) assertSafeUrl(fileUrl);
-    if (videoUrl) assertSafeUrl(videoUrl);
-    if (image) assertSafeUrl(image);
-    for (const image of albumImages ?? []) {
-        assertSafeUrl(image.trim());
+    if (linkUrl) assertSafeHttpUrl(linkUrl);
+    if (fileUrl) assertSafeUploadedMediaUrl(fileUrl);
+    if (videoUrl) assertSafeUploadedMediaUrl(videoUrl);
+    if (image) assertSafeUploadedMediaUrl(image);
+    for (const albumImage of albumImages ?? []) {
+        assertSafeUploadedMediaUrl(albumImage.trim());
     }
 
     if (youtubeId && !YOUTUBE_ID_PATTERN.test(youtubeId)) {

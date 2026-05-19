@@ -136,7 +136,7 @@ export function CreatePostModal({
                 if (selectedFile) {
                     const uploadRes = await uploadFile(selectedFile);
                     data.fileUrl = uploadRes.url;
-                    data.fileName = uploadRes.fileName;
+                    data.fileName = uploadRes.originalFileName ?? uploadRes.fileName;
                 } else {
                     data.fileUrl = fileUrl.trim();
                     data.fileName = t("boardDefaultFileName");
@@ -147,7 +147,7 @@ export function CreatePostModal({
                 if (selectedVideo) {
                     const uploadRes = await uploadFile(selectedVideo);
                     data.videoUrl = uploadRes.url;
-                    data.videoName = uploadRes.fileName;
+                    data.videoName = uploadRes.originalFileName ?? uploadRes.fileName;
                 } else {
                     data.videoUrl = videoUrl.trim();
                     data.videoName = t("boardDefaultVideoName");

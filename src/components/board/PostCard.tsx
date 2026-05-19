@@ -7,7 +7,7 @@ import {
     Heart, MessageCircle, Trash2, MoreVertical, ExternalLink, 
     BarChart3, ChevronRight, X,
     FileText, FileImage, FileAudio, FileVideo, FileArchive, FileSpreadsheet, File,
-    Lock, Unlock, ChevronLeft
+    Lock, Unlock, ChevronLeft, Pin, PinOff
 } from "lucide-react";
 import Image from "next/image";
 import { 
@@ -27,7 +27,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { toggleBoardReaction, deleteBoardPost, addBoardComment, voteBoardPoll, togglePollStatus } from "@/lib/actions/board-actions";
+import { toggleBoardReaction, deleteBoardPost, addBoardComment, voteBoardPoll, togglePollStatus, toggleBoardPostPin } from "@/lib/actions/board-actions";
 import { formatBoardActionErrorMessage } from "@/lib/board-action-error-messages";
 import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
@@ -78,6 +78,7 @@ export type BoardPostCardData = {
     pollQuestion?: string | null;
     pollOptions?: BoardPollOption[] | null;
     pollClosed: boolean;
+    pinnedAt?: Date | string | null;
     createdAt: Date | string;
     authorStudentId?: string | null;
     authorUserId?: string | null;
@@ -116,7 +117,10 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
     const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isPinning, setIsPinning] = useState(false);
     const { toast } = useToast();
+
+    const isPinned = Boolean(post.pinnedAt);
 
     const author = post.authorStudent || post.authorUser;
     const authorName = author?.nickname || author?.name || t("boardPostUnknownAuthor");
@@ -192,6 +196,23 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
         }
     };
 
+    const handleTogglePin = async () => {
+        if (isPinning) return;
+        setIsPinning(true);
+        try {
+            await toggleBoardPostPin(post.id);
+            toast({
+                title: isPinned ? t("boardPostUnpinnedTitle") : t("boardPostPinnedTitle"),
+                description: isPinned ? t("boardPostUnpinnedDesc") : t("boardPostPinnedDesc"),
+            });
+            if (onUpdate) onUpdate();
+        } catch {
+            toast({ variant: "destructive", title: t("boardPostErrorShort"), description: t("boardPostPinToggleFail") });
+        } finally {
+            setIsPinning(false);
+        }
+    };
+
     const handleTogglePoll = async () => {
         try {
             await togglePollStatus(post.id);
@@ -249,36 +270,57 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
     };
 
     return (
-        <div className={`rounded-2xl border shadow-sm flex flex-col overflow-hidden transition-all hover:shadow-md animate-in zoom-in-95 duration-300 ${COLOR_MAP[post.color || "default"]}`}>
+        <div className={`rounded-2xl border shadow-sm flex flex-col overflow-hidden transition-all hover:shadow-md animate-in zoom-in-95 duration-300 ${COLOR_MAP[post.color || "default"]} ${isPinned ? "ring-2 ring-amber-400/80 ring-offset-1" : ""}`}>
             {/* Header */}
             <div className="p-4 pb-2 flex justify-between items-start gap-2">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full overflow-hidden bg-white/50 border border-slate-200">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-white/50 border border-slate-200 shrink-0">
                         {authorImage ? (
                             <Image src={authorImage} alt={authorName} width={32} height={32} className="w-full h-full object-cover" unoptimized />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-400">👤</div>
                         )}
                     </div>
-                    <div>
-                        <p className="text-xs font-black text-slate-800 leading-none">{authorName}</p>
+                    <div className="min-w-0">
+                        <p className="text-xs font-black text-slate-800 leading-none truncate">{authorName}</p>
                         <p className="text-[10px] text-slate-400 mt-0.5">
                             {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true, locale: dateLocale })}
                         </p>
                     </div>
+                    {isPinned && (
+                        <span className="ml-auto shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-black text-amber-700">
+                            <Pin className="w-3 h-3" />
+                            {t("boardPostPinnedBadge")}
+                        </span>
+                    )}
                 </div>
 
                 {(isTeacher || post.authorStudentId === currentUserIdOrStudentId || post.authorUserId === currentUserIdOrStudentId) && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <button className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-black/5">
+                            <button className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-black/5 shrink-0">
                                 <MoreVertical className="w-4 h-4" />
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="text-red-500 font-bold" onClick={() => setIsDeleteDialogOpen(true)}>
-                                <Trash2 className="w-4 h-4 mr-2" /> {t("boardPostDeletePost")}
-                            </DropdownMenuItem>
+                            {isTeacher && (
+                                <DropdownMenuItem onClick={handleTogglePin} disabled={isPinning}>
+                                    {isPinned ? (
+                                        <>
+                                            <PinOff className="w-4 h-4 mr-2" /> {t("boardPostUnpin")}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Pin className="w-4 h-4 mr-2" /> {t("boardPostPin")}
+                                        </>
+                                    )}
+                                </DropdownMenuItem>
+                            )}
+                            {(isTeacher || post.authorStudentId === currentUserIdOrStudentId || post.authorUserId === currentUserIdOrStudentId) && (
+                                <DropdownMenuItem className="text-red-500 font-bold" onClick={() => setIsDeleteDialogOpen(true)}>
+                                    <Trash2 className="w-4 h-4 mr-2" /> {t("boardPostDeletePost")}
+                                </DropdownMenuItem>
+                            )}
                             {isTeacher && post.type === "poll" && (
                                 <DropdownMenuItem onClick={handleTogglePoll}>
                                     {post.pollClosed ? (

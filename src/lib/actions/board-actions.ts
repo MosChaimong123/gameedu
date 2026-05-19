@@ -262,10 +262,26 @@ function mapBoardPost(post: BoardPostRecord) {
     };
 }
 
+function sortBoardPosts(posts: BoardPostRecord[]) {
+    return [...posts].sort((left, right) => {
+        const leftPinned = left.pinnedAt ? 1 : 0;
+        const rightPinned = right.pinnedAt ? 1 : 0;
+        if (leftPinned !== rightPinned) {
+            return rightPinned - leftPinned;
+        }
+
+        if (left.pinnedAt && right.pinnedAt) {
+            return right.pinnedAt.getTime() - left.pinnedAt.getTime();
+        }
+
+        return right.createdAt.getTime() - left.createdAt.getTime();
+    });
+}
+
 function mapBoard(board: NonNullable<BoardRecord>) {
     return {
         ...board,
-        posts: board.posts.map(mapBoardPost),
+        posts: sortBoardPosts(board.posts).map(mapBoardPost),
     };
 }
 
@@ -529,6 +545,26 @@ export async function togglePollStatus(postId: string) {
     return db.boardPost.update({
         where: { id: postId },
         data: { pollClosed: !post.pollClosed },
+    });
+}
+
+export async function toggleBoardPostPin(postId: string) {
+    const userId = await requireSessionUserId();
+    const post = await fetchBoardPostById(postId);
+
+    if (!post) {
+        throw new Error(BOARD_ERR_POST_NOT_FOUND);
+    }
+
+    const actor = await resolveClassroomActor(post.board.classId, userId);
+    assertTeacher(actor);
+
+    const pinnedAt = post.pinnedAt ? null : new Date();
+
+    return db.boardPost.update({
+        where: { id: postId },
+        data: { pinnedAt },
+        select: { id: true, pinnedAt: true },
     });
 }
 

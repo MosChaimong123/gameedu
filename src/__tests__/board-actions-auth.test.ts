@@ -396,6 +396,65 @@ describe("board actions authorization", () => {
     );
   });
 
+  it("allows only the classroom teacher to pin a board post", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "teacher-1" } });
+    mockClassroomFindUnique.mockResolvedValue({
+      id: "class-1",
+      teacherId: "teacher-1",
+      students: [],
+    });
+    mockBoardPostFindUnique.mockResolvedValue({
+      id: "post-1",
+      pinnedAt: null,
+      authorStudentId: "student-1",
+      authorUserId: null,
+      pollClosed: false,
+      board: {
+        id: "board-1",
+        classId: "class-1",
+        classroom: { teacherId: "teacher-1" },
+      },
+      poll: null,
+    });
+    mockBoardPostUpdate.mockResolvedValue({
+      id: "post-1",
+      pinnedAt: new Date("2026-03-29T12:00:00.000Z"),
+    });
+
+    const { toggleBoardPostPin } = await import("@/lib/actions/board-actions");
+
+    await expect(toggleBoardPostPin("post-1")).resolves.toEqual({
+      id: "post-1",
+      pinnedAt: expect.any(Date),
+    });
+    expect(mockBoardPostUpdate).toHaveBeenCalledWith({
+      where: { id: "post-1" },
+      data: { pinnedAt: expect.any(Date) },
+      select: { id: true, pinnedAt: true },
+    });
+  });
+
+  it("rejects board post pin toggles from students", async () => {
+    mockBoardPostFindUnique.mockResolvedValue({
+      id: "post-1",
+      pinnedAt: new Date("2026-03-29T12:00:00.000Z"),
+      authorStudentId: "student-2",
+      authorUserId: null,
+      pollClosed: false,
+      board: {
+        id: "board-1",
+        classId: "class-1",
+        classroom: { teacherId: "teacher-1" },
+      },
+      poll: null,
+    });
+
+    const { toggleBoardPostPin } = await import("@/lib/actions/board-actions");
+
+    await expect(toggleBoardPostPin("post-1")).rejects.toThrow("Unauthorized");
+    expect(mockBoardPostUpdate).not.toHaveBeenCalled();
+  });
+
   it("allows only the classroom teacher to toggle poll status", async () => {
     mockAuth.mockResolvedValue({ user: { id: "user-2" } });
     mockClassroomFindUnique.mockResolvedValue({

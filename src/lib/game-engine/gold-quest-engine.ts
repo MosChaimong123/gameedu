@@ -1,4 +1,4 @@
-
+import { randomUUID } from "node:crypto";
 import { Socket } from "socket.io";
 import { AbstractGameEngine, GameQuestion } from "./abstract-game";
 import { GameSettings, GoldQuestPlayer } from "../types/game";
@@ -107,6 +107,7 @@ export class GoldQuestEngine extends AbstractGameEngine {
     const reward = generateChestReward({
       seedSalt: `${this.pin}:${player.name}`,
       chestIndex: safeIndex,
+      rollNonce: randomUUID(),
     });
     let newTotal = player.gold;
 
@@ -121,6 +122,8 @@ export class GoldQuestEngine extends AbstractGameEngine {
       const loss = Math.floor(player.gold * (reward.value / 100));
       player.gold = Math.max(0, player.gold - loss);
       newTotal = player.gold;
+    } else if (reward.type === "STEAL") {
+      player.pendingStealPercent = reward.value;
     }
 
     player.pendingChest = false;
@@ -148,7 +151,8 @@ export class GoldQuestEngine extends AbstractGameEngine {
       victim.gold = temp;
       this.io.to(victim.id).emit("player-gold-update", { gold: victim.gold });
     } else if (type === "STEAL") {
-      const stealPercent = 25; // Could be config
+      const stealPercent = actor.pendingStealPercent ?? 25;
+      actor.pendingStealPercent = undefined;
       const stealAmount = Math.floor(victim.gold * (stealPercent / 100));
       victim.gold -= stealAmount;
       actor.gold += stealAmount;

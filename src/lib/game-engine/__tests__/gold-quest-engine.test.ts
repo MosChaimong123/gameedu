@@ -139,7 +139,7 @@ describe("GoldQuestEngine", () => {
     expect(sock.emit).toHaveBeenCalledWith("error", { message: SOCKET_ERROR_PLAY_NOT_IN_GAME });
   });
 
-  it("open-chest reward is deterministic for same pin, player, and chestIndex", () => {
+  it("open-chest rolls independently each time (non-deterministic across opens)", () => {
     const sock = mockSocket("sock-e");
     engine.addPlayer(
       {
@@ -155,15 +155,17 @@ describe("GoldQuestEngine", () => {
       },
       sock
     );
-    engine.handleEvent("submit-answer", { questionId: "q1", answerIndex: 1 }, sock);
-    engine.handleEvent("open-chest", { chestIndex: 1 }, sock);
-    const first = (sock.emit as ReturnType<typeof vi.fn>).mock.calls.find((c) => c[0] === "chest-result")?.[1]?.reward;
-
-    engine.handleEvent("submit-answer", { questionId: "q1", answerIndex: 1 }, sock);
-    engine.handleEvent("open-chest", { chestIndex: 1 }, sock);
-    const second = (sock.emit as ReturnType<typeof vi.fn>).mock.calls.filter((c) => c[0] === "chest-result").pop()?.[1]
-      ?.reward;
-
-    expect(first).toEqual(second);
+    const rewards: unknown[] = [];
+    for (let i = 0; i < 12; i++) {
+      engine.handleEvent("submit-answer", { questionId: "q1", answerIndex: 1 }, sock);
+      engine.handleEvent("open-chest", { chestIndex: 1 }, sock);
+      const reward = (sock.emit as ReturnType<typeof vi.fn>).mock.calls
+        .filter((c) => c[0] === "chest-result")
+        .pop()?.[1]?.reward;
+      rewards.push(reward);
+    }
+    const types = new Set(rewards.map((r) => (r as { type?: string })?.type));
+    expect(rewards.length).toBe(12);
+    expect(types.size).toBeGreaterThan(1);
   });
 });

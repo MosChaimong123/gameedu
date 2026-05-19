@@ -22,7 +22,7 @@ function hashString(s: string): number {
   return h >>> 0;
 }
 
-/** Deterministic PRNG for chest rewards (same salt + index → same roll). */
+/** PRNG seeded per roll (salt + chest index + nonce). */
 function mulberry32(seed: number): () => number {
   return () => {
     let t = (seed += 0x6d2b79f5);
@@ -37,11 +37,13 @@ export type ChestRewardOptions = {
   seedSalt: string;
   /** Which chest (0–2) the player chose */
   chestIndex: number;
+  /** Unique per open so rewards vary each time */
+  rollNonce: string;
 };
 
 export function generateChestReward(opts: ChestRewardOptions): ChestReward {
-  const { seedSalt, chestIndex } = opts;
-  const rng = mulberry32(hashString(`${seedSalt}:${chestIndex}`));
+  const { seedSalt, chestIndex, rollNonce } = opts;
+  const rng = mulberry32(hashString(`${seedSalt}:${chestIndex}:${rollNonce}`));
 
   const totalWeight = REWARD_WEIGHTS.reduce((acc, item) => acc + item.weight, 0);
   let random = rng() * totalWeight;

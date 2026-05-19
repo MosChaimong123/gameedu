@@ -29,27 +29,44 @@ export function QuestionCard({ question, onAnswer, locked = false }: Props) {
     const shapes = ["▲", "◆", "■", "●"];
 
     return (
-        <div className="flex flex-col h-full w-full max-w-lg mx-auto p-4 justify-center">
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex min-h-0 w-full max-w-lg flex-1 flex-col mx-auto p-2 sm:p-4"
+        >
             {/* Question Text */}
             <motion.div
                 initial={{ y: -20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="bg-white rounded-xl shadow-lg p-6 mb-8 text-center border-b-4 border-slate-200"
+                className="mb-3 sm:mb-6 shrink-0 overflow-y-auto max-h-[40vh] sm:max-h-none rounded-xl border-b-4 border-slate-200 bg-white p-4 text-center shadow-lg sm:p-6"
             >
-                <h2 className="text-xl md:text-2xl font-bold text-slate-800">
-                    <MathRender text={question.question} />
+                <h2 className="break-words text-base font-bold text-slate-800 sm:text-xl md:text-2xl">
+                    <span className="block overflow-x-auto">
+                        <MathRender text={question.question} />
+                    </span>
                 </h2>
-                {/* Image if exists */}
                 {question.image && (
-                    <div className="mt-4 rounded-lg overflow-hidden border-2 border-slate-100">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="mt-3 sm:mt-4 rounded-lg overflow-hidden border-2 border-slate-100"
+                    >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={question.image} alt={t("questionImageAlt")} className="w-full h-48 object-cover" />
-                    </div>
+                        <img
+                            src={question.image}
+                            alt={t("questionImageAlt")}
+                            className="h-32 w-full object-cover sm:h-48"
+                        />
+                    </motion.div>
                 )}
             </motion.div>
 
             {/* Answer Grid */}
-            <div className="grid grid-cols-2 gap-4">
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="grid min-h-0 flex-1 grid-cols-2 gap-2 sm:gap-4"
+            >
                 {question.options.map((option, index) => (
                     <motion.button
                         key={index}
@@ -61,30 +78,36 @@ export function QuestionCard({ question, onAnswer, locked = false }: Props) {
                         whileHover={locked ? undefined : { scale: 1.02 }}
                         whileTap={locked ? undefined : { scale: 0.95 }}
                         className={cn(
-                            "h-32 rounded-xl text-white font-bold p-4 flex flex-col items-center justify-center shadow-md border-b-4 text-center relative overflow-hidden group",
+                            "min-h-[4.5rem] sm:min-h-[7rem] rounded-xl text-white font-bold p-2 sm:p-4 flex flex-col items-center justify-center shadow-md border-b-4 text-center relative overflow-hidden group",
                             colors[index % 4],
                             locked && "opacity-50 pointer-events-none"
                         )}
                         onClick={() => onAnswer(index)}
                     >
-                        {/* Background Pattern */}
-                        <div className="absolute top-2 left-2 opacity-20 text-4xl">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="absolute top-1 left-1 opacity-20 text-2xl sm:top-2 sm:left-2 sm:text-4xl"
+                        >
                             {shapes[index % 4]}
-                        </div>
-                        <div className="relative z-10 drop-shadow-md w-full h-full flex items-center justify-center p-2">
-                            {question.optionTypes?.[index] === 'IMAGE' ? (
+                        </motion.div>
+                        <div className="relative z-10 flex h-full w-full items-center justify-center p-1 sm:p-2 drop-shadow-md">
+                            {question.optionTypes?.[index] === "IMAGE" ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={option} alt={t("optionImageAlt", { n: index + 1 })} className="max-w-full max-h-full object-contain rounded-md" />
+                                <img
+                                    src={option}
+                                    alt={t("optionImageAlt", { n: index + 1 })}
+                                    className="max-h-20 max-w-full rounded-md object-contain sm:max-h-28"
+                                />
                             ) : (
-                                <span className="text-lg md:text-xl">
+                                <span className="break-words text-sm sm:text-lg md:text-xl">
                                     <MathRender text={option} />
                                 </span>
                             )}
                         </div>
                     </motion.button>
                 ))}
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
     )
 }
-

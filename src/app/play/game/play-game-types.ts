@@ -130,6 +130,10 @@ export function getPlayerScoreValue(player: PlayerState, mode: PlayerMode): numb
     return mode === "CRYPTO_HACK" && isCryptoHackPlayer(player) ? player.crypto : toGoldQuestPlayer(player).gold
 }
 
+export function sortPlayersForStandings(players: PlayerState[], mode: PlayerMode): PlayerState[] {
+    return [...players].sort((a, b) => getPlayerScoreValue(b, mode) - getPlayerScoreValue(a, mode))
+}
+
 /** เฟส C: กัน socket event ของ Gold/Crypto ไปรบกวน UI ขณะเล่น Negamon Battle */
 export function looksLikeNegamonPlayerRow(p: PlayerState): boolean {
     return "battleHp" in p && typeof (p as NegamonBattlePlayer).battleHp === "number"

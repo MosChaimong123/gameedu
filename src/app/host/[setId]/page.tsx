@@ -64,6 +64,22 @@ function isCryptoHackPlayer(player: HostPlayer): player is CryptoHackPlayer {
     return "crypto" in player
 }
 
+function sortHostPlayersForStandings(players: HostPlayer[], mode: GameMode): HostPlayer[] {
+    return [...players].sort((a, b) => {
+        if (mode === "NEGAMON_BATTLE") {
+            const ah = isNegamonBattlePlayer(a) ? a.battleHp : 0
+            const bh = isNegamonBattlePlayer(b) ? b.battleHp : 0
+            return bh - ah
+        }
+        if (mode === "CRYPTO_HACK") {
+            const ac = isCryptoHackPlayer(a) ? a.crypto : 0
+            const bc = isCryptoHackPlayer(b) ? b.crypto : 0
+            return bc - ac
+        }
+        return ((b as GoldQuestPlayer).gold ?? 0) - ((a as GoldQuestPlayer).gold ?? 0)
+    })
+}
+
 function isNegamonBattlePlayer(player: HostPlayer): player is NegamonBattlePlayer {
     return "battleHp" in player && typeof (player as NegamonBattlePlayer).battleHp === "number"
 }
@@ -293,7 +309,10 @@ export default function HostLobbyPage() {
             if (event.type === "STEAL") play("steal")
         })
 
-        socket.on("game-over", () => {
+        socket.on("game-over", (data: { players: HostPlayer[] }) => {
+            if (data?.players?.length) {
+                setPlayers(sortHostPlayersForStandings(data.players, selectedMode))
+            }
             setView("ENDED");
             setEndTime(null);
             sessionStorage.removeItem(`host_pin_${setId}`);
@@ -565,26 +584,30 @@ export default function HostLobbyPage() {
 
     // Render Game Over (Host)
     if (view === "ENDED") {
+        const endStandings = sortHostPlayersForStandings(players, selectedMode)
         return (
             <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-8 text-white">
                 <SoundController className="fixed top-6 right-6" />
-                {/* ... rest of game over ... */}
-                {/* ... rest of game over ... */}
                 <h1 className="text-6xl font-black text-amber-500 mb-8 drop-shadow-[0_4px_0_rgba(0,0,0,0.5)]">{t("hostGameOverTitle")}</h1>
 
                 <div className="bg-slate-800 p-8 rounded-3xl w-full max-w-2xl border-4 border-slate-700 shadow-2xl mb-8">
                     <h2 className="text-2xl font-bold text-center mb-6 uppercase tracking-widest text-slate-400">{t("hostFinalStandings")}</h2>
-                    <div className="space-y-4">
-                        {players.slice(0, 3).map((player, index) => (
+                    <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+                        {endStandings.map((player, index) => (
                             <div key={player.id} className={cn(
-                                "flex items-center p-4 rounded-xl border-b-4",
+                                "flex items-center rounded-xl border-b-4",
+                                index < 3 ? "p-4" : "p-3",
                                 index === 0 ? "bg-amber-400 border-amber-600 text-amber-900" :
                                     index === 1 ? "bg-slate-300 border-slate-500 text-slate-900" :
-                                        "bg-amber-700 border-amber-900 text-amber-100"
+                                        index === 2 ? "bg-amber-700 border-amber-900 text-amber-100" :
+                                            "bg-slate-700/80 border-slate-600 text-slate-100"
                             )}>
-                                <div className="font-black text-3xl w-12 text-center mr-4">#{index + 1}</div>
-                                <div className="flex-1 font-bold text-xl">{player.name}</div>
-                                <div className="font-black text-2xl">
+                                <div className={cn(
+                                    "font-black text-center mr-4 shrink-0",
+                                    index < 3 ? "w-12 text-3xl" : "w-10 text-xl"
+                                )}>#{index + 1}</div>
+                                <div className={cn("flex-1 font-bold truncate", index < 3 ? "text-xl" : "text-base")}>{player.name}</div>
+                                <div className={cn("font-black shrink-0", index < 3 ? "text-2xl" : "text-lg")}>
                                     {isNegamonBattlePlayer(player)
                                         ? `${player.battleHp} HP`
                                         : ("crypto" in player) ?

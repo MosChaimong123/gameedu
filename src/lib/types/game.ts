@@ -52,6 +52,8 @@ export interface GoldQuestPlayer extends BasePlayer {
     streak: number; // For feedback/visuals
     /** Server: true after a correct answer until the chest is resolved */
     pendingChest?: boolean;
+    /** Server: STEAL chest percent (10 or 25) until interaction is used */
+    pendingStealPercent?: number;
 }
 
 /** Negamon Battle — HP แบบเรียลไทม์ (โหมดห้องสด) */

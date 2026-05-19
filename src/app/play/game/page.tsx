@@ -67,6 +67,7 @@ export default function PlayerGamePage() {
     } | null>(null)
     const [lockedNegamonChoice, setLockedNegamonChoice] = useState<number | null>(null)
     const [negamonBetweenPlayback, setNegamonBetweenPlayback] = useState<NegamonBetweenRoundPlayback | null>(null)
+    const [finalStandings, setFinalStandings] = useState<PlayerState[]>([])
 
     const navigationTimer = useRef<NodeJS.Timeout | null>(null)
     const hasRequestedFirstQuestion = useRef(false)
@@ -96,6 +97,7 @@ export default function PlayerGamePage() {
         setHackResult,
         setLockedNegamonChoice,
         setNegamonBetweenPlayback,
+        setFinalStandings,
     })
 
     useEffect(() => {
@@ -173,8 +175,8 @@ export default function PlayerGamePage() {
                 </button>
 
                 {view === "QUESTION" && currentQuestion && (
-                    <div className="relative z-10 w-full h-full flex flex-col items-center justify-center">
-                        <div className="w-full absolute top-0 left-0 z-20">
+                    <motion.div className="relative z-10 flex h-full min-h-0 w-full flex-col overflow-hidden">
+                        <div className="absolute top-0 left-0 z-20 w-full shrink-0">
                             {gameMode === "NEGAMON_BATTLE" && isNegamonBattlePlayer(player) ? (
                                 <NegamonBattleTopBar player={player} />
                             ) : gameMode === "GOLD_QUEST" ? (
@@ -191,7 +193,7 @@ export default function PlayerGamePage() {
                                 />
                             )}
                         </div>
-                        <div className="flex-1 w-full flex flex-col items-center justify-center p-4 pt-16">
+                        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden p-2 pt-14 sm:p-4 sm:pt-16">
                             {gameMode === "NEGAMON_BATTLE" && (
                                 <NegamonQuestionHint timeLimitSeconds={currentQuestion.timeLimit} />
                             )}
@@ -201,7 +203,7 @@ export default function PlayerGamePage() {
                                 locked={gameMode === "NEGAMON_BATTLE" && lockedNegamonChoice !== null}
                             />
                         </div>
-                    </div>
+                    </motion.div>
                 )}
 
                 {view === "NEGAMON_BETWEEN" && (
@@ -227,22 +229,55 @@ export default function PlayerGamePage() {
                 )}
 
                 {view === "GAME_OVER" && (
-                    <div className="flex flex-col items-center justify-center text-center p-8 animate-in zoom-in-90 h-full">
-                        <h1 className="mb-8 text-6xl font-black uppercase text-amber-500">{t("playGameOverTitle")}</h1>
-                        <div className="bg-white rounded-3xl p-8 shadow-2xl text-slate-800">
-                            <div className="text-xl font-bold uppercase text-slate-400">{t("playGameOverFinalRank")}</div>
-                            <div className="text-8xl font-black text-slate-800 mb-6">#{player.score}</div>
-                            <div className="text-4xl font-black text-amber-600">
+                    <div className="flex h-full min-h-0 flex-col items-center justify-center overflow-y-auto p-4 text-center sm:p-8 animate-in zoom-in-90">
+                        <h1 className="mb-4 text-4xl font-black uppercase text-amber-500 sm:mb-8 sm:text-6xl">{t("playGameOverTitle")}</h1>
+                        <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl text-slate-800 sm:p-8">
+                            <div className="text-lg font-bold uppercase text-slate-400 sm:text-xl">{t("playGameOverFinalRank")}</div>
+                            <div className="mb-4 text-6xl font-black text-slate-800 sm:mb-6 sm:text-8xl">#{player.score}</div>
+                            <div className="mb-6 text-3xl font-black text-amber-600 sm:text-4xl">
                                 {gameMode === "NEGAMON_BATTLE" && isNegamonBattlePlayer(player)
                                     ? `${player.battleHp} HP`
                                     : gameMode === "CRYPTO_HACK"
                                       ? `₿ ${(player as CryptoHackPlayer).crypto?.toLocaleString()}`
                                       : (player as GoldQuestPlayer).gold?.toLocaleString()}
                             </div>
+                            {finalStandings.length > 0 && (
+                                <div className="border-t border-slate-200 pt-4 text-left">
+                                    <div className="mb-2 text-center text-xs font-bold uppercase tracking-widest text-slate-400">
+                                        {t("hostFinalStandings")}
+                                    </div>
+                                    <ul className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                                        {finalStandings.map((standing, index) => {
+                                            const isMe = standing.name === player.name
+                                            const scoreLabel =
+                                                gameMode === "NEGAMON_BATTLE" && isNegamonBattlePlayer(standing)
+                                                    ? `${standing.battleHp} HP`
+                                                    : gameMode === "CRYPTO_HACK" && isCryptoHackPlayer(standing)
+                                                      ? `₿ ${standing.crypto.toLocaleString()}`
+                                                      : (standing as GoldQuestPlayer).gold?.toLocaleString() ?? "0"
+                                            return (
+                                                <li
+                                                    key={standing.id ?? `${standing.name}-${index}`}
+                                                    className={cn(
+                                                        "flex items-center gap-3 rounded-xl px-3 py-2 text-sm sm:text-base",
+                                                        isMe
+                                                            ? "bg-amber-100 ring-2 ring-amber-400"
+                                                            : "bg-slate-50"
+                                                    )}
+                                                >
+                                                    <span className="w-8 shrink-0 font-black text-slate-500">#{index + 1}</span>
+                                                    <span className="min-w-0 flex-1 truncate font-bold">{standing.name}</span>
+                                                    <span className="shrink-0 font-black text-amber-700">{scoreLabel}</span>
+                                                </li>
+                                            )
+                                        })}
+                                    </ul>
+                                </div>
+                            )}
                         </div>
                         <button
                             onClick={() => router.push("/play")}
-                            className="mt-8 bg-slate-700 text-white font-bold py-3 px-8 rounded-full"
+                            className="mt-6 rounded-full bg-slate-700 px-8 py-3 font-bold text-white sm:mt-8"
                         >
                             {t("playGameOverBackMenu")}
                         </button>

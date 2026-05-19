@@ -30,6 +30,7 @@ import {
     createNegamonPlayer,
     formatSocketErrorMessage,
     getPlayerScoreValue,
+    sortPlayersForStandings,
     isCryptoHackPlayer,
     isNegamonBattlePlayer,
     looksLikeNegamonPlayerRow,
@@ -62,6 +63,7 @@ export type UsePlayGameSocketParams = {
     setHackResult: Dispatch<SetStateAction<{ success: boolean; amount?: number; targetName: string } | null>>
     setLockedNegamonChoice: Dispatch<SetStateAction<number | null>>
     setNegamonBetweenPlayback: Dispatch<SetStateAction<NegamonBetweenRoundPlayback | null>>
+    setFinalStandings: Dispatch<SetStateAction<PlayerState[]>>
 }
 
 export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
@@ -90,6 +92,7 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
         setHackResult,
         setLockedNegamonChoice,
         setNegamonBetweenPlayback,
+        setFinalStandings,
     } = params
 
     const { t, language } = useLanguage()
@@ -489,9 +492,13 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
             stopBGM()
             play("game-over")
 
-            const me = data.players.find((p) => p.name === playerSession.name)
+            const mode = gameModeRef.current
+            const sorted = sortPlayersForStandings(data.players, mode)
+            setFinalStandings(sorted)
+
+            const me = sorted.find((p) => p.name === playerSession.name)
             if (me) {
-                const rank = data.players.findIndex((p) => p.name === playerSession.name) + 1
+                const rank = sorted.findIndex((p) => p.name === playerSession.name) + 1
                 if (isNegamonBattlePlayer(me)) {
                     setPlayer((prev) => ({ ...prev, ...me, score: rank }))
                 } else if (isCryptoHackPlayer(me)) {

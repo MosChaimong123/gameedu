@@ -36,7 +36,7 @@ export function GoldQuestHostView({ players, events = [], timeLeft, onEndGame, g
             {/* Animated Gold Dust / Particles (using CSS for simplicity) */}
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 animate-pulse" />
 
-            <div className="relative z-10 w-full h-full p-6 grid grid-cols-12 gap-6">
+            <div className="relative z-10 grid h-full min-h-0 w-full grid-cols-12 gap-6 p-6">
 
                 {/* LEFT COLUMN: Timer & Feed */}
                 <div className="col-span-3 flex flex-col gap-6">
@@ -115,16 +115,16 @@ export function GoldQuestHostView({ players, events = [], timeLeft, onEndGame, g
                 </div>
 
                 {/* CENTER COLUMN: Leaderboard */}
-                <div className="col-span-6 flex flex-col">
-                    <div className="text-center mb-8">
+                <div className="col-span-6 flex min-h-0 flex-col">
+                    <div className="mb-4 shrink-0 text-center sm:mb-8">
                         <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-amber-500 to-amber-700 drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] stroke-text-gold tracking-tighter transform -rotate-1">
                             {t("goldQuestHostLeaderboard")}
                         </h1>
                     </div>
 
-                    <div className="flex-1 p-2 space-y-3 overflow-y-auto custom-scrollbar">
+                    <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2 custom-scrollbar sm:space-y-3">
                         <AnimatePresence mode="popLayout">
-                            {sortedPlayers.slice(0, 7).map((player, index) => (
+                            {sortedPlayers.map((player, index) => (
                                 <motion.div
                                     layout
                                     key={player.id}
@@ -132,7 +132,8 @@ export function GoldQuestHostView({ players, events = [], timeLeft, onEndGame, g
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     transition={{ type: "spring", stiffness: 400, damping: 25 }}
                                     className={cn(
-                                        "flex items-center p-4 rounded-2xl shadow-xl relative overflow-hidden border-2 transform transition-all",
+                                        "flex items-center rounded-2xl shadow-xl relative overflow-hidden border-2 transform transition-all",
+                                        index > 9 ? "p-2 sm:p-3" : "p-3 sm:p-4",
                                         index === 0 ? "bg-gradient-to-r from-yellow-500 to-amber-600 border-yellow-300 text-white scale-105 z-10" :
                                             index === 1 ? "bg-gradient-to-r from-slate-300 to-slate-400 border-white text-slate-900" :
                                                 index === 2 ? "bg-gradient-to-r from-amber-700 to-amber-800 border-amber-600 text-amber-100" :

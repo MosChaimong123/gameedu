@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { appendCallbackUrl } from "@/lib/auth/callback-url";
 import { resolvePostAuthDestination } from "@/lib/auth/post-auth-destination";
 import { getNextAuthResultCode } from "@/lib/auth/next-auth-result";
 import { getLocalizedAuthErrorMessage, tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages";

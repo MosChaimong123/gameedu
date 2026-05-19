@@ -154,6 +154,8 @@ describe("register route POST", () => {
       data: expect.objectContaining({
         userId: "user-1",
         email: "alice@example.com",
+        referenceCode: expect.stringMatching(/^TP-/),
+        codePlain: expect.stringMatching(/^\d{6}$/),
         codeHash: expect.any(String),
         purpose: "SIGNUP_VERIFY",
         attempts: 0,
@@ -164,7 +166,8 @@ describe("register route POST", () => {
     expect(mockSendVerificationEmail).toHaveBeenCalledWith(
       "alice@example.com",
       expect.stringMatching(/^\d{6}$/),
-      15
+      15,
+      expect.stringMatching(/^TP-/)
     );
     expect(body).toEqual({
       user: { name: "Alice", email: "alice@example.com", role: "STUDENT" },

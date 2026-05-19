@@ -24,7 +24,8 @@ function resolvePublicOrigin(): string | undefined {
 export async function sendVerificationCodeEmail(
     email: string,
     code: string,
-    expiresInMinutes: number
+    expiresInMinutes: number,
+    referenceCode: string
 ): Promise<SendVerificationCodeEmailResult> {
     const origin = resolvePublicOrigin();
     if (!origin) {
@@ -41,7 +42,7 @@ export async function sendVerificationCodeEmail(
         }
         console.info(
             "[email] RESEND_API_KEY unset; verification code (dev only):",
-            JSON.stringify({ email, code, verifyPageUrl, expiresInMinutes })
+            JSON.stringify({ email, code, referenceCode, verifyPageUrl, expiresInMinutes })
         );
         return { sent: false };
     }
@@ -50,11 +51,12 @@ export async function sendVerificationCodeEmail(
     const { error } = await resend.emails.send({
         from,
         to: email,
-        subject: "Your TeachPlayEdu verification code",
+        subject: `TeachPlayEdu verification ${referenceCode}`,
         html: `
           <p>Use this code to verify your TeachPlayEdu email:</p>
+          <p style="font-size:13px;font-weight:600;letter-spacing:1px;margin:0 0 8px;color:#475569;">Reference: <strong>${referenceCode}</strong></p>
           <p style="font-size:32px;font-weight:700;letter-spacing:6px;margin:16px 0;">${code}</p>
-          <p>This code expires in ${expiresInMinutes} minutes.</p>
+          <p>This code expires in ${expiresInMinutes} minutes. Use reference <strong>${referenceCode}</strong> on the verify page to confirm you have the latest email.</p>
           <p>You can enter it here: <a href="${verifyPageUrl}">${verifyPageUrl}</a></p>
           <p>If you did not sign up, you can ignore this message.</p>
         `,

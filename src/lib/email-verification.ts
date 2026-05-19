@@ -21,6 +21,28 @@ export function generateEmailVerificationCode() {
   );
 }
 
+const REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+export function generateVerificationReferenceCode() {
+  let suffix = "";
+  for (let i = 0; i < 4; i += 1) {
+    suffix += REF_ALPHABET[randomInt(0, REF_ALPHABET.length)] ?? "X";
+  }
+  return `TP-${suffix}`;
+}
+
+export function codesMatchPlaintext(storedPlain: string | null | undefined, submitted: string) {
+  if (!storedPlain) return false;
+  const a = storedPlain.trim();
+  const b = submitted.trim();
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
 /** All configured secrets — avoids mismatch when only some env vars are set on Render. */
 export function resolveEmailVerificationPepperCandidates(): string[] {
   const peppers = new Set<string>();

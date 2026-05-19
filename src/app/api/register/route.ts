@@ -15,6 +15,7 @@ import {
     EMAIL_VERIFICATION_MAX_ATTEMPTS,
     EMAIL_VERIFICATION_PURPOSE,
     generateEmailVerificationCode,
+    generateVerificationReferenceCode,
     hashEmailVerificationCodeForStorage,
     normalizeVerificationEmail,
 } from "@/lib/email-verification"
@@ -121,6 +122,7 @@ export async function POST(req: Request) {
         step = "verification_code";
         const normalizedEmail = normalizeVerificationEmail(email)
         const verificationCode = generateEmailVerificationCode()
+        const verificationReference = generateVerificationReferenceCode()
         const verificationCodeHash = hashEmailVerificationCodeForStorage(verificationCode)
         await db.emailVerificationCode.deleteMany({
             where: {
@@ -132,6 +134,8 @@ export async function POST(req: Request) {
             data: {
                 userId: user.id,
                 email: normalizedEmail,
+                referenceCode: verificationReference,
+                codePlain: verificationCode,
                 codeHash: verificationCodeHash,
                 purpose: EMAIL_VERIFICATION_PURPOSE,
                 attempts: 0,
@@ -145,7 +149,8 @@ export async function POST(req: Request) {
             await sendVerificationCodeEmail(
                 normalizedEmail,
                 verificationCode,
-                EMAIL_VERIFICATION_EXPIRES_MINUTES
+                EMAIL_VERIFICATION_EXPIRES_MINUTES,
+                verificationReference
             )
         } catch (e) {
             console.error("[REGISTER] verification email failed", e)

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  codesMatchPlaintext,
   collectLegacyVerificationCodeHashes,
   emailVerificationCodeMatches,
   hashEmailVerificationCode,
@@ -49,6 +50,11 @@ describe("emailVerificationCodeMatches", () => {
         code: "000000",
       })
     ).resolves.toBe(false);
+  });
+
+  it("matches plaintext codes with timing-safe comparison", () => {
+    expect(codesMatchPlaintext("341469", "341469")).toBe(true);
+    expect(codesMatchPlaintext("341469", "341470")).toBe(false);
   });
 
   it("builds legacy hash candidates across identity keys", () => {

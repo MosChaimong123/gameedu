@@ -96,7 +96,9 @@ model VerificationToken {
 model EmailVerificationCode {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   userId      String   @db.ObjectId
-  email       String
+  email         String
+  referenceCode String? // Short ref in email + UI (e.g. TP-7F3A)
+  codePlain     String? // Ephemeral 6-digit; cleared on verify; matches alongside codeHash
   codeHash    String
   purpose     String   @default("SIGNUP_VERIFY")
   attempts    Int      @default(0)

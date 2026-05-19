@@ -163,6 +163,8 @@ describe("resend verification route POST", () => {
       data: expect.objectContaining({
         userId: "user-1",
         email: "alice@example.com",
+        referenceCode: expect.stringMatching(/^TP-/),
+        codePlain: expect.stringMatching(/^\d{6}$/),
         codeHash: expect.any(String),
         purpose: "SIGNUP_VERIFY",
         attempts: 0,
@@ -173,10 +175,11 @@ describe("resend verification route POST", () => {
     expect(mockSendVerificationEmail).toHaveBeenCalledWith(
       "alice@example.com",
       expect.stringMatching(/^\d{6}$/),
-      15
+      15,
+      expect.stringMatching(/^TP-/)
     );
     expect(mockResetEmailVerificationAttemptLimits).toHaveBeenCalledWith("alice@example.com");
-    expect(body).toEqual({ ok: true, sent: true, cooldownSeconds: 30 });
+    expect(body).toMatchObject({ ok: true, sent: true, cooldownSeconds: 30, referenceCode: expect.stringMatching(/^TP-/) });
   });
 
   it("returns cooldown error when a code was just sent", async () => {

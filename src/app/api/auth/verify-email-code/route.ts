@@ -5,6 +5,7 @@ import { createAppErrorResponse } from "@/lib/api-error";
 import {
   EMAIL_VERIFICATION_MAX_ATTEMPTS,
   EMAIL_VERIFICATION_PURPOSE,
+  codesMatchPlaintext,
   emailVerificationCodeMatches,
   isEmailVerificationCodeExpired,
   normalizeVerificationEmail,
@@ -91,7 +92,9 @@ export async function POST(req: Request) {
     if (candidate.attempts >= candidate.maxAttempts) {
       continue;
     }
-    if (await emailVerificationCodeMatches(candidate.codeHash, matchParams)) {
+    const plainMatches = codesMatchPlaintext(candidate.codePlain, code);
+    const hashMatches = await emailVerificationCodeMatches(candidate.codeHash, matchParams);
+    if (plainMatches || hashMatches) {
       verification = candidate;
       break;
     }

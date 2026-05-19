@@ -12,6 +12,7 @@ import {
     EMAIL_VERIFICATION_PURPOSE,
     EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS,
     generateEmailVerificationCode,
+    generateVerificationReferenceCode,
     getEmailVerificationRetryAfterSeconds,
     hashEmailVerificationCodeForStorage,
     normalizeVerificationEmail,
@@ -79,6 +80,7 @@ export async function POST(req: Request) {
         }
 
         const nextCode = generateEmailVerificationCode();
+        const nextReference = generateVerificationReferenceCode();
         const nextHash = hashEmailVerificationCodeForStorage(nextCode);
         await tx.emailVerificationCode.deleteMany({
             where: {
@@ -90,6 +92,8 @@ export async function POST(req: Request) {
             data: {
                 userId: user.id,
                 email: identifier,
+                referenceCode: nextReference,
+                codePlain: nextCode,
                 codeHash: nextHash,
                 purpose: EMAIL_VERIFICATION_PURPOSE,
                 attempts: 0,
@@ -99,7 +103,7 @@ export async function POST(req: Request) {
             },
         });
 
-        return { code: nextCode } as const;
+        return { code: nextCode, referenceCode: nextReference } as const;
     });
 
     if ("cooldownSeconds" in verificationCode) {
@@ -116,7 +120,8 @@ export async function POST(req: Request) {
         const sendResult = await sendVerificationCodeEmail(
             identifier,
             verificationCode.code,
-            EMAIL_VERIFICATION_EXPIRES_MINUTES
+            EMAIL_VERIFICATION_EXPIRES_MINUTES,
+            verificationCode.referenceCode
         );
         emailSent = sendResult.sent;
     } catch (e) {
@@ -149,11 +154,13 @@ export async function POST(req: Request) {
         ok: true;
         sent: boolean;
         cooldownSeconds: number;
+        referenceCode: string;
         devCode?: string;
     } = {
         ok: true,
         sent: emailSent,
         cooldownSeconds: EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS,
+        referenceCode: verificationCode.referenceCode,
     };
 
     if (!emailSent && process.env.NODE_ENV !== "production") {

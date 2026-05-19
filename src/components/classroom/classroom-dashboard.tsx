@@ -41,6 +41,7 @@ import { useClassroomDashboardState } from "./use-classroom-dashboard-state";
 import { useClassroomAttendanceFlow } from "./use-classroom-attendance-flow";
 import { useClassroomDashboardUiState } from "./use-classroom-dashboard-ui-state";
 import { useClassroomPointsFlow } from "./use-classroom-points-flow";
+import { useClassroomPresence } from "./use-classroom-presence";
 import { useClassroomSelectionFlow } from "./use-classroom-selection-flow";
 import type { AssignmentWithChecklist } from "./classroom-table";
 import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
@@ -150,6 +151,11 @@ export function ClassroomDashboard({
     // Sound Effects
     const [playDing] = useSound("/sounds/ding.mp3");
     const [playThud] = useSound("/sounds/thud.mp3");
+    const onlineStudentIds = useClassroomPresence({
+        classroomId: classroom.id,
+        socket,
+        isConnected,
+    });
     const { awardPoints, resetPoints } = useClassroomPointsFlow({
         classroomId: classroom.id,
         selectedStudent: selectedStudent as never,
@@ -266,6 +272,7 @@ export function ClassroomDashboard({
                 <ClassroomDashboardToolbar
                     t={t}
                     classroom={classroom}
+                    onlineStudentIds={onlineStudentIds}
                     gamificationToolbarMode={gamificationToolbarMode}
                     isConnected={isConnected}
                     viewMode={viewMode}
@@ -394,6 +401,7 @@ export function ClassroomDashboard({
                                 key={student.id}
                                 {...student}
                                 avatarSeed={student.avatar || student.id}
+                                isOnline={onlineStudentIds.has(student.id)}
                                 onClick={() => handleStudentClick(student)}
                                 onContextMenu={(e) => { e.preventDefault(); setHistoryStudentId(student.id); }}
                                 attendance={student.attendance || "PRESENT"}

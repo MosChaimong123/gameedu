@@ -70,8 +70,6 @@ export function useClassroomPointsFlow({
     useEffect(() => {
         if (!socket || !isConnected) return;
 
-        socket.emit("join-classroom", classroomId);
-
         const handleUpdate = (payload: ClassroomSocketPayload) => {
             if (payload.type !== "POINT_UPDATE") return;
 
@@ -90,7 +88,6 @@ export function useClassroomPointsFlow({
         socket.on("classroom-event", handleUpdate);
 
         return () => {
-            socket.emit("leave-classroom", classroomId);
             socket.off("classroom-event", handleUpdate);
         };
     }, [socket, isConnected, classroomId, playDing, setClassroom]);

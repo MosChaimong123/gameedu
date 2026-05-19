@@ -114,6 +114,13 @@ app.prepare().then(async () => {
         canAccessClassroom: (userId, classId) => canUserAccessClassroom(db, userId, classId),
         canPublishClassroomEvent: (userId, classId, eventType) =>
             canUserPublishClassroomSocketEvent(db, userId, classId, eventType),
+        resolveClassroomStudentMember: async (userId, classId) => {
+            const student = await db.student.findFirst({
+                where: { classId, userId },
+                select: { id: true },
+            });
+            return student?.id ?? null;
+        },
         resolveLivePlayerCapForHost: async (hostId) => {
             const user = await db.user.findUnique({
                 where: { id: hostId },

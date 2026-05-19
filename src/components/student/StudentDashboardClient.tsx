@@ -28,6 +28,8 @@ import { StudentDashboardSidebar } from "./student-dashboard-sidebar";
 import { StudentDashboardMainTabs } from "./student-dashboard-main-tabs";
 import { StudentDashboardUrlParamsHandler } from "./student-dashboard-url-params-handler";
 import { saveStudentIdentity } from "@/lib/player-session";
+import { useSocket } from "@/components/providers/socket-provider";
+import { useClassroomPresence } from "@/components/classroom/use-classroom-presence";
 
 const NotificationTray = dynamic(
     () => import("@/components/dashboard/notification-tray").then((m) => m.NotificationTray),
@@ -51,6 +53,7 @@ export function StudentDashboardClient({
     code,
 }: StudentDashboardClientProps) {
     const { t, language } = useLanguage();
+    const { socket, isConnected } = useSocket();
     const dateLocale = language === "th" ? th : enUS;
     const [classroom] = useState(initialClassroom);
     const [mode, setMode] = useState<StudentDashboardMode>("learn");
@@ -114,6 +117,14 @@ export function StudentDashboardClient({
     const canAccessBoard = Boolean(
         currentUserId && liveStudent.userId && currentUserId === liveStudent.userId
     );
+
+    useClassroomPresence({
+        classroomId: classroom.id,
+        socket,
+        isConnected: canAccessBoard && isConnected,
+        leaveOnUnmount: true,
+    });
+
     const levelConfigResolved = classroom.levelConfig as LevelConfigInput;
     const negamonSettings = useMemo(
         () => getNegamonSettings(classroom.gamifiedSettings),

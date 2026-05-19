@@ -30,6 +30,12 @@ import {
   SOCKET_ERROR_UNAUTHORIZED_QUESTION_SET,
 } from "@/lib/socket-error-messages";
 import { isNegamonBattleHostEnabled } from "@/lib/negamon-battle-host-enabled";
+import {
+  buildPresenceUpdatePayload,
+  registerClassroomPresence,
+  unregisterAllClassroomSockets,
+  unregisterClassroomPresence,
+} from "@/lib/socket/classroom-presence";
 
 type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE";
 
@@ -118,8 +124,16 @@ type RegisterHandlersDeps = {
     classId: string,
     eventType: ClassroomSocketEventType
   ) => Promise<boolean>;
+  resolveClassroomStudentMember?: (
+    userId: string,
+    classId: string
+  ) => Promise<string | null>;
   auditLog?: typeof logAuditEvent;
 };
+
+function broadcastClassroomPresence(io: Server, classId: string) {
+  io.to(`classroom-${classId}`).emit("classroom-event", buildPresenceUpdatePayload(classId));
+}
 
 const allowedClassroomEventTypes = new Set<ClassroomSocketEventType>([
   "BOARD_UPDATE",
@@ -150,6 +164,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
     canHostQuestionSet = async () => false,
     canAccessClassroom = async () => false,
     canPublishClassroomEvent = async () => false,
+    resolveClassroomStudentMember = async () => null,
     auditLog = logAuditEvent,
   } = deps;
 
@@ -501,6 +516,11 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
     });
 
     socket.on("disconnect", () => {
+      const affectedClassrooms = unregisterAllClassroomSockets(socket.id);
+      for (const classId of affectedClassrooms) {
+        broadcastClassroomPresence(io, classId);
+      }
+
       const playerGame = gameManager.findGameBySocket(socket.id);
       if (playerGame) {
         playerGame.handleDisconnect(socket.id);
@@ -605,12 +625,17 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
 
       socket.join(`classroom-${classId}`);
       joinedClassrooms.add(classId);
+
+      const studentId = await resolveClassroomStudentMember(userId, classId);
+      registerClassroomPresence(classId, socket.id, studentId);
+      broadcastClassroomPresence(io, classId);
+
       auditLog({
         actorUserId: userId,
         action: "socket.classroom.joined",
         targetType: "classroom",
         targetId: classId,
-        metadata: { socketId: socket.id },
+        metadata: { socketId: socket.id, studentId },
       });
     });
 
@@ -618,6 +643,8 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
       if (typeof classId === "string" && classId.length > 0) {
         socket.leave(`classroom-${classId}`);
         joinedClassrooms.delete(classId);
+        unregisterClassroomPresence(classId, socket.id);
+        broadcastClassroomPresence(io, classId);
       }
     });
 

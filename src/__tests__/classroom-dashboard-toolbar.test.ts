@@ -66,6 +66,7 @@ describe("classroom dashboard toolbar", () => {
       React.createElement(ClassroomDashboardToolbar, {
         t: (key: string) => key,
         classroom: baseClassroom,
+        onlineStudentIds: new Set<string>(),
         gamificationToolbarMode: "live",
         isConnected: true,
         viewMode: "table",
@@ -100,6 +101,7 @@ describe("classroom dashboard toolbar", () => {
       React.createElement(ClassroomDashboardToolbar, {
         t: (key: string) => key,
         classroom: baseClassroom,
+        onlineStudentIds: new Set<string>(),
         gamificationToolbarMode: "comingSoon",
         isConnected: true,
         viewMode: "table",

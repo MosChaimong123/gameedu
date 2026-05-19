@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { Server } from "socket.io";
 import { io as clientIo, type Socket as ClientSocket } from "socket.io-client";
 import { registerGameSocketHandlers } from "../register-game-socket-handlers";
+import { resetClassroomPresenceForTests } from "../classroom-presence";
 import type { GameSettings } from "../../types/game";
 import { resetRateLimitStore } from "../../security/rate-limit";
 import {
@@ -168,6 +169,7 @@ describe("registerGameSocketHandlers integration", () => {
     });
 
   beforeEach(async () => {
+    resetClassroomPresenceForTests();
     games = new Map();
     auditEvents = [];
     livePlayerCapForTest = undefined;
@@ -249,6 +251,8 @@ describe("registerGameSocketHandlers integration", () => {
 
         return userId === "teacher-1" || userId === "student-user-1";
       },
+      resolveClassroomStudentMember: async (userId, classId) =>
+        userId === "student-user-1" && classId === "class-1" ? "student-1" : null,
       auditLog: (event) => {
         auditEvents.push(event as Record<string, unknown>);
       },
@@ -515,6 +519,19 @@ describe("registerGameSocketHandlers integration", () => {
     const student = await connectClient("student-user-1");
     const outsider = await connectClient("outsider-user");
 
+    const presenceUpdate = new Promise<{ type: string; data: { onlineStudentIds: string[] } }>((resolve) => {
+      const onClassroomEvent = (event: { type: string; data: { onlineStudentIds?: string[] } }) => {
+        if (event.type !== "PRESENCE_UPDATE") {
+          return;
+        }
+        if (event.data.onlineStudentIds?.includes("student-1")) {
+          teacher.off("classroom-event", onClassroomEvent);
+          resolve(event as { type: string; data: { onlineStudentIds: string[] } });
+        }
+      };
+      teacher.on("classroom-event", onClassroomEvent);
+    });
+
     teacher.emit("join-classroom", "class-1");
     student.emit("join-classroom", "class-1");
     outsider.emit("join-classroom", "class-1");
@@ -541,6 +558,11 @@ describe("registerGameSocketHandlers integration", () => {
         targetId: "class-1",
       })
     );
+
+    await expect(presenceUpdate).resolves.toEqual({
+      type: "PRESENCE_UPDATE",
+      data: { onlineStudentIds: ["student-1"] },
+    });
 
     const teacherReceived = new Promise<{ type: string; data: { action: string } }>((resolve) =>
       teacher.once("classroom-event", resolve)

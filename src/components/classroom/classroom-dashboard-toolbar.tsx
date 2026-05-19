@@ -31,6 +31,7 @@ import { gamificationToolbarButtonClassName } from "./gamification-toolbar-style
 interface ClassroomDashboardToolbarProps {
     t: (key: string, params?: Record<string, string | number>) => string;
     classroom: ClassroomDashboardViewModel;
+    onlineStudentIds: Set<string>;
     /** Until session is known, avoid flashing “coming soon” for teachers. */
     gamificationToolbarMode: "loading" | "live" | "comingSoon";
     isConnected: boolean;
@@ -56,6 +57,7 @@ interface ClassroomDashboardToolbarProps {
 export function ClassroomDashboardToolbar({
     t,
     classroom,
+    onlineStudentIds,
     gamificationToolbarMode,
     isConnected,
     viewMode,
@@ -77,6 +79,9 @@ export function ClassroomDashboardToolbar({
     onOpenSettings,
 }: ClassroomDashboardToolbarProps) {
     const gamificationLive = gamificationToolbarMode === "live";
+    const totalStudents = classroom.students.length;
+    const onlineCount = classroom.students.filter((student) => onlineStudentIds.has(student.id)).length;
+    const offlineCount = Math.max(totalStudents - onlineCount, 0);
     const toolbarAccent = getThemeAccentColor(classroom.theme);
     const toolbarChromeStyle = {
         "--toolbar-accent": toolbarAccent,
@@ -111,13 +116,21 @@ export function ClassroomDashboardToolbar({
                         <p className="text-xl font-medium leading-tight text-[#000000] md:text-2xl">
                             {classroom.name}
                         </p>
-                        <div className="mt-1 flex items-center gap-1.5">
-                            <Users className="h-3.5 w-3.5 text-[#93939f]" />
-                            <span className="text-sm text-[#93939f]">
-                                {t("studentsCount", { count: classroom.students.length })}
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[#93939f]">
+                            <span className="inline-flex items-center gap-1.5">
+                                <Users className="h-3.5 w-3.5" />
+                                {t("studentsCount", { count: totalStudents })}
                             </span>
-                            <div
-                                className={`ml-1 h-2 w-2 rounded-full ${
+                            <span className="inline-flex items-center gap-1.5">
+                                <span className="h-2 w-2 rounded-full bg-emerald-500" title={t("classroomStudentsOnlineLabel")} />
+                                {t("classroomStudentsOnlineCount", { count: onlineCount })}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                                <span className="h-2 w-2 rounded-full bg-slate-300" title={t("classroomStudentsOfflineLabel")} />
+                                {t("classroomStudentsOfflineCount", { count: offlineCount })}
+                            </span>
+                            <span
+                                className={`h-2 w-2 rounded-full ${
                                     isConnected ? "bg-green-400" : "bg-red-400"
                                 }`}
                                 title={isConnected ? t("connected") : t("disconnected")}

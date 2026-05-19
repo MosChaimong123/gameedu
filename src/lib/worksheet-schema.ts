@@ -14,6 +14,7 @@ const worksheetShortTextItemSchema = worksheetItemBaseSchema.extend({
   placeholder: z.string().trim().max(120).default(""),
   answer: z.object({
     mode: z.enum(["exact", "normalized"]).default("normalized"),
+    reviewMode: z.enum(["auto", "manual"]).default("auto"),
     accepted: z.array(z.string().trim().min(1)).min(1),
     points: z.number().int().min(1).max(100),
   }),
@@ -92,6 +93,7 @@ const worksheetMediaPromptItemSchema = worksheetItemBaseSchema.extend({
   placeholder: z.string().trim().max(120).default(""),
   answer: z.object({
     mode: z.enum(["exact", "normalized"]).default("normalized"),
+    reviewMode: z.enum(["auto", "manual"]).default("auto"),
     accepted: z.array(z.string().trim().min(1)).min(1),
     points: z.number().int().min(1).max(100),
   }),
@@ -110,6 +112,19 @@ const worksheetChecklistItemSchema = worksheetItemBaseSchema.extend({
   pointsPerCorrect: z.number().int().min(1).max(100),
 });
 
+const worksheetFileUploadItemSchema = worksheetItemBaseSchema.extend({
+  type: z.literal("file_upload"),
+  prompt: z.string().trim().min(1),
+  allowedType: z.enum(["any", "document", "image", "audio", "video"]).default("any"),
+  points: z.number().int().min(1).max(100),
+});
+
+const worksheetSpeakingItemSchema = worksheetItemBaseSchema.extend({
+  type: z.literal("speaking"),
+  prompt: z.string().trim().min(1),
+  points: z.number().int().min(1).max(100),
+});
+
 export const worksheetItemSchema = z.discriminatedUnion("type", [
   worksheetShortTextItemSchema,
   worksheetMultipleChoiceItemSchema,
@@ -118,6 +133,8 @@ export const worksheetItemSchema = z.discriminatedUnion("type", [
   worksheetMatchingItemSchema,
   worksheetMediaPromptItemSchema,
   worksheetChecklistItemSchema,
+  worksheetFileUploadItemSchema,
+  worksheetSpeakingItemSchema,
 ]);
 
 export const worksheetPageSchema = z.object({
@@ -155,6 +172,8 @@ export type WorksheetDragDropItem = z.infer<typeof worksheetDragDropItemSchema>;
 export type WorksheetMatchingItem = z.infer<typeof worksheetMatchingItemSchema>;
 export type WorksheetMediaPromptItem = z.infer<typeof worksheetMediaPromptItemSchema>;
 export type WorksheetChecklistItem = z.infer<typeof worksheetChecklistItemSchema>;
+export type WorksheetFileUploadItem = z.infer<typeof worksheetFileUploadItemSchema>;
+export type WorksheetSpeakingItem = z.infer<typeof worksheetSpeakingItemSchema>;
 
 export type WorksheetStudentAnswerValue = string | number | string[] | Record<string, string> | boolean[];
 export type WorksheetStudentAnswers = Record<string, WorksheetStudentAnswerValue>;
@@ -325,6 +344,31 @@ export function sanitizeWorksheetForStudent(data: WorksheetData) {
             mediaType: item.mediaType,
             mediaUrl: item.mediaUrl,
             placeholder: item.placeholder,
+          };
+        }
+
+        if (item.type === "file_upload") {
+          return {
+            id: item.id,
+            type: item.type,
+            x: item.x,
+            y: item.y,
+            width: item.width,
+            height: item.height,
+            prompt: item.prompt,
+            allowedType: item.allowedType,
+          };
+        }
+
+        if (item.type === "speaking") {
+          return {
+            id: item.id,
+            type: item.type,
+            x: item.x,
+            y: item.y,
+            width: item.width,
+            height: item.height,
+            prompt: item.prompt,
           };
         }
 

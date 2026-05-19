@@ -29,18 +29,12 @@ export function LanguageProvider({ children, initialLanguage = DEFAULT_LANGUAGE 
     const [language, setLanguage] = useState<Language>(initialLanguage)
 
     useEffect(() => {
-        const stored = localStorage.getItem("language") as Language | null
-        if (stored === "th" || stored === "en") {
-            if (stored !== initialLanguage) {
-                startTransition(() => {
-                    setLanguage(stored)
-                })
-            }
-            writeLanguageCookie(stored)
-            return
-        }
+        // Cookie (from server) is the source of truth on load — stale localStorage must not override it.
         localStorage.setItem("language", initialLanguage)
         writeLanguageCookie(initialLanguage)
+        startTransition(() => {
+            setLanguage(initialLanguage)
+        })
     }, [initialLanguage])
 
     const handleSetLanguage = (lang: Language) => {

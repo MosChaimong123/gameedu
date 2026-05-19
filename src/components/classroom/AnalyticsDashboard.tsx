@@ -14,11 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/components/providers/language-provider";
 import {
-  ATTENDANCE_CHART_COLORS,
-  ATTENDANCE_STATUSES,
   attendanceAnalyticsPillClass,
   attendanceLabelKey,
-  emptyAttendanceSummary,
   isAttendanceStatus,
   normalizeAttendanceStatus,
 } from "@/lib/attendance-status";

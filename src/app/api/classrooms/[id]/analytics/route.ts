@@ -15,6 +15,7 @@ import {
   NOT_FOUND_MESSAGE,
   createAppErrorResponse,
 } from "@/lib/api-error";
+import { parseWorksheetSubmissionContent } from "@/lib/worksheet-review";
 
 type StudentAnalyticsRecord = {
   id: string;
@@ -35,6 +36,7 @@ type AnalyticsStudent = {
     assignmentId: string;
     score: number;
     submittedAt: Date;
+    content?: string | null;
   }[];
   history: {
     id: string;
@@ -96,6 +98,7 @@ export async function GET(
                 assignmentId: true,
                 score: true,
                 submittedAt: true,
+                content: true,
               },
             },
             history: {
@@ -232,6 +235,15 @@ export async function GET(
               .filter((st) => !subs.has(st.id))
               .map((st) => ({ id: st.id, name: st.name }))
           : [];
+        const worksheetPendingReviewCount =
+          dbAssignmentTypeToFormType(assignment.type) === "worksheet"
+            ? students.reduce((sum, student) => {
+                const submission = student.submissions.find((entry) => entry.assignmentId === assignment.id);
+                if (!submission) return sum;
+                const parsed = parseWorksheetSubmissionContent(submission.content);
+                return sum + (parsed?.itemResults.filter((item) => item.needsReview).length ?? 0);
+              }, 0)
+            : 0;
 
         return {
           id: assignment.id,
@@ -244,6 +256,7 @@ export async function GET(
           submissionRate: totalStudents > 0 ? Math.round((submittedCount / totalStudents) * 100) : 0,
           avgScore,
           passCount,
+          worksheetPendingReviewCount,
           notSubmitted: notSubmittedIds,
         };
       });

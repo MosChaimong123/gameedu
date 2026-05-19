@@ -30,6 +30,17 @@ export function gradeWorksheetSubmission(
       if (item.type === "short_text") {
         const rawAnswer = studentAnswers[item.id];
         const answer = typeof rawAnswer === "string" ? rawAnswer : "";
+        if (item.answer.reviewMode === "manual") {
+          maxScore += item.answer.points;
+          itemResults.push({
+            itemId: item.id,
+            correct: null,
+            score: 0,
+            maxScore: item.answer.points,
+            needsReview: true,
+          });
+          continue;
+        }
         const correct = scoreWorksheetShortText(answer, item);
         const itemScore = correct ? item.answer.points : 0;
         score += itemScore;
@@ -130,6 +141,17 @@ export function gradeWorksheetSubmission(
       if (item.type === "media_prompt") {
         const rawAnswer = studentAnswers[item.id];
         const answer = typeof rawAnswer === "string" ? rawAnswer : "";
+        if (item.answer.reviewMode === "manual") {
+          maxScore += item.answer.points;
+          itemResults.push({
+            itemId: item.id,
+            correct: null,
+            score: 0,
+            maxScore: item.answer.points,
+            needsReview: true,
+          });
+          continue;
+        }
         const correct = scoreWorksheetBlankAnswer(answer, item.answer);
         const itemScore = correct ? item.answer.points : 0;
         score += itemScore;
@@ -168,6 +190,18 @@ export function gradeWorksheetSubmission(
           score: itemScore,
           maxScore: itemMaxScore,
           needsReview: false,
+        });
+        continue;
+      }
+
+      if (item.type === "file_upload" || item.type === "speaking") {
+        maxScore += item.points;
+        itemResults.push({
+          itemId: item.id,
+          correct: null,
+          score: 0,
+          maxScore: item.points,
+          needsReview: true,
         });
         continue;
       }

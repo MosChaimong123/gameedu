@@ -425,7 +425,7 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                                 </a>
                             );
                         })}
-                    </motion.div>
+                    </div>
                 )}
 
                 {/* Video View */}

@@ -27,6 +27,7 @@ const worksheetFixture: WorksheetData = {
           placeholder: "",
           answer: {
             mode: "normalized",
+            reviewMode: "auto",
             accepted: ["bangkok"],
             points: 2,
           },
@@ -131,6 +132,7 @@ const worksheetFixture: WorksheetData = {
           placeholder: "",
           answer: {
             mode: "normalized",
+            reviewMode: "manual",
             accepted: ["hello"],
             points: 2,
           },
@@ -149,6 +151,27 @@ const worksheetFixture: WorksheetData = {
             { id: "check-dog", label: "Dog", correct: true },
           ],
           pointsPerCorrect: 1,
+        },
+        {
+          id: "file-1",
+          type: "file_upload",
+          x: 26,
+          y: 92,
+          width: 40,
+          height: 10,
+          prompt: "Upload a document",
+          allowedType: "document",
+          points: 4,
+        },
+        {
+          id: "speak-1",
+          type: "speaking",
+          x: 28,
+          y: 94,
+          width: 42,
+          height: 10,
+          prompt: "Record your speaking",
+          points: 3,
         },
       ],
     },
@@ -176,18 +199,22 @@ describe("gradeWorksheetSubmission", () => {
       },
       "media-1": " hello ",
       "check-1": [true, false, true],
+      "file-1": "/uploads/worksheet-submissions/file-1.pdf",
+      "speak-1": "/uploads/worksheet-submissions/speak-1.webm",
     });
 
-    expect(result.score).toBe(21);
-    expect(result.maxScore).toBe(21);
+    expect(result.score).toBe(19);
+    expect(result.maxScore).toBe(28);
     expect(result.itemResults).toEqual([
       expect.objectContaining({ itemId: "short-1", correct: true, score: 2 }),
       expect.objectContaining({ itemId: "mcq-1", correct: true, score: 3 }),
       expect.objectContaining({ itemId: "fill-1", correct: true, score: 6 }),
       expect.objectContaining({ itemId: "drag-1", correct: true, score: 4 }),
       expect.objectContaining({ itemId: "match-1", correct: true, score: 2 }),
-      expect.objectContaining({ itemId: "media-1", correct: true, score: 2 }),
+      expect.objectContaining({ itemId: "media-1", correct: null, score: 0, needsReview: true }),
       expect.objectContaining({ itemId: "check-1", correct: true, score: 2 }),
+      expect.objectContaining({ itemId: "file-1", correct: null, score: 0, maxScore: 4, needsReview: true }),
+      expect.objectContaining({ itemId: "speak-1", correct: null, score: 0, maxScore: 3, needsReview: true }),
     ]);
   });
 
@@ -206,18 +233,22 @@ describe("gradeWorksheetSubmission", () => {
       },
       "media-1": "goodbye",
       "check-1": [false, true, false],
+      "file-1": "/uploads/worksheet-submissions/file-1.pdf",
+      "speak-1": "/uploads/worksheet-submissions/speak-1.webm",
     });
 
     expect(result.score).toBe(0);
-    expect(result.maxScore).toBe(21);
+    expect(result.maxScore).toBe(28);
     expect(result.itemResults).toEqual([
       expect.objectContaining({ itemId: "short-1", correct: false, score: 0 }),
       expect.objectContaining({ itemId: "mcq-1", correct: false, score: 0 }),
       expect.objectContaining({ itemId: "fill-1", correct: false, score: 0 }),
       expect.objectContaining({ itemId: "drag-1", correct: false, score: 0 }),
       expect.objectContaining({ itemId: "match-1", correct: false, score: 0 }),
-      expect.objectContaining({ itemId: "media-1", correct: false, score: 0 }),
+      expect.objectContaining({ itemId: "media-1", correct: null, score: 0, needsReview: true }),
       expect.objectContaining({ itemId: "check-1", correct: false, score: 0 }),
+      expect.objectContaining({ itemId: "file-1", correct: null, score: 0, maxScore: 4, needsReview: true }),
+      expect.objectContaining({ itemId: "speak-1", correct: null, score: 0, maxScore: 3, needsReview: true }),
     ]);
   });
 
@@ -236,18 +267,63 @@ describe("gradeWorksheetSubmission", () => {
       },
       "media-1": "hello",
       "check-1": [true, false, false],
+      "file-1": "/uploads/worksheet-submissions/file-1.pdf",
+      "speak-1": "/uploads/worksheet-submissions/speak-1.webm",
     });
 
-    expect(result.score).toBe(15);
-    expect(result.maxScore).toBe(21);
+    expect(result.score).toBe(13);
+    expect(result.maxScore).toBe(28);
     expect(result.itemResults).toEqual([
       expect.objectContaining({ itemId: "short-1", correct: true, score: 2 }),
       expect.objectContaining({ itemId: "mcq-1", correct: true, score: 3 }),
       expect.objectContaining({ itemId: "fill-1", correct: false, score: 4, maxScore: 6 }),
       expect.objectContaining({ itemId: "drag-1", correct: false, score: 2, maxScore: 4 }),
       expect.objectContaining({ itemId: "match-1", correct: false, score: 1, maxScore: 2 }),
-      expect.objectContaining({ itemId: "media-1", correct: true, score: 2, maxScore: 2 }),
+      expect.objectContaining({ itemId: "media-1", correct: null, score: 0, maxScore: 2, needsReview: true }),
       expect.objectContaining({ itemId: "check-1", correct: false, score: 1, maxScore: 2 }),
+      expect.objectContaining({ itemId: "file-1", correct: null, score: 0, maxScore: 4, needsReview: true }),
+      expect.objectContaining({ itemId: "speak-1", correct: null, score: 0, maxScore: 3, needsReview: true }),
+    ]);
+  });
+
+  it("marks manual review short text items as pending", () => {
+    const firstItem = worksheetFixture.pages[0]?.items[0];
+    if (!firstItem || firstItem.type !== "short_text") {
+      throw new Error("short text fixture missing");
+    }
+
+    const manualWorksheet: WorksheetData = {
+      ...worksheetFixture,
+      pages: [
+        {
+          ...worksheetFixture.pages[0],
+          items: [
+            {
+              ...firstItem,
+              answer: {
+                ...firstItem.answer,
+                reviewMode: "manual",
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = gradeWorksheetSubmission(manualWorksheet, {
+      "short-1": "Bangkok",
+    });
+
+    expect(result.score).toBe(0);
+    expect(result.maxScore).toBe(2);
+    expect(result.itemResults).toEqual([
+      expect.objectContaining({
+        itemId: "short-1",
+        correct: null,
+        score: 0,
+        maxScore: 2,
+        needsReview: true,
+      }),
     ]);
   });
 });

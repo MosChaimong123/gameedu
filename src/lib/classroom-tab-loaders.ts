@@ -118,6 +118,7 @@ export type AssignmentStat = {
   submissionRate: number;
   avgScore: number;
   passCount: number | null;
+  worksheetPendingReviewCount: number;
   notSubmitted: { id: string; name: string }[];
 };
 

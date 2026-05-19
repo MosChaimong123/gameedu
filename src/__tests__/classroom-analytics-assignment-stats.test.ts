@@ -46,7 +46,7 @@ describe("classroom analytics assignment stats", () => {
           nickname: null,
           behaviorPoints: 0,
           attendance: "PRESENT",
-          submissions: [{ assignmentId: "assignment-1", score: 0b011, submittedAt: new Date("2026-05-04T00:00:00.000Z") }],
+          submissions: [{ assignmentId: "assignment-1", score: 0b011, submittedAt: new Date("2026-05-04T00:00:00.000Z"), content: null }],
           history: [],
           achievements: [],
         },
@@ -56,7 +56,7 @@ describe("classroom analytics assignment stats", () => {
           nickname: null,
           behaviorPoints: 0,
           attendance: "PRESENT",
-          submissions: [{ assignmentId: "assignment-1", score: 0b100, submittedAt: new Date("2026-05-04T00:00:00.000Z") }],
+          submissions: [{ assignmentId: "assignment-1", score: 0b100, submittedAt: new Date("2026-05-04T00:00:00.000Z"), content: null }],
           history: [],
           achievements: [],
         },
@@ -92,8 +92,66 @@ describe("classroom analytics assignment stats", () => {
         submissionRate: 67,
         avgScore: 5,
         passCount: 2,
+        worksheetPendingReviewCount: 0,
         notSubmitted: [{ id: "student-3", name: "Cara" }],
       },
     ]);
+  });
+
+  it("counts pending manual worksheet review items", async () => {
+    mockClassroomFindUnique.mockResolvedValueOnce({
+      assignments: [
+        {
+          id: "worksheet-1",
+          name: "Worksheet Review",
+          type: "worksheet",
+          checklists: null,
+          maxScore: 12,
+          passScore: null,
+          deadline: null,
+          visible: true,
+        },
+      ],
+      students: [
+        {
+          id: "student-1",
+          name: "Alice",
+          nickname: null,
+          behaviorPoints: 0,
+          attendance: "PRESENT",
+          submissions: [
+            {
+              assignmentId: "worksheet-1",
+              score: 6,
+              submittedAt: new Date("2026-05-04T00:00:00.000Z"),
+              content: JSON.stringify({
+                mode: "worksheet",
+                answers: {},
+                itemResults: [
+                  { itemId: "a", correct: null, score: 0, maxScore: 2, needsReview: true },
+                  { itemId: "b", correct: true, score: 2, maxScore: 2, needsReview: false },
+                ],
+              }),
+            },
+          ],
+          history: [],
+          achievements: [],
+        },
+      ],
+    });
+
+    const route = await import("@/app/api/classrooms/[id]/analytics/route");
+    const response = await route.GET({} as never, {
+      params: Promise.resolve({ id: "class-1" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.assignmentStats[0]).toEqual(
+      expect.objectContaining({
+        id: "worksheet-1",
+        worksheetPendingReviewCount: 1,
+      })
+    );
   });
 });

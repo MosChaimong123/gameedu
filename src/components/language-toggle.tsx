@@ -16,7 +16,7 @@ export function LanguageToggle({ className }: { className?: string }) {
             className={cn("h-8 min-w-12 shrink-0 px-2 font-bold border-2", className)}
             aria-label={language === "en" ? t("languageToggleToThai") : t("languageToggleToEnglish")}
         >
-            {language === "en" ? "TH" : "EN"}
+            {language === "en" ? "EN" : "TH"}
         </Button>
     )
 }

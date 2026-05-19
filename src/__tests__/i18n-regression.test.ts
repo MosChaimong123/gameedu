@@ -4,6 +4,7 @@ import type { AppErrorCode } from "@/lib/api-error";
 import { formatBoardActionErrorMessage } from "@/lib/board-action-error-messages";
 import { getLocalizedOmrErrorMessageFromResponse } from "@/lib/omr-ui-messages";
 import { formatSocketErrorMessage } from "@/lib/socket-error-messages";
+import { ATTENDANCE_STATUSES, attendanceLabelKey } from "@/lib/attendance-status";
 import type { Language } from "@/lib/translations";
 import { getTranslationText } from "@/lib/translation-lookup";
 import {
@@ -22,6 +23,22 @@ const coreUiKeys = [
   "registerErrorFailed",
   "classroomOverview",
   "dashboardTabClassroom",
+] as const;
+
+const classroomAttendanceUiKeys = [
+  "attendanceMode",
+  "attendanceDesc",
+  "dashboardTabAttendance",
+  "dashboardTabAnalytics",
+  "ideaBoard",
+  "present",
+  "absent",
+  "late",
+  "leftEarly",
+  "attendanceSick",
+  "attendanceLeave",
+  "saveAttendance",
+  "upgradeNow",
 ] as const;
 
 const flowUiKeys = [
@@ -580,6 +597,28 @@ describe("i18n regression guard", () => {
       expect(english, `${key} should resolve in English`).not.toBe(key);
       expect(thai, `${key} should resolve in Thai`).not.toBe(key);
       expect(thai, `${key} should contain Thai text`).toSatisfy(hasThaiGlyph);
+    }
+  });
+
+  it("resolves classroom attendance and tab keys in English and Thai", () => {
+    for (const key of classroomAttendanceUiKeys) {
+      const english = getTranslationText("en", key);
+      const thai = getTranslationText("th", key);
+
+      expect(english, `${key} should resolve in English`).not.toBe(key);
+      expect(english, `${key} should not look like a raw key`).not.toMatch(/^[A-Z][A-Z0-9_.]+$/);
+      expect(thai, `${key} should resolve in Thai`).not.toBe(key);
+      expect(thai, `${key} should contain Thai text`).toSatisfy(hasThaiGlyph);
+    }
+  });
+
+  it("resolves attendance status badge labels via attendanceLabelKey in English", () => {
+    for (const status of ATTENDANCE_STATUSES) {
+      if (status === "PRESENT") continue;
+      const key = attendanceLabelKey(status);
+      const english = getTranslationText("en", key);
+      expect(english, `${status} → ${key}`).not.toBe(key);
+      expect(english).not.toMatch(/^ATTENDANCE\./);
     }
   });
 

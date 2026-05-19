@@ -29,6 +29,7 @@ const worksheetFixture = {
           placeholder: "",
           answer: {
             mode: "normalized",
+            reviewMode: "auto",
             accepted: ["earth", "โลก"],
             points: 2,
           },
@@ -124,6 +125,7 @@ const worksheetFixture = {
           placeholder: "",
           answer: {
             mode: "normalized",
+            reviewMode: "manual",
             accepted: ["banana"],
             points: 2,
           },
@@ -142,6 +144,27 @@ const worksheetFixture = {
             { id: "check-banana", label: "Banana", correct: true },
           ],
           pointsPerCorrect: 1,
+        },
+        {
+          id: "item-8",
+          type: "file_upload",
+          x: 32,
+          y: 92,
+          width: 40,
+          height: 10,
+          prompt: "Upload your worksheet file",
+          allowedType: "document",
+          points: 4,
+        },
+        {
+          id: "item-9",
+          type: "speaking",
+          x: 34,
+          y: 94,
+          width: 40,
+          height: 10,
+          prompt: "Record your answer",
+          points: 3,
         },
       ],
     },
@@ -188,6 +211,17 @@ describe("worksheet schema", () => {
     const studentView = sanitizeWorksheetForStudent(parsed.data);
     expect(JSON.stringify(studentView)).not.toContain("accepted");
     expect(JSON.stringify(studentView)).not.toContain("correctIndex");
-    expect(studentView.pages[0]?.items).toHaveLength(7);
+    expect(studentView.pages[0]?.items).toHaveLength(9);
+  });
+
+  it("accepts manual review mode for supported items", () => {
+    const parsed = validateWorksheetData(worksheetFixture);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+
+    const shortText = parsed.data.pages[0]?.items[0];
+    const mediaPrompt = parsed.data.pages[0]?.items[5];
+    expect(shortText && "answer" in shortText ? shortText.answer.reviewMode : null).toBe("auto");
+    expect(mediaPrompt && "answer" in mediaPrompt ? mediaPrompt.answer.reviewMode : null).toBe("manual");
   });
 });

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, ChevronLeft, ChevronRight, Loader2, Trophy } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Loader2, Mic, Square, Trophy, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/components/providers/language-provider";
 import type {
@@ -18,6 +18,21 @@ function asStringRecord(value: WorksheetStudentAnswerValue | undefined): Record<
   return value;
 }
 
+function getUploadAccept(allowedType: "any" | "document" | "image" | "audio" | "video") {
+  switch (allowedType) {
+    case "document":
+      return ".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,.rar,.7z";
+    case "image":
+      return "image/*";
+    case "audio":
+      return "audio/*";
+    case "video":
+      return "video/*";
+    default:
+      return ".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,.rar,.7z,image/*,audio/*,video/*";
+  }
+}
+
 interface WorksheetClientProps {
   assignment: {
     id: string;
@@ -30,6 +45,8 @@ interface WorksheetClientProps {
   themeClass: string;
   themeStyle: React.CSSProperties;
   showScoreToStudent: boolean;
+  allowResubmit: boolean;
+  hasPreviousSubmission: boolean;
   pages: StudentWorksheetPage[];
 }
 
@@ -40,6 +57,8 @@ export function WorksheetClient({
   themeClass,
   themeStyle,
   showScoreToStudent,
+  allowResubmit,
+  hasPreviousSubmission,
   pages,
 }: WorksheetClientProps) {
   const router = useRouter();
@@ -50,9 +69,22 @@ export function WorksheetClient({
   const [submitting, setSubmitting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [result, setResult] = useState<{ score: number; maxScore: number } | null>(null);
+  const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
+  const [recordingItemId, setRecordingItemId] = useState<string | null>(null);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaChunksRef = useRef<Blob[]>([]);
+  const activeRecordingItemIdRef = useRef<string | null>(null);
 
   const allItems = pages.flatMap((page) => page.items);
   const activePage = pages[activePageIndex] ?? pages[0];
+  const statusMessage = loadError
+    ? loadError
+    : uploadingItemId
+      ? t("worksheetUploading")
+      : recordingItemId
+        ? t("worksheetSpeakingRecordingStatus")
+        : null;
 
   const hasUnanswered = allItems.some((item) => {
     const value = answers[item.id];
@@ -77,6 +109,9 @@ export function WorksheetClient({
     if (item.type === "media_prompt") {
       return typeof value !== "string" || value.trim().length === 0;
     }
+    if (item.type === "file_upload" || item.type === "speaking") {
+      return typeof value !== "string" || value.trim().length === 0;
+    }
     if (item.type === "checklist") {
       return (
         !Array.isArray(value) ||
@@ -86,6 +121,103 @@ export function WorksheetClient({
     }
     return typeof value !== "number";
   });
+
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
+
+  async function uploadWorksheetFile(itemId: string, file: File) {
+    setUploadingItemId(itemId);
+    setLoadError(null);
+    try {
+      const formData = new FormData();
+      formData.append("studentCode", studentCode);
+      formData.append("itemId", itemId);
+      formData.append("file", file);
+
+      const res = await fetch(
+        `/api/classrooms/${classId}/assignments/${assignment.id}/worksheet/upload`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const payload = (await res.json()) as { url?: string };
+      if (!res.ok || !payload.url) {
+        throw new Error("upload_failed");
+      }
+
+      setAnswers((prev) => ({
+        ...prev,
+        [itemId]: payload.url!,
+      }));
+    } catch (error) {
+      console.error(error);
+      setLoadError(t("worksheetUploadFailed"));
+    } finally {
+      setUploadingItemId(null);
+    }
+  }
+
+  async function startSpeakingRecording(itemId: string) {
+    setRecordingError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const supportedMimeType = MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : MediaRecorder.isTypeSupported("audio/mp4")
+          ? "audio/mp4"
+          : "";
+      const recorder = supportedMimeType
+        ? new MediaRecorder(stream, { mimeType: supportedMimeType })
+        : new MediaRecorder(stream);
+
+      mediaChunksRef.current = [];
+      activeRecordingItemIdRef.current = itemId;
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          mediaChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const targetItemId = activeRecordingItemIdRef.current;
+        setRecordingItemId(null);
+        activeRecordingItemIdRef.current = null;
+        stream.getTracks().forEach((track) => track.stop());
+
+        if (!targetItemId || mediaChunksRef.current.length === 0) {
+          return;
+        }
+
+        const mimeType = recorder.mimeType || "audio/webm";
+        const extension = mimeType.includes("mp4") ? "m4a" : mimeType.includes("ogg") ? "ogg" : mimeType.includes("wav") ? "wav" : "webm";
+        const blob = new Blob(mediaChunksRef.current, { type: mimeType });
+        const file = new File([blob], `speaking-answer.${extension}`, { type: mimeType });
+        mediaChunksRef.current = [];
+        await uploadWorksheetFile(targetItemId, file);
+      };
+
+      recorder.start();
+      setRecordingItemId(itemId);
+    } catch (error) {
+      console.error(error);
+      setRecordingError(t("worksheetSpeakingStartFailed"));
+    }
+  }
+
+  function stopSpeakingRecording() {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+  }
 
   function assignDragChoice(itemId: string, targetId: string, choiceId: string) {
     setAnswers((prev) => {
@@ -186,12 +318,12 @@ export function WorksheetClient({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-slate-50" aria-labelledby="worksheet-title">
       <div className={`px-6 py-4 ${themeClass}`} style={themeStyle}>
         <div className="mx-auto flex max-w-5xl items-center justify-between text-white">
           <div className="flex items-center gap-2">
             <BookOpen className="h-5 w-5" />
-            <span className="font-bold">{assignment.name}</span>
+            <h1 id="worksheet-title" className="font-bold">{assignment.name}</h1>
           </div>
           <span className="text-sm font-semibold text-white/80">
             {t("worksheetItemsCount", { count: allItems.length })}
@@ -200,19 +332,41 @@ export function WorksheetClient({
       </div>
 
       <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          {statusMessage ?? ""}
+        </div>
+
         {assignment.description?.trim() ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
+          <section
+            aria-labelledby="worksheet-description-title"
+            className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm"
+          >
+            <h2 id="worksheet-description-title" className="sr-only">
+              {t("worksheetDescriptionLabel")}
+            </h2>
             {assignment.description.trim()}
+          </section>
+        ) : null}
+
+        {allowResubmit && hasPreviousSubmission ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 shadow-sm">
+            {t("worksheetResubmitNotice")}
           </div>
         ) : null}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <div className="flex flex-wrap gap-2">
+        <nav
+          aria-label={t("worksheetPageNavigationLabel")}
+          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+        >
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label={t("worksheetPageTabsLabel")}>
             {pages.map((page, index) => (
               <button
                 key={page.id}
                 type="button"
                 onClick={() => setActivePageIndex(index)}
+                role="tab"
+                aria-selected={index === activePageIndex}
+                aria-current={index === activePageIndex ? "page" : undefined}
                 className={`rounded-lg border px-3 py-1.5 text-sm font-bold transition-colors ${
                   index === activePageIndex
                     ? "border-fuchsia-300 bg-fuchsia-100 text-fuchsia-800"
@@ -229,6 +383,7 @@ export function WorksheetClient({
               variant="outline"
               size="icon"
               disabled={activePageIndex === 0}
+              aria-label={t("worksheetPreviousPageAction")}
               onClick={() => setActivePageIndex((current) => Math.max(0, current - 1))}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -238,16 +393,24 @@ export function WorksheetClient({
               variant="outline"
               size="icon"
               disabled={activePageIndex >= pages.length - 1}
+              aria-label={t("worksheetNextPageAction")}
               onClick={() => setActivePageIndex((current) => Math.min(pages.length - 1, current + 1))}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-        </div>
+        </nav>
 
         {activePage ? (
-          <div key={activePage.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg">
-            <div className="border-b border-slate-100 px-5 py-3 text-sm font-bold text-slate-600">
+          <section
+            key={activePage.id}
+            aria-labelledby={`worksheet-page-title-${activePage.id}`}
+            className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg"
+          >
+            <div
+              id={`worksheet-page-title-${activePage.id}`}
+              className="border-b border-slate-100 px-5 py-3 text-sm font-bold text-slate-600"
+            >
               {t("worksheetPageLabel", { count: activePage.pageNumber })}
             </div>
             <div className="relative">
@@ -287,13 +450,15 @@ export function WorksheetClient({
                     ) : item.type === "multiple_choice" ? (
                       <div className="space-y-2">
                         <p className="text-[11px] font-bold leading-snug text-slate-700">{item.prompt}</p>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5" role="radiogroup" aria-label={item.prompt}>
                           {item.options.map((option, optionIndex) => {
                             const active = answers[item.id] === optionIndex;
                             return (
                               <button
                                 key={`${item.id}-${optionIndex}`}
                                 type="button"
+                                role="radio"
+                                aria-checked={active}
                                 onClick={() =>
                                   setAnswers((prev) => ({
                                     ...prev,
@@ -402,6 +567,30 @@ export function WorksheetClient({
                                 className="rounded-xl border border-dashed border-sky-200 bg-sky-50/70 p-2"
                               >
                                 <div className="mb-2 text-[11px] font-semibold text-slate-600">{target.label}</div>
+                                <label className="mb-2 block space-y-1">
+                                  <span className="block text-[11px] font-medium text-slate-500">
+                                    {t("worksheetKeyboardChoiceLabel")}
+                                  </span>
+                                  <select
+                                    value={choiceId}
+                                    onChange={(e) => {
+                                      const nextChoiceId = e.target.value;
+                                      if (nextChoiceId) {
+                                        assignDragChoice(item.id, target.id, nextChoiceId);
+                                      } else {
+                                        clearDragChoice(item.id, target.id);
+                                      }
+                                    }}
+                                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium outline-none focus:border-fuchsia-300"
+                                  >
+                                    <option value="">{t("assignmentWorksheetMatchingSelectChoice")}</option>
+                                    {item.choices.map((choice) => (
+                                      <option key={`${target.id}-${choice.id}`} value={choice.id}>
+                                        {choice.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
                                 {assignedChoice ? (
                                   <div className="flex items-center justify-between gap-2 rounded-lg border border-sky-200 bg-white px-3 py-2">
                                     <span className="text-xs font-bold text-sky-700">{assignedChoice.label}</span>
@@ -485,6 +674,94 @@ export function WorksheetClient({
                           className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm font-medium outline-none ring-0 focus:border-fuchsia-300"
                         />
                       </div>
+                    ) : item.type === "file_upload" ? (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-bold leading-snug text-slate-700">{item.prompt}</p>
+                        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs font-bold text-slate-700 hover:border-fuchsia-300 hover:bg-fuchsia-50">
+                          <Upload className="h-4 w-4" />
+                          <span>
+                            {uploadingItemId === item.id
+                              ? t("worksheetUploading")
+                              : t("worksheetFileUploadAction")}
+                          </span>
+                          <input
+                            type="file"
+                            accept={getUploadAccept(item.allowedType)}
+                            className="hidden"
+                            disabled={uploadingItemId === item.id}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                void uploadWorksheetFile(item.id, file);
+                              }
+                              e.currentTarget.value = "";
+                            }}
+                          />
+                        </label>
+                        {typeof answers[item.id] === "string" && String(answers[item.id]).trim().length > 0 ? (
+                          <a
+                            href={String(answers[item.id])}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-sky-700 underline-offset-2 hover:underline"
+                          >
+                            {t("worksheetFileUploadedLabel")}
+                          </a>
+                        ) : null}
+                      </div>
+                    ) : item.type === "speaking" ? (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-bold leading-snug text-slate-700">{item.prompt}</p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant={recordingItemId === item.id ? "destructive" : "outline"}
+                            size="sm"
+                            aria-pressed={recordingItemId === item.id}
+                            disabled={Boolean(recordingItemId && recordingItemId !== item.id)}
+                            onClick={() =>
+                              recordingItemId === item.id
+                                ? stopSpeakingRecording()
+                                : void startSpeakingRecording(item.id)
+                            }
+                          >
+                            {recordingItemId === item.id ? (
+                              <>
+                                <Square className="mr-2 h-4 w-4" />
+                                {t("worksheetSpeakingStopAction")}
+                              </>
+                            ) : (
+                              <>
+                                <Mic className="mr-2 h-4 w-4" />
+                                {t("worksheetSpeakingRecordAction")}
+                              </>
+                            )}
+                          </Button>
+                          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:border-fuchsia-300">
+                            <Upload className="h-4 w-4" />
+                            <span>{t("worksheetSpeakingUploadAction")}</span>
+                            <input
+                              type="file"
+                              accept="audio/*"
+                              className="hidden"
+                              disabled={uploadingItemId === item.id || recordingItemId === item.id}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  void uploadWorksheetFile(item.id, file);
+                                }
+                                e.currentTarget.value = "";
+                              }}
+                            />
+                          </label>
+                        </div>
+                        {typeof answers[item.id] === "string" && String(answers[item.id]).trim().length > 0 ? (
+                          <audio controls src={String(answers[item.id])} className="w-full" />
+                        ) : null}
+                        {recordingError ? (
+                          <p className="text-xs font-semibold text-red-600">{recordingError}</p>
+                        ) : null}
+                      </div>
                     ) : (
                       <div className="space-y-3">
                         <p className="text-[11px] font-bold leading-snug text-slate-700">{item.prompt}</p>
@@ -531,11 +808,14 @@ export function WorksheetClient({
                 ))}
               </div>
             </div>
-          </div>
+          </section>
         ) : null}
 
         {loadError ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          <div
+            role="alert"
+            className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+          >
             {loadError}
           </div>
         ) : null}
@@ -559,6 +839,6 @@ export function WorksheetClient({
           </Button>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

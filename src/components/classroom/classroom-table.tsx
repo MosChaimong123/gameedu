@@ -2,7 +2,7 @@
 
 import { Assignment } from "@prisma/client";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
@@ -34,6 +34,7 @@ import {
     tryLocalizeFetchNetworkFailureMessage,
 } from "@/lib/ui-error-messages";
 import { WorksheetSubmissionReviewDialog } from "@/components/classroom/worksheet-submission-review-dialog";
+import { parseWorksheetSubmissionContent } from "@/lib/worksheet-review";
 
 type ChecklistItem = string | { text?: string; points?: number };
 
@@ -96,6 +97,31 @@ export function ClassroomTable({
     const [scores, setScores] = useState(initialScores);
     const [savingChecklist, setSavingChecklist] = useState<string | null>(null);
     const { toast } = useToast();
+    const pendingWorksheetReviews = useMemo(() => {
+        return assignments.flatMap((assignment) => {
+            if (dbAssignmentTypeToFormType(assignment.type) !== "worksheet") {
+                return [];
+            }
+            return sortedStudents.flatMap((student) => {
+                const submission = getStudentSubmissions(student).find(
+                    (entry) => entry.assignmentId === assignment.id
+                );
+                if (!submission) return [];
+                const parsed = parseWorksheetSubmissionContent(submission.content);
+                if (!parsed) return [];
+                const pendingCount = parsed.itemResults.filter((item) => item.needsReview).length;
+                if (pendingCount === 0) return [];
+                return [
+                    {
+                        assignment,
+                        student,
+                        submission,
+                        pendingCount,
+                    },
+                ];
+            });
+        });
+    }, [assignments, sortedStudents]);
 
     const resolveMutationFailureDescription = (
         error: unknown,
@@ -266,6 +292,43 @@ export function ClassroomTable({
     };
 
     return (
+        <div className="flex h-full min-h-0 flex-col gap-3">
+            {pendingWorksheetReviews.length > 0 ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <p className="text-sm font-black text-amber-900">
+                                {t("worksheetReviewQueueTitle")}
+                            </p>
+                            <p className="text-xs font-semibold text-amber-700">
+                                {t("worksheetReviewQueueSubtitle", { count: pendingWorksheetReviews.length })}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {pendingWorksheetReviews.map((entry) => (
+                            <div
+                                key={`${entry.assignment.id}-${entry.student.id}`}
+                                className="rounded-2xl border border-amber-200 bg-white px-3 py-2"
+                            >
+                                <p className="text-sm font-bold text-slate-900">{entry.student.name}</p>
+                                <p className="text-xs text-slate-500">{entry.assignment.name}</p>
+                                <div className="mt-2">
+                                    <WorksheetSubmissionReviewDialog
+                                        classId={classId}
+                                        assignment={entry.assignment}
+                                        studentName={entry.student.name}
+                                        submission={entry.submission}
+                                        pendingCountOverride={entry.pendingCount}
+                                        triggerClassName="h-8 rounded-lg px-2 text-[11px]"
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
         <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-sm">
             {/* Mobile: stacked cards (touch-friendly) */}
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 md:hidden">
@@ -485,6 +548,7 @@ export function ClassroomTable({
                                                                     })}
                                                                 </p>
                                                                 <WorksheetSubmissionReviewDialog
+                                                                    classId={classId}
                                                                     assignment={a}
                                                                     studentName={student.name}
                                                                     submission={sub}
@@ -733,6 +797,7 @@ export function ClassroomTable({
                                                             / {a.maxScore}
                                                         </span>
                                                         <WorksheetSubmissionReviewDialog
+                                                            classId={classId}
                                                             assignment={a}
                                                             studentName={student.name}
                                                             submission={sub}
@@ -769,6 +834,7 @@ export function ClassroomTable({
                 </Table>
                 </div>
             </div>
+        </div>
         </div>
     );
 }

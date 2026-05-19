@@ -25,6 +25,17 @@ const VIDEO_MIME_TYPES = new Set([
     "video/webm",
 ]);
 
+const AUDIO_MIME_TYPES = new Set([
+    "audio/mpeg",
+    "audio/mp3",
+    "audio/wav",
+    "audio/x-wav",
+    "audio/webm",
+    "audio/ogg",
+    "audio/mp4",
+    "audio/m4a",
+]);
+
 const DOCUMENT_MIME_TYPES = new Set([
     "application/pdf",
     "application/msword",
@@ -42,12 +53,14 @@ const DOCUMENT_MIME_TYPES = new Set([
 const ALLOWED_MIME_TYPES = new Set([
     ...IMAGE_MIME_TYPES,
     ...VIDEO_MIME_TYPES,
+    ...AUDIO_MIME_TYPES,
     ...DOCUMENT_MIME_TYPES,
 ]);
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
 const SAFE_FILE_EXTENSIONS: Record<string, string> = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
@@ -56,6 +69,14 @@ const SAFE_FILE_EXTENSIONS: Record<string, string> = {
     "video/mp4": ".mp4",
     "video/quicktime": ".mov",
     "video/webm": ".webm",
+    "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
+    "audio/wav": ".wav",
+    "audio/x-wav": ".wav",
+    "audio/webm": ".webm",
+    "audio/ogg": ".ogg",
+    "audio/mp4": ".m4a",
+    "audio/m4a": ".m4a",
     "application/pdf": ".pdf",
     "application/msword": ".doc",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
@@ -72,6 +93,7 @@ const SAFE_FILE_EXTENSIONS: Record<string, string> = {
 function getMaxSizeForMimeType(mimeType: string) {
     if (IMAGE_MIME_TYPES.has(mimeType)) return MAX_IMAGE_BYTES;
     if (VIDEO_MIME_TYPES.has(mimeType)) return MAX_VIDEO_BYTES;
+    if (AUDIO_MIME_TYPES.has(mimeType)) return MAX_AUDIO_BYTES;
     return MAX_DOCUMENT_BYTES;
 }
 

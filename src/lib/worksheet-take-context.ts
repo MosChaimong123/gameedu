@@ -18,6 +18,8 @@ export type WorksheetTakeContextResult =
       maxScore: number;
       worksheet: WorksheetData;
       showScoreToStudent: boolean;
+      allowResubmit: boolean;
+      hasPreviousSubmission: boolean;
     }
   | { kind: "already_submitted"; score: number }
   | { kind: "denied"; status: number; message: string };
@@ -73,7 +75,7 @@ export async function loadWorksheetTakeContext(
     },
     select: { score: true },
   });
-  if (existing) {
+  if (existing && !worksheet.settings.allowResubmit) {
     return { kind: "already_submitted", score: existing.score };
   }
 
@@ -85,5 +87,7 @@ export async function loadWorksheetTakeContext(
     maxScore: assignment.maxScore,
     worksheet,
     showScoreToStudent: worksheet.settings.showScoreToStudent,
+    allowResubmit: worksheet.settings.allowResubmit,
+    hasPreviousSubmission: Boolean(existing),
   };
 }

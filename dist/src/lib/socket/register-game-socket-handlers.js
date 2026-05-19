@@ -6,6 +6,10 @@ const rate_limit_1 = require("@/lib/security/rate-limit");
 const student_login_code_1 = require("@/lib/student-login-code");
 const socket_error_messages_1 = require("@/lib/socket-error-messages");
 const negamon_battle_host_enabled_1 = require("@/lib/negamon-battle-host-enabled");
+const classroom_presence_1 = require("@/lib/socket/classroom-presence");
+function broadcastClassroomPresence(io, classId) {
+    io.to(`classroom-${classId}`).emit("classroom-event", (0, classroom_presence_1.buildPresenceUpdatePayload)(classId));
+}
 const allowedClassroomEventTypes = new Set([
     "BOARD_UPDATE",
     "POINT_UPDATE",
@@ -23,7 +27,7 @@ function cleanOptionalString(value) {
     return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 function registerGameSocketHandlers(io, deps) {
-    const { db, gameManager, randomId = () => crypto.randomUUID(), resolveSocketUserId = async () => null, resolveLivePlayerCapForHost, canHostQuestionSet = async () => false, canAccessClassroom = async () => false, canPublishClassroomEvent = async () => false, auditLog = audit_log_1.logAuditEvent, } = deps;
+    const { db, gameManager, randomId = () => crypto.randomUUID(), resolveSocketUserId = async () => null, resolveLivePlayerCapForHost, canHostQuestionSet = async () => false, canAccessClassroom = async () => false, canPublishClassroomEvent = async () => false, resolveClassroomStudentMember = async () => null, auditLog = audit_log_1.logAuditEvent, } = deps;
     io.on("connection", (socket) => {
         const joinedClassrooms = new Set();
         socket.on("create-game", async ({ setId, settings, mode, rewardClassroomId, }) => {
@@ -311,6 +315,10 @@ function registerGameSocketHandlers(io, deps) {
             }
         });
         socket.on("disconnect", () => {
+            const affectedClassrooms = (0, classroom_presence_1.unregisterAllClassroomSockets)(socket.id);
+            for (const classId of affectedClassrooms) {
+                broadcastClassroomPresence(io, classId);
+            }
             const playerGame = gameManager.findGameBySocket(socket.id);
             if (playerGame) {
                 playerGame.handleDisconnect(socket.id);
@@ -406,18 +414,23 @@ function registerGameSocketHandlers(io, deps) {
             }
             socket.join(`classroom-${classId}`);
             joinedClassrooms.add(classId);
+            const studentId = await resolveClassroomStudentMember(userId, classId);
+            (0, classroom_presence_1.registerClassroomPresence)(classId, socket.id, studentId);
+            broadcastClassroomPresence(io, classId);
             auditLog({
                 actorUserId: userId,
                 action: "socket.classroom.joined",
                 targetType: "classroom",
                 targetId: classId,
-                metadata: { socketId: socket.id },
+                metadata: { socketId: socket.id, studentId },
             });
         });
         socket.on("leave-classroom", (classId) => {
             if (typeof classId === "string" && classId.length > 0) {
                 socket.leave(`classroom-${classId}`);
                 joinedClassrooms.delete(classId);
+                (0, classroom_presence_1.unregisterClassroomPresence)(classId, socket.id);
+                broadcastClassroomPresence(io, classId);
             }
         });
         socket.on("classroom-update", async (payload) => {

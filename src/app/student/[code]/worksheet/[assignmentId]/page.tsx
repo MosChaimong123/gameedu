@@ -54,6 +54,8 @@ export default async function WorksheetPage(props: {
       themeClass={themeClass}
       themeStyle={themeStyle}
       showScoreToStudent={ctx.showScoreToStudent}
+      allowResubmit={ctx.allowResubmit}
+      hasPreviousSubmission={ctx.hasPreviousSubmission}
       pages={worksheet.pages}
     />
   );

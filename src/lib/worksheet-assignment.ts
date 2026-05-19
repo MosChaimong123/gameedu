@@ -32,6 +32,9 @@ export function sumWorksheetMaxScore(worksheet: WorksheetData) {
             item.options.filter((option) => option.correct).length * item.pointsPerCorrect
           );
         }
+        if (item.type === "file_upload" || item.type === "speaking") {
+          return itemSum + item.points;
+        }
         return itemSum + item.points;
       }, 0)
     );

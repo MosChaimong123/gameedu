@@ -60,6 +60,7 @@ describe("classroom analytics route", () => {
                 assignmentId: true,
                 score: true,
                 submittedAt: true,
+                content: true,
               },
             },
             history: {

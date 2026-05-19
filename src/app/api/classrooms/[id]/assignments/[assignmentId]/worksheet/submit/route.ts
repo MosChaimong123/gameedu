@@ -39,25 +39,43 @@ export async function POST(
 
     const grade = gradeWorksheetSubmission(ctx.worksheet, body.answers);
 
-    const submission = await db.assignmentSubmission.create({
-      data: {
-        studentId: ctx.studentId,
-        assignmentId,
-        score: grade.score,
-        content: JSON.stringify({
-          mode: "worksheet",
-          answers: body.answers,
-          itemResults: grade.itemResults,
-        }),
-        cheatingLogs: [] as Prisma.InputJsonValue,
-      },
+    const content = JSON.stringify({
+      mode: "worksheet",
+      answers: body.answers,
+      itemResults: grade.itemResults,
     });
+
+    const submission = ctx.hasPreviousSubmission
+      ? await db.assignmentSubmission.update({
+          where: {
+            studentId_assignmentId: {
+              studentId: ctx.studentId,
+              assignmentId,
+            },
+          },
+          data: {
+            score: grade.score,
+            content,
+            cheatingLogs: [] as Prisma.InputJsonValue,
+            submittedAt: new Date(),
+          },
+        })
+      : await db.assignmentSubmission.create({
+          data: {
+            studentId: ctx.studentId,
+            assignmentId,
+            score: grade.score,
+            content,
+            cheatingLogs: [] as Prisma.InputJsonValue,
+          },
+        });
 
     return NextResponse.json({
       score: grade.score,
       maxScore: grade.maxScore,
       submissionId: submission.id,
       showScoreToStudent: ctx.showScoreToStudent,
+      replacedPreviousSubmission: ctx.hasPreviousSubmission,
     });
   } catch (error) {
     console.error("[WORKSHEET_SUBMIT]", error);

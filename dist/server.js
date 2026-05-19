@@ -134,6 +134,14 @@ app.prepare().then(async () => {
         canHostQuestionSet: (userId, setId) => (0, resource_access_1.canHostQuestionSetForUser)(db_1.db, userId, setId),
         canAccessClassroom: (userId, classId) => (0, resource_access_1.canUserAccessClassroom)(db_1.db, userId, classId),
         canPublishClassroomEvent: (userId, classId, eventType) => (0, resource_access_1.canUserPublishClassroomSocketEvent)(db_1.db, userId, classId, eventType),
+        resolveClassroomStudentMember: async (userId, classId) => {
+            var _a;
+            const student = await db_1.db.student.findFirst({
+                where: { classId, userId },
+                select: { id: true },
+            });
+            return (_a = student === null || student === void 0 ? void 0 : student.id) !== null && _a !== void 0 ? _a : null;
+        },
         resolveLivePlayerCapForHost: async (hostId) => {
             const user = await db_1.db.user.findUnique({
                 where: { id: hostId },

@@ -7,8 +7,9 @@ import {
 } from "@/lib/email-verification";
 
 describe("emailVerificationCodeMatches", () => {
-  it("accepts bcrypt hashes for new codes", async () => {
-    const stored = await hashEmailVerificationCodeForStorage("535244");
+  it("accepts v3 HMAC hashes for new codes", async () => {
+    const stored = hashEmailVerificationCodeForStorage("535244");
+    expect(stored.startsWith("v3:")).toBe(true);
     await expect(
       emailVerificationCodeMatches(stored, {
         userId: "user-abc",
@@ -40,7 +41,7 @@ describe("emailVerificationCodeMatches", () => {
   });
 
   it("rejects wrong codes", async () => {
-    const stored = await hashEmailVerificationCodeForStorage("535244");
+    const stored = hashEmailVerificationCodeForStorage("535244");
     await expect(
       emailVerificationCodeMatches(stored, {
         userId: "user-abc",

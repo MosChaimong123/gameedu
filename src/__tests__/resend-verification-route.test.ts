@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockUserFindFirst = vi.fn();
 const mockResetEmailVerificationAttemptLimits = vi.fn();
 const mockEmailVerificationCodeFindFirst = vi.fn();
-const mockEmailVerificationCodeUpdateMany = vi.fn();
+const mockEmailVerificationCodeDeleteMany = vi.fn();
 const mockEmailVerificationCodeCreate = vi.fn();
 const mockSendVerificationEmail = vi.fn();
 const mockConsumeRateLimitWithStore = vi.fn();
@@ -16,7 +16,7 @@ vi.mock("@/lib/db", () => ({
     },
     emailVerificationCode: {
       findFirst: mockEmailVerificationCodeFindFirst,
-      updateMany: mockEmailVerificationCodeUpdateMany,
+      deleteMany: mockEmailVerificationCodeDeleteMany,
       create: mockEmailVerificationCodeCreate,
     },
   },
@@ -61,9 +61,9 @@ describe("resend verification route POST", () => {
       password: "hashed-password",
     });
     mockEmailVerificationCodeFindFirst.mockResolvedValue(null);
-    mockEmailVerificationCodeUpdateMany.mockResolvedValue({ count: 1 });
+    mockEmailVerificationCodeDeleteMany.mockResolvedValue({ count: 1 });
     mockEmailVerificationCodeCreate.mockResolvedValue({});
-    mockSendVerificationEmail.mockResolvedValue(undefined);
+    mockSendVerificationEmail.mockResolvedValue({ sent: true });
     mockResetEmailVerificationAttemptLimits.mockResolvedValue(undefined);
   });
 
@@ -147,7 +147,7 @@ describe("resend verification route POST", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(mockEmailVerificationCodeUpdateMany).toHaveBeenCalled();
+    expect(mockEmailVerificationCodeDeleteMany).toHaveBeenCalled();
     expect(mockEmailVerificationCodeCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: "user-1",
@@ -165,7 +165,7 @@ describe("resend verification route POST", () => {
       15
     );
     expect(mockResetEmailVerificationAttemptLimits).toHaveBeenCalledWith("alice@example.com");
-    expect(body).toEqual({ ok: true, cooldownSeconds: 30 });
+    expect(body).toEqual({ ok: true, sent: true, cooldownSeconds: 30 });
   });
 
   it("returns cooldown error when a code was just sent", async () => {

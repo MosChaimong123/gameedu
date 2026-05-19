@@ -79,15 +79,11 @@ export async function POST(req: Request) {
     }
 
     const verificationCode = generateEmailVerificationCode();
-    const verificationCodeHash = await hashEmailVerificationCodeForStorage(verificationCode);
-    await db.emailVerificationCode.updateMany({
+    const verificationCodeHash = hashEmailVerificationCodeForStorage(verificationCode);
+    await db.emailVerificationCode.deleteMany({
         where: {
             userId: user.id,
             purpose: EMAIL_VERIFICATION_PURPOSE,
-            consumedAt: null,
-        },
-        data: {
-            consumedAt: new Date(),
         },
     });
     await db.emailVerificationCode.create({
@@ -102,12 +98,14 @@ export async function POST(req: Request) {
         },
     });
 
+    let emailSent = false;
     try {
-        await sendVerificationCodeEmail(
+        const sendResult = await sendVerificationCodeEmail(
             identifier,
             verificationCode,
             EMAIL_VERIFICATION_EXPIRES_MINUTES
         );
+        emailSent = sendResult.sent;
     } catch (e) {
         console.error("[resend-verification]", e);
         logAuditEvent({
@@ -134,8 +132,20 @@ export async function POST(req: Request) {
         metadata: { emailMasked: maskEmail(identifier) },
     });
 
-    return NextResponse.json({
+    const responseBody: {
+        ok: true;
+        sent: boolean;
+        cooldownSeconds: number;
+        devCode?: string;
+    } = {
         ok: true,
+        sent: emailSent,
         cooldownSeconds: EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS,
-    });
+    };
+
+    if (!emailSent && process.env.NODE_ENV !== "production") {
+        responseBody.devCode = verificationCode;
+    }
+
+    return NextResponse.json(responseBody);
 }

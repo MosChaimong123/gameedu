@@ -1,4 +1,4 @@
-import { createHash, randomInt } from "node:crypto";
+import { createHash, createHmac, randomInt } from "node:crypto";
 
 export const EMAIL_VERIFICATION_CODE_LENGTH = 6;
 export const EMAIL_VERIFICATION_EXPIRES_MINUTES = 15;
@@ -8,6 +8,7 @@ export const EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 30;
 export const EMAIL_VERIFICATION_PURPOSE = "SIGNUP_VERIFY";
 
 const BCRYPT_ROUNDS = 10;
+const VERIFICATION_HASH_V3_PREFIX = "v3:";
 
 export function normalizeVerificationEmail(email: string) {
   return email.trim().toLowerCase();
@@ -43,10 +44,22 @@ function sha256VerificationHash(identityKey: string, code: string, pepper: strin
     .digest("hex");
 }
 
-/** Preferred storage format (bcrypt). */
-export async function hashEmailVerificationCodeForStorage(code: string) {
-  const bcrypt = await import("bcryptjs");
-  return bcrypt.hash(code.trim(), BCRYPT_ROUNDS);
+function hashVerificationCodeV3(code: string, pepper: string) {
+  const digest = createHmac("sha256", pepper).update(code.trim()).digest("hex");
+  return `${VERIFICATION_HASH_V3_PREFIX}${digest}`;
+}
+
+/** Preferred storage format (deterministic HMAC — same result on every server/instance). */
+export function hashEmailVerificationCodeForStorage(code: string) {
+  return hashVerificationCodeV3(code, resolveEmailVerificationPepper());
+}
+
+export function collectVerificationCodeV3Hashes(code: string) {
+  const hashes = new Set<string>();
+  for (const pepper of resolveEmailVerificationPepperCandidates()) {
+    hashes.add(hashVerificationCodeV3(code, pepper));
+  }
+  return hashes;
 }
 
 /** Legacy sha256 (userId- or email-keyed) for records created before bcrypt migration. */
@@ -78,6 +91,10 @@ export async function emailVerificationCodeMatches(
   params: { userId: string; email: string; code: string }
 ) {
   const trimmedCode = params.code.trim();
+
+  if (storedHash.startsWith(VERIFICATION_HASH_V3_PREFIX)) {
+    return collectVerificationCodeV3Hashes(trimmedCode).has(storedHash);
+  }
 
   if (storedHash.startsWith("$2")) {
     const bcrypt = await import("bcryptjs");

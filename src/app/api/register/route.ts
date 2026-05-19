@@ -121,15 +121,11 @@ export async function POST(req: Request) {
         step = "verification_code";
         const normalizedEmail = normalizeVerificationEmail(email)
         const verificationCode = generateEmailVerificationCode()
-        const verificationCodeHash = await hashEmailVerificationCodeForStorage(verificationCode)
-        await db.emailVerificationCode.updateMany({
+        const verificationCodeHash = hashEmailVerificationCodeForStorage(verificationCode)
+        await db.emailVerificationCode.deleteMany({
             where: {
                 userId: user.id,
                 purpose: EMAIL_VERIFICATION_PURPOSE,
-                consumedAt: null,
-            },
-            data: {
-                consumedAt: new Date(),
             },
         })
         await db.emailVerificationCode.create({

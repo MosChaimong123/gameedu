@@ -34,6 +34,7 @@ export function VerifyEmailCodeForm({
   const [isVerifying, setIsVerifying] = React.useState(false);
   const [isResending, setIsResending] = React.useState(false);
   const [resendCooldownSeconds, setResendCooldownSeconds] = React.useState(0);
+  const [devCode, setDevCode] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (resendCooldownSeconds <= 0) return;
@@ -63,6 +64,7 @@ export function VerifyEmailCodeForm({
     setIsVerifying(true);
     setError(null);
     setSuccess(null);
+    setDevCode(null);
 
     try {
       const res = await fetch("/api/auth/verify-email-code", {
@@ -81,7 +83,7 @@ export function VerifyEmailCodeForm({
           t,
           language
         );
-        setError(message);
+        setError(`${message} ${t("verifyEmailCodeWrongHint")}`);
         return;
       }
 
@@ -124,9 +126,19 @@ export function VerifyEmailCodeForm({
         return;
       }
 
-      const body = (await res.json()) as { cooldownSeconds?: number };
+      const body = (await res.json()) as {
+        cooldownSeconds?: number;
+        sent?: boolean;
+        devCode?: string;
+      };
       applyResendCooldown(body.cooldownSeconds ?? 30);
-      setSuccess(t("verifyEmailCodeResent"));
+      if (body.devCode) {
+        setDevCode(body.devCode);
+        setCode(body.devCode);
+        setSuccess(t("verifyEmailCodeDevSent"));
+      } else {
+        setSuccess(t("verifyEmailCodeResent"));
+      }
     } catch (err) {
       const raw = err instanceof Error ? err.message : null;
       const net = tryLocalizeFetchNetworkFailureMessage(raw, t);
@@ -155,6 +167,12 @@ export function VerifyEmailCodeForm({
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span>{success}</span>
         </div>
+      ) : null}
+
+      {devCode ? (
+        <motion.div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-center text-sm text-sky-900">
+          <p className="font-mono text-2xl font-bold tracking-[0.4em]">{devCode}</p>
+        </motion.div>
       ) : null}
 
       <form onSubmit={handleVerify} className="space-y-4">

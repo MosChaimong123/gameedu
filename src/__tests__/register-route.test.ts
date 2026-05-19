@@ -10,7 +10,7 @@ function makeJsonRequest(body: JsonRequestBody): Request {
 
 const mockUserFindUnique = vi.fn();
 const mockUserCreate = vi.fn();
-const mockEmailVerificationCodeUpdateMany = vi.fn();
+const mockEmailVerificationCodeDeleteMany = vi.fn();
 const mockEmailVerificationCodeCreate = vi.fn();
 const mockHash = vi.fn();
 const mockConsumeRateLimit = vi.fn();
@@ -24,7 +24,7 @@ vi.mock("@/lib/db", () => ({
       create: mockUserCreate,
     },
     emailVerificationCode: {
-      updateMany: mockEmailVerificationCodeUpdateMany,
+      deleteMany: mockEmailVerificationCodeDeleteMany,
       create: mockEmailVerificationCodeCreate,
     },
   },
@@ -75,7 +75,7 @@ describe("register route POST", () => {
       email: "alice@example.com",
       role: "STUDENT",
     });
-    mockEmailVerificationCodeUpdateMany.mockResolvedValue({ count: 0 });
+    mockEmailVerificationCodeDeleteMany.mockResolvedValue({ count: 0 });
     mockEmailVerificationCodeCreate.mockResolvedValue({
       id: "code-1",
       email: "alice@example.com",
@@ -149,7 +149,7 @@ describe("register route POST", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(mockEmailVerificationCodeUpdateMany).toHaveBeenCalled();
+    expect(mockEmailVerificationCodeDeleteMany).toHaveBeenCalled();
     expect(mockEmailVerificationCodeCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: "user-1",

@@ -61,7 +61,7 @@ describe("verify email code route POST", () => {
       id: "code-1",
       userId: "user-1",
       email: "alice@example.com",
-      codeHash: await hashEmailVerificationCodeForStorage("123456"),
+      codeHash: hashEmailVerificationCodeForStorage("123456"),
       attempts: 0,
       maxAttempts: 5,
       expiresAt: new Date(Date.now() + 60_000),

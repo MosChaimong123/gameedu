@@ -96,12 +96,18 @@ export async function PATCH(
             if (item.type === "short_text" || item.type === "media_prompt") {
               return item.answer.reviewMode === "manual";
             }
-            return false;
+            return item.type === "file_upload" || item.type === "speaking";
           })
-          .map((item) => [
-            item.id,
-            item.type === "short_text" || item.type === "media_prompt" ? item.answer.points : 0,
-          ])
+          .map((item) => {
+            if (item.type === "short_text" || item.type === "media_prompt") {
+              return [item.id, item.answer.points] as const;
+            }
+            if (item.type === "file_upload" || item.type === "speaking") {
+              return [item.id, item.points] as const;
+            }
+            return null;
+          })
+          .filter((entry): entry is readonly [string, number] => entry !== null)
       )
     );
 

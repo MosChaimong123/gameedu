@@ -492,7 +492,7 @@ export function WorksheetBuilder({ value, onChange, disabled = false }: Props) {
           throw new Error(t("assignmentWorksheetPdfImportRenderFailed"));
         }
 
-        await pdfPage.render({ canvasContext: context, viewport }).promise;
+        await pdfPage.render({ canvas, canvasContext: context, viewport }).promise;
         const imageBlob = await new Promise<Blob>((resolve, reject) => {
           canvas.toBlob((blob) => {
             if (!blob) {
@@ -914,7 +914,7 @@ export function WorksheetBuilder({ value, onChange, disabled = false }: Props) {
         </div>
       </div>
 
-      <div className="grid gap-2 lg:hidden">
+      <div className="sticky top-2 z-20 -mx-1 rounded-xl border border-fuchsia-200 bg-fuchsia-50/95 p-1 backdrop-blur lg:hidden">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Button type="button" variant="outline" disabled={disabled} onClick={addPage}>
             <FilePlus2 className="mr-2 h-4 w-4" />
@@ -2204,7 +2204,7 @@ export function WorksheetBuilder({ value, onChange, disabled = false }: Props) {
             <SheetDescription>{t("assignmentWorksheetSetupHint")}</SheetDescription>
           </SheetHeader>
           <div className="px-4 pb-4">
-            {renderAddItemButtons("grid gap-2")}
+            {renderAddItemButtons("grid gap-2", () => setMobileAddSheetOpen(false))}
           </div>
         </SheetContent>
       </Sheet>

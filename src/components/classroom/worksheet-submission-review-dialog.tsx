@@ -21,6 +21,23 @@ import {
   type WorksheetSubmissionItemResult,
 } from "@/lib/worksheet-review";
 
+type UploadedAssetKind = "image" | "audio" | "video" | "document";
+
+type WorksheetStructuredAnswerEntry = {
+  label: string;
+  value: string;
+  expected?: string;
+};
+
+function readStringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+  );
+}
+
 type WorksheetAssignmentLike = {
   id: string;
   name: string;
@@ -81,12 +98,9 @@ function renderAnswerValue(
   }
 
   if (item.type === "drag_drop") {
-    const placements =
-      rawAnswer && typeof rawAnswer === "object" && !Array.isArray(rawAnswer)
-        ? rawAnswer
-        : {};
+    const placements = readStringRecord(rawAnswer);
     return item.targets.map((target) => {
-      const choiceId = typeof placements[target.id] === "string" ? placements[target.id] : "";
+      const choiceId = placements[target.id] ?? "";
       const selected = item.choices.find((choice) => choice.id === choiceId)?.label;
       const expected = item.choices.find((choice) => choice.id === target.correctChoiceId)?.label;
       return {
@@ -98,12 +112,9 @@ function renderAnswerValue(
   }
 
   if (item.type === "matching_pairs") {
-    const pairings =
-      rawAnswer && typeof rawAnswer === "object" && !Array.isArray(rawAnswer)
-        ? rawAnswer
-        : {};
+    const pairings = readStringRecord(rawAnswer);
     return item.prompts.map((prompt) => {
-      const choiceId = typeof pairings[prompt.id] === "string" ? pairings[prompt.id] : "";
+      const choiceId = pairings[prompt.id] ?? "";
       const selected = item.choices.find((choice) => choice.id === choiceId)?.label;
       const expected = item.choices.find((choice) => choice.id === prompt.correctChoiceId)?.label;
       return {
@@ -123,6 +134,20 @@ function renderAnswerValue(
   }
 
   return t("worksheetReviewEmptyAnswer");
+}
+
+function inferUploadedAssetKind(url: string): UploadedAssetKind {
+  const normalized = url.toLowerCase().split("?")[0]?.split("#")[0] ?? "";
+  if (/\.(png|jpe?g|gif|webp|bmp|svg)$/.test(normalized)) {
+    return "image";
+  }
+  if (/\.(mp3|wav|ogg|m4a|aac)$/.test(normalized)) {
+    return "audio";
+  }
+  if (/\.(mp4|mov|webm|mkv|avi)$/.test(normalized)) {
+    return "video";
+  }
+  return "document";
 }
 
 function getWorksheetItemTypeLabel(
@@ -151,7 +176,7 @@ function getWorksheetItemTypeLabel(
     case "speaking":
       return t("assignmentWorksheetTypeSpeaking");
     default:
-      return item.type;
+      return "";
   }
 }
 
@@ -430,6 +455,21 @@ export function WorksheetSubmissionReviewDialog({
                               <video controls className="max-h-56 w-full rounded-xl" src={item.mediaUrl} />
                             )}
                           </div>
+                        ) : item.type === "file_upload" && typeof answer === "string" && answer !== t("worksheetReviewEmptyAnswer") ? (
+                          <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
+                            {inferUploadedAssetKind(answer) === "image" ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={answer}
+                                alt={t("worksheetReviewUploadedImageAlt")}
+                                className="max-h-64 w-full rounded-xl object-contain"
+                              />
+                            ) : inferUploadedAssetKind(answer) === "audio" ? (
+                              <audio controls className="w-full" src={answer} />
+                            ) : inferUploadedAssetKind(answer) === "video" ? (
+                              <video controls className="max-h-64 w-full rounded-xl" src={answer} />
+                            ) : null}
+                          </div>
                         ) : item.type === "speaking" && typeof answer === "string" && answer !== t("worksheetReviewEmptyAnswer") ? (
                           <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
                             <audio controls className="w-full" src={answer} />
@@ -479,7 +519,9 @@ export function WorksheetSubmissionReviewDialog({
                                   <p className="mt-1 text-sm font-semibold text-slate-800">
                                     {entry.value}
                                   </p>
-                                  {"expected" in entry && entry.expected ? (
+                                  {"expected" in entry &&
+                                  typeof entry.expected === "string" &&
+                                  entry.expected ? (
                                     <p className="mt-1 text-xs text-slate-500">
                                       {t("worksheetReviewExpectedPrefix")} {entry.expected}
                                     </p>
@@ -501,6 +543,34 @@ export function WorksheetSubmissionReviewDialog({
                               </span>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  setManualScores((current) => ({
+                                    ...current,
+                                    [item.id]: "0",
+                                  }))
+                                }
+                                disabled={saving}
+                              >
+                                {t("worksheetReviewQuickZeroAction")}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  setManualScores((current) => ({
+                                    ...current,
+                                    [item.id]: String(result.maxScore),
+                                  }))
+                                }
+                                disabled={saving}
+                              >
+                                {t("worksheetReviewQuickFullScoreAction")}
+                              </Button>
                               <input
                                 type="number"
                                 min={0}

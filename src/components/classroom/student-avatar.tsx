@@ -8,8 +8,10 @@ import { getItemById } from "@/lib/shop-items";
 import { useLanguage } from "@/components/providers/language-provider";
 import { FrameCardChrome, FrameRing } from "@/components/ui/frame-visual";
 import {
+    attendanceAvatarContentDimClass,
     attendanceAvatarRingClass,
     attendanceBadgeClass,
+    attendanceCardShellClass,
     attendanceDimmed,
     attendanceLabelKey,
     attendanceOverlayClass,
@@ -56,6 +58,8 @@ export function StudentAvatar({
     const attendanceStatus = normalizeAttendanceStatus(attendance);
     const dimmed = attendanceDimmed(attendanceStatus);
     const ringClass = attendanceAvatarRingClass(attendanceStatus);
+    const shellBorderClass = attendanceCardShellClass(attendanceStatus);
+    const avatarDimClass = attendanceAvatarContentDimClass(attendanceStatus);
     const overlayClass = attendanceOverlayClass(attendanceStatus);
 
     const rank = getStudentRank(academicPoints, levelConfig);
@@ -127,7 +131,8 @@ export function StudentAvatar({
                     rounded="avatar"
                     className={cn(
                         "mb-4 shadow-inner transition-colors group-hover:bg-indigo-50/50",
-                        ringClass
+                        ringClass,
+                        avatarDimClass
                     )}
                 >
                     {overlayClass && <div className={cn("absolute inset-0 z-10 rounded-[inherit]", overlayClass)} />}
@@ -144,7 +149,8 @@ export function StudentAvatar({
                 <div
                     className={cn(
                         "relative mb-4 h-24 w-24 overflow-hidden rounded-[1.75rem] border border-slate-100 bg-slate-50 p-3 shadow-inner transition-colors group-hover:bg-indigo-50/50 sm:h-28 sm:w-28",
-                        ringClass
+                        ringClass,
+                        avatarDimClass
                     )}
                 >
                     {overlayClass && <div className={cn("absolute inset-0 z-10", overlayClass)} />}
@@ -181,9 +187,14 @@ export function StudentAvatar({
             className={cn(
                 "relative flex flex-col items-center justify-center rounded-[2rem] transition-all cursor-pointer group",
                 !framePreview &&
-                    "border border-slate-100 bg-white p-4 shadow-sm hover:border-indigo-100 hover:shadow-2xl sm:p-5",
+                    cn(
+                        "bg-white p-4 shadow-sm hover:shadow-2xl sm:p-5",
+                        attendanceStatus === "PRESENT"
+                            ? "hover:border-indigo-100"
+                            : shellBorderClass
+                    ),
                 framePreview && "p-0 shadow-none",
-                dimmed && "opacity-60 grayscale bg-slate-50",
+                dimmed && !framePreview && "bg-slate-50/80",
                 isSelected && "bg-indigo-50 ring-4 ring-indigo-500/30 shadow-xl",
                 className
             )}
@@ -195,7 +206,7 @@ export function StudentAvatar({
                     preview={framePreview}
                     outerClassName={cn(
                         "rounded-[2rem] flex w-full flex-col items-center justify-center",
-                        dimmed && "opacity-60 grayscale"
+                        attendanceStatus !== "PRESENT" && shellBorderClass
                     )}
                     innerRoundedClassName="rounded-[1.85rem]"
                     innerClassName="relative flex flex-col items-center justify-center p-4 sm:p-5"

@@ -1012,7 +1012,7 @@ const englishPack = {
         random: "Random",
         groups: "Groups",
         attendanceMode: "Attendance Mode",
-        attendanceDesc: "Tap students to cycle: Present, Absent, Late, Left early, Sick, or Leave",
+        attendanceDesc: "Tap students to cycle: Present → Absent → Leave → Sick → Late → Left early",
         emptyClassTitle: "This class is empty",
         emptyClassDesc: "Add students to award behavior points, assign work, and track submissions.",
         addStudents: "Add Students",

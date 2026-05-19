@@ -1,11 +1,12 @@
 /** Canonical attendance codes stored on Student.attendance and AttendanceRecord.status */
+/** Tap order after มาเรียน: ขาด → ลา → ป่วย → สาย → กลับก่อน */
 export const ATTENDANCE_STATUSES = [
     "PRESENT",
     "ABSENT",
+    "LEAVE",
+    "SICK",
     "LATE",
     "LEFT_EARLY",
-    "SICK",
-    "LEAVE",
 ] as const;
 
 export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
@@ -80,18 +81,16 @@ export function attendanceHistorySelectClass(status: string): string {
 }
 
 export function attendanceTableBorderClass(status: string): string {
+    if (status === "ABSENT") return "border-2 border-red-500";
+    if (status === "LEAVE") return "border-2 border-blue-500";
+    if (status === "SICK") return "border-2 border-purple-500";
     if (status === "LATE") return "border-2 border-yellow-400";
     if (status === "LEFT_EARLY") return "border-2 border-orange-400";
-    if (status === "SICK") return "border-2 border-purple-400";
-    if (status === "LEAVE") return "border-2 border-blue-400";
     return "";
 }
 
 export function attendanceTableDimClass(status: string): string {
-    if (status === "ABSENT") return "opacity-50 grayscale";
-    if (status === "SICK") return "opacity-60 grayscale-[0.6]";
-    if (status === "LEAVE") return "opacity-60";
-    return "";
+    return attendanceAvatarContentDimClass(status);
 }
 
 export function attendanceBadgeClass(status: string): string {
@@ -130,11 +129,31 @@ export function attendanceAnalyticsPillClass(status: string): string {
     }
 }
 
+/** Colored ring on avatar square (grid cards) */
 export function attendanceAvatarRingClass(status: string): string {
+    if (status === "ABSENT") return "ring-4 ring-red-500 ring-offset-2";
+    if (status === "LEAVE") return "ring-4 ring-blue-500 ring-offset-2";
+    if (status === "SICK") return "ring-4 ring-purple-500 ring-offset-2";
     if (status === "LATE") return "ring-4 ring-yellow-400 ring-offset-2";
     if (status === "LEFT_EARLY") return "ring-4 ring-orange-400 ring-offset-2";
-    if (status === "SICK") return "ring-4 ring-purple-400 ring-offset-2";
-    if (status === "LEAVE") return "ring-4 ring-blue-400 ring-offset-2";
+    return "";
+}
+
+/** Colored border on full student card shell */
+export function attendanceCardShellClass(status: string): string {
+    if (status === "ABSENT") return "border-4 border-red-500 shadow-md shadow-red-100";
+    if (status === "LEAVE") return "border-4 border-blue-500 shadow-md shadow-blue-100";
+    if (status === "SICK") return "border-4 border-purple-500 shadow-md shadow-purple-100";
+    if (status === "LATE") return "border-4 border-yellow-400 shadow-md shadow-yellow-100";
+    if (status === "LEFT_EARLY") return "border-4 border-orange-500 shadow-md shadow-orange-100";
+    return "border border-slate-100";
+}
+
+/** Dim only avatar artwork — keep badge and card border in color */
+export function attendanceAvatarContentDimClass(status: string): string {
+    if (status === "ABSENT") return "opacity-50 grayscale";
+    if (status === "SICK") return "opacity-75 saturate-[0.65]";
+    if (status === "LEAVE") return "opacity-75 saturate-[0.65]";
     return "";
 }
 

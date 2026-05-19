@@ -10,10 +10,10 @@ describe("attendance-status", () => {
         expect(ATTENDANCE_STATUSES).toEqual([
             "PRESENT",
             "ABSENT",
+            "LEAVE",
+            "SICK",
             "LATE",
             "LEFT_EARLY",
-            "SICK",
-            "LEAVE",
         ]);
     });
 

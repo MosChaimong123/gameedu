@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { hashEmailVerificationCode } from "@/lib/email-verification";
+import {
+  hashEmailVerificationCode,
+  hashEmailVerificationCodeForStorage,
+} from "@/lib/email-verification";
 
+const mockUserFindUnique = vi.fn();
 const mockUserFindFirst = vi.fn();
 const mockUserUpdate = vi.fn();
 const mockEmailVerificationCodeFindFirst = vi.fn();
@@ -11,6 +15,7 @@ const mockConsumeRateLimitWithStore = vi.fn();
 vi.mock("@/lib/db", () => ({
   db: {
     user: {
+      findUnique: mockUserFindUnique,
       findFirst: mockUserFindFirst,
       update: mockUserUpdate,
     },
@@ -39,21 +44,24 @@ vi.mock("@/lib/security/rate-limit", () => ({
 }));
 
 describe("verify email code route POST", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mockConsumeRateLimitWithStore.mockResolvedValue({
       allowed: true,
       retryAfterSeconds: 60,
     });
-    mockUserFindFirst.mockResolvedValue({
+    const user = {
       id: "user-1",
+      email: "alice@example.com",
       emailVerified: null,
-    });
+    };
+    mockUserFindUnique.mockResolvedValue(user);
+    mockUserFindFirst.mockResolvedValue(user);
     mockEmailVerificationCodeFindFirst.mockResolvedValue({
       id: "code-1",
       userId: "user-1",
       email: "alice@example.com",
-      codeHash: hashEmailVerificationCode("user-1", "123456"),
+      codeHash: await hashEmailVerificationCodeForStorage("123456"),
       attempts: 0,
       maxAttempts: 5,
       expiresAt: new Date(Date.now() + 60_000),
@@ -185,10 +193,12 @@ describe("verify email code route POST", () => {
   });
 
   it("returns success when the user is already verified", async () => {
-    mockUserFindFirst.mockResolvedValue({
+    mockUserFindUnique.mockResolvedValue({
       id: "user-1",
+      email: "alice@example.com",
       emailVerified: new Date(),
     });
+    mockUserFindFirst.mockResolvedValue(null);
     const { POST } = await import("@/app/api/auth/verify-email-code/route");
 
     const response = await POST(

@@ -18,7 +18,7 @@ import {
     EMAIL_VERIFICATION_PURPOSE,
     generateEmailVerificationCode,
     getEmailVerificationRetryAfterSeconds,
-    hashEmailVerificationCode,
+    hashEmailVerificationCodeForStorage,
     normalizeVerificationEmail,
 } from "@/lib/email-verification";
 
@@ -106,6 +106,7 @@ export async function POST(req: Request) {
     }
 
     const verificationCode = generateEmailVerificationCode();
+    const verificationCodeHash = await hashEmailVerificationCodeForStorage(verificationCode);
     await db.emailVerificationCode.updateMany({
         where: {
             userId: user.id,
@@ -120,7 +121,7 @@ export async function POST(req: Request) {
         data: {
             userId: user.id,
             email: identifier,
-            codeHash: hashEmailVerificationCode(user.id, verificationCode),
+            codeHash: verificationCodeHash,
             purpose: EMAIL_VERIFICATION_PURPOSE,
             attempts: 0,
             maxAttempts: EMAIL_VERIFICATION_MAX_ATTEMPTS,

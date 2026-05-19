@@ -11,7 +11,7 @@ import {
 import {
   EMAIL_VERIFICATION_MAX_ATTEMPTS,
   EMAIL_VERIFICATION_PURPOSE,
-  hashEmailVerificationCode,
+  emailVerificationCodeMatches,
   isEmailVerificationCodeExpired,
   normalizeVerificationEmail,
 } from "@/lib/email-verification";
@@ -51,12 +51,18 @@ export async function POST(req: Request) {
 
   const normalizedEmail = normalizeVerificationEmail(email);
 
-  const user = await db.user.findFirst({
-    where: {
-      email: { equals: normalizedEmail, mode: "insensitive" },
-    },
+  let user = await db.user.findUnique({
+    where: { email: normalizedEmail },
     select: { id: true, email: true, emailVerified: true },
   });
+  if (!user) {
+    user = await db.user.findFirst({
+      where: {
+        email: { equals: normalizedEmail, mode: "insensitive" },
+      },
+      select: { id: true, email: true, emailVerified: true },
+    });
+  }
 
   if (!user) {
     return createAppErrorResponse(
@@ -103,8 +109,12 @@ export async function POST(req: Request) {
     );
   }
 
-  const codeHash = hashEmailVerificationCode(user.id, code);
-  if (codeHash !== verification.codeHash) {
+  const codeMatches = await emailVerificationCodeMatches(verification.codeHash, {
+    userId: user.id,
+    email: user.email ?? normalizedEmail,
+    code,
+  });
+  if (!codeMatches) {
     const failLimit = await consumeRateLimitWithStore({
       bucket: "auth:verify-email-code:fail",
       key: buildRateLimitKey(normalizedEmail),

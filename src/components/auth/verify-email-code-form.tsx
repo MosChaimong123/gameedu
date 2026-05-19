@@ -170,9 +170,9 @@ export function VerifyEmailCodeForm({
       ) : null}
 
       {devCode ? (
-        <motion.div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-center text-sm text-sky-900">
+        <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-center text-sm text-sky-900">
           <p className="font-mono text-2xl font-bold tracking-[0.4em]">{devCode}</p>
-        </motion.div>
+        </div>
       ) : null}
 
       <form onSubmit={handleVerify} className="space-y-4">

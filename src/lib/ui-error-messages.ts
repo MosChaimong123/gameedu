@@ -63,6 +63,9 @@ const DEFAULT_THAI_ERROR_MESSAGES: Record<AppErrorCode, string> = {
     EMAIL_VERIFICATION_CODE_COOLDOWN: "โปรดรอสักครู่ก่อนขอรหัสใหม่",
 };
 
+/** Ensures every AppErrorCode has a Thai message at compile time (must stay inside the literal above). */
+const _allAppErrorCodesHaveThaiMessages: Record<AppErrorCode, string> = DEFAULT_THAI_ERROR_MESSAGES;
+
 const LEGACY_TEXT_ERROR_MESSAGES: Array<[needle: string, message: string]> = [
     ["Too many login attempts", "คุณพยายามเข้าสู่ระบบหลายครั้งเกินไป โปรดรอสักครู่แล้วลองใหม่"],
     ["Too many requests", DEFAULT_THAI_ERROR_MESSAGES.RATE_LIMITED],

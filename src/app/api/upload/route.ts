@@ -11,6 +11,7 @@ import {
     getRequestClientIdentifier,
 } from "@/lib/security/rate-limit";
 import { logAuditEvent } from "@/lib/security/audit-log";
+import { getUploadStorageMode, uploadBoardAssetToR2 } from "@/lib/storage";
 
 const IMAGE_MIME_TYPES = new Set([
     "image/jpeg",
@@ -97,6 +98,38 @@ function getMaxSizeForMimeType(mimeType: string) {
     return MAX_DOCUMENT_BYTES;
 }
 
+async function persistUploadedFile(
+    buffer: Buffer,
+    mimeType: string,
+    extension: string,
+    classId: string | null
+): Promise<{ url: string; storageKey: string }> {
+    const storageMode = getUploadStorageMode();
+
+    if (storageMode === "r2") {
+        const uploaded = await uploadBoardAssetToR2({
+            buffer,
+            contentType: mimeType,
+            extension,
+            classId: classId ?? undefined,
+        });
+        return { url: uploaded.url, storageKey: uploaded.key };
+    }
+
+    const uploadDir = path.join(process.cwd(), "public", "uploads");
+    try {
+        await mkdir(uploadDir, { recursive: true });
+    } catch {
+        // Directory might already exist
+    }
+
+    const fileName = `${crypto.randomUUID()}${extension}`;
+    const filePath = path.join(uploadDir, fileName);
+    await writeFile(filePath, buffer);
+
+    return { url: `/uploads/${fileName}`, storageKey: fileName };
+}
+
 export async function POST(request: NextRequest) {
     let actorUserId: string | undefined;
     try {
@@ -115,7 +148,7 @@ export async function POST(request: NextRequest) {
         const rateLimit = await consumeRateLimitWithStore({
             bucket: "upload:post",
             key: buildRateLimitKey(getRequestClientIdentifier(request), session.user.id),
-            limit: 15,
+            limit: 30,
             windowMs: 60_000,
         });
 
@@ -132,6 +165,8 @@ export async function POST(request: NextRequest) {
 
         const formData = await request.formData();
         const file = formData.get("file") as File;
+        const classIdRaw = formData.get("classId");
+        const classId = typeof classIdRaw === "string" && classIdRaw.trim() ? classIdRaw.trim() : null;
 
         if (!file) {
             logAuditEvent({
@@ -170,39 +205,28 @@ export async function POST(request: NextRequest) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        // Ensure uploads directory exists
-        const uploadDir = path.join(process.cwd(), "public", "uploads");
-        try {
-            await mkdir(uploadDir, { recursive: true });
-        } catch {
-            // Directory might already exist
-        }
-
         const fileExtension = SAFE_FILE_EXTENSIONS[file.type];
-        const fileName = `${crypto.randomUUID()}${fileExtension}`;
-        const filePath = path.join(uploadDir, fileName);
+        const { url, storageKey } = await persistUploadedFile(buffer, file.type, fileExtension, classId);
 
-        await writeFile(filePath, buffer);
-
-        const url = `/uploads/${fileName}`;
         logAuditEvent({
             actorUserId,
             action: "upload.succeeded",
             targetType: "upload",
-            targetId: fileName,
+            targetId: storageKey,
             metadata: {
                 originalFileName: file.name,
                 mimeType: file.type,
                 size: file.size,
+                storage: getUploadStorageMode(),
             },
         });
 
-        return NextResponse.json({ 
-            url, 
-            fileName,
+        return NextResponse.json({
+            url,
+            fileName: storageKey,
             originalFileName: file.name,
             size: file.size,
-            type: file.type
+            type: file.type,
         });
     } catch (error) {
         logAuditEvent({

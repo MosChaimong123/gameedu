@@ -38,4 +38,25 @@ describe("safe-media-url", () => {
         expect(() => assertSafeHttpUrl("https://example.com")).not.toThrow();
         expect(() => assertSafeHttpUrl("http://example.com")).not.toThrow();
     });
+
+    it("accepts R2 board URLs when R2_PUBLIC_BASE_URL is configured", () => {
+        const env = {
+            R2_PUBLIC_BASE_URL: "https://cdn.example.com",
+        };
+        expect(() =>
+            assertSafeUploadedMediaUrl(
+                "https://cdn.example.com/board/class-1/abc123.jpg",
+                env
+            )
+        ).not.toThrow();
+    });
+
+    it("rejects R2-looking URLs from unknown hosts", () => {
+        const env = {
+            R2_PUBLIC_BASE_URL: "https://cdn.example.com",
+        };
+        expect(() =>
+            assertSafeUploadedMediaUrl("https://evil.example.com/board/class-1/x.jpg", env)
+        ).toThrow(BOARD_ERR_INVALID_MEDIA);
+    });
 });

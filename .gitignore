@@ -37,6 +37,9 @@ next-env.d.ts
 # local scratch / copies (repo root)
 /tmp/
 
+# local board uploads (use R2 in production)
+/public/uploads/
+
 # Sentry build artifacts
 .sentryclirc
 .sentry-build-plugin/

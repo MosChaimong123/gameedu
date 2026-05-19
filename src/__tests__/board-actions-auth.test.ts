@@ -22,6 +22,13 @@ vi.mock("@/auth", () => ({
   auth: mockAuth,
 }));
 
+const mockDeleteBoardAssetsFromR2 = vi.fn();
+
+vi.mock("@/lib/storage", () => ({
+  collectBoardPostMediaUrls: () => [],
+  deleteBoardAssetsFromR2: mockDeleteBoardAssetsFromR2,
+}));
+
 vi.mock("@/lib/db", () => ({
   db: {
     board: {
@@ -474,5 +481,82 @@ describe("board actions authorization", () => {
 
     await expect(togglePollStatus("post-1")).rejects.toThrow("Unauthorized");
     expect(mockBoardPostUpdate).not.toHaveBeenCalled();
+  });
+
+  it("lets a teacher add a comment with explicit null authorStudentId", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "teacher-1" } });
+    mockClassroomFindUnique.mockResolvedValue({
+      id: "class-1",
+      teacherId: "teacher-1",
+      students: [],
+    });
+    mockBoardCommentCreate.mockResolvedValue({ id: "comment-teacher", content: "Great work" });
+
+    const { addBoardComment } = await import("@/lib/actions/board-actions");
+
+    await addBoardComment({ postId: "post-1", content: "Great work" });
+
+    expect(mockBoardCommentCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          authorStudentId: null,
+          authorUserId: "teacher-1",
+          content: "Great work",
+        }),
+      })
+    );
+  });
+
+  it("lets a teacher toggle a heart reaction using authorUserId", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "teacher-1" } });
+    mockClassroomFindUnique.mockResolvedValue({
+      id: "class-1",
+      teacherId: "teacher-1",
+      students: [],
+    });
+    mockBoardReactionFindFirst.mockResolvedValue(null);
+    mockBoardReactionCreate.mockResolvedValue({
+      id: "reaction-teacher",
+      postId: "post-1",
+      type: "HEART",
+      authorStudentId: null,
+      authorUserId: "teacher-1",
+    });
+
+    const { toggleBoardReaction } = await import("@/lib/actions/board-actions");
+
+    await toggleBoardReaction({ postId: "post-1", type: "HEART" });
+
+    expect(mockBoardReactionFindFirst).toHaveBeenCalledWith({
+      where: {
+        postId: "post-1",
+        type: "HEART",
+        authorStudentId: null,
+        authorUserId: "teacher-1",
+      },
+    });
+    expect(mockBoardReactionCreate).toHaveBeenCalledWith({
+      data: {
+        postId: "post-1",
+        type: "HEART",
+        authorStudentId: null,
+        authorUserId: "teacher-1",
+      },
+    });
+  });
+
+  it("rejects album posts above the image limit", async () => {
+    const { createBoardPost } = await import("@/lib/actions/board-actions");
+    const albumImages = Array.from({ length: 21 }, (_, index) => `/uploads/img-${index}.jpg`);
+
+    await expect(
+      createBoardPost({
+        boardId: "board-1",
+        content: "",
+        type: "album",
+        albumImages,
+      })
+    ).rejects.toThrow("boardErrInvalidContent");
+    expect(mockBoardPostCreate).not.toHaveBeenCalled();
   });
 });

@@ -29,6 +29,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toggleBoardReaction, deleteBoardPost, addBoardComment, voteBoardPoll, togglePollStatus, toggleBoardPostPin } from "@/lib/actions/board-actions";
 import { formatBoardActionErrorMessage } from "@/lib/board-action-error-messages";
+import { resolveBoardMediaUrl, isPdfFileName, isImageFileName } from "@/lib/board-media-url";
 import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
 
@@ -74,6 +75,7 @@ export type BoardPostCardData = {
     fileName?: string | null;
     attachedFiles?: Array<{ url: string; name: string }> | null;
     videoUrl?: string | null;
+    videoName?: string | null;
     youtubeId?: string | null;
     albumImages?: string[] | null;
     pollQuestion?: string | null;
@@ -119,6 +121,9 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isPinning, setIsPinning] = useState(false);
+    const [videoError, setVideoError] = useState(false);
+    const [localReacted, setLocalReacted] = useState<boolean | null>(null);
+    const [brokenAlbumIndexes, setBrokenAlbumIndexes] = useState<Set<number>>(new Set());
     const { toast } = useToast();
 
     const isPinned = Boolean(post.pinnedAt);
@@ -129,9 +134,15 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
     
     const reactionCount = post.reactions.length;
     const hasReacted = post.reactions.some((reaction) => reaction.authorStudentId === currentUserIdOrStudentId || reaction.authorUserId === currentUserIdOrStudentId);
+    const displayReacted = localReacted ?? hasReacted;
+    const displayReactionCount =
+        reactionCount +
+        (localReacted === true && !hasReacted ? 1 : localReacted === false && hasReacted ? -1 : 0);
 
     const handleReaction = async () => {
         if (isReacting) return;
+        const nextReacted = !displayReacted;
+        setLocalReacted(nextReacted);
         setIsReacting(true);
         try {
             await toggleBoardReaction({
@@ -139,7 +150,11 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                 type: "HEART",
             });
             if (onUpdate) onUpdate();
-        } catch {
+        } catch (error: unknown) {
+            setLocalReacted(null);
+            const raw = error instanceof Error ? error.message : "";
+            const message = raw ? formatBoardActionErrorMessage(raw, t) : t("boardReactionFailDesc");
+            toast({ variant: "destructive", title: t("boardPostErrorShort"), description: message });
         } finally {
             setIsReacting(false);
         }
@@ -171,9 +186,12 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                 content: commentText.trim(),
             });
             setCommentText("");
+            setShowComments(true);
             if (onUpdate) onUpdate();
-        } catch {
-             toast({ variant: "destructive", title: t("boardPostErrorShort"), description: t("boardPostCommentFailDesc") });
+        } catch (error: unknown) {
+            const raw = error instanceof Error ? error.message : "";
+            const message = raw ? formatBoardActionErrorMessage(raw, t) : t("boardPostCommentFailDesc");
+            toast({ variant: "destructive", title: t("boardPostErrorShort"), description: message });
         } finally {
             setIsCommenting(false);
         }
@@ -240,8 +258,12 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
               : [];
 
     const openPreview = (gallery: string[], index: number) => {
-        setPreviewGallery(gallery);
+        setPreviewGallery(gallery.map((url) => resolveBoardMediaUrl(url)));
         setCurrentPreviewIndex(index);
+    };
+
+    const markAlbumBroken = (index: number) => {
+        setBrokenAlbumIndexes((prev) => new Set(prev).add(index));
     };
 
     const nextImage = (e?: React.MouseEvent) => {
@@ -405,10 +427,10 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                             return (
                                 <a
                                     key={file.url}
-                                    href={file.url}
+                                    href={resolveBoardMediaUrl(file.url)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    download
+                                    {...(isPdfFileName(file.name || file.url) ? {} : { download: true })}
                                     className="block group"
                                 >
                                     <div className="flex items-center gap-3 rounded-xl border border-black/5 bg-white/50 p-3 transition-colors group-hover:bg-white/80">
@@ -430,13 +452,26 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
 
                 {/* Video View */}
                 {post.type === "video" && post.videoUrl && (
-                    <div className="mb-2 rounded-xl overflow-hidden border border-black/5 bg-black/5 relative group max-h-[500px] flex items-center justify-center">
-                        <video 
-                            src={post.videoUrl} 
-                            controls 
-                            className="w-full h-auto max-h-[500px]"
-                            poster={post.image || undefined}
-                        />
+                    <div className="mb-2 space-y-1">
+                        {post.videoName && (
+                            <p className="text-[10px] font-bold text-slate-500 truncate">{post.videoName}</p>
+                        )}
+                        <div className="rounded-xl overflow-hidden border border-black/5 bg-black/5 relative max-h-[500px] flex items-center justify-center">
+                            {videoError ? (
+                                <p className="px-4 py-8 text-center text-xs font-bold text-slate-500">
+                                    {t("boardVideoUnavailable")}
+                                </p>
+                            ) : (
+                                <video
+                                    src={resolveBoardMediaUrl(post.videoUrl)}
+                                    controls
+                                    preload="metadata"
+                                    className="w-full h-auto max-h-[500px]"
+                                    poster={post.image ? resolveBoardMediaUrl(post.image) : undefined}
+                                    onError={() => setVideoError(true)}
+                                />
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -447,11 +482,25 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                             <div 
                                 key={idx} 
                                 className={`relative bg-black/5 aspect-square cursor-zoom-in group ${albumImages.length === 1 ? 'col-span-2' : ''}`}
-                                onClick={() => openPreview(albumImages, idx)}
+                                onClick={() => openPreview(albumImages, idx === 3 && albumImages.length > 4 ? 4 : idx)}
                             >
-                                <Image src={imgUrl} alt={t("boardAlbumImageAlt", { n: idx + 1 })} fill className="object-cover transition-transform group-hover:scale-105" unoptimized sizes="(max-width: 768px) 50vw, 25vw" />
+                                {brokenAlbumIndexes.has(idx) ? (
+                                    <div className="absolute inset-0 flex items-center justify-center p-2 text-center text-[10px] font-bold text-slate-400">
+                                        {t("boardMediaUnavailable")}
+                                    </div>
+                                ) : (
+                                    <Image
+                                        src={resolveBoardMediaUrl(imgUrl)}
+                                        alt={t("boardAlbumImageAlt", { n: idx + 1 })}
+                                        fill
+                                        className="object-cover transition-transform group-hover:scale-105"
+                                        unoptimized
+                                        sizes="(max-width: 768px) 50vw, 25vw"
+                                        onError={() => markAlbumBroken(idx)}
+                                    />
+                                )}
                                 {idx === 3 && albumImages.length > 4 && (
-                                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-black text-lg group-hover:bg-black/40 transition-colors">
+                                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-black text-lg group-hover:bg-black/40 transition-colors pointer-events-none">
                                         +{albumImages.length - 4}
                                     </div>
                                 )}
@@ -519,11 +568,11 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                     onClick={handleReaction}
                     disabled={isReacting}
                     className={`flex items-center gap-1.5 text-xs font-bold px-2 py-1.5 rounded-xl transition-all ${
-                        hasReacted ? "text-pink-600 bg-pink-100" : "text-slate-500 hover:bg-black/5"
+                        displayReacted ? "text-pink-600 bg-pink-100" : "text-slate-500 hover:bg-black/5"
                     }`}
                 >
-                    <Heart className={`w-4 h-4 ${hasReacted ? "fill-pink-600" : ""}`} />
-                    {reactionCount > 0 && reactionCount}
+                    <Heart className={`w-4 h-4 ${displayReacted ? "fill-pink-600" : ""}`} />
+                    {displayReactionCount > 0 && displayReactionCount}
                 </button>
 
                 <button 
@@ -536,9 +585,9 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
             </div>
 
             {/* Comments Section */}
-            {showComments && (
-                <div className="px-4 pb-4 space-y-3 bg-black/5 pt-3 animate-in slide-in-from-top-2">
-                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+            <div className="px-4 pb-4 space-y-3 bg-black/5 pt-3">
+                {showComments && (
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1 animate-in slide-in-from-top-2">
                         {post.comments.length === 0 && (
                             <p className="text-[10px] text-slate-400 text-center italic py-2">{t("boardPostNoComments")}</p>
                         )}
@@ -553,25 +602,26 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                             );
                         })}
                     </div>
-                    
-                    <form onSubmit={handleAddComment} className="flex gap-2">
-                        <input 
-                            type="text" 
-                            placeholder={t("boardCommentPlaceholder")}
-                            value={commentText}
-                            onChange={(e) => setCommentText(e.target.value)}
-                            className="bg-white rounded-xl px-3 py-1.5 text-xs flex-1 border border-slate-200 focus:outline-hidden focus:ring-1 focus:ring-purple-500"
-                        />
-                        <button 
-                            type="submit"
-                            disabled={isCommenting || !commentText.trim()}
-                            className="bg-purple-600 text-white rounded-xl px-3 py-1.5 text-[10px] font-bold disabled:opacity-50"
-                        >
-                            {t("boardPostSend")}
-                        </button>
-                    </form>
-                </div>
-            )}
+                )}
+
+                <form onSubmit={handleAddComment} className="flex gap-2">
+                    <input
+                        type="text"
+                        placeholder={t("boardCommentPlaceholder")}
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                        onFocus={() => setShowComments(true)}
+                        className="bg-white rounded-xl px-3 py-1.5 text-xs flex-1 border border-slate-200 focus:outline-hidden focus:ring-1 focus:ring-purple-500"
+                    />
+                    <button
+                        type="submit"
+                        disabled={isCommenting || !commentText.trim()}
+                        className="bg-purple-600 text-white rounded-xl px-3 py-1.5 text-[10px] font-bold disabled:opacity-50"
+                    >
+                        {t("boardPostSend")}
+                    </button>
+                </form>
+            </div>
 
             {/* Image Preview Dialog */}
             <Dialog open={!!previewGallery} onOpenChange={(open) => !open && setPreviewGallery(null)}>

@@ -1,18 +1,24 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Image as ImageIcon, Send, X, Link as LinkIcon, FileText, Youtube, ListTodo, Plus as PlusIcon, Upload, Loader2, Video } from "lucide-react";
 import { createBoardPost } from "@/lib/actions/board-actions";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { getLocalizedErrorMessageFromResponse } from "@/lib/ui-error-messages";
 import { formatBoardActionErrorMessage } from "@/lib/board-action-error-messages";
+import {
+    MAX_BOARD_ALBUM_IMAGES,
+    uploadBoardFilesParallel,
+    type BoardUploadProgress,
+} from "@/lib/board-upload-client";
 import type { AppErrorCode } from "@/lib/api-error";
 
 type CreatedPost = {
@@ -43,6 +49,7 @@ interface CreatePostModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     boardId: string;
+    classId?: string;
     onPostCreated?: (post: CreatedPost) => void;
 }
 
@@ -65,7 +72,7 @@ const BOARD_UPLOAD_ERR_KEYS: Partial<Record<AppErrorCode, string>> = {
 };
 
 export function CreatePostModal({
-    open, onOpenChange, boardId, onPostCreated
+    open, onOpenChange, boardId, classId, onPostCreated
 }: CreatePostModalProps) {
     const { t, language } = useLanguage();
     const [type, setType] = useState<PostType>("file");
@@ -91,7 +98,18 @@ export function CreatePostModal({
     const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [uploadPhase, setUploadPhase] = useState<BoardUploadProgress | null>(null);
+    const [albumPreviewUrls, setAlbumPreviewUrls] = useState<string[]>([]);
+    const uploadAbortRef = useRef<AbortController | null>(null);
     const { toast } = useToast();
+
+    useEffect(() => {
+        const urls = selectedFiles.map((file) => URL.createObjectURL(file));
+        setAlbumPreviewUrls(urls);
+        return () => {
+            urls.forEach((url) => URL.revokeObjectURL(url));
+        };
+    }, [selectedFiles]);
 
     const extractYoutubeId = (url: string) => {
         const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -99,12 +117,16 @@ export function CreatePostModal({
         return (match && match[2].length === 11) ? match[2] : null;
     };
 
-    const uploadFile = async (file: File) => {
+    const uploadFile = async (file: File, signal?: AbortSignal) => {
         const formData = new FormData();
         formData.append("file", file);
+        if (classId) {
+            formData.append("classId", classId);
+        }
         const res = await fetch("/api/upload", {
             method: "POST",
-            body: formData
+            body: formData,
+            signal,
         });
         if (!res.ok) {
             const message = await getLocalizedErrorMessageFromResponse(
@@ -119,10 +141,34 @@ export function CreatePostModal({
         return await res.json();
     };
 
+    const uploadMany = async (files: File[]) => {
+        return uploadBoardFilesParallel(files, {
+            classId,
+            signal: uploadAbortRef.current?.signal,
+            onProgress: setUploadPhase,
+            upload: (file, signal) => uploadFile(file, signal),
+        });
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
+        if (type === "file" && selectedBoardFiles.length === 0 && !fileUrl.trim()) {
+            toast({ variant: "destructive", title: t("error"), description: t("boardNeedFileOrLink") });
+            return;
+        }
+        if (type === "video" && !selectedVideo && !videoUrl.trim()) {
+            toast({ variant: "destructive", title: t("error"), description: t("boardNeedVideoOrLink") });
+            return;
+        }
+        if (type === "album" && selectedFiles.length === 0 && albumUrls.every((u) => !u.trim())) {
+            toast({ variant: "destructive", title: t("error"), description: t("boardNeedAlbumPhoto") });
+            return;
+        }
+
+        uploadAbortRef.current = new AbortController();
         setIsSubmitting(true);
+        setUploadPhase(null);
         try {
             const data: BoardPostInput = {
                 boardId,
@@ -136,11 +182,13 @@ export function CreatePostModal({
             if (type === "file") {
                 const attachedFiles: Array<{ url: string; name: string }> = [];
                 if (selectedBoardFiles.length > 0) {
-                    for (const file of selectedBoardFiles) {
-                        const uploadRes = await uploadFile(file);
+                    const uploads = await uploadMany(selectedBoardFiles);
+                    for (let i = 0; i < uploads.length; i += 1) {
+                        const uploadRes = uploads[i]!;
+                        const file = selectedBoardFiles[i]!;
                         attachedFiles.push({
                             url: uploadRes.url,
-                            name: uploadRes.originalFileName ?? uploadRes.fileName,
+                            name: uploadRes.originalFileName ?? uploadRes.fileName ?? file.name,
                         });
                     }
                 } else if (fileUrl.trim()) {
@@ -176,12 +224,10 @@ export function CreatePostModal({
                 data.pollOptions = pollOptions.filter(o => o.trim()).map((o, i) => ({ text: o.trim(), id: `opt-${i}` }));
             }
             if (type === "album") {
-                const uploadedUrls = [...albumUrls.filter(u => u.trim())];
+                const uploadedUrls = [...albumUrls.filter((u) => u.trim())];
                 if (selectedFiles.length > 0) {
-                    for (const f of selectedFiles) {
-                        const uploadRes = await uploadFile(f);
-                        uploadedUrls.push(uploadRes.url);
-                    }
+                    const uploads = await uploadMany(selectedFiles);
+                    uploadedUrls.push(...uploads.map((uploadRes) => uploadRes.url));
                 }
                 data.albumImages = uploadedUrls;
             }
@@ -212,20 +258,30 @@ export function CreatePostModal({
                 description: t("boardPostSuccessDesc"),
             });
         } catch (error: unknown) {
-            const raw = error instanceof Error ? error.message.trim() : "";
-            let description = t("boardPostCreateFail");
-            if (raw) {
-                const mapped = formatBoardActionErrorMessage(raw, t);
-                description = mapped !== raw ? mapped : raw;
+            if (error instanceof DOMException && error.name === "AbortError") {
+                toast({ title: t("boardUploadCancelled") });
+            } else {
+                const raw = error instanceof Error ? error.message.trim() : "";
+                let description = t("boardPostCreateFail");
+                if (raw) {
+                    const mapped = formatBoardActionErrorMessage(raw, t);
+                    description = mapped !== raw ? mapped : raw;
+                }
+                toast({
+                    variant: "destructive",
+                    title: t("error"),
+                    description,
+                });
             }
-            toast({
-                variant: "destructive",
-                title: t("error"),
-                description,
-            });
         } finally {
+            uploadAbortRef.current = null;
+            setUploadPhase(null);
             setIsSubmitting(false);
         }
+    };
+
+    const handleCancelUpload = () => {
+        uploadAbortRef.current?.abort();
     };
 
     const addPollOption = () => setPollOptions([...pollOptions, ""]);
@@ -496,16 +552,28 @@ export function CreatePostModal({
                                 accept="image/*"
                                 onChange={(e) => {
                                     const files = Array.from(e.target.files || []);
-                                    setSelectedFiles([...selectedFiles, ...files]);
+                                    setSelectedFiles((prev) => {
+                                        const merged = [...prev, ...files];
+                                        if (merged.length > MAX_BOARD_ALBUM_IMAGES) {
+                                            toast({
+                                                variant: "destructive",
+                                                title: t("error"),
+                                                description: t("boardAlbumMax", { max: MAX_BOARD_ALBUM_IMAGES }),
+                                            });
+                                            return merged.slice(0, MAX_BOARD_ALBUM_IMAGES);
+                                        }
+                                        return merged;
+                                    });
+                                    e.target.value = "";
                                 }}
                             />
 
                             <div className="grid grid-cols-4 gap-2">
                                 {selectedFiles.map((file, i) => (
-                                    <div key={i} className="relative aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200 group">
+                                    <div key={`${file.name}-${file.size}-${i}`} className="relative aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200 group">
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img 
-                                            src={URL.createObjectURL(file)} 
+                                            src={albumPreviewUrls[i] ?? ""} 
                                             alt={t("boardImagePreviewAlt")} 
                                             className="w-full h-full object-cover"
                                         />
@@ -548,11 +616,30 @@ export function CreatePostModal({
 
                 </div>
 
+                {uploadPhase && (
+                    <div className="space-y-2 px-1 pb-2">
+                        <p className="text-xs font-bold text-slate-600">
+                            {t("boardUploadProgress", {
+                                current: uploadPhase.current,
+                                total: uploadPhase.total,
+                                fileName: uploadPhase.fileName,
+                            })}
+                        </p>
+                        <Progress value={(uploadPhase.current / uploadPhase.total) * 100} className="h-2" />
+                    </div>
+                )}
+
                 <DialogFooter className="gap-2 pt-4 border-t border-slate-100 bg-white z-10">
+                    {isSubmitting && uploadPhase && (
+                        <Button type="button" variant="outline" onClick={handleCancelUpload} className="rounded-xl">
+                            {t("cancel")}
+                        </Button>
+                    )}
                     <Button 
                         variant="ghost" 
                         onClick={() => onOpenChange(false)}
                         className="rounded-xl"
+                        disabled={isSubmitting}
                     >
                         {t("cancel")}
                     </Button>
@@ -564,7 +651,14 @@ export function CreatePostModal({
                         {isSubmitting ? (
                             <div className="flex items-center gap-2">
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                <span>{t("boardSubmitting")}</span>
+                                <span>
+                                    {uploadPhase
+                                        ? t("boardUploadProgressShort", {
+                                              current: uploadPhase.current,
+                                              total: uploadPhase.total,
+                                          })
+                                        : t("boardSubmitting")}
+                                </span>
                             </div>
                         ) : (
                             <div className="flex items-center gap-2">

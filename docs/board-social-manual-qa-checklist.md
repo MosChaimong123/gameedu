@@ -15,6 +15,11 @@ Expected result:
 
 ## Dev QA
 
+- [ ] Upload album (10+ images) shows progress `current/total` and files survive after deploy (R2)
+- [ ] Video post plays after upload; broken legacy `/uploads/` posts show unavailable message
+- [ ] PDF attachment opens inline via View; Download still works
+- [ ] Teacher heart + comment work when classroom has no linked student row for teacher
+- [ ] Student heart + comment work; errors show readable toast (not silent failure)
 - [x] Board/classroom ownership is enforced for reads and mutations
 - [x] Post delete is limited to the author or classroom teacher
 - [x] Poll repeat voting updates the existing vote instead of creating a duplicate

@@ -1,6 +1,17 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
+function resolveR2ImageRemotePatterns(): NonNullable<NextConfig["images"]>["remotePatterns"] {
+  const base = process.env.R2_PUBLIC_BASE_URL?.trim();
+  if (!base) return [];
+  try {
+    const { hostname } = new URL(base);
+    return [{ protocol: "https", hostname, pathname: "/board/**" }];
+  } catch {
+    return [];
+  }
+}
+
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
@@ -18,6 +29,7 @@ const nextConfig: NextConfig = {
         hostname: 'lh3.googleusercontent.com',
         pathname: '/**',
       },
+      ...resolveR2ImageRemotePatterns(),
     ],
   },
 };

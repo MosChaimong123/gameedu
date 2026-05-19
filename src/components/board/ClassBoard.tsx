@@ -183,6 +183,7 @@ export function ClassBoard({ classId, studentId, userId, isTeacher }: ClassBoard
                     open={showCreateModal}
                     onOpenChange={setShowCreateModal}
                     boardId={board.id}
+                    classId={classId}
                     onPostCreated={handlePostCreated}
                 />
             )}

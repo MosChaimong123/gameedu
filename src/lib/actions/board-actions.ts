@@ -14,8 +14,10 @@ import {
     assertSafeUploadedMediaUrl,
     BOARD_ERR_INVALID_MEDIA,
 } from "@/lib/safe-media-url";
+import { collectBoardPostMediaUrls, deleteBoardAssetsFromR2 } from "@/lib/storage";
 
 const BOARD_ERR_CLASSROOM_NOT_FOUND = "boardErrClassroomNotFound";
+const MAX_BOARD_ALBUM_IMAGES = 20;
 const BOARD_ERR_BOARD_NOT_FOUND = "boardErrBoardNotFound";
 const BOARD_ERR_POST_NOT_FOUND = "boardErrPostNotFound";
 const BOARD_ERR_POLL_CLOSED = "boardErrPollClosed";
@@ -145,6 +147,9 @@ function normalizeBoardPostInput(data: CreateBoardPostInput): CreateBoardPostInp
     }
     if (type === "album" && !albumImages?.length) {
         throw new Error(BOARD_ERR_INVALID_MEDIA);
+    }
+    if (type === "album" && (albumImages?.length ?? 0) > MAX_BOARD_ALBUM_IMAGES) {
+        throw new Error(BOARD_ERR_INVALID_CONTENT);
     }
     if (type === "file" && attachedFiles.length === 0) {
         throw new Error(BOARD_ERR_INVALID_MEDIA);
@@ -327,6 +332,20 @@ function assertTeacher(actor: BoardActor) {
     }
 }
 
+/** Prisma omits undefined fields from where — use explicit null for teacher vs student. */
+function boardActorWhere(actor: BoardActor) {
+    if (actor.authorStudentId) {
+        return {
+            authorStudentId: actor.authorStudentId,
+            authorUserId: null as null,
+        };
+    }
+    return {
+        authorStudentId: null as null,
+        authorUserId: actor.authorUserId ?? actor.userId,
+    };
+}
+
 export async function getBoards(classId: string) {
     const userId = await requireSessionUserId();
     await resolveClassroomActor(classId, userId);
@@ -413,7 +432,9 @@ export async function deleteBoardPost(postId: string) {
         throw new Error(AUTH_REQUIRED_MESSAGE);
     }
 
+    const mediaUrls = collectBoardPostMediaUrls(post);
     await db.boardPost.delete({ where: { id: postId } });
+    await deleteBoardAssetsFromR2(mediaUrls);
     return { success: true };
 }
 
@@ -437,8 +458,7 @@ export async function toggleBoardReaction(data: {
         where: {
             postId: data.postId,
             type: data.type,
-            authorStudentId: actor.authorStudentId,
-            authorUserId: actor.authorUserId,
+            ...boardActorWhere(actor),
         },
     });
 
@@ -451,8 +471,8 @@ export async function toggleBoardReaction(data: {
         data: {
             postId: data.postId,
             type: data.type,
-            authorStudentId: actor.authorStudentId,
-            authorUserId: actor.authorUserId,
+            authorStudentId: actor.authorStudentId ?? null,
+            authorUserId: actor.authorUserId ?? null,
         },
     });
 
@@ -480,8 +500,8 @@ export async function addBoardComment(data: {
         data: {
             postId: data.postId,
             content,
-            authorStudentId: actor.authorStudentId,
-            authorUserId: actor.authorUserId,
+            authorStudentId: actor.authorStudentId ?? null,
+            authorUserId: actor.authorUserId ?? null,
         },
         include: {
             authorStudent: { select: { name: true, avatar: true, nickname: true } },
@@ -545,8 +565,7 @@ export async function voteBoardPoll(data: {
     const existing = await db.boardPollVote.findFirst({
         where: {
             pollId: post.poll.id,
-            authorStudentId: actor.authorStudentId,
-            authorUserId: actor.authorUserId,
+            ...boardActorWhere(actor),
         },
     });
 

@@ -3,19 +3,14 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { createAppErrorResponse } from "@/lib/api-error";
 import { sendVerificationCodeEmail } from "@/lib/email/send-verification-email";
-import {
-    buildRateLimitKey,
-    consumeRateLimitWithStore,
-    createRateLimitResponse,
-    getRequestClientIdentifier,
-    resetEmailVerificationAttemptLimits,
-} from "@/lib/security/rate-limit";
+import { resetEmailVerificationAttemptLimits } from "@/lib/security/rate-limit";
 import { logAuditEvent } from "@/lib/security/audit-log";
 import {
     buildEmailVerificationExpiry,
     EMAIL_VERIFICATION_EXPIRES_MINUTES,
     EMAIL_VERIFICATION_MAX_ATTEMPTS,
     EMAIL_VERIFICATION_PURPOSE,
+    EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS,
     generateEmailVerificationCode,
     getEmailVerificationRetryAfterSeconds,
     hashEmailVerificationCodeForStorage,
@@ -34,18 +29,6 @@ function maskEmail(email: string) {
 }
 
 export async function POST(req: Request) {
-    const clientIdentifier = getRequestClientIdentifier(req);
-    const rateLimit = await consumeRateLimitWithStore({
-        bucket: "auth:resend-verification",
-        key: clientIdentifier,
-        limit: 5,
-        windowMs: 60 * 60_000,
-    });
-
-    if (!rateLimit.allowed) {
-        return createRateLimitResponse(rateLimit.retryAfterSeconds);
-    }
-
     let email: string;
     try {
         const json = await req.json();
@@ -68,16 +51,6 @@ export async function POST(req: Request) {
 
     if (user.emailVerified) {
         return NextResponse.json({ ok: true });
-    }
-
-    const verifyRateLimit = await consumeRateLimitWithStore({
-        bucket: "auth:resend-verification:email",
-        key: buildRateLimitKey(clientIdentifier, identifier),
-        limit: 5,
-        windowMs: 60 * 60_000,
-    });
-    if (!verifyRateLimit.allowed) {
-        return createRateLimitResponse(verifyRateLimit.retryAfterSeconds);
     }
 
     const latestCode = await db.emailVerificationCode.findFirst({
@@ -163,6 +136,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
         ok: true,
-        cooldownSeconds: 60,
+        cooldownSeconds: EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS,
     });
 }

@@ -3,7 +3,8 @@ import { createHash, randomInt } from "node:crypto";
 export const EMAIL_VERIFICATION_CODE_LENGTH = 6;
 export const EMAIL_VERIFICATION_EXPIRES_MINUTES = 15;
 export const EMAIL_VERIFICATION_MAX_ATTEMPTS = 5;
-export const EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
+/** Minimum wait between resend emails (anti-spam). Not a lockout — only this gap between sends. */
+export const EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 30;
 export const EMAIL_VERIFICATION_PURPOSE = "SIGNUP_VERIFY";
 
 const BCRYPT_ROUNDS = 10;

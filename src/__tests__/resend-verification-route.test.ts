@@ -88,32 +88,6 @@ describe("resend verification route POST", () => {
     });
   });
 
-  it("returns a rate-limited response when resend attempts exceed the bucket", async () => {
-    mockConsumeRateLimitWithStore.mockResolvedValue({
-      allowed: false,
-      retryAfterSeconds: 30,
-    });
-    const { POST } = await import("@/app/api/auth/resend-verification/route");
-
-    const response = await POST(
-      new Request("http://localhost:3000/api/auth/resend-verification", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: "alice@example.com" }),
-      })
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(429);
-    expect(response.headers.get("Retry-After")).toBe("30");
-    expect(body).toEqual({
-      error: {
-        code: "RATE_LIMITED",
-        message: "Too many requests",
-      },
-    });
-  });
-
   it("returns ok without leaking account existence for unknown addresses", async () => {
     mockUserFindFirst.mockResolvedValue(null);
     const { POST } = await import("@/app/api/auth/resend-verification/route");
@@ -191,7 +165,7 @@ describe("resend verification route POST", () => {
       15
     );
     expect(mockResetEmailVerificationAttemptLimits).toHaveBeenCalledWith("alice@example.com");
-    expect(body).toEqual({ ok: true, cooldownSeconds: 60 });
+    expect(body).toEqual({ ok: true, cooldownSeconds: 30 });
   });
 
   it("returns cooldown error when a code was just sent", async () => {

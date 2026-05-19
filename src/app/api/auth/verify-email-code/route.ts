@@ -3,12 +3,6 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { createAppErrorResponse } from "@/lib/api-error";
 import {
-  buildRateLimitKey,
-  consumeRateLimitWithStore,
-  createRateLimitResponse,
-  getRequestClientIdentifier,
-} from "@/lib/security/rate-limit";
-import {
   EMAIL_VERIFICATION_MAX_ATTEMPTS,
   EMAIL_VERIFICATION_PURPOSE,
   emailVerificationCodeMatches,
@@ -25,18 +19,6 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const clientIdentifier = getRequestClientIdentifier(req);
-  const abuseLimit = await consumeRateLimitWithStore({
-    bucket: "auth:verify-email-code:abuse",
-    key: clientIdentifier,
-    limit: 60,
-    windowMs: 60_000,
-  });
-
-  if (!abuseLimit.allowed) {
-    return createRateLimitResponse(abuseLimit.retryAfterSeconds);
-  }
-
   let email: string;
   let code: string;
 
@@ -115,16 +97,6 @@ export async function POST(req: Request) {
     code,
   });
   if (!codeMatches) {
-    const failLimit = await consumeRateLimitWithStore({
-      bucket: "auth:verify-email-code:fail",
-      key: buildRateLimitKey(normalizedEmail),
-      limit: 20,
-      windowMs: 15 * 60_000,
-    });
-    if (!failLimit.allowed) {
-      return createRateLimitResponse(failLimit.retryAfterSeconds);
-    }
-
     const nextAttempts = verification.attempts + 1;
     await db.emailVerificationCode.update({
       where: { id: verification.id },

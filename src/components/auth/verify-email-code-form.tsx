@@ -33,13 +33,23 @@ export function VerifyEmailCodeForm({
   const [success, setSuccess] = React.useState<string | null>(null);
   const [isVerifying, setIsVerifying] = React.useState(false);
   const [isResending, setIsResending] = React.useState(false);
-  const [cooldownSeconds, setCooldownSeconds] = React.useState(0);
+  const [resendCooldownSeconds, setResendCooldownSeconds] = React.useState(0);
 
   React.useEffect(() => {
-    if (cooldownSeconds <= 0) return;
-    const timeout = window.setTimeout(() => setCooldownSeconds((current) => current - 1), 1000);
+    if (resendCooldownSeconds <= 0) return;
+    const timeout = window.setTimeout(
+      () => setResendCooldownSeconds((current) => current - 1),
+      1000
+    );
     return () => window.clearTimeout(timeout);
-  }, [cooldownSeconds]);
+  }, [resendCooldownSeconds]);
+
+  function applyResendCooldown(seconds: number) {
+    const capped = Math.min(Math.max(0, Math.ceil(seconds)), 120);
+    if (capped > 0) {
+      setResendCooldownSeconds(capped);
+    }
+  }
 
   const loginHref = React.useMemo(() => {
     const params = new URLSearchParams();
@@ -65,10 +75,6 @@ export function VerifyEmailCodeForm({
       });
 
       if (!res.ok) {
-        const retryAfter = Number(res.headers.get("Retry-After") ?? "0");
-        if (retryAfter > 0) {
-          setCooldownSeconds(retryAfter);
-        }
         const message = await getLocalizedErrorMessageFromResponse(
           res,
           "loginVerifyErrorGeneric",
@@ -93,7 +99,7 @@ export function VerifyEmailCodeForm({
   }
 
   async function handleResend() {
-    if (cooldownSeconds > 0 || isResending) return;
+    if (resendCooldownSeconds > 0 || isResending) return;
     setIsResending(true);
     setError(null);
     setSuccess(null);
@@ -107,9 +113,7 @@ export function VerifyEmailCodeForm({
 
       if (!res.ok) {
         const retryAfter = Number(res.headers.get("Retry-After") ?? "0");
-        if (retryAfter > 0) {
-          setCooldownSeconds(retryAfter);
-        }
+        applyResendCooldown(retryAfter);
         const message = await getLocalizedErrorMessageFromResponse(
           res,
           "loginResendVerificationFailed",
@@ -121,7 +125,7 @@ export function VerifyEmailCodeForm({
       }
 
       const body = (await res.json()) as { cooldownSeconds?: number };
-      setCooldownSeconds(Math.max(0, body.cooldownSeconds ?? 60));
+      applyResendCooldown(body.cooldownSeconds ?? 30);
       setSuccess(t("verifyEmailCodeResent"));
     } catch (err) {
       const raw = err instanceof Error ? err.message : null;
@@ -186,7 +190,7 @@ export function VerifyEmailCodeForm({
         <Button
           type="submit"
           className="h-11 w-full rounded-xl bg-brand-pink font-bold text-white shadow-md hover:opacity-95"
-          disabled={isVerifying || cooldownSeconds > 0}
+          disabled={isVerifying}
         >
           {isVerifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {t("verifyEmailCodeSubmit")}
@@ -200,12 +204,12 @@ export function VerifyEmailCodeForm({
             type="button"
             variant="outline"
             size="sm"
-            disabled={isResending || cooldownSeconds > 0}
+            disabled={isResending || resendCooldownSeconds > 0}
             onClick={() => void handleResend()}
           >
             {isResending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {cooldownSeconds > 0
-              ? t("verifyEmailCodeResendCooldown", { seconds: cooldownSeconds })
+            {resendCooldownSeconds > 0
+              ? t("verifyEmailCodeResendCooldown", { seconds: resendCooldownSeconds })
               : t("loginResendVerification")}
           </Button>
           <Button asChild type="button" variant="ghost" size="sm">

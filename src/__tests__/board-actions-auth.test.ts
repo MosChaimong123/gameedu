@@ -113,9 +113,10 @@ describe("board actions authorization", () => {
     await createBoardPost({
       boardId: "board-1",
       content: "Hello board",
-      type: "file",
+      type: "link",
       title: "Announcement",
       color: "default",
+      linkUrl: "https://example.com/hello",
     });
 
     expect(mockBoardPostCreate).toHaveBeenCalledWith(
@@ -155,8 +156,10 @@ describe("board actions authorization", () => {
       type: "file",
       title: "PDF",
       color: "default",
-      fileUrl: "/uploads/test-uuid.pdf",
-      fileName: "เฉลย ไฟฟ้าแม่เหล็ก.pdf",
+      attachedFiles: [
+        { url: "/uploads/test-uuid.pdf", name: "เฉลย ไฟฟ้าแม่เหล็ก.pdf" },
+        { url: "/uploads/notes.docx", name: "notes.docx" },
+      ],
     });
 
     expect(mockBoardPostCreate).toHaveBeenCalledWith(
@@ -164,6 +167,10 @@ describe("board actions authorization", () => {
         data: expect.objectContaining({
           fileUrl: "/uploads/test-uuid.pdf",
           fileName: "เฉลย ไฟฟ้าแม่เหล็ก.pdf",
+          attachedFiles: [
+            { url: "/uploads/test-uuid.pdf", name: "เฉลย ไฟฟ้าแม่เหล็ก.pdf" },
+            { url: "/uploads/notes.docx", name: "notes.docx" },
+          ],
         }),
       })
     );

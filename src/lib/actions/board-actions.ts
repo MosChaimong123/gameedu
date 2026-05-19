@@ -4,6 +4,12 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 import {
+    normalizeAttachedFilesInput,
+    parseBoardAttachedFiles,
+    MAX_BOARD_ATTACHED_FILES,
+    type BoardAttachedFile,
+} from "@/lib/board-attached-files";
+import {
     assertSafeHttpUrl,
     assertSafeUploadedMediaUrl,
     BOARD_ERR_INVALID_MEDIA,
@@ -38,6 +44,7 @@ type CreateBoardPostInput = {
     linkUrl?: string;
     fileUrl?: string;
     fileName?: string;
+    attachedFiles?: BoardAttachedFile[];
     videoUrl?: string;
     videoName?: string;
     youtubeId?: string;
@@ -87,6 +94,11 @@ function normalizeBoardPostInput(data: CreateBoardPostInput): CreateBoardPostInp
 
     const linkUrl = data.linkUrl?.trim();
     const fileUrl = data.fileUrl?.trim();
+    const fileName = data.fileName?.trim();
+    const attachedFiles =
+        (data.type ?? "file") === "file"
+            ? normalizeAttachedFilesInput(data.attachedFiles, { fileUrl, fileName })
+            : [];
     const videoUrl = data.videoUrl?.trim();
     const image = data.image?.trim();
     const youtubeId = data.youtubeId?.trim();
@@ -94,6 +106,9 @@ function normalizeBoardPostInput(data: CreateBoardPostInput): CreateBoardPostInp
 
     if (linkUrl) assertSafeHttpUrl(linkUrl);
     if (fileUrl) assertSafeUploadedMediaUrl(fileUrl);
+    for (const file of attachedFiles) {
+        assertSafeUploadedMediaUrl(file.url);
+    }
     if (videoUrl) assertSafeUploadedMediaUrl(videoUrl);
     if (image) assertSafeUploadedMediaUrl(image);
     for (const albumImage of albumImages ?? []) {
@@ -131,9 +146,23 @@ function normalizeBoardPostInput(data: CreateBoardPostInput): CreateBoardPostInp
     if (type === "album" && !albumImages?.length) {
         throw new Error(BOARD_ERR_INVALID_MEDIA);
     }
+    if (type === "file" && attachedFiles.length === 0) {
+        throw new Error(BOARD_ERR_INVALID_MEDIA);
+    }
+    if (attachedFiles.length > MAX_BOARD_ATTACHED_FILES) {
+        throw new Error(BOARD_ERR_INVALID_CONTENT);
+    }
 
+    const primaryFile = attachedFiles[0];
     const hasBody = Boolean(content || title);
-    const hasAttachment = Boolean(linkUrl || fileUrl || videoUrl || image || youtubeId || albumImages?.length);
+    const hasAttachment = Boolean(
+        linkUrl ||
+            primaryFile?.url ||
+            videoUrl ||
+            image ||
+            youtubeId ||
+            albumImages?.length
+    );
     if (!hasBody && !hasAttachment && type !== "poll") {
         throw new Error(BOARD_ERR_INVALID_CONTENT);
     }
@@ -144,7 +173,9 @@ function normalizeBoardPostInput(data: CreateBoardPostInput): CreateBoardPostInp
         content,
         title,
         linkUrl,
-        fileUrl,
+        fileUrl: primaryFile?.url,
+        fileName: primaryFile?.name,
+        attachedFiles,
         videoUrl,
         image,
         youtubeId,
@@ -254,11 +285,16 @@ function mapBoardPost(post: BoardPostRecord) {
         ? (post.poll.options as BoardPollOptionInput[])
         : [];
 
+    const attachedFiles = parseBoardAttachedFiles(post.attachedFiles, post.fileUrl, post.fileName);
+
     return {
         ...post,
         pollQuestion: post.poll?.question ?? null,
         pollOptions,
         albumImages: post.images ?? [],
+        attachedFiles,
+        fileUrl: attachedFiles[0]?.url ?? post.fileUrl,
+        fileName: attachedFiles[0]?.name ?? post.fileName,
     };
 }
 
@@ -325,6 +361,7 @@ export async function createBoardPost(data: CreateBoardPostInput) {
             linkUrl: normalized.linkUrl,
             fileUrl: normalized.fileUrl,
             fileName: normalized.fileName,
+            attachedFiles: normalized.attachedFiles?.length ? normalized.attachedFiles : undefined,
             videoUrl: normalized.videoUrl,
             videoName: normalized.videoName,
             youtubeId: normalized.youtubeId,

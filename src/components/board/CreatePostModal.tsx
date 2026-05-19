@@ -30,6 +30,7 @@ type BoardPostInput = {
     linkUrl?: string;
     fileUrl?: string;
     fileName?: string;
+    attachedFiles?: Array<{ url: string; name: string }>;
     videoUrl?: string;
     videoName?: string;
     youtubeId?: string;
@@ -82,7 +83,7 @@ export function CreatePostModal({
     const [albumUrls, setAlbumUrls] = useState<string[]>([""]);
     
     // Local file states
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedBoardFiles, setSelectedBoardFiles] = useState<File[]>([]);
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
@@ -133,15 +134,25 @@ export function CreatePostModal({
 
             if (type === "link") data.linkUrl = linkUrl.trim();
             if (type === "file") {
-                if (selectedFile) {
-                    const uploadRes = await uploadFile(selectedFile);
-                    data.fileUrl = uploadRes.url;
-                    data.fileName = uploadRes.originalFileName ?? uploadRes.fileName;
-                } else {
-                    data.fileUrl = fileUrl.trim();
-                    data.fileName = t("boardDefaultFileName");
+                const attachedFiles: Array<{ url: string; name: string }> = [];
+                if (selectedBoardFiles.length > 0) {
+                    for (const file of selectedBoardFiles) {
+                        const uploadRes = await uploadFile(file);
+                        attachedFiles.push({
+                            url: uploadRes.url,
+                            name: uploadRes.originalFileName ?? uploadRes.fileName,
+                        });
+                    }
+                } else if (fileUrl.trim()) {
+                    attachedFiles.push({
+                        url: fileUrl.trim(),
+                        name: t("boardDefaultFileName"),
+                    });
                 }
-                if (!data.fileUrl) throw new Error(t("boardNeedFileOrLink"));
+                if (attachedFiles.length === 0) {
+                    throw new Error(t("boardNeedFileOrLink"));
+                }
+                data.attachedFiles = attachedFiles;
             }
             if (type === "video") {
                 if (selectedVideo) {
@@ -189,7 +200,7 @@ export function CreatePostModal({
             setPollQuestion("");
             setPollOptions(["", ""]);
             setAlbumUrls([""]);
-            setSelectedFile(null);
+            setSelectedBoardFiles([]);
             setSelectedFiles([]);
             setSelectedColor("default");
             onOpenChange(false);
@@ -296,40 +307,69 @@ export function CreatePostModal({
 
                     {type === "file" && (
                         <div className="space-y-3 animate-in slide-in-from-left-2">
+                            <Label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                                {t("boardPickFileLabel")}
+                            </Label>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                multiple
+                                onChange={(e) => {
+                                    const files = Array.from(e.target.files || []);
+                                    if (files.length > 0) {
+                                        setSelectedBoardFiles((prev) => [...prev, ...files]);
+                                    }
+                                    e.target.value = "";
+                                }}
+                            />
                             <div className="space-y-2">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-slate-400">{t("boardPickFileLabel")}</Label>
-                                <input 
-                                    type="file"
-                                    ref={fileInputRef}
-                                    className="hidden"
-                                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                                />
-                                <div 
+                                {selectedBoardFiles.map((file, index) => (
+                                    <div
+                                        key={`${file.name}-${file.size}-${index}`}
+                                        className="flex items-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-indigo-700"
+                                    >
+                                        <FileText className="h-5 w-5 shrink-0" />
+                                        <span className="min-w-0 flex-1 truncate text-sm font-bold">{file.name}</span>
+                                        <button
+                                            type="button"
+                                            className="rounded-lg p-1 text-indigo-400 hover:bg-indigo-100 hover:text-red-500"
+                                            onClick={() =>
+                                                setSelectedBoardFiles((prev) =>
+                                                    prev.filter((_, fileIndex) => fileIndex !== index)
+                                                )
+                                            }
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button"
                                     onClick={() => fileInputRef.current?.click()}
                                     className={cn(
-                                        "border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all",
-                                        selectedFile ? "border-indigo-500 bg-indigo-50" : "border-slate-200 hover:border-slate-300 bg-slate-50"
+                                        "flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 transition-all",
+                                        selectedBoardFiles.length > 0
+                                            ? "border-indigo-200 bg-white hover:border-indigo-300"
+                                            : "border-slate-200 bg-slate-50 hover:border-slate-300"
                                     )}
                                 >
-                                    {selectedFile ? (
-                                        <div className="flex items-center gap-2 text-indigo-600">
-                                            <FileText className="w-5 h-5" />
-                                            <span className="text-sm font-bold truncate max-w-[200px]">{selectedFile.name}</span>
-                                            <X 
-                                                className="w-4 h-4 hover:text-red-500" 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setSelectedFile(null);
-                                                }}
-                                            />
-                                        </div>
+                                    {selectedBoardFiles.length > 0 ? (
+                                        <>
+                                            <PlusIcon className="mb-1 h-5 w-5 text-indigo-500" />
+                                            <span className="text-xs font-bold text-indigo-600">
+                                                {t("boardAddMoreFiles")}
+                                            </span>
+                                        </>
                                     ) : (
                                         <>
-                                            <Upload className="w-6 h-6 text-slate-300 mb-1" />
-                                            <span className="text-xs text-slate-400 font-bold">{t("boardUploadFileHint")}</span>
+                                            <Upload className="mb-1 h-6 w-6 text-slate-300" />
+                                            <span className="text-xs font-bold text-slate-400">
+                                                {t("boardUploadFileHint")}
+                                            </span>
                                         </>
                                     )}
-                                </div>
+                                </button>
                             </div>
                         </div>
                     )}

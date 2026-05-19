@@ -394,8 +394,9 @@ model BoardPost {
   image           String?    
   color           String?    
   linkUrl         String?    
-  fileUrl         String?    
-  fileName        String?    
+  fileUrl         String?
+  fileName        String?
+  attachedFiles   Json?
   videoUrl        String?    
   videoName       String?    
   youtubeId       String?    

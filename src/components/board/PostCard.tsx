@@ -72,6 +72,7 @@ export type BoardPostCardData = {
     linkUrl?: string | null;
     fileUrl?: string | null;
     fileName?: string | null;
+    attachedFiles?: Array<{ url: string; name: string }> | null;
     videoUrl?: string | null;
     youtubeId?: string | null;
     albumImages?: string[] | null;
@@ -231,6 +232,12 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
     const myVote = pollVotes.find((vote) => vote.authorStudentId === currentUserIdOrStudentId || vote.authorUserId === currentUserIdOrStudentId);
     const imageUrl = post.image ?? null;
     const albumImages = post.albumImages ?? [];
+    const attachedFiles =
+        post.attachedFiles && post.attachedFiles.length > 0
+            ? post.attachedFiles
+            : post.fileUrl
+              ? [{ url: post.fileUrl, name: post.fileName || t("boardDefaultFileName") }]
+              : [];
 
     const openPreview = (gallery: string[], index: number) => {
         setPreviewGallery(gallery);
@@ -391,28 +398,34 @@ export function PostCard({ post, currentUserIdOrStudentId, isTeacher, onUpdate }
                 )}
 
                 {/* File View */}
-                {post.type === "file" && post.fileUrl && (
-                    <a 
-                        href={post.fileUrl} 
-                        target="_blank" 
-                        download
-                        className="block mb-2 group"
-                    >
-                        <div className="bg-white/50 border border-black/5 rounded-xl p-3 flex items-center gap-3 transition-colors group-hover:bg-white/80">
-                            {(() => {
-                                const { icon: Icon, color } = getFileIcon(post.fileName || post.fileUrl);
-                                return (
-                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${color}`}>
-                                        <Icon className="w-5 h-5" />
+                {post.type === "file" && attachedFiles.length > 0 && (
+                    <div className="mb-2 space-y-2">
+                        {attachedFiles.map((file) => {
+                            const { icon: Icon, color } = getFileIcon(file.name || file.url);
+                            return (
+                                <a
+                                    key={file.url}
+                                    href={file.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    download
+                                    className="block group"
+                                >
+                                    <div className="flex items-center gap-3 rounded-xl border border-black/5 bg-white/50 p-3 transition-colors group-hover:bg-white/80">
+                                        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${color}`}>
+                                            <Icon className="h-5 w-5" />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-xs font-black text-slate-800">
+                                                {file.name || t("boardDefaultFileName")}
+                                            </p>
+                                            <p className="text-[10px] text-slate-400">{t("boardPostDownloadHint")}</p>
+                                        </div>
                                     </div>
-                                );
-                            })()}
-                            <div className="flex-1 min-w-0">
-                                <p className="text-xs font-black text-slate-800 truncate">{post.fileName || t("boardDefaultFileName")}</p>
-                                <p className="text-[10px] text-slate-400">{t("boardPostDownloadHint")}</p>
-                            </div>
-                        </div>
-                    </a>
+                                </a>
+                            );
+                        })}
+                    </motion.div>
                 )}
 
                 {/* Video View */}

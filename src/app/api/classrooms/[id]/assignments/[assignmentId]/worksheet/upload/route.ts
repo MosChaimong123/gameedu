@@ -130,7 +130,7 @@ export async function POST(
     const uploadDir = path.join(process.cwd(), "public", "uploads", "worksheet-submissions");
     await mkdir(uploadDir, { recursive: true });
 
-    const extension = FILE_EXTENSION_BY_MIME[file.type] ?? path.extname(file.name) || ".bin";
+    const extension = FILE_EXTENSION_BY_MIME[file.type] ?? (path.extname(file.name) || ".bin");
     const fileName = `${assignmentId}-${ctx.studentId}-${itemId}-${crypto.randomUUID()}${extension}`;
     const filePath = path.join(uploadDir, fileName);
     await writeFile(filePath, bytes);

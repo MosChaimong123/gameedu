@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
+import type { RemotePattern } from "next/dist/shared/lib/image-config";
 import { withSentryConfig } from "@sentry/nextjs";
 
-function resolveR2ImageRemotePatterns(): NonNullable<NextConfig["images"]>["remotePatterns"] {
+function resolveR2ImageRemotePatterns(): RemotePattern[] {
   const base = process.env.R2_PUBLIC_BASE_URL?.trim();
   if (!base) return [];
   try {

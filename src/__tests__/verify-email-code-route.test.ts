@@ -7,7 +7,7 @@ import {
 const mockUserFindUnique = vi.fn();
 const mockUserFindFirst = vi.fn();
 const mockUserUpdate = vi.fn();
-const mockEmailVerificationCodeFindFirst = vi.fn();
+const mockEmailVerificationCodeFindMany = vi.fn();
 const mockEmailVerificationCodeUpdate = vi.fn();
 const mockEmailVerificationCodeUpdateMany = vi.fn();
 const mockConsumeRateLimitWithStore = vi.fn();
@@ -20,7 +20,7 @@ vi.mock("@/lib/db", () => ({
       update: mockUserUpdate,
     },
     emailVerificationCode: {
-      findFirst: mockEmailVerificationCodeFindFirst,
+      findMany: mockEmailVerificationCodeFindMany,
       update: mockEmailVerificationCodeUpdate,
       updateMany: mockEmailVerificationCodeUpdateMany,
     },
@@ -57,15 +57,17 @@ describe("verify email code route POST", () => {
     };
     mockUserFindUnique.mockResolvedValue(user);
     mockUserFindFirst.mockResolvedValue(user);
-    mockEmailVerificationCodeFindFirst.mockResolvedValue({
-      id: "code-1",
-      userId: "user-1",
-      email: "alice@example.com",
-      codeHash: hashEmailVerificationCodeForStorage("123456"),
-      attempts: 0,
-      maxAttempts: 5,
-      expiresAt: new Date(Date.now() + 60_000),
-    });
+    mockEmailVerificationCodeFindMany.mockResolvedValue([
+      {
+        id: "code-1",
+        userId: "user-1",
+        email: "alice@example.com",
+        codeHash: hashEmailVerificationCodeForStorage("123456"),
+        attempts: 0,
+        maxAttempts: 5,
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    ]);
     mockUserUpdate.mockResolvedValue({});
     mockEmailVerificationCodeUpdate.mockResolvedValue({});
     mockEmailVerificationCodeUpdateMany.mockResolvedValue({ count: 1 });
@@ -125,15 +127,17 @@ describe("verify email code route POST", () => {
   });
 
   it("rejects expired codes without consuming the record", async () => {
-    mockEmailVerificationCodeFindFirst.mockResolvedValue({
-      id: "code-1",
-      userId: "user-1",
-      email: "alice@example.com",
-      codeHash: hashEmailVerificationCode("user-1", "123456"),
-      attempts: 0,
-      maxAttempts: 5,
-      expiresAt: new Date(Date.now() - 60_000),
-    });
+    mockEmailVerificationCodeFindMany.mockResolvedValue([
+      {
+        id: "code-1",
+        userId: "user-1",
+        email: "alice@example.com",
+        codeHash: hashEmailVerificationCode("user-1", "123456"),
+        attempts: 0,
+        maxAttempts: 5,
+        expiresAt: new Date(Date.now() - 60_000),
+      },
+    ]);
     const { POST } = await import("@/app/api/auth/verify-email-code/route");
 
     const response = await POST(
@@ -156,15 +160,17 @@ describe("verify email code route POST", () => {
   });
 
   it("locks the code after too many failed attempts", async () => {
-    mockEmailVerificationCodeFindFirst.mockResolvedValue({
-      id: "code-1",
-      userId: "user-1",
-      email: "alice@example.com",
-      codeHash: hashEmailVerificationCode("user-1", "123456"),
-      attempts: 4,
-      maxAttempts: 5,
-      expiresAt: new Date(Date.now() + 60_000),
-    });
+    mockEmailVerificationCodeFindMany.mockResolvedValue([
+      {
+        id: "code-1",
+        userId: "user-1",
+        email: "alice@example.com",
+        codeHash: hashEmailVerificationCode("user-1", "123456"),
+        attempts: 4,
+        maxAttempts: 5,
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    ]);
     const { POST } = await import("@/app/api/auth/verify-email-code/route");
 
     const response = await POST(
@@ -192,6 +198,41 @@ describe("verify email code route POST", () => {
     });
   });
 
+  it("accepts a matching code from an older active verification record", async () => {
+    mockEmailVerificationCodeFindMany.mockResolvedValue([
+      {
+        id: "code-new",
+        userId: "user-1",
+        email: "alice@example.com",
+        codeHash: hashEmailVerificationCodeForStorage("999999"),
+        attempts: 0,
+        maxAttempts: 5,
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+      {
+        id: "code-old",
+        userId: "user-1",
+        email: "alice@example.com",
+        codeHash: hashEmailVerificationCodeForStorage("123456"),
+        attempts: 0,
+        maxAttempts: 5,
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    ]);
+
+    const { POST } = await import("@/app/api/auth/verify-email-code/route");
+    const response = await POST(
+      new Request("http://localhost:3000/api/auth/verify-email-code", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "alice@example.com", code: "123456" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, verified: true });
+  });
+
   it("returns success when the user is already verified", async () => {
     mockUserFindUnique.mockResolvedValue({
       id: "user-1",
@@ -212,7 +253,7 @@ describe("verify email code route POST", () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ ok: true, alreadyVerified: true });
-    expect(mockEmailVerificationCodeFindFirst).not.toHaveBeenCalled();
+    expect(mockEmailVerificationCodeFindMany).not.toHaveBeenCalled();
   });
 });
 

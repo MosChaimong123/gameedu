@@ -58,16 +58,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, alreadyVerified: true });
   }
 
-  const verification = await db.emailVerificationCode.findFirst({
+  const now = new Date();
+  const activeVerifications = await db.emailVerificationCode.findMany({
     where: {
       userId: user.id,
       purpose: EMAIL_VERIFICATION_PURPOSE,
       consumedAt: null,
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: 5,
   });
 
-  if (!verification) {
+  if (activeVerifications.length === 0) {
     return createAppErrorResponse(
       "EMAIL_VERIFICATION_CODE_INVALID",
       "No active verification code. Request a new code.",
@@ -75,53 +77,71 @@ export async function POST(req: Request) {
     );
   }
 
-  if (isEmailVerificationCodeExpired(verification.expiresAt)) {
-    return createAppErrorResponse(
-      "EMAIL_VERIFICATION_CODE_EXPIRED",
-      "Verification code expired",
-      400
-    );
-  }
-
-  if (verification.attempts >= verification.maxAttempts) {
-    return createAppErrorResponse(
-      "EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS",
-      "Too many invalid verification attempts",
-      429
-    );
-  }
-
-  const codeMatches = await emailVerificationCodeMatches(verification.codeHash, {
+  const matchParams = {
     userId: user.id,
     email: user.email ?? normalizedEmail,
     code,
-  });
-  if (!codeMatches) {
-    const nextAttempts = verification.attempts + 1;
+  };
+
+  let verification = null as (typeof activeVerifications)[number] | null;
+  for (const candidate of activeVerifications) {
+    if (isEmailVerificationCodeExpired(candidate.expiresAt, now)) {
+      continue;
+    }
+    if (candidate.attempts >= candidate.maxAttempts) {
+      continue;
+    }
+    if (await emailVerificationCodeMatches(candidate.codeHash, matchParams)) {
+      verification = candidate;
+      break;
+    }
+  }
+
+  if (!verification) {
+    const latest = activeVerifications[0];
+    const allExpired = activeVerifications.every((entry) =>
+      isEmailVerificationCodeExpired(entry.expiresAt, now)
+    );
+    if (allExpired) {
+      return createAppErrorResponse(
+        "EMAIL_VERIFICATION_CODE_EXPIRED",
+        "Verification code expired",
+        400
+      );
+    }
+
+    if (latest.attempts >= latest.maxAttempts) {
+      return createAppErrorResponse(
+        "EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS",
+        "Too many invalid verification attempts",
+        429
+      );
+    }
+
+    const nextAttempts = latest.attempts + 1;
     await db.emailVerificationCode.update({
-      where: { id: verification.id },
+      where: { id: latest.id },
       data: {
         attempts: nextAttempts,
-        ...(nextAttempts >= Math.max(verification.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
-          ? { consumedAt: new Date() }
+        ...(nextAttempts >= Math.max(latest.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
+          ? { consumedAt: now }
           : {}),
       },
     });
 
     return createAppErrorResponse(
-      nextAttempts >= Math.max(verification.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
+      nextAttempts >= Math.max(latest.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
         ? "EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS"
         : "EMAIL_VERIFICATION_CODE_INVALID",
-      nextAttempts >= Math.max(verification.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
+      nextAttempts >= Math.max(latest.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
         ? "Too many invalid verification attempts"
         : "Invalid verification code",
-      nextAttempts >= Math.max(verification.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
+      nextAttempts >= Math.max(latest.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
         ? 429
         : 400
     );
   }
 
-  const now = new Date();
   await db.user.update({
     where: { id: user.id },
     data: { emailVerified: now },

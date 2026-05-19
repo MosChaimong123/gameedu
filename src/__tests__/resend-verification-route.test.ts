@@ -8,12 +8,14 @@ const mockEmailVerificationCodeCreate = vi.fn();
 const mockSendVerificationEmail = vi.fn();
 const mockConsumeRateLimitWithStore = vi.fn();
 const mockLogAuditEvent = vi.fn();
+const mockTransaction = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
     user: {
       findFirst: mockUserFindFirst,
     },
+    $transaction: mockTransaction,
     emailVerificationCode: {
       findFirst: mockEmailVerificationCodeFindFirst,
       deleteMany: mockEmailVerificationCodeDeleteMany,
@@ -65,6 +67,15 @@ describe("resend verification route POST", () => {
     mockEmailVerificationCodeCreate.mockResolvedValue({});
     mockSendVerificationEmail.mockResolvedValue({ sent: true });
     mockResetEmailVerificationAttemptLimits.mockResolvedValue(undefined);
+    mockTransaction.mockImplementation(async (callback) =>
+      callback({
+        emailVerificationCode: {
+          findFirst: mockEmailVerificationCodeFindFirst,
+          deleteMany: mockEmailVerificationCodeDeleteMany,
+          create: mockEmailVerificationCodeCreate,
+        },
+      })
+    );
   });
 
   it("rejects invalid payloads with a structured error", async () => {

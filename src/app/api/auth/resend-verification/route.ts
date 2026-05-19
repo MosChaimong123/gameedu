@@ -53,56 +53,69 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true });
     }
 
-    const latestCode = await db.emailVerificationCode.findFirst({
-        where: {
-            userId: user.id,
-            purpose: EMAIL_VERIFICATION_PURPOSE,
-            consumedAt: null,
-        },
-        orderBy: { createdAt: "desc" },
-        select: {
-            id: true,
-            lastSentAt: true,
-        },
-    });
+    const issuedAt = new Date();
+    const verificationCode = await db.$transaction(async (tx) => {
+        const latestCode = await tx.emailVerificationCode.findFirst({
+            where: {
+                userId: user.id,
+                purpose: EMAIL_VERIFICATION_PURPOSE,
+                consumedAt: null,
+            },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            select: {
+                id: true,
+                lastSentAt: true,
+            },
+        });
 
-    if (latestCode) {
-        const retryAfterSeconds = getEmailVerificationRetryAfterSeconds(latestCode.lastSentAt);
-        if (retryAfterSeconds > 0) {
-            return createAppErrorResponse(
-                "EMAIL_VERIFICATION_CODE_COOLDOWN",
-                "Please wait before requesting another code",
-                429,
-                { headers: { "Retry-After": String(retryAfterSeconds) } }
+        if (latestCode) {
+            const retryAfterSeconds = getEmailVerificationRetryAfterSeconds(
+                latestCode.lastSentAt,
+                issuedAt
             );
+            if (retryAfterSeconds > 0) {
+                return { cooldownSeconds: retryAfterSeconds } as const;
+            }
         }
-    }
 
-    const verificationCode = generateEmailVerificationCode();
-    const verificationCodeHash = hashEmailVerificationCodeForStorage(verificationCode);
-    await db.emailVerificationCode.deleteMany({
-        where: {
-            userId: user.id,
-            purpose: EMAIL_VERIFICATION_PURPOSE,
-        },
+        const nextCode = generateEmailVerificationCode();
+        const nextHash = hashEmailVerificationCodeForStorage(nextCode);
+        await tx.emailVerificationCode.deleteMany({
+            where: {
+                userId: user.id,
+                purpose: EMAIL_VERIFICATION_PURPOSE,
+            },
+        });
+        await tx.emailVerificationCode.create({
+            data: {
+                userId: user.id,
+                email: identifier,
+                codeHash: nextHash,
+                purpose: EMAIL_VERIFICATION_PURPOSE,
+                attempts: 0,
+                maxAttempts: EMAIL_VERIFICATION_MAX_ATTEMPTS,
+                expiresAt: buildEmailVerificationExpiry(issuedAt),
+                lastSentAt: issuedAt,
+            },
+        });
+
+        return { code: nextCode } as const;
     });
-    await db.emailVerificationCode.create({
-        data: {
-            userId: user.id,
-            email: identifier,
-            codeHash: verificationCodeHash,
-            purpose: EMAIL_VERIFICATION_PURPOSE,
-            attempts: 0,
-            maxAttempts: EMAIL_VERIFICATION_MAX_ATTEMPTS,
-            expiresAt: buildEmailVerificationExpiry(),
-        },
-    });
+
+    if ("cooldownSeconds" in verificationCode) {
+        return createAppErrorResponse(
+            "EMAIL_VERIFICATION_CODE_COOLDOWN",
+            "Please wait before requesting another code",
+            429,
+            { headers: { "Retry-After": String(verificationCode.cooldownSeconds) } }
+        );
+    }
 
     let emailSent = false;
     try {
         const sendResult = await sendVerificationCodeEmail(
             identifier,
-            verificationCode,
+            verificationCode.code,
             EMAIL_VERIFICATION_EXPIRES_MINUTES
         );
         emailSent = sendResult.sent;
@@ -144,7 +157,7 @@ export async function POST(req: Request) {
     };
 
     if (!emailSent && process.env.NODE_ENV !== "production") {
-        responseBody.devCode = verificationCode;
+        responseBody.devCode = verificationCode.code;
     }
 
     return NextResponse.json(responseBody);

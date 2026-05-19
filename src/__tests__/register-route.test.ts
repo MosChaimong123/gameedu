@@ -164,7 +164,7 @@ describe("register route POST", () => {
     expect(mockSendVerificationEmail).toHaveBeenCalledWith(
       "alice@example.com",
       expect.stringMatching(/^\d{6}$/),
-      10
+      15
     );
     expect(body).toEqual({
       user: { name: "Alice", email: "alice@example.com", role: "STUDENT" },

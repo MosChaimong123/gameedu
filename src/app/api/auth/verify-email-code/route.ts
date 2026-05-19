@@ -26,15 +26,15 @@ const bodySchema = z.object({
 
 export async function POST(req: Request) {
   const clientIdentifier = getRequestClientIdentifier(req);
-  const rateLimit = await consumeRateLimitWithStore({
-    bucket: "auth:verify-email-code",
+  const abuseLimit = await consumeRateLimitWithStore({
+    bucket: "auth:verify-email-code:abuse",
     key: clientIdentifier,
-    limit: 10,
-    windowMs: 15 * 60_000,
+    limit: 60,
+    windowMs: 60_000,
   });
 
-  if (!rateLimit.allowed) {
-    return createRateLimitResponse(rateLimit.retryAfterSeconds);
+  if (!abuseLimit.allowed) {
+    return createRateLimitResponse(abuseLimit.retryAfterSeconds);
   }
 
   let email: string;
@@ -50,22 +50,12 @@ export async function POST(req: Request) {
   }
 
   const normalizedEmail = normalizeVerificationEmail(email);
-  const emailRateLimit = await consumeRateLimitWithStore({
-    bucket: "auth:verify-email-code:email",
-    key: buildRateLimitKey(clientIdentifier, normalizedEmail),
-    limit: 10,
-    windowMs: 15 * 60_000,
-  });
-
-  if (!emailRateLimit.allowed) {
-    return createRateLimitResponse(emailRateLimit.retryAfterSeconds);
-  }
 
   const user = await db.user.findFirst({
     where: {
       email: { equals: normalizedEmail, mode: "insensitive" },
     },
-    select: { id: true, emailVerified: true },
+    select: { id: true, email: true, emailVerified: true },
   });
 
   if (!user) {
@@ -113,8 +103,18 @@ export async function POST(req: Request) {
     );
   }
 
-  const codeHash = hashEmailVerificationCode(normalizedEmail, code);
+  const codeHash = hashEmailVerificationCode(user.id, code);
   if (codeHash !== verification.codeHash) {
+    const failLimit = await consumeRateLimitWithStore({
+      bucket: "auth:verify-email-code:fail",
+      key: buildRateLimitKey(normalizedEmail),
+      limit: 20,
+      windowMs: 15 * 60_000,
+    });
+    if (!failLimit.allowed) {
+      return createRateLimitResponse(failLimit.retryAfterSeconds);
+    }
+
     const nextAttempts = verification.attempts + 1;
     await db.emailVerificationCode.update({
       where: { id: verification.id },

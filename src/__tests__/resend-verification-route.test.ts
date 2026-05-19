@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockUserFindUnique = vi.fn();
+const mockUserFindFirst = vi.fn();
+const mockResetEmailVerificationAttemptLimits = vi.fn();
 const mockEmailVerificationCodeFindFirst = vi.fn();
 const mockEmailVerificationCodeUpdateMany = vi.fn();
 const mockEmailVerificationCodeCreate = vi.fn();
@@ -11,7 +12,7 @@ const mockLogAuditEvent = vi.fn();
 vi.mock("@/lib/db", () => ({
   db: {
     user: {
-      findUnique: mockUserFindUnique,
+      findFirst: mockUserFindFirst,
     },
     emailVerificationCode: {
       findFirst: mockEmailVerificationCodeFindFirst,
@@ -31,6 +32,7 @@ vi.mock("@/lib/security/audit-log", () => ({
 
 vi.mock("@/lib/security/rate-limit", () => ({
   consumeRateLimitWithStore: mockConsumeRateLimitWithStore,
+  resetEmailVerificationAttemptLimits: mockResetEmailVerificationAttemptLimits,
   buildRateLimitKey: (...parts: Array<string | null | undefined>) => parts.filter(Boolean).join(":"),
   getRequestClientIdentifier: () => "test-client",
   createRateLimitResponse: (retryAfterSeconds: number) =>
@@ -52,7 +54,7 @@ describe("resend verification route POST", () => {
       allowed: true,
       retryAfterSeconds: 60,
     });
-    mockUserFindUnique.mockResolvedValue({
+    mockUserFindFirst.mockResolvedValue({
       id: "user-1",
       email: "alice@example.com",
       emailVerified: null,
@@ -62,6 +64,7 @@ describe("resend verification route POST", () => {
     mockEmailVerificationCodeUpdateMany.mockResolvedValue({ count: 1 });
     mockEmailVerificationCodeCreate.mockResolvedValue({});
     mockSendVerificationEmail.mockResolvedValue(undefined);
+    mockResetEmailVerificationAttemptLimits.mockResolvedValue(undefined);
   });
 
   it("rejects invalid payloads with a structured error", async () => {
@@ -112,7 +115,7 @@ describe("resend verification route POST", () => {
   });
 
   it("returns ok without leaking account existence for unknown addresses", async () => {
-    mockUserFindUnique.mockResolvedValue(null);
+    mockUserFindFirst.mockResolvedValue(null);
     const { POST } = await import("@/app/api/auth/resend-verification/route");
 
     const response = await POST(
@@ -185,8 +188,9 @@ describe("resend verification route POST", () => {
     expect(mockSendVerificationEmail).toHaveBeenCalledWith(
       "alice@example.com",
       expect.stringMatching(/^\d{6}$/),
-      10
+      15
     );
+    expect(mockResetEmailVerificationAttemptLimits).toHaveBeenCalledWith("alice@example.com");
     expect(body).toEqual({ ok: true, cooldownSeconds: 60 });
   });
 

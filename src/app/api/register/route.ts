@@ -135,7 +135,7 @@ export async function POST(req: Request) {
             data: {
                 userId: user.id,
                 email: normalizedEmail,
-                codeHash: hashEmailVerificationCode(normalizedEmail, verificationCode),
+                codeHash: hashEmailVerificationCode(user.id, verificationCode),
                 purpose: EMAIL_VERIFICATION_PURPOSE,
                 attempts: 0,
                 maxAttempts: EMAIL_VERIFICATION_MAX_ATTEMPTS,

@@ -104,6 +104,33 @@ export function resetRateLimitStore() {
   rateLimitStore.clear();
 }
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Clears verify-email rate-limit counters after a fresh code is sent. */
+export async function resetEmailVerificationAttemptLimits(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) return;
+
+  const suffix = `:${normalizedEmail}`;
+  const failKey = `auth:verify-email-code:fail:${normalizedEmail}`;
+
+  if (resolveRateLimitStore() === "mongo") {
+    const collection = await getRateLimitCollection();
+    await collection.deleteMany({
+      $or: [{ _id: failKey }, { _id: { $regex: `${escapeRegex(suffix)}$` } }],
+    });
+    return;
+  }
+
+  for (const storeKey of rateLimitStore.keys()) {
+    if (storeKey === failKey || storeKey.endsWith(suffix)) {
+      rateLimitStore.delete(storeKey);
+    }
+  }
+}
+
 async function consumeMongoRateLimit({
   bucket,
   key,

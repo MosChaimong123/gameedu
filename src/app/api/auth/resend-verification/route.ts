@@ -8,6 +8,7 @@ import {
     consumeRateLimitWithStore,
     createRateLimitResponse,
     getRequestClientIdentifier,
+    resetEmailVerificationAttemptLimits,
 } from "@/lib/security/rate-limit";
 import { logAuditEvent } from "@/lib/security/audit-log";
 import {
@@ -54,8 +55,10 @@ export async function POST(req: Request) {
     }
 
     const identifier = normalizeVerificationEmail(email);
-    const user = await db.user.findUnique({
-        where: { email },
+    const user = await db.user.findFirst({
+        where: {
+            email: { equals: identifier, mode: "insensitive" },
+        },
         select: { id: true, email: true, emailVerified: true, password: true },
     });
 
@@ -117,7 +120,7 @@ export async function POST(req: Request) {
         data: {
             userId: user.id,
             email: identifier,
-            codeHash: hashEmailVerificationCode(identifier, verificationCode),
+            codeHash: hashEmailVerificationCode(user.id, verificationCode),
             purpose: EMAIL_VERIFICATION_PURPOSE,
             attempts: 0,
             maxAttempts: EMAIL_VERIFICATION_MAX_ATTEMPTS,
@@ -144,6 +147,8 @@ export async function POST(req: Request) {
         });
         return createAppErrorResponse("INTERNAL_ERROR", "Could not send email", 503);
     }
+
+    await resetEmailVerificationAttemptLimits(identifier);
 
     logAuditEvent({
         actorUserId: user.id,

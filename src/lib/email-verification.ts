@@ -26,11 +26,10 @@ function resolveEmailVerificationPepper() {
   );
 }
 
-export function hashEmailVerificationCode(email: string, code: string) {
+/** Hash is keyed by userId so verification does not depend on email casing in the DB. */
+export function hashEmailVerificationCode(userId: string, code: string) {
   return createHash("sha256")
-    .update(
-      `${normalizeVerificationEmail(email)}:${code.trim()}:${resolveEmailVerificationPepper()}`
-    )
+    .update(`${userId}:${code.trim()}:${resolveEmailVerificationPepper()}`)
     .digest("hex");
 }
 

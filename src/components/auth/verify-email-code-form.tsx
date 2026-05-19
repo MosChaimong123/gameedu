@@ -65,6 +65,10 @@ export function VerifyEmailCodeForm({
       });
 
       if (!res.ok) {
+        const retryAfter = Number(res.headers.get("Retry-After") ?? "0");
+        if (retryAfter > 0) {
+          setCooldownSeconds(retryAfter);
+        }
         const message = await getLocalizedErrorMessageFromResponse(
           res,
           "loginVerifyErrorGeneric",
@@ -182,7 +186,7 @@ export function VerifyEmailCodeForm({
         <Button
           type="submit"
           className="h-11 w-full rounded-xl bg-brand-pink font-bold text-white shadow-md hover:opacity-95"
-          disabled={isVerifying}
+          disabled={isVerifying || cooldownSeconds > 0}
         >
           {isVerifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {t("verifyEmailCodeSubmit")}

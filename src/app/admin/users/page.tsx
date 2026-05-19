@@ -24,27 +24,46 @@ export default async function UserManagementPage({ searchParams }: UserManagemen
     }
 
     const listParams = parseAdminUsersSearchParams(await searchParams);
-    const where = buildAdminUsersWhere(listParams.q);
+    const where = buildAdminUsersWhere(listParams.q, listParams.role, listParams.verification);
     const total = await db.user.count({ where });
     const page = clampAdminUsersPage(listParams.page, total, listParams.pageSize);
     const skip = (page - 1) * listParams.pageSize;
 
-    const users = await db.user.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: listParams.pageSize,
-        select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            createdAt: true,
-            plan: true,
-            planStatus: true,
-            planExpiry: true,
-        },
-    });
+    const [roleCounts, verificationCounts, users] = await Promise.all([
+        Promise.all([
+            db.user.count({ where: { role: "ADMIN" } }),
+            db.user.count({ where: { role: "TEACHER" } }),
+            db.user.count({ where: { role: "STUDENT" } }),
+            db.user.count({ where: { role: "USER" } }),
+        ]),
+        Promise.all([
+            db.user.count({ where: { emailVerified: { not: null } } }),
+            db.user.count({ where: { emailVerified: null } }),
+        ]),
+        db.user.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            skip,
+            take: listParams.pageSize,
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                createdAt: true,
+                plan: true,
+                planStatus: true,
+                planExpiry: true,
+                emailVerified: true,
+                _count: {
+                    select: {
+                        classrooms: true,
+                        studentProfiles: true,
+                    },
+                },
+            },
+        }),
+    ]);
 
     const normalizedUsers = users.map((user) => ({
         ...user,
@@ -72,6 +91,16 @@ export default async function UserManagementPage({ searchParams }: UserManagemen
                     page={page}
                     pageSize={listParams.pageSize}
                     query={listParams.q}
+                    roleFilter={listParams.role}
+                    verificationFilter={listParams.verification}
+                    counts={{
+                        admins: roleCounts[0],
+                        teachers: roleCounts[1],
+                        students: roleCounts[2],
+                        users: roleCounts[3],
+                        verified: verificationCounts[0],
+                        unverified: verificationCounts[1],
+                    }}
                 />
             </div>
         </div>

@@ -1,9 +1,9 @@
 /**
- * Teacher-facing dashboard + APIs. Includes `USER` because Google OAuth keeps Prisma
- * default role `USER`; email/password registration sets `TEACHER` or `STUDENT` explicitly.
+ * Teacher-facing dashboard + APIs.
+ * Legacy `USER` accounts must be reclassified before using teacher routes.
  */
 export function isTeacherOrAdmin(role?: string | null) {
-    return role === "TEACHER" || role === "ADMIN" || role === "USER";
+    return role === "TEACHER" || role === "ADMIN";
 }
 
 /** Platform operator — full gamification / Negamon classroom controls, etc. */

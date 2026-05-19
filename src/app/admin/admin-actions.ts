@@ -149,6 +149,27 @@ export async function updateUserSubscription(
             planExpiry = d;
         }
 
+        const targetUser = await db.user.findUnique({
+            where: { id: userId },
+            select: { id: true, role: true },
+        });
+        if (!targetUser) {
+            return { success: false as const, errorKey: "adminUserDeleteFailNotFound" };
+        }
+        if (targetUser.role !== "TEACHER") {
+            logAuditEvent({
+                actorUserId: session.user.id,
+                action: "admin.user.subscription_update_rejected",
+                targetType: "user",
+                targetId: userId,
+                metadata: {
+                    reason: "role_not_allowed",
+                    role: targetUser.role,
+                },
+            });
+            return { success: false as const, errorKey: "adminSubscriptionRoleNotAllowed" };
+        }
+
         await db.user.update({
             where: { id: userId },
             data: {

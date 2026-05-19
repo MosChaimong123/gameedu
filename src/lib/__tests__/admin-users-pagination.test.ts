@@ -12,22 +12,28 @@ describe("admin-users-pagination", () => {
       q: "",
       page: 1,
       pageSize: ADMIN_USERS_PAGE_SIZE_DEFAULT,
+      role: "ALL",
+      verification: "ALL",
     });
   });
 
-  it("parses query, page, and page size", () => {
-    expect(parseAdminUsersSearchParams({ q: " anna ", page: "3", pageSize: "50" })).toEqual({
+  it("parses query, page, page size, and filters", () => {
+    expect(parseAdminUsersSearchParams({ q: " anna ", page: "3", pageSize: "50", role: "teacher", verification: "verified" })).toEqual({
       q: "anna",
       page: 3,
       pageSize: 50,
+      role: "TEACHER",
+      verification: "VERIFIED",
     });
   });
 
   it("falls back for invalid page size and page", () => {
-    expect(parseAdminUsersSearchParams({ page: "-1", pageSize: "999" })).toEqual({
+    expect(parseAdminUsersSearchParams({ page: "-1", pageSize: "999", role: "oops", verification: "nope" })).toEqual({
       q: "",
       page: 1,
       pageSize: ADMIN_USERS_PAGE_SIZE_DEFAULT,
+      role: "ALL",
+      verification: "ALL",
     });
   });
 
@@ -37,8 +43,16 @@ describe("admin-users-pagination", () => {
   });
 
   it("builds list hrefs", () => {
-    expect(buildAdminUsersListHref("/admin/users", { q: "test", page: 2, pageSize: 50 })).toBe(
-      "/admin/users?q=test&page=2&pageSize=50"
+    expect(
+      buildAdminUsersListHref("/admin/users", {
+        q: "test",
+        page: 2,
+        pageSize: 50,
+        role: "TEACHER",
+        verification: "VERIFIED",
+      })
+    ).toBe(
+      "/admin/users?q=test&page=2&pageSize=50&role=TEACHER&verification=VERIFIED"
     );
     expect(buildAdminUsersListHref("/admin/users", {})).toBe("/admin/users");
   });

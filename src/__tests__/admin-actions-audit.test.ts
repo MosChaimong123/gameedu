@@ -94,6 +94,29 @@ describe("admin actions audit logging", () => {
     });
   });
 
+  it("rejects subscription updates for non-teacher accounts and logs the rejection", async () => {
+    mockUserFindUnique.mockResolvedValueOnce({ id: "student-1", role: "STUDENT" });
+    const { updateUserSubscription } = await import("@/app/admin/admin-actions");
+    const result = await updateUserSubscription("student-1", {
+      plan: "PLUS",
+      planStatus: "ACTIVE",
+      planExpiry: null,
+    });
+
+    expect(result).toEqual({ success: false, errorKey: "adminSubscriptionRoleNotAllowed" });
+    expect(mockUserUpdate).not.toHaveBeenCalled();
+    expect(mockLogAuditEvent).toHaveBeenCalledWith({
+      actorUserId: "admin-1",
+      action: "admin.user.subscription_update_rejected",
+      targetType: "user",
+      targetId: "student-1",
+      metadata: {
+        reason: "role_not_allowed",
+        role: "STUDENT",
+      },
+    });
+  });
+
   it("logs an audit event when deleting a set", async () => {
     const { deleteSet } = await import("@/app/admin/admin-actions");
     const result = await deleteSet("set-1");

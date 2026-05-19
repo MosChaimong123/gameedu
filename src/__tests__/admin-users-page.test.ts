@@ -73,7 +73,14 @@ describe("admin users page", () => {
           plan: true,
           planStatus: true,
           planExpiry: true,
+          emailVerified: true,
           createdAt: true,
+          _count: {
+            select: {
+              classrooms: true,
+              studentProfiles: true,
+            },
+          },
         },
       })
     );

@@ -168,7 +168,7 @@ describe("auth credentials authorize", () => {
     ).rejects.toMatchObject({ code: "email_not_verified" });
   });
 
-  it("returns a normalized app user payload on success", async () => {
+  it("rejects credentials sign-in when the persisted role is invalid", async () => {
     mockUserFindUnique.mockResolvedValue({
       id: "user-4",
       name: "Dana",
@@ -186,13 +186,34 @@ describe("auth credentials authorize", () => {
         { email: " Dana@example.com ", password: "secret123" },
         new Request("http://localhost:3000/api/auth/callback/credentials")
       )
-    ).resolves.toEqual({
-      id: "user-4",
-      name: "Dana",
-      email: "dana@example.com",
-      image: "dana.png",
+    ).resolves.toBeNull();
+  });
+
+  it("allows legacy USER accounts through credentials so they can be reclassified", async () => {
+    mockUserFindUnique.mockResolvedValue({
+      id: "user-5",
+      name: "Eve",
+      email: "eve@example.com",
+      image: "eve.png",
       role: "USER",
-      school: "School D",
+      school: "School E",
+      password: "hashed-password",
+      emailVerified: new Date("2026-01-01T00:00:00.000Z"),
+    });
+    const authorize = await getAuthorize();
+
+    await expect(
+      authorize(
+        { email: " eve@example.com ", password: "secret123" },
+        new Request("http://localhost:3000/api/auth/callback/credentials")
+      )
+    ).resolves.toEqual({
+      id: "user-5",
+      name: "Eve",
+      email: "eve@example.com",
+      image: "eve.png",
+      role: "USER",
+      school: "School E",
     });
   });
 });

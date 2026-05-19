@@ -4,21 +4,26 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   GraduationCap,
   Loader2,
+  MailX,
   MoreHorizontal,
   Search,
   ShieldCheck,
   Trash2,
   User as UserIcon,
+  UserCheck,
   Users,
 } from "lucide-react";
 import {
   ADMIN_USERS_PAGE_SIZE_OPTIONS,
   buildAdminUsersListHref,
   type AdminUsersPageSize,
+  type AdminUsersRoleFilter,
+  type AdminUsersVerificationFilter,
 } from "@/lib/admin-users-pagination";
 import {
   DropdownMenu,
@@ -62,6 +67,11 @@ interface User {
   plan: string | null;
   planStatus: string | null;
   planExpiry: Date | null;
+  emailVerified: Date | null;
+  _count: {
+    classrooms: number;
+    studentProfiles: number;
+  };
 }
 
 type UserRole = "ADMIN" | "TEACHER" | "STUDENT";
@@ -72,11 +82,34 @@ type UserTableProps = {
   page: number;
   pageSize: AdminUsersPageSize;
   query: string;
+  roleFilter: AdminUsersRoleFilter;
+  verificationFilter: AdminUsersVerificationFilter;
+  counts: {
+    admins: number;
+    teachers: number;
+    students: number;
+    users: number;
+    verified: number;
+    unverified: number;
+  };
 };
 
 const LIST_PATH = "/admin/users";
 
-export function UserTable({ users: initialUsers, total, page, pageSize, query }: UserTableProps) {
+function isTeacherRole(role: AppRole) {
+  return role === "TEACHER";
+}
+
+export function UserTable({
+  users: initialUsers,
+  total,
+  page,
+  pageSize,
+  query,
+  roleFilter,
+  verificationFilter,
+  counts,
+}: UserTableProps) {
   const router = useRouter();
   const [users, setUsers] = React.useState(initialUsers);
   const [searchTerm, setSearchTerm] = React.useState(query);
@@ -87,7 +120,7 @@ export function UserTable({ users: initialUsers, total, page, pageSize, query }:
   const [subStatus, setSubStatus] = React.useState<"ACTIVE" | "EXPIRED" | "INACTIVE">("INACTIVE");
   const [subExpiry, setSubExpiry] = React.useState<string>("");
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   React.useEffect(() => {
     if (!subscriptionTarget) return;
@@ -117,18 +150,30 @@ export function UserTable({ users: initialUsers, total, page, pageSize, query }:
       if (trimmed === query.trim()) {
         return;
       }
-      router.push(buildAdminUsersListHref(LIST_PATH, { q: trimmed, page: 1, pageSize }));
+      router.push(
+        buildAdminUsersListHref(LIST_PATH, {
+          q: trimmed,
+          page: 1,
+          pageSize,
+          role: roleFilter,
+          verification: verificationFilter,
+        })
+      );
     }, 350);
     return () => window.clearTimeout(timeout);
-  }, [searchTerm, query, pageSize, router]);
+  }, [searchTerm, query, pageSize, roleFilter, verificationFilter, router]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const rangeFrom = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeTo = total === 0 ? 0 : Math.min(page * pageSize, total);
   const prevHref =
-    page > 1 ? buildAdminUsersListHref(LIST_PATH, { q: query, page: page - 1, pageSize }) : null;
+    page > 1
+      ? buildAdminUsersListHref(LIST_PATH, { q: query, page: page - 1, pageSize, role: roleFilter, verification: verificationFilter })
+      : null;
   const nextHref =
-    page < totalPages ? buildAdminUsersListHref(LIST_PATH, { q: query, page: page + 1, pageSize }) : null;
+    page < totalPages
+      ? buildAdminUsersListHref(LIST_PATH, { q: query, page: page + 1, pageSize, role: roleFilter, verification: verificationFilter })
+      : null;
 
   const handleRoleUpdate = async (userId: string, newRole: UserRole) => {
     setIsPending(userId);
@@ -212,31 +257,29 @@ export function UserTable({ users: initialUsers, total, page, pageSize, query }:
     setDeleteTarget(null);
   };
 
-  const getRoleIcon = (role: AppRole) => {
-    switch (role) {
-      case "ADMIN":
-        return <ShieldCheck className="h-4 w-4 text-red-600" />;
-      case "TEACHER":
-        return <UserIcon className="h-4 w-4 text-purple-600" />;
-      case "STUDENT":
-        return <GraduationCap className="h-4 w-4 text-blue-600" />;
-      case "USER":
-      default:
-        return <Users className="h-4 w-4 text-slate-400" />;
-    }
-  };
+  const roleOptions: Array<{
+    value: AdminUsersRoleFilter;
+    label: string;
+    count: number;
+    icon: React.ReactNode;
+  }> = [
+    { value: "ALL", label: t("adminFilterAll"), count: counts.admins + counts.teachers + counts.students + counts.users, icon: <Users className="h-4 w-4" /> },
+    { value: "ADMIN", label: t("adminFilterAdmins"), count: counts.admins, icon: <ShieldCheck className="h-4 w-4" /> },
+    { value: "TEACHER", label: t("adminFilterTeachers"), count: counts.teachers, icon: <UserCheck className="h-4 w-4" /> },
+    { value: "STUDENT", label: t("adminFilterStudents"), count: counts.students, icon: <GraduationCap className="h-4 w-4" /> },
+    { value: "USER", label: t("adminFilterNeedsRole"), count: counts.users, icon: <Users className="h-4 w-4" /> },
+  ];
 
-  const getRoleLabel = (role: AppRole) => {
-    switch (role) {
-      case "ADMIN":
-      case "TEACHER":
-      case "STUDENT":
-        return role;
-      case "USER":
-      default:
-        return t("adminRoleUserUnlinked");
-    }
-  };
+  const verificationOptions: Array<{
+    value: AdminUsersVerificationFilter;
+    label: string;
+    count: number;
+    icon: React.ReactNode;
+  }> = [
+    { value: "ALL", label: t("adminFilterAll"), count: counts.verified + counts.unverified, icon: <Users className="h-4 w-4" /> },
+    { value: "VERIFIED", label: t("adminFilterVerified"), count: counts.verified, icon: <CheckCircle2 className="h-4 w-4" /> },
+    { value: "UNVERIFIED", label: t("adminFilterUnverified"), count: counts.unverified, icon: <MailX className="h-4 w-4" /> },
+  ];
 
   return (
     <div className="space-y-4">
@@ -250,6 +293,82 @@ export function UserTable({ users: initialUsers, total, page, pageSize, query }:
         />
       </div>
 
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="space-y-4">
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminUsersRoleFilterLabel")}</p>
+            <div className="flex flex-wrap gap-2">
+              {roleOptions.map((option) => {
+                const isActive = roleFilter === option.value;
+                return (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant="outline"
+                    className={`h-9 rounded-full border-slate-200 px-3 ${
+                      isActive ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                    onClick={() =>
+                      router.push(
+                        buildAdminUsersListHref(LIST_PATH, {
+                          q: query,
+                          page: 1,
+                          pageSize,
+                          role: option.value,
+                          verification: verificationFilter,
+                        })
+                      )
+                    }
+                  >
+                    <span className="mr-2">{option.icon}</span>
+                    {option.label}
+                    <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${isActive ? "bg-white/15" : "bg-slate-100 text-slate-500"}`}>
+                      {option.count}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminUsersVerificationFilterLabel")}</p>
+            <div className="flex flex-wrap gap-2">
+              {verificationOptions.map((option) => {
+                const isActive = verificationFilter === option.value;
+                return (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant="outline"
+                    className={`h-9 rounded-full border-slate-200 px-3 ${
+                      isActive ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                    onClick={() =>
+                      router.push(
+                        buildAdminUsersListHref(LIST_PATH, {
+                          q: query,
+                          page: 1,
+                          pageSize,
+                          role: roleFilter,
+                          verification: option.value,
+                        })
+                      )
+                    }
+                  >
+                    <span className="mr-2">{option.icon}</span>
+                    {option.label}
+                    <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${isActive ? "bg-white/15" : "bg-slate-100 text-slate-500"}`}>
+                      {option.count}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -258,83 +377,120 @@ export function UserTable({ users: initialUsers, total, page, pageSize, query }:
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500">{t("adminUserColUser")}</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500">{t("adminUserColEmail")}</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500">{t("adminUserColRole")}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500">{t("adminUserColPlan")}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500">{t("adminUserColVerification")}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500">{t("adminUserColDetails")}</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500">{t("adminUserColJoined")}</th>
                 <th className="px-6 py-4 text-right text-xs font-bold uppercase text-slate-500">{t("adminUserColActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {users.map((user) => (
-                <tr key={user.id} className="transition-colors hover:bg-slate-50/50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-600">
-                        {user.name?.charAt(0) || user.email?.charAt(0) || "?"}
+              {users.map((user) => {
+                const isTeacher = isTeacherRole(user.role);
+                const isVerified = !!user.emailVerified;
+
+                return (
+                  <tr key={user.id} className="transition-colors hover:bg-slate-50/50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-600">
+                          {user.name?.charAt(0) || user.email?.charAt(0) || "?"}
+                        </div>
+                        <span className="font-bold text-slate-800">{user.name || t("adminNoName")}</span>
                       </div>
-                      <span className="font-bold text-slate-800">{user.name || t("adminNoName")}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-slate-600">{user.email}</td>
-                  <td className="px-6 py-4 text-sm font-bold text-slate-600">
-                    <div className="flex items-center gap-2">
-                      {getRoleIcon(user.role)}
-                      {getRoleLabel(user.role)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-xs font-bold text-slate-600">
-                    <button
-                      type="button"
-                      className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-left hover:bg-slate-100"
-                      onClick={() => setSubscriptionTarget(user)}
-                    >
-                      {user.plan ?? "FREE"}
-                      <span className="ml-1 text-[10px] font-medium text-slate-400">
-                        ({user.planStatus ?? "—"})
-                      </span>
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 text-xs text-slate-400">
-                    {new Date(user.createdAt).toLocaleDateString("th-TH")}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={isPending === user.id}>
-                          {isPending === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-200 p-2 shadow-xl">
-                        <DropdownMenuLabel className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          {t("adminRoleChangeLabel")}
-                        </DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => handleRoleUpdate(user.id, "ADMIN")} className="cursor-pointer gap-2 rounded-lg py-2 font-bold">
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-slate-600">{user.email}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-slate-600">
+                      <div className="flex items-center gap-2">
+                        {user.role === "ADMIN" ? (
                           <ShieldCheck className="h-4 w-4 text-red-600" />
-                          {t("adminSetAsAdmin")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleRoleUpdate(user.id, "TEACHER")} className="cursor-pointer gap-2 rounded-lg py-2 font-bold">
+                        ) : user.role === "TEACHER" ? (
                           <UserIcon className="h-4 w-4 text-purple-600" />
-                          {t("adminSetAsTeacher")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleRoleUpdate(user.id, "STUDENT")} className="cursor-pointer gap-2 rounded-lg py-2 font-bold">
+                        ) : user.role === "STUDENT" ? (
                           <GraduationCap className="h-4 w-4 text-blue-600" />
-                          {t("adminSetAsStudent")}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => setDeleteTarget(user)}
-                          className="cursor-pointer gap-2 rounded-lg py-2 font-bold text-red-600 focus:bg-red-50 focus:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          {t("adminDeleteUser")}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              ))}
+                        ) : (
+                          <Users className="h-4 w-4 text-slate-400" />
+                        )}
+                        {user.role === "USER" ? t("adminRoleUserUnlinked") : user.role}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
+                          isVerified ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {isVerified ? <CheckCircle2 className="h-3.5 w-3.5" /> : <MailX className="h-3.5 w-3.5" />}
+                        {isVerified ? t("adminVerificationVerified") : t("adminVerificationPending")}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-xs font-medium text-slate-600">
+                      {isTeacher ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-left hover:bg-slate-100"
+                              onClick={() => setSubscriptionTarget(user)}
+                            >
+                              {user.plan ?? "FREE"}
+                              <span className="ml-1 text-[10px] font-medium text-slate-400">
+                                ({user.planStatus ?? "—"})
+                              </span>
+                            </button>
+                          </div>
+                          <p className="text-[11px] text-slate-500">{t("adminUserTeacherClassrooms", { count: user._count.classrooms })}</p>
+                        </div>
+                      ) : user.role === "STUDENT" ? (
+                        <span>{t("adminUserStudentProfiles", { count: user._count.studentProfiles })}</span>
+                      ) : user.role === "USER" ? (
+                        <span className="font-semibold text-amber-700">{t("adminUserNeedsRoleDetails")}</span>
+                      ) : (
+                        <span>{t("adminUserAdminDetails")}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-xs text-slate-400">
+                      {new Date(user.createdAt).toLocaleDateString(language === "th" ? "th-TH" : "en-US")}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={isPending === user.id}>
+                            {isPending === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-200 p-2 shadow-xl">
+                          <DropdownMenuLabel className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            {t("adminRoleChangeLabel")}
+                          </DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => handleRoleUpdate(user.id, "ADMIN")} className="cursor-pointer gap-2 rounded-lg py-2 font-bold">
+                            <ShieldCheck className="h-4 w-4 text-red-600" />
+                            {t("adminSetAsAdmin")}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleRoleUpdate(user.id, "TEACHER")} className="cursor-pointer gap-2 rounded-lg py-2 font-bold">
+                            <UserIcon className="h-4 w-4 text-purple-600" />
+                            {t("adminSetAsTeacher")}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleRoleUpdate(user.id, "STUDENT")} className="cursor-pointer gap-2 rounded-lg py-2 font-bold">
+                            <GraduationCap className="h-4 w-4 text-blue-600" />
+                            {t("adminSetAsStudent")}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => setDeleteTarget(user)}
+                            className="cursor-pointer gap-2 rounded-lg py-2 font-bold text-red-600 focus:bg-red-50 focus:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            {t("adminDeleteUser")}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                );
+              })}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center">
+                  <td colSpan={7} className="px-6 py-20 text-center">
                     <Users className="mx-auto mb-3 h-12 w-12 text-slate-200" />
                     <p className="font-medium text-slate-400">{t("adminNoUsersFound")}</p>
                   </td>
@@ -360,7 +516,15 @@ export function UserTable({ users: initialUsers, total, page, pageSize, query }:
                 value={pageSize}
                 onChange={(event) => {
                   const nextSize = Number(event.target.value) as AdminUsersPageSize;
-                  router.push(buildAdminUsersListHref(LIST_PATH, { q: query, page: 1, pageSize: nextSize }));
+                  router.push(
+                    buildAdminUsersListHref(LIST_PATH, {
+                      q: query,
+                      page: 1,
+                      pageSize: nextSize,
+                      role: roleFilter,
+                      verification: verificationFilter,
+                    })
+                  );
                 }}
               >
                 {ADMIN_USERS_PAGE_SIZE_OPTIONS.map((size) => (

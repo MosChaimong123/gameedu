@@ -1,36 +1,52 @@
 import type { NextAuthConfig } from "next-auth"
 
+function appendAuthError(path: string, error: string) {
+    const search = new URLSearchParams({ error })
+    return `${path}?${search.toString()}`
+}
+
 export const authConfig = {
     pages: {
-        signIn: '/login',
-        error: '/auth/error',
+        signIn: "/login",
+        error: "/auth/error",
     },
     callbacks: {
         authorized({ auth, request: { nextUrl } }) {
             const isLoggedIn = !!auth?.user
             const role = auth?.user?.role
 
-            const isOnDashboard = nextUrl.pathname.startsWith('/dashboard')
-            const isOnAdmin = nextUrl.pathname.startsWith('/admin')
-            const isOnStudentHome = nextUrl.pathname.startsWith('/student/home')
+            const isOnDashboard = nextUrl.pathname.startsWith("/dashboard")
+            const isOnAdmin = nextUrl.pathname.startsWith("/admin")
+            const isOnStudentHome = nextUrl.pathname.startsWith("/student/home")
+            const roleRequiredUrl = new URL(appendAuthError("/login", "role_required"), nextUrl)
 
-            // /admin → ADMIN only
+            // /admin -> ADMIN only
             if (isOnAdmin) {
                 if (!isLoggedIn) return false
-                if (role !== 'ADMIN') return Response.redirect(new URL('/dashboard', nextUrl))
+                if (role !== "ADMIN") {
+                    if (role === "STUDENT") return Response.redirect(new URL("/student/home", nextUrl))
+                    if (role === "TEACHER") return Response.redirect(new URL("/dashboard", nextUrl))
+                    return Response.redirect(roleRequiredUrl)
+                }
                 return true
             }
 
-            // /dashboard → not STUDENT (TEACHER, ADMIN, USER, etc.)
+            // /dashboard -> TEACHER or ADMIN only
             if (isOnDashboard) {
                 if (!isLoggedIn) return false
-                if (role === 'STUDENT') return Response.redirect(new URL('/student/home', nextUrl))
+                if (role === "STUDENT") return Response.redirect(new URL("/student/home", nextUrl))
+                if (role !== "TEACHER" && role !== "ADMIN") {
+                    return Response.redirect(roleRequiredUrl)
+                }
                 return true
             }
 
-            // /student/home → authenticated users
+            // /student/home -> STUDENT only
             if (isOnStudentHome) {
                 if (!isLoggedIn) return false
+                if (role === "TEACHER") return Response.redirect(new URL("/dashboard", nextUrl))
+                if (role === "ADMIN") return Response.redirect(new URL("/admin", nextUrl))
+                if (role !== "STUDENT") return Response.redirect(roleRequiredUrl)
                 return true
             }
 
@@ -57,12 +73,12 @@ export const authConfig = {
                 if (token.id) session.user.id = token.id as string
                 if (token.role) session.user.role = token.role
                 if (token.school) session.user.school = token.school
-                
+
                 if (token.name !== undefined) session.user.name = token.name
                 session.user.image = token.picture as string
             }
             return session
-        }
+        },
     },
-    providers: [], // Providers configured in auth.ts
+    providers: [],
 } satisfies NextAuthConfig

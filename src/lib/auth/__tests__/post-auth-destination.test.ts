@@ -17,7 +17,7 @@ describe("post auth destination helpers", () => {
         expect(getDefaultPostAuthPath("STUDENT")).toBe("/student/home");
         expect(getDefaultPostAuthPath("ADMIN")).toBe("/admin");
         expect(getDefaultPostAuthPath("TEACHER")).toBe("/dashboard");
-        expect(getDefaultPostAuthPath("USER")).toBe("/dashboard");
+        expect(getDefaultPostAuthPath("USER")).toBe("/login?error=role_required");
         expect(getDefaultPostAuthPath(undefined)).toBe("/dashboard");
     });
 

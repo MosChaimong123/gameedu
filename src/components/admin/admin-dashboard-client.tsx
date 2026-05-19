@@ -3,7 +3,21 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { BookOpen, Gamepad2, Loader2, Newspaper, ScrollText, ShieldCheck, Trophy, Users } from "lucide-react";
+import {
+  BookOpen,
+  CheckCircle2,
+  Gamepad2,
+  GraduationCap,
+  Loader2,
+  MailCheck,
+  MailX,
+  Newspaper,
+  ScrollText,
+  ShieldCheck,
+  Trophy,
+  UserCheck,
+  Users,
+} from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -20,8 +34,13 @@ export type AdminDashboardRecentUser = {
   plan: string | null;
   planStatus: string | null;
   planExpiry: string | null;
+  emailVerified: string | null;
   createdAt: string;
   image: string | null;
+  _count: {
+    classrooms: number;
+    studentProfiles: number;
+  };
 };
 
 type AdminDashboardClientProps = {
@@ -29,8 +48,12 @@ type AdminDashboardClientProps = {
   displayInitial: string;
   counts: {
     users: number;
+    admins: number;
     teachers: number;
     students: number;
+    legacyUsers: number;
+    verified: number;
+    unverified: number;
     sets: number;
     games: number;
   };
@@ -48,6 +71,23 @@ const planBadgeColors: Record<string, string> = {
   PLUS: "bg-indigo-100 text-indigo-700",
   PRO: "bg-emerald-100 text-emerald-800",
 };
+
+function isTeacherRole(role: string) {
+  return role === "TEACHER";
+}
+
+function renderVerificationBadge(isVerified: boolean, t: (key: string, params?: Record<string, string | number>) => string) {
+  return (
+    <span
+      className={`inline-flex w-fit items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
+        isVerified ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+      }`}
+    >
+      {isVerified ? <CheckCircle2 className="h-3.5 w-3.5" /> : <MailX className="h-3.5 w-3.5" />}
+      {isVerified ? t("adminVerificationVerified") : t("adminVerificationPending")}
+    </span>
+  );
+}
 
 export function AdminDashboardClient({ userName, displayInitial, counts, recentUsers }: AdminDashboardClientProps) {
   const { t, language } = useLanguage();
@@ -89,17 +129,21 @@ export function AdminDashboardClient({ userName, displayInitial, counts, recentU
     }
     toast({
       title: t("adminSubscriptionUpdateFailTitle"),
-      description: "error" in result && typeof result.error === "string" ? result.error : undefined,
+      description: "errorKey" in result ? t(result.errorKey) : undefined,
       variant: "destructive",
     });
   };
 
   const stats = [
     { labelKey: "adminStatTotalUsers", value: counts.users, icon: Users, bg: "bg-blue-50", text: "text-blue-600" },
-    { labelKey: "adminStatTeachers", value: counts.teachers, icon: ShieldCheck, bg: "bg-purple-50", text: "text-purple-600" },
-    { labelKey: "adminStatStudents", value: counts.students, icon: Users, bg: "bg-green-50", text: "text-green-600" },
+    { labelKey: "adminStatAdmins", value: counts.admins, icon: ShieldCheck, bg: "bg-rose-50", text: "text-rose-600" },
+    { labelKey: "adminStatTeachers", value: counts.teachers, icon: UserCheck, bg: "bg-purple-50", text: "text-purple-600" },
+    { labelKey: "adminStatStudents", value: counts.students, icon: GraduationCap, bg: "bg-green-50", text: "text-green-600" },
+    { labelKey: "adminStatNeedsRole", value: counts.legacyUsers, icon: Users, bg: "bg-amber-50", text: "text-amber-600" },
+    { labelKey: "adminStatVerifiedEmails", value: counts.verified, icon: MailCheck, bg: "bg-emerald-50", text: "text-emerald-600" },
+    { labelKey: "adminStatUnverifiedEmails", value: counts.unverified, icon: MailX, bg: "bg-amber-50", text: "text-amber-600" },
     { labelKey: "adminStatQuestionSets", value: counts.sets, icon: BookOpen, bg: "bg-orange-50", text: "text-orange-600" },
-    { labelKey: "adminStatGamesPlayed", value: counts.games, icon: Gamepad2, bg: "bg-rose-50", text: "text-rose-600" },
+    { labelKey: "adminStatGamesPlayed", value: counts.games, icon: Gamepad2, bg: "bg-slate-100", text: "text-slate-700" },
   ] as const;
 
   const links = [
@@ -183,7 +227,24 @@ export function AdminDashboardClient({ userName, displayInitial, counts, recentU
           <p className="mt-1 text-slate-500">{t("adminDashboardSubtitle")}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+        {counts.legacyUsers > 0 ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-900 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-bold">{t("adminLegacyUsersBannerTitle", { count: counts.legacyUsers })}</p>
+                <p className="mt-1 text-sm text-amber-800">{t("adminLegacyUsersBannerDesc")}</p>
+              </div>
+              <Link
+                href="/admin/users?role=USER"
+                className="shrink-0 rounded-full border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100"
+              >
+                {t("adminLegacyUsersBannerAction")}
+              </Link>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {stats.map((stat) => (
             <div key={stat.labelKey} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
               <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${stat.bg}`}>
@@ -220,73 +281,91 @@ export function AdminDashboardClient({ userName, displayInitial, counts, recentU
                   <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminDashboardColName")}</th>
                   <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminUserColEmail")}</th>
                   <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminUserColRole")}</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminUserColPlan")}</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminUserColVerification")}</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminUserColDetails")}</th>
                   <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminDashboardColJoined")}</th>
                   <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-500">{t("adminUserColActions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {recentUsers.map((user) => (
-                  <tr key={user.id} className="transition-colors hover:bg-slate-50">
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-purple-400 to-indigo-500 text-sm font-bold text-white">
-                          {user.image ? (
-                            <Image
-                              src={user.image}
-                              alt={user.name || ""}
-                              width={32}
-                              height={32}
-                              unoptimized
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            user.name?.charAt(0) || "?"
-                          )}
+                {recentUsers.map((user) => {
+                  const isTeacher = isTeacherRole(user.role);
+                  const isVerified = !!user.emailVerified;
+
+                  return (
+                    <tr key={user.id} className="transition-colors hover:bg-slate-50">
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-purple-400 to-indigo-500 text-sm font-bold text-white">
+                            {user.image ? (
+                              <Image
+                                src={user.image}
+                                alt={user.name || ""}
+                                width={32}
+                                height={32}
+                                unoptimized
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              user.name?.charAt(0) || "?"
+                            )}
+                          </div>
+                          <span className="text-sm font-semibold text-slate-800">{user.name || t("adminNoName")}</span>
                         </div>
-                        <span className="text-sm font-semibold text-slate-800">{user.name || t("adminNoName")}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-3 text-sm text-slate-500">{user.email}</td>
-                    <td className="px-6 py-3">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${roleColors[user.role] || "bg-slate-100 text-slate-600"}`}>
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3">
-                      <div className="flex flex-col gap-0.5">
-                        <span
-                          className={`w-fit rounded-full px-2.5 py-1 text-xs font-bold ${
-                            planBadgeColors[user.plan || "FREE"] || "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          {user.plan || "FREE"}
+                      </td>
+                      <td className="px-6 py-3 text-sm text-slate-500">{user.email}</td>
+                      <td className="px-6 py-3">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${roleColors[user.role] || "bg-slate-100 text-slate-600"}`}>
+                          {user.role}
                         </span>
-                        {user.planStatus ? (
-                          <span className="text-[10px] font-medium text-slate-400">{user.planStatus}</span>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-6 py-3 text-xs text-slate-400">
-                      {new Date(user.createdAt).toLocaleDateString(dateLocale, {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </td>
-                    <td className="px-6 py-3 text-right">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="rounded-lg border-slate-200"
-                        onClick={() => setSubscriptionTarget(user)}
-                      >
-                        {t("adminSubscriptionDialogTitle")}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-3">{renderVerificationBadge(isVerified, t)}</td>
+                      <td className="px-6 py-3 text-xs text-slate-500">
+                        {isTeacher ? (
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`w-fit rounded-full px-2.5 py-1 text-xs font-bold ${
+                                  planBadgeColors[user.plan || "FREE"] || "bg-slate-100 text-slate-600"
+                                }`}
+                              >
+                                {user.plan || "FREE"}
+                              </span>
+                              <span className="text-[11px] font-medium text-slate-400">{user.planStatus || "INACTIVE"}</span>
+                            </div>
+                            <span>{t("adminUserTeacherClassrooms", { count: user._count.classrooms })}</span>
+                          </div>
+                        ) : user.role === "STUDENT" ? (
+                          <span>{t("adminUserStudentProfiles", { count: user._count.studentProfiles })}</span>
+                        ) : (
+                          <span>{t("adminUserAdminDetails")}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3 text-xs text-slate-400">
+                        {new Date(user.createdAt).toLocaleDateString(dateLocale, {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </td>
+                      <td className="px-6 py-3 text-right">
+                        {isTeacher ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="rounded-lg border-slate-200"
+                            onClick={() => setSubscriptionTarget(user)}
+                          >
+                            {t("adminSubscriptionDialogTitle")}
+                          </Button>
+                        ) : (
+                          <span className="text-xs font-semibold text-slate-300">{t("adminUserNoPlan")}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

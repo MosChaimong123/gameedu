@@ -115,7 +115,7 @@ describe("auth core callbacks", () => {
     });
   });
 
-  it("falls back to USER for invalid roles and projects token fields into the session", async () => {
+  it("keeps invalid database roles out of the session payload", async () => {
     const mod = await import("@/auth");
     const config = getLastNextAuthConfigArg(mockNextAuth);
     expect(mod).toBeTruthy();
@@ -145,7 +145,7 @@ describe("auth core callbacks", () => {
       session: undefined,
     });
 
-    expect(token.role).toBe("USER");
+    expect(token.role).toBeUndefined();
 
     const session = await config.callbacks.session({
       session: { user: {} },
@@ -155,7 +155,6 @@ describe("auth core callbacks", () => {
     expect(session).toEqual({
       user: {
         id: "user-2",
-        role: "USER",
         school: "Edge School",
         name: "Edge User",
         image: "edge.png",

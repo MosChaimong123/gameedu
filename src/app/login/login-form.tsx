@@ -63,6 +63,10 @@ export default function LoginForm({ audience }: LoginFormProps) {
     React.useEffect(() => {
         if (urlAuthError === "oauth_not_configured") {
             setErrorMsg(getLocalizedAuthErrorMessage("oauth_not_configured", language, t));
+            return;
+        }
+        if (urlAuthError === "role_required") {
+            setErrorMsg(t("loginAuthErrorRoleRequired"));
         }
     }, [urlAuthError, language, t]);
 

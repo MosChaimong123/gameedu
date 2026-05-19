@@ -41,6 +41,28 @@ describe("auth.config authorized callback", () => {
     expect((result as Response).headers.get("location")).toBe("http://localhost:3000/student/home");
   });
 
+  it("redirects legacy USER accounts away from teacher and student routes", () => {
+    const dashboardResult = authorized?.({
+      auth: { user: { role: "USER" } },
+      request: { nextUrl: new URL("http://localhost:3000/dashboard") },
+    } as never);
+
+    expect(dashboardResult).toBeInstanceOf(Response);
+    expect((dashboardResult as Response).headers.get("location")).toBe(
+      "http://localhost:3000/login?error=role_required"
+    );
+
+    const studentHomeResult = authorized?.({
+      auth: { user: { role: "USER" } },
+      request: { nextUrl: new URL("http://localhost:3000/student/home") },
+    } as never);
+
+    expect(studentHomeResult).toBeInstanceOf(Response);
+    expect((studentHomeResult as Response).headers.get("location")).toBe(
+      "http://localhost:3000/login?error=role_required"
+    );
+  });
+
   it("allows matching privileged users through", () => {
     expect(
       authorized?.({

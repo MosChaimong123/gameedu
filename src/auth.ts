@@ -45,6 +45,13 @@ function resolveGoogleProvider() {
     })
 }
 
+function normalizeSessionRole(role: unknown): AppRole | undefined {
+    if (isAppRole(role)) {
+        return role
+    }
+    return undefined
+}
+
 function createAuthConfig(): NextAuthConfig {
     const googleProvider = resolveGoogleProvider()
 
@@ -111,12 +118,17 @@ function createAuthConfig(): NextAuthConfig {
                     throw new EmailNotVerified()
                 }
 
+                const normalizedRole = normalizeSessionRole(user.role)
+                if (!normalizedRole) {
+                    return null
+                }
+
                 return {
                     id: user.id,
                     name: user.name,
                     email: user.email,
                     image: user.image,
-                    role: isAppRole(user.role) ? user.role : ("USER" satisfies AppRole),
+                    role: normalizedRole,
                     school: user.school,
                 }
             },
@@ -131,8 +143,9 @@ function createAuthConfig(): NextAuthConfig {
                 token.email = user.email
                 if (user.name !== undefined) token.name = user.name
                 token.picture = user.image
-                if (user.role !== undefined && user.role !== null) {
-                    token.role = isAppRole(user.role) ? user.role : ("USER" satisfies AppRole)
+                const normalizedUserRole = normalizeSessionRole(user.role)
+                if (normalizedUserRole) {
+                    token.role = normalizedUserRole
                 }
             }
 
@@ -157,7 +170,10 @@ function createAuthConfig(): NextAuthConfig {
                     if (freshUser) {
                         if (freshUser.name !== undefined) token.name = freshUser.name
                         token.picture = freshUser.image
-                        token.role = isAppRole(freshUser.role) ? freshUser.role : ("USER" satisfies AppRole)
+                        const normalizedFreshRole = normalizeSessionRole(freshUser.role)
+                        if (normalizedFreshRole) {
+                            token.role = normalizedFreshRole
+                        }
                         token.school = freshUser.school
                         token.settings = freshUser.settings
                         token.plan = freshUser.plan

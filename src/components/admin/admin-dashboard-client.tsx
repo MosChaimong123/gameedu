@@ -201,9 +201,17 @@ export function AdminDashboardClient({ userName, displayInitial, counts, recentU
               <Users className="h-5 w-5 text-purple-500" />
               <h2 className="font-bold text-slate-800">{t("adminDashboardRecentUsers")}</h2>
             </div>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-400">
-              {t("adminDashboardUserCountBadge", { count: String(counts.users) })}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-400">
+                {t("adminDashboardUserCountBadge", { count: String(counts.users) })}
+              </span>
+              <Link
+                href="/admin/users"
+                className="rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-xs font-bold text-purple-700 transition-colors hover:bg-purple-100"
+              >
+                {t("adminUsersViewAll")}
+              </Link>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">

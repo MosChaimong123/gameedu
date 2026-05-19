@@ -1,7 +1,11 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
+  ChevronLeft,
+  ChevronRight,
   GraduationCap,
   Loader2,
   MoreHorizontal,
@@ -11,6 +15,11 @@ import {
   User as UserIcon,
   Users,
 } from "lucide-react";
+import {
+  ADMIN_USERS_PAGE_SIZE_OPTIONS,
+  buildAdminUsersListHref,
+  type AdminUsersPageSize,
+} from "@/lib/admin-users-pagination";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,9 +66,20 @@ interface User {
 
 type UserRole = "ADMIN" | "TEACHER" | "STUDENT";
 
-export function UserTable({ initialUsers }: { initialUsers: User[] }) {
+type UserTableProps = {
+  users: User[];
+  total: number;
+  page: number;
+  pageSize: AdminUsersPageSize;
+  query: string;
+};
+
+const LIST_PATH = "/admin/users";
+
+export function UserTable({ users: initialUsers, total, page, pageSize, query }: UserTableProps) {
+  const router = useRouter();
   const [users, setUsers] = React.useState(initialUsers);
-  const [searchTerm, setSearchTerm] = React.useState("");
+  const [searchTerm, setSearchTerm] = React.useState(query);
   const [isPending, setIsPending] = React.useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<User | null>(null);
   const [subscriptionTarget, setSubscriptionTarget] = React.useState<User | null>(null);
@@ -83,11 +103,32 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
     }
   }, [subscriptionTarget]);
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  React.useEffect(() => {
+    setUsers(initialUsers);
+  }, [initialUsers]);
+
+  React.useEffect(() => {
+    setSearchTerm(query);
+  }, [query]);
+
+  React.useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const trimmed = searchTerm.trim();
+      if (trimmed === query.trim()) {
+        return;
+      }
+      router.push(buildAdminUsersListHref(LIST_PATH, { q: trimmed, page: 1, pageSize }));
+    }, 350);
+    return () => window.clearTimeout(timeout);
+  }, [searchTerm, query, pageSize, router]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const rangeFrom = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeTo = total === 0 ? 0 : Math.min(page * pageSize, total);
+  const prevHref =
+    page > 1 ? buildAdminUsersListHref(LIST_PATH, { q: query, page: page - 1, pageSize }) : null;
+  const nextHref =
+    page < totalPages ? buildAdminUsersListHref(LIST_PATH, { q: query, page: page + 1, pageSize }) : null;
 
   const handleRoleUpdate = async (userId: string, newRole: UserRole) => {
     setIsPending(userId);
@@ -153,6 +194,7 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
 
     if (result.success) {
       setUsers((prev) => prev.filter((user) => user.id !== deleteTarget.id));
+      router.refresh();
       toast({
         title: t("adminUserDeleteSuccessTitle"),
         description: t("adminUserDeleteSuccessDesc", {
@@ -222,7 +264,7 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredUsers.map((user) => (
+              {users.map((user) => (
                 <tr key={user.id} className="transition-colors hover:bg-slate-50/50">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -290,7 +332,7 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
                   </td>
                 </tr>
               ))}
-              {filteredUsers.length === 0 && (
+              {users.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-6 py-20 text-center">
                     <Users className="mx-auto mb-3 h-12 w-12 text-slate-200" />
@@ -300,6 +342,64 @@ export function UserTable({ initialUsers }: { initialUsers: User[] }) {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs font-medium text-slate-500">
+            {t("adminUsersPaginationSummary", {
+              from: String(rangeFrom),
+              to: String(rangeTo),
+              total: String(total),
+            })}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-500">
+              {t("adminUsersPageSizeLabel")}
+              <select
+                className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700"
+                value={pageSize}
+                onChange={(event) => {
+                  const nextSize = Number(event.target.value) as AdminUsersPageSize;
+                  router.push(buildAdminUsersListHref(LIST_PATH, { q: query, page: 1, pageSize: nextSize }));
+                }}
+              >
+                {ADMIN_USERS_PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="text-xs font-bold text-slate-400">
+              {t("adminUsersPageIndicator", { page: String(page), totalPages: String(totalPages) })}
+            </span>
+            {prevHref ? (
+              <Button type="button" variant="outline" size="sm" className="h-8 rounded-lg" asChild>
+                <Link href={prevHref}>
+                  <ChevronLeft className="mr-1 h-4 w-4" />
+                  {t("adminUsersPagePrev")}
+                </Link>
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" size="sm" className="h-8 rounded-lg" disabled>
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                {t("adminUsersPagePrev")}
+              </Button>
+            )}
+            {nextHref ? (
+              <Button type="button" variant="outline" size="sm" className="h-8 rounded-lg" asChild>
+                <Link href={nextHref}>
+                  {t("adminUsersPageNext")}
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" size="sm" className="h-8 rounded-lg" disabled>
+                {t("adminUsersPageNext")}
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 

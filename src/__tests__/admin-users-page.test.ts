@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockAuth = vi.fn();
 const mockUserFindMany = vi.fn();
+const mockUserCount = vi.fn();
 const mockRedirect = vi.fn(() => {
   throw new Error("NEXT_REDIRECT");
 });
@@ -14,6 +15,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     user: {
       findMany: mockUserFindMany,
+      count: mockUserCount,
     },
   },
 }));
@@ -23,10 +25,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/app/admin/users/user-table", () => ({
-  UserTable: ({ initialUsers }: { initialUsers: unknown[] }) => ({
-    type: "UserTable",
-    props: { initialUsers },
-  }),
+  UserTable: () => null,
 }));
 
 vi.mock("lucide-react", async (importOriginal) => {
@@ -47,21 +46,25 @@ describe("admin users page", () => {
     mockAuth.mockResolvedValue({ user: { id: "user-1", role: "TEACHER" } });
     const AdminUsersPage = (await import("@/app/admin/users/page")).default;
 
-    await expect(AdminUsersPage()).rejects.toThrow("NEXT_REDIRECT");
+    await expect(AdminUsersPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("NEXT_REDIRECT");
     expect(mockRedirect).toHaveBeenCalledWith("/dashboard");
     expect(mockUserFindMany).not.toHaveBeenCalled();
   });
 
-  it("queries only the safe user fields for admin table rendering", async () => {
+  it("queries paginated user fields for admin table rendering", async () => {
     mockAuth.mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } });
+    mockUserCount.mockResolvedValue(109);
     mockUserFindMany.mockResolvedValue([]);
     const AdminUsersPage = (await import("@/app/admin/users/page")).default;
 
-    await AdminUsersPage();
+    await AdminUsersPage({ searchParams: Promise.resolve({ page: "4", pageSize: "25" }) });
 
+    expect(mockUserCount).toHaveBeenCalled();
     expect(mockUserFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: { createdAt: "desc" },
+        skip: 75,
+        take: 25,
         select: {
           id: true,
           name: true,

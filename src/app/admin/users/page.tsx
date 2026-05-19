@@ -5,17 +5,35 @@ import { UserTable } from "./user-table";
 import { PageBackLink } from "@/components/ui/page-back-link";
 import { AdminSectionHeader } from "@/components/admin/admin-section-header";
 import { isAppRole, type AppRole } from "@/lib/roles";
+import {
+    buildAdminUsersWhere,
+    clampAdminUsersPage,
+    parseAdminUsersSearchParams,
+} from "@/lib/admin-users-pagination";
 
-export default async function UserManagementPage() {
+type UserManagementPageProps = {
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function UserManagementPage({ searchParams }: UserManagementPageProps) {
     const session = await auth();
     const role = session?.user?.role;
-    
+
     if (!session?.user || role !== "ADMIN") {
         redirect("/dashboard");
     }
 
+    const listParams = parseAdminUsersSearchParams(await searchParams);
+    const where = buildAdminUsersWhere(listParams.q);
+    const total = await db.user.count({ where });
+    const page = clampAdminUsersPage(listParams.page, total, listParams.pageSize);
+    const skip = (page - 1) * listParams.pageSize;
+
     const users = await db.user.findMany({
+        where,
         orderBy: { createdAt: "desc" },
+        skip,
+        take: listParams.pageSize,
         select: {
             id: true,
             name: true,
@@ -35,7 +53,7 @@ export default async function UserManagementPage() {
 
     return (
         <div className="min-h-screen bg-slate-50 p-6 md:p-8">
-            <div className="max-w-6xl mx-auto space-y-6">
+            <div className="mx-auto max-w-6xl space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <PageBackLink href="/admin" labelKey="navBackAdmin" />
@@ -48,7 +66,13 @@ export default async function UserManagementPage() {
                     </div>
                 </div>
 
-                <UserTable initialUsers={normalizedUsers} />
+                <UserTable
+                    users={normalizedUsers}
+                    total={total}
+                    page={page}
+                    pageSize={listParams.pageSize}
+                    query={listParams.q}
+                />
             </div>
         </div>
     );

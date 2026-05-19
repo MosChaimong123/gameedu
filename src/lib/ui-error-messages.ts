@@ -57,15 +57,11 @@ const DEFAULT_THAI_ERROR_MESSAGES: Record<AppErrorCode, string> = {
     BILLING_PROCESSING_FAILED: "ระบบไม่สามารถยืนยันการชำระเงินให้เสร็จสมบูรณ์ได้",
     INVALID_ACCESSIBILITY_SETTINGS: "ค่าการช่วยการเข้าถึงไม่ถูกต้อง",
     ENDPOINT_NO_LONGER_AVAILABLE: "ปลายทางนี้ไม่ได้เปิดใช้งานแล้ว",
+    EMAIL_VERIFICATION_CODE_INVALID: "รหัสยืนยันไม่ถูกต้อง",
+    EMAIL_VERIFICATION_CODE_EXPIRED: "รหัสยืนยันหมดอายุแล้ว กรุณาขอรหัสใหม่",
+    EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS: "กรอกรหัสผิดหลายครั้งเกินไป กรุณาขอรหัสใหม่",
+    EMAIL_VERIFICATION_CODE_COOLDOWN: "โปรดรอสักครู่ก่อนขอรหัสใหม่",
 };
-
-DEFAULT_THAI_ERROR_MESSAGES.EMAIL_VERIFICATION_CODE_INVALID = "รหัสยืนยันไม่ถูกต้อง";
-DEFAULT_THAI_ERROR_MESSAGES.EMAIL_VERIFICATION_CODE_EXPIRED =
-    "รหัสยืนยันหมดอายุแล้ว กรุณาขอรหัสใหม่";
-DEFAULT_THAI_ERROR_MESSAGES.EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS =
-    "กรอกรหัสผิดหลายครั้งเกินไป กรุณาขอรหัสใหม่";
-DEFAULT_THAI_ERROR_MESSAGES.EMAIL_VERIFICATION_CODE_COOLDOWN =
-    "โปรดรอสักครู่ก่อนขอรหัสใหม่";
 
 const LEGACY_TEXT_ERROR_MESSAGES: Array<[needle: string, message: string]> = [
     ["Too many login attempts", "คุณพยายามเข้าสู่ระบบหลายครั้งเกินไป โปรดรอสักครู่แล้วลองใหม่"],

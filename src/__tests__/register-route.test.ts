@@ -10,8 +10,8 @@ function makeJsonRequest(body: JsonRequestBody): Request {
 
 const mockUserFindUnique = vi.fn();
 const mockUserCreate = vi.fn();
-const mockVerificationTokenDeleteMany = vi.fn();
-const mockVerificationTokenCreate = vi.fn();
+const mockEmailVerificationCodeUpdateMany = vi.fn();
+const mockEmailVerificationCodeCreate = vi.fn();
 const mockHash = vi.fn();
 const mockConsumeRateLimit = vi.fn();
 const mockLogAuditEvent = vi.fn();
@@ -23,9 +23,9 @@ vi.mock("@/lib/db", () => ({
       findUnique: mockUserFindUnique,
       create: mockUserCreate,
     },
-    verificationToken: {
-      deleteMany: mockVerificationTokenDeleteMany,
-      create: mockVerificationTokenCreate,
+    emailVerificationCode: {
+      updateMany: mockEmailVerificationCodeUpdateMany,
+      create: mockEmailVerificationCodeCreate,
     },
   },
 }));
@@ -55,7 +55,7 @@ vi.mock("@/lib/security/audit-log", () => ({
 }));
 
 vi.mock("@/lib/email/send-verification-email", () => ({
-  sendVerificationEmail: mockSendVerificationEmail,
+  sendVerificationCodeEmail: mockSendVerificationEmail,
 }));
 
 describe("register route POST", () => {
@@ -75,11 +75,10 @@ describe("register route POST", () => {
       email: "alice@example.com",
       role: "STUDENT",
     });
-    mockVerificationTokenDeleteMany.mockResolvedValue({ count: 0 });
-    mockVerificationTokenCreate.mockResolvedValue({
-      identifier: "alice@example.com",
-      token: "token",
-      expires: new Date("2026-01-01T00:00:00.000Z"),
+    mockEmailVerificationCodeUpdateMany.mockResolvedValue({ count: 0 });
+    mockEmailVerificationCodeCreate.mockResolvedValue({
+      id: "code-1",
+      email: "alice@example.com",
     });
     mockSendVerificationEmail.mockResolvedValue(undefined);
   });
@@ -132,6 +131,45 @@ describe("register route POST", () => {
         role: "TEACHER",
         school: "Test School",
       }),
+    });
+  });
+
+  it("creates a numeric email verification code and reports code verification mode", async () => {
+    const { POST } = await import("@/app/api/register/route");
+
+    const response = await POST(
+      makeJsonRequest({
+        name: "Alice",
+        username: "alice01",
+        email: "alice@example.com",
+        password: "secret123",
+        role: "STUDENT",
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockEmailVerificationCodeUpdateMany).toHaveBeenCalled();
+    expect(mockEmailVerificationCodeCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: "user-1",
+        email: "alice@example.com",
+        codeHash: expect.any(String),
+        purpose: "SIGNUP_VERIFY",
+        attempts: 0,
+        maxAttempts: 5,
+        expiresAt: expect.any(Date),
+      }),
+    });
+    expect(mockSendVerificationEmail).toHaveBeenCalledWith(
+      "alice@example.com",
+      expect.stringMatching(/^\d{6}$/),
+      10
+    );
+    expect(body).toEqual({
+      user: { name: "Alice", email: "alice@example.com", role: "STUDENT" },
+      verifyRequired: true,
+      verifyMethod: "code",
     });
   });
 

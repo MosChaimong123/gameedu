@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockUserFindUnique = vi.fn();
-const mockVerificationTokenDeleteMany = vi.fn();
-const mockVerificationTokenCreate = vi.fn();
+const mockEmailVerificationCodeFindFirst = vi.fn();
+const mockEmailVerificationCodeUpdateMany = vi.fn();
+const mockEmailVerificationCodeCreate = vi.fn();
 const mockSendVerificationEmail = vi.fn();
 const mockConsumeRateLimitWithStore = vi.fn();
 const mockLogAuditEvent = vi.fn();
@@ -12,15 +13,16 @@ vi.mock("@/lib/db", () => ({
     user: {
       findUnique: mockUserFindUnique,
     },
-    verificationToken: {
-      deleteMany: mockVerificationTokenDeleteMany,
-      create: mockVerificationTokenCreate,
+    emailVerificationCode: {
+      findFirst: mockEmailVerificationCodeFindFirst,
+      updateMany: mockEmailVerificationCodeUpdateMany,
+      create: mockEmailVerificationCodeCreate,
     },
   },
 }));
 
 vi.mock("@/lib/email/send-verification-email", () => ({
-  sendVerificationEmail: mockSendVerificationEmail,
+  sendVerificationCodeEmail: mockSendVerificationEmail,
 }));
 
 vi.mock("@/lib/security/audit-log", () => ({
@@ -29,6 +31,7 @@ vi.mock("@/lib/security/audit-log", () => ({
 
 vi.mock("@/lib/security/rate-limit", () => ({
   consumeRateLimitWithStore: mockConsumeRateLimitWithStore,
+  buildRateLimitKey: (...parts: Array<string | null | undefined>) => parts.filter(Boolean).join(":"),
   getRequestClientIdentifier: () => "test-client",
   createRateLimitResponse: (retryAfterSeconds: number) =>
     Response.json(
@@ -55,8 +58,9 @@ describe("resend verification route POST", () => {
       emailVerified: null,
       password: "hashed-password",
     });
-    mockVerificationTokenDeleteMany.mockResolvedValue({ count: 1 });
-    mockVerificationTokenCreate.mockResolvedValue({});
+    mockEmailVerificationCodeFindFirst.mockResolvedValue(null);
+    mockEmailVerificationCodeUpdateMany.mockResolvedValue({ count: 1 });
+    mockEmailVerificationCodeCreate.mockResolvedValue({});
     mockSendVerificationEmail.mockResolvedValue(undefined);
   });
 
@@ -122,7 +126,7 @@ describe("resend verification route POST", () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ ok: true });
-    expect(mockVerificationTokenCreate).not.toHaveBeenCalled();
+    expect(mockEmailVerificationCodeCreate).not.toHaveBeenCalled();
   });
 
   it("returns internal error and masked audit metadata when email sending fails", async () => {
@@ -151,5 +155,64 @@ describe("resend verification route POST", () => {
         metadata: { emailMasked: "al***@example.com" },
       })
     );
+  });
+
+  it("creates a fresh numeric verification code and returns cooldown metadata", async () => {
+    const { POST } = await import("@/app/api/auth/resend-verification/route");
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "alice@example.com" }),
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockEmailVerificationCodeUpdateMany).toHaveBeenCalled();
+    expect(mockEmailVerificationCodeCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: "user-1",
+        email: "alice@example.com",
+        codeHash: expect.any(String),
+        purpose: "SIGNUP_VERIFY",
+        attempts: 0,
+        maxAttempts: 5,
+        expiresAt: expect.any(Date),
+      }),
+    });
+    expect(mockSendVerificationEmail).toHaveBeenCalledWith(
+      "alice@example.com",
+      expect.stringMatching(/^\d{6}$/),
+      10
+    );
+    expect(body).toEqual({ ok: true, cooldownSeconds: 60 });
+  });
+
+  it("returns cooldown error when a code was just sent", async () => {
+    mockEmailVerificationCodeFindFirst.mockResolvedValue({
+      id: "code-1",
+      lastSentAt: new Date(),
+    });
+    const { POST } = await import("@/app/api/auth/resend-verification/route");
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "alice@example.com" }),
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(body).toEqual({
+      error: {
+        code: "EMAIL_VERIFICATION_CODE_COOLDOWN",
+        message: "Please wait before requesting another code",
+      },
+    });
+    expect(mockEmailVerificationCodeCreate).not.toHaveBeenCalled();
   });
 });

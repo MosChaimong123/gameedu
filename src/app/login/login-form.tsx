@@ -161,6 +161,12 @@ export default function LoginForm({ audience }: LoginFormProps) {
             : verifyError
               ? t("loginVerifyErrorGeneric")
               : null;
+    const verifyCodeHref = appendCallbackUrl(
+        `/verify-email?email=${encodeURIComponent(form.getValues("email").trim())}${
+            audience ? `&audience=${audience}` : ""
+        }`,
+        callbackUrl
+    );
 
     return (
         <div key={language} className="grid gap-5">
@@ -192,16 +198,21 @@ export default function LoginForm({ audience }: LoginFormProps) {
             {needsVerify ? (
                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
                     <p className="mb-2">{t("loginAuthErrorEmailNotVerified")}</p>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={resendState === "sending"}
-                        onClick={() => void onResendVerification()}
-                    >
-                        {resendState === "sending" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        {t("loginResendVerification")}
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                        <Button asChild type="button" variant="default" size="sm">
+                            <Link href={verifyCodeHref}>{t("verifyEmailCodeOpenAction")}</Link>
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={resendState === "sending"}
+                            onClick={() => void onResendVerification()}
+                        >
+                            {resendState === "sending" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {t("loginResendVerification")}
+                        </Button>
+                    </div>
                     {resendState === "sent" ? (
                         <p className="mt-2 text-emerald-700">{t("loginResendVerificationSent")}</p>
                     ) : null}

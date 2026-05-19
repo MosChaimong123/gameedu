@@ -157,7 +157,9 @@ export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
 
             router.push(
                 appendCallbackUrl(
-                    "/login?pendingVerify=1&audience=" + (role === "TEACHER" ? "teacher" : "student"),
+                    `/verify-email?email=${encodeURIComponent(formData.email.trim())}&audience=${
+                        role === "TEACHER" ? "teacher" : "student"
+                    }`,
                     callbackUrl
                 )
             )

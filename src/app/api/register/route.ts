@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto"
 import { db } from "@/lib/db"
 import { createAppErrorResponse } from "@/lib/api-error"
 import { NextResponse } from "next/server"
@@ -9,7 +8,16 @@ import {
     getRequestClientIdentifier,
 } from "@/lib/security/rate-limit"
 import { logAuditEvent } from "@/lib/security/audit-log"
-import { sendVerificationEmail } from "@/lib/email/send-verification-email"
+import { sendVerificationCodeEmail } from "@/lib/email/send-verification-email"
+import {
+    buildEmailVerificationExpiry,
+    EMAIL_VERIFICATION_EXPIRES_MINUTES,
+    EMAIL_VERIFICATION_MAX_ATTEMPTS,
+    EMAIL_VERIFICATION_PURPOSE,
+    generateEmailVerificationCode,
+    hashEmailVerificationCode,
+    normalizeVerificationEmail,
+} from "@/lib/email-verification"
 
 const registerSchema = z.object({
     name: z.string().min(2),
@@ -110,20 +118,38 @@ export async function POST(req: Request) {
             },
         })
 
-        step = "verification_token";
-        const rawToken = randomBytes(32).toString("hex")
-        await db.verificationToken.deleteMany({ where: { identifier: email } })
-        await db.verificationToken.create({
+        step = "verification_code";
+        const normalizedEmail = normalizeVerificationEmail(email)
+        const verificationCode = generateEmailVerificationCode()
+        await db.emailVerificationCode.updateMany({
+            where: {
+                userId: user.id,
+                purpose: EMAIL_VERIFICATION_PURPOSE,
+                consumedAt: null,
+            },
             data: {
-                identifier: email,
-                token: rawToken,
-                expires: new Date(Date.now() + 48 * 60 * 60 * 1000),
+                consumedAt: new Date(),
+            },
+        })
+        await db.emailVerificationCode.create({
+            data: {
+                userId: user.id,
+                email: normalizedEmail,
+                codeHash: hashEmailVerificationCode(normalizedEmail, verificationCode),
+                purpose: EMAIL_VERIFICATION_PURPOSE,
+                attempts: 0,
+                maxAttempts: EMAIL_VERIFICATION_MAX_ATTEMPTS,
+                expiresAt: buildEmailVerificationExpiry(),
             },
         })
 
         step = "send_verification_email";
         try {
-            await sendVerificationEmail(email, rawToken)
+            await sendVerificationCodeEmail(
+                normalizedEmail,
+                verificationCode,
+                EMAIL_VERIFICATION_EXPIRES_MINUTES
+            )
         } catch (e) {
             console.error("[REGISTER] verification email failed", e)
             logAuditEvent({
@@ -138,7 +164,16 @@ export async function POST(req: Request) {
                 },
             })
             if (process.env.NODE_ENV === "production") {
-                await db.verificationToken.deleteMany({ where: { identifier: email } })
+                await db.emailVerificationCode.updateMany({
+                    where: {
+                        userId: user.id,
+                        purpose: EMAIL_VERIFICATION_PURPOSE,
+                        consumedAt: null,
+                    },
+                    data: {
+                        consumedAt: new Date(),
+                    },
+                })
                 await db.user.delete({ where: { id: user.id } })
                 return createAppErrorResponse(
                     "REGISTER_VERIFICATION_EMAIL_FAILED",
@@ -161,6 +196,7 @@ export async function POST(req: Request) {
         return NextResponse.json({
             user: { name: user.name, email: user.email, role: user.role },
             verifyRequired: true,
+            verifyMethod: "code",
         })
     } catch (error: unknown) {
         console.error(`[REGISTER_ERROR] Step: ${step}`, error)

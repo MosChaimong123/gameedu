@@ -93,6 +93,25 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model EmailVerificationCode {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  email       String
+  codeHash    String
+  purpose     String   @default("SIGNUP_VERIFY")
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(5)
+  expiresAt   DateTime
+  lastSentAt  DateTime @default(now())
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([email, createdAt])
+  @@index([email, consumedAt, expiresAt])
+}
+
 // Gamification Models
 
 model ActiveGame {

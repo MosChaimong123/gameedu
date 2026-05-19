@@ -1,15 +1,25 @@
-import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { createAppErrorResponse } from "@/lib/api-error";
-import { sendVerificationEmail } from "@/lib/email/send-verification-email";
+import { sendVerificationCodeEmail } from "@/lib/email/send-verification-email";
 import {
+    buildRateLimitKey,
     consumeRateLimitWithStore,
     createRateLimitResponse,
     getRequestClientIdentifier,
 } from "@/lib/security/rate-limit";
 import { logAuditEvent } from "@/lib/security/audit-log";
+import {
+    buildEmailVerificationExpiry,
+    EMAIL_VERIFICATION_EXPIRES_MINUTES,
+    EMAIL_VERIFICATION_MAX_ATTEMPTS,
+    EMAIL_VERIFICATION_PURPOSE,
+    generateEmailVerificationCode,
+    getEmailVerificationRetryAfterSeconds,
+    hashEmailVerificationCode,
+    normalizeVerificationEmail,
+} from "@/lib/email-verification";
 
 const bodySchema = z.object({
     email: z.string().email().transform((s) => s.trim().toLowerCase()),
@@ -23,9 +33,10 @@ function maskEmail(email: string) {
 }
 
 export async function POST(req: Request) {
+    const clientIdentifier = getRequestClientIdentifier(req);
     const rateLimit = await consumeRateLimitWithStore({
         bucket: "auth:resend-verification",
-        key: getRequestClientIdentifier(req),
+        key: clientIdentifier,
         limit: 5,
         windowMs: 60 * 60_000,
     });
@@ -42,6 +53,7 @@ export async function POST(req: Request) {
         return createAppErrorResponse("INVALID_PAYLOAD", "Invalid email", 400);
     }
 
+    const identifier = normalizeVerificationEmail(email);
     const user = await db.user.findUnique({
         where: { email },
         select: { id: true, email: true, emailVerified: true, password: true },
@@ -55,19 +67,70 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true });
     }
 
-    const rawToken = randomBytes(32).toString("hex");
-    const identifier = user.email ?? email;
-    await db.verificationToken.deleteMany({ where: { identifier } });
-    await db.verificationToken.create({
+    const verifyRateLimit = await consumeRateLimitWithStore({
+        bucket: "auth:resend-verification:email",
+        key: buildRateLimitKey(clientIdentifier, identifier),
+        limit: 5,
+        windowMs: 60 * 60_000,
+    });
+    if (!verifyRateLimit.allowed) {
+        return createRateLimitResponse(verifyRateLimit.retryAfterSeconds);
+    }
+
+    const latestCode = await db.emailVerificationCode.findFirst({
+        where: {
+            userId: user.id,
+            purpose: EMAIL_VERIFICATION_PURPOSE,
+            consumedAt: null,
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+            id: true,
+            lastSentAt: true,
+        },
+    });
+
+    if (latestCode) {
+        const retryAfterSeconds = getEmailVerificationRetryAfterSeconds(latestCode.lastSentAt);
+        if (retryAfterSeconds > 0) {
+            return createAppErrorResponse(
+                "EMAIL_VERIFICATION_CODE_COOLDOWN",
+                "Please wait before requesting another code",
+                429,
+                { headers: { "Retry-After": String(retryAfterSeconds) } }
+            );
+        }
+    }
+
+    const verificationCode = generateEmailVerificationCode();
+    await db.emailVerificationCode.updateMany({
+        where: {
+            userId: user.id,
+            purpose: EMAIL_VERIFICATION_PURPOSE,
+            consumedAt: null,
+        },
         data: {
-            identifier,
-            token: rawToken,
-            expires: new Date(Date.now() + 48 * 60 * 60 * 1000),
+            consumedAt: new Date(),
+        },
+    });
+    await db.emailVerificationCode.create({
+        data: {
+            userId: user.id,
+            email: identifier,
+            codeHash: hashEmailVerificationCode(identifier, verificationCode),
+            purpose: EMAIL_VERIFICATION_PURPOSE,
+            attempts: 0,
+            maxAttempts: EMAIL_VERIFICATION_MAX_ATTEMPTS,
+            expiresAt: buildEmailVerificationExpiry(),
         },
     });
 
     try {
-        await sendVerificationEmail(identifier, rawToken);
+        await sendVerificationCodeEmail(
+            identifier,
+            verificationCode,
+            EMAIL_VERIFICATION_EXPIRES_MINUTES
+        );
     } catch (e) {
         console.error("[resend-verification]", e);
         logAuditEvent({
@@ -92,5 +155,8 @@ export async function POST(req: Request) {
         metadata: { emailMasked: maskEmail(identifier) },
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({
+        ok: true,
+        cooldownSeconds: 60,
+    });
 }

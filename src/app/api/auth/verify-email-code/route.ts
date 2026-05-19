@@ -61,8 +61,10 @@ export async function POST(req: Request) {
     return createRateLimitResponse(emailRateLimit.retryAfterSeconds);
   }
 
-  const user = await db.user.findUnique({
-    where: { email: normalizedEmail },
+  const user = await db.user.findFirst({
+    where: {
+      email: { equals: normalizedEmail, mode: "insensitive" },
+    },
     select: { id: true, emailVerified: true },
   });
 
@@ -81,7 +83,6 @@ export async function POST(req: Request) {
   const verification = await db.emailVerificationCode.findFirst({
     where: {
       userId: user.id,
-      email: normalizedEmail,
       purpose: EMAIL_VERIFICATION_PURPOSE,
       consumedAt: null,
     },
@@ -90,17 +91,13 @@ export async function POST(req: Request) {
 
   if (!verification) {
     return createAppErrorResponse(
-      "EMAIL_VERIFICATION_CODE_EXPIRED",
-      "Verification code is missing or expired",
+      "EMAIL_VERIFICATION_CODE_INVALID",
+      "No active verification code. Request a new code.",
       400
     );
   }
 
   if (isEmailVerificationCodeExpired(verification.expiresAt)) {
-    await db.emailVerificationCode.update({
-      where: { id: verification.id },
-      data: { consumedAt: new Date() },
-    });
     return createAppErrorResponse(
       "EMAIL_VERIFICATION_CODE_EXPIRED",
       "Verification code expired",

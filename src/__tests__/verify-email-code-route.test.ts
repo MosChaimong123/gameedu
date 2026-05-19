@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { hashEmailVerificationCode } from "@/lib/email-verification";
 
-const mockUserFindUnique = vi.fn();
+const mockUserFindFirst = vi.fn();
 const mockUserUpdate = vi.fn();
 const mockEmailVerificationCodeFindFirst = vi.fn();
 const mockEmailVerificationCodeUpdate = vi.fn();
@@ -11,7 +11,7 @@ const mockConsumeRateLimitWithStore = vi.fn();
 vi.mock("@/lib/db", () => ({
   db: {
     user: {
-      findUnique: mockUserFindUnique,
+      findFirst: mockUserFindFirst,
       update: mockUserUpdate,
     },
     emailVerificationCode: {
@@ -45,7 +45,7 @@ describe("verify email code route POST", () => {
       allowed: true,
       retryAfterSeconds: 60,
     });
-    mockUserFindUnique.mockResolvedValue({
+    mockUserFindFirst.mockResolvedValue({
       id: "user-1",
       emailVerified: null,
     });
@@ -116,7 +116,7 @@ describe("verify email code route POST", () => {
     });
   });
 
-  it("rejects expired codes and consumes the stale record", async () => {
+  it("rejects expired codes without consuming the record", async () => {
     mockEmailVerificationCodeFindFirst.mockResolvedValue({
       id: "code-1",
       userId: "user-1",
@@ -144,10 +144,7 @@ describe("verify email code route POST", () => {
         message: "Verification code expired",
       },
     });
-    expect(mockEmailVerificationCodeUpdate).toHaveBeenCalledWith({
-      where: { id: "code-1" },
-      data: { consumedAt: expect.any(Date) },
-    });
+    expect(mockEmailVerificationCodeUpdate).not.toHaveBeenCalled();
   });
 
   it("locks the code after too many failed attempts", async () => {
@@ -188,7 +185,7 @@ describe("verify email code route POST", () => {
   });
 
   it("returns success when the user is already verified", async () => {
-    mockUserFindUnique.mockResolvedValue({
+    mockUserFindFirst.mockResolvedValue({
       id: "user-1",
       emailVerified: new Date(),
     });

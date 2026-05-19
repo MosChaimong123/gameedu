@@ -59,7 +59,7 @@ export function VerifyEmailCodeForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: email.trim(),
+          email: email.trim().toLowerCase(),
           code: code.trim(),
         }),
       });
@@ -98,7 +98,7 @@ export function VerifyEmailCodeForm({
       const res = await fetch("/api/auth/resend-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
 
       if (!res.ok) {

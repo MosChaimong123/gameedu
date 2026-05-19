@@ -36,7 +36,6 @@ export default function LoginForm({ audience }: LoginFormProps) {
 
     const verified = searchParams.get("verified") === "1";
     const pendingVerify = searchParams.get("pendingVerify") === "1";
-    const verifyError = searchParams.get("verifyError");
     const callbackUrl = searchParams.get("callbackUrl");
     const urlAuthError = searchParams.get("error");
     const { loading: providersLoading, googleEnabled } = useAuthProvidersStatus();
@@ -154,14 +153,6 @@ export default function LoginForm({ audience }: LoginFormProps) {
         }
     }
 
-    const verifyErrMessage =
-        verifyError === "missing_token" || verifyError === "invalid_or_expired"
-            ? verifyError === "missing_token"
-                ? t("loginVerifyErrorMissing")
-                : t("loginVerifyErrorExpired")
-            : verifyError
-              ? t("loginVerifyErrorGeneric")
-              : null;
     const verifyCodeHref = appendCallbackUrl(
         `/verify-email?email=${encodeURIComponent(form.getValues("email").trim())}${
             audience ? `&audience=${audience}` : ""
@@ -182,13 +173,6 @@ export default function LoginForm({ audience }: LoginFormProps) {
                     {t("loginVerifyBannerPending")}
                 </div>
             ) : null}
-            {verifyErrMessage ? (
-                <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    <span>{verifyErrMessage}</span>
-                </div>
-            ) : null}
-
             {errorMsg && (
                 <div className="flex animate-in slide-in-from-top-2 items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     <AlertCircle className="h-4 w-4 shrink-0" />

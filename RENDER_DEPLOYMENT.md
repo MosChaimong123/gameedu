@@ -100,7 +100,7 @@ npm run db:seed
   - `prisma generate`
   - `next build`
   - server TypeScript compilation
-- Email signup verification uses 6-digit codes (`EmailVerificationCode` collection). `preDeployCommand` runs `prisma db push`, which creates the collection on deploy. Optional: set `EMAIL_VERIFICATION_PEPPER` (falls back to `NEXTAUTH_SECRET`). Legacy verify links (`GET /api/auth/verify-email`) remain supported during transition.
+- Email signup verification uses 6-digit codes (`EmailVerificationCode` collection). `preDeployCommand` runs `prisma db push`, which creates the collection on deploy. Optional: set `EMAIL_VERIFICATION_PEPPER` (falls back to `NEXTAUTH_SECRET`). Users verify at `/verify-email` via `POST /api/auth/verify-email-code`.
 
 ## 8. Pre-Deploy Verification
 

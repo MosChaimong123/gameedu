@@ -420,8 +420,4 @@ state ที่ต้องรองรับ:
 - [x] รัน `prisma generate`
 - [x] รัน regression tests สำหรับ register/resend/verify/auth flows ผ่าน
 - [x] รัน `npm run predev` ผ่าน
-- [ ] ถอด legacy verification link flow ออกจากระบบทั้งหมด
-
-หมายเหตุ:
-
-- รายการสุดท้ายยังไม่ควรทำตอนนี้ เพราะแผน rollout ต้องเก็บลิงก์ยืนยันเก่าไว้ช่วง transition ก่อน
+- [x] ถอด legacy verification link flow ออกจากระบบทั้งหมด (`GET /api/auth/verify-email`, `sendVerificationEmail`)

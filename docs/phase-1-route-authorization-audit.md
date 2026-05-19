@@ -20,7 +20,7 @@ Last updated: 2026-05-02
 ### Public or provider-only (no teacher session)
 
 - `GET/HEAD` **`/api/health`**, **`/api/ready`** — operational probes
-- **`/api/auth/[...nextauth]`**, **`/api/auth/oauth-intent`**, **`/api/auth/verify-email`**, **`/api/auth/resend-verification`**
+- **`/api/auth/[...nextauth]`**, **`/api/auth/oauth-intent`**, **`/api/auth/verify-email-code`**, **`/api/auth/resend-verification`**
 - **`POST /api/register`**
 - **`POST /api/webhooks/stripe`**, **`POST /api/webhooks/billing/[provider]`** — signature / shared-secret verification
 

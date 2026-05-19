@@ -219,6 +219,7 @@ export async function GET(
       .map((assignment) => {
         const subs = subMap.get(assignment.id) ?? new Map<string, number>();
         const submittedCount = subs.size;
+        const isWorksheet = dbAssignmentTypeToFormType(assignment.type) === "worksheet";
         const scores = [...subs.values()].map((score) =>
           dbAssignmentTypeToFormType(assignment.type) === "checklist"
             ? checklistCheckedScore(score, assignment.checklists as never)
@@ -235,15 +236,29 @@ export async function GET(
               .filter((st) => !subs.has(st.id))
               .map((st) => ({ id: st.id, name: st.name }))
           : [];
-        const worksheetPendingReviewCount =
-          dbAssignmentTypeToFormType(assignment.type) === "worksheet"
-            ? students.reduce((sum, student) => {
-                const submission = student.submissions.find((entry) => entry.assignmentId === assignment.id);
-                if (!submission) return sum;
-                const parsed = parseWorksheetSubmissionContent(submission.content);
-                return sum + (parsed?.itemResults.filter((item) => item.needsReview).length ?? 0);
-              }, 0)
-            : 0;
+        const worksheetPendingReviewCount = isWorksheet
+          ? students.reduce((sum, student) => {
+              const submission = student.submissions.find((entry) => entry.assignmentId === assignment.id);
+              if (!submission) return sum;
+              const parsed = parseWorksheetSubmissionContent(submission.content);
+              return sum + (parsed?.itemResults.filter((item) => item.needsReview).length ?? 0);
+            }, 0)
+          : 0;
+        const worksheetPendingSubmissionCount = isWorksheet
+          ? students.reduce((sum, student) => {
+              const submission = student.submissions.find((entry) => entry.assignmentId === assignment.id);
+              if (!submission) return sum;
+              const parsed = parseWorksheetSubmissionContent(submission.content);
+              const needsReview = (parsed?.itemResults.some((item) => item.needsReview) ?? false);
+              return sum + (needsReview ? 1 : 0);
+            }, 0)
+          : 0;
+        const worksheetReviewedSubmissionCount = isWorksheet
+          ? Math.max(0, submittedCount - worksheetPendingSubmissionCount)
+          : 0;
+        const worksheetReviewCompletionRate = isWorksheet && submittedCount > 0
+          ? Math.round((worksheetReviewedSubmissionCount / submittedCount) * 100)
+          : 0;
 
         return {
           id: assignment.id,
@@ -257,6 +272,9 @@ export async function GET(
           avgScore,
           passCount,
           worksheetPendingReviewCount,
+          worksheetPendingSubmissionCount,
+          worksheetReviewedSubmissionCount,
+          worksheetReviewCompletionRate,
           notSubmitted: notSubmittedIds,
         };
       });

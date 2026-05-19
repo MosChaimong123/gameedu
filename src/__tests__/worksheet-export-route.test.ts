@@ -34,6 +34,45 @@ describe("worksheet export route", () => {
       name: "Worksheet A",
       type: "worksheet",
       maxScore: 10,
+      quizData: {
+        version: 1,
+        source: {
+          type: "image",
+          url: "/uploads/background.png",
+        },
+        pages: [
+          {
+            id: "page-1",
+            pageNumber: 1,
+            backgroundUrl: "/uploads/background.png",
+            width: 1200,
+            height: 1600,
+            items: [
+              {
+                id: "short-1",
+                type: "short_text",
+                x: 10,
+                y: 10,
+                width: 20,
+                height: 5,
+                label: "Short answer",
+                placeholder: "",
+                answer: {
+                  mode: "normalized",
+                  reviewMode: "manual",
+                  accepted: ["test"],
+                  points: 2,
+                },
+              },
+            ],
+          },
+        ],
+        settings: {
+          showScoreToStudent: true,
+          allowResubmit: false,
+          shuffleItems: false,
+        },
+      },
     });
     mockAssignmentSubmissionFindMany.mockResolvedValue([]);
   });
@@ -102,8 +141,16 @@ describe("worksheet export route", () => {
     expect(response.headers.get("Content-Disposition")).toContain("worksheet-submissions.csv");
     const csv = await response.text();
     expect(csv).toContain("pendingReviewCount");
+    expect(csv).toContain("reviewedItemCount");
+    expect(csv).toContain("reviewCompletionRate");
+    expect(csv).toContain("pendingReviewSubmission");
+    expect(csv).toContain("item_1_1_label");
+    expect(csv).toContain("item_1_1_answer");
     expect(csv).toContain(`"'+A"`);
     expect(csv).toContain(`"'@code"`);
     expect(csv).toContain(`"'=cmd|\\""\/C calc\\""!A0"`.replace("\\/", "/"));
+    expect(csv).toContain('"Short answer"');
+    expect(csv).toContain('"0"');
+    expect(csv).toContain('"true"');
   });
 });

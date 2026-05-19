@@ -27,7 +27,7 @@ Status: In progress
 - [x] รองรับ resubmit policy UI/flow
 - [x] PDF import + page extraction ใช้งานได้ใน builder
 - [x] accessibility pass แบบเต็มระบบระดับใช้งานจริง
-- [ ] mobile/tablet editor polish ยังไม่เสร็จทั้งหมด
+- [x] mobile/tablet editor polish เสร็จระดับใช้งานจริงสำหรับ MVP
 
 ## Implemented Item Types
 
@@ -132,7 +132,7 @@ Exit criteria
 - [x] classroom analytics สำหรับ worksheet ระดับพื้นฐาน
 - [x] resubmit policy UI/flow
 - [x] accessibility pass
-- [ ] mobile/tablet editor polish
+- [x] mobile/tablet editor polish
 
 Exit criteria
 
@@ -155,17 +155,19 @@ Exit criteria
 
 ## Remaining High Priority Work
 
-1. Mobile/tablet editor polish
-2. Advanced review items เพิ่มเติม
-3. Analytics และ export เชิงลึกเพิ่ม
+- ไม่มี feature gap ระดับสูงที่ค้างใน MVP ตอนนี้ เหลือการยืนยันความพร้อมสำหรับ pilot ใช้งานจริง
 
 ## Notes
 
 - `checklist` ในแผนนี้หมายถึง item ภายใน worksheet ไม่ใช่เมนูแยก
 - `media_prompt` ใช้ upload flow เดิมผ่าน `/api/upload`
 - teacher review MVP เปิดดูผลจาก `Classroom table` ได้ทั้ง mobile และ desktop
-- manual review MVP รองรับ `short_text` และ `media_prompt` ที่ตั้งเป็น `manual`
+- manual review รองรับ `short_text`, `media_prompt`, `file_upload`, และ `speaking`
 - resubmit policy ใช้ `worksheet.settings.allowResubmit` และการส่งใหม่จะเขียนทับ submission เดิม
 - direct manipulation ใน preview รองรับเลือก item, ลากย้าย, และลากจุดมุมเพื่อปรับขนาดแล้ว
 - PDF import ใช้ `pdfjs-dist` render หน้าเอกสารใน browser แล้วอัปโหลด PNG ของแต่ละหน้ากลับเข้า `/api/upload`
 - accessibility pass รอบนี้เพิ่ม live region, aria labels, keyboard page navigation, และ keyboard fallback สำหรับ drag/drop ผ่าน select
+- mobile/tablet editor polish รอบนี้ใช้ quick action bar บนจอเล็ก, แยก add/arrange/preview เป็น bottom sheets, และทำ page chips เลื่อนแนวนอนได้
+- advanced review items รอบนี้เพิ่ม preview สำหรับไฟล์ภาพ/เสียง/วิดีโอที่นักเรียนส่ง และมี quick scoring (`0` / `เต็ม`) ใน review dialog
+- analytics รอบนี้เพิ่ม worksheet review metrics ระดับ assignment เช่น pending review items, pending submissions, reviewed submissions, และ review completion rate
+- export รอบนี้เพิ่ม summary columns สำหรับ review และคอลัมน์รายข้อแบบ flatten (`label`, `answer`, `score`, `maxScore`, `needsReview`) เพื่อวิเคราะห์ต่อใน spreadsheet ได้ง่ายขึ้น

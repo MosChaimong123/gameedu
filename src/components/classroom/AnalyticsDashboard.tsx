@@ -347,10 +347,23 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
                             {a.passCount !== null
                               ? t("analyticsPassCountSnippet", { count: a.passCount })
                               : ""}
+                            {a.type === "worksheet" && a.submittedCount > 0
+                              ? t("analyticsWorksheetReviewCompletionSnippet", {
+                                  rate: a.worksheetReviewCompletionRate,
+                                })
+                              : ""}
                           </p>
                         </div>
 
                         <div className="shrink-0 flex items-center gap-2">
+                          {a.type === "worksheet" && a.worksheetPendingReviewCount > 0 && (
+                            <span className="flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700">
+                              <AlertCircle className="w-3 h-3" />
+                              {t("analyticsWorksheetPendingItemsBadge", {
+                                count: a.worksheetPendingReviewCount,
+                              })}
+                            </span>
+                          )}
                           {a.notSubmitted.length > 0 && (
                             <span className="flex items-center gap-1 rounded-lg bg-red-50 border border-red-200 px-2 py-0.5 text-[10px] font-black text-red-600">
                               <AlertCircle className="w-3 h-3" />
@@ -386,6 +399,50 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
                       {isExpanded && a.notSubmitted.length === 0 && (
                         <div className="px-5 pb-3 pt-1 bg-emerald-50/40 border-t border-emerald-100/60">
                           <p className="text-xs font-bold text-emerald-600">✓ {t("analyticsEveryoneSubmitted")}</p>
+                        </div>
+                      )}
+                      {isExpanded && a.type === "worksheet" && (
+                        <div className="border-t border-amber-100/70 bg-amber-50/30 px-5 py-4">
+                          <p className="mb-3 text-[10px] font-black uppercase tracking-wider text-amber-700">
+                            {t("analyticsWorksheetReviewPanelTitle")}
+                          </p>
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            <div className="rounded-xl border border-amber-200 bg-white px-3 py-2">
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                {t("analyticsWorksheetPendingItemsBadge", {
+                                  count: a.worksheetPendingReviewCount,
+                                })}
+                              </p>
+                              <p className="mt-1 text-lg font-black text-amber-700">
+                                {a.worksheetPendingReviewCount}
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-sky-200 bg-white px-3 py-2">
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                {t("analyticsWorksheetPendingSubmissionsBadge", {
+                                  count: a.worksheetPendingSubmissionCount,
+                                })}
+                              </p>
+                              <p className="mt-1 text-lg font-black text-sky-700">
+                                {a.worksheetPendingSubmissionCount}
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-emerald-200 bg-white px-3 py-2">
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                {t("analyticsWorksheetReviewedSubmissionsBadge", {
+                                  count: a.worksheetReviewedSubmissionCount,
+                                })}
+                              </p>
+                              <p className="mt-1 text-lg font-black text-emerald-700">
+                                {a.worksheetReviewedSubmissionCount}
+                              </p>
+                              <p className="mt-1 text-[11px] font-semibold text-slate-500">
+                                {t("analyticsWorksheetReviewCompletionSnippet", {
+                                  rate: a.worksheetReviewCompletionRate,
+                                }).trim()}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>

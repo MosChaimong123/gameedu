@@ -93,6 +93,9 @@ describe("classroom analytics assignment stats", () => {
         avgScore: 5,
         passCount: 2,
         worksheetPendingReviewCount: 0,
+        worksheetPendingSubmissionCount: 0,
+        worksheetReviewedSubmissionCount: 0,
+        worksheetReviewCompletionRate: 0,
         notSubmitted: [{ id: "student-3", name: "Cara" }],
       },
     ]);
@@ -151,6 +154,9 @@ describe("classroom analytics assignment stats", () => {
       expect.objectContaining({
         id: "worksheet-1",
         worksheetPendingReviewCount: 1,
+        worksheetPendingSubmissionCount: 1,
+        worksheetReviewedSubmissionCount: 0,
+        worksheetReviewCompletionRate: 0,
       })
     );
   });

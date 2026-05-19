@@ -9,6 +9,16 @@ import { useToast } from "@/components/ui/use-toast";
 import { getRankEntry, type LevelConfigInput } from "@/lib/classroom-utils";
 import { useLanguage } from "@/components/providers/language-provider";
 import { AlertTriangle, Check } from "lucide-react";
+import {
+    attendanceBadgeClass,
+    attendanceLabelKey,
+    attendanceNameStrikeClass,
+    attendanceNameStrikeDecorationClass,
+    attendanceOverlayClass,
+    attendanceTableBorderClass,
+    attendanceTableDimClass,
+    normalizeAttendanceStatus,
+} from "@/lib/attendance-status";
 import { cn } from "@/lib/utils";
 import {
     assignmentTypeBadgeClassName,
@@ -23,6 +33,7 @@ import {
     getLocalizedErrorMessageFromResponse,
     tryLocalizeFetchNetworkFailureMessage,
 } from "@/lib/ui-error-messages";
+import { WorksheetSubmissionReviewDialog } from "@/components/classroom/worksheet-submission-review-dialog";
 
 type ChecklistItem = string | { text?: string; points?: number };
 
@@ -285,30 +296,27 @@ export function ClassroomTable({
                                 <div className="flex min-w-0 flex-1 items-center gap-2">
                                     <div className={cn(
                                         "relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100",
-                                        student.attendance === "ABSENT" && "opacity-50 grayscale",
-                                        student.attendance === "LATE" && "border-2 border-yellow-400",
-                                        student.attendance === "LEFT_EARLY" && "border-2 border-orange-400"
+                                        attendanceTableDimClass(normalizeAttendanceStatus(student.attendance)),
+                                        attendanceTableBorderClass(normalizeAttendanceStatus(student.attendance))
                                     )}>
                                         <Image src={`https://api.dicebear.com/7.x/bottts/svg?seed=${student.avatar || student.id}`} alt={student.name} width={44} height={44} className="h-full w-full" unoptimized />
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <p className={cn(
                                             "truncate font-bold text-slate-800",
-                                            student.attendance === "ABSENT" && "text-slate-400 line-through"
+                                            attendanceNameStrikeClass(normalizeAttendanceStatus(student.attendance))
                                         )}>
                                             {student.name}
                                         </p>
                                         {student.nickname && (
                                             <p className="truncate text-xs italic text-slate-500">({student.nickname})</p>
                                         )}
-                                        {isAttendanceMode && student.attendance !== "PRESENT" && (
+                                        {isAttendanceMode && normalizeAttendanceStatus(student.attendance) !== "PRESENT" && (
                                             <span className={cn(
                                                 "mt-1 inline-block rounded-md px-2 py-0.5 text-[10px] font-black uppercase text-white",
-                                                student.attendance === "ABSENT" && "bg-red-500",
-                                                student.attendance === "LATE" && "bg-yellow-500",
-                                                student.attendance === "LEFT_EARLY" && "bg-orange-500"
+                                                attendanceBadgeClass(normalizeAttendanceStatus(student.attendance))
                                             )}>
-                                                {student.attendance === "ABSENT" ? t("absent") : student.attendance === "LATE" ? t("late") : t("leftEarly")}
+                                                {t(attendanceLabelKey(normalizeAttendanceStatus(student.attendance)))}
                                             </span>
                                         )}
                                     </div>
@@ -462,6 +470,35 @@ export function ClassroomTable({
                                                     </p>
                                                 </div>
                                             )}
+                                            {formType === "worksheet" && (
+                                                <div className="space-y-2">
+                                                    {(() => {
+                                                        const sub = getStudentSubmissions(student).find(
+                                                            (s) => s.assignmentId === a.id
+                                                        );
+                                                        return sub ? (
+                                                            <>
+                                                                <p className="text-sm font-black text-indigo-600">
+                                                                    {t("classroomTableQuizScoreDisplay", {
+                                                                        current: sub.score,
+                                                                        max: a.maxScore,
+                                                                    })}
+                                                                </p>
+                                                                <WorksheetSubmissionReviewDialog
+                                                                    assignment={a}
+                                                                    studentName={student.name}
+                                                                    submission={sub}
+                                                                    triggerClassName="h-10 min-h-[40px] rounded-xl"
+                                                                />
+                                                            </>
+                                                        ) : (
+                                                            <p className="text-[11px] font-semibold text-slate-400">
+                                                                {t("classroomTableNotSubmitted")}
+                                                            </p>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            )}
                                         </div>
                                         );
                                     })}
@@ -549,29 +586,28 @@ export function ClassroomTable({
                                     <div className="flex items-center gap-2 relative">
                                         <div className={cn(
                                             "w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shrink-0 relative",
-                                            student.attendance === "ABSENT" && "opacity-50 grayscale",
-                                            student.attendance === "LATE" && "border-2 border-yellow-400",
-                                            student.attendance === "LEFT_EARLY" && "border-2 border-orange-400"
+                                            attendanceTableDimClass(normalizeAttendanceStatus(student.attendance)),
+                                            attendanceTableBorderClass(normalizeAttendanceStatus(student.attendance))
                                         )}>
                                             <Image src={`https://api.dicebear.com/7.x/bottts/svg?seed=${student.avatar || student.id}`} alt={student.name} width={32} height={32} className="w-full h-full" unoptimized />
-                                            {student.attendance === "ABSENT" && <div className="absolute inset-0 bg-red-500/10" />}
+                                            {attendanceOverlayClass(normalizeAttendanceStatus(student.attendance)) && (
+                                                <div className={cn("absolute inset-0", attendanceOverlayClass(normalizeAttendanceStatus(student.attendance)))} />
+                                            )}
                                         </div>
                                         <div className="flex flex-col min-w-0">
                                             <div className="flex items-center gap-1.5">
                                                 <span className={cn(
                                                     "font-semibold text-slate-700 truncate",
-                                                    student.attendance === "ABSENT" && "text-slate-400 line-through decoration-red-400/50"
+                                                    attendanceNameStrikeDecorationClass(normalizeAttendanceStatus(student.attendance))
                                                 )}>
                                                     {student.name}
                                                 </span>
-                                                {isAttendanceMode && student.attendance !== "PRESENT" && (
+                                                {isAttendanceMode && normalizeAttendanceStatus(student.attendance) !== "PRESENT" && (
                                                     <span className={cn(
                                                         "text-[9px] font-black px-1.5 py-0.5 rounded-md text-white uppercase tracking-tighter",
-                                                        student.attendance === "ABSENT" && "bg-red-500",
-                                                        student.attendance === "LATE" && "bg-yellow-500",
-                                                        student.attendance === "LEFT_EARLY" && "bg-orange-500"
+                                                        attendanceBadgeClass(normalizeAttendanceStatus(student.attendance))
                                                     )}>
-                                                        {student.attendance === "ABSENT" ? t("absent") : student.attendance === "LATE" ? t("late") : t("leftEarly")}
+                                                        {t(attendanceLabelKey(normalizeAttendanceStatus(student.attendance)))}
                                                     </span>
                                                 )}
                                             </div>
@@ -680,6 +716,33 @@ export function ClassroomTable({
                                                             </span>
                                                         )}
                                                     </div>
+                                                );
+                                            })()
+                                        )}
+                                        {dbAssignmentTypeToFormType(a.type) === "worksheet" && (
+                                            (() => {
+                                                const sub = getStudentSubmissions(student).find(
+                                                    (s) => s.assignmentId === a.id
+                                                );
+                                                return sub ? (
+                                                    <div className="flex flex-col items-center gap-1 px-1 py-1.5">
+                                                        <span className="text-sm font-black text-indigo-600">
+                                                            {sub.score}
+                                                        </span>
+                                                        <span className="text-[9px] text-slate-400">
+                                                            / {a.maxScore}
+                                                        </span>
+                                                        <WorksheetSubmissionReviewDialog
+                                                            assignment={a}
+                                                            studentName={student.name}
+                                                            submission={sub}
+                                                            triggerClassName="h-7 rounded-md px-2 text-[10px]"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[10px] font-semibold text-slate-400">
+                                                        {t("classroomTableNotSubmitted")}
+                                                    </span>
                                                 );
                                             })()
                                         )}

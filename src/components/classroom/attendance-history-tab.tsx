@@ -10,6 +10,11 @@ import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { loadAttendanceHistory, type AttendanceHistoryRecord } from "@/lib/classroom-tab-loaders";
 import {
+    ATTENDANCE_STATUSES,
+    attendanceHistorySelectClass,
+    attendanceLabelKey,
+} from "@/lib/attendance-status";
+import {
     getLocalizedErrorMessageFromResponse,
     tryLocalizeFetchNetworkFailureMessage,
 } from "@/lib/ui-error-messages";
@@ -78,16 +83,6 @@ export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
         }
     };
 
-    const getStatusStyle = (status: string) => {
-        switch (status) {
-            case "PRESENT": return "bg-green-100 text-green-700 border-green-200";
-            case "LATE": return "bg-yellow-100 text-yellow-700 border-yellow-200";
-            case "ABSENT": return "bg-red-100 text-red-700 border-red-200";
-            case "LEFT_EARLY": return "bg-orange-100 text-orange-700 border-orange-200";
-            default: return "bg-slate-100 text-slate-700 border-slate-200";
-        }
-    };
-
     return (
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4">
             <Card className="shadow-sm">
@@ -151,12 +146,13 @@ export function AttendanceHistoryTab({ classId }: AttendanceHistoryTabProps) {
                                                 <select
                                                     value={record.status}
                                                     onChange={(e) => updateStatus(record.id, e.target.value)}
-                                                    className={`px-2.5 py-1 rounded-full text-xs font-medium border appearance-none cursor-pointer outline-none focus:ring-2 focus:ring-slate-400 text-center ${getStatusStyle(record.status)}`}
+                                                    className={`px-2.5 py-1 rounded-full text-xs font-medium border appearance-none cursor-pointer outline-none focus:ring-2 focus:ring-slate-400 text-center ${attendanceHistorySelectClass(record.status)}`}
                                                 >
-                                                    <option value="PRESENT">{t("present")}</option>
-                                                    <option value="LATE">{t("late")}</option>
-                                                    <option value="ABSENT">{t("absent")}</option>
-                                                    <option value="LEFT_EARLY">{t("leftEarly")}</option>
+                                                    {ATTENDANCE_STATUSES.map((status) => (
+                                                        <option key={status} value={status}>
+                                                            {t(attendanceLabelKey(status))}
+                                                        </option>
+                                                    ))}
                                                 </select>
                                             </td>
                                         </tr>

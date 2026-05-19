@@ -209,7 +209,7 @@ model Student {
   weeklyQuestsClaimed   Json?
   /// challenge quest claims (one-time, never resets): ["cq_id", ...]
   challengeQuestsClaimed Json?
-  attendance  String                 @default("PRESENT") // PRESENT, ABSENT, LATE, LEFT_EARLY
+  attendance  String                 @default("PRESENT") // PRESENT, ABSENT, LATE, LEFT_EARLY, SICK, LEAVE
   history     PointHistory[]
   submissions AssignmentSubmission[]
   attendanceRecords AttendanceRecord[]
@@ -340,7 +340,7 @@ model AttendanceRecord {
   date      DateTime
   classId   String   @db.ObjectId
   studentId String   @db.ObjectId
-  status    String   // PRESENT, ABSENT, LATE, LEFT_EARLY
+  status    String   // PRESENT, ABSENT, LATE, LEFT_EARLY, SICK, LEAVE
   classroom Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
   student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())

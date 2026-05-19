@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { isAttendanceStatus } from "@/lib/attendance-status";
 import { db } from "@/lib/db";
 import { FORBIDDEN_MESSAGE } from "@/lib/api-error";
 
@@ -33,6 +34,10 @@ export async function saveClassroomAttendance(
     deps: ClassroomAttendanceDeps = { db }
 ): Promise<SaveClassroomAttendanceResult> {
     if (!Array.isArray(args.updates)) {
+        return { ok: false, status: 400, message: CLASSROOM_ATTENDANCE_INVALID_DATA };
+    }
+
+    if (args.updates.some((update) => !isAttendanceStatus(update.status))) {
         return { ok: false, status: 400, message: CLASSROOM_ATTENDANCE_INVALID_DATA };
     }
 

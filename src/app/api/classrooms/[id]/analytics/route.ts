@@ -1,6 +1,12 @@
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { requireSessionUser } from "@/lib/auth-guards";
+import {
+  ATTENDANCE_CHART_COLORS,
+  ATTENDANCE_STATUSES,
+  emptyAttendanceSummary,
+  normalizeAttendanceStatus,
+} from "@/lib/attendance-status";
 import { checklistCheckedScore } from "@/lib/academic-score";
 import { dbAssignmentTypeToFormType } from "@/lib/assignment-type";
 import {
@@ -127,7 +133,7 @@ export async function GET(
 
     let totalAchievements = 0;
     const achievementCounts: Record<string, number> = {};
-    const attendanceSummary: Record<string, number> = { PRESENT: 0, ABSENT: 0, LATE: 0, LEFT_EARLY: 0 };
+    const attendanceSummary = emptyAttendanceSummary();
 
     for (const student of classroom.students as AnalyticsStudent[]) {
       const achievementsCount = student.achievements.length;
@@ -155,8 +161,8 @@ export async function GET(
         });
       }
 
-      const att = student.attendance || "PRESENT";
-      if (att in attendanceSummary) attendanceSummary[att as keyof typeof attendanceSummary]++;
+      const att = normalizeAttendanceStatus(student.attendance);
+      attendanceSummary[att]++;
     }
 
     recentHistory.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -251,12 +257,11 @@ export async function GET(
       skillDistribution,
       recentHistory: recentHistory.slice(0, 100),
       studentStats,
-      attendanceSummary: [
-        { status: "PRESENT", value: attendanceSummary.PRESENT, fill: "#22c55e" },
-        { status: "LATE", value: attendanceSummary.LATE, fill: "#f59e0b" },
-        { status: "ABSENT", value: attendanceSummary.ABSENT, fill: "#ef4444" },
-        { status: "LEFT_EARLY", value: attendanceSummary.LEFT_EARLY, fill: "#f97316" },
-      ].filter((entry) => entry.value > 0),
+      attendanceSummary: ATTENDANCE_STATUSES.map((status) => ({
+        status,
+        value: attendanceSummary[status],
+        fill: ATTENDANCE_CHART_COLORS[status],
+      })).filter((entry) => entry.value > 0),
       achievementSummary: {
         total: totalAchievements,
         avgPerStudent: classroom.students.length > 0

@@ -7,6 +7,14 @@ import { getStudentRank } from "@/lib/classroom-utils";
 import { getItemById } from "@/lib/shop-items";
 import { useLanguage } from "@/components/providers/language-provider";
 import { FrameCardChrome, FrameRing } from "@/components/ui/frame-visual";
+import {
+    attendanceAvatarRingClass,
+    attendanceBadgeClass,
+    attendanceDimmed,
+    attendanceLabelKey,
+    attendanceOverlayClass,
+    normalizeAttendanceStatus,
+} from "@/lib/attendance-status";
 
 type LevelConfigInput = Record<string, number> | Array<{ name: string; minScore: number }> | null | undefined;
 
@@ -19,7 +27,7 @@ interface StudentAvatarProps {
     onClick?: () => void;
     onContextMenu?: (e: React.MouseEvent) => void;
     className?: string;
-    attendance?: string; // PRESENT, ABSENT, LATE, LEFT_EARLY
+    attendance?: string;
     levelConfig?: LevelConfigInput;
     equippedFrame?: string | null;
     isSelected?: boolean;
@@ -45,10 +53,10 @@ export function StudentAvatar({
 }: StudentAvatarProps) {
     const { t } = useLanguage();
 
-    // Styles based on attendance
-    const isAbsent = attendance === "ABSENT";
-    const isLate = attendance === "LATE";
-    const isLeftEarly = attendance === "LEFT_EARLY";
+    const attendanceStatus = normalizeAttendanceStatus(attendance);
+    const dimmed = attendanceDimmed(attendanceStatus);
+    const ringClass = attendanceAvatarRingClass(attendanceStatus);
+    const overlayClass = attendanceOverlayClass(attendanceStatus);
 
     const rank = getStudentRank(academicPoints, levelConfig);
     
@@ -70,7 +78,7 @@ export function StudentAvatar({
     const cardInner = (
         <>
             {/* Top Right Score Badges (Side Stack) */}
-            {!isAbsent && (
+            {!dimmed && (
                 <div className="absolute right-2 top-3 z-20 flex flex-col items-end gap-1.5 sm:right-3 sm:top-4">
                     <div className="flex items-center justify-center rounded-lg border border-white/20 bg-emerald-500 px-2.5 py-1 font-black text-white shadow-lg origin-right transition-transform hover:scale-110" title={t("tooltipBehaviorPointsBadge")}>
                         <Star className="w-3.5 h-3.5 mr-1 fill-current" />
@@ -102,14 +110,12 @@ export function StudentAvatar({
             )}
 
             {/* Status Badge */}
-            {attendance !== "PRESENT" && (
+            {attendanceStatus !== "PRESENT" && (
                 <div className={cn(
                     "absolute top-4 left-4 text-[10px] font-black px-2.5 py-1 rounded-full border-2 border-white shadow-lg z-30 text-white uppercase tracking-tighter",
-                    isAbsent && "bg-red-500",
-                    isLate && "bg-yellow-500",
-                    isLeftEarly && "bg-orange-500"
+                    attendanceBadgeClass(attendanceStatus)
                 )}>
-                    {isAbsent ? t("absent") : isLate ? t("late") : isLeftEarly ? t("leftEarly") : attendance}
+                    {t(attendanceLabelKey(attendanceStatus))}
                 </div>
             )}
 
@@ -121,11 +127,10 @@ export function StudentAvatar({
                     rounded="avatar"
                     className={cn(
                         "mb-4 shadow-inner transition-colors group-hover:bg-indigo-50/50",
-                        isLate && "ring-4 ring-yellow-400 ring-offset-2",
-                        isLeftEarly && "ring-4 ring-orange-400 ring-offset-2"
+                        ringClass
                     )}
                 >
-                    {isAbsent && <div className="absolute inset-0 z-10 rounded-[inherit] bg-red-500/10" />}
+                    {overlayClass && <div className={cn("absolute inset-0 z-10 rounded-[inherit]", overlayClass)} />}
                     <Image
                         src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatarSeed || id}`}
                         alt={name}
@@ -139,11 +144,10 @@ export function StudentAvatar({
                 <div
                     className={cn(
                         "relative mb-4 h-24 w-24 overflow-hidden rounded-[1.75rem] border border-slate-100 bg-slate-50 p-3 shadow-inner transition-colors group-hover:bg-indigo-50/50 sm:h-28 sm:w-28",
-                        isLate && "ring-4 ring-yellow-400 ring-offset-2",
-                        isLeftEarly && "ring-4 ring-orange-400 ring-offset-2"
+                        ringClass
                     )}
                 >
-                    {isAbsent && <div className="absolute inset-0 z-10 bg-red-500/10" />}
+                    {overlayClass && <div className={cn("absolute inset-0 z-10", overlayClass)} />}
                     <Image
                         src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatarSeed || id}`}
                         alt={name}
@@ -179,7 +183,7 @@ export function StudentAvatar({
                 !framePreview &&
                     "border border-slate-100 bg-white p-4 shadow-sm hover:border-indigo-100 hover:shadow-2xl sm:p-5",
                 framePreview && "p-0 shadow-none",
-                isAbsent && "opacity-60 grayscale bg-slate-50",
+                dimmed && "opacity-60 grayscale bg-slate-50",
                 isSelected && "bg-indigo-50 ring-4 ring-indigo-500/30 shadow-xl",
                 className
             )}
@@ -191,7 +195,7 @@ export function StudentAvatar({
                     preview={framePreview}
                     outerClassName={cn(
                         "rounded-[2rem] flex w-full flex-col items-center justify-center",
-                        isAbsent && "opacity-60 grayscale"
+                        dimmed && "opacity-60 grayscale"
                     )}
                     innerRoundedClassName="rounded-[1.85rem]"
                     innerClassName="relative flex flex-col items-center justify-center p-4 sm:p-5"

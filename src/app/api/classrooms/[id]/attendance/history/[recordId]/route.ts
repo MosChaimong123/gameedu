@@ -8,6 +8,7 @@ import {
     NOT_FOUND_MESSAGE,
     createAppErrorResponse,
 } from "@/lib/api-error";
+import { isAttendanceStatus } from "@/lib/attendance-status";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 export async function PATCH(
@@ -29,7 +30,7 @@ export async function PATCH(
         const body = await req.json();
         const { status } = body;
 
-        if (!status) {
+        if (!status || !isAttendanceStatus(status)) {
             return createAppErrorResponse("INVALID_PAYLOAD", "Status is required", 400);
         }
 

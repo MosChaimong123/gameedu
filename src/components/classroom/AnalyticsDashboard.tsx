@@ -13,6 +13,15 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/components/providers/language-provider";
+import {
+  ATTENDANCE_CHART_COLORS,
+  ATTENDANCE_STATUSES,
+  attendanceAnalyticsPillClass,
+  attendanceLabelKey,
+  emptyAttendanceSummary,
+  isAttendanceStatus,
+  normalizeAttendanceStatus,
+} from "@/lib/attendance-status";
 import { loadClassroomAnalytics, type AnalyticsData } from "@/lib/classroom-tab-loaders";
 
 function attendanceSegmentLabel(
@@ -20,10 +29,9 @@ function attendanceSegmentLabel(
   status?: string,
   legacyName?: string
 ) {
-  if (status === "PRESENT") return t("present");
-  if (status === "LATE") return t("late");
-  if (status === "ABSENT") return t("absent");
-  if (status === "LEFT_EARLY") return t("leftEarly");
+  if (status && isAttendanceStatus(status)) {
+    return t(attendanceLabelKey(status));
+  }
   return legacyName ?? status ?? "";
 }
 
@@ -418,19 +426,8 @@ export function AnalyticsDashboard({ classId }: { classId: string }) {
                       <td className="px-4 py-3 text-center font-bold text-red-500">-{s.totalNeedsWork}</td>
                       <td className="px-4 py-3 text-center font-bold text-purple-600">🏆 {s.achievementCount}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
-                          s.attendance === "PRESENT" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                          s.attendance === "LATE" ? "bg-yellow-50 text-yellow-700 border-yellow-200" :
-                          s.attendance === "ABSENT" ? "bg-red-50 text-red-700 border-red-200" :
-                          "bg-orange-50 text-orange-700 border-orange-200"
-                        }`}>
-                          {s.attendance === "PRESENT"
-                            ? t("present")
-                            : s.attendance === "LATE"
-                              ? t("late")
-                              : s.attendance === "ABSENT"
-                                ? t("absent")
-                                : t("leftEarly")}
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${attendanceAnalyticsPillClass(normalizeAttendanceStatus(s.attendance))}`}>
+                          {t(attendanceLabelKey(normalizeAttendanceStatus(s.attendance)))}
                         </span>
                       </td>
                     </tr>

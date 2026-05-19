@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { cycleAttendanceStatus, normalizeAttendanceStatus } from "@/lib/attendance-status";
 import { saveClassroomAttendance } from "@/lib/classroom-dashboard-actions";
 import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 import type { DashboardToastFn, DashboardTranslateFn } from "./classroom-dashboard.types";
@@ -50,15 +51,13 @@ export function useClassroomAttendanceFlow({
             setAttendanceSnapshot(students);
         }
 
-        const statuses = ["PRESENT", "ABSENT", "LATE", "LEFT_EARLY"];
         setClassroom((prev) => ({
             ...prev,
             students: prev.students.map((student) => {
                 if (student.id !== studentId) return student;
-                const currentIndex = statuses.indexOf(student.attendance || "PRESENT");
                 return {
                     ...student,
-                    attendance: statuses[(currentIndex + 1) % statuses.length],
+                    attendance: cycleAttendanceStatus(student.attendance),
                 };
             }),
         }));
@@ -84,14 +83,17 @@ export function useClassroomAttendanceFlow({
         const snap = attendanceSnapshot;
         return students.some((s) => {
             const orig = snap.find((x) => x.id === s.id);
-            return !orig || (s.attendance || "PRESENT") !== (orig.attendance || "PRESENT");
+            return (
+                !orig ||
+                normalizeAttendanceStatus(s.attendance) !== normalizeAttendanceStatus(orig.attendance)
+            );
         });
     }, [attendanceSnapshot, students, isAttendanceMode]);
 
     const saveAttendance = async () => {
         const updates = students.map((student) => ({
             studentId: student.id,
-            status: student.attendance || "PRESENT",
+            status: normalizeAttendanceStatus(student.attendance),
         }));
 
         try {

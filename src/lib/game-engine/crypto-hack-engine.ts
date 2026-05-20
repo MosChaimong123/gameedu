@@ -295,15 +295,15 @@ export class CryptoHackEngine extends AbstractGameEngine {
         const rewards: CryptoReward[] = [];
         for (let i = 0; i < 3; i++) {
             const roll = Math.random();
-            if (roll < 0.6) {
-                // 60% Common Crypto
+            if (roll < 0.45) {
+                // 45% Common Crypto
                 rewards.push({ type: "CRYPTO", amount: Math.floor(Math.random() * 40) + 10 });
-            } else if (roll < 0.8) {
+            } else if (roll < 0.65) {
                 // 20% Multiplier or Rare Crypto
                 if (Math.random() > 0.5) rewards.push({ type: "MULTIPLIER", value: 2 });
                 else rewards.push({ type: "CRYPTO", amount: 50 });
             } else if (roll < 0.95) {
-                // 15% HACK (High chance if rare rolled)
+                // 30% HACK
                 rewards.push({ type: "HACK" });
             } else {
                 // 5% NOTHING

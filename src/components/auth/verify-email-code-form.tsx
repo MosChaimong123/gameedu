@@ -99,6 +99,7 @@ export function VerifyEmailCodeForm({
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           code: code.trim(),
+          ...(referenceCode ? { referenceCode } : {}),
         }),
       });
 

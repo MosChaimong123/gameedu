@@ -21,6 +21,16 @@ export function generateEmailVerificationCode() {
   );
 }
 
+export function normalizeVerificationCodeInput(code: string) {
+  const digits = code.replace(/\D/g, "").slice(0, EMAIL_VERIFICATION_CODE_LENGTH);
+  if (!digits) return "";
+  return digits.padStart(EMAIL_VERIFICATION_CODE_LENGTH, "0");
+}
+
+export function normalizeVerificationReferenceCode(reference: string) {
+  return reference.trim().toUpperCase();
+}
+
 const REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 export function generateVerificationReferenceCode() {
@@ -33,8 +43,8 @@ export function generateVerificationReferenceCode() {
 
 export function codesMatchPlaintext(storedPlain: string | null | undefined, submitted: string) {
   if (!storedPlain) return false;
-  const a = storedPlain.trim();
-  const b = submitted.trim();
+  const a = normalizeVerificationCodeInput(storedPlain);
+  const b = normalizeVerificationCodeInput(submitted);
   if (a.length !== b.length) return false;
   let mismatch = 0;
   for (let i = 0; i < a.length; i += 1) {

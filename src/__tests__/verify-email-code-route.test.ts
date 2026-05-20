@@ -4,9 +4,9 @@ import {
   hashEmailVerificationCodeForStorage,
 } from "@/lib/email-verification";
 
-const mockUserFindUnique = vi.fn();
 const mockUserFindFirst = vi.fn();
 const mockUserUpdate = vi.fn();
+const mockEmailVerificationCodeFindFirst = vi.fn();
 const mockEmailVerificationCodeFindMany = vi.fn();
 const mockEmailVerificationCodeUpdate = vi.fn();
 const mockEmailVerificationCodeUpdateMany = vi.fn();
@@ -15,11 +15,11 @@ const mockConsumeRateLimitWithStore = vi.fn();
 vi.mock("@/lib/db", () => ({
   db: {
     user: {
-      findUnique: mockUserFindUnique,
       findFirst: mockUserFindFirst,
       update: mockUserUpdate,
     },
     emailVerificationCode: {
+      findFirst: mockEmailVerificationCodeFindFirst,
       findMany: mockEmailVerificationCodeFindMany,
       update: mockEmailVerificationCodeUpdate,
       updateMany: mockEmailVerificationCodeUpdateMany,
@@ -55,8 +55,8 @@ describe("verify email code route POST", () => {
       email: "alice@example.com",
       emailVerified: null,
     };
-    mockUserFindUnique.mockResolvedValue(user);
     mockUserFindFirst.mockResolvedValue(user);
+    mockEmailVerificationCodeFindFirst.mockResolvedValue(null);
     mockEmailVerificationCodeFindMany.mockResolvedValue([
       {
         id: "code-1",
@@ -98,8 +98,46 @@ describe("verify email code route POST", () => {
         purpose: "SIGNUP_VERIFY",
         consumedAt: null,
       },
-      data: { consumedAt: expect.any(Date) },
+      data: { consumedAt: expect.any(Date), codePlain: null },
     });
+  });
+
+  it("verifies using reference code tied to the verification email record", async () => {
+    mockEmailVerificationCodeFindFirst.mockResolvedValue({
+      id: "code-ref",
+      userId: "user-1",
+      email: "alice@example.com",
+      referenceCode: "TP-NBA6",
+      codePlain: "018222",
+      codeHash: hashEmailVerificationCodeForStorage("018222"),
+      attempts: 0,
+      maxAttempts: 5,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    const { POST } = await import("@/app/api/auth/verify-email-code/route");
+    const response = await POST(
+      new Request("http://localhost:3000/api/auth/verify-email-code", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: "alice@example.com",
+          code: "018222",
+          referenceCode: "TP-NBA6",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockEmailVerificationCodeFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          email: "alice@example.com",
+          referenceCode: "TP-NBA6",
+        }),
+      })
+    );
+    expect(mockEmailVerificationCodeFindMany).not.toHaveBeenCalled();
   });
 
   it("rejects invalid codes and increments attempts", async () => {
@@ -237,12 +275,11 @@ describe("verify email code route POST", () => {
   });
 
   it("returns success when the user is already verified", async () => {
-    mockUserFindUnique.mockResolvedValue({
+    mockUserFindFirst.mockResolvedValue({
       id: "user-1",
       email: "alice@example.com",
       emailVerified: new Date(),
     });
-    mockUserFindFirst.mockResolvedValue(null);
     const { POST } = await import("@/app/api/auth/verify-email-code/route");
 
     const response = await POST(

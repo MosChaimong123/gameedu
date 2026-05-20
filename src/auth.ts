@@ -97,9 +97,9 @@ function createAuthConfig(): NextAuthConfig {
                     throw new RateLimitedSignin()
                 }
 
-                const user = await db.user.findUnique({
+                const user = await db.user.findFirst({
                     where: {
-                        email,
+                        email: { equals: email, mode: "insensitive" },
                     },
                 })
 

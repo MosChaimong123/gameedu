@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockUserFindUnique = vi.fn();
+const mockUserFindFirst = vi.fn();
 const mockNextAuth = vi.fn();
 const mockGoogleProvider = vi.fn((config) => ({ id: "google", config }));
 const mockCredentialsProvider = vi.fn((config) => ({ id: "credentials", ...config }));
@@ -17,7 +17,7 @@ class MockCredentialsSignin extends Error {
 vi.mock("@/lib/db", () => ({
   db: {
     user: {
-      findUnique: mockUserFindUnique,
+      findFirst: mockUserFindFirst,
     },
   },
 }));
@@ -69,7 +69,7 @@ describe("auth credentials authorize", () => {
       retryAfterSeconds: 60,
     });
     mockCompare.mockResolvedValue(true);
-    mockUserFindUnique.mockResolvedValue({
+    mockUserFindFirst.mockResolvedValue({
       id: "user-1",
       name: "Alice",
       email: "alice@example.com",
@@ -123,7 +123,7 @@ describe("auth credentials authorize", () => {
   it("returns null when the user is missing or the password does not match", async () => {
     const authorize = await getAuthorize();
 
-    mockUserFindUnique.mockResolvedValueOnce(null);
+    mockUserFindFirst.mockResolvedValueOnce(null);
     await expect(
       authorize(
         { email: "missing@example.com", password: "secret123" },
@@ -131,7 +131,7 @@ describe("auth credentials authorize", () => {
       )
     ).resolves.toBeNull();
 
-    mockUserFindUnique.mockResolvedValueOnce({
+    mockUserFindFirst.mockResolvedValueOnce({
       id: "user-2",
       email: "bob@example.com",
       password: "hashed",
@@ -148,7 +148,7 @@ describe("auth credentials authorize", () => {
   });
 
   it("throws email_not_verified when the credentials are valid but the email is not verified", async () => {
-    mockUserFindUnique.mockResolvedValue({
+    mockUserFindFirst.mockResolvedValue({
       id: "user-3",
       name: "Carol",
       email: "carol@example.com",
@@ -169,7 +169,7 @@ describe("auth credentials authorize", () => {
   });
 
   it("rejects credentials sign-in when the persisted role is invalid", async () => {
-    mockUserFindUnique.mockResolvedValue({
+    mockUserFindFirst.mockResolvedValue({
       id: "user-4",
       name: "Dana",
       email: "dana@example.com",
@@ -190,7 +190,7 @@ describe("auth credentials authorize", () => {
   });
 
   it("allows legacy USER accounts through credentials so they can be reclassified", async () => {
-    mockUserFindUnique.mockResolvedValue({
+    mockUserFindFirst.mockResolvedValue({
       id: "user-5",
       name: "Eve",
       email: "eve@example.com",

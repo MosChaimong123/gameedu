@@ -38,6 +38,7 @@ describe("verification pending route GET", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store, max-age=0");
     expect(await response.json()).toMatchObject({
       ok: true,
       pending: true,

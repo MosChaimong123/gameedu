@@ -8,13 +8,21 @@ import {
   normalizeVerificationEmail,
 } from "@/lib/email-verification";
 
+export const dynamic = "force-dynamic";
+
 const querySchema = z.object({
   email: z.string().email().transform((s) => s.trim().toLowerCase()),
 });
 
+function jsonNoStore(body: unknown, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set("Cache-Control", "no-store, max-age=0");
+  return NextResponse.json(body, { ...init, headers });
+}
+
 export async function GET(req: Request) {
   if (!isEmailVerificationApiEnabled()) {
-    return NextResponse.json({ ok: true, pending: false });
+    return jsonNoStore({ ok: true, pending: false });
   }
 
   const url = new URL(req.url);
@@ -22,7 +30,7 @@ export async function GET(req: Request) {
   try {
     email = querySchema.parse({ email: url.searchParams.get("email") ?? "" }).email;
   } catch {
-    return NextResponse.json({ ok: false }, { status: 400 });
+    return jsonNoStore({ ok: false }, { status: 400 });
   }
 
   const normalizedEmail = normalizeVerificationEmail(email);
@@ -34,7 +42,7 @@ export async function GET(req: Request) {
   });
 
   if (!user || user.emailVerified) {
-    return NextResponse.json({ ok: true, pending: false });
+    return jsonNoStore({ ok: true, pending: false });
   }
 
   const now = new Date();
@@ -53,10 +61,10 @@ export async function GET(req: Request) {
   });
 
   if (!active || isEmailVerificationCodeExpired(active.expiresAt, now)) {
-    return NextResponse.json({ ok: true, pending: false });
+    return jsonNoStore({ ok: true, pending: false });
   }
 
-  return NextResponse.json({
+  return jsonNoStore({
     ok: true,
     pending: true,
     referenceCode: active.referenceCode,

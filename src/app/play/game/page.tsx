@@ -193,7 +193,7 @@ export default function PlayerGamePage() {
                                 />
                             )}
                         </div>
-                        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden p-2 pt-14 sm:p-4 sm:pt-16">
+                        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden px-2 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] pt-14 sm:p-4 sm:pb-4 sm:pt-16">
                             {gameMode === "NEGAMON_BATTLE" && (
                                 <NegamonQuestionHint timeLimitSeconds={currentQuestion.timeLimit} />
                             )}

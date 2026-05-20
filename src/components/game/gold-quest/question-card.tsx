@@ -32,13 +32,13 @@ export function QuestionCard({ question, onAnswer, locked = false }: Props) {
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex min-h-0 w-full max-w-lg flex-1 flex-col mx-auto p-2 sm:p-4"
+            className="mx-auto flex h-full min-h-0 w-full max-w-none flex-1 flex-col gap-2 sm:max-w-xl sm:gap-3"
         >
-            {/* Question Text */}
+            {/* Question Text — capped height so answer grid can use the rest of the viewport */}
             <motion.div
                 initial={{ y: -20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="mb-3 sm:mb-6 shrink-0 overflow-y-auto max-h-[40vh] sm:max-h-none rounded-xl border-b-4 border-slate-200 bg-white p-4 text-center shadow-lg sm:p-6"
+                className="max-h-[min(38vh,14rem)] shrink-0 overflow-y-auto rounded-xl border-b-4 border-slate-200 bg-white p-3 text-center shadow-lg sm:max-h-[40vh] sm:p-6"
             >
                 <h2 className="text-base font-bold text-slate-800 sm:text-xl md:text-2xl">
                     <MathRender text={question.question} className="block w-full text-center" />
@@ -59,11 +59,11 @@ export function QuestionCard({ question, onAnswer, locked = false }: Props) {
                 )}
             </motion.div>
 
-            {/* Answer Grid — scroll + auto row height so long Thai options stay fully visible */}
+            {/* Answer Grid — 2×2 fills remaining screen height on mobile */}
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="grid min-h-0 flex-1 grid-cols-2 auto-rows-min gap-2 overflow-y-auto overscroll-contain sm:gap-4"
+                className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-2 [grid-template-rows:repeat(2,minmax(0,1fr))] sm:gap-3"
             >
                 {question.options.map((option, index) => (
                     <motion.button
@@ -76,9 +76,9 @@ export function QuestionCard({ question, onAnswer, locked = false }: Props) {
                         whileHover={locked ? undefined : { scale: 1.02 }}
                         whileTap={locked ? undefined : { scale: 0.95 }}
                         className={cn(
-                            "flex min-h-[5.5rem] w-full min-w-0 flex-col rounded-xl border-b-4 p-2 text-center font-bold text-white shadow-md relative group sm:min-h-[7rem] sm:p-4",
+                            "relative flex h-full min-h-0 w-full min-w-0 flex-col rounded-xl border-b-4 p-2 text-center font-bold text-white shadow-md group sm:p-3",
                             colors[index % 4],
-                            locked && "opacity-50 pointer-events-none"
+                            locked && "pointer-events-none opacity-50"
                         )}
                         onClick={() => onAnswer(index)}
                     >
@@ -92,19 +92,19 @@ export function QuestionCard({ question, onAnswer, locked = false }: Props) {
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="relative z-10 flex w-full min-w-0 flex-1 items-center justify-center px-0.5 py-1 drop-shadow-md sm:px-1 sm:py-2"
+                            className="relative z-10 flex h-full min-h-0 w-full min-w-0 flex-1 items-center justify-center overflow-y-auto overscroll-contain px-1 py-1.5 drop-shadow-md sm:px-2 sm:py-2"
                         >
                             {question.optionTypes?.[index] === "IMAGE" ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
                                     src={option}
                                     alt={t("optionImageAlt", { n: index + 1 })}
-                                    className="max-h-20 max-w-full rounded-md object-contain sm:max-h-28"
+                                    className="max-h-full max-w-full rounded-md object-contain"
                                 />
                             ) : (
                                 <MathRender
                                     text={option}
-                                    className="block w-full min-w-0 text-xs leading-snug sm:text-base md:text-lg"
+                                    className="block w-full min-w-0 text-sm leading-snug sm:text-base md:text-lg"
                                 />
                             )}
                         </motion.div>

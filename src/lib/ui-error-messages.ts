@@ -23,6 +23,8 @@ const DEFAULT_THAI_ERROR_MESSAGES: Record<AppErrorCode, string> = {
     REGISTER_USERNAME_TAKEN: "ชื่อผู้ใช้ที่สร้างอัตโนมัติซ้ำกับผู้อื่น ลองอีกครั้งหรือใช้อีเมลอื่น",
     REGISTER_VERIFICATION_EMAIL_FAILED:
         "ระบบส่งอีเมลยืนยันไม่สำเร็จ (เช่น ยังไม่ตั้งค่า Resend หรือโดเมนส่งเมล) โปรดลองใหม่ภายหลังหรือสมัครด้วย Google",
+    REGISTRATION_DISABLED: "ระบบสมัครสมาชิกปิดชั่วคราว กรุณาเข้าสู่ระบบด้วยบัญชีเดิม",
+    EMAIL_VERIFICATION_DISABLED: "ระบบยืนยันอีเมลปิดชั่วคราว กรุณาเข้าสู่ระบบด้วยรหัสผ่าน",
     NOT_FOUND: "ไม่พบข้อมูลที่ต้องการ",
     NO_FILE: "กรุณาเลือกไฟล์ก่อนอัปโหลด",
     UNSUPPORTED_FILE_TYPE: "ไฟล์ประเภทนี้ยังไม่รองรับ",

@@ -704,6 +704,8 @@ export const thaiPack = {
         loginAuthErrorRateLimited: "มีความพยายามเข้าสู่ระบบมากเกินไป โปรดรอสักครู่แล้วลองใหม่",
         registerErrorInvalidPayload: "ข้อมูลสมัครสมาชิกไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง",
         registerErrorFailed: "สมัครสมาชิกไม่สำเร็จ โปรดลองอีกครั้ง",
+        apiError_REGISTRATION_DISABLED: "ระบบสมัครสมาชิกปิดชั่วคราว กรุณาเข้าสู่ระบบด้วยบัญชีเดิม",
+        apiError_EMAIL_VERIFICATION_DISABLED: "ระบบยืนยันอีเมลปิดชั่วคราว กรุณาเข้าสู่ระบบด้วยรหัสผ่าน",
         apiError_EMAIL_VERIFICATION_CODE_INVALID: "รหัสยืนยันไม่ถูกต้อง",
         apiError_EMAIL_VERIFICATION_CODE_EXPIRED: "รหัสยืนยันหมดอายุแล้ว กรุณาขอรหัสใหม่",
         apiError_EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS:
@@ -3417,6 +3419,8 @@ const englishPack = {
         apiError_REGISTER_USERNAME_TAKEN: "The generated username is already taken. Try again or use a different email.",
         apiError_REGISTER_VERIFICATION_EMAIL_FAILED:
             "We could not send the verification email (email service may be misconfigured). Try again later or sign up with Google.",
+        apiError_REGISTRATION_DISABLED: "Registration is temporarily disabled. Please sign in with an existing account.",
+        apiError_EMAIL_VERIFICATION_DISABLED: "Email verification is temporarily disabled. Please sign in with your password.",
         apiError_EMAIL_VERIFICATION_CODE_INVALID: "This verification code is invalid.",
         apiError_EMAIL_VERIFICATION_CODE_EXPIRED: "This verification code has expired. Request a new code.",
         apiError_EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS:

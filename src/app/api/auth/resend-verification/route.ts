@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { createAppErrorResponse } from "@/lib/api-error";
+import { isEmailVerificationApiEnabled } from "@/lib/auth/signup-policy";
 import { sendVerificationCodeEmail } from "@/lib/email/send-verification-email";
 import { resetEmailVerificationAttemptLimits } from "@/lib/security/rate-limit";
 import { logAuditEvent } from "@/lib/security/audit-log";
@@ -30,6 +31,14 @@ function maskEmail(email: string) {
 }
 
 export async function POST(req: Request) {
+    if (!isEmailVerificationApiEnabled()) {
+        return createAppErrorResponse(
+            "EMAIL_VERIFICATION_DISABLED",
+            "Email verification is temporarily disabled",
+            503
+        );
+    }
+
     let email: string;
     try {
         const json = await req.json();

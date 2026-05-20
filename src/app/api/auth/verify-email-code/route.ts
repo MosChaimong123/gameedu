@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { createAppErrorResponse } from "@/lib/api-error";
+import { isEmailVerificationApiEnabled } from "@/lib/auth/signup-policy";
 import {
   EMAIL_VERIFICATION_MAX_ATTEMPTS,
   EMAIL_VERIFICATION_PURPOSE,
@@ -66,6 +67,14 @@ async function recordMatchesCode(
 }
 
 export async function POST(req: Request) {
+  if (!isEmailVerificationApiEnabled()) {
+    return createAppErrorResponse(
+      "EMAIL_VERIFICATION_DISABLED",
+      "Email verification is temporarily disabled",
+      503
+    );
+  }
+
   let email: string;
   let code: string;
   let referenceCode: string | undefined;

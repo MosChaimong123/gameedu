@@ -6,9 +6,11 @@ import { PublicBrandMark } from "@/components/layout/public-brand-mark";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { Button } from "@/components/ui/button";
 import { LANGUAGE_COOKIE_NAME, resolveLanguageFromCookie } from "@/lib/language-cookie";
+import { isPublicSignupEnabled } from "@/lib/auth/signup-policy";
 import { homeContent, siteMetadata, type PublicPageLanguage } from "../../content/public-pages";
 
 export default async function Home() {
+    const signupEnabled = isPublicSignupEnabled();
     const cookieStore = await cookies();
     const language: PublicPageLanguage = resolveLanguageFromCookie(
         cookieStore.get(LANGUAGE_COOKIE_NAME)?.value
@@ -43,14 +45,16 @@ export default async function Home() {
                             {copy.navLogin}
                         </Button>
                     </Link>
-                    <Link href="/register">
-                        <Button
-                            size="sm"
-                            className="h-8 rounded-full border border-white/50 bg-white/50 px-2.5 text-[11px] font-bold text-brand-navy shadow-sm backdrop-blur-sm sm:h-9 sm:px-3 sm:text-xs md:text-sm"
-                        >
-                            {copy.navSignup}
-                        </Button>
-                    </Link>
+                    {signupEnabled ? (
+                        <Link href="/register">
+                            <Button
+                                size="sm"
+                                className="h-8 rounded-full border border-white/50 bg-white/50 px-2.5 text-[11px] font-bold text-brand-navy shadow-sm backdrop-blur-sm sm:h-9 sm:px-3 sm:text-xs md:text-sm"
+                            >
+                                {copy.navSignup}
+                            </Button>
+                        </Link>
+                    ) : null}
                 </div>
             </nav>
 

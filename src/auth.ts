@@ -3,6 +3,7 @@ import type { NextAuthConfig } from "next-auth"
 import type { Session } from "next-auth"
 import type { JWT } from "next-auth/jwt"
 import { CredentialsSignin } from "next-auth"
+import { isEmailVerificationRequired } from "@/lib/auth/signup-policy"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import { db } from "@/lib/db"
@@ -115,7 +116,13 @@ function createAuthConfig(): NextAuthConfig {
                 }
 
                 if (!user.emailVerified) {
-                    throw new EmailNotVerified()
+                    if (isEmailVerificationRequired()) {
+                        throw new EmailNotVerified()
+                    }
+                    await db.user.update({
+                        where: { id: user.id },
+                        data: { emailVerified: new Date() },
+                    })
                 }
 
                 const normalizedRole = normalizeSessionRole(user.role)

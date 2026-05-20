@@ -83,6 +83,25 @@ describe("register route POST", () => {
     mockSendVerificationEmail.mockResolvedValue(undefined);
   });
 
+  it("returns 503 when public signup is disabled", async () => {
+    vi.stubEnv("DISABLE_PUBLIC_SIGNUP", "true");
+    const { POST } = await import("@/app/api/register/route");
+
+    const response = await POST(
+      makeJsonRequest({
+        name: "Alice",
+        username: "alice01",
+        email: "alice@example.com",
+        password: "secret123",
+        role: "STUDENT",
+      })
+    );
+
+    expect(response.status).toBe(503);
+    expect(mockUserCreate).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
   it("rejects privileged roles such as ADMIN from the client", async () => {
     const { POST } = await import("@/app/api/register/route");
 

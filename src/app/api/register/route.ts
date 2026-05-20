@@ -1,4 +1,5 @@
 import { db } from "@/lib/db"
+import { isPublicSignupEnabled } from "@/lib/auth/signup-policy"
 import { createAppErrorResponse } from "@/lib/api-error"
 import { NextResponse } from "next/server"
 import { ZodError, z } from "zod"
@@ -52,6 +53,21 @@ function maskIdentifier(value: string) {
 export async function POST(req: Request) {
     let step = "init";
     try {
+        if (!isPublicSignupEnabled()) {
+            logAuditEvent({
+                action: "auth.register.denied",
+                category: "auth",
+                status: "rejected",
+                reason: "signup_disabled",
+                targetType: "register",
+            })
+            return createAppErrorResponse(
+                "REGISTRATION_DISABLED",
+                "Registration is temporarily disabled",
+                503
+            )
+        }
+
         const rateLimit = await consumeRateLimitWithStore({
             bucket: "register:post",
             key: getRequestClientIdentifier(req),

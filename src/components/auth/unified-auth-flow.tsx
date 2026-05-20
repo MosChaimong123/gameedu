@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { GraduationCap, KeyRound, User } from "lucide-react";
@@ -10,6 +11,7 @@ import { appendCallbackUrl } from "@/lib/auth/callback-url";
 import { cn } from "@/lib/utils";
 import LoginForm from "@/app/login/login-form";
 import SignupWizard from "@/app/register/signup-wizard";
+import { isPublicSignupEnabledClient } from "@/lib/auth/signup-policy-client";
 
 function RolePickCard({
     icon,
@@ -48,6 +50,17 @@ export function UnifiedAuthFlow() {
     const audience =
         audienceRaw === "teacher" ? "teacher" : audienceRaw === "student" ? "student" : null;
     const isRegister = mode === "register";
+    const signupEnabled = isPublicSignupEnabledClient();
+
+    React.useEffect(() => {
+        if (isRegister && !signupEnabled) {
+            router.replace(appendCallbackUrl("/login", callbackUrl));
+        }
+    }, [isRegister, signupEnabled, router, callbackUrl]);
+
+    if (isRegister && !signupEnabled) {
+        return null;
+    }
 
     if (isRegister) {
         const preset =
@@ -97,10 +110,14 @@ export function UnifiedAuthFlow() {
     return (
         <AuthSplitLayout
             mode="login"
-            registerHref={appendCallbackUrl(
-                `/login?mode=register&audience=${audience === "teacher" ? "teacher" : "student"}`,
-                callbackUrl
-            )}
+            registerHref={
+                signupEnabled
+                    ? appendCallbackUrl(
+                          `/login?mode=register&audience=${audience === "teacher" ? "teacher" : "student"}`,
+                          callbackUrl
+                      )
+                    : undefined
+            }
         >
             <div className="space-y-4">
                 <Button

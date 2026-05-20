@@ -1,10 +1,15 @@
 import { redirect } from "next/navigation";
+import { isPublicSignupEnabled } from "@/lib/auth/signup-policy";
 
 export default async function RegisterPage({
     searchParams,
 }: {
     searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+    if (!isPublicSignupEnabled()) {
+        redirect("/login");
+    }
+
     const sp = await searchParams;
     const q = new URLSearchParams();
     q.set("mode", "register");

@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
 import { VerifyEmailCodeForm } from "@/components/auth/verify-email-code-form";
+import { isEmailVerificationRequired } from "@/lib/auth/signup-policy";
 
 type VerifyEmailPageProps = {
   searchParams: Promise<{
@@ -10,6 +12,15 @@ type VerifyEmailPageProps = {
 };
 
 export default async function VerifyEmailPage({ searchParams }: VerifyEmailPageProps) {
+  if (!isEmailVerificationRequired()) {
+    const params = await searchParams;
+    const q = new URLSearchParams();
+    if (params.audience === "teacher" || params.audience === "student") {
+      q.set("audience", params.audience);
+    }
+    redirect(q.size > 0 ? `/login?${q.toString()}` : "/login");
+  }
+
   const params = await searchParams;
   const audience =
     params.audience === "teacher"
@@ -28,4 +39,3 @@ export default async function VerifyEmailPage({ searchParams }: VerifyEmailPageP
     </AuthSplitLayout>
   );
 }
-

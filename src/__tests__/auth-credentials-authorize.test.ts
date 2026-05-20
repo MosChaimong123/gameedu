@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockUserFindFirst = vi.fn();
+const mockUserUpdate = vi.fn();
 const mockNextAuth = vi.fn();
 const mockGoogleProvider = vi.fn((config) => ({ id: "google", config }));
 const mockCredentialsProvider = vi.fn((config) => ({ id: "credentials", ...config }));
@@ -18,6 +19,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     user: {
       findFirst: mockUserFindFirst,
+      update: mockUserUpdate,
     },
   },
 }));
@@ -145,6 +147,35 @@ describe("auth credentials authorize", () => {
         new Request("http://localhost:3000/api/auth/callback/credentials")
       )
     ).resolves.toBeNull();
+  });
+
+  it("allows login and auto-verifies when email verification is skipped", async () => {
+    vi.stubEnv("SKIP_EMAIL_VERIFICATION", "true");
+    mockUserFindFirst.mockResolvedValue({
+      id: "user-1",
+      name: "Alice",
+      email: "alice@example.com",
+      image: null,
+      password: "hashed",
+      emailVerified: null,
+      role: "STUDENT",
+      school: null,
+    });
+    mockCompare.mockResolvedValue(true);
+    mockUserUpdate.mockResolvedValue({});
+
+    const authorize = await getAuthorize();
+    const result = await authorize(
+      { email: "alice@example.com", password: "secret" },
+      new Request("http://localhost:3000/api/auth/callback/credentials")
+    );
+
+    expect(result).toMatchObject({ id: "user-1", email: "alice@example.com" });
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { emailVerified: expect.any(Date) },
+    });
+    vi.unstubAllEnvs();
   });
 
   it("throws email_not_verified when the credentials are valid but the email is not verified", async () => {

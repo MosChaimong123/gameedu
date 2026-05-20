@@ -17,6 +17,7 @@ import { getLocalizedAuthErrorMessage, tryLocalizeFetchNetworkFailureMessage } f
 import { useLanguage } from "@/components/providers/language-provider";
 import { signInWithGoogleRole } from "@/lib/auth/google-sign-in-client";
 import { useAuthProvidersStatus } from "@/lib/auth/use-auth-providers-status";
+import { isEmailVerificationUiEnabledClient } from "@/lib/auth/signup-policy-client";
 import Link from "next/link";
 
 export type LoginAudience = "teacher" | "student";
@@ -39,6 +40,7 @@ export default function LoginForm({ audience }: LoginFormProps) {
     const callbackUrl = searchParams.get("callbackUrl");
     const urlAuthError = searchParams.get("error");
     const { loading: providersLoading, googleEnabled } = useAuthProvidersStatus();
+    const emailVerificationEnabled = isEmailVerificationUiEnabledClient();
 
     const formSchema = React.useMemo(
         () =>
@@ -180,7 +182,7 @@ export default function LoginForm({ audience }: LoginFormProps) {
                 </div>
             )}
 
-            {needsVerify ? (
+            {needsVerify && emailVerificationEnabled ? (
                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
                     <p className="mb-2">{t("loginAuthErrorEmailNotVerified")}</p>
                     <div className="flex flex-wrap gap-2">

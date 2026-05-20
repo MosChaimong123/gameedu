@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { isEmailVerificationApiEnabled } from "@/lib/auth/signup-policy";
 import {
   EMAIL_VERIFICATION_PURPOSE,
   isEmailVerificationCodeExpired,
@@ -12,6 +13,10 @@ const querySchema = z.object({
 });
 
 export async function GET(req: Request) {
+  if (!isEmailVerificationApiEnabled()) {
+    return NextResponse.json({ ok: true, pending: false });
+  }
+
   const url = new URL(req.url);
   let email: string;
   try {

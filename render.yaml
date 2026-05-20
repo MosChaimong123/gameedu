@@ -61,6 +61,15 @@ services:
         sync: false
       - key: EMAIL_FROM
         sync: false
+      # Temporarily disable self-service signup + email verification (re-enable when fixed)
+      - key: DISABLE_PUBLIC_SIGNUP
+        value: "true"
+      - key: NEXT_PUBLIC_DISABLE_PUBLIC_SIGNUP
+        value: "true"
+      - key: SKIP_EMAIL_VERIFICATION
+        value: "true"
+      - key: NEXT_PUBLIC_SKIP_EMAIL_VERIFICATION
+        value: "true"
       - key: GEMINI_API_KEY
         sync: false
       - key: STRIPE_SECRET_KEY

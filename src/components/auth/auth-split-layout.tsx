@@ -27,6 +27,7 @@ export function AuthSplitLayout({ mode, children, registerHref, loginHref }: Aut
     const formTitle = isLogin ? t("loginFormTitle") : t("registerFormTitle")
     const formSubtitle = isLogin ? t("loginFormSubtitle") : t("registerFormSubtitle")
 
+    const showRegisterFooter = isLogin ? Boolean(registerHref) : true
     const footerPrompt = isLogin ? t("loginFooterPrompt") : t("registerFooterPrompt")
     const footerHref = isLogin ? registerHref ?? "/login?mode=register" : loginHref ?? "/login"
     const footerLinkText = isLogin ? t("loginFooterRegister") : t("registerFooterLogin")
@@ -149,15 +150,17 @@ export function AuthSplitLayout({ mode, children, registerHref, loginHref }: Aut
                         {children}
                     </div>
 
-                    <p className="mt-6 text-center text-sm text-slate-500">
-                        {footerPrompt}{" "}
-                        <Link
-                            href={footerHref}
-                            className="font-bold text-brand-pink transition-colors hover:text-brand-navy"
-                        >
-                            {footerLinkText}
-                        </Link>
-                    </p>
+                    {showRegisterFooter ? (
+                        <p className="mt-6 text-center text-sm text-slate-500">
+                            {footerPrompt}{" "}
+                            <Link
+                                href={footerHref}
+                                className="font-bold text-brand-pink transition-colors hover:text-brand-navy"
+                            >
+                                {footerLinkText}
+                            </Link>
+                        </p>
+                    ) : null}
                 </div>
             </div>
         </div>

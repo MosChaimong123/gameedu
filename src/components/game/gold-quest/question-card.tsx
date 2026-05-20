@@ -40,10 +40,8 @@ export function QuestionCard({ question, onAnswer, locked = false }: Props) {
                 animate={{ y: 0, opacity: 1 }}
                 className="mb-3 sm:mb-6 shrink-0 overflow-y-auto max-h-[40vh] sm:max-h-none rounded-xl border-b-4 border-slate-200 bg-white p-4 text-center shadow-lg sm:p-6"
             >
-                <h2 className="break-words text-base font-bold text-slate-800 sm:text-xl md:text-2xl">
-                    <span className="block overflow-x-auto">
-                        <MathRender text={question.question} />
-                    </span>
+                <h2 className="text-base font-bold text-slate-800 sm:text-xl md:text-2xl">
+                    <MathRender text={question.question} className="block w-full text-center" />
                 </h2>
                 {question.image && (
                     <motion.div
@@ -61,11 +59,11 @@ export function QuestionCard({ question, onAnswer, locked = false }: Props) {
                 )}
             </motion.div>
 
-            {/* Answer Grid */}
+            {/* Answer Grid — scroll + auto row height so long Thai options stay fully visible */}
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="grid min-h-0 flex-1 grid-cols-2 gap-2 sm:gap-4"
+                className="grid min-h-0 flex-1 grid-cols-2 auto-rows-min gap-2 overflow-y-auto overscroll-contain sm:gap-4"
             >
                 {question.options.map((option, index) => (
                     <motion.button
@@ -78,7 +76,7 @@ export function QuestionCard({ question, onAnswer, locked = false }: Props) {
                         whileHover={locked ? undefined : { scale: 1.02 }}
                         whileTap={locked ? undefined : { scale: 0.95 }}
                         className={cn(
-                            "min-h-[4.5rem] sm:min-h-[7rem] rounded-xl text-white font-bold p-2 sm:p-4 flex flex-col items-center justify-center shadow-md border-b-4 text-center relative overflow-hidden group",
+                            "flex min-h-[5.5rem] w-full min-w-0 flex-col rounded-xl border-b-4 p-2 text-center font-bold text-white shadow-md relative group sm:min-h-[7rem] sm:p-4",
                             colors[index % 4],
                             locked && "opacity-50 pointer-events-none"
                         )}
@@ -87,11 +85,15 @@ export function QuestionCard({ question, onAnswer, locked = false }: Props) {
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="absolute top-1 left-1 opacity-20 text-2xl sm:top-2 sm:left-2 sm:text-4xl"
+                            className="pointer-events-none absolute top-1 left-1 text-2xl opacity-20 sm:top-2 sm:left-2 sm:text-4xl"
                         >
                             {shapes[index % 4]}
                         </motion.div>
-                        <div className="relative z-10 flex h-full w-full items-center justify-center p-1 sm:p-2 drop-shadow-md">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="relative z-10 flex w-full min-w-0 flex-1 items-center justify-center px-0.5 py-1 drop-shadow-md sm:px-1 sm:py-2"
+                        >
                             {question.optionTypes?.[index] === "IMAGE" ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
@@ -100,11 +102,12 @@ export function QuestionCard({ question, onAnswer, locked = false }: Props) {
                                     className="max-h-20 max-w-full rounded-md object-contain sm:max-h-28"
                                 />
                             ) : (
-                                <span className="break-words text-sm sm:text-lg md:text-xl">
-                                    <MathRender text={option} />
-                                </span>
+                                <MathRender
+                                    text={option}
+                                    className="block w-full min-w-0 text-xs leading-snug sm:text-base md:text-lg"
+                                />
                             )}
-                        </div>
+                        </motion.div>
                     </motion.button>
                 ))}
             </motion.div>

@@ -180,6 +180,7 @@ describe("register route POST", () => {
         attempts: 0,
         maxAttempts: 5,
         expiresAt: expect.any(Date),
+        consumedAt: null,
       }),
     });
     expect(mockSendVerificationEmail).toHaveBeenCalledWith(

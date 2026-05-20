@@ -114,6 +114,7 @@ export async function POST(req: Request) {
             maxAttempts: EMAIL_VERIFICATION_MAX_ATTEMPTS,
             expiresAt: buildEmailVerificationExpiry(issuedAt),
             lastSentAt: issuedAt,
+            consumedAt: null,
         },
     });
 

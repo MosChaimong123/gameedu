@@ -47,6 +47,7 @@ export async function GET(req: Request) {
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
       referenceCode: true,
+      codePlain: true,
       expiresAt: true,
     },
   });
@@ -59,6 +60,9 @@ export async function GET(req: Request) {
     ok: true,
     pending: true,
     referenceCode: active.referenceCode,
+    ...(process.env.NODE_ENV !== "production" && active.codePlain
+      ? { devCode: active.codePlain }
+      : {}),
     expiresAt: active.expiresAt.toISOString(),
   });
 }

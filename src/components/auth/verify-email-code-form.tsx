@@ -41,6 +41,7 @@ export function VerifyEmailCodeForm({
     const normalized = targetEmail.trim().toLowerCase();
     if (!normalized) {
       setReferenceCode(null);
+      setDevCode(null);
       return;
     }
     try {
@@ -51,8 +52,15 @@ export function VerifyEmailCodeForm({
       const body = (await res.json()) as {
         pending?: boolean;
         referenceCode?: string;
+        devCode?: string;
       };
       setReferenceCode(body.pending && body.referenceCode ? body.referenceCode : null);
+      if (body.pending && body.devCode) {
+        setDevCode(body.devCode);
+        setCode(body.devCode);
+      } else {
+        setDevCode(null);
+      }
     } catch {
       // ignore — reference is optional UX hint
     }

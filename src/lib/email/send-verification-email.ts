@@ -14,11 +14,18 @@ function normalizePublicOrigin(raw: string | undefined): string | undefined {
 }
 
 function resolvePublicOrigin(): string | undefined {
-    return normalizePublicOrigin(
+    const configuredOrigin = normalizePublicOrigin(
         process.env.NEXT_PUBLIC_APP_URL?.trim() ||
         process.env.NEXTAUTH_URL?.trim() ||
         process.env.AUTH_URL?.trim()
     );
+    if (configuredOrigin) return configuredOrigin;
+
+    if (process.env.NODE_ENV !== "production") {
+        return "http://localhost:3000";
+    }
+
+    return undefined;
 }
 
 export async function sendVerificationCodeEmail(

@@ -61,15 +61,23 @@ services:
         sync: false
       - key: EMAIL_FROM
         sync: false
-      # Temporarily disable self-service signup + email verification (re-enable when fixed)
-      - key: DISABLE_PUBLIC_SIGNUP
+      # Public signup is enabled in production; credentials users must verify email before login.
+      # Keep the explicit false values to override older Blueprint/env values that temporarily
+      # disabled this flow while email verification was being repaired.
+      - key: ENABLE_PUBLIC_SIGNUP
         value: "true"
+      - key: NEXT_PUBLIC_ENABLE_PUBLIC_SIGNUP
+        value: "true"
+      - key: DISABLE_PUBLIC_SIGNUP
+        value: "false"
       - key: NEXT_PUBLIC_DISABLE_PUBLIC_SIGNUP
+        value: "false"
+      - key: REQUIRE_EMAIL_VERIFICATION
         value: "true"
       - key: SKIP_EMAIL_VERIFICATION
-        value: "true"
+        value: "false"
       - key: NEXT_PUBLIC_SKIP_EMAIL_VERIFICATION
-        value: "true"
+        value: "false"
       - key: GEMINI_API_KEY
         sync: false
       - key: STRIPE_SECRET_KEY

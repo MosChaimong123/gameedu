@@ -26,6 +26,7 @@ interface StudentDashboardSidebarProps {
     levelConfigResolved: LevelConfigInput;
     mode: StudentDashboardMode;
     questGold?: number;
+    onGoldChange?: (value: number) => void;
     /** โหมดเกม: แสดงมอน Negamon ในการ์ดโปรไฟล์แทนอวาตาร์ */
     gameProfileMonster?: GameProfileMonster | null;
 }
@@ -43,6 +44,7 @@ export function StudentDashboardSidebar({
     levelConfigResolved,
     mode,
     questGold,
+    onGoldChange,
     gameProfileMonster,
 }: StudentDashboardSidebarProps) {
     return (
@@ -70,6 +72,7 @@ export function StudentDashboardSidebar({
                 lastCheckIn={student.lastCheckIn}
                 mode={mode}
                 externalGold={questGold}
+                onGoldChange={onGoldChange}
                 gameProfileMonster={gameProfileMonster}
             />
         </div>

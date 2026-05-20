@@ -251,6 +251,7 @@ export function StudentDashboardClient({
                         levelConfigResolved={levelConfigResolved}
                         mode={mode}
                         questGold={questGold}
+                        onGoldChange={setQuestGold}
                         gameProfileMonster={
                             mode === "game" && studentMonsterState
                                 ? {

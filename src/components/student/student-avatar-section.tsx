@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import {
     Camera, Zap, TrendingUp, TrendingDown, BookOpen,
@@ -44,6 +44,7 @@ interface StudentAvatarSectionProps {
     mode?: "learn" | "game";
     // External gold override (e.g. from quest claims)
     externalGold?: number;
+    onGoldChange?: (value: number) => void;
     /** โหมดเกม: แสดงมอน Negamon แทนอวาตาร์ DiceBear */
     gameProfileMonster?: { icon: string; color: string; formName: string } | null;
 }
@@ -102,6 +103,7 @@ export function StudentAvatarSection({
     initialStreak, lastCheckIn,
     mode = "learn",
     externalGold,
+    onGoldChange,
     gameProfileMonster,
 }: StudentAvatarSectionProps) {
     const { t } = useLanguage();
@@ -138,42 +140,64 @@ export function StudentAvatarSection({
     const [checkingIn, setCheckingIn] = useState(false);
     const [checkInFlash, setCheckInFlash] = useState<number | null>(null); // gold earned
     const [passiveGoldFlash, setPassiveGoldFlash] = useState<number | null>(null);
-    const passiveClaimRequested = useRef(false);
+    const passiveClaimInFlight = useRef(false);
 
     const rankProgress = getNextRankProgress(points, levelConfig);
 
-    useEffect(() => {
-        if (mode !== "game" || goldRate <= 0 || passiveClaimRequested.current) return;
+    const applyGoldUpdate = useCallback((nextGold: number) => {
+        setGold(nextGold);
+        onGoldChange?.(nextGold);
+    }, [onGoldChange]);
 
-        passiveClaimRequested.current = true;
+    useEffect(() => {
+        if (mode !== "game" || goldRate <= 0) return;
         let cancelled = false;
 
-        void fetch(`/api/student/${loginCode}/claim-passive-gold`, { method: "POST" })
-            .then(async (res) => {
-                if (!res.ok) return null;
-                return res.json() as Promise<{
+        const claimPassiveGold = async () => {
+            if (passiveClaimInFlight.current) return;
+            passiveClaimInFlight.current = true;
+            try {
+                const res = await fetch(`/api/student/${loginCode}/claim-passive-gold`, { method: "POST" });
+                if (!res.ok) return;
+                const data = await res.json() as {
                     ok: boolean;
                     alreadyClaimed: boolean;
                     goldEarned: number;
                     newGold: number;
-                }>;
-            })
-            .then((data) => {
-                if (cancelled || !data?.ok) return;
-                setGold(data.newGold);
+                };
+                if (cancelled || !data.ok) return;
+                applyGoldUpdate(data.newGold);
                 if (!data.alreadyClaimed && data.goldEarned > 0) {
                     setPassiveGoldFlash(data.goldEarned);
                     window.setTimeout(() => setPassiveGoldFlash(null), 2500);
                 }
-            })
-            .catch(() => {
+            } catch {
                 // Non-blocking enhancement: keep using server-rendered gold if claim fails.
-            });
+            } finally {
+                passiveClaimInFlight.current = false;
+            }
+        };
+
+        void claimPassiveGold();
+
+        const intervalId = window.setInterval(() => {
+            void claimPassiveGold();
+        }, 60_000);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                void claimPassiveGold();
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
 
         return () => {
             cancelled = true;
+            window.clearInterval(intervalId);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
-    }, [goldRate, loginCode, mode]);
+    }, [applyGoldUpdate, goldRate, loginCode, mode]);
 
     // Frame styling
     const frameItem = useMemo(() => equippedFrame ? getItemById(equippedFrame) : null, [equippedFrame]);
@@ -216,7 +240,7 @@ export function StudentAvatarSection({
             ) {
                 setAlreadyCheckedIn(true);
                 setStreak(data.streak);
-                setGold(data.newGold);
+                applyGoldUpdate(data.newGold);
                 setCheckInFlash(data.goldEarned);
                 setTimeout(() => setCheckInFlash(null), 2500);
             }
@@ -417,7 +441,7 @@ export function StudentAvatarSection({
                     inventory={inventory}
                     equippedFrame={equippedFrame}
                     onBuy={(itemId, newGold, newInventory) => {
-                        setGold(newGold);
+                        applyGoldUpdate(newGold);
                         setInventory(newInventory);
                     }}
                     onEquip={(itemId) => setEquippedFrame(itemId)}
@@ -639,7 +663,7 @@ export function StudentAvatarSection({
                 inventory={inventory}
                 equippedFrame={equippedFrame}
                 onBuy={(itemId, newGold, newInventory) => {
-                    setGold(newGold);
+                    applyGoldUpdate(newGold);
                     setInventory(newInventory);
                 }}
                 onEquip={(itemId) => setEquippedFrame(itemId)}

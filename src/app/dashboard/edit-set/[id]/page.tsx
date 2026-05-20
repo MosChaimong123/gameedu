@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
-import { Loader2, Plus, Save, Globe, Lock, PenSquare, FileText, FileType, Image as ImageIcon, Sparkles } from "lucide-react"
+import { Loader2, Plus, Save, Globe, Lock, PenSquare, FileText, FileType, Image as ImageIcon, Sparkles, RefreshCw } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { SettingsDialog } from "@/components/set-editor/settings-dialog"
 import { QuestionList, type QuestionListItem } from "@/components/set-editor/question-list"
@@ -239,6 +239,52 @@ export default function EditSetPage() {
         }) : null)
     }
 
+    const redistributeCorrectAnswers = () => {
+        if (!set || set.questions.length === 0) return
+
+        const updatedQuestions = set.questions.map((question, index) => {
+            if (question.questionType !== "MULTIPLE_CHOICE" || question.options.length < 2) {
+                return question
+            }
+
+            const optionCount = question.options.length
+            const currentCorrect = Math.min(
+                Math.max(question.correctAnswer ?? 0, 0),
+                optionCount - 1
+            )
+            const targetCorrect = index % optionCount
+
+            if (currentCorrect === targetCorrect) {
+                return question
+            }
+
+            const nextOptions = [...question.options]
+            ;[nextOptions[currentCorrect], nextOptions[targetCorrect]] = [
+                nextOptions[targetCorrect],
+                nextOptions[currentCorrect],
+            ]
+
+            const nextOptionTypes = [...(question.optionTypes ?? ["TEXT", "TEXT", "TEXT", "TEXT"])]
+            ;[nextOptionTypes[currentCorrect], nextOptionTypes[targetCorrect]] = [
+                nextOptionTypes[targetCorrect],
+                nextOptionTypes[currentCorrect],
+            ]
+
+            return {
+                ...question,
+                options: nextOptions,
+                optionTypes: nextOptionTypes,
+                correctAnswer: targetCorrect,
+            }
+        })
+
+        setSet({ ...set, questions: updatedQuestions })
+        toast({
+            title: t("editSetRedistributeAnswersTitle"),
+            description: t("editSetRedistributeAnswersDesc"),
+        })
+    }
+
     const deleteQuestion = (qId: string) => {
         if (!set) return
         const updatedQuestions = set.questions.filter((q) => q.id !== qId)
@@ -331,6 +377,15 @@ export default function EditSetPage() {
                         </Button>
                         <Button
                             variant="outline"
+                            className="h-14 flex items-center justify-center border-2 border-slate-200 hover:border-violet-500 hover:text-violet-600 font-bold mt-2"
+                            onClick={redistributeCorrectAnswers}
+                            disabled={set.questions.length === 0}
+                        >
+                            <RefreshCw className="w-5 h-5 mr-2" />
+                            <span className="text-sm">{t("editSetRedistributeAnswers")}</span>
+                        </Button>
+                        <Button
+                            variant="outline"
                             className="h-14 flex items-center justify-center border-2 border-slate-200 hover:border-emerald-500 hover:text-emerald-600 font-bold mt-2"
                             onClick={() => setIsSpreadsheetOpen(true)}
                         >
@@ -382,6 +437,15 @@ export default function EditSetPage() {
                 >
                     <Plus className="mr-2 h-4 w-4" />
                     {t("addQuestion")}
+                </Button>
+                <Button
+                    variant="outline"
+                    onClick={redistributeCorrectAnswers}
+                    disabled={set.questions.length === 0}
+                    className="min-h-11 flex-1 font-bold"
+                >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    {t("editSetRedistributeAnswers")}
                 </Button>
             </div>
 

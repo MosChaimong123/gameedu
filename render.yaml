@@ -78,6 +78,10 @@ services:
         value: "false"
       - key: NEXT_PUBLIC_SKIP_EMAIL_VERIFICATION
         value: "false"
+      - key: NEXT_PUBLIC_CLASSROOM_GAMIFICATION_ENABLED
+        value: "true"
+      - key: NEXT_PUBLIC_NEGAMON_BATTLE_HOST_ENABLED
+        value: "true"
       - key: GEMINI_API_KEY
         sync: false
       - key: STRIPE_SECRET_KEY

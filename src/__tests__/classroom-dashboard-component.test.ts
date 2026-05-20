@@ -239,7 +239,7 @@ describe("classroom dashboard component", () => {
 
     expect(toolbarProps.viewMode).toBe("grid");
     expect(toolbarProps.isConnected).toBe(true);
-    expect(toolbarProps.gamificationToolbarMode).toBe("comingSoon");
+    expect(toolbarProps.gamificationToolbarMode).toBe("live");
 
     toolbarProps.onSelectViewMode("table");
 

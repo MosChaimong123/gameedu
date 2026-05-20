@@ -25,7 +25,8 @@ import {
 import { Users } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useSession } from "next-auth/react";
-import { isPlatformAdmin } from "@/lib/role-guards";
+import { isClassroomGamificationEnabled } from "@/lib/classroom-gamification-enabled";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 import { useToast } from "@/components/ui/use-toast";
 import { useSocket } from "@/components/providers/socket-provider";
 import useSound from "use-sound";
@@ -249,7 +250,7 @@ export function ClassroomDashboard({
     const gamificationToolbarMode =
         sessionStatus === "loading"
             ? "loading"
-            : isPlatformAdmin(session?.user?.role)
+            : isTeacherOrAdmin(session?.user?.role) && isClassroomGamificationEnabled()
               ? "live"
               : "comingSoon";
 

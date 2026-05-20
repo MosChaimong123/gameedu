@@ -199,9 +199,14 @@ export class CryptoHackEngine extends AbstractGameEngine {
 
         this.statusUpdate(); // Refresh available list
 
-        // If all players selected, move to next phase
-        const allSelected = this.players.every(p => p.password !== "");
-        if (allSelected && this.players.length > 0) {
+        this.maybeStartHackingPhase();
+    }
+
+    private maybeStartHackingPhase() {
+        if (this.hackState !== "PASSWORD_SELECTION") return;
+        const activePlayers = this.players.filter((p) => p.isConnected !== false);
+        const allActiveSelected = activePlayers.every((p) => p.password !== "");
+        if (allActiveSelected && activePlayers.length > 0) {
             this.startHackingPhase();
         }
     }
@@ -241,6 +246,12 @@ export class CryptoHackEngine extends AbstractGameEngine {
         super.handleReconnection(player, socket);
         // Player object state (including pendingRewards) is preserved by reference or restore
         console.log(`[Crypto] Player reconnected: ${player.name}`);
+    }
+
+    public handleDisconnect(socketId: string): void {
+        super.handleDisconnect(socketId);
+        this.statusUpdate();
+        this.maybeStartHackingPhase();
     }
 
     // Updated signature to handle full payload

@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockUserFindFirst = vi.fn();
+const mockUserFindUnique = vi.fn();
 const mockEmailVerificationCodeFindFirst = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
     user: {
       findFirst: mockUserFindFirst,
+      findUnique: mockUserFindUnique,
     },
     emailVerificationCode: {
       findFirst: mockEmailVerificationCodeFindFirst,
@@ -22,7 +24,11 @@ describe("verification pending route GET", () => {
       id: "user-1",
       emailVerified: null,
     });
+    mockUserFindUnique.mockResolvedValue({
+      emailVerified: null,
+    });
     mockEmailVerificationCodeFindFirst.mockResolvedValue({
+      userId: "user-1",
       referenceCode: "TP-NBA6",
       codePlain: "123456",
       expiresAt: new Date(Date.now() + 60_000),

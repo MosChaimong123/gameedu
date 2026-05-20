@@ -38,6 +38,13 @@ async function findUserForVerification(normalizedEmail: string) {
   });
 }
 
+async function findUserForVerificationCode(userId: string) {
+  return db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, emailVerified: true },
+  });
+}
+
 type VerificationRecord = {
   id: string;
   userId: string;
@@ -90,28 +97,9 @@ export async function POST(req: Request) {
   }
 
   const normalizedEmail = normalizeVerificationEmail(email);
-
-  const user = await findUserForVerification(normalizedEmail);
-
-  if (!user) {
-    return createAppErrorResponse(
-      "EMAIL_VERIFICATION_CODE_INVALID",
-      "Invalid verification code",
-      400
-    );
-  }
-
-  if (user.emailVerified) {
-    return NextResponse.json({ ok: true, alreadyVerified: true });
-  }
-
   const now = new Date();
-  const matchParams = {
-    userId: user.id,
-    email: user.email ?? normalizedEmail,
-    code,
-  };
 
+  let user: Awaited<ReturnType<typeof findUserForVerification>> = null;
   let verification: VerificationRecord | null = null;
 
   if (referenceCode) {
@@ -125,54 +113,90 @@ export async function POST(req: Request) {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     });
 
-    if (
-      byReference &&
-      byReference.userId === user.id &&
-      (await recordMatchesCode(byReference, matchParams, now))
-    ) {
-      verification = byReference;
-    } else if (byReference && byReference.userId === user.id) {
-      verification = null;
-      const allExpired = isEmailVerificationCodeExpired(byReference.expiresAt, now);
-      if (allExpired) {
+    if (byReference) {
+      const referenceUser = await findUserForVerificationCode(byReference.userId);
+      if (!referenceUser) {
         return createAppErrorResponse(
-          "EMAIL_VERIFICATION_CODE_EXPIRED",
-          "Verification code expired",
+          "EMAIL_VERIFICATION_CODE_INVALID",
+          "Invalid verification code",
           400
         );
       }
-      if (byReference.attempts >= byReference.maxAttempts) {
-        return createAppErrorResponse(
-          "EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS",
-          "Too many invalid verification attempts",
-          429
-        );
+
+      if (referenceUser.emailVerified) {
+        return NextResponse.json({ ok: true, alreadyVerified: true });
       }
 
-      const nextAttempts = byReference.attempts + 1;
-      await db.emailVerificationCode.update({
-        where: { id: byReference.id },
-        data: {
-          attempts: nextAttempts,
-          ...(nextAttempts >= Math.max(byReference.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
-            ? { consumedAt: now }
-            : {}),
-        },
-      });
+      const referenceMatchParams = {
+        userId: referenceUser.id,
+        email: referenceUser.email ?? normalizedEmail,
+        code,
+      };
 
-      return createAppErrorResponse(
-        nextAttempts >= Math.max(byReference.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
-          ? "EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS"
-          : "EMAIL_VERIFICATION_CODE_INVALID",
-        nextAttempts >= Math.max(byReference.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
-          ? "Too many invalid verification attempts"
-          : "Invalid verification code",
-        nextAttempts >= Math.max(byReference.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
-          ? 429
-          : 400
-      );
+      if (await recordMatchesCode(byReference, referenceMatchParams, now)) {
+        user = referenceUser;
+        verification = byReference;
+      } else {
+        if (isEmailVerificationCodeExpired(byReference.expiresAt, now)) {
+          return createAppErrorResponse(
+            "EMAIL_VERIFICATION_CODE_EXPIRED",
+            "Verification code expired",
+            400
+          );
+        }
+        if (byReference.attempts >= byReference.maxAttempts) {
+          return createAppErrorResponse(
+            "EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS",
+            "Too many invalid verification attempts",
+            429
+          );
+        }
+
+        const nextAttempts = byReference.attempts + 1;
+        await db.emailVerificationCode.update({
+          where: { id: byReference.id },
+          data: {
+            attempts: nextAttempts,
+            ...(nextAttempts >= Math.max(byReference.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
+              ? { consumedAt: now }
+              : {}),
+          },
+        });
+
+        return createAppErrorResponse(
+          nextAttempts >= Math.max(byReference.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
+            ? "EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS"
+            : "EMAIL_VERIFICATION_CODE_INVALID",
+          nextAttempts >= Math.max(byReference.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
+            ? "Too many invalid verification attempts"
+            : "Invalid verification code",
+          nextAttempts >= Math.max(byReference.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS)
+            ? 429
+            : 400
+        );
+      }
     }
   }
+
+  user = user ?? (await findUserForVerification(normalizedEmail));
+
+  if (!user) {
+    return createAppErrorResponse(
+      "EMAIL_VERIFICATION_CODE_INVALID",
+      "Invalid verification code",
+      400
+    );
+  }
+
+  if (user.emailVerified) {
+    return NextResponse.json({ ok: true, alreadyVerified: true });
+  }
+
+  const matchParams = {
+    userId: user.id,
+    email: user.email ?? normalizedEmail,
+    code,
+  };
 
   if (!verification) {
     const activeVerifications = await db.emailVerificationCode.findMany({

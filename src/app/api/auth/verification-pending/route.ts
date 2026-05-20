@@ -34,26 +34,16 @@ export async function GET(req: Request) {
   }
 
   const normalizedEmail = normalizeVerificationEmail(email);
-  const user = await db.user.findFirst({
-    where: {
-      email: { equals: normalizedEmail, mode: "insensitive" },
-    },
-    select: { id: true, emailVerified: true },
-  });
-
-  if (!user || user.emailVerified) {
-    return jsonNoStore({ ok: true, pending: false });
-  }
-
   const now = new Date();
   const active = await db.emailVerificationCode.findFirst({
     where: {
-      userId: user.id,
+      email: normalizedEmail,
       purpose: EMAIL_VERIFICATION_PURPOSE,
       consumedAt: null,
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
+      userId: true,
       referenceCode: true,
       codePlain: true,
       expiresAt: true,
@@ -61,6 +51,15 @@ export async function GET(req: Request) {
   });
 
   if (!active || isEmailVerificationCodeExpired(active.expiresAt, now)) {
+    return jsonNoStore({ ok: true, pending: false });
+  }
+
+  const user = await db.user.findUnique({
+    where: { id: active.userId },
+    select: { emailVerified: true },
+  });
+
+  if (!user || user.emailVerified) {
     return jsonNoStore({ ok: true, pending: false });
   }
 

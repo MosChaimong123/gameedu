@@ -5,6 +5,7 @@ import {
 } from "@/lib/email-verification";
 
 const mockUserFindFirst = vi.fn();
+const mockUserFindUnique = vi.fn();
 const mockUserUpdate = vi.fn();
 const mockEmailVerificationCodeFindFirst = vi.fn();
 const mockEmailVerificationCodeFindMany = vi.fn();
@@ -16,6 +17,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     user: {
       findFirst: mockUserFindFirst,
+      findUnique: mockUserFindUnique,
       update: mockUserUpdate,
     },
     emailVerificationCode: {
@@ -56,6 +58,7 @@ describe("verify email code route POST", () => {
       emailVerified: null,
     };
     mockUserFindFirst.mockResolvedValue(user);
+    mockUserFindUnique.mockResolvedValue(user);
     mockEmailVerificationCodeFindFirst.mockResolvedValue(null);
     mockEmailVerificationCodeFindMany.mockResolvedValue([
       {
@@ -296,4 +299,3 @@ describe("verify email code route POST", () => {
     expect(mockEmailVerificationCodeFindMany).not.toHaveBeenCalled();
   });
 });
-

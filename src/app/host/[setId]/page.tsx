@@ -6,7 +6,8 @@ import { useSocket } from "@/components/providers/socket-provider"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Users, Copy, Loader2, Play, ShieldCheck, AlertTriangle } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Users, Copy, Loader2, Play, ShieldCheck, AlertTriangle, User } from "lucide-react"
 import { GameModeSelector } from "@/components/host/game-mode-selector"
 import { GoldQuestSettings } from "@/components/host/settings/gold-quest-settings"
 import { CryptoHackSettings } from "@/components/host/settings/crypto-hack-settings"
@@ -82,6 +83,10 @@ function sortHostPlayersForStandings(players: HostPlayer[], mode: GameMode): Hos
 
 function isNegamonBattlePlayer(player: HostPlayer): player is NegamonBattlePlayer {
     return "battleHp" in player && typeof (player as NegamonBattlePlayer).battleHp === "number"
+}
+
+function getHostLobbyAvatarUrl(player: HostPlayer) {
+    return `https://api.dicebear.com/7.x/fun-emoji/svg?seed=${encodeURIComponent(`${player.name}-${player.id}`)}`
 }
 
 /** True only in the browser after hydration — matches SSR snapshot (false) to avoid hydration mismatches. */
@@ -642,7 +647,7 @@ export default function HostLobbyPage() {
                 <div className="flex items-center space-x-4">
                     <div className="bg-slate-800 px-4 py-2 rounded-lg flex items-center space-x-2">
                         <Users className="text-blue-400 h-5 w-5" />
-                        <span className="font-bold text-xl">{players.length}</span>
+                        <span className="font-bold text-xl">{uniqueLobbyPlayers.length}</span>
                     </div>
                 </div>
             </div>
@@ -666,6 +671,57 @@ export default function HostLobbyPage() {
                         <span className="text-purple-400 font-bold">{t("hostPlayUrlLabel")}</span>
                     </p>
                 </div>
+
+                <Card className="w-full max-w-5xl border border-slate-700/80 bg-slate-900/80 p-4 shadow-[0_24px_80px_rgba(15,23,42,0.45)] backdrop-blur sm:p-6">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="space-y-1">
+                            <p className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-300/70">
+                                Connected Players
+                            </p>
+                            <div className="flex items-end gap-3">
+                                <span className="text-4xl font-black text-white sm:text-5xl">
+                                    {uniqueLobbyPlayers.length}
+                                </span>
+                                <span className="pb-1 text-sm text-slate-400">
+                                    คนเข้าห้องแล้ว
+                                </span>
+                            </div>
+                        </div>
+
+                        {uniqueLobbyPlayers.length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-3">
+                                {uniqueLobbyPlayers.slice(0, 8).map((player) => (
+                                    <div
+                                        key={`joined-player-${player.id}`}
+                                        className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-800/80 px-3 py-2"
+                                    >
+                                        <Avatar className="h-11 w-11 border-2 border-fuchsia-500/60 shadow-[0_0_24px_rgba(217,70,239,0.35)]">
+                                            <AvatarImage src={getHostLobbyAvatarUrl(player)} alt={player.name} />
+                                            <AvatarFallback className="bg-slate-700 text-slate-100">
+                                                <User className="h-4 w-4" />
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="min-w-0">
+                                            <p className="max-w-[8rem] truncate text-sm font-bold text-white">
+                                                {player.name}
+                                            </p>
+                                            <p className="text-xs text-emerald-300">พร้อมเข้าเกม</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {uniqueLobbyPlayers.length > 8 && (
+                                    <div className="rounded-2xl border border-dashed border-slate-600 px-4 py-3 text-sm font-bold text-slate-300">
+                                        +{uniqueLobbyPlayers.length - 8} คน
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="rounded-2xl border border-dashed border-slate-700 px-4 py-5 text-sm text-slate-500">
+                                {t("hostWaitingForPlayers")}
+                            </div>
+                        )}
+                    </div>
+                </Card>
 
                 {/* Player Grid */}
                 <div className="w-full max-w-5xl">
@@ -693,8 +749,14 @@ export default function HostLobbyPage() {
                     )}
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                         {uniqueLobbyPlayers.map((player) => (
-                            <Card key={player.id} className="bg-slate-800 border-none p-4 flex flex-col items-center justify-center gap-2 animate-in scale-0 duration-300 fill-mode-both">
-                                <span className="font-bold text-lg text-white truncate">{player.name}</span>
+                            <Card key={player.id} className="bg-slate-800 border border-slate-700/70 p-4 flex flex-col items-center justify-center gap-3 animate-in scale-0 duration-300 fill-mode-both">
+                                <Avatar className="h-16 w-16 border-2 border-fuchsia-500/60 shadow-[0_0_24px_rgba(217,70,239,0.35)]">
+                                    <AvatarImage src={getHostLobbyAvatarUrl(player)} alt={player.name} />
+                                    <AvatarFallback className="bg-slate-700 text-slate-100">
+                                        <User className="h-5 w-5" />
+                                    </AvatarFallback>
+                                </Avatar>
+                                <span className="max-w-full truncate text-center font-bold text-lg text-white">{player.name}</span>
                                 {selectedMode === "NEGAMON_BATTLE" && rewardClassroomFromQuery && (
                                     <span
                                         className={cn(

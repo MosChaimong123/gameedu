@@ -68,7 +68,7 @@ export async function POST(req: Request) {
         where: {
             userId: user.id,
             purpose: EMAIL_VERIFICATION_PURPOSE,
-            consumedAt: null,
+            OR: [{ consumedAt: null }, { consumedAt: { isSet: false } }],
         },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         select: {
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
             email: identifier,
             referenceCode: verificationReference,
             purpose: EMAIL_VERIFICATION_PURPOSE,
-            consumedAt: null,
+            OR: [{ consumedAt: null }, { consumedAt: { isSet: false } }],
         },
         select: { id: true },
     });

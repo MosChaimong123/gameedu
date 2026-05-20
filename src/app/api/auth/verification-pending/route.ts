@@ -39,7 +39,7 @@ export async function GET(req: Request) {
     where: {
       email: normalizedEmail,
       purpose: EMAIL_VERIFICATION_PURPOSE,
-      consumedAt: null,
+      OR: [{ consumedAt: null }, { consumedAt: { isSet: false } }],
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {

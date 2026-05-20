@@ -108,7 +108,7 @@ export async function POST(req: Request) {
         email: normalizedEmail,
         referenceCode,
         purpose: EMAIL_VERIFICATION_PURPOSE,
-        consumedAt: null,
+        OR: [{ consumedAt: null }, { consumedAt: { isSet: false } }],
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     });
@@ -203,7 +203,7 @@ export async function POST(req: Request) {
       where: {
         userId: user.id,
         purpose: EMAIL_VERIFICATION_PURPOSE,
-        consumedAt: null,
+        OR: [{ consumedAt: null }, { consumedAt: { isSet: false } }],
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 5,
@@ -278,7 +278,7 @@ export async function POST(req: Request) {
     where: {
       userId: user.id,
       purpose: EMAIL_VERIFICATION_PURPOSE,
-      consumedAt: null,
+      OR: [{ consumedAt: null }, { consumedAt: { isSet: false } }],
     },
     data: { consumedAt: now, codePlain: null },
   });

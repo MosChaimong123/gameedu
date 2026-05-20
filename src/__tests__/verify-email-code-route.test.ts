@@ -99,7 +99,7 @@ describe("verify email code route POST", () => {
       where: {
         userId: "user-1",
         purpose: "SIGNUP_VERIFY",
-        consumedAt: null,
+        OR: [{ consumedAt: null }, { consumedAt: { isSet: false } }],
       },
       data: { consumedAt: expect.any(Date), codePlain: null },
     });

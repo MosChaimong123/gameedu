@@ -62,7 +62,9 @@ describe("resend verification route POST", () => {
       emailVerified: null,
       password: "hashed-password",
     });
-    mockEmailVerificationCodeFindFirst.mockResolvedValue(null);
+    mockEmailVerificationCodeFindFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "code-1" });
     mockEmailVerificationCodeDeleteMany.mockResolvedValue({ count: 1 });
     mockEmailVerificationCodeCreate.mockResolvedValue({});
     mockSendVerificationEmail.mockResolvedValue({ sent: true });
@@ -118,6 +120,10 @@ describe("resend verification route POST", () => {
   });
 
   it("returns internal error and masked audit metadata when email sending fails", async () => {
+    mockEmailVerificationCodeFindFirst
+      .mockReset()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "code-1" });
     mockSendVerificationEmail.mockRejectedValue(new Error("mail exploded"));
     const { POST } = await import("@/app/api/auth/resend-verification/route");
 
@@ -146,6 +152,10 @@ describe("resend verification route POST", () => {
   });
 
   it("creates a fresh numeric verification code and returns cooldown metadata", async () => {
+    mockEmailVerificationCodeFindFirst
+      .mockReset()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "code-1" });
     const { POST } = await import("@/app/api/auth/resend-verification/route");
 
     const response = await POST(
@@ -183,10 +193,12 @@ describe("resend verification route POST", () => {
   });
 
   it("returns cooldown error when a code was just sent", async () => {
-    mockEmailVerificationCodeFindFirst.mockResolvedValue({
-      id: "code-1",
-      lastSentAt: new Date(),
-    });
+    mockEmailVerificationCodeFindFirst
+      .mockReset()
+      .mockResolvedValue({
+        id: "code-1",
+        lastSentAt: new Date(),
+      });
     const { POST } = await import("@/app/api/auth/resend-verification/route");
 
     const response = await POST(

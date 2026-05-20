@@ -64,63 +64,89 @@ export async function POST(req: Request) {
     }
 
     const issuedAt = new Date();
-    const verificationCode = await db.$transaction(async (tx) => {
-        const latestCode = await tx.emailVerificationCode.findFirst({
-            where: {
-                userId: user.id,
-                purpose: EMAIL_VERIFICATION_PURPOSE,
-                consumedAt: null,
-            },
-            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-            select: {
-                id: true,
-                lastSentAt: true,
-            },
-        });
-
-        if (latestCode) {
-            const retryAfterSeconds = getEmailVerificationRetryAfterSeconds(
-                latestCode.lastSentAt,
-                issuedAt
-            );
-            if (retryAfterSeconds > 0) {
-                return { cooldownSeconds: retryAfterSeconds } as const;
-            }
-        }
-
-        const nextCode = generateEmailVerificationCode();
-        const nextReference = generateVerificationReferenceCode();
-        const nextHash = hashEmailVerificationCodeForStorage(nextCode);
-        await tx.emailVerificationCode.deleteMany({
-            where: {
-                userId: user.id,
-                purpose: EMAIL_VERIFICATION_PURPOSE,
-            },
-        });
-        await tx.emailVerificationCode.create({
-            data: {
-                userId: user.id,
-                email: identifier,
-                referenceCode: nextReference,
-                codePlain: nextCode,
-                codeHash: nextHash,
-                purpose: EMAIL_VERIFICATION_PURPOSE,
-                attempts: 0,
-                maxAttempts: EMAIL_VERIFICATION_MAX_ATTEMPTS,
-                expiresAt: buildEmailVerificationExpiry(issuedAt),
-                lastSentAt: issuedAt,
-            },
-        });
-
-        return { code: nextCode, referenceCode: nextReference } as const;
+    const latestCode = await db.emailVerificationCode.findFirst({
+        where: {
+            userId: user.id,
+            purpose: EMAIL_VERIFICATION_PURPOSE,
+            consumedAt: null,
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: {
+            id: true,
+            lastSentAt: true,
+        },
     });
 
-    if ("cooldownSeconds" in verificationCode) {
+    if (latestCode) {
+        const retryAfterSeconds = getEmailVerificationRetryAfterSeconds(
+            latestCode.lastSentAt,
+            issuedAt
+        );
+        if (retryAfterSeconds > 0) {
+            return createAppErrorResponse(
+                "EMAIL_VERIFICATION_CODE_COOLDOWN",
+                "Please wait before requesting another code",
+                429,
+                { headers: { "Retry-After": String(retryAfterSeconds) } }
+            );
+        }
+    }
+
+    const verificationCode = generateEmailVerificationCode();
+    const verificationReference = generateVerificationReferenceCode();
+    const verificationCodeHash = hashEmailVerificationCodeForStorage(verificationCode);
+
+    await db.emailVerificationCode.deleteMany({
+        where: {
+            userId: user.id,
+            purpose: EMAIL_VERIFICATION_PURPOSE,
+        },
+    });
+    await db.emailVerificationCode.create({
+        data: {
+            userId: user.id,
+            email: identifier,
+            referenceCode: verificationReference,
+            codePlain: verificationCode,
+            codeHash: verificationCodeHash,
+            purpose: EMAIL_VERIFICATION_PURPOSE,
+            attempts: 0,
+            maxAttempts: EMAIL_VERIFICATION_MAX_ATTEMPTS,
+            expiresAt: buildEmailVerificationExpiry(issuedAt),
+            lastSentAt: issuedAt,
+        },
+    });
+
+    const persistedCode = await db.emailVerificationCode.findFirst({
+        where: {
+            userId: user.id,
+            email: identifier,
+            referenceCode: verificationReference,
+            purpose: EMAIL_VERIFICATION_PURPOSE,
+            consumedAt: null,
+        },
+        select: { id: true },
+    });
+
+    if (!persistedCode) {
+        console.error("[resend-verification] created code was not readable", {
+            userId: user.id,
+            emailMasked: maskEmail(identifier),
+            referenceCode: verificationReference,
+        });
+        logAuditEvent({
+            actorUserId: user.id,
+            action: "auth.resend_verification.persistence_failed",
+            category: "auth",
+            status: "error",
+            targetType: "user",
+            targetId: user.id,
+            metadata: { emailMasked: maskEmail(identifier), referenceCode: verificationReference },
+        });
         return createAppErrorResponse(
-            "EMAIL_VERIFICATION_CODE_COOLDOWN",
-            "Please wait before requesting another code",
-            429,
-            { headers: { "Retry-After": String(verificationCode.cooldownSeconds) } }
+            "INTERNAL_ERROR",
+            "Could not prepare verification code",
+            503
         );
     }
 
@@ -128,9 +154,9 @@ export async function POST(req: Request) {
     try {
         const sendResult = await sendVerificationCodeEmail(
             identifier,
-            verificationCode.code,
+            verificationCode,
             EMAIL_VERIFICATION_EXPIRES_MINUTES,
-            verificationCode.referenceCode
+            verificationReference
         );
         emailSent = sendResult.sent;
     } catch (e) {
@@ -169,11 +195,11 @@ export async function POST(req: Request) {
         ok: true,
         sent: emailSent,
         cooldownSeconds: EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS,
-        referenceCode: verificationCode.referenceCode,
+        referenceCode: verificationReference,
     };
 
     if (!emailSent && process.env.NODE_ENV !== "production") {
-        responseBody.devCode = verificationCode.code;
+        responseBody.devCode = verificationCode;
     }
 
     return NextResponse.json(responseBody);

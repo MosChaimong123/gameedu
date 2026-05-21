@@ -428,12 +428,24 @@ describe("registerGameSocketHandlers integration", () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
 
     const reconnectedHost = await connectClient();
+    const hostReconnectedPromise = new Promise<{ players: Array<{ name: string }> }>((resolve) =>
+      reconnectedHost.once("host-reconnected", resolve)
+    );
+    const lobbyPlayersPromise = new Promise<{ players: Array<{ name: string }> }>((resolve) =>
+      reconnectedHost.once("player-joined", resolve)
+    );
+
     reconnectedHost.emit("reconnect-host", {
       pin: gameCreated.pin,
       reconnectToken: gameCreated.hostReconnectToken,
     });
 
-    await new Promise((resolve) => reconnectedHost.once("host-reconnected", resolve));
+    const hostReconnected = await hostReconnectedPromise;
+    expect(hostReconnected.players).toEqual([expect.objectContaining({ name: "Bob" })]);
+
+    const lobbyPlayers = await lobbyPlayersPromise;
+    expect(lobbyPlayers.players).toEqual([expect.objectContaining({ name: "Bob" })]);
+
     reconnectedHost.emit("start-game", { pin: gameCreated.pin });
     await new Promise((resolve) => setTimeout(resolve, 20));
 

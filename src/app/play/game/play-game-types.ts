@@ -131,7 +131,24 @@ export function getPlayerScoreValue(player: PlayerState, mode: PlayerMode): numb
 }
 
 export function sortPlayersForStandings(players: PlayerState[], mode: PlayerMode): PlayerState[] {
-    return [...players].sort((a, b) => getPlayerScoreValue(b, mode) - getPlayerScoreValue(a, mode))
+    return [...players].sort((a, b) => {
+        const scoreDiff = getPlayerScoreValue(b, mode) - getPlayerScoreValue(a, mode)
+        if (scoreDiff !== 0) return scoreDiff
+        return a.name.localeCompare(b.name)
+    })
+}
+
+export function getPlayerLiveRank(players: PlayerState[], player: PlayerState, mode: PlayerMode): number {
+    const myScore = getPlayerScoreValue(player, mode)
+    return players.filter((entry) => getPlayerScoreValue(entry, mode) > myScore).length + 1
+}
+
+export function findCurrentPlayer(
+    players: PlayerState[],
+    socketId: string | undefined,
+    fallbackName: string
+): PlayerState | undefined {
+    return players.find((p) => socketId && p.id === socketId) ?? players.find((p) => p.name === fallbackName)
 }
 
 /** เฟส C: กัน socket event ของ Gold/Crypto ไปรบกวน UI ขณะเล่น Negamon Battle */

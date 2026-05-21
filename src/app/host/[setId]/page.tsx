@@ -200,16 +200,6 @@ export default function HostLobbyPage() {
         const savedPin = sessionStorage.getItem(`host_pin_${setId}`)
         const savedHostToken = sessionStorage.getItem(hostTokenStorageKey)
 
-        if (savedPin && savedHostToken) {
-            console.log("Attempting to reconnect as host:", savedPin);
-            socket.emit("reconnect-host", { pin: savedPin, reconnectToken: savedHostToken })
-            window.requestAnimationFrame(() => {
-                setPin(savedPin)
-                // View update will trigger BGM change
-                setView("LOBBY") // Or PLAYING if server tells us
-            })
-        }
-
         // Listeners
         socket.on("game-created", (data: { pin: string, hostReconnectToken: string }) => {
             setPin(data.pin)
@@ -221,8 +211,9 @@ export default function HostLobbyPage() {
 
         socket.on(
             "host-reconnected",
-            (data: { status: "LOBBY" | "PLAYING" | "ENDED"; gameMode?: GameMode }) => {
+            (data: { status: "LOBBY" | "PLAYING" | "ENDED"; gameMode?: GameMode; players?: HostPlayer[] }) => {
                 setView(data.status === "LOBBY" ? "LOBBY" : data.status)
+                if (data.players) setPlayers(data.players)
                 if (data.gameMode === "NEGAMON_BATTLE") setSelectedMode("NEGAMON_BATTLE")
                 else if (data.gameMode === "CRYPTO_HACK") setSelectedMode("CRYPTO_HACK")
                 else if (data.gameMode === "GOLD_QUEST") setSelectedMode("GOLD_QUEST")
@@ -275,6 +266,17 @@ export default function HostLobbyPage() {
         socket.on("game-state-update", (data: { players: HostPlayer[] }) => {
             setPlayers(data.players)
         })
+
+        if (savedPin && savedHostToken) {
+            console.log("Attempting to reconnect as host:", savedPin);
+            socket.emit("reconnect-host", { pin: savedPin, reconnectToken: savedHostToken })
+            socket.emit("get-game-state", { pin: savedPin })
+            window.requestAnimationFrame(() => {
+                setPin(savedPin)
+                // View update will trigger BGM change
+                setView("LOBBY") // Or PLAYING if server tells us
+            })
+        }
 
         socket.on(
             "negamon-battle-state",
@@ -690,7 +692,7 @@ export default function HostLobbyPage() {
 
                         {uniqueLobbyPlayers.length > 0 ? (
                             <div className="flex flex-wrap items-center gap-3">
-                                {uniqueLobbyPlayers.slice(0, 8).map((player) => (
+                                {uniqueLobbyPlayers.map((player) => (
                                     <div
                                         key={`joined-player-${player.id}`}
                                         className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-800/80 px-3 py-2"
@@ -709,11 +711,6 @@ export default function HostLobbyPage() {
                                         </div>
                                     </div>
                                 ))}
-                                {uniqueLobbyPlayers.length > 8 && (
-                                    <div className="rounded-2xl border border-dashed border-slate-600 px-4 py-3 text-sm font-bold text-slate-300">
-                                        +{uniqueLobbyPlayers.length - 8} คน
-                                    </div>
-                                )}
                             </div>
                         ) : (
                             <div className="rounded-2xl border border-dashed border-slate-700 px-4 py-5 text-sm text-slate-500">

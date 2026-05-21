@@ -30,6 +30,8 @@ import {
     createNegamonPlayer,
     formatSocketErrorMessage,
     getPlayerScoreValue,
+    getPlayerLiveRank,
+    findCurrentPlayer,
     sortPlayersForStandings,
     isCryptoHackPlayer,
     isNegamonBattlePlayer,
@@ -226,12 +228,8 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
                 const others = data.players.filter((p) => p.name !== playerSession.name)
                 setOtherPlayers(others)
 
-                const me = data.players.find((p) => p.name === playerSession.name)
-                const sorted = [...data.players].sort(
-                    (a, b) =>
-                        getPlayerScoreValue(b, "NEGAMON_BATTLE") - getPlayerScoreValue(a, "NEGAMON_BATTLE")
-                )
-                const rank = sorted.findIndex((p) => p.name === playerSession.name) + 1
+                const me = findCurrentPlayer(data.players, socket.id, playerSession.name)
+                const rank = me ? getPlayerLiveRank(data.players, me, "NEGAMON_BATTLE") : 0
 
                 if (me && isNegamonBattlePlayer(me)) {
                     setPlayer((prev) => ({ ...prev, ...me, score: rank }))
@@ -239,12 +237,12 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
                 return
             }
 
-            const others = data.players.filter((p) => p.name !== playerSession.name)
+            const me = findCurrentPlayer(data.players, socket.id, playerSession.name)
+            const others = data.players.filter((p) => p.id !== me?.id)
             setOtherPlayers(others)
 
             const { hackState, passwordOptions } = data
 
-            const me = data.players.find((p) => p.name === playerSession.name)
             const isCrypto = me ? isCryptoHackPlayer(me) : false
             const newMode: PlayerMode = isCrypto ? "CRYPTO_HACK" : "GOLD_QUEST"
             const cryptoMe = me && isCryptoHackPlayer(me) ? me : null
@@ -310,11 +308,7 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
                 }
             }
 
-            const sorted = [...data.players].sort(
-                (a, b) => getPlayerScoreValue(b, newMode) - getPlayerScoreValue(a, newMode)
-            )
-
-            const rank = sorted.findIndex((p) => p.name === playerSession.name) + 1
+            const rank = me ? getPlayerLiveRank(data.players, me, newMode) : 0
 
             if (me) {
                 setPlayer((prev) => ({
@@ -341,17 +335,12 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
                 hasRequestedFirstQuestion.current = true
 
                 if (data.players?.length) {
-                    const me = data.players.find((p) => p.name === playerSession.name)
-                    const sorted = [...data.players].sort(
-                        (a, b) =>
-                            getPlayerScoreValue(b, "NEGAMON_BATTLE") -
-                            getPlayerScoreValue(a, "NEGAMON_BATTLE")
-                    )
-                    const rank = sorted.findIndex((p) => p.name === playerSession.name) + 1
+                    const me = findCurrentPlayer(data.players, socket.id, playerSession.name)
+                    const rank = me ? getPlayerLiveRank(data.players, me, "NEGAMON_BATTLE") : 0
                     if (me && isNegamonBattlePlayer(me)) {
                         setPlayer((prev) => ({ ...prev, ...me, score: rank }))
                     }
-                    setOtherPlayers(data.players.filter((p) => p.name !== playerSession.name))
+                    setOtherPlayers(data.players.filter((p) => p.id !== me?.id))
                 }
                 if (data.phase === "BETWEEN") {
                     setView("NEGAMON_BETWEEN")
@@ -499,6 +488,14 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
             if (pin) socket.emit("request-question", { pin })
         })
 
+        socket.on("player-gold-update", (data: { gold: number }) => {
+            if (skipLegacySocketHandlers()) return
+            setPlayer((prev) => {
+                if (isCryptoHackPlayer(prev) || isNegamonBattlePlayer(prev)) return prev
+                return { ...prev, gold: data.gold }
+            })
+        })
+
         socket.on("game-over", (data: { players: PlayerState[] }) => {
             stopBGM()
             play("game-over")
@@ -507,9 +504,9 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
             const sorted = sortPlayersForStandings(data.players, mode)
             setFinalStandings(sorted)
 
-            const me = sorted.find((p) => p.name === playerSession.name)
+            const me = findCurrentPlayer(sorted, socket.id, playerSession.name)
             if (me) {
-                const rank = sorted.findIndex((p) => p.name === playerSession.name) + 1
+                const rank = getPlayerLiveRank(sorted, me, mode)
                 if (isNegamonBattlePlayer(me)) {
                     setPlayer((prev) => ({ ...prev, ...me, score: rank }))
                 } else if (isCryptoHackPlayer(me)) {
@@ -602,6 +599,7 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
             socket.off("box-reveal")
             socket.off("hack-result")
             socket.off("selection-error")
+            socket.off("player-gold-update")
         }
         // This effect manages the socket subscription boundary. Setter and ref params are stable by contract.
         // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -322,7 +322,9 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         pin,
         gameMode: game.gameMode,
         status: game.status,
+        players: game.players,
       });
+      socket.emit("player-joined", { players: game.players });
 
       if (game.status === "PLAYING") {
         socket.emit("game-started", {
@@ -482,6 +484,8 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           gameMode: game.gameMode,
         });
         socket.emit("game-state-update", game.serialize());
+      } else if (game.status === "LOBBY") {
+        socket.emit("player-joined", { players: game.players });
       } else if (game.status === "ENDED") {
         socket.emit("game-over", { players: game.players });
       }

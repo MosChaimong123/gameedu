@@ -49,6 +49,14 @@ type SocketPlayerPayload = {
   score?: number;
 };
 
+type JoinClassroomPayload =
+  | string
+  | {
+      classId?: unknown;
+      studentId?: unknown;
+      studentCode?: unknown;
+    };
+
 type GameLike = {
   pin: string;
   hostId: string;
@@ -152,6 +160,26 @@ const defaultSettings: GameSettings = {
 
 function cleanOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function parseJoinClassroomPayload(payload: JoinClassroomPayload): {
+  classId?: string;
+  studentId?: string;
+  studentCode?: string;
+} {
+  if (typeof payload === "string") {
+    return { classId: cleanOptionalString(payload) };
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return {};
+  }
+
+  return {
+    classId: cleanOptionalString(payload.classId),
+    studentId: cleanOptionalString(payload.studentId),
+    studentCode: cleanOptionalString(payload.studentCode),
+  };
 }
 
 export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDeps): void {
@@ -611,11 +639,32 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
     });
     socket.on("use-interaction", (payload) => forwardPlayerGameEvent("use-interaction", payload));
 
-    socket.on("join-classroom", async (classId) => {
-      if (typeof classId !== "string" || classId.length === 0) return;
+    socket.on("join-classroom", async (payload: JoinClassroomPayload, ack?: (result: { ok: boolean }) => void) => {
+      const { classId, studentId: claimedStudentId, studentCode } = parseJoinClassroomPayload(payload);
+      if (!classId) {
+        ack?.({ ok: false });
+        return;
+      }
 
       const userId = await resolveSocketUserId(socket);
-      if (!userId || !(await canAccessClassroom(userId, classId))) {
+      let studentId: string | null = null;
+      const hasUserAccess = Boolean(userId && (await canAccessClassroom(userId, classId)));
+
+      if (hasUserAccess && userId) {
+        studentId = await resolveClassroomStudentMember(userId, classId);
+      } else if (studentCode && db.student) {
+        const student = await db.student.findFirst({
+          where: {
+            ...(claimedStudentId ? { id: claimedStudentId } : {}),
+            classId,
+            OR: getStudentLoginCodeVariants(studentCode).map((candidate) => ({ loginCode: candidate })),
+          },
+          select: { id: true, loginCode: true, name: true, nickname: true },
+        });
+        studentId = student?.id ?? null;
+      }
+
+      if (!hasUserAccess && !studentId) {
         auditLog({
           actorUserId: userId,
           action: "socket.classroom.join.denied",
@@ -624,13 +673,13 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           metadata: { socketId: socket.id },
         });
         socket.emit("error", { message: SOCKET_ERROR_UNAUTHORIZED_CLASSROOM_ACCESS });
+        ack?.({ ok: false });
         return;
       }
 
       socket.join(`classroom-${classId}`);
       joinedClassrooms.add(classId);
 
-      const studentId = await resolveClassroomStudentMember(userId, classId);
       registerClassroomPresence(classId, socket.id, studentId);
       broadcastClassroomPresence(io, classId);
 
@@ -641,6 +690,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         targetId: classId,
         metadata: { socketId: socket.id, studentId },
       });
+      ack?.({ ok: true });
     });
 
     socket.on("leave-classroom", (classId) => {

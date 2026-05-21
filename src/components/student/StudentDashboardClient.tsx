@@ -121,7 +121,9 @@ export function StudentDashboardClient({
     useClassroomPresence({
         classroomId: classroom.id,
         socket,
-        isConnected: canAccessBoard && isConnected,
+        isConnected,
+        studentId: liveStudent.id,
+        studentCode: liveStudent.loginCode,
         leaveOnUnmount: true,
     });
 

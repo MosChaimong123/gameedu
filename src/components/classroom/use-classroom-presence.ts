@@ -14,6 +14,8 @@ type UseClassroomPresenceArgs = {
     classroomId: string;
     socket: Socket | null;
     isConnected: boolean;
+    studentId?: string | null;
+    studentCode?: string | null;
     /** When false, the socket stays in the classroom room until disconnect (for parent dashboards). */
     leaveOnUnmount?: boolean;
 };
@@ -22,6 +24,8 @@ export function useClassroomPresence({
     classroomId,
     socket,
     isConnected,
+    studentId,
+    studentCode,
     leaveOnUnmount = true,
 }: UseClassroomPresenceArgs) {
     const [onlineStudentIds, setOnlineStudentIds] = useState<Set<string>>(() => new Set());
@@ -30,8 +34,6 @@ export function useClassroomPresence({
         if (!socket || !isConnected || !classroomId) {
             return;
         }
-
-        socket.emit("join-classroom", classroomId);
 
         const handleClassroomEvent = (payload: ClassroomPresencePayload) => {
             if (payload.type !== "PRESENCE_UPDATE") {
@@ -47,6 +49,11 @@ export function useClassroomPresence({
         };
 
         socket.on("classroom-event", handleClassroomEvent);
+        socket.emit("join-classroom", {
+            classId: classroomId,
+            studentId: studentId ?? undefined,
+            studentCode: studentCode ?? undefined,
+        });
 
         return () => {
             socket.off("classroom-event", handleClassroomEvent);
@@ -54,7 +61,7 @@ export function useClassroomPresence({
                 socket.emit("leave-classroom", classroomId);
             }
         };
-    }, [socket, isConnected, classroomId, leaveOnUnmount]);
+    }, [socket, isConnected, classroomId, studentId, studentCode, leaveOnUnmount]);
 
     return onlineStudentIds;
 }

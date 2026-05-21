@@ -168,6 +168,11 @@ describe("registerGameSocketHandlers integration", () => {
       socket.once("connect_error", reject);
     });
 
+  const joinClassroom = async (socket: ClientSocket, payload: unknown): Promise<{ ok: boolean }> =>
+    await new Promise((resolve) => {
+      socket.emit("join-classroom", payload, resolve);
+    });
+
   beforeEach(async () => {
     resetClassroomPresenceForTests();
     games = new Map();
@@ -544,8 +549,8 @@ describe("registerGameSocketHandlers integration", () => {
       teacher.on("classroom-event", onClassroomEvent);
     });
 
-    teacher.emit("join-classroom", "class-1");
-    student.emit("join-classroom", "class-1");
+    await joinClassroom(teacher, "class-1");
+    await joinClassroom(student, "class-1");
     outsider.emit("join-classroom", "class-1");
 
     const outsiderDenied = await new Promise<{ message: string }>((resolve) => outsider.once("error", resolve));
@@ -627,12 +632,60 @@ describe("registerGameSocketHandlers integration", () => {
     outsider.disconnect();
   });
 
+  it("marks login-code student portal sessions online without a linked user account", async () => {
+    studentFindFirst = async (args) => {
+      expect(args).toEqual({
+        where: {
+          id: "student-1",
+          classId: "class-1",
+          OR: expect.arrayContaining([{ loginCode: "STU123" }]),
+        },
+        select: { id: true, loginCode: true, name: true, nickname: true },
+      });
+      return {
+        id: "student-1",
+        loginCode: "STU123",
+        name: "Student One",
+        nickname: null,
+      };
+    };
+
+    const teacher = await connectClient("teacher-1");
+    const student = await connectClient();
+
+    const presenceUpdate = new Promise<{ type: string; data: { onlineStudentIds: string[] } }>((resolve) => {
+      const onClassroomEvent = (event: { type: string; data: { onlineStudentIds?: string[] } }) => {
+        if (event.type !== "PRESENCE_UPDATE") return;
+        if (event.data.onlineStudentIds?.includes("student-1")) {
+          teacher.off("classroom-event", onClassroomEvent);
+          resolve(event as { type: string; data: { onlineStudentIds: string[] } });
+        }
+      };
+      teacher.on("classroom-event", onClassroomEvent);
+    });
+
+    await joinClassroom(teacher, "class-1");
+    await joinClassroom(student, {
+      classId: "class-1",
+      studentId: "student-1",
+      studentCode: "STU123",
+    });
+
+    await expect(presenceUpdate).resolves.toEqual({
+      type: "PRESENCE_UPDATE",
+      data: { onlineStudentIds: ["student-1"] },
+    });
+
+    student.disconnect();
+    teacher.disconnect();
+  });
+
   it("rejects invalid classroom event types and point updates from non-teachers", async () => {
     const teacher = await connectClient("teacher-1");
     const student = await connectClient("student-user-1");
 
-    teacher.emit("join-classroom", "class-1");
-    student.emit("join-classroom", "class-1");
+    await joinClassroom(teacher, "class-1");
+    await joinClassroom(student, "class-1");
 
     student.emit("classroom-update", {
       classId: "class-1",

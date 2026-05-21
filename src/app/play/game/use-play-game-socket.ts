@@ -247,6 +247,7 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
             const me = data.players.find((p) => p.name === playerSession.name)
             const isCrypto = me ? isCryptoHackPlayer(me) : false
             const newMode: PlayerMode = isCrypto ? "CRYPTO_HACK" : "GOLD_QUEST"
+            const cryptoMe = me && isCryptoHackPlayer(me) ? me : null
 
             if (me && gameModeRef.current !== newMode) {
                 console.log(`Switching Game Mode: ${gameModeRef.current} -> ${newMode}`)
@@ -278,7 +279,16 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
                     }
                 }
             } else if (newMode === "CRYPTO_HACK") {
-                if (hackState === "PASSWORD_SELECTION") {
+                if (cryptoMe && !cryptoMe.password) {
+                    setView((v) => {
+                        if (v !== "PASSWORD_SELECTION") {
+                            console.log("Enforcing PASSWORD_SELECTION view")
+                            return "PASSWORD_SELECTION"
+                        }
+                        return v
+                    })
+                    hasRequestedFirstQuestion.current = false
+                } else if (hackState === "PASSWORD_SELECTION") {
                     setView((v) => {
                         if (v !== "PASSWORD_SELECTION") {
                             console.log("Enforcing PASSWORD_SELECTION view")
@@ -429,6 +439,7 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
 
             setPasswordOptions(resolveCryptoPasswordOptions(data.options))
             setView("PASSWORD_SELECTION")
+            hasRequestedFirstQuestion.current = false
         })
 
         socket.on("hack-options", (data: { targetId: string; options: string[]; hint?: string }) => {

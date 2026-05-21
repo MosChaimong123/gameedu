@@ -39,19 +39,45 @@ describe("CryptoHackEngine", () => {
     );
   });
 
-  it("starts hacking when all connected players selected and a waiting player disconnects", () => {
+  it("starts hacking as soon as two connected players have selected passwords", () => {
     const alice = mockSocket("alice-socket");
     const bob = mockSocket("bob-socket");
+    const charlie = mockSocket("charlie-socket");
+
+    engine.addPlayer({ name: "Alice", avatar: "" }, alice);
+    engine.addPlayer({ name: "Bob", avatar: "" }, bob);
+    engine.addPlayer({ name: "Charlie", avatar: "" }, charlie);
+    engine.startGame();
+
+    engine.handleEvent("select-password", { password: "Bitcoin" }, alice);
+    expect(io.roomEmit).not.toHaveBeenCalledWith("game-phase-change", { phase: "HACKING" });
+
+    engine.handleEvent("select-password", { password: "Ethereum" }, bob);
+
+    expect(io.roomEmit).toHaveBeenCalledWith("game-phase-change", { phase: "HACKING" });
+  });
+
+  it("allows a late joiner to choose a remaining password after hacking has started", () => {
+    const alice = mockSocket("alice-socket");
+    const bob = mockSocket("bob-socket");
+    const charlie = mockSocket("charlie-socket");
 
     engine.addPlayer({ name: "Alice", avatar: "" }, alice);
     engine.addPlayer({ name: "Bob", avatar: "" }, bob);
     engine.startGame();
 
     engine.handleEvent("select-password", { password: "Bitcoin" }, alice);
-    expect(io.roomEmit).not.toHaveBeenCalledWith("game-phase-change", { phase: "HACKING" });
+    engine.handleEvent("select-password", { password: "Ethereum" }, bob);
 
-    engine.handleDisconnect("bob-socket");
+    engine.addPlayer({ name: "Charlie", avatar: "" }, charlie);
+    expect(charlie.emit).toHaveBeenCalledWith(
+      "choose-password",
+      expect.objectContaining({ options: expect.any(Array) })
+    );
 
-    expect(io.roomEmit).toHaveBeenCalledWith("game-phase-change", { phase: "HACKING" });
+    engine.handleEvent("select-password", { password: "Dogecoin" }, charlie);
+
+    const player = engine.players.find((entry) => entry.name === "Charlie");
+    expect(player?.password).toBe("Dogecoin");
   });
 });

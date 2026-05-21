@@ -45,6 +45,17 @@ function streakReward(streak: number): number {
     return 5;
 }
 
+function buildLastCheckInGuard(studentId: string, lastCheckIn: Date | null) {
+    if (lastCheckIn) {
+        return { id: studentId, lastCheckIn };
+    }
+
+    return {
+        id: studentId,
+        OR: [{ lastCheckIn: null }, { lastCheckIn: { isSet: false } }],
+    };
+}
+
 export async function checkInStudent(
     code: string,
     deps: CheckInStudentDeps = { db, now: () => new Date() }
@@ -92,10 +103,7 @@ export async function checkInStudent(
 
     return deps.db.$transaction(async (tx) => {
         const updatedCount = await tx.student.updateMany({
-            where: {
-                id: student.id,
-                lastCheckIn: student.lastCheckIn ?? null,
-            },
+            where: buildLastCheckInGuard(student.id, student.lastCheckIn),
             data: {
                 lastCheckIn: now,
                 streak: newStreak,

@@ -74,7 +74,10 @@ describe("student quest ledger", () => {
     expect(mockStudentUpdateMany).toHaveBeenCalledWith({
       where: {
         id: "student-1",
-        dailyQuestsClaimed: { equals: null },
+        OR: [
+          { dailyQuestsClaimed: { equals: null } },
+          { dailyQuestsClaimed: { isSet: false } },
+        ],
       },
       data: {
         gold: { increment: 5 },

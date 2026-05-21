@@ -25,7 +25,18 @@ export type ClaimPassiveGoldResult =
         goldRate: number;
         newGold: number;
         lastGoldAt: string | null;
-      };
+    };
+
+function buildLastGoldAtGuard(studentId: string, lastGoldAt: Date | null) {
+    if (lastGoldAt) {
+        return { id: studentId, lastGoldAt };
+    }
+
+    return {
+        id: studentId,
+        OR: [{ lastGoldAt: null }, { lastGoldAt: { isSet: false } }],
+    };
+}
 
 export async function claimPassiveGold(
     code: string,
@@ -110,10 +121,7 @@ export async function claimPassiveGold(
 
     return deps.db.$transaction(async (tx) => {
         const updatedCount = await tx.student.updateMany({
-            where: {
-                id: student.id,
-                lastGoldAt: student.lastGoldAt ?? null,
-            },
+            where: buildLastGoldAtGuard(student.id, student.lastGoldAt),
             data: {
                 gold: { increment: goldEarned },
                 lastGoldAt: now,

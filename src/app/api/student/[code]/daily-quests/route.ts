@@ -29,6 +29,21 @@ import { recordEconomyTransaction } from "@/lib/services/student-economy/economy
 type QuestType = "daily" | "weekly" | "challenge";
 type ClaimField = "dailyQuestsClaimed" | "weeklyQuestsClaimed" | "challengeQuestsClaimed";
 
+function buildClaimFieldGuard(field: ClaimField, currentValue: unknown) {
+    if (currentValue == null) {
+        return {
+            OR: [
+                { [field]: { equals: null } },
+                { [field]: { isSet: false } },
+            ],
+        };
+    }
+
+    return {
+        [field]: { equals: currentValue },
+    };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function resolveStudent(code: string): Promise<any | null> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -82,7 +97,7 @@ async function persistQuestClaim(params: {
             where: {
                 id: student.id,
                 // Prisma JSON fields in `where` must use JsonFilter (`equals` / `not` / `isSet`)
-                [field]: { equals: student[field] ?? null },
+                ...buildClaimFieldGuard(field, student[field]),
             },
             data: {
                 gold: { increment: goldEarned },

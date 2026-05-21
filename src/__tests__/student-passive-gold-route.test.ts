@@ -84,6 +84,54 @@ describe("student passive gold route", () => {
     });
   });
 
+  it("awards passive gold when lastGoldAt has never been written in Mongo", async () => {
+    mockStudentFindFirst.mockResolvedValue({
+      id: "student-1",
+      classId: "class-1",
+      gold: 0,
+      equippedFrame: null,
+      createdAt: new Date("2026-04-05T08:00:00.000Z"),
+      lastGoldAt: null,
+      classroom: {
+        levelConfig: [{ name: "Bronze", minScore: 0, goldRate: 5000 }],
+        gamifiedSettings: {},
+        assignments: [],
+      },
+      submissions: [],
+    });
+    mockStudentUpdateMany.mockResolvedValue({ count: 1 });
+    mockStudentFindUniqueOrThrow.mockResolvedValue({
+      gold: 10000,
+      lastGoldAt: new Date("2026-04-05T10:00:00.000Z"),
+    });
+    mockEconomyTransactionCreate.mockResolvedValue({ id: "ledger-1" });
+
+    const { POST } = await import("@/app/api/student/[code]/claim-passive-gold/route");
+    vi.setSystemTime(new Date("2026-04-05T10:00:00.000Z"));
+
+    const response = await POST({} as Request, {
+      params: Promise.resolve({ code: "abc123" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      alreadyClaimed: false,
+      goldEarned: 10000,
+      newGold: 10000,
+    });
+    expect(mockStudentUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: "student-1",
+        OR: [{ lastGoldAt: null }, { lastGoldAt: { isSet: false } }],
+      },
+      data: {
+        gold: { increment: 10000 },
+        lastGoldAt: new Date("2026-04-05T10:00:00.000Z"),
+      },
+    });
+  });
+
   it("does not write a ledger row when a duplicate passive claim loses the lastGoldAt race", async () => {
     mockStudentFindFirst.mockResolvedValue({
       id: "student-1",

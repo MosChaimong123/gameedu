@@ -117,6 +117,50 @@ describe("student checkin route", () => {
     });
   });
 
+  it("records the first check-in when lastCheckIn is unset in Mongo", async () => {
+    mockStudentFindFirst.mockResolvedValue({
+      id: "student-1",
+      classId: "class-1",
+      gold: 0,
+      lastCheckIn: null,
+      streak: 0,
+      classroom: {
+        gamifiedSettings: {},
+      },
+    });
+    mockStudentUpdateMany.mockResolvedValue({ count: 1 });
+    mockStudentFindUniqueOrThrow.mockResolvedValue({ gold: 5, streak: 1 });
+    mockEconomyTransactionCreate.mockResolvedValue({ id: "ledger-1" });
+
+    const now = new Date("2026-04-07T08:00:00.000Z");
+    vi.setSystemTime(now);
+
+    const { POST } = await import("@/app/api/student/[code]/checkin/route");
+    const response = await POST({} as NextRequest, {
+      params: Promise.resolve({ code: "abc123" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      success: true,
+      goldEarned: 5,
+      streak: 1,
+      newGold: 5,
+    });
+    expect(mockStudentUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: "student-1",
+        OR: [{ lastCheckIn: null }, { lastCheckIn: { isSet: false } }],
+      },
+      data: {
+        lastCheckIn: now,
+        streak: 1,
+        gold: { increment: 5 },
+      },
+    });
+  });
+
   it("continues streak across Bangkok midnight even when less than 24 hours passed", async () => {
     const now = new Date("2026-04-06T17:10:00.000Z"); // 2026-04-07 00:10 Bangkok
     const lastCheckIn = new Date("2026-04-06T16:50:00.000Z"); // 2026-04-06 23:50 Bangkok

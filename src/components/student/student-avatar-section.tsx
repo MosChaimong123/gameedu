@@ -365,8 +365,7 @@ export function StudentAvatarSection({
                                 </p>
                                 {!alreadyCheckedIn ? (
                                     <p className="line-clamp-2 text-[10px] font-medium leading-tight text-emerald-600">
-                                        +{nextStreakReward}G{" "}
-                                        {t("studentCheckInPendingGold", { amount: "" }).replace(/\+?\d+G?\s*/, "")}
+                                        {t("studentCheckInPendingGold", { amount: String(nextStreakReward) })}
                                     </p>
                                 ) : (
                                     <p className="text-[10px] font-medium text-slate-500">{t("studentCheckInDone")}</p>

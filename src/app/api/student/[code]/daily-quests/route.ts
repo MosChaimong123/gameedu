@@ -114,21 +114,25 @@ async function persistQuestClaim(params: {
             select: { gold: true },
         });
 
-        await recordEconomyTransaction(tx, {
-            studentId: student.id,
-            classId: student.classId,
-            type: "earn",
-            source: "quest",
-            amount: goldEarned,
-            balanceBefore: updated.gold - goldEarned,
-            balanceAfter: updated.gold,
-            idempotencyKey: params.idempotencyKey,
-            metadata: {
-                questType: params.questType,
-                questId: params.questId,
-                ...params.metadata,
-            },
-        });
+        try {
+            await recordEconomyTransaction(tx, {
+                studentId: student.id,
+                classId: student.classId,
+                type: "earn",
+                source: "quest",
+                amount: goldEarned,
+                balanceBefore: updated.gold - goldEarned,
+                balanceAfter: updated.gold,
+                idempotencyKey: params.idempotencyKey,
+                metadata: {
+                    questType: params.questType,
+                    questId: params.questId,
+                    ...params.metadata,
+                },
+            });
+        } catch (error) {
+            console.error("[daily-quests] failed to record quest ledger", error);
+        }
 
         return { ok: true as const, newGold: updated.gold };
     });

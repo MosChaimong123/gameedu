@@ -155,4 +155,51 @@ describe("student quest ledger", () => {
       }),
     });
   });
+
+  it("still claims a quest when ledger recording fails", async () => {
+    mockStudentFindFirst.mockResolvedValue({
+      id: "student-1",
+      classId: "class-1",
+      loginCode: "abc123",
+      streak: 1,
+      lastCheckIn: null,
+      gold: 10,
+      inventory: [],
+      dailyQuestsClaimed: null,
+      weeklyQuestsClaimed: null,
+      challengeQuestsClaimed: null,
+      classroom: {
+        gamifiedSettings: {},
+      },
+      submissions: [],
+    });
+    mockStudentUpdateMany.mockResolvedValue({ count: 1 });
+    mockStudentFindUniqueOrThrow.mockResolvedValue({ gold: 15 });
+    mockEconomyTransactionCreate.mockRejectedValue(new Error("LEDGER_DOWN"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const { POST } = await import("@/app/api/student/[code]/daily-quests/route");
+    const request = {
+      json: vi.fn().mockResolvedValue({
+        questType: "daily",
+        questId: "quest_login",
+      }),
+    } as unknown as NextRequest;
+
+    const response = await POST(request, {
+      params: Promise.resolve({ code: "abc123" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      newGold: 15,
+      goldEarned: 5,
+    });
+    expect(consoleError).toHaveBeenCalledWith(
+      "[daily-quests] failed to record quest ledger",
+      expect.any(Error)
+    );
+    consoleError.mockRestore();
+  });
 });

@@ -107,4 +107,52 @@ describe("student quest ledger", () => {
       }),
     });
   });
+
+  it("records the quest ledger from the latest balance when passive gold races the claim", async () => {
+    mockStudentFindFirst.mockResolvedValue({
+      id: "student-1",
+      classId: "class-1",
+      loginCode: "abc123",
+      streak: 1,
+      lastCheckIn: null,
+      gold: 10,
+      inventory: [],
+      dailyQuestsClaimed: null,
+      weeklyQuestsClaimed: null,
+      challengeQuestsClaimed: null,
+      classroom: {
+        gamifiedSettings: {},
+      },
+      submissions: [],
+    });
+    mockStudentUpdateMany.mockResolvedValue({ count: 1 });
+    mockStudentFindUniqueOrThrow.mockResolvedValue({ gold: 115 });
+    mockEconomyTransactionCreate.mockResolvedValue({ id: "ledger-1" });
+
+    const { POST } = await import("@/app/api/student/[code]/daily-quests/route");
+    const request = {
+      json: vi.fn().mockResolvedValue({
+        questType: "daily",
+        questId: "quest_login",
+      }),
+    } as unknown as NextRequest;
+
+    const response = await POST(request, {
+      params: Promise.resolve({ code: "abc123" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      newGold: 115,
+      goldEarned: 5,
+    });
+    expect(mockEconomyTransactionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        amount: 5,
+        balanceBefore: 110,
+        balanceAfter: 115,
+      }),
+    });
+  });
 });

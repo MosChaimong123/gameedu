@@ -126,7 +126,7 @@ export async function checkInStudent(
             type: "earn",
             source: "checkin",
             amount: goldEarned,
-            balanceBefore: student.gold,
+            balanceBefore: updated.gold - goldEarned,
             balanceAfter: updated.gold,
             idempotencyKey: `checkin:${student.id}:${bangkokDateKey(now)}`,
             metadata: {

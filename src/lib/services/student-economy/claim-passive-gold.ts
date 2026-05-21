@@ -158,7 +158,7 @@ export async function claimPassiveGold(
             type: "earn",
             source: "passive_gold",
             amount: goldEarned,
-            balanceBefore: student.gold,
+            balanceBefore: updated.gold - goldEarned,
             balanceAfter: updated.gold,
             metadata: {
                 goldRate,

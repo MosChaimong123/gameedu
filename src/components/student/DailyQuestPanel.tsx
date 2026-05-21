@@ -26,7 +26,7 @@ export function DailyQuestPanel({ loginCode, onGoldChange }: DailyQuestPanelProp
     const [data, setData] = useState<AllQuestData | null>(null);
     const [loading, setLoading] = useState(true);
     const [claiming, setClaiming] = useState<string | null>(null);
-    const [toast, setToast] = useState<{ msg: string; gold: number } | null>(null);
+    const [toast, setToast] = useState<{ msg: string; gold?: number; tone?: "success" | "error" } | null>(null);
     const [activeTab, setActiveTab] = useState<QuestType>("daily");
 
     // Countdown to weekly reset
@@ -66,7 +66,12 @@ export function DailyQuestPanel({ loginCode, onGoldChange }: DailyQuestPanelProp
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ questId, questType }),
             });
-            if (!res.ok) return;
+            if (!res.ok) {
+                setToast({ msg: "รับรางวัลไม่สำเร็จ ลองรีเฟรชแล้วกดรับอีกครั้ง", tone: "error" });
+                setTimeout(() => setToast(null), 3000);
+                void fetchQuests();
+                return;
+            }
             const result = (await res.json()) as { ok: boolean; newGold: number };
             if (result.ok) {
                 setData((prev) => {
@@ -82,9 +87,12 @@ export function DailyQuestPanel({ loginCode, onGoldChange }: DailyQuestPanelProp
                     };
                 });
                 onGoldChange?.(result.newGold);
-                setToast({ msg: t("questClaimToast", { amount: String(goldReward) }), gold: goldReward });
+                setToast({ msg: t("questClaimToast", { amount: String(goldReward) }), gold: goldReward, tone: "success" });
                 setTimeout(() => setToast(null), 2500);
             }
+        } catch {
+            setToast({ msg: "เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง", tone: "error" });
+            setTimeout(() => setToast(null), 3000);
         } finally {
             setClaiming(null);
         }
@@ -181,7 +189,12 @@ export function DailyQuestPanel({ loginCode, onGoldChange }: DailyQuestPanelProp
                         initial={{ opacity: 0, y: -6 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
-                        className="rounded-2xl border-2 border-yellow-300 bg-yellow-50 px-3 py-2 text-center text-sm font-black text-yellow-700"
+                        className={cn(
+                            "rounded-2xl border-2 px-3 py-2 text-center text-sm font-black",
+                            toast.tone === "error"
+                                ? "border-rose-300 bg-rose-50 text-rose-700"
+                                : "border-yellow-300 bg-yellow-50 text-yellow-700"
+                        )}
                     >
                         🪙 {toast.msg}
                     </motion.div>

@@ -120,7 +120,7 @@ async function persistQuestClaim(params: {
             type: "earn",
             source: "quest",
             amount: goldEarned,
-            balanceBefore: student.gold,
+            balanceBefore: updated.gold - goldEarned,
             balanceAfter: updated.gold,
             idempotencyKey: params.idempotencyKey,
             metadata: {

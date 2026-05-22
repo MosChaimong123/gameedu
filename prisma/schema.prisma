@@ -34,6 +34,7 @@ model User {
   questionSets  QuestionSet[]
   folders       Folder[]
   omrQuizzes    OMRQuiz[]   @relation("TeacherOMRQuizzes")
+  teachingMedia TeachingMedia[]
 
   // User Preferences & Settings
   settings      Json?     @default("{\"theme\":\"light\",\"sfxEnabled\":true,\"bgmEnabled\":true,\"language\":\"th\"}")
@@ -46,6 +47,28 @@ model User {
   billingProvider String?              // Active PSP: stripe, omise, two_c_two_p, thai_mock, ...
   billingExternalCustomerId String?    // Customer/account id from non-Stripe PSP when applicable
 
+}
+
+model TeachingMedia {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  ownerUserId String   @db.ObjectId
+  ownerUser   User     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  type        String   // file, image, video, youtube, link
+  title       String
+  description String?
+  url         String?
+  name        String?
+  mimeType    String?
+  size        Int?
+  youtubeId   String?
+  linkUrl     String?
+  tags        String[] @default([])
+  source      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([ownerUserId, type])
+  @@index([ownerUserId, createdAt])
 }
 
 model BillingProviderEvent {

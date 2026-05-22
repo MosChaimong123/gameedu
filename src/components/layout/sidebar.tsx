@@ -15,6 +15,7 @@ import {
     Settings,
     UserCircle,
     Sparkles,
+    Library,
 } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { isOmrDashboardEnabled } from "@/lib/omr-dashboard-enabled"
@@ -23,6 +24,7 @@ import { BrandLogo } from "@/components/layout/brand-logo"
 const navItems = [
     { icon: LayoutDashboard, labelKey: "dashboard", href: "/dashboard" },
     { icon: BookOpen, labelKey: "mySets", href: "/dashboard/my-sets" },
+    { icon: Library, labelKey: "mediaLibrary", href: "/dashboard/media-library" },
     { icon: Users, labelKey: "activeClasses", href: "/dashboard/classrooms" },
     { icon: BarChart3, labelKey: "viewReports", href: "/dashboard/reports" },
     { icon: Camera, labelKey: "omrScanner", href: "/dashboard/omr" },

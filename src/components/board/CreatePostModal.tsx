@@ -8,8 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Image as ImageIcon, Send, X, Link as LinkIcon, FileText, Youtube, ListTodo, Plus as PlusIcon, Upload, Loader2, Video } from "lucide-react";
+import { Image as ImageIcon, Send, X, Link as LinkIcon, FileText, Youtube, ListTodo, Plus as PlusIcon, Upload, Loader2, Video, Library, Search } from "lucide-react";
 import { createBoardPost } from "@/lib/actions/board-actions";
+import {
+    createTeachingMedia,
+    listTeachingMedia,
+    type TeachingMediaItem,
+} from "@/lib/actions/teaching-media-actions";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { getLocalizedErrorMessageFromResponse } from "@/lib/ui-error-messages";
@@ -50,6 +55,7 @@ interface CreatePostModalProps {
     onOpenChange: (open: boolean) => void;
     boardId: string;
     classId?: string;
+    canUseMediaLibrary?: boolean;
     onPostCreated?: (post: CreatedPost) => void;
 }
 
@@ -72,7 +78,7 @@ const BOARD_UPLOAD_ERR_KEYS: Partial<Record<AppErrorCode, string>> = {
 };
 
 export function CreatePostModal({
-    open, onOpenChange, boardId, classId, onPostCreated
+    open, onOpenChange, boardId, classId, canUseMediaLibrary = false, onPostCreated
 }: CreatePostModalProps) {
     const { t, language } = useLanguage();
     const [type, setType] = useState<PostType>("file");
@@ -88,6 +94,7 @@ export function CreatePostModal({
     const [pollQuestion, setPollQuestion] = useState("");
     const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
     const [albumUrls, setAlbumUrls] = useState<string[]>([""]);
+    const [selectedLibraryFiles, setSelectedLibraryFiles] = useState<Array<{ url: string; name: string }>>([]);
     
     // Local file states
     const [selectedBoardFiles, setSelectedBoardFiles] = useState<File[]>([]);
@@ -100,6 +107,10 @@ export function CreatePostModal({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploadPhase, setUploadPhase] = useState<BoardUploadProgress | null>(null);
     const [albumPreviewUrls, setAlbumPreviewUrls] = useState<string[]>([]);
+    const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
+    const [mediaItems, setMediaItems] = useState<TeachingMediaItem[]>([]);
+    const [mediaQuery, setMediaQuery] = useState("");
+    const [mediaLoading, setMediaLoading] = useState(false);
     const uploadAbortRef = useRef<AbortController | null>(null);
     const { toast } = useToast();
 
@@ -150,12 +161,86 @@ export function CreatePostModal({
         });
     };
 
+    const getLibraryType = () => {
+        if (type === "album") return "image";
+        return type;
+    };
+
+    const loadMediaLibrary = async () => {
+        if (!canUseMediaLibrary) return;
+        setMediaLoading(true);
+        try {
+            const items = await listTeachingMedia({
+                type: getLibraryType(),
+                query: mediaQuery,
+                limit: 80,
+            });
+            setMediaItems(items);
+        } catch {
+            toast({ variant: "destructive", title: t("error"), description: "โหลดคลังสื่อไม่สำเร็จ" });
+        } finally {
+            setMediaLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (mediaLibraryOpen) {
+            void loadMediaLibrary();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mediaLibraryOpen, type]);
+
+    const rememberMedia = async (media: {
+        type: string;
+        title: string;
+        url?: string;
+        name?: string;
+        mimeType?: string;
+        size?: number;
+        youtubeId?: string;
+        linkUrl?: string;
+    }) => {
+        if (!canUseMediaLibrary) return;
+        try {
+            await createTeachingMedia({ ...media, source: "board" });
+        } catch {
+            // Posting should never fail just because saving to the reusable library failed.
+        }
+    };
+
+    const applyLibraryItem = (item: TeachingMediaItem) => {
+        if (item.type === "file" && item.url) {
+            setSelectedLibraryFiles((prev) => [
+                ...prev,
+                { url: item.url!, name: item.name || item.title || t("boardDefaultFileName") },
+            ]);
+            setSelectedBoardFiles([]);
+            setType("file");
+        } else if (item.type === "image" && item.url) {
+            setAlbumUrls((prev) => [...prev.filter((url) => url.trim()), item.url!]);
+            setType("album");
+        } else if (item.type === "video" && item.url) {
+            setVideoUrl(item.url);
+            setSelectedVideo(null);
+            setType("video");
+        } else if (item.type === "youtube" && item.youtubeId) {
+            setYoutubeUrl(`https://youtu.be/${item.youtubeId}`);
+            setType("youtube");
+        } else if (item.type === "link" && item.linkUrl) {
+            setLinkUrl(item.linkUrl);
+            setType("link");
+        }
+        setMediaLibraryOpen(false);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (type === "file" && selectedBoardFiles.length === 0 && !fileUrl.trim()) {
-            toast({ variant: "destructive", title: t("error"), description: t("boardNeedFileOrLink") });
-            return;
+            if (selectedLibraryFiles.length === 0) {
+                toast({ variant: "destructive", title: t("error"), description: t("boardNeedFileOrLink") });
+                return;
+            }
         }
         if (type === "video" && !selectedVideo && !videoUrl.trim()) {
             toast({ variant: "destructive", title: t("error"), description: t("boardNeedVideoOrLink") });
@@ -180,7 +265,7 @@ export function CreatePostModal({
 
             if (type === "link") data.linkUrl = linkUrl.trim();
             if (type === "file") {
-                const attachedFiles: Array<{ url: string; name: string }> = [];
+                const attachedFiles: Array<{ url: string; name: string }> = [...selectedLibraryFiles];
                 if (selectedBoardFiles.length > 0) {
                     const uploads = await uploadMany(selectedBoardFiles);
                     for (let i = 0; i < uploads.length; i += 1) {
@@ -190,9 +275,23 @@ export function CreatePostModal({
                             url: uploadRes.url,
                             name: uploadRes.originalFileName ?? uploadRes.fileName ?? file.name,
                         });
+                        await rememberMedia({
+                            type: uploadRes.type?.startsWith("image/") ? "image" : "file",
+                            title: uploadRes.originalFileName ?? uploadRes.fileName ?? file.name,
+                            url: uploadRes.url,
+                            name: uploadRes.originalFileName ?? uploadRes.fileName ?? file.name,
+                            mimeType: uploadRes.type,
+                            size: uploadRes.size,
+                        });
                     }
                 } else if (fileUrl.trim()) {
                     attachedFiles.push({
+                        url: fileUrl.trim(),
+                        name: t("boardDefaultFileName"),
+                    });
+                    await rememberMedia({
+                        type: "file",
+                        title: title.trim() || t("boardDefaultFileName"),
                         url: fileUrl.trim(),
                         name: t("boardDefaultFileName"),
                     });
@@ -207,9 +306,23 @@ export function CreatePostModal({
                     const uploadRes = await uploadFile(selectedVideo);
                     data.videoUrl = uploadRes.url;
                     data.videoName = uploadRes.originalFileName ?? uploadRes.fileName;
+                    await rememberMedia({
+                        type: "video",
+                        title: uploadRes.originalFileName ?? uploadRes.fileName ?? selectedVideo.name,
+                        url: uploadRes.url,
+                        name: uploadRes.originalFileName ?? uploadRes.fileName ?? selectedVideo.name,
+                        mimeType: uploadRes.type,
+                        size: uploadRes.size,
+                    });
                 } else {
                     data.videoUrl = videoUrl.trim();
                     data.videoName = t("boardDefaultVideoName");
+                    await rememberMedia({
+                        type: "video",
+                        title: title.trim() || t("boardDefaultVideoName"),
+                        url: videoUrl.trim(),
+                        name: t("boardDefaultVideoName"),
+                    });
                 }
                 if (!data.videoUrl) throw new Error(t("boardNeedVideoOrLink"));
             }
@@ -217,6 +330,11 @@ export function CreatePostModal({
                 const youtubeId = extractYoutubeId(youtubeUrl);
                 if (youtubeId) {
                     data.youtubeId = youtubeId;
+                    await rememberMedia({
+                        type: "youtube",
+                        title: title.trim() || "YouTube",
+                        youtubeId,
+                    });
                 }
             }
             if (type === "poll") {
@@ -228,8 +346,27 @@ export function CreatePostModal({
                 if (selectedFiles.length > 0) {
                     const uploads = await uploadMany(selectedFiles);
                     uploadedUrls.push(...uploads.map((uploadRes) => uploadRes.url));
+                    for (let i = 0; i < uploads.length; i += 1) {
+                        const uploadRes = uploads[i]!;
+                        const file = selectedFiles[i]!;
+                        await rememberMedia({
+                            type: "image",
+                            title: uploadRes.originalFileName ?? uploadRes.fileName ?? file.name,
+                            url: uploadRes.url,
+                            name: uploadRes.originalFileName ?? uploadRes.fileName ?? file.name,
+                            mimeType: uploadRes.type,
+                            size: uploadRes.size,
+                        });
+                    }
                 }
                 data.albumImages = uploadedUrls;
+            }
+            if (type === "link" && data.linkUrl) {
+                await rememberMedia({
+                    type: "link",
+                    title: title.trim() || data.linkUrl,
+                    linkUrl: data.linkUrl,
+                });
             }
 
             const post = await createBoardPost(data);
@@ -248,6 +385,7 @@ export function CreatePostModal({
             setAlbumUrls([""]);
             setSelectedBoardFiles([]);
             setSelectedFiles([]);
+            setSelectedLibraryFiles([]);
             setSelectedColor("default");
             onOpenChange(false);
             
@@ -323,6 +461,108 @@ export function CreatePostModal({
                     ))}
                 </div>
 
+                {canUseMediaLibrary && type !== "poll" && (
+                    <div className="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-purple-50 p-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="rounded-xl bg-white p-2 text-indigo-600 shadow-sm">
+                                    <Library className="h-4 w-4" />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-black text-slate-800">คลังสื่อการสอน</p>
+                                    <p className="text-[10px] font-medium text-slate-500">ดึงสื่อเดิมมาใช้ซ้ำได้ทันที</p>
+                                </div>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setMediaLibraryOpen((value) => !value)}
+                                className="rounded-xl border-indigo-200 bg-white font-bold text-indigo-700 hover:bg-indigo-50"
+                            >
+                                <Library className="mr-1.5 h-4 w-4" />
+                                {mediaLibraryOpen ? "ซ่อนคลัง" : "เลือกจากคลัง"}
+                            </Button>
+                        </div>
+
+                        {mediaLibraryOpen && (
+                            <div className="mt-3 space-y-3">
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                        <Input
+                                            value={mediaQuery}
+                                            onChange={(event) => setMediaQuery(event.target.value)}
+                                            onKeyDown={(event) => {
+                                                if (event.key === "Enter") {
+                                                    event.preventDefault();
+                                                    void loadMediaLibrary();
+                                                }
+                                            }}
+                                            placeholder="ค้นหาชื่อสื่อหรือแท็ก..."
+                                            className="rounded-xl border-indigo-100 bg-white pl-9"
+                                        />
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => void loadMediaLibrary()}
+                                        className="rounded-xl bg-white"
+                                        disabled={mediaLoading}
+                                    >
+                                        {mediaLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "ค้นหา"}
+                                    </Button>
+                                </div>
+
+                                <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+                                    {mediaLoading ? (
+                                        <div className="rounded-xl bg-white/70 p-4 text-center text-xs font-bold text-slate-500">
+                                            กำลังโหลดคลังสื่อ...
+                                        </div>
+                                    ) : mediaItems.length === 0 ? (
+                                        <div className="rounded-xl border border-dashed border-indigo-100 bg-white/70 p-4 text-center">
+                                            <p className="text-xs font-black text-slate-600">ยังไม่มีสื่อประเภทนี้ในคลัง</p>
+                                            <p className="mt-1 text-[10px] text-slate-400">อัปโหลดหรือโพสต์ครั้งนี้แล้วระบบจะบันทึกไว้ให้</p>
+                                        </div>
+                                    ) : (
+                                        mediaItems.map((item) => (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                onClick={() => applyLibraryItem(item)}
+                                                className="flex w-full items-center gap-3 rounded-xl border border-white bg-white/90 p-3 text-left shadow-sm transition hover:border-indigo-200 hover:bg-white"
+                                            >
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                                                    {item.type === "youtube" ? (
+                                                        <Youtube className="h-5 w-5" />
+                                                    ) : item.type === "link" ? (
+                                                        <LinkIcon className="h-5 w-5" />
+                                                    ) : item.type === "video" ? (
+                                                        <Video className="h-5 w-5" />
+                                                    ) : item.type === "image" ? (
+                                                        <ImageIcon className="h-5 w-5" />
+                                                    ) : (
+                                                        <FileText className="h-5 w-5" />
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-xs font-black text-slate-800">{item.title}</p>
+                                                    <p className="truncate text-[10px] text-slate-400">
+                                                        {item.name || item.linkUrl || item.url || item.youtubeId || "สื่อในคลัง"}
+                                                    </p>
+                                                </div>
+                                                <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-600">
+                                                    ใช้
+                                                </span>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div className="flex-1 overflow-y-auto pr-2 space-y-4 py-2 custom-scrollbar">
                     <div className="space-y-2">
                         <Label htmlFor="title" className="text-xs font-bold uppercase tracking-wider text-slate-400">{t("boardFieldTitleOptional")}</Label>
@@ -380,6 +620,29 @@ export function CreatePostModal({
                                 }}
                             />
                             <div className="space-y-2">
+                                {selectedLibraryFiles.map((file, index) => (
+                                    <div
+                                        key={`${file.url}-${index}`}
+                                        className="flex items-center gap-2 rounded-xl border border-purple-100 bg-purple-50 px-3 py-2 text-purple-700"
+                                    >
+                                        <Library className="h-5 w-5 shrink-0" />
+                                        <span className="min-w-0 flex-1 truncate text-sm font-bold">{file.name}</span>
+                                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-purple-500">
+                                            คลัง
+                                        </span>
+                                        <button
+                                            type="button"
+                                            className="rounded-lg p-1 text-purple-400 hover:bg-purple-100 hover:text-red-500"
+                                            onClick={() =>
+                                                setSelectedLibraryFiles((prev) =>
+                                                    prev.filter((_, fileIndex) => fileIndex !== index)
+                                                )
+                                            }
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                ))}
                                 {selectedBoardFiles.map((file, index) => (
                                     <div
                                         key={`${file.name}-${file.size}-${index}`}

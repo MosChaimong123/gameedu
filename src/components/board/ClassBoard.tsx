@@ -184,6 +184,7 @@ export function ClassBoard({ classId, studentId, userId, isTeacher }: ClassBoard
                     onOpenChange={setShowCreateModal}
                     boardId={board.id}
                     classId={classId}
+                    canUseMediaLibrary={Boolean(isTeacher)}
                     onPostCreated={handlePostCreated}
                 />
             )}

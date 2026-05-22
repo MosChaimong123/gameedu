@@ -754,6 +754,7 @@ const englishPack = {
         refresh: "Refresh",
         dashboard: "Dashboard",
         mySets: "My Sets",
+        mediaLibrary: "Media Library",
         discover: "Discover",
         market: "Market",
         blooks: "Blooks",

@@ -11,6 +11,8 @@ export type BoardUploadResult = {
     url: string;
     originalFileName?: string;
     fileName?: string;
+    size?: number;
+    type?: string;
 };
 
 export async function defaultBoardFileUpload(

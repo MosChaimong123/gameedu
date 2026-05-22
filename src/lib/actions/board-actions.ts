@@ -434,7 +434,14 @@ export async function deleteBoardPost(postId: string) {
 
     const mediaUrls = collectBoardPostMediaUrls(post);
     await db.boardPost.delete({ where: { id: postId } });
-    await deleteBoardAssetsFromR2(mediaUrls);
+    const reusableMedia = mediaUrls.length
+        ? await db.teachingMedia.findMany({
+              where: { OR: mediaUrls.map((url) => ({ url })) },
+              select: { url: true },
+          })
+        : [];
+    const reusableUrls = new Set(reusableMedia.map((media) => media.url).filter(Boolean));
+    await deleteBoardAssetsFromR2(mediaUrls.filter((url) => !reusableUrls.has(url)));
     return { success: true };
 }
 

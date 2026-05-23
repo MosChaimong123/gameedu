@@ -26,9 +26,12 @@ import { BattleHistoryPanel } from "@/components/negamon/BattleHistoryPanel";
 import { BattleItemBagPanel, BattlePrepDialog } from "@/components/negamon/battle-inventory-ui";
 import type { BattleTabProps, Opponent } from "@/components/negamon/battle-tab.types";
 import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
+import { NegamonLiteBattleArena } from "@/components/negamon/NegamonLiteBattleArena";
 import { buildBasicAttackMove } from "@/lib/negamon-basic-move";
 import { getMoveEnergyCost } from "@/lib/negamon-energy";
 import { sanitizeLoadoutAgainstInventory, validateBattleLoadout } from "@/lib/battle-loadout";
+import type { NegamonLiteBattleState, NegamonLiteValidChoice } from "@/lib/negamon-lite";
+import { isNegamonLiteBattleEnabled } from "@/lib/negamon-lite/feature-flag";
 
 function fighterHudCombatStats(f: BattleFighter) {
     return {
@@ -598,6 +601,11 @@ function pickAutoMoveId(fighter: BattleFighter): string {
 
 // ── Battle replay ─────────────────────────────────────────────
 
+function LegacyBattleReplayRemoved() {
+    return null;
+}
+
+/*
 function BattleReplay({
     result,
     myId,
@@ -846,6 +854,8 @@ function BattleReplay({
         </div>
     );
 }
+
+*/
 
 // ── Interactive Battle (Phase 3 / 4) ─────────────────────────
 
@@ -1524,13 +1534,19 @@ export function BattleTab({
     const [opponents, setOpponents] = useState<Opponent[]>([]);
     const [loadingOpponents, setLoadingOpponents] = useState(true);
     const [challenging, setChallenging] = useState<string | null>(null);
-    const [result, setResult] = useState<BattleResult | null>(null);
     const [interactiveFighters, setInteractiveFighters] = useState<{
         player: BattleFighter;
         opponent: BattleFighter;
         defenderId: string;
         sessionId: string;
         challengerLoadout: string[];
+    } | null>(null);
+    const [liteSession, setLiteSession] = useState<{
+        defenderId: string;
+        sessionId: string;
+        choiceRequestId: string;
+        state: NegamonLiteBattleState;
+        validChoices: NegamonLiteValidChoice[];
     } | null>(null);
     const [prepOpen, setPrepOpen] = useState(false);
     const [prepTargetId, setPrepTargetId] = useState<string | null>(null);
@@ -1563,37 +1579,70 @@ export function BattleTab({
         setChallenging(defenderId);
         setError(null);
         try {
-            const res = await fetch(`/api/classrooms/${classId}/battle`, {
+            const useLiteBattle = isNegamonLiteBattleEnabled();
+            const res = await fetch(
+                useLiteBattle
+                    ? `/api/classrooms/${classId}/battle/lite/start`
+                    : `/api/classrooms/${classId}/battle`,
+                {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     challengerId: myStudentId,
                     defenderId,
                     studentCode: myStudentCode,
-                    mode: "beginInteractive",
-                    challengerLoadout,
+                    ...(useLiteBattle
+                        ? {}
+                        : {
+                              mode: "beginInteractive",
+                              challengerLoadout,
+                          }),
                 }),
-            });
+                }
+            );
             const data = (await res.json()) as {
                 sessionId?: string;
+                choiceRequestId?: string;
+                state?: NegamonLiteBattleState;
+                validChoices?: NegamonLiteValidChoice[];
                 player?: BattleFighter;
                 opponent?: BattleFighter;
                 error?: string;
                 code?: string;
                 retryAfterSeconds?: number;
             };
-            if (!res.ok || !data.player || !data.opponent || !data.sessionId) {
+            if (!res.ok || !data.sessionId) {
                 setError(battleStartErrorMessage(data.error, t, data.retryAfterSeconds));
                 return;
             }
             setLastAttackLoadout(challengerLoadout);
-            setInteractiveFighters({
-                player: data.player,
-                opponent: data.opponent,
-                defenderId,
-                sessionId: data.sessionId,
-                challengerLoadout,
-            });
+            if (useLiteBattle) {
+                if (!data.state || !data.choiceRequestId) {
+                    setError(battleStartErrorMessage(data.error, t, data.retryAfterSeconds));
+                    return;
+                }
+                setLiteSession({
+                    defenderId,
+                    sessionId: data.sessionId,
+                    choiceRequestId: data.choiceRequestId,
+                    state: data.state,
+                    validChoices: data.validChoices ?? [],
+                });
+                setInteractiveFighters(null);
+            } else {
+                if (!data.player || !data.opponent) {
+                    setError(battleStartErrorMessage(data.error, t, data.retryAfterSeconds));
+                    return;
+                }
+                setInteractiveFighters({
+                    player: data.player,
+                    opponent: data.opponent,
+                    defenderId,
+                    sessionId: data.sessionId,
+                    challengerLoadout,
+                });
+                setLiteSession(null);
+            }
             setPrepOpen(false);
             setPrepTargetId(null);
         } finally {
@@ -1613,8 +1662,8 @@ export function BattleTab({
     }
 
     function handleReset() {
-        setResult(null);
         setInteractiveFighters(null);
+        setLiteSession(null);
         setView("fight");
     }
 
@@ -1642,7 +1691,7 @@ export function BattleTab({
                 <div className="flex overflow-hidden rounded-xl border-2 border-rose-200 bg-white text-xs font-black">
                     <button
                         type="button"
-                        onClick={() => { setView("fight"); setResult(null); setError(null); }}
+                        onClick={() => { setView("fight"); setError(null); }}
                         className={cn(
                             "px-3 py-1.5 transition-colors",
                             view === "fight"
@@ -1654,7 +1703,7 @@ export function BattleTab({
                     </button>
                     <button
                         type="button"
-                        onClick={() => { setView("history"); setResult(null); }}
+                        onClick={() => { setView("history"); }}
                         className={cn(
                             "px-3 py-1.5 transition-colors",
                             view === "history"
@@ -1683,7 +1732,25 @@ export function BattleTab({
                         exit={{ opacity: 0, x: -10 }}
                         transition={{ duration: 0.15 }}
                     >
-                        {interactiveFighters ? (
+                        {liteSession ? (
+                            <NegamonLiteBattleArena
+                                classId={classId}
+                                challengerId={myStudentId}
+                                defenderId={liteSession.defenderId}
+                                studentCode={myStudentCode}
+                                sessionId={liteSession.sessionId}
+                                initialChoiceRequestId={liteSession.choiceRequestId}
+                                initialState={liteSession.state}
+                                initialValidChoices={liteSession.validChoices}
+                                onFinish={(final) => {
+                                    setHistoryRefreshKey((k) => k + 1);
+                                    if (final.winnerId === myStudentId) {
+                                        onGoldChange?.(currentGold + final.goldReward);
+                                    }
+                                }}
+                                onReset={handleReset}
+                            />
+                        ) : interactiveFighters ? (
                             <InteractiveBattle
                                 initialPlayer={interactiveFighters.player}
                                 initialOpponent={interactiveFighters.opponent}
@@ -1696,8 +1763,6 @@ export function BattleTab({
                                 onFinish={handleInteractiveFinish}
                                 onReset={handleReset}
                             />
-                        ) : result ? (
-                            <BattleReplay result={result} myId={myStudentId} onReset={handleReset} />
                         ) : loadingOpponents ? (
                             <div className="space-y-2">
                                 {[1, 2, 3].map((i) => (

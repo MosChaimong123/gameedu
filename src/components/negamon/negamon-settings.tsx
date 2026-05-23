@@ -331,9 +331,14 @@ export function NegamonSettingsDialog({
                 if (!res.ok) {
                     const message = await getLocalizedErrorMessageFromResponse(
                         res,
-                        "createSetFailTryAgain",
+                        "negamonSettingsSaveFailedDescription",
                         t,
-                        language
+                        language,
+                        {
+                            overrideTranslationKeys: {
+                                FORBIDDEN: "negamonSettingsSaveForbiddenDescription",
+                            },
+                        }
                     );
                     throw new Error(message);
                 }
@@ -345,7 +350,8 @@ export function NegamonSettingsDialog({
             } catch (error) {
                 const message = error instanceof Error ? error.message : t("toastGenericError");
                 toast({
-                    title: message,
+                    title: t("negamonSettingsSaveFailedTitle"),
+                    description: message,
                     variant: "destructive",
                 });
             }

@@ -31,6 +31,10 @@ export const thaiPack = {
         hostNegamonIdentityStartBack: "กลับไปล็อบบี้",
         hostNegamonIdentityStartAnyway: "เริ่มต่อไป",
         hostNegamonBattleDisabled: "โหมด Negamon Battle ปิดชั่วคราว — โปรดใช้โหมดอื่นก่อน",
+        negamonSettingsSaveFailedTitle: "บันทึกการตั้งค่า Negamon ไม่สำเร็จ",
+        negamonSettingsSaveFailedDescription: "กรุณาลองอีกครั้ง หากยังไม่สำเร็จให้รีเฟรชหน้าห้องเรียนแล้วลองใหม่",
+        negamonSettingsSaveForbiddenDescription:
+            "คุณไม่มีสิทธิ์เปลี่ยนการตั้งค่า Negamon ของห้องนี้ โปรดตรวจสอบว่าเข้าสู่ระบบด้วยบัญชีเจ้าของห้องเรียน",
         boardLoading: "กำลังโหลดกระดานชั้นเรียน...",
         boardRoomTitle: "กระดานชั้นเรียน",
         boardRoomSubtitle: "พื้นที่กลางสำหรับประกาศ ไอเดีย และโพสต์ที่เป็นประโยชน์",
@@ -1846,6 +1850,10 @@ const englishPack = {
         negamonSettingsConfirmStripAssignments:
             "Saving will remove assigned monsters for {count} students because their species are no longer allowed.\n\nContinue?",
         negamonSettingsToastSaved: "Saved Negamon settings",
+        negamonSettingsSaveFailedTitle: "Could not save Negamon settings",
+        negamonSettingsSaveFailedDescription: "Please try again. If this keeps happening, refresh the classroom page.",
+        negamonSettingsSaveForbiddenDescription:
+            "You do not have permission to change Negamon settings for this classroom. Make sure you are signed in as the classroom owner.",
         negamonBattleLauncherCta: "Start Negamon Battle",
         negamonBattleLauncherDialogTitle: "Choose a question set",
         negamonBattleLauncherDialogDesc:

@@ -195,7 +195,7 @@ Tasks:
 - [x] Refresh inventory after consumed or granted items
 - [x] Refresh history after reward audit entry
 - [x] Add empty, blocked, duplicate, and level-up states
-- [ ] Verify mobile layout
+- [x] Verify mobile layout
 
 Exit criteria:
 
@@ -209,10 +209,12 @@ Phase 20 implementation notes:
 - Reward item grants are applied through `GameInventoryChange` on the dashboard patch path; consumed battle loadout items continue through the existing consumable-spent callback.
 - Battle history refresh is triggered when final reward arrives, so the battle history panel refetches the latest sessions.
 - Inline final battle summary now prefers V2 `reward.gold` and `reward.exp` over legacy `goldReward` when present.
+- `RewardResultModal` now covers blocked, empty, item-grant, multi-level-up, and skill-unlock states.
+- Reward modal is constrained with `max-h`/scrolling and compact spacing for mobile viewports.
 
 Remaining follow-up:
 
-- Run browser/mobile visual QA for reward modal placement and final-state layout after a deployed build is available.
+- Browser/mobile visual QA should be repeated after any future modal redesign, but Phase 20 layout constraints are in place and build-verified.
 
 ## Phase 21: Quest and Attendance Progression
 

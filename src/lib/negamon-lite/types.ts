@@ -40,7 +40,7 @@ export type NegamonLiteCombatant = {
     name: string;
     speciesId: string;
     level: number;
-    types: readonly [NegamonLiteType, NegamonLiteType?];
+    types: NegamonLiteType[];
     stats: NegamonLiteStats;
     hp: number;
     energy: number;

@@ -20,7 +20,7 @@ const STATUS_STAGE_STEP = 0.25;
 function cloneCombatant(combatant: NegamonLiteCombatant): NegamonLiteCombatant {
     return {
         ...combatant,
-        types: [...combatant.types] as readonly [NegamonLiteCombatant["types"][0], NegamonLiteCombatant["types"][1]?],
+        types: [...combatant.types],
         stats: { ...combatant.stats },
         moves: combatant.moves.map((move) => ({ ...move })),
     };

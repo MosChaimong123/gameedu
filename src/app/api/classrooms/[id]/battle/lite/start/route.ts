@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getNegamonSettings } from "@/lib/classroom-utils";
+import { getNegamonSettings, type LevelConfigInput } from "@/lib/classroom-utils";
 import { getValidChoices } from "@/lib/negamon-lite";
 import {
     createNegamonLiteBattleState,
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         classId,
         challenger,
         defender,
-        levelConfig: classroom.levelConfig,
+        levelConfig: classroom.levelConfig as LevelConfigInput,
         negamonSettings: negamon,
     });
     if (!state) return NextResponse.json({ error: "NO_MONSTER" }, { status: 400 });

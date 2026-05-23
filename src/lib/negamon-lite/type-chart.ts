@@ -71,10 +71,10 @@ export const NEGAMON_LITE_TYPE_CHART: NegamonLiteTypeChart = {
 
 export function getTypeMultiplier(
     attackingType: NegamonLiteType,
-    defendingTypes: readonly [NegamonLiteType, NegamonLiteType?]
+    defendingTypes: readonly NegamonLiteType[]
 ): number {
     return defendingTypes.reduce<number>((multiplier, defendingType) => {
-        if (!defendingType || attackingType === "NORMAL") return multiplier;
+        if (attackingType === "NORMAL") return multiplier;
         return multiplier * (NEGAMON_LITE_TYPE_CHART[attackingType]?.[defendingType] ?? 1);
     }, 1);
 }

@@ -1,4 +1,5 @@
 import { getStudentMonsterState, type LevelConfigInput } from "@/lib/classroom-utils";
+import type { Prisma } from "@prisma/client";
 import type { StudentMonsterState } from "@/lib/types/negamon";
 import type {
     NegamonLiteBattleSide,
@@ -17,7 +18,7 @@ export type NegamonLiteSessionResult = {
     requestedGoldReward?: number;
     goldReward?: number;
     rewardBlockedReason?: "daily_cap" | "pair_cooldown" | null;
-    rewardPolicy?: unknown;
+    rewardPolicy?: Prisma.InputJsonValue;
 };
 
 export type NegamonLiteStudentSnapshot = {
@@ -93,13 +94,15 @@ export function createNegamonLiteCombatant(input: {
     monster: StudentMonsterState;
 }): NegamonLiteCombatant {
     const moves = input.monster.unlockedMoves.slice(0, 4).map(mapMove);
+    const types = [input.monster.type, input.monster.type2]
+        .filter((type): type is NegamonLiteType => Boolean(type));
 
     return {
         id: input.student.id,
         name: input.student.name,
         speciesId: input.monster.speciesId,
         level: input.monster.rankIndex + 1,
-        types: [input.monster.type as NegamonLiteType, input.monster.type2 as NegamonLiteType | undefined],
+        types,
         stats: {
             hp: input.monster.stats.hp,
             attack: input.monster.stats.atk,

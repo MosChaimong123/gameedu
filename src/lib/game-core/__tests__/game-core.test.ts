@@ -56,7 +56,10 @@ describe("game-core contracts", () => {
         expect(reward).toEqual({
             gold: 12,
             grantedItemIds: ["potion"],
+            exp: 4,
             xp: 4,
+            levelUps: [],
+            unlockedSkillIds: [],
             blockedReason: undefined,
             idempotencyKey: "reward-key",
         });
@@ -181,6 +184,7 @@ describe("game-core contracts", () => {
             losses: 1,
             goldEarned: 30,
             goldSpent: 0,
+            expEarned: 0,
             itemsGranted: 0,
             byGameKind: { negamon: 2 },
             byStudent: { "student-1": 2 },
@@ -216,12 +220,14 @@ describe("game-core contracts", () => {
             kind: "quest_claimed",
             gameKind: "quest",
             goldDelta: 5,
+            expDelta: 0,
         });
         expect(shop).toMatchObject({
             id: "game-history:shop:shop_purchase:student-1:frame_fire_t1",
             kind: "shop_purchase",
             gameKind: "shop",
             goldDelta: -100,
+            expDelta: 0,
             itemDelta: 1,
         });
         expect(createEconomyLedgerHistorySummary({

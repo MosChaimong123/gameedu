@@ -68,6 +68,7 @@ export function BattleHistoryPanel({
                                 winnerId: s.winnerId,
                                 outcome: won ? "win" : "loss",
                                 goldDelta: won ? s.goldReward : 0,
+                                expDelta: 0,
                                 itemDelta: 0,
                                 createdAt: s.createdAt,
                                 sourceRefId: s.id,

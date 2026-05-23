@@ -57,7 +57,17 @@ vi.mock("@/lib/services/battle-read-auth", () => ({
 }));
 
 vi.mock("@/lib/classroom-utils", () => ({
-  getNegamonSettings: vi.fn(() => ({ enabled: true })),
+  getNegamonSettings: vi.fn(() => ({
+    enabled: true,
+    allowStudentChoice: true,
+    expPerPoint: 10,
+    expPerAttendance: 20,
+    species: [],
+    studentMonsters: {
+      "challenger-1": "naga",
+      "defender-1": "garuda",
+    },
+  })),
   getStudentMonsterState: vi.fn((studentId: string) => ({
     speciesId: studentId === "challenger-1" ? "naga" : "garuda",
     speciesName: studentId === "challenger-1" ? "Naga" : "Garuda",
@@ -135,7 +145,7 @@ describe("Negamon lite battle session routes", () => {
       },
       validChoices: [
         expect.objectContaining({
-          moveId: "water-strike",
+          moveId: "basic-attack",
           enabled: true,
         }),
       ],

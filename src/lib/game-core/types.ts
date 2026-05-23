@@ -26,9 +26,21 @@ export type GameSessionSummary = {
 export type GameRewardResult = {
     gold: number;
     grantedItemIds: string[];
+    exp: number;
     xp?: number;
+    levelUps: GameLevelUpSummary[];
+    unlockedSkillIds: string[];
     blockedReason?: GameRewardBlockedReason;
     idempotencyKey?: string;
+};
+
+export type GameLevelUpSummary = {
+    fromLevel: number;
+    toLevel: number;
+    fromRankIndex?: number;
+    toRankIndex?: number;
+    expBefore: number;
+    expAfter: number;
 };
 
 export type GameInventoryChange = {
@@ -36,6 +48,39 @@ export type GameInventoryChange = {
     grantedItemIds: string[];
     equippedItemIds?: string[];
     unequippedItemIds?: string[];
+};
+
+export type GameItemRarity = "common" | "rare" | "epic" | "legendary";
+
+export type GameItemType = "consumable" | "battle" | "equipment" | "material" | "cosmetic";
+
+export type GameItemEffect =
+    | { kind: "stat_boost"; stat: "atk" | "def" | "spd"; multiplier: number }
+    | { kind: "status_immunity"; status: string }
+    | { kind: "gold_bonus"; amount: number }
+    | { kind: "gold_multiplier"; multiplier: number }
+    | { kind: "restore_hp"; percent: number }
+    | { kind: "restore_energy"; amount: number }
+    | { kind: "unlock_skill"; skillId: string };
+
+export type GameItemDefinition = {
+    id: string;
+    nameKey?: string;
+    descriptionKey?: string;
+    icon?: string;
+    rarity: GameItemRarity;
+    itemType: GameItemType;
+    priceGold?: number;
+    sellGold?: number;
+    stackable: boolean;
+    maxStack?: number;
+    allowedInBattle: boolean;
+    effects: GameItemEffect[];
+    requirements?: {
+        level?: number;
+        rankIndex?: number;
+        speciesId?: string;
+    };
 };
 
 export type GameEconomyMutationType = "earn" | "spend" | "adjust";
@@ -98,7 +143,9 @@ export type GameHistoryEventKind =
     | "item_equipped"
     | "battle_started"
     | "battle_finished"
-    | "reward_granted";
+    | "reward_granted"
+    | "level_up"
+    | "skill_unlocked";
 
 export type GameHistoryEvent = {
     id: string;
@@ -124,6 +171,7 @@ export type GameHistorySummary = {
     winnerId?: string | null;
     outcome?: "win" | "loss" | "draw";
     goldDelta: number;
+    expDelta: number;
     itemDelta: number;
     createdAt: string;
     sourceRefId?: string | null;
@@ -136,6 +184,7 @@ export type GameHistoryAnalytics = {
     losses: number;
     goldEarned: number;
     goldSpent: number;
+    expEarned: number;
     itemsGranted: number;
     byGameKind: Partial<Record<GameKind, number>>;
     byStudent: Record<string, number>;

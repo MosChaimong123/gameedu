@@ -1,11 +1,9 @@
-import { getBattleItemById } from "@/lib/shop-items";
 import {
     applyInventoryChange,
     applyInventoryChangeStrict,
-    countInventoryItem,
     createInventoryConsumeChange,
 } from "@/lib/game-core";
-import type { ShopBattleItemCategory } from "@/lib/shop-items";
+import { validateNegamonBattleItemLoadout } from "@/lib/game-negamon/core/battle-items";
 
 export type BattleLoadoutValidation =
     | { ok: true; normalizedIds: string[] }
@@ -37,39 +35,17 @@ export function validateBattleLoadout(
     loadoutIds: string[],
     inventory: string[]
 ): BattleLoadoutValidation {
-    const seen = new Set<string>();
-    const perCategory = new Map<ShopBattleItemCategory, string>();
-
-    for (const rawId of loadoutIds) {
-        const id = String(rawId).trim();
-        if (!id) continue;
-
-        if (seen.has(id)) {
-            return { ok: false, code: "DUPLICATE_SLOT", message: BATTLE_LOADOUT_DUPLICATE_ITEM };
-        }
-        seen.add(id);
-
-        const item = getBattleItemById(id);
-        if (!item) {
-            return { ok: false, code: "UNKNOWN_ITEM", message: `${BATTLE_LOADOUT_UNKNOWN_ITEM}:${id}` };
-        }
-
-        const cat = item.battleCategory ?? "stat_boost";
-        if (perCategory.has(cat)) {
-            return {
-                ok: false,
-                code: "CATEGORY_LIMIT",
-                message: `${BATTLE_LOADOUT_CATEGORY_LIMIT}:${cat}`,
-            };
-        }
-        perCategory.set(cat, id);
-
-        if (countInventoryItem(inventory, id) < 1) {
-            return { ok: false, code: "NOT_IN_STOCK", message: `${BATTLE_LOADOUT_NOT_OWNED}:${id}` };
-        }
-    }
-
-    return { ok: true, normalizedIds: [...seen] };
+    const validation = validateNegamonBattleItemLoadout({ loadoutIds, inventory });
+    if (validation.ok) return { ok: true, normalizedIds: validation.normalizedIds };
+    const message =
+        validation.code === "DUPLICATE_SLOT"
+            ? BATTLE_LOADOUT_DUPLICATE_ITEM
+            : validation.code === "UNKNOWN_ITEM"
+              ? `${BATTLE_LOADOUT_UNKNOWN_ITEM}:${validation.rejectedItemId ?? ""}`
+              : validation.code === "CATEGORY_LIMIT"
+                ? validation.message
+                : `${BATTLE_LOADOUT_NOT_OWNED}:${validation.rejectedItemId ?? ""}`;
+    return { ok: false, code: validation.code, message };
 }
 
 /** Merge category rules: ensures combined challenger+defender doesn't double-apply same logic — each side validated separately. */

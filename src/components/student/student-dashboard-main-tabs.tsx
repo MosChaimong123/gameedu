@@ -19,6 +19,7 @@ import type {
     SubmissionRecord,
 } from "@/lib/services/student-dashboard/student-dashboard.types";
 import type { LevelConfigInput } from "@/lib/classroom-utils";
+import type { NegamonMonsterSnapshot } from "@/lib/game-negamon";
 
 interface StudentDashboardMainTabsProps {
     t: StudentDashboardTranslateFn;
@@ -46,6 +47,7 @@ interface StudentDashboardMainTabsProps {
         form: { icon: string; name: string };
         rankIndex: number;
     } | null;
+    negamonMonsterSnapshot: NegamonMonsterSnapshot | null;
     questGold?: number;
     onActiveTabChange: (value: string) => void;
     onAssignmentFilterChange: (value: "all" | "pending" | "completed") => void;
@@ -75,6 +77,7 @@ export function StudentDashboardMainTabs({
     levelConfigResolved,
     negamonSettings,
     studentMonsterState,
+    negamonMonsterSnapshot,
     questGold,
     onActiveTabChange,
     onAssignmentFilterChange,
@@ -148,6 +151,7 @@ export function StudentDashboardMainTabs({
                         levelConfigResolved={levelConfigResolved}
                         negamonSettings={negamonSettings}
                         studentMonsterState={studentMonsterState}
+                        negamonMonsterSnapshot={negamonMonsterSnapshot}
                         onOpenStarterSelection={onOpenStarterSelection}
                     />
                 </TabsContent>

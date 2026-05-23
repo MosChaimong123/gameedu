@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { Library, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MonsterCard } from "@/components/negamon/monster-card";
+import { InventoryItemPanel } from "@/components/game/negamon/InventoryItemPanel";
+import { MonsterProfilePanel } from "@/components/game/negamon/MonsterProfilePanel";
+import { SkillLoadoutPanel } from "@/components/game/negamon/SkillLoadoutPanel";
 import type { LevelConfigInput } from "@/lib/classroom-utils";
+import type { NegamonMonsterSnapshot } from "@/lib/game-negamon";
 import type {
     ClassroomRecord,
     DashboardStudent,
@@ -26,6 +29,7 @@ interface StudentDashboardMonsterTabProps {
         form: { icon: string; name: string };
         rankIndex: number;
     } | null;
+    negamonMonsterSnapshot: NegamonMonsterSnapshot | null;
     onOpenStarterSelection: () => void;
 }
 
@@ -37,6 +41,7 @@ export function StudentDashboardMonsterTab({
     levelConfigResolved,
     negamonSettings,
     studentMonsterState,
+    negamonMonsterSnapshot,
     onOpenStarterSelection,
 }: StudentDashboardMonsterTabProps) {
     return (
@@ -79,13 +84,19 @@ export function StudentDashboardMonsterTab({
             ) : null}
             {negamonSettings?.enabled ? (
                 studentMonsterState ? (
-                    <MonsterCard
-                        studentId={student.id}
-                        behaviorPoints={student.behaviorPoints}
-                        levelConfig={levelConfigResolved}
-                        gamifiedSettings={classroom.gamifiedSettings}
-                        equippedFrame={student.equippedFrame}
-                    />
+                    negamonMonsterSnapshot ? (
+                        <div className="space-y-4">
+                            <MonsterProfilePanel monster={negamonMonsterSnapshot} />
+                            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.75fr)]">
+                                <SkillLoadoutPanel monster={negamonMonsterSnapshot} />
+                                <InventoryItemPanel inventory={student.inventory} />
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                            <p className="text-sm font-black text-slate-600">Monster snapshot is not ready.</p>
+                        </div>
+                    )
                 ) : negamonSettings.allowStudentChoice ? (
                     <div className="flex flex-col items-center gap-4 py-10 text-center">
                         <div className="flex h-20 w-20 items-center justify-center rounded-3xl border-4 border-emerald-200 bg-white text-4xl shadow-md">

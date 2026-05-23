@@ -41,6 +41,7 @@ export type CreateGameHistorySummaryInput = {
     opponentId?: string | null;
     winnerId?: string | null;
     goldDelta?: number;
+    expDelta?: number;
     itemDelta?: number;
     createdAt: string | Date;
     sourceRefId?: string | null;
@@ -65,6 +66,7 @@ export function createGameHistorySummary(input: CreateGameHistorySummaryInput): 
         winnerId: input.winnerId ?? null,
         outcome,
         goldDelta: Math.trunc(input.goldDelta ?? 0),
+        expDelta: Math.trunc(input.expDelta ?? 0),
         itemDelta: Math.trunc(input.itemDelta ?? 0),
         createdAt: toIsoString(input.createdAt),
         sourceRefId: input.sourceRefId ?? null,
@@ -99,6 +101,7 @@ export function createBattleHistorySummary(input: {
         opponentId,
         winnerId: input.winnerId ?? null,
         goldDelta: won ? input.goldReward ?? 0 : 0,
+        expDelta: 0,
         createdAt: input.createdAt,
         sourceRefId: input.id,
         titleKey: "battleHistoryTitle",
@@ -145,6 +148,7 @@ export function createEconomyLedgerHistorySummary(
             studentId: row.studentId,
             classId: row.classId ?? null,
             goldDelta: row.amount,
+            expDelta: 0,
             createdAt: row.createdAt,
             sourceRefId: refId,
             titleKey: "questClaimedHistoryTitle",
@@ -163,6 +167,7 @@ export function createEconomyLedgerHistorySummary(
         studentId: row.studentId,
         classId: row.classId ?? null,
         goldDelta: row.amount,
+        expDelta: 0,
         itemDelta: row.type === "spend" ? 1 : 0,
         createdAt: row.createdAt,
         sourceRefId: refId,
@@ -177,6 +182,7 @@ export function aggregateGameHistoryAnalytics(summaries: GameHistorySummary[]): 
         losses: 0,
         goldEarned: 0,
         goldSpent: 0,
+        expEarned: 0,
         itemsGranted: 0,
         byGameKind: {},
         byStudent: {},
@@ -187,6 +193,7 @@ export function aggregateGameHistoryAnalytics(summaries: GameHistorySummary[]): 
         if (summary.outcome === "loss") analytics.losses += 1;
         if (summary.goldDelta > 0) analytics.goldEarned += summary.goldDelta;
         if (summary.goldDelta < 0) analytics.goldSpent += Math.abs(summary.goldDelta);
+        if (summary.expDelta > 0) analytics.expEarned += summary.expDelta;
         if (summary.itemDelta > 0) analytics.itemsGranted += summary.itemDelta;
         analytics.byGameKind[summary.gameKind] = (analytics.byGameKind[summary.gameKind] ?? 0) + 1;
         analytics.byStudent[summary.studentId] = (analytics.byStudent[summary.studentId] ?? 0) + 1;

@@ -1,9 +1,7 @@
 /**
  * POST /api/classrooms/[id]/battle
- * - mode "beginInteractive" — validate loadouts, create pending session, return fighters + sessionId
- * - mode "turnInteractive" — resolve one server-owned interactive turn and finalize when fainted
- * - mode "saveInteractive" — reject legacy client-reported interactive saves
- * - default — auto-resolve battle using each student's battleLoadout; consume items; save session
+ * - auto-resolve battle using each student's battleLoadout; consume items; save session.
+ * Interactive Negamon V2 battles are served by /battle/lite/*.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -13,15 +11,8 @@ import {
 } from "@/lib/classroom-utils";
 import type { LevelConfigInput } from "@/lib/classroom-utils";
 import {
-    calcGoldReward,
-    getBattleMoveChoices,
     initBattleFighter,
-    makePRNG,
-    normalizeBattleFighterTurns,
     resolveBattle,
-    resolveServerOwnedInteractiveTurn,
-    type BattleFighter,
-    type TurnEvent,
 } from "@/lib/battle-engine";
 import {
     normalizeLoadoutInput,
@@ -37,73 +28,8 @@ import {
     createBattleHistorySummary,
 } from "@/lib/game-core";
 
-const INTERACTIVE_SESSION_TTL_MS = 45 * 60 * 1000;
 const BATTLE_START_RATE_WINDOW_MS = 60 * 1000;
 const MAX_BATTLE_STARTS_PER_WINDOW = 8;
-const MAX_PENDING_INTERACTIVE_SESSIONS = 3;
-
-type InteractiveServerState = {
-    mode: "interactive_server";
-    seed: number;
-    rngCursor: number;
-    player: BattleFighter;
-    opponent: BattleFighter;
-    turns: TurnEvent[][];
-    totalTurns: number;
-    status: "active" | "finished";
-    winnerId?: string;
-    requestedGoldReward?: number;
-    goldReward?: number;
-    rewardBlockedReason?: string | null;
-};
-
-function createBattleSeed(...parts: Array<string | number>): number {
-    const raw = parts.join(":");
-    let hash = 2166136261;
-    for (let i = 0; i < raw.length; i += 1) {
-        hash ^= raw.charCodeAt(i);
-        hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-}
-
-function cloneFighter(fighter: BattleFighter): BattleFighter {
-    return JSON.parse(JSON.stringify(fighter)) as BattleFighter;
-}
-
-function makeCountingRng(seed: number, cursor: number) {
-    const base = makePRNG(seed);
-    for (let i = 0; i < cursor; i += 1) base();
-    let used = 0;
-    return {
-        rng: () => {
-            used += 1;
-            return base();
-        },
-        getCursor: () => cursor + used,
-    };
-}
-
-function parseInteractiveServerState(raw: unknown): InteractiveServerState | null {
-    if (!raw || typeof raw !== "object") return null;
-    const state = raw as Partial<InteractiveServerState>;
-    if (state.mode !== "interactive_server") return null;
-    if (!state.player || !state.opponent || typeof state.seed !== "number") return null;
-    return {
-        mode: "interactive_server",
-        seed: state.seed,
-        rngCursor: typeof state.rngCursor === "number" ? state.rngCursor : 0,
-        player: state.player,
-        opponent: state.opponent,
-        turns: Array.isArray(state.turns) ? state.turns : [],
-        totalTurns: typeof state.totalTurns === "number" ? state.totalTurns : 0,
-        status: state.status === "finished" ? "finished" : "active",
-        winnerId: state.winnerId,
-        requestedGoldReward: state.requestedGoldReward,
-        goldReward: state.goldReward,
-        rewardBlockedReason: state.rewardBlockedReason,
-    };
-}
 
 function normalizeDefenderLoadout(
     raw: unknown,
@@ -115,69 +41,9 @@ function normalizeDefenderLoadout(
     return { ids: [], hadInvalidPreset: arr.length > 0 };
 }
 
-/** Pending rows older than TTL still block DB hygiene; mirror turnInteractive expiry. */
-async function expireStaleInteractivePendingSessions(classId: string, challengerId: string) {
-    const cutoff = new Date(Date.now() - INTERACTIVE_SESSION_TTL_MS);
-    const stale = await db.battleSession.findMany({
-        where: {
-            classId,
-            challengerId,
-            interactivePending: true,
-            createdAt: { lt: cutoff },
-        },
-        select: { id: true, result: true, stateVersion: true },
-        take: 50,
-    });
-    for (const s of stale) {
-        await db.battleSession.updateMany({
-            where: { id: s.id, interactivePending: true, stateVersion: s.stateVersion },
-            data: {
-                interactivePending: false,
-                result: {
-                    mode: "interactive_expired",
-                    expiredAt: new Date().toISOString(),
-                    previousResult: s.result,
-                },
-                stateVersion: { increment: 1 },
-            },
-        });
-    }
-}
-
-/** When the pending cap is hit, release the oldest slot so a new beginInteractive can proceed. */
-async function evictOldestPendingInteractiveSession(classId: string, challengerId: string): Promise<boolean> {
-    const windowStart = new Date(Date.now() - INTERACTIVE_SESSION_TTL_MS);
-    const oldest = await db.battleSession.findFirst({
-        where: {
-            classId,
-            challengerId,
-            interactivePending: true,
-            createdAt: { gte: windowStart },
-        },
-        orderBy: { createdAt: "asc" },
-        select: { id: true, result: true, stateVersion: true },
-    });
-    if (!oldest) return false;
-    const updated = await db.battleSession.updateMany({
-        where: { id: oldest.id, interactivePending: true, stateVersion: oldest.stateVersion },
-        data: {
-            interactivePending: false,
-            result: {
-                mode: "interactive_expired",
-                reason: "pending_slot_released_for_new_battle",
-                expiredAt: new Date().toISOString(),
-                previousResult: oldest.result,
-            },
-            stateVersion: { increment: 1 },
-        },
-    });
-    return updated.count === 1;
-}
-
 async function enforceBattleStartAbuseLimits(input: {
     classId: string;
     challengerId: string;
-    mode: "beginInteractive" | "auto";
 }) {
     const now = Date.now();
     const recentStartCount = await db.battleSession.count({
@@ -200,36 +66,6 @@ async function enforceBattleStartAbuseLimits(input: {
         );
     }
 
-    if (input.mode === "beginInteractive") {
-        await expireStaleInteractivePendingSessions(input.classId, input.challengerId);
-
-        const pendingWhere = {
-            classId: input.classId,
-            challengerId: input.challengerId,
-            interactivePending: true,
-            createdAt: { gte: new Date(now - INTERACTIVE_SESSION_TTL_MS) },
-        };
-
-        let pendingCount = await db.battleSession.count({ where: pendingWhere });
-        let guard = 0;
-        while (pendingCount >= MAX_PENDING_INTERACTIVE_SESSIONS && guard < 8) {
-            const evicted = await evictOldestPendingInteractiveSession(input.classId, input.challengerId);
-            if (!evicted) break;
-            pendingCount = await db.battleSession.count({ where: pendingWhere });
-            guard += 1;
-        }
-
-        if (pendingCount >= MAX_PENDING_INTERACTIVE_SESSIONS) {
-            return NextResponse.json(
-                {
-                    error: "INTERACTIVE_SESSION_LIMIT",
-                    maxPendingSessions: MAX_PENDING_INTERACTIVE_SESSIONS,
-                },
-                { status: 429 }
-            );
-        }
-    }
-
     return null;
 }
 
@@ -242,13 +78,7 @@ export async function POST(
         challengerId: string;
         defenderId: string;
         studentCode: string;
-        mode?: "beginInteractive" | "turnInteractive" | "saveInteractive";
-        moveId?: string;
-        challengerLoadout?: unknown;
-        sessionId?: string;
-        winnerId?: string;
-        goldReward?: number;
-        totalTurns?: number;
+        mode?: string;
     };
     const { challengerId, defenderId, studentCode, mode } = body;
 
@@ -315,331 +145,16 @@ export async function POST(
     const chInv = Array.isArray(challenger.inventory) ? (challenger.inventory as string[]) : [];
     const defInv = Array.isArray(defender.inventory) ? (defender.inventory as string[]) : [];
 
-    // ── beginInteractive ──
-    if (mode === "beginInteractive") {
-        const abuseLimit = await enforceBattleStartAbuseLimits({
-            classId,
-            challengerId,
-            mode: "beginInteractive",
-        });
-        if (abuseLimit) return abuseLimit;
-
-        const challengerLoadout = normalizeLoadoutInput(body.challengerLoadout);
-        const chVal = validateBattleLoadout(challengerLoadout, chInv);
-        if (!chVal.ok) {
-            return NextResponse.json(
-                { error: "INVALID_LOADOUT", code: chVal.code, message: chVal.message },
-                { status: 400 }
-            );
-        }
-
-        const { ids: defenderIds } = normalizeDefenderLoadout(defender.battleLoadout, defInv);
-
-        const f1 = initBattleFighter(challengerMonster, challengerId, challenger.name, chVal.normalizedIds);
-        const f2 = initBattleFighter(defenderMonster, defenderId, defender.name, defenderIds);
-
-        const maxGoldIfChallengerWins = calcGoldReward(f1, f2);
-        const maxGoldIfDefenderWins = calcGoldReward(f2, f1);
-        const seed = createBattleSeed(classId, challengerId, defenderId, studentCode);
-        const serverState: InteractiveServerState = {
-            mode: "interactive_server",
-            seed,
-            rngCursor: 0,
-            player: cloneFighter(f1),
-            opponent: cloneFighter(f2),
-            turns: [],
-            totalTurns: 0,
-            status: "active",
-        };
-
-        const session = await db.battleSession.create({
-            data: {
-                classId,
-                challengerId,
-                defenderId,
-                result: serverState,
-                winnerId: null,
-                goldReward: 0,
-                interactivePending: true,
-                challengerBattleItems: chVal.normalizedIds,
-                defenderBattleItems: defenderIds,
-                maxGoldIfChallengerWins,
-                maxGoldIfDefenderWins,
-            },
-        });
-
-        return NextResponse.json({
-            sessionId: session.id,
-            player: f1,
-            opponent: f2,
-            validMoveChoices: getBattleMoveChoices(f1),
-        });
-    }
-
-    if (mode === "turnInteractive") {
-        const { sessionId, moveId } = body;
-        if (!sessionId) {
-            return NextResponse.json({ error: "INVALID_TURN" }, { status: 400 });
-        }
-
-        const session = await db.battleSession.findFirst({
-            where: {
-                id: sessionId,
-                classId,
-                challengerId,
-                defenderId,
-                interactivePending: true,
-            },
-        });
-        if (!session) {
-            return NextResponse.json({ error: "SESSION_NOT_FOUND" }, { status: 404 });
-        }
-        const sessionStateVersion = session.stateVersion ?? 0;
-
-        if (Date.now() - session.createdAt.getTime() > INTERACTIVE_SESSION_TTL_MS) {
-            const expired = await db.battleSession.updateMany({
-                where: { id: sessionId, interactivePending: true, stateVersion: sessionStateVersion },
-                data: {
-                    interactivePending: false,
-                    result: {
-                        mode: "interactive_expired",
-                        expiredAt: new Date().toISOString(),
-                        previousResult: session.result,
-                    },
-                    stateVersion: { increment: 1 },
-                },
-            });
-            if (expired.count !== 1) {
-                return NextResponse.json({ error: "TURN_CONFLICT" }, { status: 409 });
-            }
-            return NextResponse.json({ error: "INTERACTIVE_SESSION_EXPIRED" }, { status: 410 });
-        }
-
-        const state = parseInteractiveServerState(session.result);
-        if (!state || state.status !== "active") {
-            return NextResponse.json({ error: "INVALID_SESSION_STATE" }, { status: 409 });
-        }
-
-        const player = normalizeBattleFighterTurns(cloneFighter(state.player));
-        const opponent = normalizeBattleFighterTurns(cloneFighter(state.opponent));
-        const { rng, getCursor } = makeCountingRng(state.seed, state.rngCursor);
-        const turn = resolveServerOwnedInteractiveTurn(player, opponent, moveId, rng);
-        if (turn.actorSide === "player" && !moveId) {
-            return NextResponse.json(
-                {
-                    error: "PLAYER_ACTION_REQUIRED",
-                    actorSide: "player",
-                    validMoveChoices: getBattleMoveChoices(player),
-                },
-                { status: 409 }
-            );
-        }
-        const events = turn.events;
-        const faintedId = turn.faintedId;
-
-        const nextTotalTurns = state.totalTurns + 1;
-        const nextState: InteractiveServerState = {
-            ...state,
-            player,
-            opponent,
-            rngCursor: getCursor(),
-            turns: [...state.turns, events],
-            totalTurns: nextTotalTurns,
-        };
-
-        if (!faintedId) {
-            const saved = await db.battleSession.updateMany({
-                where: { id: sessionId, interactivePending: true, stateVersion: sessionStateVersion },
-                data: {
-                    result: nextState,
-                    stateVersion: { increment: 1 },
-                },
-            });
-            if (saved.count !== 1) {
-                return NextResponse.json({ error: "TURN_CONFLICT" }, { status: 409 });
-            }
-            return NextResponse.json({
-                events,
-                faintedId: null,
-                player,
-                opponent,
-                validMoveChoices: getBattleMoveChoices(player),
-                totalTurns: nextTotalTurns,
-                actorSide: turn.actorSide,
-                final: null,
-            });
-        }
-
-        const winner = player.currentHp > 0 ? player : opponent;
-        const loser = player.currentHp > 0 ? opponent : player;
-        const requestedGold = calcGoldReward(winner, loser);
-
-        const chFresh = await db.student.findUnique({
-            where: { id: challengerId },
-            select: { gold: true, inventory: true, battleLoadout: true },
-        });
-        const defFresh = await db.student.findUnique({
-            where: { id: defenderId },
-            select: { gold: true, inventory: true, battleLoadout: true },
-        });
-        if (!chFresh || !defFresh) {
-            return NextResponse.json({ error: "STUDENT_NOT_FOUND" }, { status: 404 });
-        }
-
-        let nextChInv: string[];
-        try {
-            nextChInv = removeBattleItemsFromInventory(
-                Array.isArray(chFresh.inventory) ? (chFresh.inventory as string[]) : [],
-                session.challengerBattleItems
-            );
-        } catch {
-            return NextResponse.json({ error: "INVENTORY_MISMATCH" }, { status: 409 });
-        }
-        let nextDefInv: string[];
-        try {
-            nextDefInv = removeBattleItemsFromInventory(
-                Array.isArray(defFresh.inventory) ? (defFresh.inventory as string[]) : [],
-                session.defenderBattleItems
-            );
-        } catch {
-            return NextResponse.json({ error: "INVENTORY_MISMATCH" }, { status: 409 });
-        }
-
-        let final: {
-            winnerId: string;
-            requestedGoldReward: number;
-            goldReward: number;
-            rewardBlockedReason: string | null;
-            rewardPolicy: Awaited<ReturnType<typeof resolveBattleRewardPayout>>;
-        };
-        try {
-            final = await db.$transaction(async (tx) => {
-                const payoutPolicy = await resolveBattleRewardPayout(tx, {
-                    classId,
-                    winnerId: winner.studentId,
-                    challengerId,
-                    defenderId,
-                    requestedGold,
-                });
-                const finalState: InteractiveServerState = {
-                    ...nextState,
-                    status: "finished",
-                    winnerId: winner.studentId,
-                    requestedGoldReward: requestedGold,
-                    goldReward: payoutPolicy.goldReward,
-                };
-                const finalResult = {
-                    ...finalState,
-                    rewardBlockedReason: payoutPolicy.rewardBlockedReason,
-                    rewardPolicy: payoutPolicy,
-                };
-
-                const finalized = await tx.battleSession.updateMany({
-                    where: { id: sessionId, interactivePending: true, stateVersion: sessionStateVersion },
-                    data: {
-                        interactivePending: false,
-                        winnerId: winner.studentId,
-                        goldReward: payoutPolicy.goldReward,
-                        result: finalResult,
-                        stateVersion: { increment: 1 },
-                    },
-                });
-                if (finalized.count !== 1) {
-                    throw new Error("TURN_CONFLICT");
-                }
-
-                await tx.student.update({
-                    where: { id: challengerId },
-                    data: {
-                        inventory: nextChInv,
-                        battleLoadout: sanitizeLoadoutAgainstInventory(
-                            Array.isArray(chFresh.battleLoadout) ? (chFresh.battleLoadout as string[]) : [],
-                            nextChInv
-                        ),
-                    },
-                });
-                await tx.student.update({
-                    where: { id: defenderId },
-                    data: {
-                        inventory: nextDefInv,
-                        battleLoadout: sanitizeLoadoutAgainstInventory(
-                            Array.isArray(defFresh.battleLoadout) ? (defFresh.battleLoadout as string[]) : [],
-                            nextDefInv
-                        ),
-                    },
-                });
-                const updatedWinner = await tx.student.update({
-                    where: { id: winner.studentId },
-                    data: { gold: { increment: payoutPolicy.goldReward } },
-                    select: { gold: true },
-                });
-                if (payoutPolicy.goldReward > 0) {
-                    const winnerBalanceBefore = updatedWinner.gold - payoutPolicy.goldReward;
-                    await recordEconomyTransaction(tx, {
-                        studentId: winner.studentId,
-                        classId,
-                        type: "earn",
-                        source: "battle",
-                        amount: payoutPolicy.goldReward,
-                        balanceBefore: winnerBalanceBefore,
-                        balanceAfter: updatedWinner.gold,
-                        sourceRefId: sessionId,
-                        idempotencyKey: `battle:${sessionId}:reward`,
-                        metadata: {
-                            mode: "interactive_server",
-                            winnerId: winner.studentId,
-                            challengerId,
-                            defenderId,
-                            requestedGoldReward: requestedGold,
-                            goldReward: payoutPolicy.goldReward,
-                            totalTurns: nextTotalTurns,
-                            rewardPolicy: payoutPolicy,
-                            challengerBattleItems: session.challengerBattleItems,
-                            defenderBattleItems: session.defenderBattleItems,
-                        },
-                    });
-                }
-
-                return {
-                    winnerId: winner.studentId,
-                    requestedGoldReward: requestedGold,
-                    goldReward: payoutPolicy.goldReward,
-                    rewardBlockedReason: payoutPolicy.rewardBlockedReason,
-                    rewardPolicy: payoutPolicy,
-                };
-            });
-        } catch (error) {
-            if (error instanceof Error && error.message === "TURN_CONFLICT") {
-                return NextResponse.json({ error: "TURN_CONFLICT" }, { status: 409 });
-            }
-            throw error;
-        }
-
-        return NextResponse.json({
-            events,
-            faintedId,
-            player,
-            opponent,
-            validMoveChoices: getBattleMoveChoices(player),
-            totalTurns: nextTotalTurns,
-            actorSide: turn.actorSide,
-            final,
-        });
-    }
-
-    // ── saveInteractive ──
-    if (mode === "saveInteractive") {
+    if (mode === "beginInteractive" || mode === "turnInteractive" || mode === "saveInteractive") {
         return NextResponse.json(
-            { error: "SERVER_AUTHORITATIVE_REQUIRED" },
+            { error: "NEGAMON_LEGACY_BATTLE_REMOVED" },
             { status: 410 }
         );
     }
 
-    // ── default: auto-resolve (uses battleLoadout presets) ──
     const abuseLimit = await enforceBattleStartAbuseLimits({
         classId,
         challengerId,
-        mode: "auto",
     });
     if (abuseLimit) return abuseLimit;
 

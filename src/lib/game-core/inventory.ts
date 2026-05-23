@@ -1,4 +1,4 @@
-import type { GameInventoryChange } from "./types";
+import type { GameInventoryChange, GameItemDefinition } from "./types";
 
 export function createEmptyInventoryChange(): GameInventoryChange {
     return {
@@ -82,4 +82,16 @@ export function hasInventoryItems(inventory: string[], itemIds: string[]): boole
         remaining.splice(index, 1);
     }
     return true;
+}
+
+export function createGameItemDefinition(input: GameItemDefinition): GameItemDefinition {
+    return {
+        ...input,
+        id: input.id.trim(),
+        effects: input.effects.map((effect) => ({ ...effect })),
+    };
+}
+
+export function createBattleItemConsumeChange(itemIds: string[]): GameInventoryChange {
+    return createInventoryConsumeChange(itemIds);
 }

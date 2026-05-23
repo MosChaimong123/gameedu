@@ -1,12 +1,18 @@
-import { getStudentMonsterState, type LevelConfigInput } from "@/lib/classroom-utils";
-import { createGameMonsterSnapshot } from "@/lib/game-core";
+import type { LevelConfigInput } from "@/lib/classroom-utils";
+import {
+    createNegamonMonsterSnapshot,
+    createNegamonSkillLoadoutPlan,
+    getPrimaryLiteEffectForSkill,
+    type NegamonMonsterSnapshot,
+    type NegamonSkillDefinition,
+} from "@/lib/game-negamon";
 import type { Prisma } from "@prisma/client";
-import type { StudentMonsterState } from "@/lib/types/negamon";
 import type {
     NegamonLiteBattleSide,
     NegamonLiteBattleState,
     NegamonLiteCombatant,
     NegamonLiteMove,
+    NegamonLiteMoveCategory,
     NegamonLiteType,
 } from "./types";
 import { NEGAMON_LITE_TYPES } from "./type-chart";
@@ -29,7 +35,6 @@ export type NegamonLiteStudentSnapshot = {
     behaviorPoints: number;
 };
 
-const DEFAULT_ENERGY = 40;
 const NEGAMON_LITE_TYPE_SET = new Set<string>(NEGAMON_LITE_TYPES);
 
 function createBattleSeed(...parts: Array<string | number>): number {
@@ -42,27 +47,32 @@ function createBattleSeed(...parts: Array<string | number>): number {
     return hash >>> 0;
 }
 
-function mapMove(move: StudentMonsterState["unlockedMoves"][number]): NegamonLiteMove {
+function mapLiteMoveCategory(skill: NegamonSkillDefinition): NegamonLiteMoveCategory {
+    if (skill.category === "heal" || skill.category === "status" || skill.category === "buff" || skill.category === "debuff") {
+        return "STATUS";
+    }
+    return skill.sourceMove.category === "SPECIAL" ? "SPECIAL" : "PHYSICAL";
+}
+
+function mapSkillDefinition(skill: NegamonSkillDefinition): NegamonLiteMove {
+    const move = skill.sourceMove;
     return {
-        id: move.id,
-        name: move.name,
-        type: move.type as NegamonLiteType,
-        category: move.category === "HEAL" ? "STATUS" : move.category,
-        power: move.power,
-        accuracy: move.accuracy,
+        id: skill.id,
+        name: skill.name,
+        type: skill.elementType as NegamonLiteType,
+        category: mapLiteMoveCategory(skill),
+        power: skill.power,
+        accuracy: skill.accuracy,
         pp: 8,
         maxPp: 8,
-        energyCost: move.energyCost ?? (move.power > 0 ? 8 : 5),
-        priority: move.priority,
-        target: move.category === "HEAL" ? "self" : "opponent",
-        effect:
-            move.category === "HEAL" || move.effect === "HEAL_25"
-                ? { kind: "heal", percent: 25 }
-                : undefined,
+        energyCost: skill.energyCost,
+        priority: skill.priority,
+        target: skill.target === "self" ? "self" : "opponent",
+        effect: getPrimaryLiteEffectForSkill(skill),
     };
 }
 
-function fallbackMove(monster: StudentMonsterState): NegamonLiteMove {
+function fallbackMove(monster: NegamonMonsterSnapshot): NegamonLiteMove {
     return {
         id: `${monster.speciesId}:basic-strike`,
         name: "Basic Strike",
@@ -98,37 +108,28 @@ export function parseNegamonLiteSessionResult(raw: unknown): NegamonLiteSessionR
 export function createNegamonLiteCombatant(input: {
     side: NegamonLiteBattleSide;
     student: NegamonLiteStudentSnapshot;
-    monster: StudentMonsterState;
+    monster: NegamonMonsterSnapshot;
 }): NegamonLiteCombatant {
-    const moves = input.monster.unlockedMoves.slice(0, 4).map(mapMove);
-    const snapshot = createGameMonsterSnapshot({
-        studentId: input.student.id,
-        speciesId: input.monster.speciesId,
-        speciesName: input.monster.speciesName,
-        formName: input.monster.form.name,
-        rankIndex: input.monster.rankIndex,
-        types: [input.monster.type, input.monster.type2],
-        stats: input.monster.stats,
-        unlockedMoves: input.monster.unlockedMoves,
-    });
+    const loadout = createNegamonSkillLoadoutPlan({ monster: input.monster });
+    const moves = loadout.skills.map(mapSkillDefinition);
 
     return {
         id: input.student.id,
         name: input.student.name,
         speciesId: input.monster.speciesId,
-        level: snapshot.level,
-        types: toNegamonLiteTypes(snapshot.types),
+        level: input.monster.level,
+        types: toNegamonLiteTypes(input.monster.elementTypes),
         stats: {
-            hp: input.monster.stats.hp,
-            attack: input.monster.stats.atk,
-            defense: input.monster.stats.def,
-            specialAttack: input.monster.stats.atk,
-            specialDefense: input.monster.stats.def,
-            speed: input.monster.stats.spd,
+            hp: input.monster.derivedStats.maxHp,
+            attack: input.monster.derivedStats.atk,
+            defense: input.monster.derivedStats.def,
+            specialAttack: input.monster.derivedStats.atk,
+            specialDefense: input.monster.derivedStats.def,
+            speed: input.monster.derivedStats.spd,
         },
-        hp: input.monster.stats.hp,
-        energy: DEFAULT_ENERGY,
-        maxEnergy: DEFAULT_ENERGY,
+        hp: input.monster.derivedStats.maxHp,
+        energy: input.monster.derivedStats.maxEnergy,
+        maxEnergy: input.monster.derivedStats.maxEnergy,
         moves: moves.length > 0 ? moves : [fallbackMove(input.monster)],
     };
 }
@@ -139,21 +140,23 @@ export function createNegamonLiteBattleState(input: {
     challenger: NegamonLiteStudentSnapshot;
     defender: NegamonLiteStudentSnapshot;
     levelConfig: LevelConfigInput;
-    negamonSettings: Parameters<typeof getStudentMonsterState>[3];
+    negamonSettings: Parameters<typeof createNegamonMonsterSnapshot>[0]["negamonSettings"];
     nowMs?: number;
 }): NegamonLiteBattleState | null {
-    const challengerMonster = getStudentMonsterState(
-        input.challenger.id,
-        input.challenger.behaviorPoints,
-        input.levelConfig,
-        input.negamonSettings
-    );
-    const defenderMonster = getStudentMonsterState(
-        input.defender.id,
-        input.defender.behaviorPoints,
-        input.levelConfig,
-        input.negamonSettings
-    );
+    const challengerMonster = createNegamonMonsterSnapshot({
+        studentId: input.challenger.id,
+        studentName: input.challenger.name,
+        points: input.challenger.behaviorPoints,
+        levelConfig: input.levelConfig,
+        negamonSettings: input.negamonSettings,
+    });
+    const defenderMonster = createNegamonMonsterSnapshot({
+        studentId: input.defender.id,
+        studentName: input.defender.name,
+        points: input.defender.behaviorPoints,
+        levelConfig: input.levelConfig,
+        negamonSettings: input.negamonSettings,
+    });
 
     if (!challengerMonster || !defenderMonster) return null;
 

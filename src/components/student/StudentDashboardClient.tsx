@@ -16,6 +16,7 @@ import { findSpeciesById } from "@/lib/negamon-species";
 import { useEvolveAnimation } from "@/components/negamon/evolve-animation";
 import { StarterSelectionModal } from "@/components/negamon/StarterSelectionModal";
 import { getFrameGoldRateMultiplierById } from "@/lib/shop-items";
+import { createNegamonMonsterSnapshot } from "@/lib/game-negamon";
 import type {
     DashboardStudent,
     HistoryRecord,
@@ -161,6 +162,28 @@ export function StudentDashboardClient({
         );
     }, [negamonSettings, liveStudent.id, liveStudent.behaviorPoints, levelConfigResolved]);
 
+    const negamonMonsterSnapshot = useMemo(() => {
+        if (!negamonSettings?.enabled) return null;
+        return createNegamonMonsterSnapshot({
+            studentId: liveStudent.id,
+            studentName: liveStudent.nickname || liveStudent.name,
+            points: liveStudent.behaviorPoints,
+            levelConfig: levelConfigResolved,
+            negamonSettings,
+            equippedSkillIds: liveStudent.negamonSkills,
+            equippedItemIds: liveStudent.battleLoadout,
+        });
+    }, [
+        negamonSettings,
+        liveStudent.id,
+        liveStudent.nickname,
+        liveStudent.name,
+        liveStudent.behaviorPoints,
+        liveStudent.negamonSkills,
+        liveStudent.battleLoadout,
+        levelConfigResolved,
+    ]);
+
     useEffect(() => {
         if (!negamonSettings?.enabled || !negamonSettings.allowStudentChoice || studentMonsterState) return;
         const dismissed = localStorage.getItem(`negamon_intro_dismissed_${liveStudent.id}`);
@@ -285,6 +308,7 @@ export function StudentDashboardClient({
                         levelConfigResolved={levelConfigResolved}
                         negamonSettings={negamonSettings}
                         studentMonsterState={studentMonsterState}
+                        negamonMonsterSnapshot={negamonMonsterSnapshot}
                         questGold={questGold}
                         onActiveTabChange={setActiveTab}
                         onAssignmentFilterChange={setAssignmentFilter}

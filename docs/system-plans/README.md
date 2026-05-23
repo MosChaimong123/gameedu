@@ -25,6 +25,7 @@ Use this folder for system-by-system analysis and development planning across Ga
 17. [Negamon Battle Stabilization](./17-negamon-battle-stabilization.md)
 18. [Negamon Pokemon-Lite Battle Rewrite](./18-negamon-pokemon-lite-battle-rewrite.md)
 19. [Game System V2 Foundation](./19-game-system-v2-foundation.md)
+20. [Negamon Game System V2 Roadmap](./20-negamon-game-system-v2-roadmap.md)
 
 ## How To Use
 

@@ -1,7 +1,10 @@
 import { db } from "@/lib/db";
 import { getNegamonSettings, type LevelConfigInput } from "@/lib/classroom-utils";
 import { createGameEconomyMutation } from "@/lib/game-core";
-import { getValidChoices, resolveChoice } from "@/lib/negamon-lite";
+import {
+    getNegamonBattleValidChoices,
+    resolveNegamonBattleChoice,
+} from "@/lib/game-negamon/core/battle-engine-v2";
 import {
     createNegamonLiteBattleState,
     createNegamonLiteChoiceRequestId,
@@ -127,7 +130,7 @@ export async function startNegamonLiteBattle(
             sessionId: session.id,
             choiceRequestId: result.choiceRequestId,
             state: result.state,
-            validChoices: getValidChoices(result.state, "player"),
+            validChoices: getNegamonBattleValidChoices(result.state, "player"),
         },
     };
 }
@@ -179,12 +182,12 @@ export async function chooseNegamonLiteMove(
             body: {
                 error: "STALE_CHOICE",
                 choiceRequestId: parsed.choiceRequestId,
-                validChoices: getValidChoices(parsed.state, "player"),
+                validChoices: getNegamonBattleValidChoices(parsed.state, "player"),
             },
         };
     }
 
-    const resolved = resolveChoice(parsed.state, {
+    const resolved = resolveNegamonBattleChoice(parsed.state, {
         side: "player",
         kind: "move",
         moveId: input.moveId,
@@ -199,7 +202,7 @@ export async function chooseNegamonLiteMove(
                 reason: resolved.reason,
                 choiceRequestId: parsed.choiceRequestId,
                 state: resolved.state,
-                validChoices: getValidChoices(resolved.state, "player"),
+                validChoices: getNegamonBattleValidChoices(resolved.state, "player"),
             },
         };
     }
@@ -350,7 +353,7 @@ export async function chooseNegamonLiteMove(
         body: {
             choiceRequestId: nextResult.choiceRequestId,
             state: nextResult.state,
-            validChoices: resolved.state.phase === "ended" ? [] : getValidChoices(resolved.state, "player"),
+            validChoices: resolved.state.phase === "ended" ? [] : getNegamonBattleValidChoices(resolved.state, "player"),
             final,
         },
     };

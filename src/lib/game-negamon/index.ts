@@ -1,4 +1,5 @@
 export * from "./core/battle-engine-v2";
+export * from "./core/battle-constants";
 export * from "./core/battle-items";
 export * from "./core/battle-rewards";
 export * from "./core/battle-state";

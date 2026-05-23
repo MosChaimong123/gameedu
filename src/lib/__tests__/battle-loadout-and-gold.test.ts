@@ -5,7 +5,8 @@ import {
     sanitizeLoadoutAgainstInventory,
     validateBattleLoadout,
 } from "@/lib/battle-loadout";
-import { calcGoldReward, BATTLE_GOLD_MULT_CAP } from "@/lib/battle-engine";
+import { calcGoldReward } from "@/lib/battle-engine";
+import { NEGAMON_BATTLE_GOLD_MULTIPLIER_CAP } from "@/lib/game-negamon";
 import type { BattleFighter } from "@/lib/battle-engine";
 
 function minimalWinner(overrides: Partial<BattleFighter> = {}): BattleFighter {
@@ -103,6 +104,6 @@ describe("calcGoldReward", () => {
     });
 
     it("respects multiplier cap constant", () => {
-        expect(BATTLE_GOLD_MULT_CAP).toBeGreaterThanOrEqual(1);
+        expect(NEGAMON_BATTLE_GOLD_MULTIPLIER_CAP).toBeGreaterThanOrEqual(1);
     });
 });

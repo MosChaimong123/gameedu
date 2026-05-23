@@ -7,6 +7,13 @@ import { getTypeMultiplier } from "@/lib/classroom-utils";
 import { getBattleItemById } from "@/lib/shop-items";
 import { buildBasicAttackMove, NEGAMON_BASIC_ATTACK_MOVE_ID } from "@/lib/negamon-basic-move";
 import { getEnergyProfileForSpecies, getMoveEnergyCost } from "@/lib/negamon-energy";
+import {
+    calculateNegamonBattleGoldReward,
+} from "@/lib/game-negamon/core/battle-rewards";
+import {
+    NEGAMON_BATTLE_GOLD_MULTIPLIER_CAP,
+    NEGAMON_IGNORE_DEF_RETAINED_DEF_MULTIPLIER,
+} from "@/lib/game-negamon/core/battle-constants";
 
 /** @deprecated ใช้ NEGAMON_BASIC_ATTACK_MOVE_ID จาก negamon-basic-move */
 export const BASIC_ATTACK_MOVE_ID = NEGAMON_BASIC_ATTACK_MOVE_ID;
@@ -133,9 +140,8 @@ export type BattleMoveChoice = {
 // ── Constants ────────────────────────────────────────────────
 
 const MAX_TURNS = 20;
-const GOLD_REWARD_BASE = 30;
 /** Cap on combined goldMultiplier from battle items (winner payout). */
-export const BATTLE_GOLD_MULT_CAP = 2.5;
+export const BATTLE_GOLD_MULT_CAP = NEGAMON_BATTLE_GOLD_MULTIPLIER_CAP;
 /** ค่าเริ่มต้น DoT ไหม้ (% ของ max HP ต่อปลายเทิร์น) — ท่าที่กำหนด `effectBurnDotRate` จะ override */
 export const BURN_DOT_RATE = 0.03;
 const POISON_DOT_RATE = 0.0125;
@@ -185,7 +191,7 @@ const BASIC_ATTACK_FLAT_BONUS = 8;
 const SKILL_FLAT_BONUS = 12;
 const SPEED_CRIT_BONUS_PER_POINT = 0.002; // +0.2% crit per SPD advantage point (ไม่มีเพดาน)
 /** Defender's effective DEF is multiplied by this while armor pierce is active (0.5 = 50% DEF, i.e. 50% armor reduction). */
-export const IGNORE_DEF_RETAINED_DEF_MULTIPLIER = 0.5;
+export const IGNORE_DEF_RETAINED_DEF_MULTIPLIER = NEGAMON_IGNORE_DEF_RETAINED_DEF_MULTIPLIER;
 const ATTACK_DEFENSE_RATIO_CAP = 3.25;
 
 // ── Initialisation ────────────────────────────────────────────
@@ -1504,8 +1510,8 @@ export function resolveOneTurn(
 /** Compute the gold reward for a completed interactive battle */
 export function calcGoldReward(winner: BattleFighter, loser: BattleFighter): number {
     void loser;
-    const base = GOLD_REWARD_BASE + winner.goldBonus;
-    const mult = Math.min(BATTLE_GOLD_MULT_CAP, Math.max(1, winner.goldMultiplier));
-    return Math.floor(base * mult);
+    return calculateNegamonBattleGoldReward({
+        goldBonus: winner.goldBonus,
+        goldMultiplier: winner.goldMultiplier,
+    });
 }
-

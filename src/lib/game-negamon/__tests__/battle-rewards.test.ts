@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+    calculateNegamonBattleGoldReward,
     calculateNegamonBattleExpReward,
     calculateNegamonProgressionReward,
     createNegamonBattleRewardFinalizationPlan,
@@ -14,6 +15,11 @@ const monsterBefore = {
 };
 
 describe("Negamon progression and reward contracts", () => {
+    it("calculates battle gold with flat bonus before capped multiplier", () => {
+        expect(calculateNegamonBattleGoldReward({ goldBonus: 10, goldMultiplier: 1.25 })).toBe(50);
+        expect(calculateNegamonBattleGoldReward({ goldBonus: 10, goldMultiplier: 99 })).toBe(100);
+    });
+
     it("calculates battle exp by outcome with a capped turn bonus", () => {
         expect(calculateNegamonBattleExpReward({ outcome: "win", turnCount: 20 })).toBe(100);
         expect(calculateNegamonBattleExpReward({ outcome: "draw", turnCount: 3 })).toBe(46);

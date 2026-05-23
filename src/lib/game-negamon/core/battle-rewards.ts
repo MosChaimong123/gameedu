@@ -13,6 +13,10 @@ import {
     type GameLevelUpSummary,
     type GameRewardResult,
 } from "@/lib/game-core";
+import {
+    NEGAMON_BATTLE_GOLD_MULTIPLIER_CAP,
+    NEGAMON_BATTLE_GOLD_REWARD_BASE,
+} from "./battle-constants";
 import type { NegamonMonsterSnapshot } from "./monster-snapshot";
 
 export type NegamonRewardOutcome = "win" | "loss" | "draw";
@@ -47,7 +51,20 @@ export type NegamonBattleRewardFinalizationPlan =
           economyMutation: null;
           auditEvent: GameHistoryEvent;
           historyEvents: GameHistoryEvent[];
-      };
+};
+
+export function calculateNegamonBattleGoldReward(input: {
+    goldBonus?: number;
+    goldMultiplier?: number;
+    baseGold?: number;
+    multiplierCap?: number;
+}): number {
+    const baseGold = Math.max(0, Math.floor(input.baseGold ?? NEGAMON_BATTLE_GOLD_REWARD_BASE));
+    const goldBonus = Math.max(0, Math.floor(input.goldBonus ?? 0));
+    const multiplier = Math.max(1, input.goldMultiplier ?? 1);
+    const cap = Math.max(1, input.multiplierCap ?? NEGAMON_BATTLE_GOLD_MULTIPLIER_CAP);
+    return Math.floor((baseGold + goldBonus) * Math.min(cap, multiplier));
+}
 
 export function calculateNegamonBattleExpReward(input: {
     outcome: NegamonRewardOutcome;

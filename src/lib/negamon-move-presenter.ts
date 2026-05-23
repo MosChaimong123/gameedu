@@ -2,7 +2,7 @@
  * Shared Negamon move labels, badge classes, and effect copy helpers
  * (monster card, codex / info grids - single source of truth).
  */
-import { IGNORE_DEF_RETAINED_DEF_MULTIPLIER } from "@/lib/battle-engine";
+import { NEGAMON_IGNORE_DEF_RETAINED_DEF_MULTIPLIER } from "@/lib/game-negamon/core/battle-constants";
 import type { MonsterMove, MonsterType, MoveCategory, StatusEffect } from "@/lib/types/negamon";
 
 export type NegamonTranslateFn = (
@@ -98,7 +98,7 @@ function effectOnlyDescription(t: NegamonTranslateFn, move: MonsterMove): string
     if (perMove !== perMoveKey) return perMove;
     const key = effectDescriptionKey(move.effect);
     if (move.effect === "IGNORE_DEF") {
-        const mult = move.effectIgnoreDefRetained ?? IGNORE_DEF_RETAINED_DEF_MULTIPLIER;
+        const mult = move.effectIgnoreDefRetained ?? NEGAMON_IGNORE_DEF_RETAINED_DEF_MULTIPLIER;
         const retained = Math.round(mult * 100);
         const reduction = Math.round((1 - mult) * 100);
         const translated = t(key, { retained, reduction });
@@ -141,4 +141,3 @@ export function negamonMoveDisplayName(t: NegamonTranslateFn, move: MonsterMove)
     if (out !== key) return out;
     return move.name;
 }
-

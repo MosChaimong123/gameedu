@@ -38,7 +38,7 @@ Still remaining:
 - reward finalization does not yet persist monster exp/level-up/skill unlocks as first-class student state
 - `RewardResultModal` exists but is not wired to actual battle completion payload
 - shop/equip routes still need full migration to inventory delta contracts
-- `/api/classrooms/[id]/battle` still keeps auto-battle compatibility using the old `battle-engine.ts`
+- `/api/classrooms/[id]/battle` keeps history reads only; POST auto-battle now returns `410` and points clients to Negamon Lite V2
 - production browser QA has not been completed after deployment
 
 ## Design Rules
@@ -158,16 +158,26 @@ Goal:
 
 Tasks:
 
-- [ ] Inventory all remaining imports of `src/lib/battle-engine.ts`
-- [ ] Move gold reward calculation into `game-negamon/core/battle-rewards.ts`
-- [ ] Move any needed constants into V2 modules
-- [ ] Replace `/api/classrooms/[id]/battle` auto-battle implementation or mark it admin-only compatibility
-- [ ] Update tests that still validate old battle internals
+- [x] Inventory all remaining imports of `src/lib/battle-engine.ts`
+- [x] Move gold reward calculation into `game-negamon/core/battle-rewards.ts`
+- [x] Move any needed constants into V2 modules
+- [x] Replace `/api/classrooms/[id]/battle` auto-battle implementation or mark it admin-only compatibility
+- [x] Update tests that still validate old battle internals
 - [ ] Remove old engine only when no production route depends on it
 
 Exit criteria:
 
 - student and teacher Negamon flows no longer depend on `src/lib/battle-engine.ts`
+
+Phase 19 implementation notes:
+
+- Added V2 battle constants in `game-negamon/core/battle-constants.ts` for gold cap/base and ignore-defense retained multiplier.
+- Moved battle gold reward math into `calculateNegamonBattleGoldReward` under `game-negamon/core/battle-rewards.ts`.
+- Kept `calcGoldReward` and legacy constants in `src/lib/battle-engine.ts` as compatibility wrappers only; reward balancing now reads from V2 modules.
+- Updated move presentation UI helpers to import constants from V2 instead of the legacy engine.
+- Retired legacy POST auto battle at `/api/classrooms/[id]/battle` with a `410` response; live student battle creation remains `/battle/lite/start`.
+- Kept history GET on `/api/classrooms/[id]/battle` because the battle history panel still reads existing `BattleSession` records.
+- Remaining legacy engine imports are now isolated to legacy engine tests and compatibility wrappers, not active student battle routes.
 
 ## Phase 20: Reward Result UI Wiring
 

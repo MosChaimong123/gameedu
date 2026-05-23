@@ -1,15 +1,22 @@
 import type { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createDefaultNegamonSettings } from "@/lib/negamon-species";
 
 const mockStudentFindFirst = vi.fn();
 const mockStudentUpdateMany = vi.fn();
 const mockStudentFindUniqueOrThrow = vi.fn();
+const mockStudentUpdate = vi.fn();
 const mockEconomyTransactionCreate = vi.fn();
+const mockPointHistoryCreateMany = vi.fn();
 const mockTransaction = vi.fn(async (fn: (tx: unknown) => unknown) =>
   fn({
     student: {
       updateMany: mockStudentUpdateMany,
       findUniqueOrThrow: mockStudentFindUniqueOrThrow,
+      update: mockStudentUpdate,
+    },
+    pointHistory: {
+      createMany: mockPointHistoryCreateMany,
     },
     economyTransaction: {
       create: mockEconomyTransactionCreate,
@@ -36,21 +43,25 @@ describe("student quest ledger", () => {
     mockStudentFindFirst.mockResolvedValue({
       id: "student-1",
       classId: "class-1",
+      name: "Student One",
       loginCode: "abc123",
       streak: 1,
       lastCheckIn: null,
       gold: 10,
+      behaviorPoints: 0,
+      negamonSkills: [],
       inventory: [],
       dailyQuestsClaimed: null,
       weeklyQuestsClaimed: null,
       challengeQuestsClaimed: null,
       classroom: {
         gamifiedSettings: {},
+        levelConfig: [],
       },
       submissions: [],
     });
     mockStudentUpdateMany.mockResolvedValue({ count: 1 });
-    mockStudentFindUniqueOrThrow.mockResolvedValue({ gold: 15 });
+    mockStudentFindUniqueOrThrow.mockResolvedValue({ gold: 15, behaviorPoints: 0, negamonSkills: [] });
     mockEconomyTransactionCreate.mockResolvedValue({ id: "ledger-1" });
 
     const { POST } = await import("@/app/api/student/[code]/daily-quests/route");
@@ -66,10 +77,12 @@ describe("student quest ledger", () => {
     });
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
       ok: true,
       newGold: 15,
       goldEarned: 5,
+      reward: { gold: 5, exp: 0 },
+      progression: null,
       gameState: { gold: 15 },
     });
     expect(mockStudentUpdateMany).toHaveBeenCalledWith({
@@ -113,21 +126,25 @@ describe("student quest ledger", () => {
     mockStudentFindFirst.mockResolvedValue({
       id: "student-1",
       classId: "class-1",
+      name: "Student One",
       loginCode: "abc123",
       streak: 1,
       lastCheckIn: null,
       gold: 10,
+      behaviorPoints: 0,
+      negamonSkills: [],
       inventory: [],
       dailyQuestsClaimed: null,
       weeklyQuestsClaimed: null,
       challengeQuestsClaimed: null,
       classroom: {
         gamifiedSettings: {},
+        levelConfig: [],
       },
       submissions: [],
     });
     mockStudentUpdateMany.mockResolvedValue({ count: 1 });
-    mockStudentFindUniqueOrThrow.mockResolvedValue({ gold: 115 });
+    mockStudentFindUniqueOrThrow.mockResolvedValue({ gold: 115, behaviorPoints: 0, negamonSkills: [] });
     mockEconomyTransactionCreate.mockResolvedValue({ id: "ledger-1" });
 
     const { POST } = await import("@/app/api/student/[code]/daily-quests/route");
@@ -143,10 +160,12 @@ describe("student quest ledger", () => {
     });
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
       ok: true,
       newGold: 115,
       goldEarned: 5,
+      reward: { gold: 5, exp: 0 },
+      progression: null,
       gameState: { gold: 115 },
     });
     expect(mockEconomyTransactionCreate).toHaveBeenCalledWith({
@@ -158,25 +177,114 @@ describe("student quest ledger", () => {
     });
   });
 
-  it("still claims a quest when ledger recording fails", async () => {
+  it("maps quest gold to Negamon progression when a monster is configured", async () => {
+    const negamon = createDefaultNegamonSettings();
     mockStudentFindFirst.mockResolvedValue({
       id: "student-1",
       classId: "class-1",
+      name: "Student One",
       loginCode: "abc123",
       streak: 1,
       lastCheckIn: null,
       gold: 10,
+      behaviorPoints: 4,
+      negamonSkills: ["basic-attack"],
+      inventory: [],
+      dailyQuestsClaimed: null,
+      weeklyQuestsClaimed: null,
+      challengeQuestsClaimed: null,
+      classroom: {
+        gamifiedSettings: {
+          negamon: {
+            ...negamon,
+            enabled: true,
+            studentMonsters: { "student-1": negamon.species[0].id },
+          },
+        },
+        levelConfig: [
+          { name: "Common", minScore: 0 },
+          { name: "Uncommon", minScore: 5 },
+        ],
+      },
+      submissions: [],
+    });
+    mockStudentUpdateMany.mockResolvedValue({ count: 1 });
+    mockStudentFindUniqueOrThrow.mockResolvedValue({
+      gold: 15,
+      behaviorPoints: 4,
+      negamonSkills: ["basic-attack"],
+    });
+    mockStudentUpdate.mockResolvedValue({
+      behaviorPoints: 5,
+      negamonSkills: ["basic-attack"],
+    });
+    mockEconomyTransactionCreate.mockResolvedValue({ id: "ledger-1" });
+
+    const { POST } = await import("@/app/api/student/[code]/daily-quests/route");
+    const request = {
+      json: vi.fn().mockResolvedValue({
+        questType: "daily",
+        questId: "quest_login",
+      }),
+    } as unknown as NextRequest;
+
+    const response = await POST(request, {
+      params: Promise.resolve({ code: "abc123" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.reward).toMatchObject({
+      gold: 5,
+      exp: 5,
+      idempotencyKey:
+        "game:negamon:daily:quest_login:quest:student-1:daily:2026-04-07:quest_login:student-1:quest-progression",
+    });
+    expect(body.progression).toMatchObject({
+      expDelta: 5,
+      behaviorPointDelta: 1,
+      behaviorPointsBefore: 4,
+      behaviorPointsAfter: 5,
+    });
+    expect(mockStudentUpdate).toHaveBeenCalledWith({
+      where: { id: "student-1" },
+      data: { behaviorPoints: { increment: 1 } },
+      select: { behaviorPoints: true, negamonSkills: true },
+    });
+    expect(mockPointHistoryCreateMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          studentId: "student-1",
+          value: 1,
+          reason: "negamon_quest_reward:daily:quest_login:quest:student-1:daily:2026-04-07:quest_login",
+        }),
+      ]),
+    });
+  });
+
+  it("still claims a quest when ledger recording fails", async () => {
+    mockStudentFindFirst.mockResolvedValue({
+      id: "student-1",
+      classId: "class-1",
+      name: "Student One",
+      loginCode: "abc123",
+      streak: 1,
+      lastCheckIn: null,
+      gold: 10,
+      behaviorPoints: 0,
+      negamonSkills: [],
       inventory: [],
       dailyQuestsClaimed: null,
       weeklyQuestsClaimed: null,
       challengeQuestsClaimed: null,
       classroom: {
         gamifiedSettings: {},
+        levelConfig: [],
       },
       submissions: [],
     });
     mockStudentUpdateMany.mockResolvedValue({ count: 1 });
-    mockStudentFindUniqueOrThrow.mockResolvedValue({ gold: 15 });
+    mockStudentFindUniqueOrThrow.mockResolvedValue({ gold: 15, behaviorPoints: 0, negamonSkills: [] });
     mockEconomyTransactionCreate.mockRejectedValue(new Error("LEDGER_DOWN"));
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
@@ -193,10 +301,12 @@ describe("student quest ledger", () => {
     });
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
       ok: true,
       newGold: 15,
       goldEarned: 5,
+      reward: { gold: 5, exp: 0 },
+      progression: null,
       gameState: { gold: 15 },
     });
     expect(consoleError).toHaveBeenCalledWith(

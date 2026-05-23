@@ -19,8 +19,21 @@ import {
     type WeeklyQuestId,
     type ChallengeQuestId,
 } from "@/lib/quest-system";
-import { getActiveGoldMultiplier } from "@/lib/classroom-utils";
-import { createGameStatePatch } from "@/lib/game-core";
+import { getActiveGoldMultiplier, getNegamonSettings, type LevelConfigInput } from "@/lib/classroom-utils";
+import {
+    createGameRewardResult,
+    createGameStatePatch,
+    type GameHistoryEvent,
+    type GameRewardResult,
+} from "@/lib/game-core";
+import {
+    applyNegamonProgressionReward,
+    calculateNegamonQuestExpReward,
+    createNegamonLearningRewardFinalizationPlan,
+    createNegamonMonsterSnapshot,
+    createPointHistoryRowsFromLearningRewardEvents,
+    type NegamonProgressionPersistencePlan,
+} from "@/lib/game-negamon";
 import {
     createQuestClaimRewardPlan,
     createQuestProgressSnapshot,
@@ -54,17 +67,21 @@ async function resolveStudent(code: string): Promise<any | null> {
         select: {
             id: true,
             classId: true,
+            name: true,
             loginCode: true,
             streak: true,
             lastCheckIn: true,
             gold: true,
+            behaviorPoints: true,
+            negamonSkills: true,
             inventory: true,
             dailyQuestsClaimed: true,
             weeklyQuestsClaimed: true,
             challengeQuestsClaimed: true,
             classroom: {
                 select: {
-                    gamifiedSettings: true
+                    gamifiedSettings: true,
+                    levelConfig: true,
                 }
             },
             submissions: {
@@ -82,6 +99,13 @@ async function persistQuestClaim(params: {
         dailyQuestsClaimed?: unknown;
         weeklyQuestsClaimed?: unknown;
         challengeQuestsClaimed?: unknown;
+        name?: string | null;
+        behaviorPoints?: number | null;
+        negamonSkills?: unknown;
+        classroom?: {
+            gamifiedSettings?: unknown;
+            levelConfig?: unknown;
+        };
     };
     questType: QuestType;
     questId: string;
@@ -90,7 +114,16 @@ async function persistQuestClaim(params: {
     goldEarned: number;
     idempotencyKey: string;
     metadata: Record<string, unknown>;
-}) {
+}): Promise<
+    | { ok: false; reason: "ALREADY_CLAIMED" }
+    | {
+          ok: true;
+          newGold: number;
+          reward: GameRewardResult;
+          progression: NegamonProgressionPersistencePlan | null;
+          historyEvents: GameHistoryEvent[];
+      }
+> {
     const { student, field, nextClaimed, goldEarned } = params;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -113,8 +146,87 @@ async function persistQuestClaim(params: {
 
         const updated = await tx.student.findUniqueOrThrow({
             where: { id: student.id },
-            select: { gold: true },
+            select: { gold: true, behaviorPoints: true, negamonSkills: true },
         });
+        const negamon = getNegamonSettings(student.classroom?.gamifiedSettings);
+        const currentPoints = Math.max(0, Math.floor(updated.behaviorPoints ?? student.behaviorPoints ?? 0));
+        const currentSkills = Array.isArray(updated.negamonSkills)
+            ? (updated.negamonSkills as string[])
+            : Array.isArray(student.negamonSkills)
+              ? (student.negamonSkills as string[])
+              : [];
+        const expReward =
+            negamon?.enabled && goldEarned > 0
+                ? calculateNegamonQuestExpReward({ goldReward: goldEarned })
+                : 0;
+        const pointDelta =
+            expReward <= 0 || !negamon
+                ? 0
+                : Math.ceil(expReward / Math.max(1, Math.floor(negamon.expPerPoint ?? 10)));
+        const sourceId = `${params.questType}:${params.questId}:${params.idempotencyKey}`;
+        const monsterBefore =
+            negamon && expReward > 0
+                ? createNegamonMonsterSnapshot({
+                      studentId: student.id,
+                      studentName: student.name,
+                      points: currentPoints,
+                      levelConfig: student.classroom?.levelConfig as LevelConfigInput,
+                      negamonSettings: negamon,
+                      equippedSkillIds: currentSkills,
+                  })
+                : null;
+        const monsterAfter =
+            negamon && expReward > 0
+                ? createNegamonMonsterSnapshot({
+                      studentId: student.id,
+                      studentName: student.name,
+                      points: currentPoints + pointDelta,
+                      levelConfig: student.classroom?.levelConfig as LevelConfigInput,
+                      negamonSettings: negamon,
+                      equippedSkillIds: currentSkills,
+                  })
+                : null;
+        const rewardPlan =
+            monsterBefore && monsterAfter
+                ? createNegamonLearningRewardFinalizationPlan({
+                      source: "quest",
+                      sourceId,
+                      studentId: student.id,
+                      classId: student.classId,
+                      monsterBefore,
+                      goldReward: goldEarned,
+                      expReward,
+                      rankIndexAfter: monsterAfter.rankIndex,
+                      unlockedSkillIdsAfter: monsterAfter.unlockedSkillIds,
+                      createdAt: new Date(),
+                  })
+                : null;
+        const progressionResult =
+            rewardPlan?.ok
+                ? await applyNegamonProgressionReward({
+                      studentId: student.id,
+                      student: {
+                          behaviorPoints: currentPoints,
+                          negamonSkills: currentSkills,
+                      },
+                      progression: rewardPlan.progression,
+                      expPerPoint: negamon?.expPerPoint,
+                      studentDelegate: tx.student,
+                  })
+                : null;
+        const historyRows =
+            rewardPlan && progressionResult?.plan
+                ? createPointHistoryRowsFromLearningRewardEvents({
+                      studentId: student.id,
+                      source: "quest",
+                      sourceId,
+                      behaviorPointDelta: progressionResult.plan.behaviorPointDelta,
+                      historyEvents: rewardPlan.historyEvents,
+                  })
+                : [];
+        if (historyRows.length > 0) {
+            await tx.pointHistory.createMany({ data: historyRows });
+        }
 
         try {
             const questPlan = createQuestClaimRewardPlan({
@@ -138,6 +250,8 @@ async function persistQuestClaim(params: {
                 metadata: {
                     questType: params.questType,
                     questId: params.questId,
+                    rewardIdempotencyKey: rewardPlan?.idempotencyKey,
+                    expReward,
                     ...params.metadata,
                 },
             });
@@ -145,7 +259,18 @@ async function persistQuestClaim(params: {
             console.error("[daily-quests] failed to record quest ledger", error);
         }
 
-        return { ok: true as const, newGold: updated.gold };
+        return {
+            ok: true as const,
+            newGold: updated.gold,
+            reward:
+                rewardPlan?.reward ??
+                createGameRewardResult({
+                    gold: goldEarned,
+                    idempotencyKey: params.idempotencyKey,
+                }),
+            progression: progressionResult?.plan ?? null,
+            historyEvents: rewardPlan?.historyEvents ?? [],
+        };
     });
 }
 
@@ -258,6 +383,9 @@ export async function POST(
             ok: true,
             newGold: claimResult.newGold,
             goldEarned,
+            reward: claimResult.reward,
+            progression: claimResult.progression,
+            historyEvents: claimResult.historyEvents,
             gameState: createGameStatePatch({ gold: claimResult.newGold }),
         });
     }
@@ -308,6 +436,9 @@ export async function POST(
             ok: true,
             newGold: claimResult.newGold,
             goldEarned,
+            reward: claimResult.reward,
+            progression: claimResult.progression,
+            historyEvents: claimResult.historyEvents,
             gameState: createGameStatePatch({ gold: claimResult.newGold }),
         });
     }
@@ -346,6 +477,9 @@ export async function POST(
             ok: true,
             newGold: claimResult.newGold,
             goldEarned,
+            reward: claimResult.reward,
+            progression: claimResult.progression,
+            historyEvents: claimResult.historyEvents,
             gameState: createGameStatePatch({ gold: claimResult.newGold }),
         });
     }

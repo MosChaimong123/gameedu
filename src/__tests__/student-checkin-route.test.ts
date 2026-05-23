@@ -1,15 +1,22 @@
 import type { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createDefaultNegamonSettings } from "@/lib/negamon-species";
 
 const mockStudentFindFirst = vi.fn();
 const mockStudentUpdateMany = vi.fn();
 const mockStudentFindUniqueOrThrow = vi.fn();
+const mockStudentUpdate = vi.fn();
 const mockEconomyTransactionCreate = vi.fn();
+const mockPointHistoryCreateMany = vi.fn();
 const mockTransaction = vi.fn(async (fn: (tx: unknown) => unknown) =>
   fn({
     student: {
       updateMany: mockStudentUpdateMany,
       findUniqueOrThrow: mockStudentFindUniqueOrThrow,
+      update: mockStudentUpdate,
+    },
+    pointHistory: {
+      createMany: mockPointHistoryCreateMany,
     },
     economyTransaction: {
       create: mockEconomyTransactionCreate,
@@ -53,11 +60,15 @@ describe("student checkin route", () => {
     mockStudentFindFirst.mockResolvedValue({
       id: "student-1",
       classId: "class-1",
+      name: "Student One",
       gold: 20,
+      behaviorPoints: 0,
+      negamonSkills: [],
       lastCheckIn: new Date("2026-04-07T01:00:00.000Z"),
       streak: 3,
       classroom: {
         gamifiedSettings: {},
+        levelConfig: [],
       },
     });
 
@@ -77,11 +88,15 @@ describe("student checkin route", () => {
     mockStudentFindFirst.mockResolvedValue({
       id: "student-1",
       classId: "class-1",
+      name: "Student One",
       gold: 20,
+      behaviorPoints: 0,
+      negamonSkills: [],
       lastCheckIn: new Date("2026-04-06T01:00:00.000Z"),
       streak: 1,
       classroom: {
         gamifiedSettings: {},
+        levelConfig: [],
       },
     });
     mockStudentUpdateMany.mockResolvedValue({ count: 1 });
@@ -117,15 +132,92 @@ describe("student checkin route", () => {
     });
   });
 
+  it("adds attendance exp to Negamon progression once on successful check-in", async () => {
+    const negamon = createDefaultNegamonSettings();
+    mockStudentFindFirst.mockResolvedValue({
+      id: "student-1",
+      classId: "class-1",
+      name: "Student One",
+      gold: 20,
+      behaviorPoints: 4,
+      negamonSkills: ["basic-attack"],
+      lastCheckIn: new Date("2026-04-06T01:00:00.000Z"),
+      streak: 1,
+      classroom: {
+        gamifiedSettings: {
+          negamon: {
+            ...negamon,
+            enabled: true,
+            studentMonsters: { "student-1": negamon.species[0].id },
+          },
+        },
+        levelConfig: [
+          { name: "Common", minScore: 0 },
+          { name: "Uncommon", minScore: 5 },
+          { name: "Rare", minScore: 6 },
+        ],
+      },
+    });
+    mockStudentUpdateMany.mockResolvedValue({ count: 1 });
+    mockStudentFindUniqueOrThrow.mockResolvedValue({ gold: 30, streak: 2 });
+    mockStudentUpdate.mockResolvedValue({
+      behaviorPoints: 6,
+      negamonSkills: ["basic-attack", "naga-aqua-jet"],
+    });
+    mockEconomyTransactionCreate.mockResolvedValue({ id: "ledger-1" });
+
+    vi.setSystemTime(new Date("2026-04-07T08:00:00.000Z"));
+
+    const { POST } = await import("@/app/api/student/[code]/checkin/route");
+    const response = await POST({} as NextRequest, {
+      params: Promise.resolve({ code: "abc123" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.reward).toMatchObject({
+      gold: 10,
+      exp: 20,
+      idempotencyKey: "game:negamon:checkin:student-1:2026-04-07:student-1:attendance-progression",
+    });
+    expect(body.progression).toMatchObject({
+      expDelta: 20,
+      behaviorPointDelta: 2,
+      behaviorPointsBefore: 4,
+      behaviorPointsAfter: 6,
+    });
+    expect(mockStudentUpdate).toHaveBeenCalledWith({
+      where: { id: "student-1" },
+      data: {
+        behaviorPoints: { increment: 2 },
+        negamonSkills: ["basic-attack", "naga-aqua-jet"],
+      },
+      select: { behaviorPoints: true, negamonSkills: true },
+    });
+    expect(mockPointHistoryCreateMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          studentId: "student-1",
+          value: 2,
+          reason: "negamon_attendance_reward:checkin:student-1:2026-04-07",
+        }),
+      ]),
+    });
+  });
+
   it("records the first check-in when lastCheckIn is unset in Mongo", async () => {
     mockStudentFindFirst.mockResolvedValue({
       id: "student-1",
       classId: "class-1",
+      name: "Student One",
       gold: 0,
+      behaviorPoints: 0,
+      negamonSkills: [],
       lastCheckIn: null,
       streak: 0,
       classroom: {
         gamifiedSettings: {},
+        levelConfig: [],
       },
     });
     mockStudentUpdateMany.mockResolvedValue({ count: 1 });
@@ -167,11 +259,15 @@ describe("student checkin route", () => {
     mockStudentFindFirst.mockResolvedValue({
       id: "student-1",
       classId: "class-1",
+      name: "Student One",
       gold: 20,
+      behaviorPoints: 0,
+      negamonSkills: [],
       lastCheckIn,
       streak: 1,
       classroom: {
         gamifiedSettings: {},
+        levelConfig: [],
       },
     });
     mockStudentUpdateMany.mockResolvedValue({ count: 1 });

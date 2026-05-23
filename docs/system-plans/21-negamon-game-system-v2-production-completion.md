@@ -224,16 +224,27 @@ Goal:
 
 Tasks:
 
-- [ ] Map daily quest rewards to `GameRewardResult`
-- [ ] Add optional monster exp for quest completion
-- [ ] Add attendance/check-in exp using `expPerAttendance`
-- [ ] Add history entries for quest-driven level-up
-- [ ] Prevent duplicate quest reward finalization
-- [ ] Add tests for quest and attendance reward idempotency
+- [x] Map daily quest rewards to `GameRewardResult`
+- [x] Add optional monster exp for quest completion
+- [x] Add attendance/check-in exp using `expPerAttendance`
+- [x] Add history entries for quest-driven level-up
+- [x] Prevent duplicate quest reward finalization
+- [x] Add tests for quest and attendance reward idempotency
 
 Exit criteria:
 
 - assignments, quests, attendance, and battles all feed one progression model
+
+Status: completed on 2026-05-23 as Quest and Attendance Progression.
+
+Phase 21 completion notes:
+
+- Added `game-negamon/core/learning-rewards.ts` so quest and attendance rewards create the same `GameRewardResult`, level-up summaries, skill unlock summaries, and history events used by battle rewards.
+- Added `game-negamon/server/learning-history.ts` to persist quest/check-in progression audit rows in `PointHistory`.
+- Updated `/api/student/[code]/daily-quests` so successful quest claims return `reward`, `progression`, and `historyEvents` while preserving `newGold`, `goldEarned`, and `gameState`.
+- Quest monster EXP is optional and only applies when Negamon is enabled and the student has a configured monster; duplicate quest claims still stop at the existing atomic claim guard before progression is applied.
+- Updated `/api/student/[code]/checkin` so first check-in of the Bangkok day grants monster EXP from `expPerAttendance`, returns the shared reward payload, and records progression history.
+- Added focused tests for learning reward contracts, quest progression, check-in progression, and duplicate/idempotent route behavior.
 
 ## Phase 22: Student Dashboard Production QA
 

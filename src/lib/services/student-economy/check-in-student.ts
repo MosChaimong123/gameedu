@@ -1,7 +1,15 @@
 import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
-import { getActiveGoldMultiplier } from "@/lib/classroom-utils";
+import { getActiveGoldMultiplier, getNegamonSettings, type LevelConfigInput } from "@/lib/classroom-utils";
+import { createGameRewardResult, type GameHistoryEvent, type GameRewardResult } from "@/lib/game-core";
+import {
+    applyNegamonProgressionReward,
+    createNegamonLearningRewardFinalizationPlan,
+    createNegamonMonsterSnapshot,
+    createPointHistoryRowsFromLearningRewardEvents,
+    type NegamonProgressionPersistencePlan,
+} from "@/lib/game-negamon";
 import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
 
 type CheckInStudentDeps = {
@@ -19,6 +27,9 @@ export type CheckInStudentResult =
         bonusGold: number;
         streak: number;
         newGold: number;
+        reward: GameRewardResult;
+        progression: NegamonProgressionPersistencePlan | null;
+        historyEvents: GameHistoryEvent[];
       };
 
 function bangkokDateKey(date: Date): string {
@@ -67,12 +78,16 @@ export async function checkInStudent(
         select: {
             id: true,
             classId: true,
+            name: true,
             gold: true,
+            behaviorPoints: true,
+            negamonSkills: true,
             lastCheckIn: true,
             streak: true,
             classroom: {
                 select: {
                     gamifiedSettings: true,
+                    levelConfig: true,
                 },
             },
         },
@@ -100,6 +115,12 @@ export async function checkInStudent(
     const bonusGold = 0;
     const multiplier = getActiveGoldMultiplier(student.classroom.gamifiedSettings);
     const goldEarned = Math.floor((baseGold + bonusGold) * multiplier);
+    const rewardId = `checkin:${student.id}:${bangkokDateKey(now)}`;
+    const negamon = getNegamonSettings(student.classroom.gamifiedSettings);
+    const currentSkills = Array.isArray(student.negamonSkills)
+        ? (student.negamonSkills as string[])
+        : [];
+    const expReward = negamon?.enabled ? Math.max(0, Math.floor(negamon.expPerAttendance ?? 0)) : 0;
 
     return deps.db.$transaction(async (tx) => {
         const updatedCount = await tx.student.updateMany({
@@ -120,6 +141,74 @@ export async function checkInStudent(
             select: { gold: true, streak: true },
         });
 
+        const pointDelta =
+            expReward <= 0 || !negamon
+                ? 0
+                : Math.ceil(expReward / Math.max(1, Math.floor(negamon.expPerPoint ?? 10)));
+        const monsterBefore =
+            negamon && expReward > 0
+                ? createNegamonMonsterSnapshot({
+                      studentId: student.id,
+                      studentName: student.name,
+                      points: Math.max(0, Math.floor(student.behaviorPoints ?? 0)),
+                      levelConfig: student.classroom.levelConfig as LevelConfigInput,
+                      negamonSettings: negamon,
+                      equippedSkillIds: currentSkills,
+                  })
+                : null;
+        const monsterAfter =
+            negamon && expReward > 0
+                ? createNegamonMonsterSnapshot({
+                      studentId: student.id,
+                      studentName: student.name,
+                      points: Math.max(0, Math.floor(student.behaviorPoints ?? 0)) + pointDelta,
+                      levelConfig: student.classroom.levelConfig as LevelConfigInput,
+                      negamonSettings: negamon,
+                      equippedSkillIds: currentSkills,
+                  })
+                : null;
+        const rewardPlan =
+            monsterBefore && monsterAfter
+                ? createNegamonLearningRewardFinalizationPlan({
+                      source: "attendance",
+                      sourceId: rewardId,
+                      studentId: student.id,
+                      classId: student.classId,
+                      monsterBefore,
+                      goldReward: goldEarned,
+                      expReward,
+                      rankIndexAfter: monsterAfter.rankIndex,
+                      unlockedSkillIdsAfter: monsterAfter.unlockedSkillIds,
+                      createdAt: now,
+                  })
+                : null;
+        const progressionResult =
+            rewardPlan?.ok
+                ? await applyNegamonProgressionReward({
+                      studentId: student.id,
+                      student: {
+                          behaviorPoints: Math.max(0, Math.floor(student.behaviorPoints ?? 0)),
+                          negamonSkills: currentSkills,
+                      },
+                      progression: rewardPlan.progression,
+                      expPerPoint: negamon?.expPerPoint,
+                      studentDelegate: tx.student,
+                  })
+                : null;
+        const historyRows =
+            rewardPlan && progressionResult?.plan
+                ? createPointHistoryRowsFromLearningRewardEvents({
+                      studentId: student.id,
+                      source: "attendance",
+                      sourceId: rewardId,
+                      behaviorPointDelta: progressionResult.plan.behaviorPointDelta,
+                      historyEvents: rewardPlan.historyEvents,
+                  })
+                : [];
+        if (historyRows.length > 0) {
+            await tx.pointHistory.createMany({ data: historyRows });
+        }
+
         await recordEconomyTransaction(tx, {
             studentId: student.id,
             classId: student.classId,
@@ -128,13 +217,15 @@ export async function checkInStudent(
             amount: goldEarned,
             balanceBefore: updated.gold - goldEarned,
             balanceAfter: updated.gold,
-            idempotencyKey: `checkin:${student.id}:${bangkokDateKey(now)}`,
+            idempotencyKey: rewardId,
             metadata: {
                 streak: newStreak,
                 baseGold,
                 bonusGold,
                 eventMultiplier: multiplier,
                 checkInDate: bangkokDateKey(now),
+                rewardIdempotencyKey: rewardPlan?.idempotencyKey,
+                expReward,
             },
         });
 
@@ -145,6 +236,14 @@ export async function checkInStudent(
             bonusGold,
             streak: updated.streak,
             newGold: updated.gold,
+            reward:
+                rewardPlan?.reward ??
+                createGameRewardResult({
+                    gold: goldEarned,
+                    idempotencyKey: rewardId,
+                }),
+            progression: progressionResult?.plan ?? null,
+            historyEvents: rewardPlan?.historyEvents ?? [],
         };
     });
 }

@@ -8,6 +8,7 @@ const mockBattleSessionFindFirst = vi.fn();
 const mockBattleSessionUpdateMany = vi.fn();
 const mockBattleSessionCount = vi.fn();
 const mockStudentUpdate = vi.fn();
+const mockPointHistoryCreateMany = vi.fn();
 const mockEconomyTransactionFindFirst = vi.fn();
 const mockEconomyTransactionCreate = vi.fn();
 const mockAuthorizeBattleRead = vi.fn();
@@ -25,6 +26,9 @@ const mockTransaction = vi.fn(async (fn: (tx: unknown) => unknown) =>
     economyTransaction: {
       findFirst: mockEconomyTransactionFindFirst,
       create: mockEconomyTransactionCreate,
+    },
+    pointHistory: {
+      createMany: mockPointHistoryCreateMany,
     },
   })
 );
@@ -48,6 +52,9 @@ vi.mock("@/lib/db", () => ({
     economyTransaction: {
       findFirst: mockEconomyTransactionFindFirst,
       create: mockEconomyTransactionCreate,
+    },
+    pointHistory: {
+      createMany: mockPointHistoryCreateMany,
     },
     $transaction: mockTransaction,
   },
@@ -114,6 +121,7 @@ beforeEach(() => {
   mockBattleSessionCount.mockResolvedValue(0);
   mockEconomyTransactionFindFirst.mockResolvedValue(null);
   mockEconomyTransactionCreate.mockResolvedValue({ id: "ledger-1" });
+  mockPointHistoryCreateMany.mockResolvedValue({ count: 1 });
   mockStudentUpdate.mockResolvedValue({ gold: 130 });
   mockAuthorizeBattleRead.mockResolvedValue({
     ok: true,
@@ -270,6 +278,9 @@ describe("Negamon lite battle session routes", () => {
           expDelta: expect.any(Number),
           behaviorPointDelta: expect.any(Number),
         }),
+        historyEvents: expect.arrayContaining([
+          expect.objectContaining({ kind: "reward_granted" }),
+        ]),
       },
       state: { phase: "ended", winner: "player" },
     });
@@ -296,8 +307,19 @@ describe("Negamon lite battle session routes", () => {
           rewardIdempotencyKey: "game:negamon:session-1:challenger-1:battle-finalize",
           reward: expect.objectContaining({ gold: 30 }),
           progression: expect.any(Object),
+          historyEvents: expect.arrayContaining([
+            expect.objectContaining({ kind: "reward_granted" }),
+          ]),
         }),
       },
+    });
+    expect(mockPointHistoryCreateMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          studentId: "challenger-1",
+          reason: "negamon_battle_reward",
+        }),
+      ]),
     });
     expect(mockStudentUpdate).toHaveBeenCalledWith({
       where: { id: "challenger-1" },

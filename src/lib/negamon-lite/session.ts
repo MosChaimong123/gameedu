@@ -6,7 +6,7 @@ import {
     type NegamonMonsterSnapshot,
     type NegamonSkillDefinition,
 } from "@/lib/game-negamon";
-import type { GameRewardResult } from "@/lib/game-core";
+import type { GameHistoryEvent, GameRewardResult } from "@/lib/game-core";
 import type { NegamonProgressionPersistencePlan } from "@/lib/game-negamon/server/progression";
 import type { Prisma } from "@prisma/client";
 import type {
@@ -32,6 +32,7 @@ export type NegamonLiteSessionResult = {
     rewardIdempotencyKey?: string;
     reward?: GameRewardResult;
     progression?: NegamonProgressionPersistencePlan | null;
+    historyEvents?: GameHistoryEvent[];
 };
 
 export type NegamonLiteStudentSnapshot = {

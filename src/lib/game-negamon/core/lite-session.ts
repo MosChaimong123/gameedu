@@ -1,5 +1,5 @@
 import { getValidChoices } from "@/lib/negamon-lite";
-import { createBattleHistorySummary, type GameHistorySummary, type GameRewardResult } from "@/lib/game-core";
+import { createBattleHistorySummary, type GameHistoryEvent, type GameHistorySummary, type GameRewardResult } from "@/lib/game-core";
 import type { NegamonProgressionPersistencePlan } from "@/lib/game-negamon/server/progression";
 import {
     parseNegamonLiteSessionResult,
@@ -32,6 +32,7 @@ export type NegamonLiteSessionFinalView = {
     rewardIdempotencyKey?: string;
     reward?: GameRewardResult;
     progression?: NegamonProgressionPersistencePlan | null;
+    historyEvents?: GameHistoryEvent[];
 };
 
 export type NegamonLiteSessionView = {
@@ -77,6 +78,7 @@ export function createNegamonLiteSessionView(
                   rewardIdempotencyKey: result.rewardIdempotencyKey,
                   reward: result.reward,
                   progression: result.progression ?? null,
+                  historyEvents: result.historyEvents ?? [],
               }
             : null;
 

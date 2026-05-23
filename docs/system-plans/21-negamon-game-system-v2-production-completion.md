@@ -99,9 +99,9 @@ Tasks:
 
 - [x] Extend lite battle final response with V2 reward summary
 - [x] Use one idempotency key for gold, exp, items, and level-up
-- [ ] Apply inventory reward grants through `GameInventoryChange`
-- [ ] Apply consumed battle item changes through the same finalization path
-- [ ] Record reward audit/history events for level-up and skill unlock
+- [x] Apply inventory reward grants through `GameInventoryChange`
+- [x] Apply consumed battle item changes through the same finalization path
+- [x] Record reward audit/history events for level-up and skill unlock
 - [x] Prevent duplicate finalize on repeated choice/session calls
 - [x] Add integration tests for duplicate battle finalization
 
@@ -115,11 +115,13 @@ Phase 17 implementation notes:
 - Reused the battle finalization idempotency key across the returned reward summary and persisted session result.
 - Added a completed-session retry path so repeated `/battle/lite/choice` calls return the existing final result without awarding gold, EXP, skills, or ledger entries again.
 - Added reward/progression metadata to the battle economy ledger entry for auditability.
+- Persisted V2 reward `historyEvents` on the finished battle session result.
+- Added `PointHistory` rows from finalized reward history events so battle reward, level-up, and skill-unlock outcomes are queryable from student history data.
 - Added integration coverage for final payload persistence and completed-session retry behavior.
 
 Remaining follow-up:
 
-- Item grants, consumed item changes, and explicit level-up/skill-unlock history events remain scoped to Phase 18 and Phase 20 because the current lite battle flow does not yet consume or grant inventory items.
+- Lite battle currently has no item reward table, so item grant/consume integration is wired through the V2 finalization contract and downstream inventory contracts, but no battle item reward IDs are emitted yet.
 
 ## Phase 18: Shop and Inventory Route Migration
 

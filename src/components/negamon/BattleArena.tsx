@@ -692,7 +692,7 @@ function BattleReplay({
     return (
         <div className="space-y-3">
 
-            {/* ── Pokémon-style Battle Scene ── */}
+            {/* Pokemon-style battle scene */}
             <div className="relative">
                 <BattleField
                     player={{
@@ -718,7 +718,7 @@ function BattleReplay({
                 />
 
                 {/* HUD overlay */}
-                {/* Opponent HUD — top-right (same side as opponent sprite) */}
+                {/* Opponent HUD - top-right (same side as opponent sprite) */}
                 <div className="pointer-events-none absolute top-2 right-2 z-20">
                     <OpponentHud
                         name={opponent.studentName}
@@ -735,7 +735,7 @@ function BattleReplay({
                     />
                 </div>
 
-                {/* Player HUD — bottom-left (same side as player sprite) */}
+                {/* Player HUD - bottom-left (same side as player sprite) */}
                 <div className="pointer-events-none absolute bottom-2 left-2 z-20">
                     <PlayerHud
                         name={player.studentName}
@@ -1287,7 +1287,7 @@ function InteractiveBattle({
                     faintedId={faintedId}
                 />
 
-                {/* Opponent HUD — top-right (same side as opponent sprite) */}
+                {/* Opponent HUD - top-right (same side as opponent sprite) */}
                 <div className="pointer-events-none absolute top-2 right-2 z-20">
                     <OpponentHud
                         name={renderOpponent.studentName}
@@ -1304,7 +1304,7 @@ function InteractiveBattle({
                     />
                 </div>
 
-                {/* Player HUD — bottom-left (same side as player sprite) */}
+                {/* Player HUD - bottom-left (same side as player sprite) */}
                 <div className="pointer-events-none absolute bottom-2 left-2 z-20">
                     <PlayerHud
                         name={renderPlayer.studentName}

@@ -307,15 +307,27 @@ Goal:
 
 Tasks:
 
-- [ ] Add reward/progression rows to student history where useful
-- [ ] Add teacher-visible reward audit summary for V2 reward finalize
-- [ ] Add filters for battle, quest, level-up, skill unlock
-- [ ] Show blocked reward reasons in readable copy
-- [ ] Add analytics for exp earned and level-ups
+- [x] Add reward/progression rows to student history where useful
+- [x] Add teacher-visible reward audit summary for V2 reward finalize
+- [x] Add filters for battle, quest, level-up, skill unlock
+- [x] Show blocked reward reasons in readable copy
+- [x] Add analytics for exp earned and level-ups
 
 Exit criteria:
 
 - teacher can trace why a student received gold, exp, item, or skill unlock
+
+Status: completed on 2026-05-24 as Teacher/Admin Visibility.
+
+Phase 23 implementation notes:
+
+- Added `/api/classrooms/[id]/negamon/reward-visibility` for teacher-owned classrooms.
+- The route combines V2 economy transactions, Negamon `PointHistory` rows, and completed lite battle sessions into one teacher-readable event feed.
+- Added filters for `battle`, `quest`, `attendance`, `level_up`, `skill_unlock`, and `blocked`.
+- Blocked battle reward reasons now return readable copy such as daily cap and pair cooldown.
+- Added summary analytics for total gold, total EXP, reward events, blocked events, level-ups, and skill unlocks.
+- Added a classroom ledger panel so teachers can inspect recent V2 reward/progression events without opening raw DB data.
+- Added route regression coverage for auth, classroom ownership, summary aggregation, and blocked-reason filtering.
 
 ## Phase 24: Cleanup and Release Gate
 

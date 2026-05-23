@@ -5,7 +5,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Download, SlidersHorizontal, AlertTriangle, CheckCircle2, Users, ShieldCheck } from "lucide-react";
+import { Loader2, Download, SlidersHorizontal, AlertTriangle, CheckCircle2, Users, ShieldCheck, Activity } from "lucide-react";
 
 type LedgerRow = {
   id: string;
@@ -92,6 +92,38 @@ type NegamonRewardAuditResponse = {
     reason: string | null;
     timestamp: string;
     metadata: Record<string, unknown>;
+  }[];
+};
+
+type RewardVisibilityEventType = "all" | "battle" | "quest" | "attendance" | "level_up" | "skill_unlock" | "blocked";
+
+type NegamonRewardVisibilityResponse = {
+  summary: {
+    eventCount: number;
+    rewardEventCount: number;
+    blockedEventCount: number;
+    totalGold: number;
+    totalExp: number;
+    levelUpCount: number;
+    skillUnlockCount: number;
+    byEventType: Record<string, number>;
+    byBlockedReason: Record<string, number>;
+  };
+  events: {
+    id: string;
+    kind: string;
+    source: string;
+    studentId: string | null;
+    studentName: string | null;
+    gold: number;
+    exp: number;
+    levelUpCount: number;
+    skillUnlockCount: number;
+    blockedReason: string | null;
+    blockedReasonLabel: string | null;
+    reason: string | null;
+    sourceRefId: string | null;
+    createdAt: string;
   }[];
 };
 
@@ -192,6 +224,15 @@ const SOURCE_OPTIONS = [
 ] as const;
 
 const TYPE_OPTIONS = ["", "earn", "spend", "adjust"] as const;
+const REWARD_VISIBILITY_EVENT_TYPES: { value: RewardVisibilityEventType; label: string }[] = [
+  { value: "all", label: "All events" },
+  { value: "battle", label: "Battle" },
+  { value: "quest", label: "Quest" },
+  { value: "attendance", label: "Attendance" },
+  { value: "level_up", label: "Level-up" },
+  { value: "skill_unlock", label: "Skill unlock" },
+  { value: "blocked", label: "Blocked" },
+];
 type AdjustmentScope = "single" | "selected" | "all";
 
 function studentLabel(student: EconomyLedgerStudentOption): string {
@@ -298,16 +339,19 @@ export function ClassroomEconomyLedgerTab({
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [reconciliationLoading, setReconciliationLoading] = useState(true);
   const [rewardAuditLoading, setRewardAuditLoading] = useState(true);
+  const [rewardVisibilityLoading, setRewardVisibilityLoading] = useState(true);
   const [rewardRemediationLoading, setRewardRemediationLoading] = useState(true);
   const [rewardEffectivenessLoading, setRewardEffectivenessLoading] = useState(true);
   const [resyncingGamePin, setResyncingGamePin] = useState<string | null>(null);
   const [rewardAuditGamePin, setRewardAuditGamePin] = useState("");
   const [rewardAuditReason, setRewardAuditReason] = useState("");
+  const [rewardVisibilityType, setRewardVisibilityType] = useState<RewardVisibilityEventType>("all");
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<LedgerResponse | null>(null);
   const [analytics, setAnalytics] = useState<EconomyAnalyticsResponse | null>(null);
   const [reconciliation, setReconciliation] = useState<EconomyReconciliationResponse | null>(null);
   const [rewardAudit, setRewardAudit] = useState<NegamonRewardAuditResponse | null>(null);
+  const [rewardVisibility, setRewardVisibility] = useState<NegamonRewardVisibilityResponse | null>(null);
   const [rewardRemediation, setRewardRemediation] = useState<NegamonRewardRemediationResponse | null>(null);
   const [rewardEffectiveness, setRewardEffectiveness] =
     useState<NegamonRewardEffectivenessResponse | null>(null);
@@ -400,6 +444,25 @@ export function ClassroomEconomyLedgerTab({
     }
   };
 
+  const loadRewardVisibility = async (eventType = rewardVisibilityType) => {
+    setRewardVisibilityLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", "30");
+      params.set("eventType", eventType);
+      const res = await fetch(`/api/classrooms/${classId}/negamon/reward-visibility?${params.toString()}`);
+      if (!res.ok) {
+        setRewardVisibility(null);
+        return;
+      }
+      setRewardVisibility((await res.json()) as NegamonRewardVisibilityResponse);
+    } catch {
+      setRewardVisibility(null);
+    } finally {
+      setRewardVisibilityLoading(false);
+    }
+  };
+
   const loadRewardRemediation = async (options?: { gamePin?: string }) => {
     setRewardRemediationLoading(true);
     try {
@@ -470,7 +533,7 @@ export function ClassroomEconomyLedgerTab({
       setAdjustStudentIds([]);
       setAdjustAmount("");
       setAdjustReason("");
-      await Promise.all([load(), loadAnalytics(), loadReconciliation()]);
+      await Promise.all([load(), loadAnalytics(), loadReconciliation(), loadRewardVisibility()]);
     } catch {
       setError(t("economyLedgerAdjustFailed"));
     } finally {
@@ -511,6 +574,7 @@ export function ClassroomEconomyLedgerTab({
       });
       await Promise.all([
         loadRewardAudit({ gamePin: rewardAuditGamePin, reason: rewardAuditReason }),
+        loadRewardVisibility(),
         loadRewardRemediation({ gamePin: rewardAuditGamePin }),
         loadRewardEffectiveness({ gamePin: rewardAuditGamePin }),
       ]);
@@ -533,6 +597,7 @@ export function ClassroomEconomyLedgerTab({
     }
     await Promise.all([
       loadRewardAudit({ gamePin, reason: "" }),
+      loadRewardVisibility(),
       loadRewardRemediation({ gamePin }),
       loadRewardEffectiveness({ gamePin }),
     ]);
@@ -543,6 +608,7 @@ export function ClassroomEconomyLedgerTab({
     void loadAnalytics();
     void loadReconciliation();
     void loadRewardAudit({ gamePin: rewardAuditGamePin, reason: rewardAuditReason });
+    void loadRewardVisibility(rewardVisibilityType);
     void loadRewardRemediation({ gamePin: rewardAuditGamePin });
     void loadRewardEffectiveness({ gamePin: rewardAuditGamePin });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -674,6 +740,99 @@ export function ClassroomEconomyLedgerTab({
         ) : !reconciliationLoading ? (
           <p className="mt-3 text-xs font-semibold text-emerald-700">{t("economyReconciliationHealthy")}</p>
         ) : null}
+      </div>
+
+      <div className={`rounded-xl border p-4 ${rewardVisibility?.summary.blockedEventCount ? "border-amber-200 bg-amber-50" : "border-indigo-100 bg-white"}`}>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-indigo-700" />
+            <div>
+              <p className="text-sm font-black text-slate-900">Negamon V2 reward visibility</p>
+              <p className="text-xs font-semibold text-slate-500">Gold, EXP, level-up, skill unlock, and blocked reward trace</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={rewardVisibilityType}
+              onChange={(event) => {
+                const nextType = event.target.value as RewardVisibilityEventType;
+                setRewardVisibilityType(nextType);
+                void loadRewardVisibility(nextType);
+              }}
+              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700"
+            >
+              {REWARD_VISIBILITY_EVENT_TYPES.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void loadRewardVisibility()}
+              disabled={rewardVisibilityLoading}
+            >
+              {rewardVisibilityLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {t("teacherCommandRefresh")}
+            </Button>
+          </div>
+        </div>
+        <div className="grid gap-2 text-xs font-bold sm:grid-cols-6">
+          <span className="rounded bg-indigo-50 px-2 py-1 text-indigo-800">
+            Events: {rewardVisibility?.summary.eventCount ?? 0}
+          </span>
+          <span className="rounded bg-emerald-50 px-2 py-1 text-emerald-800">
+            Gold: +{rewardVisibility?.summary.totalGold ?? 0}
+          </span>
+          <span className="rounded bg-sky-50 px-2 py-1 text-sky-800">
+            EXP: +{rewardVisibility?.summary.totalExp ?? 0}
+          </span>
+          <span className="rounded bg-violet-50 px-2 py-1 text-violet-800">
+            Level-ups: {rewardVisibility?.summary.levelUpCount ?? 0}
+          </span>
+          <span className="rounded bg-fuchsia-50 px-2 py-1 text-fuchsia-800">
+            Skills: {rewardVisibility?.summary.skillUnlockCount ?? 0}
+          </span>
+          <span className="rounded bg-amber-50 px-2 py-1 text-amber-800">
+            Blocked: {rewardVisibility?.summary.blockedEventCount ?? 0}
+          </span>
+        </div>
+        <div className="mt-3 space-y-2">
+          {(rewardVisibility?.events ?? []).slice(0, 8).map((event) => (
+            <div key={event.id} className="rounded-lg border border-slate-200 bg-white/80 px-3 py-2 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-slate-100 px-2 py-1 font-black text-slate-700">
+                    {event.kind.replace("_", " ")}
+                  </span>
+                  <span className="font-black text-slate-900">{event.studentName ?? event.studentId ?? "-"}</span>
+                </div>
+                <span className="font-semibold text-slate-500">{new Date(event.createdAt).toLocaleString()}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2 font-bold">
+                {event.gold > 0 ? <span className="rounded bg-emerald-50 px-2 py-1 text-emerald-700">+{event.gold}G</span> : null}
+                {event.exp > 0 ? <span className="rounded bg-sky-50 px-2 py-1 text-sky-700">+{event.exp} EXP</span> : null}
+                {event.levelUpCount > 0 || event.kind === "level_up" ? (
+                  <span className="rounded bg-violet-50 px-2 py-1 text-violet-700">Level-up</span>
+                ) : null}
+                {event.skillUnlockCount > 0 || event.kind === "skill_unlock" ? (
+                  <span className="rounded bg-fuchsia-50 px-2 py-1 text-fuchsia-700">Skill unlock</span>
+                ) : null}
+                {event.blockedReason ? (
+                  <span className="rounded bg-amber-50 px-2 py-1 text-amber-800">
+                    {event.blockedReasonLabel ?? event.blockedReason}
+                  </span>
+                ) : null}
+                {event.reason ? <span className="rounded bg-slate-50 px-2 py-1 text-slate-500">{event.reason}</span> : null}
+              </div>
+            </div>
+          ))}
+          {!rewardVisibilityLoading && (rewardVisibility?.events.length ?? 0) === 0 ? (
+            <p className="text-xs font-semibold text-slate-400">No Negamon V2 reward visibility events yet.</p>
+          ) : null}
+        </div>
       </div>
 
       <div className={`rounded-xl border p-4 ${rewardAudit?.summary.skippedPlayerCount ? "border-sky-200 bg-sky-50" : "border-slate-200 bg-white"}`}>

@@ -8,7 +8,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { OpponentPicker } from "@/components/negamon/OpponentPicker";
 import { BattleHistoryPanel } from "@/components/negamon/BattleHistoryPanel";
 import { BattleItemBagPanel, BattlePrepDialog } from "@/components/negamon/battle-inventory-ui";
-import type { BattleTabProps, Opponent } from "@/components/negamon/battle-tab.types";
+import type { BattleFinalRewardPayload, BattleTabProps, Opponent } from "@/components/negamon/battle-tab.types";
 import { BattleV2Arena } from "@/components/game/negamon/BattleV2Arena";
 import { sanitizeLoadoutAgainstInventory, validateBattleLoadout } from "@/lib/battle-loadout";
 import type { NegamonLiteBattleState, NegamonLiteValidChoice } from "@/lib/negamon-lite";
@@ -41,6 +41,7 @@ export function BattleTab({
     inventory,
     onGoldChange,
     onBattleConsumablesSpent,
+    onBattleFinalized,
 }: BattleTabProps) {
     const { t } = useLanguage();
     const [view, setView] = useState<BattleView>("fight");
@@ -204,14 +205,15 @@ export function BattleTab({
                                 initialChoiceRequestId={liteSession.choiceRequestId}
                                 initialState={liteSession.state}
                                 initialValidChoices={liteSession.validChoices}
-                                onFinish={(final) => {
+                                onFinish={(final: BattleFinalRewardPayload) => {
                                     setHistoryRefreshKey((k) => k + 1);
                                     if (lastAttackLoadout.length) {
                                         onBattleConsumablesSpent?.(lastAttackLoadout);
                                     }
                                     if (final.winnerId === myStudentId) {
-                                        onGoldChange?.(currentGold + final.goldReward);
+                                        onGoldChange?.(currentGold + (final.reward?.gold ?? final.goldReward));
                                     }
+                                    onBattleFinalized?.(final);
                                 }}
                                 onReset={handleReset}
                             />

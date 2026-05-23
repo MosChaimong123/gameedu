@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Activity, Backpack, Bolt, Footprints, ShieldAlert, Sparkles, Swords, Users } from "lucide-react";
+import { RewardResultModal } from "@/components/game/negamon/RewardResultModal";
+import type { BattleFinalRewardPayload } from "@/components/negamon/battle-tab.types";
 import { cn } from "@/lib/utils";
 import type {
     NegamonLiteBattleSide,
@@ -15,12 +17,7 @@ type LiteChoiceResponse = {
     choiceRequestId?: string;
     state?: NegamonLiteBattleState;
     validChoices?: NegamonLiteValidChoice[];
-    final?: {
-        winnerId: string;
-        requestedGoldReward: number;
-        goldReward: number;
-        rewardBlockedReason: "daily_cap" | "pair_cooldown" | null;
-    } | null;
+    final?: BattleFinalRewardPayload | null;
     error?: string;
     reason?: string;
 };
@@ -34,7 +31,7 @@ interface NegamonLiteBattleArenaProps {
     initialChoiceRequestId: string;
     initialState: NegamonLiteBattleState;
     initialValidChoices: NegamonLiteValidChoice[];
-    onFinish?: (final: NonNullable<LiteChoiceResponse["final"]>) => void;
+    onFinish?: (final: BattleFinalRewardPayload) => void;
     onReset: () => void;
 }
 
@@ -191,6 +188,7 @@ export function NegamonLiteBattleArena({
     const [busyMoveId, setBusyMoveId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [finalReward, setFinalReward] = useState<LiteChoiceResponse["final"]>(null);
+    const [rewardModalOpen, setRewardModalOpen] = useState(false);
 
     const player = state.sides.player;
     const opponent = state.sides.opponent;
@@ -229,6 +227,7 @@ export function NegamonLiteBattleArena({
             setValidChoices(data.validChoices ?? []);
             if (data.final?.winnerId) {
                 setFinalReward(data.final);
+                setRewardModalOpen(Boolean(data.final.reward));
                 onFinish?.(data.final);
             }
         } catch {
@@ -240,6 +239,11 @@ export function NegamonLiteBattleArena({
 
     return (
         <div className="relative overflow-hidden rounded-[2.25rem] bg-[#07111f] p-4 text-white shadow-[0_22px_80px_rgba(8,47,73,.35)]">
+            <RewardResultModal
+                open={rewardModalOpen}
+                reward={finalReward?.reward ?? null}
+                onClose={() => setRewardModalOpen(false)}
+            />
             <div className="pointer-events-none absolute inset-0 [background-image:linear-gradient(rgba(255,255,255,.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.045)_1px,transparent_1px),radial-gradient(circle_at_50%_45%,rgba(56,189,248,.22),transparent_38%)] [background-size:26px_26px,26px_26px,100%_100%]" />
             <div className="relative space-y-4">
                 <div className="flex items-center justify-between gap-3">
@@ -277,7 +281,8 @@ export function NegamonLiteBattleArena({
                             <p className="mt-0.5 text-[11px] font-bold text-white/45">Turn {state.turn} · Request {choiceRequestId.split(":").slice(-2).join(":")}</p>
                             {ended && finalReward && (
                                 <p className="mt-2 rounded-xl bg-yellow-300/10 px-2 py-1 text-[11px] font-black text-yellow-100">
-                                    ได้รับ {finalReward.goldReward}G
+                                    ได้รับ {finalReward.reward?.gold ?? finalReward.goldReward}G
+                                    {finalReward.reward?.exp ? ` · EXP ${finalReward.reward.exp}` : ""}
                                     {rewardBlockedCopy(finalReward.rewardBlockedReason)
                                         ? ` · ${rewardBlockedCopy(finalReward.rewardBlockedReason)}`
                                         : ""}
@@ -373,3 +378,4 @@ export function NegamonLiteBattleArena({
         </div>
     );
 }
+

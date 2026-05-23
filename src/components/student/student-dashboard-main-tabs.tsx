@@ -20,6 +20,7 @@ import type {
 } from "@/lib/services/student-dashboard/student-dashboard.types";
 import type { LevelConfigInput } from "@/lib/classroom-utils";
 import type { NegamonMonsterSnapshot } from "@/lib/game-negamon";
+import type { BattleFinalRewardPayload } from "@/components/negamon/battle-tab.types";
 
 interface StudentDashboardMainTabsProps {
     t: StudentDashboardTranslateFn;
@@ -55,6 +56,7 @@ interface StudentDashboardMainTabsProps {
     onOpenStarterSelection: () => void;
     onGoldChange: (value: number | undefined) => void;
     onBattleConsumablesSpent?: (consumedItemIds: string[]) => void;
+    onBattleFinalized?: (final: BattleFinalRewardPayload) => void;
 }
 
 export function StudentDashboardMainTabs({
@@ -85,6 +87,7 @@ export function StudentDashboardMainTabs({
     onOpenStarterSelection,
     onGoldChange,
     onBattleConsumablesSpent,
+    onBattleFinalized,
 }: StudentDashboardMainTabsProps) {
     return (
         <div className="md:col-span-3 space-y-8">
@@ -171,6 +174,7 @@ export function StudentDashboardMainTabs({
                     history={history}
                     onGoldChange={onGoldChange}
                     onBattleConsumablesSpent={onBattleConsumablesSpent}
+                    onBattleFinalized={onBattleFinalized}
                 />
             </Tabs>
         </div>

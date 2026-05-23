@@ -1,3 +1,5 @@
+import type { GameRewardResult } from "@/lib/game-core";
+
 export interface Opponent {
     id: string;
     name: string;
@@ -15,6 +17,22 @@ export interface BattleSessionEntry {
     createdAt: string;
 }
 
+export type BattleFinalRewardPayload = {
+    winnerId: string;
+    requestedGoldReward: number;
+    goldReward: number;
+    rewardBlockedReason: "daily_cap" | "pair_cooldown" | null;
+    rewardIdempotencyKey?: string;
+    reward?: GameRewardResult;
+    progression?: {
+        expDelta: number;
+        behaviorPointDelta: number;
+        nextBehaviorPoints: number;
+        nextNegamonSkills: string[];
+        shouldPersist: boolean;
+    } | null;
+};
+
 export interface BattleTabProps {
     classId: string;
     myStudentId: string;
@@ -24,4 +42,5 @@ export interface BattleTabProps {
     inventory: string[];
     onGoldChange?: (newGold: number) => void;
     onBattleConsumablesSpent?: (consumedItemIds: string[]) => void;
+    onBattleFinalized?: (final: BattleFinalRewardPayload) => void;
 }

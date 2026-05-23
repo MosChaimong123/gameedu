@@ -4,6 +4,7 @@ import { TabsContent } from "@/components/ui/tabs";
 import { DailyQuestPanel } from "@/components/student/DailyQuestPanel";
 import { GameHistoryTab } from "@/components/student/GameHistoryTab";
 import { BattleTab } from "@/components/negamon/BattleArena";
+import type { BattleFinalRewardPayload } from "@/components/negamon/battle-tab.types";
 
 export interface StudentGameTabsProps {
     classId: string;
@@ -22,6 +23,7 @@ export interface StudentGameTabsProps {
     history: Array<{ timestamp: string; value: number; reason: string }>;
     onGoldChange: (value: number | undefined) => void;
     onBattleConsumablesSpent?: (consumedItemIds: string[]) => void;
+    onBattleFinalized?: (final: BattleFinalRewardPayload) => void;
 }
 
 export function StudentGameTabs({
@@ -35,6 +37,7 @@ export function StudentGameTabs({
     history,
     onGoldChange,
     onBattleConsumablesSpent,
+    onBattleFinalized,
 }: StudentGameTabsProps) {
     return (
         <>
@@ -52,6 +55,7 @@ export function StudentGameTabs({
                     inventory={inventory}
                     onGoldChange={onGoldChange}
                     onBattleConsumablesSpent={onBattleConsumablesSpent}
+                    onBattleFinalized={onBattleFinalized}
                 />
             </TabsContent>
 

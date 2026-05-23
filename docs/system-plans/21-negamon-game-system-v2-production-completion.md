@@ -187,17 +187,30 @@ Goal:
 
 Tasks:
 
-- [ ] Add V2 reward summary to `/battle/lite/choice` final payload
-- [ ] Wire `RewardResultModal` into `BattleV2Arena` or `BattleTab`
-- [ ] Refresh monster snapshot after final reward
-- [ ] Refresh inventory after consumed or granted items
-- [ ] Refresh history after reward audit entry
-- [ ] Add empty, blocked, duplicate, and level-up states
+- [x] Add V2 reward summary to `/battle/lite/choice` final payload
+- [x] Wire `RewardResultModal` into `BattleV2Arena` or `BattleTab`
+- [x] Refresh monster snapshot after final reward
+- [x] Refresh inventory after consumed or granted items
+- [x] Refresh history after reward audit entry
+- [x] Add empty, blocked, duplicate, and level-up states
 - [ ] Verify mobile layout
 
 Exit criteria:
 
 - after battle completion, student sees gold, exp, level-up, skill unlock, and item changes without manual reload
+
+Phase 20 implementation notes:
+
+- `NegamonLiteBattleArena` now opens `RewardResultModal` from the actual V2 final `reward` payload returned by `/battle/lite/choice`.
+- Battle final callbacks now pass the full final reward payload through `BattleTab`, `StudentGameTabs`, and `StudentDashboardMainTabs`.
+- `StudentDashboardClient` applies final progression to local dashboard state by patching `behaviorPoints` and `negamonSkills`, so monster snapshot/level/skill unlock UI can refresh immediately.
+- Reward item grants are applied through `GameInventoryChange` on the dashboard patch path; consumed battle loadout items continue through the existing consumable-spent callback.
+- Battle history refresh is triggered when final reward arrives, so the battle history panel refetches the latest sessions.
+- Inline final battle summary now prefers V2 `reward.gold` and `reward.exp` over legacy `goldReward` when present.
+
+Remaining follow-up:
+
+- Run browser/mobile visual QA for reward modal placement and final-state layout after a deployed build is available.
 
 ## Phase 21: Quest and Attendance Progression
 

@@ -31,6 +31,8 @@ import { StudentDashboardUrlParamsHandler } from "./student-dashboard-url-params
 import { saveStudentIdentity } from "@/lib/player-session";
 import { useSocket } from "@/components/providers/socket-provider";
 import { useClassroomPresence } from "@/components/classroom/use-classroom-presence";
+import { applyInventoryChange, createInventoryGrantChange } from "@/lib/game-core";
+import type { BattleFinalRewardPayload } from "@/components/negamon/battle-tab.types";
 
 const NotificationTray = dynamic(
     () => import("@/components/dashboard/notification-tray").then((m) => m.NotificationTray),
@@ -64,7 +66,7 @@ export function StudentDashboardClient({
     const [assignmentSort, setAssignmentSort] = useState<"default" | "deadline">("default");
     const [questGold, setQuestGold] = useState<number | undefined>(undefined);
     const [economyPatch, setEconomyPatch] = useState<
-        Partial<Pick<DashboardStudent, "inventory" | "battleLoadout">>
+        Partial<Pick<DashboardStudent, "inventory" | "battleLoadout" | "behaviorPoints" | "negamonSkills">>
     >({});
     const [liveEvents, setLiveEvents] = useState<
         Array<{ active?: boolean; type?: string; multiplier?: number | string }>
@@ -75,9 +77,33 @@ export function StudentDashboardClient({
             ...student,
             inventory: economyPatch.inventory ?? student.inventory,
             battleLoadout: economyPatch.battleLoadout ?? student.battleLoadout,
+            behaviorPoints: economyPatch.behaviorPoints ?? student.behaviorPoints,
+            negamonSkills: economyPatch.negamonSkills ?? student.negamonSkills,
         }),
         [student, economyPatch]
     );
+
+    function handleBattleFinalized(final: BattleFinalRewardPayload) {
+        setEconomyPatch((patch) => {
+            const reward = final.reward;
+            const currentInventory = patch.inventory ?? student.inventory;
+            const nextInventory =
+                reward?.grantedItemIds?.length
+                    ? applyInventoryChange(currentInventory, createInventoryGrantChange(reward.grantedItemIds))
+                    : currentInventory;
+            return {
+                ...patch,
+                inventory: nextInventory,
+                behaviorPoints:
+                    final.progression?.nextBehaviorPoints ??
+                    (patch.behaviorPoints ?? student.behaviorPoints),
+                negamonSkills:
+                    final.progression?.nextNegamonSkills ??
+                    patch.negamonSkills ??
+                    student.negamonSkills,
+            };
+        });
+    }
 
     useEffect(() => {
         saveStudentIdentity(liveStudent.id, liveStudent.loginCode);
@@ -328,6 +354,7 @@ export function StudentDashboardClient({
                                 return { ...p, inventory: inv, battleLoadout: lo };
                             });
                         }}
+                        onBattleFinalized={handleBattleFinalized}
                     />
                 </div>
             </div>

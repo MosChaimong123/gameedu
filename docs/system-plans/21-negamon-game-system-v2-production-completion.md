@@ -165,7 +165,7 @@ Tasks:
 - [x] Move any needed constants into V2 modules
 - [x] Replace `/api/classrooms/[id]/battle` auto-battle implementation or mark it admin-only compatibility
 - [x] Update tests that still validate old battle internals
-- [ ] Remove old engine only when no production route depends on it
+- [x] Remove old engine only when no production route depends on it
 
 Exit criteria:
 
@@ -175,11 +175,11 @@ Phase 19 implementation notes:
 
 - Added V2 battle constants in `game-negamon/core/battle-constants.ts` for gold cap/base and ignore-defense retained multiplier.
 - Moved battle gold reward math into `calculateNegamonBattleGoldReward` under `game-negamon/core/battle-rewards.ts`.
-- Kept `calcGoldReward` and legacy constants in `src/lib/battle-engine.ts` as compatibility wrappers only; reward balancing now reads from V2 modules.
+- Removed `src/lib/battle-engine.ts` after confirming active student and teacher routes no longer import it.
 - Updated move presentation UI helpers to import constants from V2 instead of the legacy engine.
 - Retired legacy POST auto battle at `/api/classrooms/[id]/battle` with a `410` response; live student battle creation remains `/battle/lite/start`.
 - Kept history GET on `/api/classrooms/[id]/battle` because the battle history panel still reads existing `BattleSession` records.
-- Remaining legacy engine imports are now isolated to legacy engine tests and compatibility wrappers, not active student battle routes.
+- Removed legacy battle-engine balance tests; remaining battle coverage now targets V2 contracts, lite battle routes, and inventory/reward contracts.
 
 ## Phase 20: Reward Result UI Wiring
 
@@ -346,7 +346,7 @@ npm.cmd run check:i18n:strict
 - If progression is not persisted, UI V2 will look correct only until refresh.
 - If reward finalization is split across routes, duplicate rewards can return.
 - If shop and battle consume paths mutate inventory differently, item counts will drift.
-- If auto-battle compatibility remains forever, old `battle-engine.ts` will continue to constrain balancing.
+- If compatibility shims return without clear ownership, battle balancing can split across multiple engines again.
 - If production QA is skipped, UI V2 can pass build but still fail the student journey.
 
 ## Definition Of Done

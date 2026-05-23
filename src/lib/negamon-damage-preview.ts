@@ -1,6 +1,6 @@
 /**
- * Rough damage range for UI copy — mirrors battle-engine formula shape without crit RNG roll.
- * Sync multipliers with `battle-engine.ts` (BASIC_ATTACK_DAMAGE_MULT / SKILL_DAMAGE_MULT).
+ * Rough damage range for UI copy. V2 battle resolution lives under `game-negamon/core`.
+ * Keep these multipliers presentation-only; server battle results remain authoritative.
  */
 /** พลังท่า “ตีธรรมดา” ในเอนจิน — ใช้โชว์ตัวอย่างเท่านั้น */
 export const NEGAMON_BASIC_ATTACK_PREVIEW_POWER = 24;

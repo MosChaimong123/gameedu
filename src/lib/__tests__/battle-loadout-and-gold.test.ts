@@ -5,41 +5,10 @@ import {
     sanitizeLoadoutAgainstInventory,
     validateBattleLoadout,
 } from "@/lib/battle-loadout";
-import { calcGoldReward } from "@/lib/battle-engine";
-import { NEGAMON_BATTLE_GOLD_MULTIPLIER_CAP } from "@/lib/game-negamon";
-import type { BattleFighter } from "@/lib/battle-engine";
-
-function minimalWinner(overrides: Partial<BattleFighter> = {}): BattleFighter {
-    return {
-        studentId: "w",
-        studentName: "W",
-        speciesId: "s",
-        formIcon: "",
-        formName: "",
-        speciesName: "",
-        type: "FIRE",
-        maxHp: 10,
-        currentHp: 10,
-        baseStats: { hp: 10, atk: 10, def: 10, spd: 10 },
-        statStages: { atk: 1, def: 1, spd: 1, waterDmg: 1 },
-        effects: [],
-        moves: [],
-        rankIndex: 0,
-        badlyPoisonTick: 0,
-        acidRainPoisonStacks: 0,
-        immunities: [],
-        activeItems: [],
-        goldBonus: 0,
-        goldMultiplier: 1,
-        abilityUsed: false,
-        maxEnergy: 10,
-        currentEnergy: 10,
-        energyRegenPerTurn: 0,
-        actionMeter: 0,
-        turnsCompleted: 0,
-        ...overrides,
-    };
-}
+import {
+    calculateNegamonBattleGoldReward,
+    NEGAMON_BATTLE_GOLD_MULTIPLIER_CAP,
+} from "@/lib/game-negamon";
 
 describe("validateBattleLoadout", () => {
     it("accepts empty loadout", () => {
@@ -96,11 +65,11 @@ describe("battle item inventory mutation", () => {
     });
 });
 
-describe("calcGoldReward", () => {
+describe("calculateNegamonBattleGoldReward", () => {
     it("applies flat then multiplier", () => {
-        const w = minimalWinner({ goldBonus: 10, goldMultiplier: 1.25 });
-        const l = minimalWinner({ studentId: "l" });
-        expect(calcGoldReward(w, l)).toBe(Math.floor((30 + 10) * 1.25));
+        expect(
+            calculateNegamonBattleGoldReward({ goldBonus: 10, goldMultiplier: 1.25 })
+        ).toBe(Math.floor((30 + 10) * 1.25));
     });
 
     it("respects multiplier cap constant", () => {

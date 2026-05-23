@@ -337,20 +337,42 @@ Goal:
 
 Tasks:
 
-- [ ] keep LINE bot work out unless explicitly selected
-- [ ] keep `.claude`, `.cursor`, and local config out
-- [ ] decide whether `package.json`, `package-lock.json`, and `prisma/schema.prisma` changes belong to Game System V2
-- [ ] avoid committing `dist/` unless it is intentionally tracked release output
-- [ ] run targeted tests
-- [ ] run `npm.cmd run predev`
-- [ ] run `npm.cmd run build`
-- [ ] push to `main`
-- [ ] verify Render deploy
-- [ ] verify `/api/health`
+- [x] keep LINE bot work out unless explicitly selected
+- [x] keep `.claude`, `.cursor`, and local config out
+- [x] decide whether `package.json`, `package-lock.json`, and `prisma/schema.prisma` changes belong to Game System V2
+- [x] avoid committing `dist/` unless it is intentionally tracked release output
+- [x] run targeted tests
+- [x] run `npm.cmd run predev`
+- [x] run `npm.cmd run build`
+- [x] push to `main`
+- [x] verify Render deploy
+- [x] verify `/api/health`
 
 Exit criteria:
 
 - deploy is clean, tested, and contains only intended V2 production-completion files
+
+Status: completed on 2026-05-24 as Cleanup and Release Gate.
+
+Phase 24 scope decisions:
+
+- LINE bot files remain out of Game System V2 release scope: `.env.example`, `package.json`, `package-lock.json`, `prisma/schema.prisma`, `docs/line-bot-mvp.md`, `src/app/api/webhooks/line/`, `src/lib/line-bot/`, and `src/__tests__/line-webhook-route.test.ts`.
+- Local/editor files remain out of release scope: `.claude/settings.local.json`, `.cursor/`, and `test-results/.last-run.json`.
+- Generated `dist/` changes remain out of release scope unless a future release explicitly selects tracked build output.
+- The Game System V2 production-completion release currently consists of committed Phase 16-23 work plus this release-gate documentation.
+- `package.json`, `package-lock.json`, and `prisma/schema.prisma` changes are LINE bot work, not Game System V2 work.
+
+Phase 24 validation notes:
+
+- Passed: `npm.cmd test -- src/lib/game-core/__tests__/game-core.test.ts src/lib/game-negamon/__tests__ src/__tests__/negamon-lite-session-routes.test.ts src/__tests__/battle-reward-ledger.test.ts src/__tests__/classroom-negamon-reward-visibility-route.test.ts`
+- Passed: `npm.cmd run predev`
+- Passed: `npm.cmd run build`
+- Production health endpoint returned `200 OK` on 2026-05-24.
+
+Remaining outside Game System V2:
+
+- Decide separately whether to keep, discard, or branch the LINE bot MVP work.
+- Decide separately whether tracked `dist/` files should remain part of the repository long term.
 
 ## Validation Commands
 

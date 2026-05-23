@@ -1,12 +1,19 @@
 import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
-import { normalizeLoadoutInput, validateBattleLoadout } from "@/lib/battle-loadout";
+import type { GameInventoryChange, GameItemEffect } from "@/lib/game-core";
+import { normalizeLoadoutInput } from "@/lib/battle-loadout";
+import { validateNegamonBattleItemLoadout } from "@/lib/game-negamon/core/battle-items";
 
 type Deps = { db: PrismaClient };
 
 export type SetBattleLoadoutResult =
-    | { ok: true; battleLoadout: string[] }
+    | {
+          ok: true;
+          battleLoadout: string[];
+          inventoryChange: GameInventoryChange;
+          itemEffects: GameItemEffect[];
+      }
     | {
           ok: false;
           reason: "student_not_found" | "invalid_loadout";
@@ -31,7 +38,7 @@ export async function setStudentBattleLoadout(
 
     const inv = Array.isArray(student.inventory) ? (student.inventory as string[]) : [];
     const ids = normalizeLoadoutInput(rawItemIds);
-    const v = validateBattleLoadout(ids, inv);
+    const v = validateNegamonBattleItemLoadout({ loadoutIds: ids, inventory: inv });
     if (!v.ok) {
         return {
             ok: false,
@@ -46,5 +53,10 @@ export async function setStudentBattleLoadout(
         data: { battleLoadout: v.normalizedIds },
     });
 
-    return { ok: true, battleLoadout: v.normalizedIds };
+    return {
+        ok: true,
+        battleLoadout: v.normalizedIds,
+        inventoryChange: v.inventoryChange,
+        itemEffects: v.items.flatMap((item) => item.effects),
+    };
 }

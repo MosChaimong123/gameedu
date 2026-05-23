@@ -16,7 +16,6 @@ import {
 } from "@/lib/battle-engine";
 import {
     normalizeLoadoutInput,
-    removeBattleItemsFromInventory,
     sanitizeLoadoutAgainstInventory,
     validateBattleLoadout,
 } from "@/lib/battle-loadout";
@@ -25,7 +24,9 @@ import { resolveBattleRewardPayout } from "@/lib/services/student-economy/battle
 import { authorizeBattleRead } from "@/lib/services/battle-read-auth";
 import {
     aggregateGameHistoryAnalytics,
+    applyInventoryChangeStrict,
     createBattleHistorySummary,
+    createBattleItemConsumeChange,
 } from "@/lib/game-core";
 
 const BATTLE_START_RATE_WINDOW_MS = 60 * 1000;
@@ -162,6 +163,8 @@ export async function POST(
     const defPreset = normalizeDefenderLoadout(defender.battleLoadout, defInv);
     const chIds = chPreset.ids;
     const defIds = defPreset.ids;
+    const challengerInventoryChange = createBattleItemConsumeChange(chIds);
+    const defenderInventoryChange = createBattleItemConsumeChange(defIds);
 
     const f1 = initBattleFighter(challengerMonster, challengerId, challenger.name, chIds);
     const f2 = initBattleFighter(defenderMonster, defenderId, defender.name, defIds);
@@ -170,13 +173,13 @@ export async function POST(
 
     let nextChInv: string[];
     try {
-        nextChInv = removeBattleItemsFromInventory([...chInv], chIds);
+        nextChInv = applyInventoryChangeStrict([...chInv], challengerInventoryChange);
     } catch {
         return NextResponse.json({ error: "INVENTORY_MISMATCH" }, { status: 409 });
     }
     let nextDefInv: string[];
     try {
-        nextDefInv = removeBattleItemsFromInventory([...defInv], defIds);
+        nextDefInv = applyInventoryChangeStrict([...defInv], defenderInventoryChange);
     } catch {
         return NextResponse.json({ error: "INVENTORY_MISMATCH" }, { status: 409 });
     }
@@ -195,6 +198,10 @@ export async function POST(
             goldReward: payoutPolicy.goldReward,
             rewardBlockedReason: payoutPolicy.rewardBlockedReason,
             rewardPolicy: payoutPolicy,
+            inventoryChanges: {
+                challenger: challengerInventoryChange,
+                defender: defenderInventoryChange,
+            },
         };
 
         await tx.student.update({
@@ -252,6 +259,10 @@ export async function POST(
                     rewardPolicy: payoutPolicy,
                     challengerBattleItems: chIds,
                     defenderBattleItems: defIds,
+                    inventoryChanges: {
+                        challenger: challengerInventoryChange,
+                        defender: defenderInventoryChange,
+                    },
                 },
             });
         }

@@ -129,17 +129,26 @@ Goal:
 
 Tasks:
 
-- [ ] Audit `/api/student/[code]/shop/buy`
-- [ ] Audit `/api/student/[code]/shop/equip`
-- [ ] Audit `/api/student/[code]/battle-loadout`
-- [ ] Replace ad hoc inventory mutations with `GameInventoryChange`
-- [ ] Use `GameItemDefinition` or V2 item catalog for battle item validation
-- [ ] Add item effect summaries to shop responses
-- [ ] Add tests for buy/equip/consume/grant contract consistency
+- [x] Audit `/api/student/[code]/shop/buy`
+- [x] Audit `/api/student/[code]/shop/equip`
+- [x] Audit `/api/student/[code]/battle-loadout`
+- [x] Replace ad hoc inventory mutations with `GameInventoryChange`
+- [x] Use `GameItemDefinition` or V2 item catalog for battle item validation
+- [x] Add item effect summaries to shop responses
+- [x] Add tests for buy/equip/consume/grant contract consistency
 
 Exit criteria:
 
 - shop, inventory, battle consume, and reward item grant share one mutation contract
+
+Phase 18 implementation notes:
+
+- Shop purchases now apply `createShopPurchasePlan().inventoryChange` through `applyInventoryChange` before persisting the updated inventory.
+- Shop purchase responses include `inventoryChange` and `itemEffects`; battle items map to V2 `GameItemEffect` summaries from the Negamon battle item catalog.
+- Frame equip responses now include the same response shape with `inventoryChange`, `itemEffects`, and `gameState`.
+- Battle loadout migration now validates through `validateNegamonBattleItemLoadout`, returns consumed-item `inventoryChange`, and exposes item effect summaries for the selected loadout.
+- Legacy auto battle now records challenger/defender consumed-item inventory changes in the saved result and economy ledger metadata.
+- Added focused tests for purchase inventory deltas, battle item effect summaries, and loadout validation.
 
 ## Phase 19: Battle Engine Consolidation
 

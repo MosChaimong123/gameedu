@@ -1,6 +1,12 @@
 import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
-import { createGameStatePatch, createInventoryEquipChange, type GameInventoryChange, type GameStatePatch } from "@/lib/game-core";
+import {
+    createGameStatePatch,
+    createInventoryEquipChange,
+    type GameInventoryChange,
+    type GameItemEffect,
+    type GameStatePatch,
+} from "@/lib/game-core";
 import { getGameShopCatalogItemById } from "@/lib/game-shop";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
 
@@ -13,7 +19,13 @@ export type EquipStudentShopItemResult =
     | { ok: false; reason: "item_not_equippable" }
     | { ok: false; reason: "student_not_found" }
     | { ok: false; reason: "not_in_inventory" }
-    | { ok: true; success: true; inventoryChange: GameInventoryChange; gameState: GameStatePatch };
+    | {
+          ok: true;
+          success: true;
+          inventoryChange: GameInventoryChange;
+          itemEffects: GameItemEffect[];
+          gameState: GameStatePatch;
+      };
 
 export async function equipStudentShopItem(
     code: string,
@@ -56,6 +68,7 @@ export async function equipStudentShopItem(
         ok: true,
         success: true,
         inventoryChange: createInventoryEquipChange(normalizedItemId),
+        itemEffects: [],
         gameState: createGameStatePatch({ equippedFrame: normalizedItemId }),
     };
 }

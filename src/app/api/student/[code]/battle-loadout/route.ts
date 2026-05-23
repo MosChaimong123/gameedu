@@ -22,5 +22,9 @@ export async function PUT(
         );
     }
 
-    return NextResponse.json({ battleLoadout: result.battleLoadout });
+    return NextResponse.json({
+        battleLoadout: result.battleLoadout,
+        inventoryChange: result.inventoryChange,
+        itemEffects: result.itemEffects,
+    });
 }

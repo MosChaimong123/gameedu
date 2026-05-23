@@ -1,7 +1,14 @@
 import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
-import { createGameStatePatch, type GameStatePatch } from "@/lib/game-core";
+import {
+    applyInventoryChange,
+    createGameStatePatch,
+    type GameInventoryChange,
+    type GameItemEffect,
+    type GameStatePatch,
+} from "@/lib/game-core";
+import { findNegamonBattleItemDefinition } from "@/lib/game-negamon/core/battle-items";
 import { createShopPurchasePlan, getGameShopCatalogItemById } from "@/lib/game-shop";
 import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
 
@@ -15,7 +22,15 @@ export type BuyStudentShopItemResult =
     | { ok: false; reason: "student_not_found" }
     | { ok: false; reason: "already_owned" }
     | { ok: false; reason: "not_enough_gold" }
-    | { ok: true; success: true; newGold: number; inventory: unknown; gameState: GameStatePatch };
+    | {
+          ok: true;
+          success: true;
+          newGold: number;
+          inventory: string[];
+          inventoryChange: GameInventoryChange;
+          itemEffects: GameItemEffect[];
+          gameState: GameStatePatch;
+      };
 
 export async function buyStudentShopItem(
     code: string,
@@ -52,6 +67,11 @@ export async function buyStudentShopItem(
         });
         if (!purchasePlan.ok) return { ok: false, reason: purchasePlan.reason };
 
+        const nextInventory = applyInventoryChange(
+            Array.isArray(student.inventory) ? (student.inventory as string[]) : [],
+            purchasePlan.inventoryChange
+        );
+
         const updatedCount = await tx.student.updateMany({
             where: {
                 id: student.id,
@@ -62,7 +82,7 @@ export async function buyStudentShopItem(
             },
             data: {
                 gold: { decrement: item.price },
-                inventory: { push: itemId },
+                inventory: nextInventory,
             },
         });
 
@@ -104,7 +124,12 @@ export async function buyStudentShopItem(
             ok: true,
             success: true,
             newGold: updated.gold,
-            inventory: updated.inventory,
+            inventory: updated.inventory as string[],
+            inventoryChange: purchasePlan.inventoryChange,
+            itemEffects:
+                item.type === "battle_item"
+                    ? (findNegamonBattleItemDefinition(item.id)?.effects ?? [])
+                    : [],
             gameState: createGameStatePatch({
                 gold: updated.gold,
                 inventory: updated.inventory as string[],

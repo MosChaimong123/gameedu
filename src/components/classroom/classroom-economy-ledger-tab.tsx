@@ -704,6 +704,10 @@ export function ClassroomEconomyLedgerTab({
             </Button>
           </div>
         </div>
+        <div className="mb-3 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold leading-relaxed text-amber-900">
+          <p className="font-black">{t("negamonRewardProgressionNoteTitle")}</p>
+          <p>{t("negamonRewardProgressionNoteBody")}</p>
+        </div>
         <div className="mb-3 grid gap-2 md:grid-cols-[minmax(0,160px)_minmax(0,220px)_auto_auto]">
           <Input
             value={rewardAuditGamePin}

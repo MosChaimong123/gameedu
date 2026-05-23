@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { MonsterMove, MonsterStats, MonsterType, StudentMonsterState } from "@/lib/types/negamon";
 import {
     calcGoldReward,
+    getBattleMoveChoices,
     initBattleFighter,
     processEndOfTurn,
     resolveBattle,
@@ -861,6 +862,29 @@ describe("Negamon battle balance patch", () => {
         expect(basicMoveUsed).toBeTruthy();
         expect(basicDamage?.value ?? 0).toBeGreaterThan(0);
         expect(player.currentEnergy).toBe(10);
+    });
+
+    it("exposes server-owned valid move choices from current energy", () => {
+        const expensive: MonsterMove = {
+            id: "expensive",
+            name: "Expensive",
+            type: "FIRE",
+            category: "SPECIAL",
+            power: 120,
+            accuracy: 100,
+            learnRank: 1,
+            energyCost: 80,
+        };
+        const player = makeFighter({
+            studentId: "player",
+            moves: [strikeMove, expensive],
+            currentEnergy: 30,
+        });
+
+        expect(getBattleMoveChoices(player)).toEqual([
+            expect.objectContaining({ id: "strike", enabled: true }),
+            expect.objectContaining({ id: "expensive", enabled: false, reason: "NO_ENERGY" }),
+        ]);
     });
 
     it("lets the server choose the ready opponent even when a player move is submitted", () => {

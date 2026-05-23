@@ -149,6 +149,12 @@ export abstract class AbstractGameEngine {
     public hasArchived: boolean = false;
     /** หลัง sync EXP เข้าห้องเรียน (Negamon + negamonRewardClassroomId) สำเร็จ */
     public negamonClassroomRewardsSynced: boolean = false;
+    /** Guards the async reward sync so the game loop cannot start parallel sync jobs. */
+    public negamonClassroomRewardsSyncInProgress: boolean = false;
+    /** Last failed reward sync message, kept for logs/debugging and future host UI surfacing. */
+    public negamonClassroomRewardsLastError: string | null = null;
+    /** Last reward sync attempt time. Used to avoid retrying every tick after transient failures. */
+    public negamonClassroomRewardsLastAttemptAt: number = 0;
 
 
     // Called every second by the Manager

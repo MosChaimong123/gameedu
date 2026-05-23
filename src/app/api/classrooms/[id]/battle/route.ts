@@ -14,6 +14,7 @@ import {
 import type { LevelConfigInput } from "@/lib/classroom-utils";
 import {
     calcGoldReward,
+    getBattleMoveChoices,
     initBattleFighter,
     makePRNG,
     normalizeBattleFighterTurns,
@@ -367,6 +368,7 @@ export async function POST(
             sessionId: session.id,
             player: f1,
             opponent: f2,
+            validMoveChoices: getBattleMoveChoices(f1),
         });
     }
 
@@ -420,7 +422,11 @@ export async function POST(
         const turn = resolveServerOwnedInteractiveTurn(player, opponent, moveId, rng);
         if (turn.actorSide === "player" && !moveId) {
             return NextResponse.json(
-                { error: "PLAYER_ACTION_REQUIRED", actorSide: "player" },
+                {
+                    error: "PLAYER_ACTION_REQUIRED",
+                    actorSide: "player",
+                    validMoveChoices: getBattleMoveChoices(player),
+                },
                 { status: 409 }
             );
         }
@@ -453,6 +459,7 @@ export async function POST(
                 faintedId: null,
                 player,
                 opponent,
+                validMoveChoices: getBattleMoveChoices(player),
                 totalTurns: nextTotalTurns,
                 actorSide: turn.actorSide,
                 final: null,
@@ -609,6 +616,7 @@ export async function POST(
             faintedId,
             player,
             opponent,
+            validMoveChoices: getBattleMoveChoices(player),
             totalTurns: nextTotalTurns,
             actorSide: turn.actorSide,
             final,

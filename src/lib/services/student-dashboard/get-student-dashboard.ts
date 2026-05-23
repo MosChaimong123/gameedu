@@ -74,6 +74,7 @@ export async function getStudentDashboard(
             lastCheckIn: true,
             streak: true,
             inventory: true,
+            battleLoadout: true,
             equippedFrame: true,
             negamonSkills: true,
             classroom: {
@@ -150,7 +151,7 @@ export async function getStudentDashboard(
             ? student.lastCheckIn.toISOString()
             : student.lastCheckIn ?? null,
         inventory: (student.inventory as string[]) ?? [],
-        battleLoadout: [],
+        battleLoadout: (student.battleLoadout as string[]) ?? [],
         equippedFrame: student.equippedFrame ?? null,
         negamonSkills,
     } satisfies DashboardStudent;

@@ -29,13 +29,7 @@ export async function getClassroomDashboard(
         return null;
     }
 
-    return {
-        ...classroom,
-        students: classroom.students.map((student) => ({
-            ...student,
-            battleLoadout: [],
-        })),
-    };
+    return classroom;
 }
 
 export async function getClassroomDashboardForTeacher(

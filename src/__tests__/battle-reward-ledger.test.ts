@@ -77,6 +77,7 @@ vi.mock("@/lib/classroom-utils", () => ({
 
 vi.mock("@/lib/battle-engine", () => ({
   calcGoldReward: vi.fn(() => 30),
+  getBattleMoveChoices: vi.fn(() => []),
   normalizeBattleFighterTurns: (f: unknown) => f as object,
   initBattleFighter: vi.fn((monster: { studentId: string }) => ({
     studentId: monster.studentId,
@@ -674,6 +675,7 @@ describe("battle reward ledger", () => {
     await expect(response.json()).resolves.toEqual({
       error: "PLAYER_ACTION_REQUIRED",
       actorSide: "player",
+      validMoveChoices: [],
     });
     expect(mockBattleSessionUpdateMany).not.toHaveBeenCalled();
     expect(mockStudentUpdate).not.toHaveBeenCalled();

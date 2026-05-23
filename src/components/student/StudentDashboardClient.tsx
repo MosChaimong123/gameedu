@@ -270,7 +270,7 @@ export function StudentDashboardClient({
                         mode={mode}
                         activeTab={activeTab}
                         classroom={classroom}
-                        student={student}
+                        student={liveStudent}
                         code={code}
                         currentUserId={currentUserId}
                         canAccessBoard={canAccessBoard}

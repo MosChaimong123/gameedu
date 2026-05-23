@@ -72,8 +72,8 @@ const baseProps: StudentDashboardClientProps = {
         gold: 30,
         streak: 2,
         lastCheckIn: null,
-        inventory: [],
-        battleLoadout: [],
+        inventory: [{ itemId: "item_buckler", quantity: 1 }],
+        battleLoadout: ["item_buckler"],
         equippedFrame: null,
         negamonSkills: [],
     },
@@ -126,7 +126,7 @@ describe("student dashboard client", () => {
             code: string;
             mode: string;
             classroom: { id: string };
-            student: { id: string };
+            student: { id: string; inventory: unknown[]; battleLoadout: string[] };
             currentUserId?: string;
         };
         expect(headerProps.code).toBe("ABC123");
@@ -153,7 +153,7 @@ describe("student dashboard client", () => {
             mode: string;
             activeTab: string;
             classroom: { id: string };
-            student: { id: string };
+            student: { id: string; inventory: unknown[]; battleLoadout: string[] };
             canAccessBoard: boolean;
         };
         expect(mainTabsProps.code).toBe("ABC123");
@@ -161,6 +161,8 @@ describe("student dashboard client", () => {
         expect(mainTabsProps.activeTab).toBe("assignments");
         expect(mainTabsProps.classroom.id).toBe("class-1");
         expect(mainTabsProps.student.id).toBe("student-1");
+        expect(mainTabsProps.student.inventory).toEqual([{ itemId: "item_buckler", quantity: 1 }]);
+        expect(mainTabsProps.student.battleLoadout).toEqual(["item_buckler"]);
         expect(mainTabsProps.canAccessBoard).toBe(false);
         },
         30_000

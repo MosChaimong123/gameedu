@@ -484,6 +484,8 @@ const negamonRewardOpsKeys = [
   "negamonRewardAuditDuplicate",
   "negamonRewardAuditZeroExp",
   "negamonRewardAuditEmpty",
+  "negamonRewardProgressionNoteTitle",
+  "negamonRewardProgressionNoteBody",
   "negamonRewardRemediationTitle",
   "negamonRewardRemediationSubtitle",
   "negamonRewardRemediationEvents",

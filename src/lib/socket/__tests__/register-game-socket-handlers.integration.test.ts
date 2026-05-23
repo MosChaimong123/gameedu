@@ -1011,10 +1011,76 @@ describe("registerGameSocketHandlers integration", () => {
 
     const denied = await new Promise<{ message: string }>((resolve) => p2.once("error", resolve));
     expect(denied.message).toBe(SOCKET_ERROR_NEGAMON_MID_MATCH);
+    expect(auditEvents).toContainEqual(
+      expect.objectContaining({
+        action: "socket.game.join.denied",
+        targetId: gameCreated.pin,
+        metadata: expect.objectContaining({
+          reason: "negamon_mid_match_new_player",
+          gameMode: "NEGAMON_BATTLE",
+          status: "PLAYING",
+          nickname: "Latecomer",
+        }),
+      })
+    );
 
     host.disconnect();
     p1.disconnect();
     p2.disconnect();
+  });
+
+  it("allows an existing Negamon Battle player to reconnect while PLAYING", async () => {
+    const host = await connectClient("teacher-1");
+    host.emit("create-game", {
+      setId: "set-1",
+      settings: { allowLateJoin: true },
+      mode: "NEGAMON_BATTLE",
+    });
+    const gameCreated = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+
+    const player = await connectClient();
+    player.emit("join-game", { pin: gameCreated.pin, nickname: "ReconnectNeg" });
+    const joined = await new Promise<{ reconnectToken: string }>((resolve) =>
+      player.once("joined-success", resolve)
+    );
+
+    host.emit("start-game", { pin: gameCreated.pin });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    player.disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const reconnectedPlayer = await connectClient();
+    const rejoinedPromise = new Promise<{ reconnectToken: string; gameMode: string }>((resolve) =>
+      reconnectedPlayer.once("joined-success", resolve)
+    );
+    const replayStartedPromise = new Promise<{ gameMode: string }>((resolve) =>
+      reconnectedPlayer.once("game-started", resolve)
+    );
+    const replayStatePromise = new Promise<{ players: Array<{ name: string; isConnected: boolean }> }>((resolve) =>
+      reconnectedPlayer.once("game-state-update", resolve)
+    );
+
+    reconnectedPlayer.emit("join-game", {
+      pin: gameCreated.pin,
+      nickname: "ReconnectNeg",
+      reconnectToken: joined.reconnectToken,
+    });
+
+    const rejoined = await rejoinedPromise;
+    const replayStarted = await replayStartedPromise;
+    const replayState = await replayStatePromise;
+
+    expect(rejoined.reconnectToken).toBe(joined.reconnectToken);
+    expect(rejoined.gameMode).toBe("NEGAMON_BATTLE");
+    expect(replayStarted.gameMode).toBe("NEGAMON_BATTLE");
+    expect(replayState.players).toEqual([
+      expect.objectContaining({ name: "ReconnectNeg", isConnected: true }),
+    ]);
+    expect(games.get(gameCreated.pin)?.players).toHaveLength(1);
+
+    host.disconnect();
+    reconnectedPlayer.disconnect();
   });
 
   it("rate-limits submit-negamon-answer and audits denial", async () => {

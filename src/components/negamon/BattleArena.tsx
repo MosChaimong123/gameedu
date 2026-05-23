@@ -894,6 +894,13 @@ type InteractiveTurnResponse = {
     faintedId: string | null;
     player: BattleFighter;
     opponent: BattleFighter;
+    validMoveChoices?: Array<{
+        id: string;
+        name: string;
+        energyCost: number;
+        enabled: boolean;
+        reason?: "NO_ENERGY";
+    }>;
     totalTurns: number;
     actorSide: "player" | "opponent";
     final: null | {
@@ -907,6 +914,7 @@ type InteractiveTurnResponse = {
 type InteractiveTurnFailure = {
     error: string;
     actorSide?: "player" | "opponent";
+    validMoveChoices?: InteractiveTurnResponse["validMoveChoices"];
 };
 
 function isInteractiveTurnFailure(

@@ -8,7 +8,7 @@ import { NegamonBattleEngine } from "./negamon-battle-engine";
 import { db } from "../db";
 import type { GameSettings } from "../types/game";
 import { toPrismaJson } from "../prisma-json";
-import { syncNegamonBattleRewardsToClassroom } from "../negamon/sync-negamon-battle-rewards";
+import { triggerNegamonClassroomRewardSync } from "./negamon-reward-sync-runner";
 
 type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE";
 
@@ -290,21 +290,9 @@ class GameManager {
                     console.error(`[GameManager] Error ticking game ${pin}`, e);
                 }
 
-                // 2. Negamon live battle → classroom EXP (once, if host linked a classroom)
-                // ตั้ง flag ก่อน call async เพื่อป้องกัน tick ถัดไป trigger ซ้ำ (race condition)
-                if (
-                    game.status === "ENDED" &&
-                    game.gameMode === "NEGAMON_BATTLE" &&
-                    game.settings.negamonRewardClassroomId &&
-                    !game.negamonClassroomRewardsSynced
-                ) {
-                    game.negamonClassroomRewardsSynced = true;
-                    void syncNegamonBattleRewardsToClassroom(game)
-                        .catch((err) => {
-                            console.error(`[GameManager] Negamon classroom rewards failed for ${game.pin}`, err);
-                            // ไม่ reset flag — EXP อาจบันทึกบางส่วนแล้ว การ retry จะทำให้ double EXP
-                        });
-                }
+                // 2. Negamon live battle -> classroom EXP.
+                // Retry is safe because the reward service writes per-student idempotency claims first.
+                triggerNegamonClassroomRewardSync(game);
 
                 // 3. Check for End & Archive
                 if (game.status === "ENDED" && !game.hasArchived) {

@@ -56,7 +56,31 @@ describe("classroom dashboard access", () => {
         quizReviewMode: null,
         createdAt: new Date("2026-04-02T00:00:00.000Z"),
         updatedAt: new Date("2026-04-02T00:00:00.000Z"),
-        students: [],
+        students: [
+          {
+            id: "student-1",
+            name: "Student One",
+            nickname: null,
+            avatar: null,
+            attendance: 0,
+            behaviorPoints: 0,
+            gold: 100,
+            lastGoldAt: null,
+            lastCheckIn: null,
+            streak: 0,
+            inventory: [{ itemId: "item_buckler", quantity: 1 }],
+            battleLoadout: ["item_buckler"],
+            equippedFrame: null,
+            negamonSkills: [],
+            order: 1,
+            classId: "class-1",
+            userId: null,
+            loginCode: "111111",
+            createdAt: new Date("2026-04-02T00:00:00.000Z"),
+            updatedAt: new Date("2026-04-02T00:00:00.000Z"),
+            submissions: [],
+          },
+        ],
         skills: [],
         assignments: [],
       });
@@ -68,7 +92,12 @@ describe("classroom dashboard access", () => {
       classroom: {
         id: "class-1",
         teacherId: "teacher-1",
-        students: [],
+        students: [
+          expect.objectContaining({
+            id: "student-1",
+            battleLoadout: ["item_buckler"],
+          }),
+        ],
       },
     });
     expect(mockClassroomFindUnique).toHaveBeenNthCalledWith(1, {

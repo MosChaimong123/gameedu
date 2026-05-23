@@ -162,6 +162,13 @@ function cleanOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+function shouldRejectNewPlayerJoin(game: GameLike, existingPlayer: unknown) {
+  if (existingPlayer) return false;
+  if (game.status === "ENDED") return true;
+  if (game.status === "PLAYING" && game.gameMode === "NEGAMON_BATTLE") return true;
+  return game.status !== "LOBBY" && !game.settings.allowLateJoin;
+}
+
 function parseJoinClassroomPayload(payload: JoinClassroomPayload): {
   classId?: string;
   studentId?: string;
@@ -407,23 +414,26 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         ? game.players.find((player) => player.studentId === verifiedStudent.id || player.name === joinedNickname)
         : game.players.find((player) => player.name === nickname);
 
-      if (game.status === "ENDED") {
-        socket.emit("error", { message: SOCKET_ERROR_GAME_LOCKED });
-        return;
-      }
-
-      if (!existingPlayer && game.status !== "LOBBY" && !game.settings.allowLateJoin) {
-        socket.emit("error", { message: SOCKET_ERROR_GAME_LOCKED });
-        return;
-      }
-
-      if (
-        game.status === "PLAYING" &&
-        !existingPlayer &&
-        game.gameMode === "NEGAMON_BATTLE"
-      ) {
+      if (shouldRejectNewPlayerJoin(game, existingPlayer)) {
+        const isNegamonMidMatch =
+          game.status === "PLAYING" &&
+          !existingPlayer &&
+          game.gameMode === "NEGAMON_BATTLE";
+        auditLog({
+          action: "socket.game.join.denied",
+          targetType: "game",
+          targetId: game.pin,
+          metadata: {
+            reason: isNegamonMidMatch ? "negamon_mid_match_new_player" : "game_locked",
+            gameMode: game.gameMode,
+            status: game.status,
+            socketId: socket.id,
+            nickname: joinedNickname,
+            studentId: verifiedStudent?.id ?? cleanStudentId ?? null,
+          },
+        });
         socket.emit("error", {
-          message: SOCKET_ERROR_NEGAMON_MID_MATCH,
+          message: isNegamonMidMatch ? SOCKET_ERROR_NEGAMON_MID_MATCH : SOCKET_ERROR_GAME_LOCKED,
         });
         return;
       }

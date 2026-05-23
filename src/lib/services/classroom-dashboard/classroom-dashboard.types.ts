@@ -27,6 +27,7 @@ export const classroomDashboardSelect = {
             lastCheckIn: true,
             streak: true,
             inventory: true,
+            battleLoadout: true,
             equippedFrame: true,
             negamonSkills: true,
             order: true,
@@ -88,6 +89,4 @@ type ClassroomDashboardBaseViewModel = Prisma.ClassroomGetPayload<{
     select: typeof classroomDashboardSelect;
 }>;
 
-export type ClassroomDashboardViewModel = Omit<ClassroomDashboardBaseViewModel, "students"> & {
-    students: Array<ClassroomDashboardBaseViewModel["students"][number] & { battleLoadout: string[] }>;
-};
+export type ClassroomDashboardViewModel = ClassroomDashboardBaseViewModel;

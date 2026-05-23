@@ -554,7 +554,8 @@ export const thaiPack = {
         relative2WeeksAgo: "2 สัปดาห์ที่แล้ว",
         playNegamonSocketInvalidGameCode: "รหัสห้องไม่ตรงกับเซิร์ฟเวอร์ ลองรีเฟรชหรือเข้าห้องใหม่",
         playNegamonSocketTooManySubmissions: "ส่งคำตอบถี่เกินไป รอสักครู่แล้วลองใหม่",
-        playNegamonSocketMidMatch: "ศึก Negamon เริ่มไปแล้ว ผู้เล่นใหม่ต้องรอรอบถัดไป",
+        playNegamonSocketMidMatch:
+            "ศึก Negamon เริ่มแล้ว ผู้เล่นใหม่เข้าไม่ได้กลางแมตช์ หากเคยอยู่ในห้องให้รีเฟรชหรือเข้าซ้ำด้วยรหัสเดิม",
         playSocketUnauthorized: "คุณไม่มีสิทธิ์ทำรายการนี้ กรุณาเข้าสู่ระบบใหม่หากจำเป็น",
         playSocketUnauthorizedQuestionSetAccess: "คุณไม่มีสิทธิ์เข้าถึงชุดคำถามนี้",
         playSocketSetNotFound: "ไม่พบชุดคำถามนี้",
@@ -651,6 +652,9 @@ export const thaiPack = {
         negamonRewardAuditDuplicate: "นักเรียนซ้ำ",
         negamonRewardAuditZeroExp: "EXP ไม่เป็นบวก",
         negamonRewardAuditEmpty: "ยังไม่มีเหตุการณ์ซิงค์รางวัล Negamon",
+        negamonRewardProgressionNoteTitle: "รางวัลแต่ละโหมดไม่เหมือนกัน",
+        negamonRewardProgressionNoteBody:
+            "ต่อสู้ตัวต่อตัวให้ทองผ่านระบบเศรษฐกิจ ส่วน Live Negamon Battle ให้ EXP/คะแนนพฤติกรรมผ่านประวัติคะแนน กล่อง audit นี้ตรวจเฉพาะการซิงค์ EXP จากเกมสด",
         negamonRewardAuditExpSummary: "EXP",
         negamonRewardRemediationTitle: "แนวทางแก้ไข",
         negamonRewardRemediationSubtitle: "การแก้โปรไฟล์นักเรียนหลังตรวจจาก audit",
@@ -1006,6 +1010,9 @@ const englishPack = {
         negamonRewardAuditDuplicate: "Duplicate student",
         negamonRewardAuditZeroExp: "Zero EXP",
         negamonRewardAuditEmpty: "No Negamon reward sync audit events yet.",
+        negamonRewardProgressionNoteTitle: "Reward sources differ by mode",
+        negamonRewardProgressionNoteBody:
+            "One-on-one battles award gold through the economy ledger. Live Negamon Battle awards EXP/behavior points through score history. This audit panel tracks only live-game EXP sync.",
         negamonRewardRemediationTitle: "Remediation trail",
         negamonRewardRemediationSubtitle: "Student profile fixes triggered from reward audit investigations.",
         negamonRewardRemediationEvents: "Fixes",

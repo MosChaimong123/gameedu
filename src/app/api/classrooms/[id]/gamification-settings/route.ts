@@ -13,6 +13,7 @@ import {
     getGamificationSettings,
     InvalidGamificationSettingsError,
     normalizeGamificationSettings,
+    updateGamificationSettings,
     updateClassroomGamificationSettingsById,
 } from "@/lib/services/classroom-settings/gamification-settings";
 import { getLimitsForUser, validateNegamonSpeciesForPlan } from "@/lib/plan/plan-access";
@@ -59,11 +60,21 @@ export async function PATCH(
     if (!session?.user?.id) {
         return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
-    if (session.user.role !== "ADMIN") {
-        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
-    }
 
     const { id } = await params;
+    const isAdmin = session.user.role === "ADMIN";
+    const classroom = await db.classroom.findUnique({
+        where: { id },
+        select: { teacherId: true },
+    });
+
+    if (!classroom) {
+        return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
+    }
+
+    if (!isAdmin && classroom.teacherId !== session.user.id) {
+        return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+    }
 
     try {
         const body = await req.json() as { gamifiedSettings?: unknown };
@@ -93,7 +104,9 @@ export async function PATCH(
                 );
             }
         }
-        const updated = await updateClassroomGamificationSettingsById(id, settings);
+        const updated = isAdmin
+            ? await updateClassroomGamificationSettingsById(id, settings)
+            : await updateGamificationSettings(id, session.user.id, settings);
 
         return NextResponse.json({
             gamifiedSettings: normalizeGamificationSettings(updated.gamifiedSettings),

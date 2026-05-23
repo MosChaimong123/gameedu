@@ -122,6 +122,14 @@ export type BattleResult = {
     totalTurns: number;
 };
 
+export type BattleMoveChoice = {
+    id: string;
+    name: string;
+    energyCost: number;
+    enabled: boolean;
+    reason?: "NO_ENERGY";
+};
+
 // ── Constants ────────────────────────────────────────────────
 
 const MAX_TURNS = 20;
@@ -1292,6 +1300,20 @@ function findPlayerMoveOrBasic(player: BattleFighter, playerMoveId: string | und
     return player.moves.find((m) => m.id === playerMoveId) ?? player.moves[0] ?? basicMove;
 }
 
+export function getBattleMoveChoices(fighter: BattleFighter): BattleMoveChoice[] {
+    return fighter.moves.map((move) => {
+        const energyCost = move.energyCost ?? getMoveEnergyCost(move, fighter.speciesId);
+        const enabled = fighter.currentEnergy >= energyCost;
+        return {
+            id: move.id,
+            name: move.name,
+            energyCost,
+            enabled,
+            reason: enabled ? undefined : "NO_ENERGY",
+        };
+    });
+}
+
 /**
  * Server-authoritative interactive action.
  * The server decides which side acts from action meter/SPD and ignores client move input
@@ -1486,5 +1508,4 @@ export function calcGoldReward(winner: BattleFighter, loser: BattleFighter): num
     const mult = Math.min(BATTLE_GOLD_MULT_CAP, Math.max(1, winner.goldMultiplier));
     return Math.floor(base * mult);
 }
-
 

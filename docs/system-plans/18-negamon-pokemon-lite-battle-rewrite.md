@@ -458,11 +458,19 @@ Exit criteria:
 - 2026-05-23: Completed Phase 7 safe cleanup inventory and removed unreachable battle replay branch from `BattleTab`.
 - 2026-05-23: `npm.cmd run check:negamon-battle` passed after Phase 7.
 - 2026-05-23: `npm.cmd run check:student-dashboard` passed after Phase 7.
+- 2026-05-23: Fixed production build parser failure in `BattleArena.tsx` by replacing non-ASCII JSX comments with ASCII comments.
+- 2026-05-23: Pushed parser fix commit `cd43d60` to `origin/main` for Render redeploy.
+- 2026-05-23: Re-ran Plan 18 validation gate after the parser fix:
+  - `npm.cmd run check:negamon-battle` passed.
+  - `npm.cmd run check:student-dashboard` passed.
+  - `npm.cmd run check:classroom-core` passed.
+  - `npm.cmd run test:negamon-reward-audit` passed.
+  - `npm.cmd run predev` passed.
+- 2026-05-23: Production host `https://www.teachplayedu.com/` returned HTTP 200 after the parser fix push.
 
 ## Next Action
 
 ถัดไปหลัง Phase 7:
 
-- Commit/push the full Negamon Pokemon-lite rewrite.
-- Deploy to production and pilot one classroom.
+- Pilot one classroom on production after confirming the latest Render deploy uses commit `cd43d60`.
 - Only remove rollback code after production QA is stable.

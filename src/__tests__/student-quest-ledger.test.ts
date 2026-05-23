@@ -70,6 +70,7 @@ describe("student quest ledger", () => {
       ok: true,
       newGold: 15,
       goldEarned: 5,
+      gameState: { gold: 15 },
     });
     expect(mockStudentUpdateMany).toHaveBeenCalledWith({
       where: {
@@ -146,6 +147,7 @@ describe("student quest ledger", () => {
       ok: true,
       newGold: 115,
       goldEarned: 5,
+      gameState: { gold: 115 },
     });
     expect(mockEconomyTransactionCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -195,6 +197,7 @@ describe("student quest ledger", () => {
       ok: true,
       newGold: 15,
       goldEarned: 5,
+      gameState: { gold: 15 },
     });
     expect(consoleError).toHaveBeenCalledWith(
       "[daily-quests] failed to record quest ledger",

@@ -72,8 +72,13 @@ export function DailyQuestPanel({ loginCode, onGoldChange }: DailyQuestPanelProp
                 void fetchQuests();
                 return;
             }
-            const result = (await res.json()) as { ok: boolean; newGold: number };
+            const result = (await res.json()) as {
+                ok: boolean;
+                newGold: number;
+                gameState?: { gold?: number };
+            };
             if (result.ok) {
+                const nextGold = result.gameState?.gold ?? result.newGold;
                 setData((prev) => {
                     if (!prev) return prev;
                     const update = (list: QuestStatus[]) =>
@@ -83,10 +88,10 @@ export function DailyQuestPanel({ loginCode, onGoldChange }: DailyQuestPanelProp
                         daily: questType === "daily" ? update(prev.daily) : prev.daily,
                         weekly: questType === "weekly" ? update(prev.weekly) : prev.weekly,
                         challenge: questType === "challenge" ? update(prev.challenge) : prev.challenge,
-                        gold: result.newGold,
+                        gold: nextGold,
                     };
                 });
-                onGoldChange?.(result.newGold);
+                onGoldChange?.(nextGold);
                 setToast({ msg: t("questClaimToast", { amount: String(goldReward) }), gold: goldReward, tone: "success" });
                 setTimeout(() => setToast(null), 2500);
             }

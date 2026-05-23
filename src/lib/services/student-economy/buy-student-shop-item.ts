@@ -1,7 +1,8 @@
 import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
-import { ALL_ITEMS } from "@/lib/shop-items";
+import { createGameStatePatch, type GameStatePatch } from "@/lib/game-core";
+import { createShopPurchasePlan, getGameShopCatalogItemById } from "@/lib/game-shop";
 import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
 
 type BuyStudentShopItemDeps = {
@@ -14,7 +15,7 @@ export type BuyStudentShopItemResult =
     | { ok: false; reason: "student_not_found" }
     | { ok: false; reason: "already_owned" }
     | { ok: false; reason: "not_enough_gold" }
-    | { ok: true; success: true; newGold: number; inventory: unknown };
+    | { ok: true; success: true; newGold: number; inventory: unknown; gameState: GameStatePatch };
 
 export async function buyStudentShopItem(
     code: string,
@@ -25,7 +26,7 @@ export async function buyStudentShopItem(
         return { ok: false, reason: "invalid_payload" };
     }
 
-    const item = ALL_ITEMS.find((entry) => entry.id === itemId);
+    const item = getGameShopCatalogItemById(itemId);
     if (!item) {
         return { ok: false, reason: "item_not_found" };
     }
@@ -42,14 +43,14 @@ export async function buyStudentShopItem(
             return { ok: false, reason: "student_not_found" };
         }
 
-        // Frame is unique. Battle item is a consumable and may be stacked.
-        if (item.type === "frame" && (student.inventory as string[]).includes(itemId)) {
-            return { ok: false, reason: "already_owned" };
-        }
-
-        if (student.gold < item.price) {
-            return { ok: false, reason: "not_enough_gold" };
-        }
+        const purchasePlan = createShopPurchasePlan({
+            studentId: student.id,
+            classId: student.classId,
+            gold: student.gold,
+            inventory: student.inventory as string[],
+            item,
+        });
+        if (!purchasePlan.ok) return { ok: false, reason: purchasePlan.reason };
 
         const updatedCount = await tx.student.updateMany({
             where: {
@@ -84,11 +85,13 @@ export async function buyStudentShopItem(
         await recordEconomyTransaction(tx, {
             studentId: student.id,
             classId: student.classId,
-            type: "spend",
-            source: "shop",
-            amount: -item.price,
-            balanceBefore: student.gold,
+            type: purchasePlan.economyMutation.type,
+            source: purchasePlan.economyMutation.source,
+            amount: purchasePlan.economyMutation.amount,
+            balanceBefore: purchasePlan.economyMutation.balanceBefore,
             balanceAfter: updated.gold,
+            sourceRefId: purchasePlan.economyMutation.sourceRefId,
+            idempotencyKey: purchasePlan.economyMutation.idempotencyKey,
             metadata: {
                 itemId,
                 itemType: item.type,
@@ -102,6 +105,10 @@ export async function buyStudentShopItem(
             success: true,
             newGold: updated.gold,
             inventory: updated.inventory,
+            gameState: createGameStatePatch({
+                gold: updated.gold,
+                inventory: updated.inventory as string[],
+            }),
         };
     });
 }

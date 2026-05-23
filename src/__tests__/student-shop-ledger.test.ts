@@ -51,6 +51,10 @@ describe("buyStudentShopItem ledger", () => {
       success: true,
       newGold: 150,
       inventory: ["frame_fire_t1"],
+      gameState: {
+        gold: 150,
+        inventory: ["frame_fire_t1"],
+      },
     });
     expect(tx.student.updateMany).toHaveBeenCalledWith({
       where: {

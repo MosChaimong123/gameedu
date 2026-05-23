@@ -124,8 +124,16 @@ export function ShopDialog({
             if (!res.ok) {
                 showToast(getLocalizedMessageFromApiErrorBody(data, t));
             } else {
-                const body = data as { newGold: number; inventory: string[] };
-                onBuy(item.id, body.newGold, body.inventory);
+                const body = data as {
+                    newGold: number;
+                    inventory: string[];
+                    gameState?: { gold?: number; inventory?: string[] };
+                };
+                onBuy(
+                    item.id,
+                    body.gameState?.gold ?? body.newGold,
+                    body.gameState?.inventory ?? body.inventory
+                );
                 showToast(t("shopPurchaseSuccess", { name: itemName(item) }));
             }
         } finally {

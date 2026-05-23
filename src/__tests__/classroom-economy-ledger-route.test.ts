@@ -149,5 +149,21 @@ describe("classroom economy ledger route", () => {
       createdAt: "2026-04-29T03:00:00.000Z",
       student: { name: "Alice" },
     });
+    expect(body.gameHistory).toEqual([
+      expect.objectContaining({
+        id: "game-history:shop:shop_purchase:student-1:item-1",
+        gameKind: "shop",
+        kind: "shop_purchase",
+        goldDelta: -20,
+        itemDelta: 1,
+      }),
+    ]);
+    expect(body.gameHistoryAnalytics).toMatchObject({
+      totalEvents: 1,
+      goldSpent: 20,
+      itemsGranted: 1,
+      byGameKind: { shop: 1 },
+      byStudent: { "student-1": 1 },
+    });
   });
 });

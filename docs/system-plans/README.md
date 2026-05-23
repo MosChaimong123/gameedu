@@ -1,8 +1,8 @@
 # System Plans Index
 
-Last updated: 2026-05-18
+Last updated: 2026-05-23
 
-ใช้โฟลเดอร์นี้สำหรับวิเคราะห์ปัญหาและวางแผนพัฒนาทีละระบบของ GameEdu
+Use this folder for system-by-system analysis and development planning across GameEdu.
 
 ## Recommended Order
 
@@ -22,15 +22,18 @@ Last updated: 2026-05-18
 14. [i18n / Localization / Accessibility](./14-i18n-localization-accessibility.md)
 15. [Ops / QA / Production Readiness](./15-ops-qa-production-readiness.md)
 16. [Interactive Worksheet](./16-interactive-worksheet.md)
+17. [Negamon Battle Stabilization](./17-negamon-battle-stabilization.md)
+18. [Negamon Pokemon-Lite Battle Rewrite](./18-negamon-pokemon-lite-battle-rewrite.md)
+19. [Game System V2 Foundation](./19-game-system-v2-foundation.md)
 
 ## How To Use
 
-1. เลือกระบบเดียวจากรายการ
-2. ทำ Inventory และ Problem Analysis Checklist ในไฟล์นั้น
-3. เพิ่ม tests ก่อนแก้จุดเสี่ยงถ้าเป็น behavior สำคัญ
-4. แก้แบบ scoped เฉพาะระบบ
-5. รัน validation ในไฟล์แผนนั้น
-6. บันทึกผลและ remaining risks ก่อนย้ายไประบบถัดไป
+1. Pick one system plan.
+2. Do inventory and problem analysis inside that file.
+3. Add tests before behavior-risk fixes.
+4. Keep changes scoped to the active system.
+5. Run the validation commands listed in that plan.
+6. Record outcomes and remaining risks before moving on.
 
 ## Global Baseline Commands
 
@@ -40,13 +43,13 @@ npm.cmd run check:i18n:strict
 npm.cmd run predev
 ```
 
-ถ้าแตะ runtime, page, route, Prisma, config หรือ shared component:
+If the change touches runtime, pages, routes, Prisma, config, or shared components:
 
 ```powershell
 npm.cmd run build
 ```
 
-ถ้าแตะ tests หรือ logic เฉพาะระบบ:
+If the change only touches targeted tests or system-specific logic:
 
 ```powershell
 npm.cmd test -- <targeted test files>
@@ -54,6 +57,6 @@ npm.cmd test -- <targeted test files>
 
 ## Master Plan
 
-ภาพรวมใหญ่ยังอยู่ที่:
+The broader overview still lives here:
 
 - [System Analysis and Improvement Master Plan](../system-analysis-and-improvement-master-plan.md)

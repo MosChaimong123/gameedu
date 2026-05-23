@@ -1,4 +1,5 @@
 import { getStudentMonsterState, type LevelConfigInput } from "@/lib/classroom-utils";
+import { createGameMonsterSnapshot } from "@/lib/game-core";
 import type { Prisma } from "@prisma/client";
 import type { StudentMonsterState } from "@/lib/types/negamon";
 import type {
@@ -8,6 +9,7 @@ import type {
     NegamonLiteMove,
     NegamonLiteType,
 } from "./types";
+import { NEGAMON_LITE_TYPES } from "./type-chart";
 
 export type NegamonLiteSessionResult = {
     mode: "negamon_lite";
@@ -28,6 +30,7 @@ export type NegamonLiteStudentSnapshot = {
 };
 
 const DEFAULT_ENERGY = 40;
+const NEGAMON_LITE_TYPE_SET = new Set<string>(NEGAMON_LITE_TYPES);
 
 function createBattleSeed(...parts: Array<string | number>): number {
     const raw = parts.join(":");
@@ -74,6 +77,10 @@ function fallbackMove(monster: StudentMonsterState): NegamonLiteMove {
     };
 }
 
+function toNegamonLiteTypes(types: string[]): NegamonLiteType[] {
+    return types.filter((type): type is NegamonLiteType => NEGAMON_LITE_TYPE_SET.has(type));
+}
+
 export function createNegamonLiteChoiceRequestId(state: NegamonLiteBattleState): string {
     return `${state.battleId}:${state.turn}:${state.seed}`;
 }
@@ -94,15 +101,23 @@ export function createNegamonLiteCombatant(input: {
     monster: StudentMonsterState;
 }): NegamonLiteCombatant {
     const moves = input.monster.unlockedMoves.slice(0, 4).map(mapMove);
-    const types = [input.monster.type, input.monster.type2]
-        .filter((type): type is NegamonLiteType => Boolean(type));
+    const snapshot = createGameMonsterSnapshot({
+        studentId: input.student.id,
+        speciesId: input.monster.speciesId,
+        speciesName: input.monster.speciesName,
+        formName: input.monster.form.name,
+        rankIndex: input.monster.rankIndex,
+        types: [input.monster.type, input.monster.type2],
+        stats: input.monster.stats,
+        unlockedMoves: input.monster.unlockedMoves,
+    });
 
     return {
         id: input.student.id,
         name: input.student.name,
         speciesId: input.monster.speciesId,
-        level: input.monster.rankIndex + 1,
-        types,
+        level: snapshot.level,
+        types: toNegamonLiteTypes(snapshot.types),
         stats: {
             hp: input.monster.stats.hp,
             attack: input.monster.stats.atk,

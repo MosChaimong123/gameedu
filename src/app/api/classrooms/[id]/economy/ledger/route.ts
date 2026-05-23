@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireSessionUser } from "@/lib/auth-guards";
 import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error";
+import {
+    aggregateGameHistoryAnalytics,
+    createEconomyLedgerHistorySummary,
+} from "@/lib/game-core";
 import type { EconomyTransactionSource, EconomyTransactionType } from "@/lib/services/student-economy/economy-ledger";
 
 const ECONOMY_SOURCES = new Set<EconomyTransactionSource>([
@@ -110,6 +114,21 @@ export async function GET(
             byType: {} as Record<string, number>,
         }
     );
+    const gameHistory = rows
+        .map((row) =>
+            createEconomyLedgerHistorySummary({
+                id: row.id,
+                studentId: row.studentId,
+                classId: row.classId,
+                source: row.source as EconomyTransactionSource,
+                type: row.type as EconomyTransactionType,
+                amount: row.amount,
+                sourceRefId: row.sourceRefId,
+                createdAt: row.createdAt,
+                metadata: row.metadata,
+            })
+        )
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
 
     return NextResponse.json({
         filters: {
@@ -124,5 +143,7 @@ export async function GET(
             ...row,
             createdAt: row.createdAt.toISOString(),
         })),
+        gameHistory,
+        gameHistoryAnalytics: aggregateGameHistoryAnalytics(gameHistory),
     });
 }

@@ -1,7 +1,8 @@
 import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
+import { createGameStatePatch, createInventoryEquipChange, type GameInventoryChange, type GameStatePatch } from "@/lib/game-core";
+import { getGameShopCatalogItemById } from "@/lib/game-shop";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
-import { getItemById } from "@/lib/shop-items";
 
 type EquipStudentShopItemDeps = {
     db: PrismaClient;
@@ -12,7 +13,7 @@ export type EquipStudentShopItemResult =
     | { ok: false; reason: "item_not_equippable" }
     | { ok: false; reason: "student_not_found" }
     | { ok: false; reason: "not_in_inventory" }
-    | { ok: true; success: true };
+    | { ok: true; success: true; inventoryChange: GameInventoryChange; gameState: GameStatePatch };
 
 export async function equipStudentShopItem(
     code: string,
@@ -26,7 +27,7 @@ export async function equipStudentShopItem(
     if (typeof itemId === "string" && !normalizedItemId) {
         return { ok: false, reason: "invalid_payload" };
     }
-    const item = normalizedItemId ? getItemById(normalizedItemId) : null;
+    const item = normalizedItemId ? getGameShopCatalogItemById(normalizedItemId) : null;
     if (normalizedItemId && item?.type !== "frame") {
         return { ok: false, reason: "item_not_equippable" };
     }
@@ -51,5 +52,10 @@ export async function equipStudentShopItem(
         data: { equippedFrame: normalizedItemId },
     });
 
-    return { ok: true, success: true };
+    return {
+        ok: true,
+        success: true,
+        inventoryChange: createInventoryEquipChange(normalizedItemId),
+        gameState: createGameStatePatch({ equippedFrame: normalizedItemId }),
+    };
 }

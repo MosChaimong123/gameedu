@@ -10,6 +10,7 @@ const mockBattleSessionCount = vi.fn();
 const mockStudentUpdate = vi.fn();
 const mockEconomyTransactionFindFirst = vi.fn();
 const mockEconomyTransactionCreate = vi.fn();
+const mockAuthorizeBattleRead = vi.fn();
 const mockTransaction = vi.fn(async (fn: (tx: unknown) => unknown) =>
   fn({
     battleSession: {
@@ -49,6 +50,10 @@ vi.mock("@/lib/db", () => ({
     },
     $transaction: mockTransaction,
   },
+}));
+
+vi.mock("@/lib/services/battle-read-auth", () => ({
+  authorizeBattleRead: mockAuthorizeBattleRead,
 }));
 
 vi.mock("@/lib/classroom-utils", () => ({
@@ -99,6 +104,11 @@ beforeEach(() => {
   mockEconomyTransactionFindFirst.mockResolvedValue(null);
   mockEconomyTransactionCreate.mockResolvedValue({ id: "ledger-1" });
   mockStudentUpdate.mockResolvedValue({ gold: 130 });
+  mockAuthorizeBattleRead.mockResolvedValue({
+    ok: true,
+    scope: "student",
+    studentId: "challenger-1",
+  });
 });
 
 describe("Negamon lite battle session routes", () => {
@@ -445,5 +455,168 @@ describe("Negamon lite battle session routes", () => {
       choiceRequestId: "session-1:2:999",
     });
     expect(mockBattleSessionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("reads a lite battle session through the V2 session route", async () => {
+    mockBattleSessionFindFirst.mockResolvedValue({
+      id: "session-1",
+      classId: "class-1",
+      challengerId: "challenger-1",
+      defenderId: "defender-1",
+      winnerId: null,
+      goldReward: 0,
+      interactivePending: true,
+      stateVersion: 3,
+      createdAt: new Date("2026-05-23T00:00:00.000Z"),
+      result: {
+        mode: "negamon_lite",
+        status: "active",
+        choiceRequestId: "session-1:2:123",
+        state: {
+          battleId: "session-1",
+          seed: 123,
+          turn: 2,
+          phase: "choosing",
+          sides: {
+            player: {
+              id: "challenger-1",
+              name: "Challenger",
+              speciesId: "naga",
+              level: 5,
+              types: ["WATER"],
+              stats: { hp: 100, attack: 40, defense: 20, specialAttack: 40, specialDefense: 20, speed: 30 },
+              hp: 100,
+              energy: 40,
+              maxEnergy: 40,
+              moves: [
+                {
+                  id: "water-strike",
+                  name: "Water Strike",
+                  type: "WATER",
+                  category: "SPECIAL",
+                  power: 80,
+                  accuracy: 100,
+                  pp: 8,
+                  maxPp: 8,
+                  energyCost: 8,
+                  target: "opponent",
+                },
+              ],
+            },
+            opponent: {
+              id: "defender-1",
+              name: "Defender",
+              speciesId: "garuda",
+              level: 5,
+              types: ["FIRE"],
+              stats: { hp: 100, attack: 30, defense: 20, specialAttack: 30, specialDefense: 20, speed: 20 },
+              hp: 100,
+              energy: 40,
+              maxEnergy: 40,
+              moves: [],
+            },
+          },
+          events: [],
+        },
+      },
+    });
+
+    const { GET } = await import("@/app/api/classrooms/[id]/battle/lite/session/route");
+    const response = await GET(
+      new Request("http://local.test/api/classrooms/class-1/battle/lite/session?sessionId=session-1&studentId=challenger-1&studentCode=abc123") as never,
+      { params: Promise.resolve({ id: "class-1" }) }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      mode: "negamon_lite",
+      sessionId: "session-1",
+      status: "active",
+      choiceRequestId: "session-1:2:123",
+      interactivePending: true,
+      stateVersion: 3,
+      validChoices: [
+        expect.objectContaining({
+          moveId: "water-strike",
+          enabled: true,
+        }),
+      ],
+    });
+    expect(mockAuthorizeBattleRead).toHaveBeenCalledWith({
+      classId: "class-1",
+      studentId: "challenger-1",
+      studentCode: "abc123",
+    });
+  });
+
+  it("creates history summaries from finished lite session views", async () => {
+    const {
+      createNegamonLiteSessionHistorySummary,
+      createNegamonLiteSessionView,
+    } = await import("@/lib/game-negamon");
+    const view = createNegamonLiteSessionView({
+      id: "session-1",
+      classId: "class-1",
+      challengerId: "challenger-1",
+      defenderId: "defender-1",
+      winnerId: "challenger-1",
+      goldReward: 30,
+      interactivePending: false,
+      stateVersion: 4,
+      createdAt: new Date("2026-05-23T00:00:00.000Z"),
+      result: {
+        mode: "negamon_lite",
+        status: "finished",
+        choiceRequestId: "session-1:3:123",
+        winnerId: "challenger-1",
+        goldReward: 30,
+        rewardBlockedReason: null,
+        state: {
+          battleId: "session-1",
+          seed: 123,
+          turn: 3,
+          phase: "ended",
+          winner: "player",
+          sides: {
+            player: {
+              id: "challenger-1",
+              name: "Challenger",
+              speciesId: "naga",
+              level: 5,
+              types: ["WATER"],
+              stats: { hp: 100, attack: 40, defense: 20, specialAttack: 40, specialDefense: 20, speed: 30 },
+              hp: 30,
+              energy: 20,
+              maxEnergy: 40,
+              moves: [],
+            },
+            opponent: {
+              id: "defender-1",
+              name: "Defender",
+              speciesId: "garuda",
+              level: 5,
+              types: ["FIRE"],
+              stats: { hp: 100, attack: 30, defense: 20, specialAttack: 30, specialDefense: 20, speed: 20 },
+              hp: 0,
+              energy: 0,
+              maxEnergy: 40,
+              moves: [],
+            },
+          },
+          events: [],
+        },
+      },
+    });
+
+    expect(view).not.toBeNull();
+    expect(createNegamonLiteSessionHistorySummary({
+      view: view!,
+      studentId: "challenger-1",
+    })).toMatchObject({
+      id: "game-history:negamon:battle_finished:challenger-1:session-1",
+      outcome: "win",
+      goldDelta: 30,
+      opponentId: "defender-1",
+    });
   });
 });

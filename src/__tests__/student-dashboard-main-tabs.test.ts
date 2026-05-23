@@ -46,8 +46,8 @@ vi.mock("@/components/student/student-dashboard-monster-tab", () => ({
     },
 }));
 
-vi.mock("@/components/student/student-dashboard-game-tabs", () => ({
-    StudentDashboardGameTabs: (props: unknown) => {
+vi.mock("@/components/game/shell/student-game-tabs", () => ({
+    StudentGameTabs: (props: unknown) => {
         mockGameTabsSpy(props);
         return React.createElement("div");
     },

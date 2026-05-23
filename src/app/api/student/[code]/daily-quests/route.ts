@@ -2,17 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
 import {
-    buildQuestStatuses,
     getClaimedToday,
     todayDateKey,
     DAILY_QUESTS,
     isQuestCompleted,
     type QuestId,
-    type QuestStatus,
 } from "@/lib/daily-quests";
 import {
-    buildWeeklyQuestStatuses,
-    buildChallengeQuestStatuses,
     getWeeklyClaimedThisWeek,
     getChallengeClaimedAll,
     thisWeekKey,
@@ -24,9 +20,15 @@ import {
     type ChallengeQuestId,
 } from "@/lib/quest-system";
 import { getActiveGoldMultiplier } from "@/lib/classroom-utils";
+import { createGameStatePatch } from "@/lib/game-core";
+import {
+    createQuestClaimRewardPlan,
+    createQuestProgressSnapshot,
+    type GameQuestType,
+} from "@/lib/game-quests";
 import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
 
-type QuestType = "daily" | "weekly" | "challenge";
+type QuestType = GameQuestType;
 type ClaimField = "dailyQuestsClaimed" | "weeklyQuestsClaimed" | "challengeQuestsClaimed";
 
 function buildClaimFieldGuard(field: ClaimField, currentValue: unknown) {
@@ -115,14 +117,23 @@ async function persistQuestClaim(params: {
         });
 
         try {
+            const questPlan = createQuestClaimRewardPlan({
+                studentId: student.id,
+                classId: student.classId,
+                questType: params.questType,
+                questId: params.questId,
+                baseReward: goldEarned,
+                balanceBefore: updated.gold - goldEarned,
+            });
             await recordEconomyTransaction(tx, {
                 studentId: student.id,
                 classId: student.classId,
-                type: "earn",
-                source: "quest",
-                amount: goldEarned,
-                balanceBefore: updated.gold - goldEarned,
+                type: questPlan.economyMutation.type,
+                source: questPlan.economyMutation.source,
+                amount: questPlan.economyMutation.amount,
+                balanceBefore: questPlan.economyMutation.balanceBefore,
                 balanceAfter: updated.gold,
+                sourceRefId: questPlan.economyMutation.sourceRefId,
                 idempotencyKey: params.idempotencyKey,
                 metadata: {
                     questType: params.questType,
@@ -150,7 +161,6 @@ export async function GET(
     const todayStart = new Date(new Date().setHours(0, 0, 0, 0) - 7 * 60 * 60 * 1000);
     const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
 
-    // Daily
     const dailyClaimedIds = getClaimedToday(student.dailyQuestsClaimed);
     const checkInput = {
         streak: student.streak,
@@ -160,31 +170,31 @@ export async function GET(
                 s.submittedAt && new Date(s.submittedAt) >= todayStart
         ),
     };
-    const daily = buildQuestStatuses(checkInput, dailyClaimedIds);
 
-    // Weekly
-    const weeklyClaimedIds = getWeeklyClaimedThisWeek(student.weeklyQuestsClaimed);
     const submissionsThisWeek = student.submissions.filter(
         (s: { submittedAt: Date | null }) =>
             s.submittedAt && new Date(s.submittedAt) >= weekStart
     ).length;
-    const allDailyClaimedToday =
-        daily.length > 0 && daily.every((q: QuestStatus) => q.claimed);
-    const weekly = buildWeeklyQuestStatuses(
-        { streak: student.streak, submissionsThisWeek, allDailyClaimedToday },
-        weeklyClaimedIds
-    );
 
-    // Challenge
-    const challengeClaimedIds = getChallengeClaimedAll(student.challengeQuestsClaimed);
-    const challenge = buildChallengeQuestStatuses(
-        {
+    const snapshot = createQuestProgressSnapshot({
+        daily: {
+            ...checkInput,
+            claimedRaw: student.dailyQuestsClaimed,
+        },
+        weekly: {
+            streak: student.streak,
+            submissionsThisWeek,
+            allDailyClaimedToday: dailyClaimedIds.length >= DAILY_QUESTS.length,
+            claimedRaw: student.weeklyQuestsClaimed,
+        },
+        challenge: {
             streak: student.streak,
             totalSubmissions: student.submissions.length,
             hasItem: student.inventory.length > 0,
+            claimedRaw: student.challengeQuestsClaimed,
         },
-        challengeClaimedIds
-    );
+    });
+    const { daily, weekly, challenge } = snapshot;
 
     return NextResponse.json({ daily, weekly, challenge, gold: student.gold });
 }
@@ -244,7 +254,12 @@ export async function POST(
             },
         });
         if (!claimResult.ok) return NextResponse.json({ error: "ALREADY_CLAIMED" }, { status: 400 });
-        return NextResponse.json({ ok: true, newGold: claimResult.newGold, goldEarned });
+        return NextResponse.json({
+            ok: true,
+            newGold: claimResult.newGold,
+            goldEarned,
+            gameState: createGameStatePatch({ gold: claimResult.newGold }),
+        });
     }
 
     if (questType === "weekly") {
@@ -289,7 +304,12 @@ export async function POST(
             },
         });
         if (!claimResult.ok) return NextResponse.json({ error: "ALREADY_CLAIMED" }, { status: 400 });
-        return NextResponse.json({ ok: true, newGold: claimResult.newGold, goldEarned });
+        return NextResponse.json({
+            ok: true,
+            newGold: claimResult.newGold,
+            goldEarned,
+            gameState: createGameStatePatch({ gold: claimResult.newGold }),
+        });
     }
 
     if (questType === "challenge") {
@@ -322,7 +342,12 @@ export async function POST(
             },
         });
         if (!claimResult.ok) return NextResponse.json({ error: "ALREADY_CLAIMED" }, { status: 400 });
-        return NextResponse.json({ ok: true, newGold: claimResult.newGold, goldEarned });
+        return NextResponse.json({
+            ok: true,
+            newGold: claimResult.newGold,
+            goldEarned,
+            gameState: createGameStatePatch({ gold: claimResult.newGold }),
+        });
     }
 
     return NextResponse.json({ error: "INVALID_TYPE" }, { status: 400 });

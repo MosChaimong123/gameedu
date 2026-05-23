@@ -85,6 +85,17 @@ describe("student economy command routes", () => {
     });
 
     expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      inventoryChange: {
+        consumedItemIds: [],
+        grantedItemIds: [],
+        equippedItemIds: ["frame_fire_t1"],
+      },
+      gameState: {
+        equippedFrame: "frame_fire_t1",
+      },
+    });
     expect(mockStudentUpdate).toHaveBeenCalledWith({
       where: { id: "student-1" },
       data: { equippedFrame: "frame_fire_t1" },

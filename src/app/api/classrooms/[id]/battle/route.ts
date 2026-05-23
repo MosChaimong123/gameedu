@@ -32,6 +32,10 @@ import {
 import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
 import { resolveBattleRewardPayout } from "@/lib/services/student-economy/battle-reward-policy";
 import { authorizeBattleRead } from "@/lib/services/battle-read-auth";
+import {
+    aggregateGameHistoryAnalytics,
+    createBattleHistorySummary,
+} from "@/lib/game-core";
 
 const INTERACTIVE_SESSION_TTL_MS = 45 * 60 * 1000;
 const BATTLE_START_RATE_WINDOW_MS = 60 * 1000;
@@ -794,6 +798,22 @@ export async function GET(
         },
     });
 
+    const historyStudentId = auth.scope === "student" ? auth.studentId : studentId;
+    const gameHistory = historyStudentId
+        ? sessions.map((session) =>
+              createBattleHistorySummary({
+                  id: session.id,
+                  classId,
+                  studentId: historyStudentId,
+                  challengerId: session.challengerId,
+                  defenderId: session.defenderId,
+                  winnerId: session.winnerId,
+                  goldReward: session.goldReward,
+                  createdAt: session.createdAt,
+              })
+          )
+        : [];
+
     const studentIds = [
         ...new Set<string>(
             sessions.flatMap((s: { challengerId: string; defenderId: string }) => [
@@ -816,5 +836,10 @@ export async function GET(
         studentNames[s.id] = s.name;
     }
 
-    return NextResponse.json({ sessions, studentNames });
+    return NextResponse.json({
+        sessions,
+        studentNames,
+        gameHistory,
+        gameHistoryAnalytics: aggregateGameHistoryAnalytics(gameHistory),
+    });
 }

@@ -113,6 +113,29 @@ describe("battle read route auth", () => {
         "student-1": "Alice",
         "student-2": "Bob",
       },
+      gameHistory: [
+        {
+          id: "game-history:negamon:battle_finished:student-1:battle-1",
+          gameKind: "negamon",
+          kind: "battle_finished",
+          studentId: "student-1",
+          opponentId: "student-2",
+          winnerId: "student-1",
+          outcome: "win",
+          goldDelta: 30,
+          sourceRefId: "battle-1",
+        },
+      ],
+      gameHistoryAnalytics: {
+        totalEvents: 1,
+        wins: 1,
+        losses: 0,
+        goldEarned: 30,
+        goldSpent: 0,
+        itemsGranted: 0,
+        byGameKind: { negamon: 1 },
+        byStudent: { "student-1": 1 },
+      },
     });
     expect(mockBattleSessionFindMany).toHaveBeenCalledWith({
       where: {

@@ -9,7 +9,7 @@ import { StudentDashboardAssignmentsTab } from "./student-dashboard-assignments-
 import { StudentDashboardBoardTab } from "./student-dashboard-board-tab";
 import { StudentDashboardHistoryTab } from "./student-dashboard-history-tab";
 import { StudentDashboardMonsterTab } from "./student-dashboard-monster-tab";
-import { StudentDashboardGameTabs } from "./student-dashboard-game-tabs";
+import { StudentGameTabs } from "@/components/game/shell/student-game-tabs";
 import type {
     ClassroomRecord,
     DashboardStudent,
@@ -152,7 +152,7 @@ export function StudentDashboardMainTabs({
                     />
                 </TabsContent>
 
-                <StudentDashboardGameTabs
+                <StudentGameTabs
                     classId={classroom.id}
                     studentId={student.id}
                     loginCode={student.loginCode}

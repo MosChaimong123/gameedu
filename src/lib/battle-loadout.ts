@@ -1,4 +1,10 @@
 import { getBattleItemById } from "@/lib/shop-items";
+import {
+    applyInventoryChange,
+    applyInventoryChangeStrict,
+    countInventoryItem,
+    createInventoryConsumeChange,
+} from "@/lib/game-core";
 import type { ShopBattleItemCategory } from "@/lib/shop-items";
 
 export type BattleLoadoutValidation =
@@ -12,12 +18,7 @@ export const BATTLE_LOADOUT_NOT_OWNED = "battleLoadoutNotOwned";
 
 /** Client-side mirror: remove one stack unit per id (no throw if missing). */
 export function applyConsumeInventory(inventory: string[], consumedIds: string[]): string[] {
-    const out = [...inventory];
-    for (const id of consumedIds) {
-        const i = out.indexOf(id);
-        if (i >= 0) out.splice(i, 1);
-    }
-    return out;
+    return applyInventoryChange(inventory, createInventoryConsumeChange(consumedIds));
 }
 
 /** Remove one occurrence of each id from inventory (order-preserving). */
@@ -25,23 +26,7 @@ export function removeBattleItemsFromInventory(
     inventory: string[],
     itemIdsToRemove: string[]
 ): string[] {
-    const inv = [...inventory];
-    for (const id of itemIdsToRemove) {
-        const idx = inv.indexOf(id);
-        if (idx === -1) {
-            throw new Error(`MISSING_ITEM:${id}`);
-        }
-        inv.splice(idx, 1);
-    }
-    return inv;
-}
-
-function countInInventory(inventory: string[], itemId: string): number {
-    let n = 0;
-    for (const x of inventory) {
-        if (x === itemId) n += 1;
-    }
-    return n;
+    return applyInventoryChangeStrict(inventory, createInventoryConsumeChange(itemIdsToRemove));
 }
 
 /**
@@ -79,7 +64,7 @@ export function validateBattleLoadout(
         }
         perCategory.set(cat, id);
 
-        if (countInInventory(inventory, id) < 1) {
+        if (countInventoryItem(inventory, id) < 1) {
             return { ok: false, code: "NOT_IN_STOCK", message: `${BATTLE_LOADOUT_NOT_OWNED}:${id}` };
         }
     }

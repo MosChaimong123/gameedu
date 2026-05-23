@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 
 import { useLanguage } from "@/components/providers/language-provider";
 import type { BattleSessionEntry } from "@/components/negamon/battle-tab.types";
+import type { GameHistorySummary } from "@/lib/game-core";
 import { cn } from "@/lib/utils";
 
 interface BattleHistoryPanelProps {
@@ -32,7 +33,7 @@ export function BattleHistoryPanel({
     refreshKey = 0,
 }: BattleHistoryPanelProps) {
     const { t } = useLanguage();
-    const [sessions, setSessions] = useState<BattleSessionEntry[]>([]);
+    const [history, setHistory] = useState<GameHistorySummary[]>([]);
     const [names, setNames] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
 
@@ -45,11 +46,39 @@ export function BattleHistoryPanel({
 
         void fetch(`/api/classrooms/${classId}/battle?${params.toString()}`)
             .then((r) => r.json())
-            .then((d: { sessions?: BattleSessionEntry[]; studentNames?: Record<string, string> }) => {
-                setSessions(Array.isArray(d.sessions) ? d.sessions : []);
+            .then((d: {
+                gameHistory?: GameHistorySummary[];
+                sessions?: BattleSessionEntry[];
+                studentNames?: Record<string, string>;
+            }) => {
+                if (Array.isArray(d.gameHistory)) {
+                    setHistory(d.gameHistory);
+                } else {
+                    setHistory(
+                        (Array.isArray(d.sessions) ? d.sessions : []).map((s) => {
+                            const isChallenger = s.challengerId === myStudentId;
+                            const opponentId = isChallenger ? s.defenderId : s.challengerId;
+                            const won = s.winnerId === myStudentId;
+                            return {
+                                id: `legacy:${s.id}`,
+                                kind: "battle_finished",
+                                gameKind: "negamon",
+                                studentId: myStudentId,
+                                opponentId,
+                                winnerId: s.winnerId,
+                                outcome: won ? "win" : "loss",
+                                goldDelta: won ? s.goldReward : 0,
+                                itemDelta: 0,
+                                createdAt: s.createdAt,
+                                sourceRefId: s.id,
+                                titleKey: "battleHistoryTitle",
+                            } satisfies GameHistorySummary;
+                        })
+                    );
+                }
                 setNames(d.studentNames ?? {});
             })
-            .catch(() => setSessions([]))
+            .catch(() => setHistory([]))
             .finally(() => setLoading(false));
 
         return () => window.clearTimeout(timer);
@@ -65,7 +94,7 @@ export function BattleHistoryPanel({
         );
     }
 
-    if (sessions.length === 0) {
+    if (history.length === 0) {
         return (
             <div className="flex flex-col items-center gap-3 py-10 text-center">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl border-4 border-rose-100 bg-white text-3xl shadow">
@@ -78,15 +107,14 @@ export function BattleHistoryPanel({
 
     return (
         <div className="space-y-2.5">
-            {sessions.map((s) => {
-                const isChallenger = s.challengerId === myStudentId;
-                const opponentId = isChallenger ? s.defenderId : s.challengerId;
+            {history.map((entry) => {
+                const opponentId = entry.opponentId ?? "";
                 const opponentName = names[opponentId] ?? "?";
-                const won = s.winnerId === myStudentId;
+                const won = entry.outcome === "win";
 
                 return (
                     <motion.div
-                        key={s.id}
+                        key={entry.id}
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         className={cn(
@@ -108,20 +136,12 @@ export function BattleHistoryPanel({
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
                                 <span className="truncate text-sm font-black text-slate-800">{opponentName}</span>
-                                <span
-                                    className={cn(
-                                        "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black",
-                                        isChallenger ? "bg-rose-100 text-rose-600" : "bg-sky-100 text-sky-600"
-                                    )}
-                                >
-                                    {isChallenger ? t("battleRoleChallenger") : t("battleRoleDefender")}
-                                </span>
                             </div>
-                            <p className="text-[11px] font-bold text-slate-400">{timeAgo(s.createdAt, t)}</p>
+                            <p className="text-[11px] font-bold text-slate-400">{timeAgo(entry.createdAt, t)}</p>
                         </div>
 
                         <div className={cn("shrink-0 tabular-nums text-sm font-black", won ? "text-yellow-600" : "text-slate-400")}>
-                            {won ? `+${s.goldReward}G` : t("battleResultLoserBadge")}
+                            {won ? `+${entry.goldDelta}G` : t("battleResultLoserBadge")}
                         </div>
                     </motion.div>
                 );

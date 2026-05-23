@@ -270,14 +270,34 @@ Manual QA checklist:
 
 Automated QA checklist:
 
-- [ ] add Playwright smoke for student monster tab
-- [ ] add Playwright smoke for battle start screen
-- [ ] add API smoke for lite battle start/session/choice
-- [ ] add regression test for no legacy interactive mode
+- [x] add Playwright smoke for student monster tab
+- [x] add Playwright smoke for battle start screen
+- [x] add API smoke for lite battle start/session/choice
+- [x] add regression test for no legacy interactive mode
 
 Exit criteria:
 
 - production student flow can be demonstrated without console errors or layout overlap
+
+Status: automated QA foundation completed on 2026-05-23.
+
+Phase 22 implementation notes:
+
+- Added `e2e/student-dashboard-v2.asn.spec.ts` with production-capable student dashboard smoke checks.
+- The smoke uses `ASN_E2E_STUDENT_CODE` for real student dashboard checks and skips those UI checks when no fixture code is supplied.
+- Added stable `data-testid` hooks for the student dashboard mode toggle and tab triggers, avoiding language-dependent QA selectors.
+- Added API smoke coverage for lite battle start/session/choice invalid-request contracts.
+- Added a regression guard that the student battle tab uses the V2 lite battle start path and no longer imports `LegacyInteractiveBattle`.
+- Updated `playwright.asn.config.ts` so production `PLAYWRIGHT_BASE_URL` runs do not start a local dev server.
+
+Phase 22 validation notes:
+
+- Passed: `npm.cmd test -- src/__tests__/student-dashboard-production-qa.test.ts src/__tests__/student-dashboard-header.test.ts src/__tests__/student-dashboard-main-tabs.test.ts`
+- Passed: `npm.cmd run check:student-dashboard`
+- Passed: `npm.cmd exec -- playwright test -c playwright.asn.config.ts -g "lite battle APIs"`
+- Passed: `npm.cmd run build`
+- Production UI smoke should be rerun after this phase is deployed with:
+  `$env:PLAYWRIGHT_BASE_URL="https://www.teachplayedu.com"; $env:ASN_E2E_STUDENT_CODE="<live student code>"; npm.cmd exec -- playwright test -c playwright.asn.config.ts -g "Student dashboard V2 smoke"`
 
 ## Phase 23: Teacher/Admin Visibility
 

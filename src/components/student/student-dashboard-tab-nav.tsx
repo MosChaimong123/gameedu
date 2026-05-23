@@ -65,6 +65,7 @@ export function StudentDashboardTabNav({
                         <TabsTrigger
                             key={value}
                             value={value}
+                            data-testid={`student-dashboard-tab-${value}`}
                             className={cn(
                                 "relative flex h-11 min-h-[44px] items-center justify-center gap-1.5 rounded-[18px] border border-transparent",
                                 "px-1 py-2.5 text-xs font-semibold leading-normal text-slate-500",
@@ -103,6 +104,7 @@ export function StudentDashboardTabNav({
                     <TabsTrigger
                         key={value}
                         value={value}
+                        data-testid={`student-dashboard-tab-${value}`}
                         title={t(labelKey)}
                         className={cn(
                             "relative flex h-11 min-h-[44px] min-w-0 items-center justify-center gap-1 rounded-[18px] border border-transparent",

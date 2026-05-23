@@ -2,6 +2,10 @@ import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const devServerCommand = process.platform === "win32" ? "npm.cmd run dev" : "npm run dev";
+const shouldStartWebServer =
+  baseURL.startsWith("http://127.0.0.1") ||
+  baseURL.startsWith("http://localhost") ||
+  baseURL.startsWith("http://[::1]");
 
 export default defineConfig({
   testDir: "e2e",
@@ -10,12 +14,14 @@ export default defineConfig({
   fullyParallel: false,
   retries: 0,
   reporter: [["list"]],
-  webServer: {
-    command: devServerCommand,
-    url: baseURL,
-    reuseExistingServer: true,
-    timeout: 180_000,
-  },
+  webServer: shouldStartWebServer
+    ? {
+        command: devServerCommand,
+        url: baseURL,
+        reuseExistingServer: true,
+        timeout: 180_000,
+      }
+    : undefined,
   use: {
     baseURL,
     trace: "retain-on-failure",

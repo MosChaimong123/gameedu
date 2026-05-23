@@ -103,6 +103,7 @@ export function StudentDashboardHeader({
                     {notificationTray}
                     <LanguageToggle className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white" />
                     <button
+                        data-testid="student-dashboard-mode-toggle"
                         onClick={onToggleMode}
                         className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-black transition-all ${
                             mode === "learn"

@@ -16,6 +16,7 @@ const mockTransaction = vi.fn(async (fn: (tx: unknown) => unknown) =>
     battleSession: {
       count: mockBattleSessionCount,
       findFirst: mockBattleSessionFindFirst,
+      update: mockBattleSessionUpdate,
       updateMany: mockBattleSessionUpdateMany,
     },
     student: {
@@ -260,6 +261,15 @@ describe("Negamon lite battle session routes", () => {
         requestedGoldReward: 30,
         goldReward: 30,
         rewardBlockedReason: null,
+        rewardIdempotencyKey: "game:negamon:session-1:challenger-1:battle-finalize",
+        reward: expect.objectContaining({
+          gold: 30,
+          exp: expect.any(Number),
+        }),
+        progression: expect.objectContaining({
+          expDelta: expect.any(Number),
+          behaviorPointDelta: expect.any(Number),
+        }),
       },
       state: { phase: "ended", winner: "player" },
     });
@@ -278,6 +288,16 @@ describe("Negamon lite battle session routes", () => {
         interactivePending: false,
         stateVersion: { increment: 1 },
       }),
+    });
+    expect(mockBattleSessionUpdate).toHaveBeenCalledWith({
+      where: { id: "session-1" },
+      data: {
+        result: expect.objectContaining({
+          rewardIdempotencyKey: "game:negamon:session-1:challenger-1:battle-finalize",
+          reward: expect.objectContaining({ gold: 30 }),
+          progression: expect.any(Object),
+        }),
+      },
     });
     expect(mockStudentUpdate).toHaveBeenCalledWith({
       where: { id: "challenger-1" },
@@ -389,6 +409,117 @@ describe("Negamon lite battle session routes", () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({ error: "CHOICE_CONFLICT" });
+    expect(mockStudentUpdate).not.toHaveBeenCalled();
+    expect(mockEconomyTransactionCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns a completed final result without duplicate reward writes on retry", async () => {
+    mockStudentFindFirst.mockReset();
+    mockStudentFindFirst.mockResolvedValue({ id: "challenger-1" });
+    mockBattleSessionFindFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "session-1",
+        classId: "class-1",
+        challengerId: "challenger-1",
+        defenderId: "defender-1",
+        winnerId: "challenger-1",
+        goldReward: 30,
+        interactivePending: false,
+        stateVersion: 8,
+        result: {
+          mode: "negamon_lite",
+          status: "finished",
+          choiceRequestId: "session-1:1:123",
+          winnerId: "challenger-1",
+          requestedGoldReward: 30,
+          goldReward: 30,
+          rewardBlockedReason: null,
+          rewardIdempotencyKey: "game:negamon:session-1:challenger-1:battle-finalize",
+          reward: {
+            gold: 30,
+            exp: 82,
+            grantedItemIds: [],
+            levelUps: [],
+            unlockedSkillIds: [],
+            idempotencyKey: "game:negamon:session-1:challenger-1:battle-finalize",
+          },
+          progression: {
+            studentId: "challenger-1",
+            expDelta: 82,
+            behaviorPointDelta: 9,
+            unlockedSkillIds: [],
+            nextBehaviorPoints: 19,
+            nextNegamonSkills: [],
+            shouldPersist: true,
+          },
+          state: {
+            battleId: "session-1",
+            seed: 123,
+            turn: 2,
+            phase: "ended",
+            winner: "player",
+            sides: {
+              player: {
+                id: "challenger-1",
+                name: "Challenger",
+                speciesId: "naga",
+                level: 5,
+                types: ["WATER"],
+                stats: { hp: 100, attack: 40, defense: 20, specialAttack: 40, specialDefense: 20, speed: 30 },
+                hp: 100,
+                energy: 32,
+                maxEnergy: 40,
+                moves: [],
+              },
+              opponent: {
+                id: "defender-1",
+                name: "Defender",
+                speciesId: "garuda",
+                level: 5,
+                types: ["FIRE"],
+                stats: { hp: 40, attack: 30, defense: 20, specialAttack: 30, specialDefense: 20, speed: 20 },
+                hp: 0,
+                energy: 40,
+                maxEnergy: 40,
+                moves: [],
+              },
+            },
+            events: [],
+          },
+        },
+      });
+
+    const { POST } = await import("@/app/api/classrooms/[id]/battle/lite/choice/route");
+    const response = await POST(
+      new Request("http://local.test/api/classrooms/class-1/battle/lite/choice", {
+        method: "POST",
+        body: JSON.stringify({
+          challengerId: "challenger-1",
+          defenderId: "defender-1",
+          studentCode: "abc123",
+          sessionId: "session-1",
+          choiceRequestId: "session-1:1:123",
+          moveId: "water-strike",
+        }),
+      }) as never,
+      { params: Promise.resolve({ id: "class-1" }) }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      final: {
+        winnerId: "challenger-1",
+        goldReward: 30,
+        rewardIdempotencyKey: "game:negamon:session-1:challenger-1:battle-finalize",
+        reward: { gold: 30, exp: 82 },
+        progression: { expDelta: 82, behaviorPointDelta: 9 },
+      },
+      state: { phase: "ended", winner: "player" },
+      validChoices: [],
+    });
+    expect(mockBattleSessionUpdateMany).not.toHaveBeenCalled();
+    expect(mockBattleSessionUpdate).not.toHaveBeenCalled();
     expect(mockStudentUpdate).not.toHaveBeenCalled();
     expect(mockEconomyTransactionCreate).not.toHaveBeenCalled();
   });

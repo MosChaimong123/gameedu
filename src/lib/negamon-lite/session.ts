@@ -6,6 +6,8 @@ import {
     type NegamonMonsterSnapshot,
     type NegamonSkillDefinition,
 } from "@/lib/game-negamon";
+import type { GameRewardResult } from "@/lib/game-core";
+import type { NegamonProgressionPersistencePlan } from "@/lib/game-negamon/server/progression";
 import type { Prisma } from "@prisma/client";
 import type {
     NegamonLiteBattleSide,
@@ -27,6 +29,9 @@ export type NegamonLiteSessionResult = {
     goldReward?: number;
     rewardBlockedReason?: "daily_cap" | "pair_cooldown" | null;
     rewardPolicy?: Prisma.InputJsonValue;
+    rewardIdempotencyKey?: string;
+    reward?: GameRewardResult;
+    progression?: NegamonProgressionPersistencePlan | null;
 };
 
 export type NegamonLiteStudentSnapshot = {

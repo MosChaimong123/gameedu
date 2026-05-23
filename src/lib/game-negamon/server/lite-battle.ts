@@ -6,6 +6,12 @@ import {
     resolveNegamonBattleChoice,
 } from "@/lib/game-negamon/core/battle-engine-v2";
 import {
+    calculateNegamonBattleExpReward,
+    createNegamonBattleRewardFinalizationPlan,
+} from "@/lib/game-negamon/core/battle-rewards";
+import { createNegamonMonsterSnapshot } from "@/lib/game-negamon/core/monster-snapshot";
+import { applyNegamonProgressionReward } from "@/lib/game-negamon/server/progression";
+import {
     createNegamonLiteBattleState,
     createNegamonLiteChoiceRequestId,
     parseNegamonLiteSessionResult,
@@ -159,6 +165,16 @@ export async function chooseNegamonLiteMove(
     });
     if (!challenger) return { ok: false, status: 403, body: { error: "FORBIDDEN" } };
 
+    const classroom = await db.classroom.findUnique({
+        where: { id: input.classId },
+        select: { id: true, gamifiedSettings: true, levelConfig: true },
+    });
+    if (!classroom) return { ok: false, status: 404, body: { error: "NOT_FOUND" } };
+    const negamon = getNegamonSettings(classroom.gamifiedSettings as Record<string, unknown>);
+    if (!negamon?.enabled) {
+        return { ok: false, status: 400, body: { error: "NEGAMON_DISABLED" } };
+    }
+
     const session = await db.battleSession.findFirst({
         where: {
             id: input.sessionId,
@@ -168,7 +184,39 @@ export async function chooseNegamonLiteMove(
             interactivePending: true,
         },
     });
-    if (!session) return { ok: false, status: 404, body: { error: "SESSION_NOT_FOUND" } };
+    if (!session) {
+        const completed = await db.battleSession.findFirst({
+            where: {
+                id: input.sessionId,
+                classId: input.classId,
+                challengerId: input.challengerId,
+                defenderId: input.defenderId,
+                interactivePending: false,
+            },
+        });
+        const completedResult = completed ? parseNegamonLiteSessionResult(completed.result) : null;
+        if (completed && completedResult?.status === "finished") {
+            return {
+                ok: true,
+                body: {
+                    choiceRequestId: completedResult.choiceRequestId,
+                    state: completedResult.state,
+                    validChoices: [],
+                    final: {
+                        winnerId: completedResult.winnerId ?? completed.winnerId,
+                        requestedGoldReward: completedResult.requestedGoldReward ?? completed.goldReward,
+                        goldReward: completedResult.goldReward ?? completed.goldReward,
+                        rewardBlockedReason: completedResult.rewardBlockedReason ?? null,
+                        rewardPolicy: completedResult.rewardPolicy,
+                        rewardIdempotencyKey: completedResult.rewardIdempotencyKey,
+                        reward: completedResult.reward,
+                        progression: completedResult.progression ?? null,
+                    },
+                },
+            };
+        }
+        return { ok: false, status: 404, body: { error: "SESSION_NOT_FOUND" } };
+    }
 
     const parsed = parseNegamonLiteSessionResult(session.result);
     if (!parsed || parsed.status !== "active") {
@@ -232,6 +280,38 @@ export async function chooseNegamonLiteMove(
         | null = null;
 
     if (winnerId) {
+        const winnerStudent = await db.student.findFirst({
+            where: { id: winnerId, classId: input.classId },
+            select: { id: true, name: true, behaviorPoints: true, negamonSkills: true },
+        });
+        if (!winnerStudent) {
+            return { ok: false, status: 404, body: { error: "WINNER_NOT_FOUND" } };
+        }
+        const winnerPoints = Math.max(0, Math.floor(winnerStudent.behaviorPoints ?? 0));
+        const winnerSkills = Array.isArray(winnerStudent.negamonSkills)
+            ? (winnerStudent.negamonSkills as string[])
+            : [];
+        const monsterBefore = createNegamonMonsterSnapshot({
+            studentId: winnerId,
+            studentName: winnerStudent.name,
+            points: winnerPoints,
+            levelConfig: classroom.levelConfig as LevelConfigInput,
+            negamonSettings: negamon,
+            equippedSkillIds: winnerSkills,
+        });
+        const expReward = calculateNegamonBattleExpReward({
+            outcome: "win",
+            turnCount: resolved.state.turn,
+        });
+        const pointDelta = Math.ceil(expReward / Math.max(1, Math.floor(negamon.expPerPoint ?? 10)));
+        const monsterAfter = createNegamonMonsterSnapshot({
+            studentId: winnerId,
+            studentName: winnerStudent.name,
+            points: winnerPoints + pointDelta,
+            levelConfig: classroom.levelConfig as LevelConfigInput,
+            negamonSettings: negamon,
+            equippedSkillIds: winnerSkills,
+        });
         try {
             final = await db.$transaction(async (tx) => {
                 const requestedGoldReward = NEGAMON_LITE_BASE_GOLD_REWARD;
@@ -276,6 +356,48 @@ export async function chooseNegamonLiteMove(
                     select: { gold: true },
                 });
 
+                const v2RewardPlan =
+                    monsterBefore && monsterAfter
+                        ? createNegamonBattleRewardFinalizationPlan({
+                              sessionId: input.sessionId,
+                              studentId: winnerId,
+                              classId: input.classId,
+                              outcome: "win",
+                              monsterBefore,
+                              balanceBefore: updatedWinner.gold - rewardPolicy.goldReward,
+                              goldReward: rewardPolicy.goldReward,
+                              expReward,
+                              rankIndexAfter: monsterAfter.rankIndex,
+                              unlockedSkillIdsAfter: monsterAfter.unlockedSkillIds,
+                          })
+                        : null;
+
+                const progressionResult =
+                    v2RewardPlan?.ok
+                        ? await applyNegamonProgressionReward({
+                              studentId: winnerId,
+                              student: {
+                                  behaviorPoints: winnerPoints,
+                                  negamonSkills: winnerSkills,
+                              },
+                              progression: v2RewardPlan.progression,
+                              expPerPoint: negamon.expPerPoint,
+                              studentDelegate: tx.student,
+                          })
+                        : null;
+
+                const persistedFinalResult: NegamonLiteSessionResult = {
+                    ...finalResult,
+                    rewardIdempotencyKey: v2RewardPlan?.idempotencyKey,
+                    reward: v2RewardPlan?.reward,
+                    progression: progressionResult?.plan ?? null,
+                };
+
+                await tx.battleSession.update({
+                    where: { id: input.sessionId },
+                    data: { result: persistedFinalResult },
+                });
+
                 if (rewardPolicy.goldReward > 0) {
                     const mutation = createGameEconomyMutation({
                         studentId: winnerId,
@@ -304,6 +426,10 @@ export async function chooseNegamonLiteMove(
                             defenderId: input.defenderId,
                             requestedGoldReward,
                             goldReward: rewardPolicy.goldReward,
+                            rewardIdempotencyKey: v2RewardPlan?.idempotencyKey,
+                            reward: v2RewardPlan?.reward ?? null,
+                            expReward,
+                            progression: progressionResult?.plan ?? null,
                             turn: resolved.state.turn,
                             rewardPolicy,
                         },
@@ -316,6 +442,9 @@ export async function chooseNegamonLiteMove(
                     goldReward: rewardPolicy.goldReward,
                     rewardBlockedReason: rewardPolicy.rewardBlockedReason,
                     rewardPolicy,
+                    rewardIdempotencyKey: v2RewardPlan?.idempotencyKey,
+                    reward: v2RewardPlan?.reward,
+                    progression: progressionResult?.plan ?? null,
                 };
             });
         } catch (error) {

@@ -1,5 +1,6 @@
 import { getValidChoices } from "@/lib/negamon-lite";
-import { createBattleHistorySummary, type GameHistorySummary } from "@/lib/game-core";
+import { createBattleHistorySummary, type GameHistorySummary, type GameRewardResult } from "@/lib/game-core";
+import type { NegamonProgressionPersistencePlan } from "@/lib/game-negamon/server/progression";
 import {
     parseNegamonLiteSessionResult,
     type NegamonLiteSessionResult,
@@ -28,6 +29,9 @@ export type NegamonLiteSessionFinalView = {
     requestedGoldReward: number;
     goldReward: number;
     rewardBlockedReason: "daily_cap" | "pair_cooldown" | null;
+    rewardIdempotencyKey?: string;
+    reward?: GameRewardResult;
+    progression?: NegamonProgressionPersistencePlan | null;
 };
 
 export type NegamonLiteSessionView = {
@@ -70,6 +74,9 @@ export function createNegamonLiteSessionView(
                   requestedGoldReward: result.requestedGoldReward ?? record.goldReward,
                   goldReward: result.goldReward ?? record.goldReward,
                   rewardBlockedReason: result.rewardBlockedReason ?? null,
+                  rewardIdempotencyKey: result.rewardIdempotencyKey,
+                  reward: result.reward,
+                  progression: result.progression ?? null,
               }
             : null;
 

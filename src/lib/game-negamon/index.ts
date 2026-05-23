@@ -11,4 +11,5 @@ export * from "./core/status-effects";
 export * from "./core/species";
 export * from "./core/type-chart";
 export * from "./server/skill-loadout";
+export * from "./server/progression";
 export * from "./server/lite-battle";

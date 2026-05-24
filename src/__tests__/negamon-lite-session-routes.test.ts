@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_NEGAMON_SPECIES } from "@/lib/negamon-species";
 
 const mockClassroomFindUnique = vi.fn();
 const mockStudentFindFirst = vi.fn();
@@ -70,26 +71,26 @@ vi.mock("@/lib/classroom-utils", () => ({
     allowStudentChoice: true,
     expPerPoint: 10,
     expPerAttendance: 20,
-    species: [],
+    species: DEFAULT_NEGAMON_SPECIES,
     studentMonsters: {
-      "challenger-1": "naga",
-      "defender-1": "garuda",
+      "challenger-1": "pyronox",
+      "defender-1": "aerolisk",
     },
   })),
   getStudentMonsterState: vi.fn((studentId: string) => ({
-    speciesId: studentId === "challenger-1" ? "naga" : "garuda",
-    speciesName: studentId === "challenger-1" ? "Naga" : "Garuda",
-    type: studentId === "challenger-1" ? "WATER" : "FIRE",
+    speciesId: studentId === "challenger-1" ? "pyronox" : "aerolisk",
+    speciesName: studentId === "challenger-1" ? "Pyronox" : "Aerolisk",
+    type: studentId === "challenger-1" ? "FIRE" : "WIND",
     form: { rank: 0, name: "Common", icon: "x", color: "#fff" },
     stats: { hp: 100, atk: 40, def: 20, spd: 30 },
     unlockedMoves: [
       {
-        id: "water-strike",
-        name: "Water Strike",
-        type: "WATER",
-        category: "SPECIAL",
-        power: 220,
-        accuracy: 100,
+        id: studentId === "challenger-1" ? "pyronox-ember-fang" : "aerolisk-gale-cut",
+        name: studentId === "challenger-1" ? "Ember Fang" : "Gale Cut",
+        type: studentId === "challenger-1" ? "FIRE" : "WIND",
+        category: "PHYSICAL",
+        power: studentId === "challenger-1" ? 34 : 32,
+        accuracy: studentId === "challenger-1" ? 95 : 100,
         learnRank: 1,
       },
     ],
@@ -132,21 +133,16 @@ beforeEach(() => {
 
 describe("Negamon lite battle session routes", () => {
   it("starts a lite battle session and persists state into BattleSession.result", async () => {
-    const { POST } = await import("@/app/api/classrooms/[id]/battle/lite/start/route");
-    const response = await POST(
-      new Request("http://local.test/api/classrooms/class-1/battle/lite/start", {
-        method: "POST",
-        body: JSON.stringify({
-          challengerId: "challenger-1",
-          defenderId: "defender-1",
-          studentCode: "abc123",
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: "class-1" }) }
-    );
+    const { startNegamonLiteBattle } = await import("@/lib/game-negamon/server/lite-battle");
+    const response = await startNegamonLiteBattle({
+      challengerId: "challenger-1",
+      defenderId: "defender-1",
+      studentCode: "abc123",
+      classId: "class-1",
+    });
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    expect(response.ok).toBe(true);
+    expect(response.body).toMatchObject({
       sessionId: "507f1f77bcf86cd799439011",
       state: {
         battleId: "507f1f77bcf86cd799439011",
@@ -197,21 +193,16 @@ describe("Negamon lite battle session routes", () => {
         battleLoadout: [],
       });
 
-    const { POST } = await import("@/app/api/classrooms/[id]/battle/lite/start/route");
-    const response = await POST(
-      new Request("http://local.test/api/classrooms/class-1/battle/lite/start", {
-        method: "POST",
-        body: JSON.stringify({
-          challengerId: "challenger-1",
-          defenderId: "defender-1",
-          studentCode: "abc123",
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: "class-1" }) }
-    );
+    const { startNegamonLiteBattle } = await import("@/lib/game-negamon/server/lite-battle");
+    const response = await startNegamonLiteBattle({
+      challengerId: "challenger-1",
+      defenderId: "defender-1",
+      studentCode: "abc123",
+      classId: "class-1",
+    });
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    expect(response.ok).toBe(true);
+    expect(response.body).toMatchObject({
       inventoryChanges: {
         challenger: {
           consumedItemIds: ["item_iron_shield", "item_lucky_coin"],
@@ -259,21 +250,21 @@ describe("Negamon lite battle session routes", () => {
           player: {
             id: "challenger-1",
             name: "Challenger",
-            speciesId: "naga",
+            speciesId: "pyronox",
             level: 5,
-            types: ["WATER"],
+            types: ["FIRE", "DARK"],
             stats: { hp: 100, attack: 40, defense: 20, specialAttack: 40, specialDefense: 20, speed: 30 },
             hp: 100,
             energy: 40,
             maxEnergy: 40,
             moves: [
               {
-                id: "water-strike",
-                name: "Water Strike",
-                type: "WATER",
-                category: "SPECIAL",
+                id: "pyronox-ember-fang",
+                name: "Ember Fang",
+                type: "FIRE",
+                category: "PHYSICAL",
                 power: 220,
-                accuracy: 100,
+                accuracy: 95,
                 pp: 8,
                 maxPp: 8,
                 energyCost: 8,
@@ -284,9 +275,9 @@ describe("Negamon lite battle session routes", () => {
           opponent: {
             id: "defender-1",
             name: "Defender",
-            speciesId: "garuda",
+            speciesId: "aerolisk",
             level: 5,
-            types: ["FIRE"],
+            types: ["WIND", "THUNDER"],
             stats: { hp: 40, attack: 30, defense: 20, specialAttack: 30, specialDefense: 20, speed: 20 },
             hp: 40,
             energy: 40,
@@ -312,24 +303,19 @@ describe("Negamon lite battle session routes", () => {
     })
       .mockResolvedValueOnce(null);
 
-    const { POST } = await import("@/app/api/classrooms/[id]/battle/lite/choice/route");
-    const response = await POST(
-      new Request("http://local.test/api/classrooms/class-1/battle/lite/choice", {
-        method: "POST",
-        body: JSON.stringify({
-          challengerId: "challenger-1",
-          defenderId: "defender-1",
-          studentCode: "abc123",
-          sessionId: "session-1",
-          choiceRequestId: "session-1:1:123",
-          moveId: "water-strike",
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: "class-1" }) }
-    );
+    const { chooseNegamonLiteMove } = await import("@/lib/game-negamon/server/lite-battle");
+    const response = await chooseNegamonLiteMove({
+      challengerId: "challenger-1",
+      defenderId: "defender-1",
+      studentCode: "abc123",
+      sessionId: "session-1",
+      choiceRequestId: "session-1:1:123",
+      moveId: "pyronox-ember-fang",
+      classId: "class-1",
+    });
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    expect(response.ok).toBe(true);
+    expect(response.body).toMatchObject({
       final: {
         winnerId: "challenger-1",
         requestedGoldReward: 30,
@@ -438,21 +424,21 @@ describe("Negamon lite battle session routes", () => {
             player: {
               id: "challenger-1",
               name: "Challenger",
-              speciesId: "naga",
+              speciesId: "pyronox",
               level: 5,
-              types: ["WATER"],
+              types: ["FIRE", "DARK"],
               stats: { hp: 100, attack: 40, defense: 20, specialAttack: 40, specialDefense: 20, speed: 30 },
               hp: 100,
               energy: 40,
               maxEnergy: 40,
               moves: [
                 {
-                  id: "water-strike",
-                  name: "Water Strike",
-                  type: "WATER",
-                  category: "SPECIAL",
+                  id: "pyronox-ember-fang",
+                  name: "Ember Fang",
+                  type: "FIRE",
+                  category: "PHYSICAL",
                   power: 220,
-                  accuracy: 100,
+                  accuracy: 95,
                   pp: 8,
                   maxPp: 8,
                   energyCost: 8,
@@ -463,9 +449,9 @@ describe("Negamon lite battle session routes", () => {
             opponent: {
               id: "defender-1",
               name: "Defender",
-              speciesId: "garuda",
+              speciesId: "aerolisk",
               level: 5,
-              types: ["FIRE"],
+              types: ["WIND", "THUNDER"],
               stats: { hp: 40, attack: 30, defense: 20, specialAttack: 30, specialDefense: 20, speed: 20 },
               hp: 40,
               energy: 40,
@@ -479,24 +465,20 @@ describe("Negamon lite battle session routes", () => {
     })
       .mockResolvedValueOnce(null);
 
-    const { POST } = await import("@/app/api/classrooms/[id]/battle/lite/choice/route");
-    const response = await POST(
-      new Request("http://local.test/api/classrooms/class-1/battle/lite/choice", {
-        method: "POST",
-        body: JSON.stringify({
-          challengerId: "challenger-1",
-          defenderId: "defender-1",
-          studentCode: "abc123",
-          sessionId: "session-1",
-          choiceRequestId: "session-1:1:123",
-          moveId: "water-strike",
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: "class-1" }) }
-    );
+    const { chooseNegamonLiteMove } = await import("@/lib/game-negamon/server/lite-battle");
+    const response = await chooseNegamonLiteMove({
+      challengerId: "challenger-1",
+      defenderId: "defender-1",
+      studentCode: "abc123",
+      sessionId: "session-1",
+      choiceRequestId: "session-1:1:123",
+      moveId: "pyronox-ember-fang",
+      classId: "class-1",
+    });
 
+    expect(response.ok).toBe(false);
     expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toMatchObject({ error: "CHOICE_CONFLICT" });
+    expect(response.body).toMatchObject({ error: "CHOICE_CONFLICT" });
     expect(mockStudentUpdate).not.toHaveBeenCalled();
     expect(mockEconomyTransactionCreate).not.toHaveBeenCalled();
   });
@@ -551,9 +533,9 @@ describe("Negamon lite battle session routes", () => {
               player: {
                 id: "challenger-1",
                 name: "Challenger",
-                speciesId: "naga",
+                speciesId: "pyronox",
                 level: 5,
-                types: ["WATER"],
+                types: ["FIRE", "DARK"],
                 stats: { hp: 100, attack: 40, defense: 20, specialAttack: 40, specialDefense: 20, speed: 30 },
                 hp: 100,
                 energy: 32,
@@ -563,9 +545,9 @@ describe("Negamon lite battle session routes", () => {
               opponent: {
                 id: "defender-1",
                 name: "Defender",
-                speciesId: "garuda",
+                speciesId: "aerolisk",
                 level: 5,
-                types: ["FIRE"],
+                types: ["WIND", "THUNDER"],
                 stats: { hp: 40, attack: 30, defense: 20, specialAttack: 30, specialDefense: 20, speed: 20 },
                 hp: 0,
                 energy: 40,
@@ -578,24 +560,19 @@ describe("Negamon lite battle session routes", () => {
         },
       });
 
-    const { POST } = await import("@/app/api/classrooms/[id]/battle/lite/choice/route");
-    const response = await POST(
-      new Request("http://local.test/api/classrooms/class-1/battle/lite/choice", {
-        method: "POST",
-        body: JSON.stringify({
-          challengerId: "challenger-1",
-          defenderId: "defender-1",
-          studentCode: "abc123",
-          sessionId: "session-1",
-          choiceRequestId: "session-1:1:123",
-          moveId: "water-strike",
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: "class-1" }) }
-    );
+    const { chooseNegamonLiteMove } = await import("@/lib/game-negamon/server/lite-battle");
+    const response = await chooseNegamonLiteMove({
+      challengerId: "challenger-1",
+      defenderId: "defender-1",
+      studentCode: "abc123",
+      sessionId: "session-1",
+      choiceRequestId: "session-1:1:123",
+      moveId: "pyronox-ember-fang",
+      classId: "class-1",
+    });
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    expect(response.ok).toBe(true);
+    expect(response.body).toMatchObject({
       final: {
         winnerId: "challenger-1",
         goldReward: 30,
@@ -635,9 +612,9 @@ describe("Negamon lite battle session routes", () => {
             player: {
               id: "challenger-1",
               name: "Challenger",
-              speciesId: "naga",
+              speciesId: "pyronox",
               level: 5,
-              types: ["WATER"],
+              types: ["FIRE", "DARK"],
               stats: { hp: 100, attack: 40, defense: 20, specialAttack: 40, specialDefense: 20, speed: 30 },
               hp: 100,
               energy: 40,
@@ -647,9 +624,9 @@ describe("Negamon lite battle session routes", () => {
             opponent: {
               id: "defender-1",
               name: "Defender",
-              speciesId: "garuda",
+              speciesId: "aerolisk",
               level: 5,
-              types: ["FIRE"],
+              types: ["WIND", "THUNDER"],
               stats: { hp: 100, attack: 30, defense: 20, specialAttack: 30, specialDefense: 20, speed: 20 },
               hp: 100,
               energy: 40,
@@ -662,24 +639,20 @@ describe("Negamon lite battle session routes", () => {
       },
     });
 
-    const { POST } = await import("@/app/api/classrooms/[id]/battle/lite/choice/route");
-    const response = await POST(
-      new Request("http://local.test/api/classrooms/class-1/battle/lite/choice", {
-        method: "POST",
-        body: JSON.stringify({
-          challengerId: "challenger-1",
-          defenderId: "defender-1",
-          studentCode: "abc123",
-          sessionId: "session-1",
-          choiceRequestId: "session-1:1:123",
-          moveId: "water-strike",
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: "class-1" }) }
-    );
+    const { chooseNegamonLiteMove } = await import("@/lib/game-negamon/server/lite-battle");
+    const response = await chooseNegamonLiteMove({
+      challengerId: "challenger-1",
+      defenderId: "defender-1",
+      studentCode: "abc123",
+      sessionId: "session-1",
+      choiceRequestId: "session-1:1:123",
+      moveId: "pyronox-ember-fang",
+      classId: "class-1",
+    });
 
+    expect(response.ok).toBe(false);
     expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toMatchObject({
+    expect(response.body).toMatchObject({
       error: "STALE_CHOICE",
       choiceRequestId: "session-1:2:999",
     });
@@ -710,21 +683,21 @@ describe("Negamon lite battle session routes", () => {
             player: {
               id: "challenger-1",
               name: "Challenger",
-              speciesId: "naga",
+              speciesId: "pyronox",
               level: 5,
-              types: ["WATER"],
+              types: ["FIRE", "DARK"],
               stats: { hp: 100, attack: 40, defense: 20, specialAttack: 40, specialDefense: 20, speed: 30 },
               hp: 100,
               energy: 40,
               maxEnergy: 40,
               moves: [
                 {
-                  id: "water-strike",
-                  name: "Water Strike",
-                  type: "WATER",
-                  category: "SPECIAL",
+                  id: "pyronox-ember-fang",
+                  name: "Ember Fang",
+                  type: "FIRE",
+                  category: "PHYSICAL",
                   power: 80,
-                  accuracy: 100,
+                  accuracy: 95,
                   pp: 8,
                   maxPp: 8,
                   energyCost: 8,
@@ -735,9 +708,9 @@ describe("Negamon lite battle session routes", () => {
             opponent: {
               id: "defender-1",
               name: "Defender",
-              speciesId: "garuda",
+              speciesId: "aerolisk",
               level: 5,
-              types: ["FIRE"],
+              types: ["WIND", "THUNDER"],
               stats: { hp: 100, attack: 30, defense: 20, specialAttack: 30, specialDefense: 20, speed: 20 },
               hp: 100,
               energy: 40,
@@ -766,7 +739,7 @@ describe("Negamon lite battle session routes", () => {
       stateVersion: 3,
       validChoices: [
         expect.objectContaining({
-          moveId: "water-strike",
+          moveId: "pyronox-ember-fang",
           enabled: true,
         }),
       ],
@@ -810,9 +783,9 @@ describe("Negamon lite battle session routes", () => {
             player: {
               id: "challenger-1",
               name: "Challenger",
-              speciesId: "naga",
+              speciesId: "pyronox",
               level: 5,
-              types: ["WATER"],
+              types: ["FIRE", "DARK"],
               stats: { hp: 100, attack: 40, defense: 20, specialAttack: 40, specialDefense: 20, speed: 30 },
               hp: 30,
               energy: 20,
@@ -822,9 +795,9 @@ describe("Negamon lite battle session routes", () => {
             opponent: {
               id: "defender-1",
               name: "Defender",
-              speciesId: "garuda",
+              speciesId: "aerolisk",
               level: 5,
-              types: ["FIRE"],
+              types: ["WIND", "THUNDER"],
               stats: { hp: 100, attack: 30, defense: 20, specialAttack: 30, specialDefense: 20, speed: 20 },
               hp: 0,
               energy: 0,

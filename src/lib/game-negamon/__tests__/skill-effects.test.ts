@@ -29,7 +29,7 @@ function makeSkill(overrides: Partial<NegamonSkillDefinition> = {}): NegamonSkil
             { kind: "damage", power: 42 },
             { kind: "energy_cost", value: 5 },
         ],
-        unlock: { level: 1, rankIndex: 0, speciesId: "naga" },
+        unlock: { level: 1, rankIndex: 0, speciesId: "pyronox" },
         sourceMove: {
             id: "skill_shadow_jab",
             name: "Shadow Jab",
@@ -48,9 +48,9 @@ function makeCombatant(overrides: Partial<NegamonLiteCombatant> = {}): NegamonLi
     return {
         id: "student-1",
         name: "A",
-        speciesId: "naga",
+        speciesId: "pyronox",
         level: 5,
-        types: ["DARK"],
+        types: ["FIRE", "DARK"],
         stats: {
             hp: 100,
             attack: 30,
@@ -89,20 +89,20 @@ function makeState(player: NegamonLiteCombatant): NegamonLiteBattleState {
 function makeMonster(ability?: PassiveAbility): NegamonMonsterSnapshot {
     return {
         studentId: "student-1",
-        speciesId: "naga",
-        speciesName: "Naga",
-        formName: "Naga",
+        speciesId: "pyronox",
+        speciesName: "Pyronox",
+        formName: "Pyronox Cub",
         rankIndex: 1,
         level: 2,
-        types: ["DARK"],
+        types: ["FIRE", "DARK"],
         stats: { hp: 100, atk: 30, def: 20, spd: 20 },
         skills: [],
         unlockedMoves: [],
-        monsterId: "student-1:naga",
+        monsterId: "student-1:pyronox",
         displayName: "A",
-        formIcon: "N",
-        formColor: "#000000",
-        elementTypes: ["DARK"],
+        formIcon: "P",
+        formColor: "#9a3412",
+        elementTypes: ["FIRE", "DARK"],
         exp: 0,
         expToNextLevel: 100,
         evolutionStage: 1,
@@ -232,13 +232,13 @@ describe("Negamon skill effect runtime V2", () => {
         const catalog = buildNegamonContentCatalog();
         const bySkillId = new Map(catalog.skills.map((skill) => [skill.id, skill]));
 
-        expect(catalog.monsters.find((monster) => monster.id === "garuda")).toMatchObject({ role: "attacker" });
-        expect(mapNegamonSkillToLiteMove(bySkillId.get("garuda-flame-burst")!)).toMatchObject({
-            power: 37,
+        expect(catalog.monsters.find((monster) => monster.id === "pyronox")).toMatchObject({ role: "attacker" });
+        expect(mapNegamonSkillToLiteMove(bySkillId.get("pyronox-hell-dive")!)).toMatchObject({
+            power: 52,
             effect: { kind: "status", status: "BURN", chance: 100 },
         });
 
-        const singha = createNegamonMonsterSnapshot({
+        const terranoir = createNegamonMonsterSnapshot({
             studentId: "student-1",
             points: 50,
             levelConfig: [
@@ -255,22 +255,22 @@ describe("Negamon skill effect runtime V2", () => {
                 expPerPoint: 10,
                 expPerAttendance: 20,
                 species: DEFAULT_NEGAMON_SPECIES,
-                studentMonsters: { "student-1": "singha" },
+                studentMonsters: { "student-1": "terranoir" },
             },
         })!;
-        expect(catalog.monsters.find((monster) => monster.id === "singha")).toMatchObject({ role: "defender" });
-        expect(applyNegamonPassiveRuntimeEffects(singha)).toMatchObject({
+        expect(catalog.monsters.find((monster) => monster.id === "terranoir")).toMatchObject({ role: "defender" });
+        expect(applyNegamonPassiveRuntimeEffects(terranoir)).toMatchObject({
             passiveTraitIds: ["trait_iron_shell"],
         });
 
-        expect(catalog.monsters.find((monster) => monster.id === "kinnaree")).toMatchObject({ role: "support" });
-        expect(mapNegamonSkillToLiteMove(bySkillId.get("kinnaree-heaven-song")!).effect).toEqual({
+        expect(catalog.monsters.find((monster) => monster.id === "lumilune")).toMatchObject({ role: "support" });
+        expect(mapNegamonSkillToLiteMove(bySkillId.get("lumilune-soft-glow")!).effect).toEqual({
             kind: "heal",
             percent: 25,
         });
 
-        expect(catalog.monsters.find((monster) => monster.id === "mekkala")).toMatchObject({ role: "control" });
-        expect(mapNegamonSkillToLiteMove(bySkillId.get("mekkala-judgment")!).effect).toMatchObject({
+        expect(catalog.monsters.find((monster) => monster.id === "voltshade")).toMatchObject({ role: "control" });
+        expect(mapNegamonSkillToLiteMove(bySkillId.get("voltshade-chain-shock")!).effect).toMatchObject({
             kind: "status",
             status: "PARALYZE",
             chance: 100,

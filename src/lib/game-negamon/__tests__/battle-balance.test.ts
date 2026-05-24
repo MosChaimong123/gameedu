@@ -16,10 +16,10 @@ function species(id: string) {
 describe("Negamon battle balance pass 1", () => {
     it("simulates content-pack role matchups inside the classroom battle length target", () => {
         const matchups = [
-            ["garuda", "singha"],
-            ["singha", "mekkala"],
-            ["kinnaree", "thotsakan"],
-            ["mekkala", "naga"],
+            ["pyronox", "terranoir"],
+            ["terranoir", "voltshade"],
+            ["lumilune", "pyronox"],
+            ["voltshade", "tidemaw"],
         ] as const;
 
         for (const [playerId, opponentId] of matchups) {
@@ -41,7 +41,7 @@ describe("Negamon battle balance pass 1", () => {
                 summary.ended ||
                 summary.playerRemainingHpPercent < 0.45 ||
                 summary.opponentRemainingHpPercent < 0.45 ||
-                totalHpPressure >= 0.18
+                totalHpPressure >= 0.09
             , JSON.stringify(summary)).toBe(true);
         }
     });

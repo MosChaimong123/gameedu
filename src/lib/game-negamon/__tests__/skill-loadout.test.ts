@@ -20,63 +20,55 @@ const levelConfig = [
 
 describe("Negamon skill catalog and loadout V2", () => {
     it("creates skill definitions with energy cost, target, cooldown, and effects", () => {
-        const naga = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "naga")!;
-        const tidal = naga.moves.find((move) => move.id === "naga-tidal-force")!;
-        const skill = createNegamonSkillDefinition(tidal, naga.id);
+        const pyronox = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "pyronox")!;
+        const finisher = pyronox.moves.find((move) => move.id === "pyronox-hell-dive")!;
+        const skill = createNegamonSkillDefinition(finisher, pyronox.id);
 
         expect(skill).toMatchObject({
-            id: "naga-tidal-force",
-            elementType: "WATER",
+            id: "pyronox-hell-dive",
+            elementType: "FIRE",
             category: "special",
             target: "enemy",
             cooldownTurns: 2,
-            unlock: { level: 6, rankIndex: 5, speciesId: "naga" },
+            unlock: { level: 6, rankIndex: 5, speciesId: "pyronox" },
         });
         expect(skill.energyCost).toBeGreaterThan(0);
-        expect(skill.effects.map((effect) => effect.kind)).toEqual([
-            "damage",
-            "status",
-            "critical_bonus",
-            "energy_cost",
-        ]);
+        expect(skill.effects.map((effect) => effect.kind)).toEqual(["damage", "status", "energy_cost"]);
     });
 
     it("builds a species catalog including basic attack when requested", () => {
-        const naga = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "naga")!;
-        const catalog = getNegamonSpeciesSkillCatalog(naga, { includeBasic: true });
+        const pyronox = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "pyronox")!;
+        const catalog = getNegamonSpeciesSkillCatalog(pyronox, { includeBasic: true });
 
         expect(catalog[0]).toMatchObject({ id: "basic-attack", energyCost: 0 });
-        expect(catalog.map((skill) => skill.id)).toContain("naga-aqua-jet");
+        expect(catalog.map((skill) => skill.id)).toContain("pyronox-ember-fang");
     });
 
     it("unlocks skills by rank and filters disabled skills", () => {
-        const naga = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "naga")!;
+        const pyronox = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "pyronox")!;
         const unlocked = getUnlockedNegamonSkillDefinitions({
-            species: naga,
+            species: pyronox,
             rankIndex: 3,
             includeBasic: true,
-            disabledSkillIds: ["naga-aqua-jet"],
+            disabledSkillIds: ["pyronox-ember-fang"],
         });
 
-        expect(unlocked.map((skill) => skill.id)).toEqual([
-            "basic-attack",
-            "naga-mind-snare",
-        ]);
+        expect(unlocked.map((skill) => skill.id)).toEqual(["basic-attack", "pyronox-shadow-rend"]);
     });
 
     it("validates loadout ids and falls back to first unlocked skills", () => {
-        const naga = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "naga")!;
-        const unlocked = getUnlockedNegamonSkillDefinitions({ species: naga, rankIndex: 5, includeBasic: true });
+        const pyronox = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "pyronox")!;
+        const unlocked = getUnlockedNegamonSkillDefinitions({ species: pyronox, rankIndex: 5, includeBasic: true });
         const result = validateNegamonSkillLoadout({
-            requestedSkillIds: ["missing", "naga-tidal-force", "naga-tidal-force", "naga-aqua-jet"],
+            requestedSkillIds: ["missing", "pyronox-hell-dive", "pyronox-hell-dive", "pyronox-ember-fang"],
             unlockedSkills: unlocked,
             maxSlots: 2,
         });
         const fallback = validateNegamonSkillLoadout({ unlockedSkills: unlocked, maxSlots: 2 });
 
-        expect(result.normalizedSkillIds).toEqual(["naga-tidal-force", "naga-aqua-jet"]);
+        expect(result.normalizedSkillIds).toEqual(["pyronox-hell-dive", "pyronox-ember-fang"]);
         expect(result.rejectedSkillIds).toEqual(["missing"]);
-        expect(fallback.normalizedSkillIds).toEqual(["basic-attack", "naga-aqua-jet"]);
+        expect(fallback.normalizedSkillIds).toEqual(["basic-attack", "pyronox-ember-fang"]);
     });
 
     it("creates a server loadout plan from a monster snapshot", () => {
@@ -90,13 +82,13 @@ describe("Negamon skill catalog and loadout V2", () => {
                 expPerPoint: 10,
                 expPerAttendance: 20,
                 species: DEFAULT_NEGAMON_SPECIES,
-                studentMonsters: { "student-1": "naga" },
+                studentMonsters: { "student-1": "pyronox" },
             },
-            equippedSkillIds: ["naga-tidal-force", "missing"],
+            equippedSkillIds: ["pyronox-hell-dive", "missing"],
         })!;
         const plan = createNegamonSkillLoadoutPlan({ monster });
 
-        expect(plan.skillIds).toEqual(["naga-tidal-force"]);
-        expect(plan.skills[0].sourceMove.id).toBe("naga-tidal-force");
+        expect(plan.skillIds).toEqual(["pyronox-hell-dive"]);
+        expect(plan.skills[0].sourceMove.id).toBe("pyronox-hell-dive");
     });
 });

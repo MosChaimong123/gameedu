@@ -9,8 +9,8 @@ import {
     getRequestClientIdentifier,
 } from "@/lib/security/rate-limit";
 import { DEFAULT_NEGAMON_SPECIES } from "@/lib/negamon-species";
-import type { NegamonSettings } from "@/lib/types/negamon";
 import {
+    getNegamonSettingsFromGamification,
     normalizeGamificationSettings,
     updateClassroomGamificationSettingsById,
 } from "@/lib/services/classroom-settings/gamification-settings";
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
         }
 
         const raw = normalizeGamificationSettings(student.classroom.gamifiedSettings);
-        const negamon = (raw?.negamon ?? null) as NegamonSettings | null;
+        const negamon = getNegamonSettingsFromGamification(student.classroom.gamifiedSettings);
 
         if (!negamon?.enabled) {
             return createAppErrorResponse("NEGAMON_NOT_ENABLED", "Negamon is not enabled for this classroom", 403);

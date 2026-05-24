@@ -10,6 +10,7 @@ import { BattleHistoryPanel } from "@/components/negamon/BattleHistoryPanel";
 import { BattleItemBagPanel, BattlePrepDialog } from "@/components/negamon/battle-inventory-ui";
 import type { BattleFinalRewardPayload, BattleTabProps, Opponent } from "@/components/negamon/battle-tab.types";
 import { BattleV2Arena } from "@/components/game/negamon/BattleV2Arena";
+import type { NegamonBattleStateV3, NegamonBattleValidChoiceV3 } from "@/lib/game-negamon";
 import { sanitizeLoadoutAgainstInventory, validateBattleLoadout } from "@/lib/battle-loadout";
 import type { NegamonLiteBattleState, NegamonLiteValidChoice } from "@/lib/negamon-lite";
 
@@ -49,11 +50,13 @@ export function BattleTab({
     const [loadingOpponents, setLoadingOpponents] = useState(true);
     const [challenging, setChallenging] = useState<string | null>(null);
     const [liteSession, setLiteSession] = useState<{
+        mode?: "negamon_lite" | "negamon_battle";
+        engineVersion?: string;
         defenderId: string;
         sessionId: string;
         choiceRequestId: string;
-        state: NegamonLiteBattleState;
-        validChoices: NegamonLiteValidChoice[];
+        state: NegamonLiteBattleState | NegamonBattleStateV3;
+        validChoices: NegamonLiteValidChoice[] | NegamonBattleValidChoiceV3[];
     } | null>(null);
     const [prepOpen, setPrepOpen] = useState(false);
     const [prepTargetId, setPrepTargetId] = useState<string | null>(null);
@@ -94,10 +97,12 @@ export function BattleTab({
                 }),
             });
             const data = (await res.json()) as {
+                mode?: "negamon_lite" | "negamon_battle";
+                engineVersion?: string;
                 sessionId?: string;
                 choiceRequestId?: string;
-                state?: NegamonLiteBattleState;
-                validChoices?: NegamonLiteValidChoice[];
+                state?: NegamonLiteBattleState | NegamonBattleStateV3;
+                validChoices?: NegamonLiteValidChoice[] | NegamonBattleValidChoiceV3[];
                 error?: string;
                 code?: string;
                 retryAfterSeconds?: number;
@@ -112,6 +117,8 @@ export function BattleTab({
                 return;
             }
             setLiteSession({
+                mode: data.mode,
+                engineVersion: data.engineVersion,
                 defenderId,
                 sessionId: data.sessionId,
                 choiceRequestId: data.choiceRequestId,

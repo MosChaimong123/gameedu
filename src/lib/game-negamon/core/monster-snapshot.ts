@@ -1,5 +1,9 @@
 import { createGameMonsterSnapshot } from "@/lib/game-core";
 import type { GameMonsterSnapshot } from "@/lib/game-core";
+import {
+    resolveNegamonAssignedSpeciesId,
+    resolveNegamonRuntimeSpeciesCatalog,
+} from "@/lib/negamon-compat";
 import { buildBasicAttackMove } from "@/lib/negamon-basic-move";
 import type { LevelConfigInput, RankEntry } from "@/lib/classroom-utils";
 import type {
@@ -9,6 +13,7 @@ import type {
     MonsterType,
     NegamonSettings,
     PassiveAbility,
+    PassiveAbilityId,
     StudentMonsterState,
 } from "@/lib/types/negamon";
 import {
@@ -51,7 +56,7 @@ export type NegamonMonsterSnapshot = GameMonsterSnapshot & {
     baseStats: MonsterStats;
     derivedStats: NegamonDerivedStats;
     ability?: PassiveAbility;
-    abilityId?: string;
+    abilityId?: PassiveAbilityId;
     trait?: NegamonMonsterTraitSnapshot;
     traitId?: string;
     evolution: NegamonEvolutionProgressSnapshot;
@@ -235,8 +240,13 @@ export function createNegamonMonsterSnapshotFromState(input: {
 }
 
 export function createNegamonMonsterSnapshot(input: CreateNegamonMonsterSnapshotInput): NegamonMonsterSnapshot | null {
-    const speciesId = input.negamonSettings.studentMonsters?.[input.studentId];
-    const species = findNegamonSpeciesById(speciesId, input.negamonSettings.species);
+    const speciesCatalog = resolveNegamonRuntimeSpeciesCatalog(input.negamonSettings.species);
+    const speciesId = resolveNegamonAssignedSpeciesId({
+        rawSpeciesId: input.negamonSettings.studentMonsters?.[input.studentId],
+        allowStudentChoice: input.negamonSettings.allowStudentChoice,
+        speciesCatalog,
+    });
+    const species = findNegamonSpeciesById(speciesId, speciesCatalog);
     if (!species) return null;
 
     const rankIndex = getNegamonRankIndex(input.points, input.levelConfig);

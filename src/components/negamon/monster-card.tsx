@@ -117,14 +117,12 @@ type MonsterCardTheme = {
 };
 
 const MONSTER_CARD_THEME: Record<string, MonsterCardTheme> = {
-    naga: { primary: "#1658a1", secondary: "#5d9fdf", soft: "#eff6ff", softBorder: "#bfdbfe", deep: "#0f2f64" },
-    garuda: { primary: "#e66214", secondary: "#f39c1e", soft: "#fff7ed", softBorder: "#fed7aa", deep: "#7c2d12" },
-    singha: { primary: "#9d1e06", secondary: "#f29a1d", soft: "#fff7ed", softBorder: "#fdba74", deep: "#7f1d1d" },
-    kinnaree: { primary: "#a49463", secondary: "#e6dea7", soft: "#fffbeb", softBorder: "#fef08a", deep: "#57534e" },
-    thotsakan: { primary: "#5b209b", secondary: "#4f285f", soft: "#f5f3ff", softBorder: "#ddd6fe", deep: "#2e1065" },
-    hanuman: { primary: "#a1591e", secondary: "#e6a45b", soft: "#fff7ed", softBorder: "#fed7aa", deep: "#7c2d12" },
-    mekkala: { primary: "#946de4", secondary: "#ab9ce0", soft: "#f5f3ff", softBorder: "#ddd6fe", deep: "#4c1d95" },
-    suvannamaccha: { primary: "#d9a55c", secondary: "#a3daef", soft: "#fffbeb", softBorder: "#fde68a", deep: "#92400e" },
+    pyronox: { primary: "#c2410c", secondary: "#fb7185", soft: "#fff7ed", softBorder: "#fdba74", deep: "#7f1d1d" },
+    aerolisk: { primary: "#0284c7", secondary: "#facc15", soft: "#ecfeff", softBorder: "#a5f3fc", deep: "#164e63" },
+    terranoir: { primary: "#44403c", secondary: "#a8a29e", soft: "#fafaf9", softBorder: "#d6d3d1", deep: "#1c1917" },
+    lumilune: { primary: "#0f766e", secondary: "#dbeafe", soft: "#f8fafc", softBorder: "#bae6fd", deep: "#164e63" },
+    voltshade: { primary: "#4338ca", secondary: "#818cf8", soft: "#eef2ff", softBorder: "#c7d2fe", deep: "#312e81" },
+    tidemaw: { primary: "#0f766e", secondary: "#38bdf8", soft: "#f0fdfa", softBorder: "#99f6e4", deep: "#134e4a" },
 };
 
 function normalizeHex(hex: string): string {

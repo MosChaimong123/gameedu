@@ -59,6 +59,7 @@ function getCooldownTurns(move: MonsterMove): number {
     if (move.learnRank >= 6) return 2;
     if (move.category === "HEAL") return 2;
     if (move.effect === "PARALYZE" || move.effect === "SLEEP" || move.effect === "FREEZE") return 1;
+    if (move.power === 0 && (move.effect?.startsWith("BOOST_") || move.effect?.startsWith("LOWER_"))) return 1;
     return 0;
 }
 

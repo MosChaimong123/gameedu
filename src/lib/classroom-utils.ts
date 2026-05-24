@@ -1,4 +1,8 @@
 import { getNegamonSettingsFromGamification } from "@/lib/services/classroom-settings/gamification-settings";
+import {
+    resolveNegamonAssignedSpeciesId,
+    resolveNegamonRuntimeSpeciesCatalog,
+} from "@/lib/negamon-compat";
 
 export type LevelConfig = {
     [key: string]: number;
@@ -230,8 +234,6 @@ import type {
     DamageResult,
     SelectedAction,
 } from "./types/negamon";
-import { DEFAULT_NEGAMON_SPECIES } from "./negamon-species";
-
 export type {
     MonsterType,
     MonsterBaseStats,
@@ -338,13 +340,14 @@ export function getStudentMonsterState(
     levelConfig: LevelConfigInput,
     negamon: NegamonSettings
 ): StudentMonsterState | null {
-    const speciesId = negamon.studentMonsters?.[studentId];
+    const speciesCatalog = resolveNegamonRuntimeSpeciesCatalog(negamon.species);
+    const speciesId = resolveNegamonAssignedSpeciesId({
+        rawSpeciesId: negamon.studentMonsters?.[studentId],
+        allowStudentChoice: negamon.allowStudentChoice,
+        speciesCatalog,
+    });
     if (!speciesId) return null;
-    // DEFAULT_NEGAMON_SPECIES เป็น source of truth เสมอ (ค่า stats/moves อัพเดตจากโค้ด)
-    // fallback ไป DB species เฉพาะกรณีครูสร้าง custom species เองที่ไม่มีใน DEFAULT
-    const species =
-        DEFAULT_NEGAMON_SPECIES.find((s) => s.id === speciesId) ??
-        negamon.species.find((s) => s.id === speciesId);
+    const species = speciesCatalog.find((entry) => entry.id === speciesId);
     if (!species) return null;
 
     const rankIndex = getRankIndex(points, levelConfig);
@@ -477,11 +480,7 @@ export function getNegamonSettings(gamifiedSettings: unknown): NegamonSettings |
  * ถ้า id ตรงกับชุดในโค้ด ให้ใช้ข้อมูลจากโค้ดเพื่อให้บาลานซ์อัปเดตตามเวอร์ชันเกม
  */
 export function resolveNegamonSpeciesCatalog(negamon: NegamonSettings | null): MonsterSpecies[] {
-    const raw = negamon?.species;
-    if (!raw || raw.length === 0) {
-        return DEFAULT_NEGAMON_SPECIES.slice();
-    }
-    return raw.map((s) => DEFAULT_NEGAMON_SPECIES.find((d) => d.id === s.id) ?? s);
+    return resolveNegamonRuntimeSpeciesCatalog(negamon?.species);
 }
 
 /** Format large numbers with abbreviations (K, M, G, T) */

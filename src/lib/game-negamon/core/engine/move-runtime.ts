@@ -1,0 +1,340 @@
+import {
+    calculateFormulaDamage,
+    createNeutralStatStages,
+    getCriticalChancePercent,
+    getEffectiveAccuracy,
+    rollDamageBand,
+    rollPercent,
+    type NegamonDeterministicRng,
+} from "../rules";
+import type { NegamonSkillDefinition, NegamonSkillEffect } from "../skills";
+import { applyRuntimeHooks } from "./hook-framework";
+import {
+    applyRuntimeShieldReduction,
+    applyRuntimeStatus,
+    applyRuntimeVolatile,
+    getRuntimeAccuracyBonusMultiplier,
+    resolveRuntimeTurnEndStatuses,
+    resolveRuntimeTurnStartStatuses,
+} from "./status-runtime";
+import type {
+    NegamonRuntimeCombatant,
+    NegamonRuntimeMoveResolution,
+    NegamonRuntimeStatusId,
+    NegamonRuntimeVolatileId,
+} from "./runtime-types";
+
+function cloneRuntimeCombatant(combatant: NegamonRuntimeCombatant): NegamonRuntimeCombatant {
+    return {
+        ...combatant,
+        types: [...combatant.types],
+        stats: { ...combatant.stats },
+        statStages: { ...combatant.statStages },
+        statusImmunities: [...(combatant.statusImmunities ?? [])],
+        statuses: combatant.statuses.map((status) => ({ ...status })),
+        volatileStates: combatant.volatileStates.map((state) => ({ ...state, data: state.data ? { ...state.data } : undefined })),
+    };
+}
+
+function mapStatusId(effect: NegamonSkillEffect): NegamonRuntimeStatusId | null {
+    if (effect.kind !== "status" && effect.kind !== "self_status") return null;
+    switch (effect.effect) {
+        case "BURN":
+        case "POISON":
+        case "BADLY_POISON":
+        case "PARALYZE":
+        case "SLEEP":
+            return effect.effect;
+        case "FREEZE":
+            return "STUN";
+        default:
+            return null;
+    }
+}
+
+function mapVolatileId(effect: NegamonSkillEffect): NegamonRuntimeVolatileId | null {
+    if (effect.kind !== "status" && effect.kind !== "self_status") return null;
+    switch (effect.effect) {
+        case "BOOST_DEF":
+        case "BOOST_DEF_20":
+            return "SHIELD";
+        case "BOOST_ATK":
+        case "BOOST_SPD":
+            return "FOCUS";
+        default:
+            return null;
+    }
+}
+
+function applySkillEffect(input: {
+    actor: NegamonRuntimeCombatant;
+    target: NegamonRuntimeCombatant;
+    effect: NegamonSkillEffect;
+    skill: NegamonSkillDefinition;
+    rng: NegamonDeterministicRng;
+}): { rng: NegamonDeterministicRng; applied: boolean; timeline: NegamonRuntimeMoveResolution["timeline"]; effectsApplied: string[]; healing: number } {
+    const timeline: NegamonRuntimeMoveResolution["timeline"] = [];
+    const effectsApplied: string[] = [];
+    let healing = 0;
+
+    if (input.effect.kind === "heal") {
+        const amount = Math.max(1, Math.floor(input.actor.stats.maxHp * (input.effect.percent / 100)));
+        input.actor.hp = Math.min(input.actor.stats.maxHp, input.actor.hp + amount);
+        healing += amount;
+        timeline.push({
+            kind: "heal",
+            actorSide: input.actor.side,
+            targetSide: input.actor.side,
+            moveId: input.skill.id,
+            amount,
+            message: `${input.actor.name} restored ${amount} HP.`,
+        });
+        effectsApplied.push("heal");
+        return { rng: input.rng, applied: true, timeline, effectsApplied, healing };
+    }
+
+    if (input.effect.kind === "stat_stage") {
+        const recipient = (input.effect.target ?? (input.effect.stages >= 0 ? "self" : "enemy")) === "self"
+            ? input.actor
+            : input.target;
+        recipient.statStages[input.effect.stat] = Math.max(
+            -6,
+            Math.min(6, (recipient.statStages[input.effect.stat] ?? 0) + input.effect.stages)
+        );
+        timeline.push({
+            kind: "stat_stage_changed",
+            actorSide: input.actor.side,
+            targetSide: recipient.side,
+            moveId: input.skill.id,
+            effectId: input.effect.stat,
+            amount: input.effect.stages,
+            message: `${recipient.name} ${input.effect.stat} stage changed by ${input.effect.stages}.`,
+        });
+        effectsApplied.push(`stage:${input.effect.stat}`);
+        return { rng: input.rng, applied: true, timeline, effectsApplied, healing };
+    }
+
+    const statusId = mapStatusId(input.effect);
+    if (statusId) {
+        const durationTurns = "durationTurns" in input.effect ? input.effect.durationTurns : undefined;
+        const result = applyRuntimeStatus({
+            combatant: input.effect.kind === "self_status" ? input.actor : input.target,
+            statusId,
+            chance: input.effect.kind === "status" ? input.effect.chance : 100,
+            durationTurns,
+            sourceMoveId: input.skill.id,
+            rng: input.rng,
+        });
+        if (result.applied) effectsApplied.push(`status:${statusId}`);
+        return {
+            rng: result.rng,
+            applied: result.applied,
+            timeline: result.timeline,
+            effectsApplied,
+            healing,
+        };
+    }
+
+    const volatileId = mapVolatileId(input.effect);
+    if (volatileId) {
+        const recipient = input.effect.kind === "self_status" ? input.actor : input.target;
+        const durationTurns = "durationTurns" in input.effect ? input.effect.durationTurns : undefined;
+        const result = applyRuntimeVolatile({
+            combatant: recipient,
+            volatileId,
+            durationTurns,
+            sourceMoveId: input.skill.id,
+        });
+        if (result.applied) effectsApplied.push(`volatile:${volatileId}`);
+        return { rng: input.rng, applied: result.applied, timeline: result.timeline, effectsApplied, healing };
+    }
+
+    return { rng: input.rng, applied: false, timeline, effectsApplied, healing };
+}
+
+export function resolveRuntimeSkill(input: {
+    actor: NegamonRuntimeCombatant;
+    target: NegamonRuntimeCombatant;
+    skill: NegamonSkillDefinition;
+    rng: NegamonDeterministicRng;
+    processTurnEnd?: boolean;
+}): { rng: NegamonDeterministicRng; resolution: NegamonRuntimeMoveResolution } {
+    const actor = cloneRuntimeCombatant(input.actor);
+    const target = cloneRuntimeCombatant(input.target);
+    let rng = input.rng;
+    const processTurnEnd = input.processTurnEnd ?? true;
+    const timeline: NegamonRuntimeMoveResolution["timeline"] = [];
+    const effectsApplied: string[] = [];
+
+    const actorBattleStart = applyRuntimeHooks({ trigger: "battle_start", combatant: actor, rng });
+    rng = actorBattleStart.rng;
+    timeline.push(...actorBattleStart.timeline);
+    const targetBattleStart = applyRuntimeHooks({ trigger: "battle_start", combatant: target, rng });
+    rng = targetBattleStart.rng;
+    timeline.push(...targetBattleStart.timeline);
+
+    const start = resolveRuntimeTurnStartStatuses({ combatant: actor, rng });
+    rng = start.rng;
+    timeline.push(...start.timeline);
+    if (start.skipTurn) {
+        if (processTurnEnd) {
+            timeline.push(...resolveRuntimeTurnEndStatuses({ combatant: actor }));
+            timeline.push(...resolveRuntimeTurnEndStatuses({ combatant: target }));
+        }
+        return {
+            rng,
+            resolution: {
+                actor,
+                target,
+                accepted: true,
+                missed: false,
+                critical: false,
+                damage: 0,
+                healing: 0,
+                effectsApplied,
+                timeline,
+                skill: input.skill,
+            },
+        };
+    }
+
+    actor.energy = Math.max(0, actor.energy - input.skill.energyCost);
+    timeline.push({
+        kind: "move_used",
+        actorSide: actor.side,
+        targetSide: target.side,
+        moveId: input.skill.id,
+        message: `${actor.name} used ${input.skill.name}.`,
+    });
+
+    const effectiveAccuracy = getEffectiveAccuracy({
+        baseAccuracy: input.skill.accuracy,
+        accuracyStage: actor.statStages.accuracy,
+        evasionStage: target.statStages.evasion,
+        bonusMultiplier: getRuntimeAccuracyBonusMultiplier(actor) * (actor.accuracyBonusMultiplier ?? 1),
+    });
+    const beforeMoveHooks = applyRuntimeHooks({ trigger: "before_move", combatant: actor, attacker: target, rng });
+    rng = beforeMoveHooks.rng;
+    timeline.push(...beforeMoveHooks.timeline);
+    const hitRoll = rollPercent(rng, effectiveAccuracy);
+    rng = hitRoll.rng;
+    const missed = !hitRoll.success;
+
+    let critical = false;
+    let damage = 0;
+    let healing = 0;
+
+    if (!missed && input.skill.power > 0) {
+        const critPercent = getCriticalChancePercent(
+            input.skill.sourceMove.critBonus ? 1 : 0
+        ) + (actor.critChanceBonusPercent ?? 0);
+        const critRoll = rollPercent(rng, critPercent);
+        rng = critRoll.rng;
+        critical = critRoll.success;
+
+        const damageBand = rollDamageBand(rng);
+        rng = damageBand.rng;
+
+        const damageResult = calculateFormulaDamage({
+            actor: {
+                level: actor.level,
+                types: actor.types,
+                stats: actor.stats,
+                statStages: actor.statStages,
+            },
+            target: {
+                level: target.level,
+                types: target.types,
+                stats: target.stats,
+                statStages: target.statStages,
+            },
+            move: {
+                id: input.skill.id,
+                type: input.skill.elementType,
+                category: input.skill.sourceMove.category === "SPECIAL" ? "SPECIAL" : input.skill.sourceMove.category === "PHYSICAL" ? "PHYSICAL" : "STATUS",
+                power: input.skill.power,
+                accuracy: input.skill.accuracy,
+                priority: input.skill.priority,
+            },
+            critical,
+            randomMultiplier: damageBand.multiplier,
+            flatModifier: actor.outgoingDamageMultiplier ?? 1,
+        });
+
+        const reduced = applyRuntimeShieldReduction({ combatant: target, damage: damageResult.damage });
+        damage = reduced.damage;
+        target.hp = Math.max(0, target.hp - damage);
+        timeline.push(...reduced.timeline);
+        const onDamageHooks = applyRuntimeHooks({
+            trigger: "on_damage_taken",
+            combatant: target,
+            attacker: actor,
+            rng,
+        });
+        rng = onDamageHooks.rng;
+        timeline.push(...onDamageHooks.timeline);
+        timeline.push({
+            kind: "damage",
+            actorSide: actor.side,
+            targetSide: target.side,
+            moveId: input.skill.id,
+            amount: damage,
+            message: `${target.name} took ${damage} damage.`,
+        });
+    }
+
+    if (missed) {
+        timeline.push({
+            kind: "move_used",
+            actorSide: actor.side,
+            targetSide: target.side,
+            moveId: input.skill.id,
+            message: `${actor.name} used ${input.skill.name}, but it missed.`,
+        });
+    } else {
+        for (const effect of input.skill.effects) {
+            if (effect.kind === "damage" || effect.kind === "energy_cost" || effect.kind === "critical_bonus" || effect.kind === "drain") {
+                continue;
+            }
+            const applied = applySkillEffect({ actor, target, effect, skill: input.skill, rng });
+            rng = applied.rng;
+            healing += applied.healing;
+            effectsApplied.push(...applied.effectsApplied);
+            timeline.push(...applied.timeline);
+        }
+    }
+
+    const afterMoveHooks = applyRuntimeHooks({ trigger: "after_move", combatant: actor, attacker: target, rng });
+    rng = afterMoveHooks.rng;
+    timeline.push(...afterMoveHooks.timeline);
+    if (processTurnEnd) {
+        const actorTurnEndHooks = applyRuntimeHooks({ trigger: "turn_end", combatant: actor, attacker: target, rng });
+        rng = actorTurnEndHooks.rng;
+        timeline.push(...actorTurnEndHooks.timeline);
+        const targetTurnEndHooks = applyRuntimeHooks({ trigger: "turn_end", combatant: target, attacker: actor, rng });
+        rng = targetTurnEndHooks.rng;
+        timeline.push(...targetTurnEndHooks.timeline);
+        timeline.push(...resolveRuntimeTurnEndStatuses({ combatant: actor }));
+        timeline.push(...resolveRuntimeTurnEndStatuses({ combatant: target }));
+    }
+
+    return {
+        rng,
+        resolution: {
+            actor,
+            target,
+            accepted: true,
+            missed,
+            critical,
+            damage,
+            healing,
+            effectsApplied,
+            timeline,
+            skill: input.skill,
+        },
+    };
+}
+
+export function createNeutralRuntimeStatStages() {
+    return createNeutralStatStages();
+}

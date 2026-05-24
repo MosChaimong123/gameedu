@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authorizeBattleRead } from "@/lib/services/battle-read-auth";
+import { parseNegamonLiteSessionResult } from "@/lib/negamon-lite/session";
 import {
+    createNegamonBattleSessionViewV3,
     createNegamonLiteSessionView,
     getNegamonLiteViewerSide,
+    parseNegamonBattleSessionResultV3,
 } from "@/lib/game-negamon";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -54,10 +57,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         { challengerId: session.challengerId, defenderId: session.defenderId },
         auth.scope === "student" ? auth.studentId : studentId
     );
+    const v3Result = parseNegamonBattleSessionResultV3(session.result);
+    if (v3Result) {
+        const view = createNegamonBattleSessionViewV3(session, { viewerSide });
+        if (!view) {
+            return NextResponse.json({ error: "INVALID_SESSION_STATE" }, { status: 409 });
+        }
+        return NextResponse.json(view);
+    }
+
+    const liteResult = parseNegamonLiteSessionResult(session.result);
+    if (!liteResult) {
+        return NextResponse.json({ error: "INVALID_SESSION_STATE" }, { status: 409 });
+    }
     const view = createNegamonLiteSessionView(session, { viewerSide });
     if (!view) {
         return NextResponse.json({ error: "INVALID_SESSION_STATE" }, { status: 409 });
     }
-
     return NextResponse.json(view);
 }

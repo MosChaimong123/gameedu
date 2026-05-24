@@ -34,8 +34,8 @@ function makeState() {
             expPerAttendance: 20,
             species: DEFAULT_NEGAMON_SPECIES,
             studentMonsters: {
-                "student-1": "naga",
-                "student-2": "garuda",
+                "student-1": "pyronox",
+                "student-2": "aerolisk",
             },
         },
         nowMs: 1234,
@@ -60,12 +60,12 @@ describe("Negamon Battle Engine V2", () => {
             moveId: "basic-attack",
             enabled: true,
         });
-        expect(choices.map((choice) => choice.moveId)).toContain("naga-astral-surge");
+        expect(choices.map((choice) => choice.moveId)).toContain("pyronox-shadow-rend");
     });
 
     it("previews damage and resolves choices without mutating input", () => {
         const state = makeState();
-        const move = state.sides.player.moves.find((candidate) => candidate.id === "naga-astral-surge")!;
+        const move = state.sides.player.moves.find((candidate) => candidate.id === "pyronox-shadow-rend")!;
         const preview = previewNegamonBattleDamage({
             actor: state.sides.player,
             target: state.sides.opponent,

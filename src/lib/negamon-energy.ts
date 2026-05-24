@@ -30,16 +30,14 @@ function isHardCc(effect: StatusEffect): boolean {
  */
 const ENERGY_PROFILE_BY_SPECIES: Record<string, EnergyProfile> = {
     // Caster
-    kinnaree: { maxEnergy: 90, regenPerTurn: 20, costScale: 0.88 },
-    mekkala: { maxEnergy: 90, regenPerTurn: 20, costScale: 0.88 },
-    hanuman: { maxEnergy: 90, regenPerTurn: 20, costScale: 0.88 },
+    lumilune: { maxEnergy: 90, regenPerTurn: 20, costScale: 0.88 },
+    voltshade: { maxEnergy: 90, regenPerTurn: 20, costScale: 0.92 },
+    aerolisk: { maxEnergy: 92, regenPerTurn: 20, costScale: 0.92 },
     // Bruiser
-    garuda: { maxEnergy: 100, regenPerTurn: 18, costScale: 1.0 },
-    naga: { maxEnergy: 100, regenPerTurn: 18, costScale: 1.0 },
-    thotsakan: { maxEnergy: 100, regenPerTurn: 18, costScale: 1.0 },
+    pyronox: { maxEnergy: 100, regenPerTurn: 18, costScale: 1.0 },
+    tidemaw: { maxEnergy: 104, regenPerTurn: 17, costScale: 1.04 },
     // Tank
-    singha: { maxEnergy: 110, regenPerTurn: 16, costScale: 1.1 },
-    suvannamaccha: { maxEnergy: 110, regenPerTurn: 16, costScale: 1.1 },
+    terranoir: { maxEnergy: 110, regenPerTurn: 16, costScale: 1.1 },
 };
 
 export function getEnergyProfileForSpecies(speciesId: string): EnergyProfile {
@@ -101,6 +99,7 @@ export function getMoveEnergyCost(move: MonsterMove, speciesId: string): number 
     }
     if ((move.learnRank ?? 0) >= ULT_LEARN_RANK) {
         scaled += ULT_FLAT_BONUS;
+        scaled = Math.max(60, scaled);
     }
     return Math.max(ENERGY_COST_MIN, Math.min(ENERGY_COST_MAX, scaled));
 }

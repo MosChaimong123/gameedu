@@ -94,8 +94,8 @@ function scoreMove(state: NegamonLiteBattleState, side: NegamonLiteBattleSide, m
     }
     const preview = calculateDamage({ actor, target, move, critical: false });
     const effectBonus =
-        move.effect?.kind === "status" ? 14 :
-        move.effect?.kind === "buff" || move.effect?.kind === "debuff" ? 10 :
+        move.effect?.kind === "status" ? 8 :
+        move.effect?.kind === "buff" || move.effect?.kind === "debuff" ? 4 :
         0;
     return preview.damage + effectBonus - Math.max(0, (move.energyCost ?? 0) - actor.energy) * 2;
 }

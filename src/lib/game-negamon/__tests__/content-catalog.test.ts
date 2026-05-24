@@ -22,7 +22,7 @@ describe("Negamon content catalog foundation", () => {
         expect(catalog.statuses.length).toBeGreaterThan(0);
         expect(catalog.rewardTables.length).toBeGreaterThan(0);
 
-        expect(catalog.monsters.map((monster) => monster.id)).toContain("naga");
+        expect(catalog.monsters.map((monster) => monster.id)).toContain("pyronox");
         expect(catalog.skills.map((skill) => skill.id)).toContain("basic-attack");
         expect(catalog.items.map((item) => item.id)).toContain("item_lucky_coin");
         expect(catalog.items.map((item) => item.id)).toContain("item_minor_potion");
@@ -41,13 +41,13 @@ describe("Negamon content catalog foundation", () => {
     });
 
     it("normalizes monster species into content definitions with roles, traits, and evolution rules", () => {
-        const naga = buildNegamonContentCatalog().monsters.find((monster) => monster.id === "naga");
+        const pyronox = buildNegamonContentCatalog().monsters.find((monster) => monster.id === "pyronox");
 
-        expect(naga).toMatchObject({
-            id: "naga",
+        expect(pyronox).toMatchObject({
+            id: "pyronox",
             role: expect.any(String),
             growthCurve: expect.any(String),
-            elementTypes: ["WATER", "DARK"],
+            elementTypes: ["FIRE", "DARK"],
             baseStats: expect.objectContaining({
                 hp: expect.any(Number),
                 atk: expect.any(Number),
@@ -55,12 +55,12 @@ describe("Negamon content catalog foundation", () => {
                 spd: expect.any(Number),
             }),
         });
-        expect(naga?.traits[0]).toMatchObject({
-            id: "trait_acid_rain",
-            sourceAbilityId: "acid_rain",
+        expect(pyronox?.traits[0]).toMatchObject({
+            id: "trait_rage_mode",
+            sourceAbilityId: "rage_mode",
         });
-        expect(naga?.evolutionRules).toHaveLength(naga?.species.forms.length ?? 0);
-        expect(naga?.evolutionRules[0]).toMatchObject({
+        expect(pyronox?.evolutionRules).toHaveLength(pyronox?.species.forms.length ?? 0);
+        expect(pyronox?.evolutionRules[0]).toMatchObject({
             requiredRankIndex: 0,
             requiredLevel: 1,
         });
@@ -72,10 +72,10 @@ describe("Negamon content catalog foundation", () => {
         const byId = new Map(catalog.monsters.map((monster) => [monster.id, monster]));
 
         expect([...roles]).toEqual(expect.arrayContaining(["attacker", "defender", "support", "control"]));
-        expect(byId.get("garuda")).toMatchObject({ role: "attacker" });
-        expect(byId.get("singha")).toMatchObject({ role: "defender" });
-        expect(byId.get("kinnaree")).toMatchObject({ role: "support" });
-        expect(byId.get("mekkala")).toMatchObject({ role: "control" });
+        expect(byId.get("pyronox")).toMatchObject({ role: "attacker" });
+        expect(byId.get("terranoir")).toMatchObject({ role: "defender" });
+        expect(byId.get("lumilune")).toMatchObject({ role: "support" });
+        expect(byId.get("voltshade")).toMatchObject({ role: "control" });
 
         for (const monster of catalog.monsters) {
             expect(monster.species.moves.length).toBeGreaterThanOrEqual(4);
@@ -86,7 +86,7 @@ describe("Negamon content catalog foundation", () => {
 
     it("normalizes skill requirements and item effects for battle runtime phases", () => {
         const catalog = buildNegamonContentCatalog();
-        const skill = catalog.skills.find((item) => item.id === "naga-aqua-jet");
+        const skill = catalog.skills.find((item) => item.id === "pyronox-ember-fang");
         const luckyCoin = findNegamonContentItem(catalog, "item_lucky_coin");
 
         expect(skill).toMatchObject({
@@ -94,7 +94,7 @@ describe("Negamon content catalog foundation", () => {
             category: "attack",
             target: "enemy",
             requirements: {
-                speciesId: "naga",
+                speciesId: "pyronox",
                 rankIndex: 2,
             },
         });

@@ -113,6 +113,7 @@ export type MonsterSpecies = {
 
 // เก็บใน Classroom.gamifiedSettings.negamon
 export type NegamonSettings = {
+    engineVersion?: "lite" | "pokemon_v3";
     enabled: boolean;
     allowStudentChoice: boolean;  // ให้นักเรียนเลือก species เองได้ไหม
     expPerPoint: number;          // EXP ต่อ 1 แต้ม (default: 10)

@@ -25,9 +25,9 @@ export function SkillLoadoutPanel({
             <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                        Skill Catalog
+                        Roster Rework
                     </p>
-                    <h3 className="text-lg font-black text-slate-950">Loadout V2</h3>
+                    <h3 className="text-lg font-black text-slate-950">Signature Skills</h3>
                 </div>
                 <Badge className="rounded-lg bg-slate-950 text-white">
                     {monster.equippedSkillIds.length}/{Math.max(1, monster.skillCatalog.length)}

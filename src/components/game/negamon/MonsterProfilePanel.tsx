@@ -86,11 +86,14 @@ export function MonsterProfilePanel({
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                                Monster V2
+                                Roster Rework
                             </p>
                             <h4 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
                                 {monster.displayName}
                             </h4>
+                            <p className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                                {monster.speciesName}
+                            </p>
                         </div>
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right">
                             <p className="text-[10px] font-black uppercase text-slate-400">Level</p>

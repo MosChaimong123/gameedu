@@ -8,16 +8,27 @@ import { summarizeNegamonBattleEvent } from "@/components/game/negamon/ui-conten
 import type { BattleFinalRewardPayload } from "@/components/negamon/battle-tab.types";
 import { cn } from "@/lib/utils";
 import type {
+    NegamonBattleEventV3,
+    NegamonBattleStateV3,
+    NegamonBattleValidChoiceV3,
+} from "@/lib/game-negamon";
+import type {
     NegamonLiteBattleSide,
     NegamonLiteBattleState,
     NegamonLiteCombatant,
+    NegamonLiteMove,
     NegamonLiteValidChoice,
 } from "@/lib/negamon-lite";
 
-type LiteChoiceResponse = {
+type ArenaBattleState = NegamonLiteBattleState | NegamonBattleStateV3;
+type ArenaValidChoice = NegamonLiteValidChoice | NegamonBattleValidChoiceV3;
+type ArenaCombatant = NegamonLiteCombatant | NegamonBattleStateV3["sides"]["player"];
+type ArenaChoiceResponse = {
+    mode?: "negamon_lite" | "negamon_battle";
+    engineVersion?: string;
     choiceRequestId?: string;
-    state?: NegamonLiteBattleState;
-    validChoices?: NegamonLiteValidChoice[];
+    state?: ArenaBattleState;
+    validChoices?: ArenaValidChoice[];
     final?: BattleFinalRewardPayload | null;
     error?: string;
     reason?: string;
@@ -30,14 +41,26 @@ interface NegamonLiteBattleArenaProps {
     studentCode: string;
     sessionId: string;
     initialChoiceRequestId: string;
-    initialState: NegamonLiteBattleState;
-    initialValidChoices: NegamonLiteValidChoice[];
+    initialState: ArenaBattleState;
+    initialValidChoices: ArenaValidChoice[];
     onFinish?: (final: BattleFinalRewardPayload) => void;
     onReset: () => void;
 }
 
-function hpPercent(fighter: NegamonLiteCombatant) {
-    return Math.max(0, Math.min(100, (fighter.hp / Math.max(1, fighter.stats.hp)) * 100));
+function isV3State(state: ArenaBattleState): state is NegamonBattleStateV3 {
+    return "engineVersion" in state && state.engineVersion === "negamon_v3_pokemon_inspired";
+}
+
+function isV3Choice(choice: ArenaValidChoice): choice is NegamonBattleValidChoiceV3 {
+    return "moveSlot" in choice;
+}
+
+function getCombatantMaxHp(fighter: ArenaCombatant) {
+    return "maxHp" in fighter.stats ? fighter.stats.maxHp : fighter.stats.hp;
+}
+
+function hpPercent(fighter: ArenaCombatant) {
+    return Math.max(0, Math.min(100, (fighter.hp / Math.max(1, getCombatantMaxHp(fighter))) * 100));
 }
 
 function hpTone(percent: number) {
@@ -65,7 +88,7 @@ function FighterPanel({
     side,
     active,
 }: {
-    fighter: NegamonLiteCombatant;
+    fighter: ArenaCombatant;
     side: NegamonLiteBattleSide;
     active?: boolean;
 }) {
@@ -79,9 +102,7 @@ function FighterPanel({
             animate={{ opacity: 1, y: 0, scale: active ? 1.01 : 1 }}
             className={cn(
                 "relative overflow-hidden rounded-[2rem] border p-4 text-white shadow-2xl",
-                isPlayer
-                    ? "border-cyan-300/30 bg-cyan-950/70"
-                    : "border-rose-300/30 bg-slate-950/75"
+                isPlayer ? "border-cyan-300/30 bg-cyan-950/70" : "border-rose-300/30 bg-slate-950/75"
             )}
         >
             <div className="absolute inset-0 opacity-40 [background-image:radial-gradient(circle_at_20%_20%,rgba(34,211,238,.35),transparent_28%),linear-gradient(135deg,rgba(255,255,255,.12),transparent_40%)]" />
@@ -91,14 +112,14 @@ function FighterPanel({
                         {isPlayer ? "YOUR NEGAMON" : "OPPONENT"}
                     </p>
                     <h3 className="mt-1 text-2xl font-black tracking-tight">{fighter.name}</h3>
+                    <p className="mt-1 text-xs font-bold text-white/55">
+                        {"speciesName" in fighter ? fighter.speciesName : fighter.speciesId}
+                    </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                         {fighter.types.filter(Boolean).map((type) => (
                             <span
                                 key={type}
-                                className={cn(
-                                    "rounded-full px-2 py-0.5 text-[10px] font-black ring-1",
-                                    typeBadge(type)
-                                )}
+                                className={cn("rounded-full px-2 py-0.5 text-[10px] font-black ring-1", typeBadge(type))}
                             >
                                 {type}
                             </span>
@@ -116,7 +137,9 @@ function FighterPanel({
             <div className="relative mt-4">
                 <div className="mb-1 flex items-center justify-between text-[11px] font-black text-white/70">
                     <span>HP</span>
-                    <span className="tabular-nums">{fighter.hp}/{fighter.stats.hp}</span>
+                    <span className="tabular-nums">
+                        {fighter.hp}/{getCombatantMaxHp(fighter)}
+                    </span>
                 </div>
                 <div className="h-4 overflow-hidden rounded-full bg-black/35 ring-1 ring-white/10">
                     <motion.div
@@ -136,13 +159,54 @@ function FighterPanel({
     );
 }
 
-function lastBattleLine(state: NegamonLiteBattleState) {
+function getChoiceDetails(state: ArenaBattleState, choice: ArenaValidChoice) {
+    if (isV3State(state) && isV3Choice(choice)) {
+        const slot = state.sides.player.moveSlots[choice.moveSlot];
+        return {
+            choiceKey: choice.moveId,
+            label: choice.label,
+            type: slot?.skill.elementType ?? "NORMAL",
+            category: slot?.skill.sourceMove.category ?? slot?.skill.category?.toUpperCase() ?? "STATUS",
+            pp: slot?.pp ?? 0,
+            maxPp: slot?.maxPp ?? 0,
+            energyCost: choice.cost.energy,
+            cooldownRemaining: slot?.cooldownRemaining ?? 0,
+            priority: choice.priority,
+            enabled: choice.enabled,
+            reason: choice.reason,
+            helperText: "Server-authoritative V3 choice",
+            busyKey: choice.moveId,
+            actionPayload: { moveSlot: choice.moveSlot, moveId: choice.moveId },
+        };
+    }
+
+    const liteChoice = choice as NegamonLiteValidChoice;
+    const move: NegamonLiteMove = liteChoice.move;
+    return {
+        choiceKey: liteChoice.moveId,
+        label: liteChoice.label,
+        type: move.type,
+        category: move.category,
+        pp: move.pp,
+        maxPp: move.maxPp,
+        energyCost: move.energyCost ?? 0,
+        cooldownRemaining: move.cooldownRemaining ?? 0,
+        priority: move.priority ?? 0,
+        enabled: liteChoice.enabled,
+        reason: liteChoice.reason,
+        helperText: "Legacy lite choice",
+        busyKey: liteChoice.moveId,
+        actionPayload: { moveId: liteChoice.moveId },
+    };
+}
+
+function lastBattleLine(state: ArenaBattleState) {
     const last = state.events.at(-1);
     if (!last) return "เลือกท่าโจมตีเพื่อเริ่มเทิร์นนี้";
     if (last.kind === "battle_started") return "ศึกเริ่มแล้ว เลือกท่าแรกของคุณ";
     if (last.kind === "battle_ended") return last.message;
-    if (last.missed) return "พลาดเป้า! ยังไม่มีดาเมจในเทิร์นนี้";
-    if (last.damage) {
+    if ("missed" in last && last.missed) return "พลาดเป้า! ยังไม่มีดาเมจในเทิร์นนี้";
+    if ("damage" in last && last.damage) {
         const bonus = [
             last.stab ? "STAB" : null,
             last.critical ? "CRIT" : null,
@@ -151,11 +215,11 @@ function lastBattleLine(state: NegamonLiteBattleState) {
         ].filter(Boolean);
         return `ทำดาเมจ ${last.damage}${bonus.length ? ` · ${bonus.join(" · ")}` : ""}`;
     }
-    if (last.healing) return `ฟื้นฟู ${last.healing} HP`;
+    if ("healing" in last && last.healing) return `ฟื้นฟู ${last.healing} HP`;
     return last.message;
 }
 
-function recentBattleLines(state: NegamonLiteBattleState) {
+function recentBattleLines(state: ArenaBattleState) {
     return state.events.slice(-4).reverse().map((event) => ({
         id: event.id,
         text: summarizeNegamonBattleEvent(event),
@@ -170,6 +234,8 @@ function disabledCopy(reason?: string) {
     if (reason === "NOT_CHOOSING") return "ยังไม่ใช่จังหวะเลือก";
     if (reason === "BATTLE_ENDED") return "จบแล้ว";
     if (reason === "INVALID_TARGET") return "เป้าหมายใช้ไม่ได้";
+    if (reason === "ON_COOLDOWN") return "ติดคูลดาวน์";
+    if (reason === "LOCKED") return "ถูกล็อกท่า";
     return "ใช้ไม่ได้";
 }
 
@@ -191,26 +257,28 @@ export function NegamonLiteBattleArena({
     onFinish,
     onReset,
 }: NegamonLiteBattleArenaProps) {
-    const [state, setState] = useState(initialState);
+    const [state, setState] = useState<ArenaBattleState>(initialState);
     const [choiceRequestId, setChoiceRequestId] = useState(initialChoiceRequestId);
-    const [validChoices, setValidChoices] = useState(initialValidChoices);
-    const [busyMoveId, setBusyMoveId] = useState<string | null>(null);
+    const [validChoices, setValidChoices] = useState<ArenaValidChoice[]>(initialValidChoices);
+    const [busyKey, setBusyKey] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [finalReward, setFinalReward] = useState<LiteChoiceResponse["final"]>(null);
+    const [finalReward, setFinalReward] = useState<ArenaChoiceResponse["final"]>(null);
     const [rewardModalOpen, setRewardModalOpen] = useState(false);
 
     const player = state.sides.player;
     const opponent = state.sides.opponent;
     const ended = state.phase === "ended";
+    const v3 = isV3State(state);
     const winnerName = useMemo(() => {
         if (state.winner === "player") return player.name;
         if (state.winner === "opponent") return opponent.name;
         return null;
     }, [opponent.name, player.name, state.winner]);
 
-    async function chooseMove(moveId: string) {
-        if (busyMoveId || ended) return;
-        setBusyMoveId(moveId);
+    async function chooseMove(choice: ArenaValidChoice) {
+        const details = getChoiceDetails(state, choice);
+        if (busyKey || ended) return;
+        setBusyKey(details.busyKey);
         setError(null);
         try {
             const response = await fetch(`/api/classrooms/${classId}/battle/lite/choice`, {
@@ -222,10 +290,10 @@ export function NegamonLiteBattleArena({
                     studentCode,
                     sessionId,
                     choiceRequestId,
-                    moveId,
+                    ...details.actionPayload,
                 }),
             });
-            const data = (await response.json()) as LiteChoiceResponse;
+            const data = (await response.json()) as ArenaChoiceResponse;
             if (!response.ok || !data.state || !data.choiceRequestId) {
                 setError(data.reason ? disabledCopy(data.reason) : data.error ?? "เลือกท่าไม่สำเร็จ");
                 if (data.validChoices) setValidChoices(data.validChoices);
@@ -242,7 +310,7 @@ export function NegamonLiteBattleArena({
         } catch {
             setError("เชื่อมต่อการต่อสู้ไม่สำเร็จ ลองอีกครั้ง");
         } finally {
-            setBusyMoveId(null);
+            setBusyKey(null);
         }
     }
 
@@ -257,9 +325,14 @@ export function NegamonLiteBattleArena({
             <div className="relative space-y-4">
                 <div className="flex items-center justify-between gap-3">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.36em] text-cyan-200/60">
-                            Pokemon-Lite
-                        </p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-[10px] font-black uppercase tracking-[0.36em] text-cyan-200/60">
+                                {v3 ? "Pokemon V3 Runtime" : "Pokemon-Lite"}
+                            </p>
+                            <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-black text-cyan-100">
+                                {v3 ? "V3" : "Lite"}
+                            </span>
+                        </div>
                         <h2 className="text-xl font-black tracking-tight">Negamon Duel</h2>
                     </div>
                     <button
@@ -286,8 +359,13 @@ export function NegamonLiteBattleArena({
                             <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
                         )}
                         <div>
-                            <p className="text-sm font-black">{ended ? `${winnerName ?? "ผู้ชนะ"} ชนะ!` : lastBattleLine(state)}</p>
-                            <p className="mt-0.5 text-[11px] font-bold text-white/45">Turn {state.turn} · Request {choiceRequestId.split(":").slice(-2).join(":")}</p>
+                            <p className="text-sm font-black">
+                                {ended ? `${winnerName ?? "ผู้ชนะ"} ชนะ!` : lastBattleLine(state)}
+                            </p>
+                            <p className="mt-0.5 text-[11px] font-bold text-white/45">
+                                Turn {state.turn} · Request {choiceRequestId.split(":").slice(-2).join(":")}
+                                {v3 ? ` · State ${state.stateVersion}` : ""}
+                            </p>
                             {ended && finalReward && (
                                 <p className="mt-2 rounded-xl bg-yellow-300/10 px-2 py-1 text-[11px] font-black text-yellow-100">
                                     ได้รับ {finalReward.reward?.gold ?? finalReward.goldReward}G
@@ -349,53 +427,68 @@ export function NegamonLiteBattleArena({
 
                 <div className="grid gap-2 sm:grid-cols-2">
                     <AnimatePresence>
-                        {validChoices.map((choice, index) => (
-                            <motion.button
-                                key={choice.moveId}
-                                type="button"
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -8 }}
-                                transition={{ delay: index * 0.035 }}
-                                disabled={!choice.enabled || !!busyMoveId || ended}
-                                onClick={() => void chooseMove(choice.moveId)}
-                                className={cn(
-                                    "group min-h-20 rounded-[1.35rem] border p-3 text-left transition",
-                                    choice.enabled && !ended
-                                        ? "border-cyan-200/25 bg-white/10 hover:-translate-y-0.5 hover:border-cyan-200/60 hover:bg-cyan-300/15"
-                                        : "border-white/8 bg-white/5 opacity-50"
-                                )}
-                            >
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className="text-sm font-black">{choice.label}</span>
-                                    <Swords className="h-4 w-4 text-cyan-200 opacity-70 transition group-hover:rotate-12" />
-                                </div>
-                                <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-black">
-                                    <span className={cn("rounded-full px-2 py-0.5 ring-1", typeBadge(choice.move.type))}>
-                                        {choice.move.type}
-                                    </span>
-                                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-white/60">
-                                        {choice.move.category}
-                                    </span>
-                                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-white/60">
-                                        PP {choice.move.pp}/{choice.move.maxPp}
-                                    </span>
-                                    <span className="rounded-full bg-yellow-300/10 px-2 py-0.5 text-yellow-100">
-                                        EN {choice.move.energyCost ?? 0}
-                                    </span>
-                                </div>
-                                {!choice.enabled && (
-                                    <p className="mt-2 text-[11px] font-bold text-rose-100/80">{disabledCopy(choice.reason)}</p>
-                                )}
-                                {busyMoveId === choice.moveId && (
-                                    <p className="mt-2 text-[11px] font-black text-cyan-100">กำลังออกท่า...</p>
-                                )}
-                            </motion.button>
-                        ))}
+                        {validChoices.map((choice, index) => {
+                            const details = getChoiceDetails(state, choice);
+                            return (
+                                <motion.button
+                                    key={details.choiceKey}
+                                    type="button"
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -8 }}
+                                    transition={{ delay: index * 0.035 }}
+                                    disabled={!details.enabled || !!busyKey || ended}
+                                    onClick={() => void chooseMove(choice)}
+                                    className={cn(
+                                        "group min-h-24 rounded-[1.35rem] border p-3 text-left transition",
+                                        details.enabled && !ended
+                                            ? "border-cyan-200/25 bg-white/10 hover:-translate-y-0.5 hover:border-cyan-200/60 hover:bg-cyan-300/15"
+                                            : "border-white/8 bg-white/5 opacity-50"
+                                    )}
+                                >
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-sm font-black">{details.label}</span>
+                                        <Swords className="h-4 w-4 text-cyan-200 opacity-70 transition group-hover:rotate-12" />
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-black">
+                                        <span className={cn("rounded-full px-2 py-0.5 ring-1", typeBadge(details.type))}>
+                                            {details.type}
+                                        </span>
+                                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-white/60">
+                                            {details.category}
+                                        </span>
+                                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-white/60">
+                                            PP {details.pp}/{details.maxPp}
+                                        </span>
+                                        <span className="rounded-full bg-yellow-300/10 px-2 py-0.5 text-yellow-100">
+                                            EN {details.energyCost}
+                                        </span>
+                                        {details.priority !== 0 && (
+                                            <span className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-cyan-100">
+                                                PRI {details.priority > 0 ? `+${details.priority}` : details.priority}
+                                            </span>
+                                        )}
+                                        {details.cooldownRemaining > 0 && (
+                                            <span className="rounded-full bg-rose-300/10 px-2 py-0.5 text-rose-100">
+                                                CD {details.cooldownRemaining}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="mt-2 text-[11px] font-bold text-white/40">{details.helperText}</p>
+                                    {!details.enabled && (
+                                        <p className="mt-2 text-[11px] font-bold text-rose-100/80">
+                                            {disabledCopy(details.reason)}
+                                        </p>
+                                    )}
+                                    {busyKey === details.busyKey && (
+                                        <p className="mt-2 text-[11px] font-black text-cyan-100">กำลังออกท่า...</p>
+                                    )}
+                                </motion.button>
+                            );
+                        })}
                     </AnimatePresence>
                 </div>
             </div>
         </div>
     );
 }
-

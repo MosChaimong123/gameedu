@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { normalizeNegamonSettingsForRuntime } from "@/lib/negamon-compat";
 import { toPrismaJson } from "@/lib/prisma-json";
 import type { NegamonSettings } from "@/lib/types/negamon";
 import {
@@ -40,7 +41,7 @@ export function getNegamonSettingsFromGamification(value: unknown): NegamonSetti
     if (!parsed.success) {
         return null;
     }
-    return parsed.data as NegamonSettings;
+    return normalizeNegamonSettingsForRuntime(parsed.data as NegamonSettings);
 }
 
 export type CustomAchievement = z.infer<typeof customAchievementSchema>;

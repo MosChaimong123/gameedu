@@ -90,6 +90,7 @@ export const negamonBalanceSettingsSchema = z.object({
 });
 
 export const negamonSettingsSchema = z.object({
+    engineVersion: z.enum(["lite", "pokemon_v3"]).optional(),
     enabled: z.boolean().optional(),
     allowStudentChoice: z.boolean().optional(),
     expPerPoint: z.number().optional(),

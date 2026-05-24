@@ -1,5 +1,5 @@
 import type { GameItemEffect, GameRewardResult } from "@/lib/game-core";
-import type { NegamonSkillDefinition } from "@/lib/game-negamon";
+import type { NegamonBattleEventV3, NegamonSkillDefinition } from "@/lib/game-negamon";
 import type { NegamonLiteBattleEvent, NegamonLiteStatusTimelineEvent } from "@/lib/negamon-lite";
 
 export function formatNegamonSkillEffect(skill: NegamonSkillDefinition): string {
@@ -51,12 +51,12 @@ export function formatNegamonStatusTimeline(event: NegamonLiteStatusTimelineEven
     return event.message;
 }
 
-export function summarizeNegamonBattleEvent(event: NegamonLiteBattleEvent): string {
-    const statusLine = event.statusTimeline?.map(formatNegamonStatusTimeline).join(" / ");
+export function summarizeNegamonBattleEvent(event: NegamonLiteBattleEvent | NegamonBattleEventV3): string {
+    const statusLine = "statusTimeline" in event ? event.statusTimeline?.map(formatNegamonStatusTimeline).join(" / ") : null;
     if (statusLine) return statusLine;
-    if (event.missed) return "Move missed";
-    if (event.damage) return `Damage ${event.damage}${event.critical ? " / critical" : ""}`;
-    if (event.healing) return `Healed ${event.healing} HP`;
+    if ("missed" in event && event.missed) return "Move missed";
+    if ("damage" in event && event.damage) return `Damage ${event.damage}${event.critical ? " / critical" : ""}`;
+    if ("healing" in event && event.healing) return `Healed ${event.healing} HP`;
     return event.message;
 }
 

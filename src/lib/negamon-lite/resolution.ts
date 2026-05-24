@@ -25,6 +25,8 @@ function cloneCombatant(combatant: NegamonLiteCombatant): NegamonLiteCombatant {
         stats: { ...combatant.stats },
         moves: combatant.moves.map((move) => ({ ...move })),
         passiveTraitIds: [...(combatant.passiveTraitIds ?? [])],
+        battleItemIds: [...(combatant.battleItemIds ?? [])],
+        itemEffectKinds: [...(combatant.itemEffectKinds ?? [])],
     };
 }
 

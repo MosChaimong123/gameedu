@@ -4,6 +4,7 @@ export * from "./core/battle-items";
 export * from "./core/battle-rewards";
 export * from "./core/battle-state";
 export * from "./core/content";
+export * from "./core/item-effects";
 export * from "./core/lite-session";
 export * from "./core/learning-rewards";
 export * from "./core/monster-growth";

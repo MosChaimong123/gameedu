@@ -3,6 +3,7 @@ import {
     createNegamonMonsterSnapshot,
     createNegamonSkillLoadoutPlan,
     applyNegamonPassiveRuntimeEffects,
+    applyNegamonBattleItemRuntimeEffects,
     mapNegamonSkillToLiteMove,
     type NegamonMonsterSnapshot,
 } from "@/lib/game-negamon";
@@ -93,6 +94,13 @@ export function createNegamonLiteCombatant(input: {
     const loadout = createNegamonSkillLoadoutPlan({ monster: input.monster });
     const moves = loadout.skills.map(mapNegamonSkillToLiteMove);
     const passive = applyNegamonPassiveRuntimeEffects(input.monster);
+    const itemRuntime = applyNegamonBattleItemRuntimeEffects({ monster: input.monster });
+    const runtimeStats = {
+        ...passive.stats,
+        atk: Math.max(1, Math.floor(passive.stats.atk * itemRuntime.plan.statMultipliers.atk)),
+        def: Math.max(1, Math.floor(passive.stats.def * itemRuntime.plan.statMultipliers.def)),
+        spd: Math.max(1, Math.floor(passive.stats.spd * itemRuntime.plan.statMultipliers.spd)),
+    };
 
     return {
         id: input.student.id,
@@ -101,18 +109,23 @@ export function createNegamonLiteCombatant(input: {
         level: input.monster.level,
         types: toNegamonLiteTypes(input.monster.elementTypes),
         stats: {
-            hp: passive.stats.maxHp,
-            attack: passive.stats.atk,
-            defense: passive.stats.def,
-            specialAttack: passive.stats.atk,
-            specialDefense: passive.stats.def,
-            speed: passive.stats.spd,
+            hp: runtimeStats.maxHp,
+            attack: runtimeStats.atk,
+            defense: runtimeStats.def,
+            specialAttack: runtimeStats.atk,
+            specialDefense: runtimeStats.def,
+            speed: runtimeStats.spd,
         },
-        hp: passive.stats.maxHp,
+        hp: runtimeStats.maxHp,
         energy: passive.maxEnergy,
         maxEnergy: passive.maxEnergy,
         moves: moves.length > 0 ? moves : [fallbackMove(input.monster)],
         passiveTraitIds: passive.passiveTraitIds,
+        battleItemIds: itemRuntime.plan.itemIds,
+        itemEffectKinds: itemRuntime.plan.effects.map((effect) => effect.kind),
+        rewardGoldBonus: itemRuntime.plan.rewardModifiers.goldBonus,
+        rewardGoldMultiplier: itemRuntime.plan.rewardModifiers.goldMultiplier,
+        rewardExpMultiplier: itemRuntime.plan.rewardModifiers.expMultiplier,
     };
 }
 
@@ -123,6 +136,8 @@ export function createNegamonLiteBattleState(input: {
     defender: NegamonLiteStudentSnapshot;
     levelConfig: LevelConfigInput;
     negamonSettings: Parameters<typeof createNegamonMonsterSnapshot>[0]["negamonSettings"];
+    challengerBattleItemIds?: string[];
+    defenderBattleItemIds?: string[];
     nowMs?: number;
 }): NegamonLiteBattleState | null {
     const challengerMonster = createNegamonMonsterSnapshot({
@@ -131,6 +146,7 @@ export function createNegamonLiteBattleState(input: {
         points: input.challenger.behaviorPoints,
         levelConfig: input.levelConfig,
         negamonSettings: input.negamonSettings,
+        equippedItemIds: input.challengerBattleItemIds,
     });
     const defenderMonster = createNegamonMonsterSnapshot({
         studentId: input.defender.id,
@@ -138,6 +154,7 @@ export function createNegamonLiteBattleState(input: {
         points: input.defender.behaviorPoints,
         levelConfig: input.levelConfig,
         negamonSettings: input.negamonSettings,
+        equippedItemIds: input.defenderBattleItemIds,
     });
 
     if (!challengerMonster || !defenderMonster) return null;

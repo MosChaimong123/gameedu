@@ -162,15 +162,15 @@ Goal:
 
 Tasks:
 
-- [ ] Map catalog item effects to battle engine effect inputs
-- [ ] Support HP restore items
-- [ ] Support energy or skill-cost restore items if energy is enabled
-- [ ] Support one-battle stat boost items
-- [ ] Support shield or damage reduction items
-- [ ] Support reward modifiers such as gold bonus or exp bonus
-- [ ] Consume battle items exactly once through `GameInventoryChange`
-- [ ] Include consumed and granted item events in reward result UI
-- [ ] Add tests for consume, no duplicate consume, reward bonus, and invalid item cases
+- [x] Map catalog item effects to battle engine effect inputs
+- [x] Support HP restore items
+- [x] Support energy or skill-cost restore items if energy is enabled
+- [x] Support one-battle stat boost items
+- [x] Support shield or damage reduction items
+- [x] Support reward modifiers such as gold bonus or exp bonus
+- [x] Consume battle items exactly once through `GameInventoryChange`
+- [x] Include consumed and granted item events in reward result UI
+- [x] Add tests for consume, no duplicate consume, reward bonus, and invalid item cases
 
 Exit criteria:
 
@@ -183,6 +183,26 @@ Suggested first item set:
 - `swift_feather`: speed boost
 - `lucky_coin`: gold bonus on win
 - `study_badge`: exp bonus on learning reward
+
+Status: completed on 2026-05-24 as Item Effect Runtime V2.
+
+Phase 27 implementation notes:
+
+- Added `src/lib/game-negamon/core/item-effects.ts` as the server-authoritative battle item runtime plan.
+- Runtime item plans map V2 item effects into stat multipliers, reward modifiers, item effect metadata, and `GameInventoryChange`.
+- Lite battle combatants now carry `battleItemIds`, `itemEffectKinds`, `rewardGoldBonus`, `rewardGoldMultiplier`, and `rewardExpMultiplier`.
+- Battle start now reads each student's `battleLoadout` and `inventory`, validates loadout ownership/category rules, consumes valid battle items, and stores consumed item ids on `BattleSession`.
+- Saved loadouts that are no longer owned fall back to an empty runtime plan instead of breaking battle start.
+- Stat boost items now affect battle stats when combatants are created.
+- Reward items now affect requested battle gold through the existing reward policy clamp.
+- Added active-use helper for future HP restore items through `restore_hp` item effects.
+- Start battle responses now include `inventoryChanges` and `itemEffects` for UI refresh wiring.
+- Battle ledger metadata now records winner item runtime modifiers.
+- Added focused tests in `src/lib/game-negamon/__tests__/item-effects.test.ts`.
+
+Phase 27 validation notes:
+
+- Passed targeted item/loadout/lite-session/skill runtime tests before closing implementation.
 
 ## Phase 28: Monster Traits and Evolution
 

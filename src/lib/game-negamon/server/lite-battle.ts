@@ -7,8 +7,13 @@ import {
 } from "@/lib/game-negamon/core/battle-engine-v2";
 import {
     calculateNegamonBattleExpReward,
+    calculateNegamonBattleGoldReward,
     createNegamonBattleRewardFinalizationPlan,
 } from "@/lib/game-negamon/core/battle-rewards";
+import {
+    applyNegamonBattleItemInventoryChange,
+    createNegamonBattleItemRuntimePlanOrEmpty,
+} from "@/lib/game-negamon/core/item-effects";
 import { createNegamonMonsterSnapshot } from "@/lib/game-negamon/core/monster-snapshot";
 import { applyNegamonProgressionReward } from "@/lib/game-negamon/server/progression";
 import {
@@ -100,13 +105,13 @@ export async function startNegamonLiteBattle(
             classId: input.classId,
             loginCode: input.studentCode,
         },
-        select: { id: true, name: true, behaviorPoints: true },
+        select: { id: true, name: true, behaviorPoints: true, inventory: true, battleLoadout: true },
     });
     if (!challenger) return { ok: false, status: 403, body: { error: "FORBIDDEN" } };
 
     const defender = await db.student.findFirst({
         where: { id: input.defenderId, classId: input.classId },
-        select: { id: true, name: true, behaviorPoints: true },
+        select: { id: true, name: true, behaviorPoints: true, inventory: true, battleLoadout: true },
     });
     if (!defender) return { ok: false, status: 404, body: { error: "DEFENDER_NOT_FOUND" } };
 
@@ -116,6 +121,16 @@ export async function startNegamonLiteBattle(
     }
 
     const placeholderBattleId = `negamon-lite:${input.classId}:${input.challengerId}:${input.defenderId}`;
+    const challengerInventory = Array.isArray(challenger.inventory) ? (challenger.inventory as string[]) : [];
+    const defenderInventory = Array.isArray(defender.inventory) ? (defender.inventory as string[]) : [];
+    const challengerBattleItemPlan = createNegamonBattleItemRuntimePlanOrEmpty({
+        loadoutIds: Array.isArray(challenger.battleLoadout) ? (challenger.battleLoadout as string[]) : [],
+        inventory: challengerInventory,
+    });
+    const defenderBattleItemPlan = createNegamonBattleItemRuntimePlanOrEmpty({
+        loadoutIds: Array.isArray(defender.battleLoadout) ? (defender.battleLoadout as string[]) : [],
+        inventory: defenderInventory,
+    });
     const state = createNegamonLiteBattleState({
         battleId: placeholderBattleId,
         classId: input.classId,
@@ -123,6 +138,8 @@ export async function startNegamonLiteBattle(
         defender,
         levelConfig: classroom.levelConfig as LevelConfigInput,
         negamonSettings: negamon,
+        challengerBattleItemIds: challengerBattleItemPlan.itemIds,
+        defenderBattleItemIds: defenderBattleItemPlan.itemIds,
     });
     if (!state) return { ok: false, status: 400, body: { error: "NO_MONSTER" } };
 
@@ -140,10 +157,33 @@ export async function startNegamonLiteBattle(
             winnerId: null,
             goldReward: 0,
             interactivePending: true,
-            challengerBattleItems: [],
-            defenderBattleItems: [],
+            challengerBattleItems: challengerBattleItemPlan.itemIds,
+            defenderBattleItems: defenderBattleItemPlan.itemIds,
         },
     });
+
+    if (challengerBattleItemPlan.inventoryChange.consumedItemIds.length > 0) {
+        await db.student.update({
+            where: { id: input.challengerId },
+            data: {
+                inventory: applyNegamonBattleItemInventoryChange({
+                    inventory: challengerInventory,
+                    plan: challengerBattleItemPlan,
+                }),
+            },
+        });
+    }
+    if (defenderBattleItemPlan.inventoryChange.consumedItemIds.length > 0) {
+        await db.student.update({
+            where: { id: input.defenderId },
+            data: {
+                inventory: applyNegamonBattleItemInventoryChange({
+                    inventory: defenderInventory,
+                    plan: defenderBattleItemPlan,
+                }),
+            },
+        });
+    }
 
     const savedState = {
         ...state,
@@ -174,6 +214,14 @@ export async function startNegamonLiteBattle(
             choiceRequestId: result.choiceRequestId,
             state: result.state,
             validChoices: getNegamonBattleValidChoices(result.state, "player"),
+            inventoryChanges: {
+                challenger: challengerBattleItemPlan.inventoryChange,
+                defender: defenderBattleItemPlan.inventoryChange,
+            },
+            itemEffects: {
+                challenger: challengerBattleItemPlan.effects,
+                defender: defenderBattleItemPlan.effects,
+            },
         },
     };
 }
@@ -344,10 +392,12 @@ export async function chooseNegamonLiteMove(
             negamonSettings: negamon,
             equippedSkillIds: winnerSkills,
         });
-        const expReward = calculateNegamonBattleExpReward({
+        const winnerSide = winnerId === input.challengerId ? "player" : "opponent";
+        const winnerCombatantAfterChoice = resolved.state.sides[winnerSide];
+        const expReward = Math.floor(calculateNegamonBattleExpReward({
             outcome: "win",
             turnCount: resolved.state.turn,
-        });
+        }) * Math.max(1, winnerCombatantAfterChoice.rewardExpMultiplier ?? 1));
         const pointDelta = Math.ceil(expReward / Math.max(1, Math.floor(negamon.expPerPoint ?? 10)));
         const monsterAfter = createNegamonMonsterSnapshot({
             studentId: winnerId,
@@ -359,7 +409,12 @@ export async function chooseNegamonLiteMove(
         });
         try {
             final = await db.$transaction(async (tx) => {
-                const requestedGoldReward = NEGAMON_LITE_BASE_GOLD_REWARD;
+                const winnerCombatant = resolved.state.sides[winnerSide];
+                const requestedGoldReward = calculateNegamonBattleGoldReward({
+                    baseGold: NEGAMON_LITE_BASE_GOLD_REWARD,
+                    goldBonus: winnerCombatant.rewardGoldBonus,
+                    goldMultiplier: winnerCombatant.rewardGoldMultiplier,
+                });
                 const rewardPolicy = await resolveBattleRewardPayout(tx, {
                     classId: input.classId,
                     winnerId,
@@ -506,6 +561,14 @@ export async function chooseNegamonLiteMove(
                             historyEvents: v2RewardPlan?.historyEvents ?? [],
                             turn: resolved.state.turn,
                             rewardPolicy,
+                            itemRuntime: {
+                                winnerSide,
+                                battleItemIds: winnerCombatant.battleItemIds ?? [],
+                                itemEffectKinds: winnerCombatant.itemEffectKinds ?? [],
+                                rewardGoldBonus: winnerCombatant.rewardGoldBonus ?? 0,
+                                rewardGoldMultiplier: winnerCombatant.rewardGoldMultiplier ?? 1,
+                                rewardExpMultiplier: winnerCombatant.rewardExpMultiplier ?? 1,
+                            },
                         },
                     });
                 }

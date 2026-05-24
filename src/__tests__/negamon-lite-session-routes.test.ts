@@ -179,6 +179,72 @@ describe("Negamon lite battle session routes", () => {
     });
   });
 
+  it("starts a lite battle with owned battle items, consumes them, and exposes item effects", async () => {
+    mockStudentFindFirst.mockReset();
+    mockStudentFindFirst
+      .mockResolvedValueOnce({
+        id: "challenger-1",
+        name: "Challenger",
+        behaviorPoints: 10,
+        inventory: ["item_iron_shield", "item_lucky_coin"],
+        battleLoadout: ["item_iron_shield", "item_lucky_coin"],
+      })
+      .mockResolvedValueOnce({
+        id: "defender-1",
+        name: "Defender",
+        behaviorPoints: 8,
+        inventory: [],
+        battleLoadout: [],
+      });
+
+    const { POST } = await import("@/app/api/classrooms/[id]/battle/lite/start/route");
+    const response = await POST(
+      new Request("http://local.test/api/classrooms/class-1/battle/lite/start", {
+        method: "POST",
+        body: JSON.stringify({
+          challengerId: "challenger-1",
+          defenderId: "defender-1",
+          studentCode: "abc123",
+        }),
+      }) as never,
+      { params: Promise.resolve({ id: "class-1" }) }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      inventoryChanges: {
+        challenger: {
+          consumedItemIds: ["item_iron_shield", "item_lucky_coin"],
+          grantedItemIds: [],
+        },
+      },
+      itemEffects: {
+        challenger: expect.arrayContaining([
+          { kind: "stat_boost", stat: "def", multiplier: 1.15 },
+          { kind: "gold_bonus", amount: 15 },
+        ]),
+      },
+      state: {
+        sides: {
+          player: expect.objectContaining({
+            battleItemIds: ["item_iron_shield", "item_lucky_coin"],
+            rewardGoldBonus: 15,
+          }),
+        },
+      },
+    });
+    expect(mockBattleSessionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        challengerBattleItems: ["item_iron_shield", "item_lucky_coin"],
+        defenderBattleItems: [],
+      }),
+    });
+    expect(mockStudentUpdate).toHaveBeenCalledWith({
+      where: { id: "challenger-1" },
+      data: { inventory: [] },
+    });
+  });
+
   it("resolves a lite choice, finalizes reward, and uses stateVersion as an optimistic lock", async () => {
     const activeResult = {
       mode: "negamon_lite",

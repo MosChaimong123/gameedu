@@ -53,6 +53,11 @@ export type NegamonLiteCombatant = {
     status?: "BURN" | "POISON" | "PARALYZE" | "SLEEP";
     accuracyStage?: number;
     passiveTraitIds?: string[];
+    battleItemIds?: string[];
+    itemEffectKinds?: string[];
+    rewardGoldBonus?: number;
+    rewardGoldMultiplier?: number;
+    rewardExpMultiplier?: number;
 };
 
 export type NegamonLiteBattleEvent = {

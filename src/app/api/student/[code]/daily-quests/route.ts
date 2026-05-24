@@ -40,6 +40,7 @@ import {
     createQuestChainClaimId,
     findQuestChainStep,
     getChainClaimedAll,
+    resolveGameQuestRewardRule,
     type GameQuestType,
 } from "@/lib/game-quests";
 import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
@@ -92,6 +93,24 @@ async function resolveStudent(code: string): Promise<any | null> {
             },
         },
     });
+}
+
+async function resolveBattleProgress(studentId: string) {
+    const [played, won] = await Promise.all([
+        (db.battleSession as any).count({
+            where: {
+                interactivePending: false,
+                OR: [{ challengerId: studentId }, { defenderId: studentId }],
+            },
+        }),
+        (db.battleSession as any).count({
+            where: {
+                interactivePending: false,
+                winnerId: studentId,
+            },
+        }),
+    ]);
+    return { battlesPlayed: played, battlesWon: won };
 }
 
 async function persistQuestClaim(params: {
@@ -325,6 +344,7 @@ export async function GET(
     ).length;
     const weeklyClaimedIds = getWeeklyClaimedThisWeek(student.weeklyQuestsClaimed);
     const challengeClaimedIds = getChallengeClaimedAll(student.challengeQuestsClaimed);
+    const battleProgress = await resolveBattleProgress(student.id);
 
     const snapshot = createQuestProgressSnapshot({
         daily: {
@@ -352,6 +372,8 @@ export async function GET(
             submissionsThisWeek,
             totalSubmissions: student.submissions.length,
             inventoryCount: student.inventory.length,
+            battlesPlayed: battleProgress.battlesPlayed,
+            battlesWon: battleProgress.battlesWon,
         },
     });
     const { daily, weekly, challenge, chain } = snapshot;
@@ -395,7 +417,13 @@ export async function POST(
         });
         if (!completed) return NextResponse.json({ error: "NOT_COMPLETED" }, { status: 400 });
 
-        const goldEarned = Math.floor(questDef.goldReward * multiplier);
+        const rewardRule = resolveGameQuestRewardRule({
+            questType,
+            questId,
+            baseGold: questDef.goldReward,
+            multiplier,
+        });
+        const goldEarned = rewardRule.gold ?? Math.floor(questDef.goldReward * multiplier);
         const claimResult = await persistQuestClaim({
             student,
             questType,
@@ -406,6 +434,7 @@ export async function POST(
                 claimed: [...claimedIds, questId],
             },
             goldEarned,
+            rewardRule,
             idempotencyKey: `quest:${student.id}:daily:${todayDateKey()}:${questId}`,
             metadata: {
                 baseReward: questDef.goldReward,
@@ -447,7 +476,13 @@ export async function POST(
         });
         if (!completed) return NextResponse.json({ error: "NOT_COMPLETED" }, { status: 400 });
 
-        const goldEarned = Math.floor(questDef.goldReward * multiplier);
+        const rewardRule = resolveGameQuestRewardRule({
+            questType,
+            questId,
+            baseGold: questDef.goldReward,
+            multiplier,
+        });
+        const goldEarned = rewardRule.gold ?? Math.floor(questDef.goldReward * multiplier);
         const weekKey = thisWeekKey();
         const claimResult = await persistQuestClaim({
             student,
@@ -459,6 +494,7 @@ export async function POST(
                 claimed: [...claimedIds, questId],
             },
             goldEarned,
+            rewardRule,
             idempotencyKey: `quest:${student.id}:weekly:${weekKey}:${questId}`,
             metadata: {
                 baseReward: questDef.goldReward,
@@ -493,7 +529,13 @@ export async function POST(
         });
         if (!completed) return NextResponse.json({ error: "NOT_COMPLETED" }, { status: 400 });
 
-        const goldEarned = Math.floor(questDef.goldReward * multiplier);
+        const rewardRule = resolveGameQuestRewardRule({
+            questType,
+            questId,
+            baseGold: questDef.goldReward,
+            multiplier,
+        });
+        const goldEarned = rewardRule.gold ?? Math.floor(questDef.goldReward * multiplier);
         const claimResult = await persistQuestClaim({
             student,
             questType,
@@ -501,6 +543,7 @@ export async function POST(
             field: "challengeQuestsClaimed",
             nextClaimed: [...claimedIds, questId],
             goldEarned,
+            rewardRule,
             idempotencyKey: `quest:${student.id}:challenge:${questId}`,
             metadata: {
                 baseReward: questDef.goldReward,
@@ -536,6 +579,7 @@ export async function POST(
         const dailyClaimedIds = getClaimedToday(student.dailyQuestsClaimed);
         const weeklyClaimedIds = getWeeklyClaimedThisWeek(student.weeklyQuestsClaimed);
         const challengeClaimedIds = getChallengeClaimedAll(student.challengeQuestsClaimed);
+        const battleProgress = await resolveBattleProgress(student.id);
         const submissionsThisWeek = student.submissions.filter(
             (s: { submittedAt: Date | null }) =>
                 s.submittedAt && new Date(s.submittedAt) >= weekStart
@@ -571,6 +615,8 @@ export async function POST(
                 submissionsThisWeek,
                 totalSubmissions: student.submissions.length,
                 inventoryCount: student.inventory.length,
+                battlesPlayed: battleProgress.battlesPlayed,
+                battlesWon: battleProgress.battlesWon,
             },
         }).chain;
         const status = chainSnapshot.find((quest) => quest.id === claimId);

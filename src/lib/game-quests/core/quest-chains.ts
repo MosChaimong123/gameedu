@@ -5,7 +5,8 @@ export type GameQuestChainStepCondition =
     | { kind: "quest_claimed"; questType: Exclude<GameQuestType, "chain">; questId: string }
     | { kind: "streak"; min: number }
     | { kind: "submissions"; minTotal?: number; minWeekly?: number }
-    | { kind: "inventory"; minItems: number };
+    | { kind: "inventory"; minItems: number }
+    | { kind: "battles"; minPlayed?: number; minWon?: number };
 
 export type GameQuestChainStep = {
     id: string;
@@ -32,6 +33,8 @@ export type QuestChainProgressInput = {
     submissionsThisWeek: number;
     totalSubmissions: number;
     inventoryCount: number;
+    battlesPlayed?: number;
+    battlesWon?: number;
 };
 
 export const DEFAULT_GAME_QUEST_CHAINS: GameQuestChainDefinition[] = [
@@ -66,6 +69,68 @@ export const DEFAULT_GAME_QUEST_CHAINS: GameQuestChainDefinition[] = [
             },
         ],
     },
+    {
+        id: "chain_attendance_spark",
+        nameKey: "questChainAttendanceSparkName",
+        descKey: "questChainAttendanceSparkDesc",
+        steps: [
+            {
+                id: "checkin_starter",
+                icon: "ATT",
+                nameKey: "questChainAttendanceCheckinName",
+                descKey: "questChainAttendanceCheckinDesc",
+                condition: { kind: "quest_claimed", questType: "daily", questId: "quest_checkin" },
+                reward: { gold: 15, exp: 20, itemIds: ["item_minor_potion"] },
+            },
+            {
+                id: "streak_three",
+                icon: "STR",
+                nameKey: "questChainAttendanceStreakName",
+                descKey: "questChainAttendanceStreakDesc",
+                condition: { kind: "streak", min: 3 },
+                reward: { gold: 25, exp: 35, itemIds: ["item_antidote_charm"] },
+            },
+            {
+                id: "streak_seven",
+                icon: "7D",
+                nameKey: "questChainAttendanceSevenName",
+                descKey: "questChainAttendanceSevenDesc",
+                condition: { kind: "streak", min: 7 },
+                reward: { gold: 40, exp: 60, itemIds: ["item_flame_ward"], formRank: 2 },
+            },
+        ],
+    },
+    {
+        id: "chain_battle_training",
+        nameKey: "questChainBattleTrainingName",
+        descKey: "questChainBattleTrainingDesc",
+        steps: [
+            {
+                id: "prepare_item",
+                icon: "BAG",
+                nameKey: "questChainBattlePrepareName",
+                descKey: "questChainBattlePrepareDesc",
+                condition: { kind: "inventory", minItems: 1 },
+                reward: { gold: 10, exp: 15, itemIds: ["item_energy_orb"] },
+            },
+            {
+                id: "first_battle",
+                icon: "BAT",
+                nameKey: "questChainBattlePlayName",
+                descKey: "questChainBattlePlayDesc",
+                condition: { kind: "battles", minPlayed: 1 },
+                reward: { gold: 30, exp: 45, itemIds: ["item_minor_potion"] },
+            },
+            {
+                id: "first_win",
+                icon: "WIN",
+                nameKey: "questChainBattleWinName",
+                descKey: "questChainBattleWinDesc",
+                condition: { kind: "battles", minWon: 1 },
+                reward: { gold: 50, exp: 75, itemIds: ["item_lucky_coin"], skillIds: ["garuda-flame-burst"] },
+            },
+        ],
+    },
 ];
 
 export function createQuestChainClaimId(chainId: string, stepId: string): string {
@@ -90,6 +155,12 @@ function isConditionCompleted(condition: GameQuestChainStepCondition, input: Que
         return (
             input.totalSubmissions >= (condition.minTotal ?? 0) &&
             input.submissionsThisWeek >= (condition.minWeekly ?? 0)
+        );
+    }
+    if (condition.kind === "battles") {
+        return (
+            (input.battlesPlayed ?? 0) >= (condition.minPlayed ?? 0) &&
+            (input.battlesWon ?? 0) >= (condition.minWon ?? 0)
         );
     }
     return input.inventoryCount >= condition.minItems;

@@ -6,6 +6,7 @@ import {
     createQuestProgressSnapshot,
     createQuestChainClaimId,
     createQuestChainProgressSnapshot,
+    resolveGameQuestRewardRule,
 } from "@/lib/game-quests";
 
 describe("game-quests claim contracts", () => {
@@ -96,6 +97,17 @@ describe("game-quests claim contracts", () => {
 
     it("builds period-aware idempotency keys", () => {
         expect(calculateQuestGoldReward(10, 1.25)).toBe(12);
+        expect(resolveGameQuestRewardRule({
+            questType: "weekly",
+            questId: "wq_submit3_week",
+            baseGold: 60,
+            multiplier: 1.5,
+        })).toEqual({
+            gold: 90,
+            exp: 80,
+            itemIds: ["item_energy_orb"],
+            skillIds: ["naga-aqua-jet"],
+        });
         expect(
             createQuestClaimIdempotencyKey({
                 studentId: "student-1",
@@ -135,12 +147,25 @@ describe("game-quests claim contracts", () => {
                 submissionsThisWeek: 3,
                 totalSubmissions: 10,
                 inventoryCount: 1,
+                battlesPlayed: 1,
+                battlesWon: 1,
             },
         });
 
         expect(snapshot.daily.every((quest) => quest.completed)).toBe(true);
         expect(snapshot.weekly.every((quest) => quest.completed)).toBe(true);
         expect(snapshot.challenge.every((quest) => quest.completed)).toBe(true);
+        expect(snapshot.daily.find((quest) => quest.id === "quest_checkin")).toMatchObject({
+            rewardItemIds: ["item_minor_potion"],
+        });
+        expect(snapshot.weekly.find((quest) => quest.id === "wq_submit3_week")).toMatchObject({
+            rewardItemIds: ["item_energy_orb"],
+            rewardSkillIds: ["naga-aqua-jet"],
+        });
+        expect(snapshot.challenge.find((quest) => quest.id === "cq_streak14")).toMatchObject({
+            rewardItemIds: ["item_lucky_coin"],
+            rewardFormRank: 3,
+        });
         expect(snapshot.chain[0]).toMatchObject({
             id: "chain:chain_learning_path:login",
             completed: true,
@@ -163,13 +188,43 @@ describe("game-quests claim contracts", () => {
                 submissionsThisWeek: 3,
                 totalSubmissions: 3,
                 inventoryCount: 0,
+                battlesPlayed: 0,
+                battlesWon: 0,
             },
-        });
+        }).filter((step) => step.chainId === "chain_learning_path");
 
         expect(chain.map((step) => ({ id: step.stepId, completed: step.completed, claimed: step.claimed }))).toEqual([
             { id: "login", completed: true, claimed: true },
             { id: "checkin", completed: true, claimed: false },
             { id: "submit_week", completed: false, claimed: false },
+        ]);
+    });
+
+    it("unlocks battle chain steps from battle progress and gates them in order", () => {
+        const chain = createQuestChainProgressSnapshot({
+            progress: {
+                dailyClaimedIds: [],
+                weeklyClaimedIds: [],
+                challengeClaimedIds: [],
+                chainClaimedIds: [createQuestChainClaimId("chain_battle_training", "prepare_item")],
+                streak: 0,
+                submissionsThisWeek: 0,
+                totalSubmissions: 0,
+                inventoryCount: 1,
+                battlesPlayed: 1,
+                battlesWon: 0,
+            },
+        }).filter((step) => step.chainId === "chain_battle_training");
+
+        expect(chain.map((step) => ({
+            id: step.stepId,
+            completed: step.completed,
+            claimed: step.claimed,
+            rewards: step.rewardItemIds,
+        }))).toEqual([
+            { id: "prepare_item", completed: true, claimed: true, rewards: ["item_energy_orb"] },
+            { id: "first_battle", completed: true, claimed: false, rewards: ["item_minor_potion"] },
+            { id: "first_win", completed: false, claimed: false, rewards: ["item_lucky_coin"] },
         ]);
     });
 });

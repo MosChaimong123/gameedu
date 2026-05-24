@@ -103,4 +103,46 @@ test.describe("Student dashboard V2 smoke", () => {
 
     expect(consoleErrors).toEqual([]);
   });
+
+  studentDashboardTest("quest UI exposes content-pack reward metadata on desktop and mobile", async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+
+    for (const viewport of [
+      { width: 1366, height: 900 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await openGameTab(page, "quests");
+
+      await expect(page.getByText(/Daily|รายวัน/).first()).toBeVisible();
+      await expect(page.getByText(/Weekly|รายสัปดาห์/).first()).toBeVisible();
+      await expect(page.getByText(/Challenge|ท้าทาย/).first()).toBeVisible();
+      await expect(page.getByText(/Chain|ต่อเนื่อง/).first()).toBeVisible();
+      await expect(page.getByText(/\+\d+/).first()).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+    }
+
+    expect(consoleErrors).toEqual([]);
+  });
+
+  studentDashboardTest("shop exposes content-pack battle item categories", async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openGameTab(page, "quests");
+    await page.getByRole("button", { name: /ร้านค้า|Shop/ }).first().click();
+
+    await expect(page.getByText(/Battle Items|ไอเทมต่อสู้/).first()).toBeVisible();
+    await expect(page.getByText(/Restore|ฟื้นฟู/).first()).toBeVisible();
+    await expect(page.getByText(/Minor Potion|ยาฟื้นพลังเล็ก/).first()).toBeVisible();
+    await expect(page.getByText(/Energy Orb|ลูกแก้วพลังงาน/).first()).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    expect(consoleErrors).toEqual([]);
+  });
 });

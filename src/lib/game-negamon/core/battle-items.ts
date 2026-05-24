@@ -49,6 +49,12 @@ export function mapBattleEffectToGameItemEffects(effect: BattleEffect | undefine
     for (const status of effect.immunity ?? []) {
         effects.push({ kind: "status_immunity", status });
     }
+    if (effect.restoreHpPercent) {
+        effects.push({ kind: "restore_hp", percent: effect.restoreHpPercent });
+    }
+    if (effect.restoreEnergy) {
+        effects.push({ kind: "restore_energy", amount: effect.restoreEnergy });
+    }
     if (effect.goldBonus) {
         effects.push({ kind: "gold_bonus", amount: effect.goldBonus });
     }

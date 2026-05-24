@@ -10,10 +10,19 @@ import {
 } from "@/lib/negamon/teacher-balance-report";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const url = new URL(req.url || "http://localhost/api/classrooms/unknown/negamon/balance");
+  const studentId = url.searchParams.get("studentId")?.trim();
+  const source = url.searchParams.get("source")?.trim();
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
+  const createdAt: { gte?: Date; lte?: Date } = {};
+  if (from) createdAt.gte = new Date(from);
+  if (to) createdAt.lte = new Date(to);
+  const hasCreatedAtFilter = Object.keys(createdAt).length > 0;
   const user = await requireSessionUser();
   if (!user) {
     return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
@@ -44,6 +53,8 @@ export async function GET(
       where: {
         reason: { startsWith: "negamon_" },
         student: { classId: id },
+        ...(studentId ? { studentId } : {}),
+        ...(hasCreatedAtFilter ? { timestamp: createdAt } : {}),
       },
       orderBy: { timestamp: "desc" },
       take: 500,
@@ -56,7 +67,11 @@ export async function GET(
     db.economyTransaction.findMany({
       where: {
         classId: id,
-        source: { in: ["battle", "quest", "checkin"] },
+        ...(studentId ? { studentId } : {}),
+        source: source && ["battle", "quest", "checkin"].includes(source)
+          ? source
+          : { in: ["battle", "quest", "checkin"] },
+        ...(hasCreatedAtFilter ? { createdAt } : {}),
       },
       orderBy: { createdAt: "desc" },
       take: 500,
@@ -65,10 +80,15 @@ export async function GET(
         source: true,
         amount: true,
         metadata: true,
+        createdAt: true,
       },
     }),
     db.battleSession.findMany({
-      where: { classId: id },
+      where: {
+        classId: id,
+        ...(studentId ? { OR: [{ challengerId: studentId }, { defenderId: studentId }] } : {}),
+        ...(hasCreatedAtFilter ? { createdAt } : {}),
+      },
       orderBy: { createdAt: "desc" },
       take: 500,
       select: {
@@ -90,6 +110,12 @@ export async function GET(
 
   return NextResponse.json({
     classId: id,
+    filters: {
+      studentId: studentId || null,
+      source: source || null,
+      from: from || null,
+      to: to || null,
+    },
     balanceSettings: readNegamonBalanceSettings(classroom.gamifiedSettings),
     guardrails: NEGAMON_BALANCE_GUARDRAILS,
     ...report,

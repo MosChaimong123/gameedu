@@ -6,7 +6,7 @@ import { createNegamonEvolutionRules, createNegamonTraitSnapshot } from "../mons
 import { getNegamonSpeciesSkillCatalog, type NegamonSkillDefinition } from "../skills";
 import { getNegamonSpeciesCatalog } from "../species";
 
-export type NegamonMonsterRole = "attacker" | "defender" | "trickster" | "scholar" | "treasurer" | "balanced";
+export type NegamonMonsterRole = "attacker" | "defender" | "support" | "control" | "balanced";
 export type NegamonGrowthCurve = "steady" | "burst" | "late_bloom" | "support";
 export type NegamonStatusStackingRule = "refresh" | "stack_intensity" | "unique";
 export type NegamonStatusTickTiming = "turn_start" | "turn_end" | "on_hit" | "instant";
@@ -130,11 +130,21 @@ function humanizeId(id: string): string {
 
 function inferMonsterRole(species: MonsterSpecies): NegamonMonsterRole {
     const { atk, def, spd } = species.baseStats;
-    if (species.ability?.id === "volt_flow" || species.ability?.id === "aerial_strike") return "trickster";
-    if (species.ability?.id === "guardian_scale") return "scholar";
+    const hasSupportMove = species.moves.some((move) => move.category === "HEAL" || move.effect === "HEAL_25");
+    const hasControlMove = species.moves.some((move) =>
+        move.effect === "PARALYZE" ||
+        move.effect === "SLEEP" ||
+        move.effect === "FREEZE" ||
+        move.effect === "LOWER_SPD" ||
+        move.effect === "LOWER_EN_REGEN"
+    );
+    if (hasSupportMove || species.ability?.id === "guardian_scale") return "support";
+    if (hasControlMove || species.ability?.id === "volt_flow") return "control";
+    if (species.ability?.id === "iron_shell") return "defender";
+    if (species.ability?.id === "aerial_strike") return "attacker";
     if (atk >= def + 8) return "attacker";
     if (def >= atk + 8) return "defender";
-    if (spd >= atk && spd >= def) return "trickster";
+    if (spd >= atk && spd >= def) return "control";
     return "balanced";
 }
 
@@ -142,7 +152,7 @@ function inferGrowthCurve(species: MonsterSpecies): NegamonGrowthCurve {
     const role = inferMonsterRole(species);
     if (role === "attacker") return "burst";
     if (role === "defender") return "late_bloom";
-    if (role === "scholar") return "support";
+    if (role === "support") return "support";
     return "steady";
 }
 
@@ -221,14 +231,26 @@ export const NEGAMON_STATUS_EFFECT_CATALOG: NegamonStatusEffectDefinition[] =
     STATUS_EFFECTS.map(createStatusEffectDefinition);
 
 export const NEGAMON_BATTLE_REWARD_TABLE: NegamonBattleRewardTableEntry[] = [
-    createRewardTableEntry({ difficulty: "easy", outcome: "win", baseGold: 20, turnCount: 2 }),
-    createRewardTableEntry({ difficulty: "normal", outcome: "win", baseGold: 30, turnCount: 4 }),
+    createRewardTableEntry({
+        difficulty: "easy",
+        outcome: "win",
+        baseGold: 20,
+        turnCount: 2,
+        itemDropIds: ["item_minor_potion"],
+    }),
+    createRewardTableEntry({
+        difficulty: "normal",
+        outcome: "win",
+        baseGold: 30,
+        turnCount: 4,
+        itemDropIds: ["item_energy_orb", "item_antidote_charm"],
+    }),
     createRewardTableEntry({
         difficulty: "hard",
         outcome: "win",
         baseGold: 45,
         turnCount: 6,
-        itemDropIds: ["item_lucky_coin"],
+        itemDropIds: ["item_lucky_coin", "item_flame_ward"],
         minRankIndex: 2,
     }),
     createRewardTableEntry({
@@ -236,7 +258,7 @@ export const NEGAMON_BATTLE_REWARD_TABLE: NegamonBattleRewardTableEntry[] = [
         outcome: "win",
         baseGold: 60,
         turnCount: 8,
-        itemDropIds: ["item_merchants_sigil"],
+        itemDropIds: ["item_merchants_sigil", "item_dream_bell"],
         minRankIndex: 4,
     }),
     createRewardTableEntry({ difficulty: "normal", outcome: "draw", baseGold: 0, turnCount: 4 }),

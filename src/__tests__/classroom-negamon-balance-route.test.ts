@@ -50,7 +50,7 @@ describe("classroom Negamon balance route", () => {
   it("returns teacher balance summary, guardrails, settings, and catalog preview", async () => {
     const { GET } = await import("@/app/api/classrooms/[id]/negamon/balance/route");
 
-    const response = await GET({} as Request, { params: Promise.resolve({ id: "class-1" }) });
+    const response = await GET(new Request("http://localhost/api/classrooms/class-1/negamon/balance?studentId=student-1&source=quest&from=2026-05-01&to=2026-05-24") as Request, { params: Promise.resolve({ id: "class-1" }) });
 
     expect(response.status).toBe(200);
     expect(mockClassroomFindUnique).toHaveBeenCalledWith({
@@ -62,11 +62,33 @@ describe("classroom Negamon balance route", () => {
     });
     const body = await response.json();
     expect(body.balanceSettings).toEqual({ expMultiplier: 1.25 });
+    expect(body.filters).toMatchObject({
+      studentId: "student-1",
+      source: "quest",
+      from: "2026-05-01",
+      to: "2026-05-24",
+    });
     expect(body.guardrails.length).toBeGreaterThan(0);
     expect(body.summary).toMatchObject({
       studentCount: 1,
       levelUpCount: 1,
     });
     expect(body.catalogPreview.monsterCount).toBeGreaterThan(0);
+    expect(body.rewardReview).toMatchObject({
+      topItems: [],
+      topSkillUnlocks: [],
+      topRewardSources: [],
+    });
+    expect(mockEconomyTransactionFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        classId: "class-1",
+        studentId: "student-1",
+        source: "quest",
+        createdAt: expect.objectContaining({
+          gte: expect.any(Date),
+          lte: expect.any(Date),
+        }),
+      }),
+    }));
   });
 });

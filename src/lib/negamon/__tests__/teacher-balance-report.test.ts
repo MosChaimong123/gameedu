@@ -22,7 +22,16 @@ describe("Negamon teacher balance report", () => {
           studentId: "student-1",
           source: "quest",
           amount: 10,
-          metadata: { reward: { grantedItemIds: ["item_minor_potion"] } },
+          metadata: {
+            reward: { grantedItemIds: ["item_minor_potion"], exp: 10 },
+            rewardRule: { itemIds: ["item_energy_orb"], skillIds: ["naga-aqua-jet"], exp: 20 },
+          },
+        },
+        {
+          studentId: "student-2",
+          source: "battle",
+          amount: 175,
+          metadata: { reward: { grantedItemIds: ["item_lucky_coin"] } },
         },
       ],
       battleRows: [
@@ -36,9 +45,22 @@ describe("Negamon teacher balance report", () => {
       studentCount: 2,
       levelUpCount: 1,
       skillUnlockCount: 1,
-      itemUsage: { item_minor_potion: 1 },
+      itemUsage: { item_minor_potion: 1, item_energy_orb: 1, item_lucky_coin: 1 },
+      rewardGoldBySource: { quest: 10, battle: 175 },
+      expBySource: { quest: 30, battle: 0 },
+      skillUnlocks: { "naga-aqua-jet": 1 },
       battleOutcomes: { total: 2, wins: 1, draws: 1, unresolved: 0 },
     });
+    expect(report.rewardReview.topItems.map((entry) => entry.id)).toEqual([
+      "item_energy_orb",
+      "item_lucky_coin",
+      "item_minor_potion",
+    ]);
+    expect(report.rewardReview.topSkillUnlocks).toEqual([{ id: "naga-aqua-jet", count: 1 }]);
+    expect(report.balanceWarnings).toContainEqual(expect.objectContaining({
+      key: "battle_reward_high",
+      severity: "warning",
+    }));
     expect(report.topProgression[0]).toMatchObject({
       studentId: "student-1",
       studentName: "Ada (A)",

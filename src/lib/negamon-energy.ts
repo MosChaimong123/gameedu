@@ -96,6 +96,9 @@ export function getMoveEnergyCost(move: MonsterMove, speciesId: string): number 
     if (!Number.isFinite(scaled)) {
         return ENERGY_COST_MIN;
     }
+    if (move.effect && isHardCc(move.effect)) {
+        scaled = Math.max(26, scaled);
+    }
     if ((move.learnRank ?? 0) >= ULT_LEARN_RANK) {
         scaled += ULT_FLAT_BONUS;
     }

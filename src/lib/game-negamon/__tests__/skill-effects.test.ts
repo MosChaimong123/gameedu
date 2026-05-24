@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_NEGAMON_SPECIES } from "@/lib/negamon-species";
 import type { PassiveAbility } from "@/lib/types/negamon";
 import {
     applyNegamonPassiveRuntimeEffects,
+    buildNegamonContentCatalog,
+    createNegamonMonsterSnapshot,
     mapNegamonSkillToLiteMove,
     resolveNegamonSkillRuntimeEffects,
     type NegamonMonsterSnapshot,
@@ -222,6 +225,55 @@ describe("Negamon skill effect runtime V2", () => {
         expect(applyNegamonPassiveRuntimeEffects(makeMonster(voltFlow))).toMatchObject({
             maxEnergy: 55,
             passiveTraitIds: ["trait_volt_flow"],
+        });
+    });
+
+    it("maps content pack roles to meaningful battle effects", () => {
+        const catalog = buildNegamonContentCatalog();
+        const bySkillId = new Map(catalog.skills.map((skill) => [skill.id, skill]));
+
+        expect(catalog.monsters.find((monster) => monster.id === "garuda")).toMatchObject({ role: "attacker" });
+        expect(mapNegamonSkillToLiteMove(bySkillId.get("garuda-flame-burst")!)).toMatchObject({
+            power: 37,
+            effect: { kind: "status", status: "BURN", chance: 100 },
+        });
+
+        const singha = createNegamonMonsterSnapshot({
+            studentId: "student-1",
+            points: 50,
+            levelConfig: [
+                { name: "Common", minScore: 0 },
+                { name: "Uncommon", minScore: 10 },
+                { name: "Rare", minScore: 20 },
+                { name: "Epic", minScore: 30 },
+                { name: "Legendary", minScore: 40 },
+                { name: "Mythic", minScore: 50 },
+            ],
+            negamonSettings: {
+                enabled: true,
+                allowStudentChoice: true,
+                expPerPoint: 10,
+                expPerAttendance: 20,
+                species: DEFAULT_NEGAMON_SPECIES,
+                studentMonsters: { "student-1": "singha" },
+            },
+        })!;
+        expect(catalog.monsters.find((monster) => monster.id === "singha")).toMatchObject({ role: "defender" });
+        expect(applyNegamonPassiveRuntimeEffects(singha)).toMatchObject({
+            passiveTraitIds: ["trait_iron_shell"],
+        });
+
+        expect(catalog.monsters.find((monster) => monster.id === "kinnaree")).toMatchObject({ role: "support" });
+        expect(mapNegamonSkillToLiteMove(bySkillId.get("kinnaree-heaven-song")!).effect).toEqual({
+            kind: "heal",
+            percent: 25,
+        });
+
+        expect(catalog.monsters.find((monster) => monster.id === "mekkala")).toMatchObject({ role: "control" });
+        expect(mapNegamonSkillToLiteMove(bySkillId.get("mekkala-judgment")!).effect).toMatchObject({
+            kind: "status",
+            status: "PARALYZE",
+            chance: 100,
         });
     });
 

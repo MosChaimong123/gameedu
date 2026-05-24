@@ -16,6 +16,7 @@ import {
     getChainClaimedAll,
     type GameQuestChainDefinition,
 } from "./quest-chains";
+import { applyQuestRewardContentToStatuses } from "./quest-content";
 
 export type QuestProgressSnapshotInput = {
     daily: {
@@ -39,6 +40,8 @@ export type QuestProgressSnapshotInput = {
         submissionsThisWeek: number;
         totalSubmissions: number;
         inventoryCount: number;
+        battlesPlayed?: number;
+        battlesWon?: number;
         chains?: GameQuestChainDefinition[];
     };
 };
@@ -52,30 +55,30 @@ export type QuestProgressSnapshot = {
 
 export function createQuestProgressSnapshot(input: QuestProgressSnapshotInput): QuestProgressSnapshot {
     return {
-        daily: buildQuestStatuses(
+        daily: applyQuestRewardContentToStatuses("daily", buildQuestStatuses(
             {
                 streak: input.daily.streak,
                 lastCheckIn: input.daily.lastCheckIn,
                 hasSubmitToday: input.daily.hasSubmitToday,
             },
             getClaimedToday(input.daily.claimedRaw)
-        ),
-        weekly: buildWeeklyQuestStatuses(
+        )),
+        weekly: applyQuestRewardContentToStatuses("weekly", buildWeeklyQuestStatuses(
             {
                 streak: input.weekly.streak,
                 submissionsThisWeek: input.weekly.submissionsThisWeek,
                 allDailyClaimedToday: input.weekly.allDailyClaimedToday,
             },
             getWeeklyClaimedThisWeek(input.weekly.claimedRaw)
-        ),
-        challenge: buildChallengeQuestStatuses(
+        )),
+        challenge: applyQuestRewardContentToStatuses("challenge", buildChallengeQuestStatuses(
             {
                 streak: input.challenge.streak,
                 totalSubmissions: input.challenge.totalSubmissions,
                 hasItem: input.challenge.hasItem,
             },
             getChallengeClaimedAll(input.challenge.claimedRaw)
-        ),
+        )),
         chain: input.chain
             ? createQuestChainProgressSnapshot({
                   chains: input.chain.chains,
@@ -88,6 +91,8 @@ export function createQuestProgressSnapshot(input: QuestProgressSnapshotInput): 
                       submissionsThisWeek: input.chain.submissionsThisWeek,
                       totalSubmissions: input.chain.totalSubmissions,
                       inventoryCount: input.chain.inventoryCount,
+                      battlesPlayed: input.chain.battlesPlayed,
+                      battlesWon: input.chain.battlesWon,
                   },
               })
             : [],

@@ -2,10 +2,11 @@ export type ShopItemType = "frame" | "battle_item";
 export type ShopItemRarity = "common" | "rare" | "epic" | "legendary";
 
 /** Sub-groups inside the battle-items shop block (easier browsing). */
-export type ShopBattleItemCategory = "stat_boost" | "status" | "reward";
+export type ShopBattleItemCategory = "stat_boost" | "restore" | "status" | "reward";
 
 export const BATTLE_ITEM_CATEGORY_ORDER: ShopBattleItemCategory[] = [
     "stat_boost",
+    "restore",
     "status",
     "reward",
 ];
@@ -48,6 +49,10 @@ export interface BattleEffect {
     statBoost?: { atk?: number; def?: number; spd?: number };
     /** Status effects this item grants immunity to */
     immunity?: string[];
+    /** HP restored when consumed as an active battle item. */
+    restoreHpPercent?: number;
+    /** Energy restored when consumed as an active battle item. */
+    restoreEnergy?: number;
     /** Bonus gold added to reward if this fighter wins (before multiplier) */
     goldBonus?: number;
     /** Multiplier on total gold reward if this fighter wins (applied after flat bonus) */
@@ -185,6 +190,53 @@ export const BATTLE_ITEMS: ShopItem[] = [
         icon: "🔥",
         battleCategory: "stat_boost",
         battleEffect: { statBoost: { atk: 1.22 } },
+    },
+    // Restore items for active-use battle flow.
+    {
+        id: "item_minor_potion",
+        type: "battle_item",
+        price: 150,
+        rarity: "common",
+        icon: "HP",
+        battleCategory: "restore",
+        battleEffect: { restoreHpPercent: 25 },
+    },
+    {
+        id: "item_energy_orb",
+        type: "battle_item",
+        price: 250,
+        rarity: "common",
+        icon: "EN",
+        battleCategory: "restore",
+        battleEffect: { restoreEnergy: 18 },
+    },
+    // Status immunity charms.
+    {
+        id: "item_antidote_charm",
+        type: "battle_item",
+        price: 800,
+        rarity: "rare",
+        icon: "POI",
+        battleCategory: "status",
+        battleEffect: { immunity: ["POISON"] },
+    },
+    {
+        id: "item_flame_ward",
+        type: "battle_item",
+        price: 900,
+        rarity: "rare",
+        icon: "BRN",
+        battleCategory: "status",
+        battleEffect: { immunity: ["BURN"] },
+    },
+    {
+        id: "item_dream_bell",
+        type: "battle_item",
+        price: 1100,
+        rarity: "rare",
+        icon: "SLP",
+        battleCategory: "status",
+        battleEffect: { immunity: ["SLEEP"] },
     },
     {
         id: "item_lucky_coin",

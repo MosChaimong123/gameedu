@@ -10,6 +10,7 @@ import {
     TrendingUp,
     Shield,
     Sparkles,
+    HeartPulse,
 } from "lucide-react";
 import {
     Dialog,
@@ -76,6 +77,7 @@ const FRAME_ELEMENT_META: Record<
 
 const BATTLE_CATEGORY_ICON: Record<ShopBattleItemCategory, ComponentType<{ className?: string }>> = {
     stat_boost: TrendingUp,
+    restore: HeartPulse,
     status: Shield,
     reward: Sparkles,
 };

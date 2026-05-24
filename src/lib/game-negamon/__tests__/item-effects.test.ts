@@ -71,7 +71,7 @@ describe("Negamon item effect runtime V2", () => {
                     itemType: "battle",
                     stackable: true,
                     allowedInBattle: true,
-                    battleCategory: "charm",
+                    battleCategory: "status",
                     effects: [{ kind: "status_immunity", status: "POISON" }],
                 },
             ],
@@ -123,6 +123,32 @@ describe("Negamon item effect runtime V2", () => {
         expect(combatant.itemEffectKinds).toEqual(["stat_boost", "gold_bonus"]);
         expect(combatant.rewardGoldBonus).toBe(15);
         expect(combatant.rewardGoldMultiplier).toBe(1);
+    });
+
+    it("maps content pack restore and immunity items from the shop catalog", () => {
+        const plan = createNegamonBattleItemRuntimePlan({
+            loadoutIds: ["item_minor_potion", "item_antidote_charm"],
+            inventory: ["item_minor_potion", "item_antidote_charm"],
+        });
+
+        expect(plan.ok).toBe(true);
+        if (!plan.ok) throw new Error("expected ok plan");
+        expect(plan.effects).toEqual([
+            { kind: "restore_hp", percent: 25 },
+            { kind: "status_immunity", status: "POISON" },
+        ]);
+        expect(plan.statusImmunities).toEqual(["POISON", "BADLY_POISON"]);
+    });
+
+    it("maps the energy orb into an active-use energy restore effect", () => {
+        const plan = createNegamonBattleItemRuntimePlan({
+            loadoutIds: ["item_energy_orb"],
+            inventory: ["item_energy_orb"],
+        });
+
+        expect(plan.ok).toBe(true);
+        if (!plan.ok) throw new Error("expected ok plan");
+        expect(plan.effects).toEqual([{ kind: "restore_energy", amount: 18 }]);
     });
 
     it("applies opponent difficulty modifiers deterministically", () => {

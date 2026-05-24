@@ -19,6 +19,7 @@ export type NegamonTeacherBalanceEconomyRow = {
   source: string;
   amount: number;
   metadata?: unknown;
+  createdAt?: Date | string;
 };
 
 export type NegamonTeacherBalanceBattleRow = {
@@ -34,6 +35,13 @@ export type NegamonBalanceGuardrail = {
   min: number;
   max: number;
   recommended: string;
+};
+
+export type NegamonBalanceWarning = {
+  key: string;
+  severity: "info" | "warning";
+  label: string;
+  detail: string;
 };
 
 export const NEGAMON_BALANCE_GUARDRAILS: NegamonBalanceGuardrail[] = [
@@ -58,6 +66,70 @@ function readStringArray(record: Record<string, unknown>, key: string): string[]
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
 }
 
+function readNumber(record: Record<string, unknown>, key: string): number {
+  const value = record[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function increment(map: Record<string, number>, key: string, amount = 1) {
+  if (!key) return;
+  map[key] = (map[key] ?? 0) + amount;
+}
+
+function topEntries(record: Record<string, number>, limit = 10) {
+  return Object.entries(record)
+    .map(([id, count]) => ({ id, count }))
+    .sort((a, b) => b.count - a.count || a.id.localeCompare(b.id))
+    .slice(0, limit);
+}
+
+function buildWarnings(input: {
+  economyRows: NegamonTeacherBalanceEconomyRow[];
+  battleOutcomes: { total: number; wins: number; draws: number; unresolved: number };
+  itemUsage: Record<string, number>;
+}): NegamonBalanceWarning[] {
+  const warnings: NegamonBalanceWarning[] = [];
+  const questRows = input.economyRows.filter((row) => row.source === "quest");
+  const battleRows = input.economyRows.filter((row) => row.source === "battle");
+  const maxQuestReward = Math.max(0, ...questRows.map((row) => row.amount));
+  const maxBattleReward = Math.max(0, ...battleRows.map((row) => row.amount));
+
+  if (maxQuestReward > 150) {
+    warnings.push({
+      key: "quest_reward_high",
+      severity: "warning",
+      label: "High quest reward",
+      detail: `Highest quest reward is ${maxQuestReward}G. Review questGoldMultiplier or one-time challenge rewards.`,
+    });
+  }
+  if (maxBattleReward > 150) {
+    warnings.push({
+      key: "battle_reward_high",
+      severity: "warning",
+      label: "High battle reward",
+      detail: `Highest battle reward is ${maxBattleReward}G. Review battle gold cap and reward item multipliers.`,
+    });
+  }
+  if (input.battleOutcomes.total > 0 && input.battleOutcomes.unresolved / input.battleOutcomes.total > 0.2) {
+    warnings.push({
+      key: "battle_unresolved_rate",
+      severity: "warning",
+      label: "Unresolved battle rate",
+      detail: "More than 20% of recent battle sessions are unresolved. Check battle completion and reward finalization.",
+    });
+  }
+  const topItem = topEntries(input.itemUsage, 1)[0];
+  if (topItem && topItem.count >= 10) {
+    warnings.push({
+      key: "item_reward_concentration",
+      severity: "info",
+      label: "Repeated item reward",
+      detail: `${topItem.id} appears ${topItem.count} times in recent reward metadata.`,
+    });
+  }
+  return warnings;
+}
+
 export function buildNegamonTeacherBalanceReport(input: {
   students: NegamonTeacherBalanceStudent[];
   pointHistoryRows: NegamonTeacherBalancePointHistoryRow[];
@@ -77,14 +149,29 @@ export function buildNegamonTeacherBalanceReport(input: {
   }
 
   const itemUsage: Record<string, number> = {};
+  const rewardGoldBySource: Record<string, number> = {};
+  const rewardCountBySource: Record<string, number> = {};
+  const expBySource: Record<string, number> = {};
+  const skillUnlocks: Record<string, number> = {};
   for (const row of input.economyRows) {
     const metadata = readRecord(row.metadata);
     const reward = readRecord(metadata.reward);
+    const rewardRule = readRecord(metadata.rewardRule);
+    increment(rewardGoldBySource, row.source, Math.max(0, row.amount));
+    increment(rewardCountBySource, row.source);
+    increment(expBySource, row.source, readNumber(reward, "exp") + readNumber(rewardRule, "exp"));
     for (const itemId of [
       ...readStringArray(reward, "grantedItemIds"),
       ...readStringArray(metadata, "itemRewardIds"),
+      ...readStringArray(rewardRule, "itemIds"),
     ]) {
-      itemUsage[itemId] = (itemUsage[itemId] ?? 0) + 1;
+      increment(itemUsage, itemId);
+    }
+    for (const skillId of [
+      ...readStringArray(reward, "unlockedSkillIds"),
+      ...readStringArray(rewardRule, "skillIds"),
+    ]) {
+      increment(skillUnlocks, skillId);
     }
   }
 
@@ -116,6 +203,16 @@ export function buildNegamonTeacherBalanceReport(input: {
       skillUnlockCount,
       battleOutcomes,
       itemUsage,
+      rewardGoldBySource,
+      rewardCountBySource,
+      expBySource,
+      skillUnlocks,
+    },
+    balanceWarnings: buildWarnings({ economyRows: input.economyRows, battleOutcomes, itemUsage }),
+    rewardReview: {
+      topItems: topEntries(itemUsage),
+      topSkillUnlocks: topEntries(skillUnlocks),
+      topRewardSources: topEntries(rewardGoldBySource),
     },
     topProgression,
     catalogPreview: {

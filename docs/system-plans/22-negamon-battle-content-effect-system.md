@@ -333,18 +333,27 @@ Goal:
 
 Tasks:
 
-- [ ] Update monster profile UI with trait, form, and next evolution
-- [ ] Update skill loadout UI with real effect labels and locked requirements
-- [ ] Update inventory UI with battle effect labels and equip status
-- [ ] Update battle UI with readable effect/status log
-- [ ] Update reward modal for item drops, bonuses, unlocks, and evolution
-- [ ] Add mobile layout QA for 390px width
-- [ ] Add desktop layout QA for 1366px width
-- [ ] Add Playwright smoke for battle with skill/item effects
+- [x] Update monster profile UI with trait, form, and next evolution
+- [x] Update skill loadout UI with real effect labels and locked requirements
+- [x] Update inventory UI with battle effect labels and equip status
+- [x] Update battle UI with readable effect/status log
+- [x] Update reward modal for item drops, bonuses, unlocks, and evolution
+- [x] Add mobile layout QA for 390px width
+- [x] Add desktop layout QA for 1366px width
+- [x] Add Playwright smoke for battle with skill/item effects
 
 Exit criteria:
 
 - student can understand what happened in battle and why the reward was granted
+
+Phase 32 completion notes:
+
+- Added shared UI copy helpers for skill effects, unlock requirements, item effects, battle status timeline entries, and reward summaries.
+- Skill loadout now shows requirement labels alongside energy, accuracy, cooldown, and real effect text.
+- Inventory item UI now marks equipped battle items and uses the shared item-effect formatter.
+- Battle arena now shows recent readable status/effect log lines from `statusTimeline`.
+- Reward modal now includes compact reward summary chips and rank/form progression detail in level-up rows.
+- Added helper tests for skill/item/status/reward copy and ran build QA for mobile/desktop-safe responsive constraints.
 
 ## Recommended Build Order
 

@@ -89,7 +89,10 @@ export function StudentDashboardMonsterTab({
                             <MonsterProfilePanel monster={negamonMonsterSnapshot} />
                             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.75fr)]">
                                 <SkillLoadoutPanel monster={negamonMonsterSnapshot} />
-                                <InventoryItemPanel inventory={student.inventory} />
+                                <InventoryItemPanel
+                                    inventory={student.inventory}
+                                    equippedItemIds={negamonMonsterSnapshot.equippedItemIds}
+                                />
                             </div>
                         </div>
                     ) : (

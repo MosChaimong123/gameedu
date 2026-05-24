@@ -5,21 +5,10 @@ import { BatteryCharging, Lock, Sparkles, Swords } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { NegamonMonsterSnapshot, NegamonSkillDefinition } from "@/lib/game-negamon";
 import { cn } from "@/lib/utils";
+import { formatNegamonSkillEffect, formatNegamonSkillRequirement } from "./ui-content";
 
 function effectText(skill: NegamonSkillDefinition): string {
-    const parts = skill.effects
-        .filter((effect) => effect.kind !== "energy_cost")
-        .map((effect) => {
-            if (effect.kind === "damage") return `Power ${effect.power}`;
-            if (effect.kind === "heal") return `Heal ${effect.percent}%`;
-            if (effect.kind === "status") return `${effect.effect} ${effect.chance}%`;
-            if (effect.kind === "self_status") return `Self ${effect.effect}`;
-            if (effect.kind === "drain") return `Drain ${effect.percent}%`;
-            if (effect.kind === "critical_bonus") return `Crit +${effect.percent}%`;
-            return "";
-        })
-        .filter(Boolean);
-    return parts.join(" / ") || skill.description;
+    return formatNegamonSkillEffect(skill);
 }
 
 export function SkillLoadoutPanel({
@@ -86,6 +75,10 @@ export function SkillLoadoutPanel({
                                         {effectText(skill)}
                                     </p>
                                     <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-black text-slate-500">
+                                        <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1">
+                                            <Lock className="h-3 w-3 text-slate-400" />
+                                            {formatNegamonSkillRequirement(skill)}
+                                        </span>
                                         <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1">
                                             <BatteryCharging className="h-3 w-3 text-cyan-500" />
                                             EN {skill.energyCost}

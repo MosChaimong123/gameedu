@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Activity, Backpack, Bolt, Footprints, ShieldAlert, Sparkles, Swords, Users } from "lucide-react";
 import { RewardResultModal } from "@/components/game/negamon/RewardResultModal";
+import { summarizeNegamonBattleEvent } from "@/components/game/negamon/ui-content";
 import type { BattleFinalRewardPayload } from "@/components/negamon/battle-tab.types";
 import { cn } from "@/lib/utils";
 import type {
@@ -154,6 +155,14 @@ function lastBattleLine(state: NegamonLiteBattleState) {
     return last.message;
 }
 
+function recentBattleLines(state: NegamonLiteBattleState) {
+    return state.events.slice(-4).reverse().map((event) => ({
+        id: event.id,
+        text: summarizeNegamonBattleEvent(event),
+        turn: event.turn,
+    }));
+}
+
 function disabledCopy(reason?: string) {
     if (reason === "NO_PP") return "PP หมด";
     if (reason === "NO_ENERGY") return "พลังงานไม่พอ";
@@ -288,6 +297,17 @@ export function NegamonLiteBattleArena({
                                         : ""}
                                 </p>
                             )}
+                            <div className="mt-3 grid gap-1.5">
+                                {recentBattleLines(state).map((line) => (
+                                    <div
+                                        key={line.id}
+                                        className="rounded-lg bg-white/6 px-2 py-1 text-[11px] font-bold text-white/60"
+                                    >
+                                        <span className="mr-1 text-white/35">T{line.turn}</span>
+                                        {line.text}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </motion.div>

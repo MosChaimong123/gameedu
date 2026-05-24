@@ -56,6 +56,9 @@ test.describe("Student dashboard V2 smoke", () => {
       await expect(page.getByText("Monster V2")).toBeVisible();
       await expect(page.getByText("Skill Catalog")).toBeVisible();
       await expect(page.getByText("Inventory V2")).toBeVisible();
+      await expect(page.getByText("Evolution")).toBeVisible();
+      await expect(page.getByText(/Level|Starter skill/).first()).toBeVisible();
+      await expect(page.getByText(/EN \d+/).first()).toBeVisible();
       await expect(page.getByText("HP")).toBeVisible();
       await expectNoHorizontalOverflow(page);
     }
@@ -76,6 +79,28 @@ test.describe("Student dashboard V2 smoke", () => {
     await expect(page.getByText("History")).toBeVisible();
     await expect(page.getByText("Legacy Interactive Battle")).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
+    expect(consoleErrors).toEqual([]);
+  });
+
+  studentDashboardTest("battle UI exposes skill, item, and readable effect surfaces", async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+
+    for (const viewport of [
+      { width: 1366, height: 900 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await openGameTab(page, "battle");
+
+      await expect(page.getByText("Battle Items")).toBeVisible();
+      await expect(page.getByText("History")).toBeVisible();
+      await expect(page.getByText(/Power|Heal|Immune|Gold|Energy|EN/).first()).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+    }
+
     expect(consoleErrors).toEqual([]);
   });
 });

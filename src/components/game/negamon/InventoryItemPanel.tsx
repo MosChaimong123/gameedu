@@ -8,6 +8,7 @@ import { getNegamonBattleItemCatalog } from "@/lib/game-negamon";
 import type { GameItemEffect } from "@/lib/game-core";
 import { useLanguage } from "@/components/providers/language-provider";
 import { cn } from "@/lib/utils";
+import { formatNegamonItemEffect } from "./ui-content";
 
 function countItems(ids: string[]): Record<string, number> {
     return ids.reduce<Record<string, number>>((acc, id) => {
@@ -17,13 +18,7 @@ function countItems(ids: string[]): Record<string, number> {
 }
 
 function effectLabel(effect: GameItemEffect): string {
-    if (effect.kind === "stat_boost") return `${effect.stat.toUpperCase()} x${effect.multiplier}`;
-    if (effect.kind === "status_immunity") return `Immune ${effect.status}`;
-    if (effect.kind === "gold_bonus") return `Gold +${effect.amount}`;
-    if (effect.kind === "gold_multiplier") return `Gold x${effect.multiplier}`;
-    if (effect.kind === "restore_hp") return `HP +${effect.percent}%`;
-    if (effect.kind === "restore_energy") return `EN +${effect.amount}`;
-    return `Unlock ${effect.skillId}`;
+    return formatNegamonItemEffect(effect);
 }
 
 function EffectIcon({ effect }: { effect: GameItemEffect }) {
@@ -35,9 +30,11 @@ function EffectIcon({ effect }: { effect: GameItemEffect }) {
 
 export function InventoryItemPanel({
     inventory,
+    equippedItemIds = [],
     className,
 }: {
     inventory: string[];
+    equippedItemIds?: string[];
     className?: string;
 }) {
     const { t } = useLanguage();
@@ -46,6 +43,7 @@ export function InventoryItemPanel({
         () => getNegamonBattleItemCatalog().filter((item) => (counts[item.id] ?? 0) > 0),
         [counts]
     );
+    const equipped = useMemo(() => new Set(equippedItemIds), [equippedItemIds]);
 
     return (
         <section className={cn("rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5", className)}>
@@ -85,6 +83,11 @@ export function InventoryItemPanel({
                                         <Badge variant="outline" className="rounded-md text-[9px] font-black">
                                             {item.rarity}
                                         </Badge>
+                                        {equipped.has(item.id) ? (
+                                            <Badge className="rounded-md bg-emerald-600 text-[9px] font-black text-white">
+                                                Equipped
+                                            </Badge>
+                                        ) : null}
                                     </div>
                                     <p className="mt-1 text-xs font-medium leading-relaxed text-slate-600">
                                         {t(shopItemDescKey(item.id))}

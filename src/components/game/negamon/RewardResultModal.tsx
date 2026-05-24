@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Ban, Box, Coins, Sparkles, Star, WandSparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GameRewardResult } from "@/lib/game-core";
+import { summarizeNegamonReward } from "./ui-content";
 
 function blockedRewardLabel(reason: GameRewardResult["blockedReason"]) {
     if (reason === "daily_cap") return "Daily reward limit reached";
@@ -76,6 +77,17 @@ export function RewardResultModal({
                                 </div>
                             ) : null}
 
+                            <div className="flex flex-wrap gap-1.5">
+                                {summarizeNegamonReward(reward).map((line) => (
+                                    <span
+                                        key={line}
+                                        className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600"
+                                    >
+                                        {line}
+                                    </span>
+                                ))}
+                            </div>
+
                             {!blockedLabel && !hasProgress ? (
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                                     <p className="text-xs font-black text-slate-700">No new rewards this time</p>
@@ -110,9 +122,16 @@ export function RewardResultModal({
                             {reward.levelUps.length > 0 ? (
                                 <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3">
                                     {reward.levelUps.map((levelUp) => (
-                                        <p key={`${levelUp.fromLevel}-${levelUp.toLevel}`} className="text-xs font-black text-indigo-950">
-                                            Level {levelUp.fromLevel} to {levelUp.toLevel}
-                                        </p>
+                                        <div key={`${levelUp.fromLevel}-${levelUp.toLevel}`} className="space-y-1">
+                                            <p className="text-xs font-black text-indigo-950">
+                                                Level {levelUp.fromLevel} to {levelUp.toLevel}
+                                            </p>
+                                            {levelUp.toRankIndex != null ? (
+                                                <p className="text-[11px] font-bold text-indigo-700">
+                                                    Form rank {levelUp.fromRankIndex ?? 0} to {levelUp.toRankIndex}
+                                                </p>
+                                            ) : null}
+                                        </div>
                                     ))}
                                 </div>
                             ) : null}

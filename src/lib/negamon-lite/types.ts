@@ -15,9 +15,11 @@ export type NegamonLiteStats = {
     speed: number;
 };
 
+export type NegamonLiteEffectStat = keyof Omit<NegamonLiteStats, "hp"> | "accuracy";
+
 export type NegamonLiteMoveEffect =
-    | { kind: "buff"; stat: keyof Omit<NegamonLiteStats, "hp">; stages: number }
-    | { kind: "debuff"; stat: keyof Omit<NegamonLiteStats, "hp">; stages: number }
+    | { kind: "buff"; stat: NegamonLiteEffectStat; stages: number }
+    | { kind: "debuff"; stat: NegamonLiteEffectStat; stages: number }
     | { kind: "heal"; percent: number };
 
 export type NegamonLiteMove = {
@@ -31,6 +33,8 @@ export type NegamonLiteMove = {
     maxPp: number;
     energyCost?: number;
     priority?: number;
+    cooldownTurns?: number;
+    cooldownRemaining?: number;
     target: "opponent" | "self";
     effect?: NegamonLiteMoveEffect;
 };
@@ -47,6 +51,8 @@ export type NegamonLiteCombatant = {
     maxEnergy: number;
     moves: NegamonLiteMove[];
     status?: "BURN" | "POISON" | "PARALYZE" | "SLEEP";
+    accuracyStage?: number;
+    passiveTraitIds?: string[];
 };
 
 export type NegamonLiteBattleEvent = {
@@ -63,6 +69,8 @@ export type NegamonLiteBattleEvent = {
     stab?: boolean;
     typeMultiplier?: number;
     effectiveness?: "immune" | "resisted" | "normal" | "effective";
+    effect?: NegamonLiteMoveEffect;
+    effectApplied?: boolean;
     message: string;
 };
 
@@ -89,6 +97,7 @@ export type NegamonLiteChoiceDisabledReason =
     | "FAINTED"
     | "NO_PP"
     | "NO_ENERGY"
+    | "ON_COOLDOWN"
     | "INVALID_TARGET";
 
 export type NegamonLiteValidChoice = {

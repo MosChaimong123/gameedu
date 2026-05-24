@@ -7,6 +7,7 @@ import type {
     NegamonLiteBattleState,
     NegamonLiteChoice,
     NegamonLiteCombatant,
+    NegamonLiteEffectStat,
     NegamonLiteMove,
     NegamonLiteResolvedChoice,
     NegamonLiteStats,
@@ -23,6 +24,7 @@ function cloneCombatant(combatant: NegamonLiteCombatant): NegamonLiteCombatant {
         types: [...combatant.types],
         stats: { ...combatant.stats },
         moves: combatant.moves.map((move) => ({ ...move })),
+        passiveTraitIds: [...(combatant.passiveTraitIds ?? [])],
     };
 }
 
@@ -97,7 +99,7 @@ export function calculateDamage(input: {
     };
 }
 
-function applyStatEffect(stats: NegamonLiteStats, stat: keyof Omit<NegamonLiteStats, "hp">, stages: number): NegamonLiteStats {
+function applyStatEffect(stats: NegamonLiteStats, stat: Exclude<NegamonLiteEffectStat, "accuracy">, stages: number): NegamonLiteStats {
     const multiplier = Math.max(0.25, 1 + stages * STATUS_STAGE_STEP);
     return {
         ...stats,
@@ -105,31 +107,43 @@ function applyStatEffect(stats: NegamonLiteStats, stat: keyof Omit<NegamonLiteSt
     };
 }
 
+function getAccuracyMultiplier(combatant: NegamonLiteCombatant): number {
+    return Math.max(0.25, 1 + (combatant.accuracyStage ?? 0) * STATUS_STAGE_STEP);
+}
+
 function applyMoveEffect(args: {
     state: NegamonLiteBattleState;
     side: NegamonLiteBattleSide;
     targetSide: NegamonLiteBattleSide;
     move: NegamonLiteMove;
-}): { healing: number } {
+}): { healing: number; effectApplied: boolean } {
     const effect = args.move.effect;
-    if (!effect) return { healing: 0 };
+    if (!effect) return { healing: 0, effectApplied: false };
 
     if (effect.kind === "heal") {
         const target = args.state.sides[args.targetSide];
         const healing = Math.max(1, Math.floor(target.stats.hp * (effect.percent / 100)));
         target.hp = Math.min(target.stats.hp, target.hp + healing);
-        return { healing };
+        return { healing, effectApplied: true };
     }
 
     if (effect.kind === "buff") {
         const target = args.state.sides[args.targetSide];
-        target.stats = applyStatEffect(target.stats, effect.stat, Math.abs(effect.stages));
-        return { healing: 0 };
+        if (effect.stat === "accuracy") {
+            target.accuracyStage = (target.accuracyStage ?? 0) + Math.abs(effect.stages);
+        } else {
+            target.stats = applyStatEffect(target.stats, effect.stat, Math.abs(effect.stages));
+        }
+        return { healing: 0, effectApplied: true };
     }
 
     const target = args.state.sides[args.targetSide];
-    target.stats = applyStatEffect(target.stats, effect.stat, -Math.abs(effect.stages));
-    return { healing: 0 };
+    if (effect.stat === "accuracy") {
+        target.accuracyStage = (target.accuracyStage ?? 0) - Math.abs(effect.stages);
+    } else {
+        target.stats = applyStatEffect(target.stats, effect.stat, -Math.abs(effect.stages));
+    }
+    return { healing: 0, effectApplied: true };
 }
 
 function pushEvent(state: NegamonLiteBattleState, event: Omit<NegamonLiteBattleEvent, "id" | "turn"> & { idSuffix: string }) {
@@ -176,8 +190,10 @@ export function resolveChoice(state: NegamonLiteBattleState, choice: NegamonLite
     const target = nextState.sides[targetSide];
     move.pp = Math.max(0, move.pp - 1);
     actor.energy = Math.max(0, actor.energy - (move.energyCost ?? 0));
+    move.cooldownRemaining = Math.max(0, Math.floor(move.cooldownTurns ?? 0));
 
-    const missed = !rng.chance(move.accuracy);
+    const effectiveAccuracy = Math.max(0, Math.min(100, Math.floor(move.accuracy * getAccuracyMultiplier(actor))));
+    const missed = !rng.chance(effectiveAccuracy);
     const critical = !missed && move.category !== "STATUS" && rng.chance(CRIT_CHANCE_PERCENT);
     const damageResult = missed
         ? { damage: 0, stab: false, typeMultiplier: 1, effectiveness: "normal" as const }
@@ -188,7 +204,7 @@ export function resolveChoice(state: NegamonLiteBattleState, choice: NegamonLite
     }
 
     const effectResult = missed
-        ? { healing: 0 }
+        ? { healing: 0, effectApplied: false }
         : applyMoveEffect({ state: nextState, side: choice.side, targetSide, move });
 
     nextState.seed = rng.seed;
@@ -200,6 +216,8 @@ export function resolveChoice(state: NegamonLiteBattleState, choice: NegamonLite
         targetSide,
         damage: damageResult.damage,
         healing: effectResult.healing,
+        effect: move.effect,
+        effectApplied: effectResult.effectApplied,
         missed,
         critical,
         stab: damageResult.stab,

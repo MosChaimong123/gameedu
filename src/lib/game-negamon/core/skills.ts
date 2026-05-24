@@ -8,6 +8,7 @@ export type NegamonSkillTarget = "self" | "enemy" | "allEnemies" | "allAllies";
 export type NegamonSkillEffect =
     | { kind: "damage"; power: number }
     | { kind: "heal"; percent: number }
+    | { kind: "stat_stage"; stat: "attack" | "defense" | "speed" | "accuracy"; stages: number; target?: "self" | "enemy" }
     | { kind: "status"; effect: StatusEffect; chance: number; durationTurns?: number }
     | { kind: "self_status"; effect: StatusEffect; durationTurns?: number }
     | { kind: "drain"; percent: number }

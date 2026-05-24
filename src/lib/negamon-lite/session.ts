@@ -2,9 +2,9 @@ import type { LevelConfigInput } from "@/lib/classroom-utils";
 import {
     createNegamonMonsterSnapshot,
     createNegamonSkillLoadoutPlan,
-    getPrimaryLiteEffectForSkill,
+    applyNegamonPassiveRuntimeEffects,
+    mapNegamonSkillToLiteMove,
     type NegamonMonsterSnapshot,
-    type NegamonSkillDefinition,
 } from "@/lib/game-negamon";
 import type { GameHistoryEvent, GameRewardResult } from "@/lib/game-core";
 import type { NegamonProgressionPersistencePlan } from "@/lib/game-negamon/server/progression";
@@ -14,7 +14,6 @@ import type {
     NegamonLiteBattleState,
     NegamonLiteCombatant,
     NegamonLiteMove,
-    NegamonLiteMoveCategory,
     NegamonLiteType,
 } from "./types";
 import { NEGAMON_LITE_TYPES } from "./type-chart";
@@ -51,31 +50,6 @@ function createBattleSeed(...parts: Array<string | number>): number {
         hash = Math.imul(hash, 16777619);
     }
     return hash >>> 0;
-}
-
-function mapLiteMoveCategory(skill: NegamonSkillDefinition): NegamonLiteMoveCategory {
-    if (skill.category === "heal" || skill.category === "status" || skill.category === "buff" || skill.category === "debuff") {
-        return "STATUS";
-    }
-    return skill.sourceMove.category === "SPECIAL" ? "SPECIAL" : "PHYSICAL";
-}
-
-function mapSkillDefinition(skill: NegamonSkillDefinition): NegamonLiteMove {
-    const move = skill.sourceMove;
-    return {
-        id: skill.id,
-        name: skill.name,
-        type: skill.elementType as NegamonLiteType,
-        category: mapLiteMoveCategory(skill),
-        power: skill.power,
-        accuracy: skill.accuracy,
-        pp: 8,
-        maxPp: 8,
-        energyCost: skill.energyCost,
-        priority: skill.priority,
-        target: skill.target === "self" ? "self" : "opponent",
-        effect: getPrimaryLiteEffectForSkill(skill),
-    };
 }
 
 function fallbackMove(monster: NegamonMonsterSnapshot): NegamonLiteMove {
@@ -117,7 +91,8 @@ export function createNegamonLiteCombatant(input: {
     monster: NegamonMonsterSnapshot;
 }): NegamonLiteCombatant {
     const loadout = createNegamonSkillLoadoutPlan({ monster: input.monster });
-    const moves = loadout.skills.map(mapSkillDefinition);
+    const moves = loadout.skills.map(mapNegamonSkillToLiteMove);
+    const passive = applyNegamonPassiveRuntimeEffects(input.monster);
 
     return {
         id: input.student.id,
@@ -126,17 +101,18 @@ export function createNegamonLiteCombatant(input: {
         level: input.monster.level,
         types: toNegamonLiteTypes(input.monster.elementTypes),
         stats: {
-            hp: input.monster.derivedStats.maxHp,
-            attack: input.monster.derivedStats.atk,
-            defense: input.monster.derivedStats.def,
-            specialAttack: input.monster.derivedStats.atk,
-            specialDefense: input.monster.derivedStats.def,
-            speed: input.monster.derivedStats.spd,
+            hp: passive.stats.maxHp,
+            attack: passive.stats.atk,
+            defense: passive.stats.def,
+            specialAttack: passive.stats.atk,
+            specialDefense: passive.stats.def,
+            speed: passive.stats.spd,
         },
-        hp: input.monster.derivedStats.maxHp,
-        energy: input.monster.derivedStats.maxEnergy,
-        maxEnergy: input.monster.derivedStats.maxEnergy,
+        hp: passive.stats.maxHp,
+        energy: passive.maxEnergy,
+        maxEnergy: passive.maxEnergy,
         moves: moves.length > 0 ? moves : [fallbackMove(input.monster)],
+        passiveTraitIds: passive.passiveTraitIds,
     };
 }
 

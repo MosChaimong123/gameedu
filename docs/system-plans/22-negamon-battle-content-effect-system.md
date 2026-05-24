@@ -114,15 +114,15 @@ Goal:
 
 Tasks:
 
-- [ ] Add skill effect resolver to battle engine V2
-- [ ] Support damage skills with element/type modifiers
-- [ ] Support heal skills
-- [ ] Support buff/debuff skills for attack, defense, speed, and accuracy
-- [ ] Support passive traits that apply at battle start
-- [ ] Add cooldown and cost rules if selected
-- [ ] Add deterministic battle log events for each skill effect
-- [ ] Add invalid loadout handling for unavailable or locked skills
-- [ ] Add tests for damage, heal, buff, debuff, passive, and locked-skill cases
+- [x] Add skill effect resolver to battle engine V2
+- [x] Support damage skills with element/type modifiers
+- [x] Support heal skills
+- [x] Support buff/debuff skills for attack, defense, speed, and accuracy
+- [x] Support passive traits that apply at battle start
+- [x] Add cooldown and cost rules if selected
+- [x] Add deterministic battle log events for each skill effect
+- [x] Add invalid loadout handling for unavailable or locked skills
+- [x] Add tests for damage, heal, buff, debuff, passive, and locked-skill cases
 
 Exit criteria:
 
@@ -135,6 +135,24 @@ Suggested first skill set:
 - `spark_dash`: speed buff and light damage
 - `minor_heal`: restore HP
 - `focus_mark`: accuracy buff or opponent defense debuff
+
+Status: completed on 2026-05-24 as Skill Effect Runtime V2.
+
+Phase 26 implementation notes:
+
+- Added `src/lib/game-negamon/core/skill-effects.ts` as the server-authoritative skill runtime resolver.
+- Centralized skill-to-lite-battle move mapping so session setup no longer owns skill effect translation.
+- Runtime skill effects now cover damage, heal, buff, debuff, accuracy stage changes, and energy cost.
+- Lite battle events now include `effect` and `effectApplied` metadata for deterministic battle logs.
+- Lite battle moves now carry `cooldownTurns` and `cooldownRemaining`; unavailable cooldown moves return `ON_COOLDOWN`.
+- Passive traits can apply at battle setup through `applyNegamonPassiveRuntimeEffects`, currently covering `iron_shell`, `tailwind`, `aerial_strike`, and `volt_flow` runtime hooks.
+- Student combatants now carry applied `passiveTraitIds` for later UI/log rendering.
+- Locked/unavailable skill behavior remains enforced by existing loadout validation and battle choice validation.
+- Added focused tests in `src/lib/game-negamon/__tests__/skill-effects.test.ts`.
+
+Phase 26 validation notes:
+
+- Passed targeted skill/runtime and lite battle tests before closing implementation.
 
 ## Phase 27: Item Effect Runtime V2
 

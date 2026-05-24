@@ -27,6 +27,7 @@ function getDisabledReason(
     if (target.hp <= 0 && move.target === "opponent") return "INVALID_TARGET";
     if (move.pp <= 0) return "NO_PP";
     if ((move.energyCost ?? 0) > actor.energy) return "NO_ENERGY";
+    if ((move.cooldownRemaining ?? 0) > 0) return "ON_COOLDOWN";
     return undefined;
 }
 

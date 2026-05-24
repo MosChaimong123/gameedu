@@ -1,9 +1,9 @@
-import type { NegamonLiteMoveEffect, NegamonLiteStats } from "@/lib/negamon-lite";
+import type { NegamonLiteEffectStat, NegamonLiteMoveEffect } from "@/lib/negamon-lite";
 import type { NegamonSkillDefinition, NegamonSkillEffect } from "./skills";
 
 export type NegamonBattleStatusEffect = NegamonSkillEffect;
 
-const STATUS_TO_LITE_STAT: Partial<Record<string, keyof Omit<NegamonLiteStats, "hp">>> = {
+const STATUS_TO_LITE_STAT: Partial<Record<string, NegamonLiteEffectStat>> = {
     BOOST_ATK: "attack",
     BOOST_DEF: "defense",
     BOOST_DEF_20: "defense",

@@ -9,6 +9,7 @@ export * from "./core/learning-rewards";
 export * from "./core/monster-growth";
 export * from "./core/monster-snapshot";
 export * from "./core/skill-unlock";
+export * from "./core/skill-effects";
 export * from "./core/skills";
 export * from "./core/status-effects";
 export * from "./core/species";

@@ -127,6 +127,28 @@ export function createNegamonLearningRewardFinalizationPlan(input: {
             createdAt: input.createdAt ?? new Date(0),
         })
     );
+    const evolutionEvents = progression.evolutionUnlocks.map((unlock) =>
+        createGameHistoryEvent({
+            id: createGameHistoryId({
+                gameKind: "negamon",
+                kind: "evolution_unlocked",
+                studentId: input.studentId,
+                refId: `${input.sourceId}:${unlock.formRank}`,
+            }),
+            kind: "evolution_unlocked",
+            gameKind: "negamon",
+            studentId: input.studentId,
+            classId: input.classId ?? undefined,
+            sessionId: input.sourceId,
+            titleKey: "negamonEvolutionUnlockedHistoryTitle",
+            descriptionKey: unlock.formName ?? `rank:${unlock.formRank}`,
+            reward: createGameRewardResult({
+                exp: input.expReward,
+                idempotencyKey,
+            }),
+            createdAt: input.createdAt ?? new Date(0),
+        })
+    );
 
     return {
         ok: true,
@@ -134,6 +156,6 @@ export function createNegamonLearningRewardFinalizationPlan(input: {
         reward,
         progression,
         auditEvent,
-        historyEvents: [auditEvent, ...levelEvents, ...skillEvents],
+        historyEvents: [auditEvent, ...levelEvents, ...skillEvents, ...evolutionEvents],
     };
 }

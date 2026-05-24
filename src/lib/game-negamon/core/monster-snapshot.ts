@@ -18,6 +18,12 @@ import {
     calculateNegamonStats,
     normalizeNegamonRankIndex,
 } from "./monster-growth";
+import {
+    createNegamonEvolutionSnapshot,
+    createNegamonTraitSnapshot,
+    type NegamonEvolutionProgressSnapshot,
+    type NegamonMonsterTraitSnapshot,
+} from "./monster-traits";
 import { findNegamonSpeciesById } from "./species";
 import type { NegamonSkillDefinition } from "./skills";
 import { createNegamonSkillDefinition } from "./skills";
@@ -46,6 +52,9 @@ export type NegamonMonsterSnapshot = GameMonsterSnapshot & {
     derivedStats: NegamonDerivedStats;
     ability?: PassiveAbility;
     abilityId?: string;
+    trait?: NegamonMonsterTraitSnapshot;
+    traitId?: string;
+    evolution: NegamonEvolutionProgressSnapshot;
     unlockedSkillIds: string[];
     equippedSkillIds: string[];
     equippedItemIds: string[];
@@ -184,6 +193,13 @@ export function createNegamonMonsterSnapshotFromState(input: {
         stats: input.monster.stats,
         unlockedMoves,
     });
+    const trait = createNegamonTraitSnapshot(input.monster.ability);
+    const evolution = createNegamonEvolutionSnapshot({
+        species: input.species,
+        rankIndex,
+        level: progress.level,
+        currentFormName: input.monster.form.name,
+    });
 
     return {
         ...gameSnapshot,
@@ -207,6 +223,9 @@ export function createNegamonMonsterSnapshotFromState(input: {
         },
         ability: input.monster.ability,
         abilityId: input.monster.ability?.id,
+        trait,
+        traitId: trait?.id,
+        evolution,
         unlockedSkillIds: fallbackSkillCatalog.map((skill) => skill.id),
         equippedSkillIds: loadout.normalizedSkillIds,
         equippedItemIds: input.equippedItemIds ?? [],

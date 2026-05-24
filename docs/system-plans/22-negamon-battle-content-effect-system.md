@@ -212,17 +212,25 @@ Goal:
 
 Tasks:
 
-- [ ] Add monster species trait catalog
-- [ ] Add trait application at battle start
-- [ ] Add form/evolution rules based on level, rank, quest milestones, or teacher unlocks
-- [ ] Add monster snapshot fields for species, form, trait, and next evolution progress
-- [ ] Add UI display for trait and next evolution requirement
-- [ ] Add history events for evolution/form unlock
-- [ ] Add tests for trait application and evolution threshold
+- [x] Add monster species trait catalog
+- [x] Add trait application at battle start
+- [x] Add form/evolution rules based on level, rank, quest milestones, or teacher unlocks
+- [x] Add monster snapshot fields for species, form, trait, and next evolution progress
+- [x] Add UI display for trait and next evolution requirement
+- [x] Add history events for evolution/form unlock
+- [x] Add tests for trait application and evolution threshold
 
 Exit criteria:
 
 - monster profile can show a clear next growth goal and battle behavior changes by species/form
+
+Phase 28 completion notes:
+
+- Added `monster-traits` core helpers for passive trait snapshots, evolution rules, next evolution progress, and form unlock summaries.
+- Monster snapshots now expose `trait`, `traitId`, and `evolution` so the UI and reward systems read the same V2 contract.
+- Monster profile UI now shows trait timing and next evolution progress.
+- Battle and learning reward finalization now add `evolution_unlocked` history events whenever rank progression crosses a new form threshold.
+- Added focused tests for trait snapshots, evolution thresholds, monster snapshot fields, and reward history events.
 
 Suggested first species roles:
 

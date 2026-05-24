@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Activity, Heart, Shield, Sparkles, Sword, Zap } from "lucide-react";
+import { Activity, GitBranch, Heart, Shield, Sparkles, Sword, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 import type { NegamonMonsterSnapshot } from "@/lib/game-negamon";
@@ -134,15 +134,43 @@ export function MonsterProfilePanel({
                         })}
                     </div>
 
-                    {monster.ability ? (
+                    {monster.trait ? (
                         <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
                             <p className="mb-1 flex items-center gap-1.5 text-xs font-black text-emerald-900">
                                 <Sparkles className="h-3.5 w-3.5" />
-                                {monster.ability.name}
+                                {monster.trait.name}
                             </p>
-                            <p className="text-xs font-medium leading-relaxed text-emerald-800">{monster.ability.desc}</p>
+                            <p className="text-xs font-medium leading-relaxed text-emerald-800">
+                                {monster.trait.description}
+                            </p>
+                            <p className="mt-2 text-[10px] font-black uppercase text-emerald-700">
+                                Trait applies: {monster.trait.appliesAt.replace("_", " ")}
+                            </p>
                         </div>
                     ) : null}
+
+                    <div className="rounded-xl border border-violet-100 bg-violet-50 p-3">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                            <p className="flex items-center gap-1.5 text-xs font-black text-violet-950">
+                                <GitBranch className="h-3.5 w-3.5" />
+                                Evolution
+                            </p>
+                            <span className="text-xs font-black tabular-nums text-violet-800">
+                                {monster.evolution.progressPercent}%
+                            </span>
+                        </div>
+                        <p className="text-xs font-medium leading-relaxed text-violet-800">
+                            {monster.evolution.next
+                                ? `Next form: ${monster.evolution.next.formName} at level ${monster.evolution.next.requiredLevel}`
+                                : "Max form unlocked"}
+                        </p>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
+                            <div
+                                className="h-full rounded-full bg-violet-500"
+                                style={{ width: `${monster.evolution.progressPercent}%` }}
+                            />
+                        </div>
+                    </div>
 
                     <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-500">
                         <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1">

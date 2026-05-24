@@ -18,6 +18,7 @@ import {
     NEGAMON_BATTLE_GOLD_REWARD_BASE,
 } from "./battle-constants";
 import type { NegamonMonsterSnapshot } from "./monster-snapshot";
+import { createNegamonEvolutionUnlocks, type NegamonEvolutionUnlockSummary } from "./monster-traits";
 
 export type NegamonRewardOutcome = "win" | "loss" | "draw";
 
@@ -30,6 +31,7 @@ export type NegamonProgressionRewardSummary = {
     rankIndexAfter: number;
     levelUps: GameLevelUpSummary[];
     unlockedSkillIds: string[];
+    evolutionUnlocks: NegamonEvolutionUnlockSummary[];
 };
 
 export type NegamonBattleRewardFinalizationPlan =
@@ -121,6 +123,10 @@ export function calculateNegamonProgressionReward(input: {
     const unlockedSkillIds = (input.unlockedSkillIdsAfter ?? [])
         .map((id) => id.trim())
         .filter((id) => id && !beforeSkills.has(id));
+    const evolutionUnlocks = createNegamonEvolutionUnlocks({
+        fromRankIndex: rankIndexBefore,
+        toRankIndex: rankIndexAfter,
+    });
 
     return {
         expBefore,
@@ -131,6 +137,7 @@ export function calculateNegamonProgressionReward(input: {
         rankIndexAfter,
         levelUps,
         unlockedSkillIds,
+        evolutionUnlocks,
     };
 }
 
@@ -281,6 +288,25 @@ export function createNegamonBattleRewardFinalizationPlan(input: {
             createdAt: input.createdAt ?? new Date(0),
         })
     );
+    const evolutionEvents = progression.evolutionUnlocks.map((unlock) =>
+        createGameHistoryEvent({
+            id: createGameHistoryId({
+                gameKind: "negamon",
+                kind: "evolution_unlocked",
+                studentId: input.studentId,
+                refId: `${input.sessionId}:${unlock.formRank}`,
+            }),
+            kind: "evolution_unlocked",
+            gameKind: "negamon",
+            studentId: input.studentId,
+            classId: input.classId ?? undefined,
+            sessionId: input.sessionId,
+            titleKey: "negamonEvolutionUnlockedHistoryTitle",
+            descriptionKey: unlock.formName ?? `rank:${unlock.formRank}`,
+            reward: createGameRewardResult({ exp: expReward, levelUps: [], idempotencyKey }),
+            createdAt: input.createdAt ?? new Date(0),
+        })
+    );
 
     return {
         ok: true,
@@ -290,6 +316,6 @@ export function createNegamonBattleRewardFinalizationPlan(input: {
         inventoryChange,
         economyMutation,
         auditEvent,
-        historyEvents: [auditEvent, ...levelEvents, ...skillEvents],
+        historyEvents: [auditEvent, ...levelEvents, ...skillEvents, ...evolutionEvents],
     };
 }

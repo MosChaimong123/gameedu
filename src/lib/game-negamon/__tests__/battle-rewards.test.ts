@@ -41,6 +41,13 @@ describe("Negamon progression and reward contracts", () => {
             rankIndexBefore: 1,
             rankIndexAfter: 2,
             unlockedSkillIds: ["naga-aqua-jet"],
+            evolutionUnlocks: [
+                {
+                    fromRankIndex: 1,
+                    toRankIndex: 2,
+                    formRank: 2,
+                },
+            ],
         });
         expect(summary.levelUps).toEqual([
             {
@@ -95,6 +102,7 @@ describe("Negamon progression and reward contracts", () => {
             "reward_granted",
             "level_up",
             "skill_unlocked",
+            "evolution_unlocked",
         ]);
     });
 

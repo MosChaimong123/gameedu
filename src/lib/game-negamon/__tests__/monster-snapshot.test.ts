@@ -84,6 +84,20 @@ describe("Negamon character and monster contracts", () => {
             exp: 250,
             elementTypes: ["WATER", "DARK"],
             abilityId: "acid_rain",
+            traitId: "trait_acid_rain",
+        });
+        expect(snapshot?.trait).toMatchObject({
+            id: "trait_acid_rain",
+            appliesAt: "turn_end",
+        });
+        expect(snapshot?.evolution).toMatchObject({
+            currentRankIndex: 2,
+            currentLevel: 3,
+            next: {
+                requiredRankIndex: 3,
+                requiredLevel: 4,
+            },
+            progressPercent: 66,
         });
         expect(snapshot?.derivedStats.maxHp).toBe(snapshot?.stats.hp);
         expect(snapshot?.unlockedSkillIds).toContain("naga-aqua-jet");

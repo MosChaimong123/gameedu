@@ -2,6 +2,7 @@ import type { GameItemDefinition, GameItemEffect, GameItemRarity } from "@/lib/g
 import type { MonsterSpecies, MonsterType, PassiveAbility, StatusEffect } from "@/lib/types/negamon";
 import { getNegamonBattleItemCatalog, type NegamonBattleItemDefinition } from "../battle-items";
 import { calculateNegamonBattleExpReward, calculateNegamonBattleGoldReward } from "../battle-rewards";
+import { createNegamonEvolutionRules, createNegamonTraitSnapshot } from "../monster-traits";
 import { getNegamonSpeciesSkillCatalog, type NegamonSkillDefinition } from "../skills";
 import { getNegamonSpeciesCatalog } from "../species";
 
@@ -146,16 +147,8 @@ function inferGrowthCurve(species: MonsterSpecies): NegamonGrowthCurve {
 }
 
 function mapAbilityToTrait(ability: PassiveAbility | undefined): NegamonTraitDefinition[] {
-    if (!ability) return [];
-    return [
-        {
-            id: `trait_${ability.id}`,
-            name: ability.name,
-            description: ability.desc,
-            sourceAbilityId: ability.id,
-            appliesAt: ability.id === "volt_flow" || ability.id === "acid_rain" ? "turn_end" : "battle_start",
-        },
-    ];
+    const trait = createNegamonTraitSnapshot(ability);
+    return trait ? [trait] : [];
 }
 
 function createMonsterContentDefinition(species: MonsterSpecies): NegamonMonsterContentDefinition {
@@ -167,12 +160,7 @@ function createMonsterContentDefinition(species: MonsterSpecies): NegamonMonster
         baseStats: species.baseStats,
         growthCurve: inferGrowthCurve(species),
         traits: mapAbilityToTrait(species.ability),
-        evolutionRules: species.forms.map((form) => ({
-            formRank: form.rank,
-            formName: form.name,
-            requiredRankIndex: form.rank,
-            requiredLevel: form.rank + 1,
-        })),
+        evolutionRules: createNegamonEvolutionRules(species),
         species,
     };
 }

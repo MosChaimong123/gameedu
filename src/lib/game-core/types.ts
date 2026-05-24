@@ -145,7 +145,8 @@ export type GameHistoryEventKind =
     | "battle_finished"
     | "reward_granted"
     | "level_up"
-    | "skill_unlocked";
+    | "skill_unlocked"
+    | "evolution_unlocked";
 
 export type GameHistoryEvent = {
     id: string;

@@ -49,6 +49,7 @@ describe("Negamon learning rewards", () => {
             "reward_granted",
             "level_up",
             "skill_unlocked",
+            "evolution_unlocked",
         ]);
     });
 });

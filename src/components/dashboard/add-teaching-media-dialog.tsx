@@ -13,8 +13,9 @@ import {
     Youtube,
 } from "lucide-react";
 import { createTeachingMedia } from "@/lib/actions/teaching-media-actions";
-import { defaultBoardFileUpload } from "@/lib/board-upload-client";
+import { uploadBoardFileWithProgress } from "@/lib/board-upload-client";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
     Dialog,
     DialogContent,
@@ -63,6 +64,10 @@ export function AddTeachingMediaDialog({
     const [youtubeUrl, setYoutubeUrl] = useState("");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<{
+        percent: number;
+        label: string;
+    } | null>(null);
 
     const needsUpload = mediaType === "file" || mediaType === "image" || mediaType === "video";
 
@@ -72,10 +77,12 @@ export function AddTeachingMediaDialog({
         setLinkUrl("");
         setYoutubeUrl("");
         setSelectedFile(null);
+        setUploadProgress(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
     }
 
     function handleOpenChange(next: boolean) {
+        if (!next && isSubmitting) return;
         setOpen(next);
         if (!next) resetForm();
     }
@@ -100,6 +107,7 @@ export function AddTeachingMediaDialog({
         }
 
         setIsSubmitting(true);
+        setUploadProgress(null);
         try {
             if (mediaType === "link") {
                 if (!linkUrl.trim()) {
@@ -133,7 +141,16 @@ export function AddTeachingMediaDialog({
                     toast({ variant: "destructive", title: "กรุณาเลือกไฟล์" });
                     return;
                 }
-                const uploadRes = await defaultBoardFileUpload(selectedFile);
+                setUploadProgress({ percent: 0, label: "กำลังอัปโหลดไฟล์..." });
+                const uploadRes = await uploadBoardFileWithProgress(selectedFile, {
+                    onByteProgress: ({ percent }) => {
+                        setUploadProgress({
+                            percent,
+                            label: "กำลังอัปโหลดไฟล์...",
+                        });
+                    },
+                });
+                setUploadProgress({ percent: 100, label: "กำลังบันทึกในคลัง..." });
                 const mime = uploadRes.type ?? selectedFile.type;
                 const resolvedType: MediaType =
                     mediaType === "image"
@@ -172,6 +189,7 @@ export function AddTeachingMediaDialog({
             });
         } finally {
             setIsSubmitting(false);
+            setUploadProgress(null);
         }
     }
 
@@ -299,6 +317,25 @@ export function AddTeachingMediaDialog({
                             </div>
                         )}
 
+                        {uploadProgress && (
+                            <div className="space-y-2 rounded-2xl border border-indigo-100 bg-indigo-50/80 p-3">
+                                <div className="flex items-center justify-between gap-2 text-xs font-bold text-indigo-900">
+                                    <span>{uploadProgress.label}</span>
+                                    <span className="tabular-nums">{uploadProgress.percent}%</span>
+                                </div>
+                                <Progress
+                                    value={uploadProgress.percent}
+                                    className="h-2.5 bg-indigo-100"
+                                    indicatorClassName="bg-indigo-600 transition-all duration-150"
+                                />
+                                {selectedFile && (
+                                    <p className="truncate text-[10px] font-medium text-indigo-700/80">
+                                        {selectedFile.name}
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
                         <DialogFooter className="gap-2 sm:gap-0">
                             <Button
                                 type="button"
@@ -312,7 +349,9 @@ export function AddTeachingMediaDialog({
                                 {isSubmitting ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        กำลังบันทึก...
+                                        {uploadProgress
+                                            ? `${uploadProgress.label} ${uploadProgress.percent}%`
+                                            : "กำลังบันทึก..."}
                                     </>
                                 ) : (
                                     "บันทึกในคลัง"

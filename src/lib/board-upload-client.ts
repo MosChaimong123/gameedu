@@ -15,33 +15,108 @@ export type BoardUploadResult = {
     type?: string;
 };
 
+export type BoardUploadByteProgress = {
+    loaded: number;
+    total: number;
+    percent: number;
+};
+
+export type BoardFileUploadOptions = {
+    classId?: string;
+    signal?: AbortSignal;
+    onByteProgress?: (progress: BoardUploadByteProgress) => void;
+};
+
+function parseUploadErrorMessage(status: number, body: unknown): string {
+    if (body && typeof body === "object" && "error" in body) {
+        const error = (body as { error?: { message?: unknown } }).error;
+        if (typeof error?.message === "string") return error.message;
+    }
+    return `Upload failed (${status})`;
+}
+
+export function uploadBoardFileWithProgress(
+    file: File,
+    options: BoardFileUploadOptions = {}
+): Promise<BoardUploadResult> {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const formData = new FormData();
+        formData.append("file", file);
+        if (options.classId) {
+            formData.append("classId", options.classId);
+        }
+
+        const abortUpload = () => {
+            xhr.abort();
+        };
+
+        if (options.signal) {
+            if (options.signal.aborted) {
+                reject(new DOMException("Upload cancelled", "AbortError"));
+                return;
+            }
+            options.signal.addEventListener("abort", abortUpload, { once: true });
+        }
+
+        xhr.upload.addEventListener("progress", (event) => {
+            if (!options.onByteProgress) return;
+            const total = event.lengthComputable ? event.total : file.size;
+            const loaded = event.loaded;
+            const percent =
+                total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
+            options.onByteProgress({ loaded, total, percent });
+        });
+
+        xhr.addEventListener("load", () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const parsed = JSON.parse(xhr.responseText) as BoardUploadResult;
+                    options.onByteProgress?.({
+                        loaded: file.size,
+                        total: file.size,
+                        percent: 100,
+                    });
+                    resolve(parsed);
+                } catch {
+                    reject(new Error("Upload response was not valid JSON"));
+                }
+                return;
+            }
+
+            let body: unknown;
+            try {
+                body = JSON.parse(xhr.responseText);
+            } catch {
+                body = null;
+            }
+            reject(new Error(parseUploadErrorMessage(xhr.status, body)));
+        });
+
+        xhr.addEventListener("error", () => {
+            reject(new Error("Upload failed (network error)"));
+        });
+
+        xhr.addEventListener("abort", () => {
+            reject(new DOMException("Upload cancelled", "AbortError"));
+        });
+
+        xhr.open("POST", "/api/upload");
+        xhr.send(formData);
+    });
+}
+
 export async function defaultBoardFileUpload(
     file: File,
-    classId?: string,
+    classIdOrOptions?: string | BoardFileUploadOptions,
     signal?: AbortSignal
 ): Promise<BoardUploadResult> {
-    const formData = new FormData();
-    formData.append("file", file);
-    if (classId) {
-        formData.append("classId", classId);
-    }
+    const options: BoardFileUploadOptions =
+        typeof classIdOrOptions === "string"
+            ? { classId: classIdOrOptions, signal }
+            : { ...classIdOrOptions, signal: classIdOrOptions?.signal ?? signal };
 
-    const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-        signal,
-    });
-
-    if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const message =
-            typeof body?.error?.message === "string"
-                ? body.error.message
-                : `Upload failed (${res.status})`;
-        throw new Error(message);
-    }
-
-    return res.json();
+    return uploadBoardFileWithProgress(file, options);
 }
 
 export async function uploadBoardFilesParallel(

@@ -49,8 +49,51 @@ describe("recordEconomyTransaction idempotency", () => {
         amount: 5,
         balanceBefore: 10,
         balanceAfter: 15,
+        sourceRefId: null,
         idempotencyKey: input.idempotencyKey,
       }),
+    });
+  });
+
+  it("stores Mongo ObjectIds in sourceRefId but omits shop/quest slug refs", async () => {
+    const sessionId = "507f1f77bcf86cd799439011";
+    const db = {
+      economyTransaction: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: "ledger-1" }),
+      },
+    };
+
+    await recordEconomyTransaction(db as never, {
+      studentId: "student-1",
+      type: "spend",
+      source: "shop",
+      amount: -900,
+      balanceBefore: 1000,
+      balanceAfter: 100,
+      sourceRefId: "held_echo_battery",
+      metadata: { itemId: "held_echo_battery" },
+    });
+
+    expect(db.economyTransaction.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        sourceRefId: null,
+        metadata: { itemId: "held_echo_battery" },
+      }),
+    });
+
+    await recordEconomyTransaction(db as never, {
+      studentId: "student-1",
+      type: "earn",
+      source: "battle",
+      amount: 30,
+      balanceBefore: 100,
+      balanceAfter: 130,
+      sourceRefId: sessionId,
+    });
+
+    expect(db.economyTransaction.create).toHaveBeenLastCalledWith({
+      data: expect.objectContaining({ sourceRefId: sessionId }),
     });
   });
 

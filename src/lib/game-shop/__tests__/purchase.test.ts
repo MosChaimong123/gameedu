@@ -32,7 +32,7 @@ describe("game-shop purchase contracts", () => {
                 balanceBefore: 250,
                 balanceAfter: 150,
                 sourceRefId: "frame_fire_t1",
-                idempotencyKey: "shop:student-1:frame:frame_fire_t1",
+                idempotencyKey: "shop:student-1:single:frame_fire_t1",
             },
             inventoryChange: {
                 consumedItemIds: [],
@@ -41,17 +41,26 @@ describe("game-shop purchase contracts", () => {
         });
     });
 
-    it("allows stackable battle item purchases but blocks duplicate frames", () => {
+    it("blocks duplicate held items and frames but allows stackable consumables", () => {
         expect(
             createShopPurchasePlan({
                 studentId: "student-1",
                 gold: 500,
-                inventory: ["item_buckler"],
-                item: { id: "item_buckler", type: "battle_item", price: 100 },
+                inventory: ["held_guard_core"],
+                item: { id: "held_guard_core", type: "battle_item", price: 100 },
+            })
+        ).toEqual({ ok: false, reason: "already_owned" });
+
+        expect(
+            createShopPurchasePlan({
+                studentId: "student-1",
+                gold: 500,
+                inventory: ["use_vital_vial"],
+                item: { id: "use_vital_vial", type: "battle_item", price: 150 },
             })
         ).toMatchObject({
             ok: true,
-            inventoryChange: { grantedItemIds: ["item_buckler"] },
+            inventoryChange: { grantedItemIds: ["use_vital_vial"] },
         });
 
         expect(
@@ -69,7 +78,11 @@ describe("game-shop purchase contracts", () => {
             id: "frame_fire_t1",
             type: "frame",
         });
-        expect(getGameShopFrameItemById("item_buckler")).toBeNull();
+        expect(getGameShopCatalogItemById("item_buckler")).toMatchObject({
+            id: "held_guard_core",
+            type: "battle_item",
+        });
+        expect(getGameShopFrameItemById("held_guard_core")).toBeNull();
         expect(groupGameShopBattleItems().length).toBeGreaterThan(0);
     });
 });

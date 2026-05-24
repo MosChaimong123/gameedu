@@ -67,7 +67,7 @@ describe("Negamon V3 ability and item hook framework", () => {
     it("applies battle-start ability and item hooks", () => {
         const combatant = makeCombatant({
             abilityId: "iron_shell",
-            battleItemIds: ["item_iron_shield", "item_lucky_coin"],
+            battleItemIds: ["held_guard_core", "reward_lucky_coin"],
         });
 
         const { timeline } = applyRuntimeHooks({
@@ -163,7 +163,7 @@ describe("Negamon V3 ability and item hook framework", () => {
 
     it("maps status immunity items into runtime hook protection", () => {
         const combatant = makeCombatant({
-            battleItemIds: ["item_antidote_charm"],
+            battleItemIds: ["held_clear_mind_charm"],
         });
 
         applyRuntimeHooks({

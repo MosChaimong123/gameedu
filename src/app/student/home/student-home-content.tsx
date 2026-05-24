@@ -13,6 +13,7 @@ import {
 import { useLanguage } from "@/components/providers/language-provider";
 import { assignmentFormTypeLabel } from "@/lib/assignment-form-type-label";
 import { LanguageToggle } from "@/components/language-toggle";
+import { formatPointHistoryReason } from "@/lib/point-history-reason";
 
 export type StudentHomeSerializableAssignment = {
     id: string;
@@ -216,7 +217,9 @@ export function StudentHomeContent({
                                             <div className="space-y-1.5">
                                                 {record.history.slice(0, 3).map((h) => (
                                                     <div key={h.id} className="flex items-center justify-between px-1 text-sm">
-                                                        <span className="text-xs text-slate-600">{h.reason}</span>
+                                                        <span className="text-xs text-slate-600">
+                                                            {formatPointHistoryReason(h.reason, t)}
+                                                        </span>
                                                         <span
                                                             className={`text-sm font-bold ${h.value > 0 ? "text-green-600" : "text-red-500"}`}
                                                         >

@@ -26,6 +26,7 @@ exports.resolveNegamonSpeciesCatalog = resolveNegamonSpeciesCatalog;
 exports.formatAmount = formatAmount;
 exports.getActiveGoldMultiplier = getActiveGoldMultiplier;
 const gamification_settings_1 = require("@/lib/services/classroom-settings/gamification-settings");
+const negamon_compat_1 = require("@/lib/negamon-compat");
 /** Helpers for custom classroom themes */
 function getThemeBgClass(theme) {
     if (!theme)
@@ -221,7 +222,6 @@ function getNextRankProgress(totalPoints, levelConfig) {
         pointsNeeded: nextRank.minScore - totalPoints
     };
 }
-const negamon_species_1 = require("./negamon-species");
 /** ลำดับจุดบนวง UI = ทิศทามลูกศรชนะทาง ×2 (น้ำ→ไฟ→ลม→ดิน→ไฟฟ้า→น้ำ) */
 exports.NEGAMON_ELEMENT_CYCLE_ORDER = [
     "WATER",
@@ -305,17 +305,20 @@ function getRankIndex(points, levelConfig) {
 }
 /** ดึง Monster form + species ของนักเรียน */
 function getStudentMonsterState(studentId, points, levelConfig, negamon) {
-    var _a, _b, _c;
-    const speciesId = (_a = negamon.studentMonsters) === null || _a === void 0 ? void 0 : _a[studentId];
+    var _a, _b;
+    const speciesCatalog = (0, negamon_compat_1.resolveNegamonRuntimeSpeciesCatalog)(negamon.species);
+    const speciesId = (0, negamon_compat_1.resolveNegamonAssignedSpeciesId)({
+        rawSpeciesId: (_a = negamon.studentMonsters) === null || _a === void 0 ? void 0 : _a[studentId],
+        allowStudentChoice: negamon.allowStudentChoice,
+        speciesCatalog,
+    });
     if (!speciesId)
         return null;
-    // DEFAULT_NEGAMON_SPECIES เป็น source of truth เสมอ (ค่า stats/moves อัพเดตจากโค้ด)
-    // fallback ไป DB species เฉพาะกรณีครูสร้าง custom species เองที่ไม่มีใน DEFAULT
-    const species = (_b = negamon_species_1.DEFAULT_NEGAMON_SPECIES.find((s) => s.id === speciesId)) !== null && _b !== void 0 ? _b : negamon.species.find((s) => s.id === speciesId);
+    const species = speciesCatalog.find((entry) => entry.id === speciesId);
     if (!species)
         return null;
     const rankIndex = getRankIndex(points, levelConfig);
-    const form = (_c = species.forms[rankIndex]) !== null && _c !== void 0 ? _c : species.forms[0];
+    const form = (_b = species.forms[rankIndex]) !== null && _b !== void 0 ? _b : species.forms[0];
     const stats = calcMonsterStats(species.baseStats, rankIndex);
     const unlockedMoves = getUnlockedMoves(species, rankIndex, negamon.disabledMoves);
     const type2 = species.type2;
@@ -422,11 +425,7 @@ function getNegamonSettings(gamifiedSettings) {
  * ถ้า id ตรงกับชุดในโค้ด ให้ใช้ข้อมูลจากโค้ดเพื่อให้บาลานซ์อัปเดตตามเวอร์ชันเกม
  */
 function resolveNegamonSpeciesCatalog(negamon) {
-    const raw = negamon === null || negamon === void 0 ? void 0 : negamon.species;
-    if (!raw || raw.length === 0) {
-        return negamon_species_1.DEFAULT_NEGAMON_SPECIES.slice();
-    }
-    return raw.map((s) => { var _a; return (_a = negamon_species_1.DEFAULT_NEGAMON_SPECIES.find((d) => d.id === s.id)) !== null && _a !== void 0 ? _a : s; });
+    return (0, negamon_compat_1.resolveNegamonRuntimeSpeciesCatalog)(negamon === null || negamon === void 0 ? void 0 : negamon.species);
 }
 /** Format large numbers with abbreviations (K, M, G, T) */
 function formatAmount(num) {

@@ -5,6 +5,7 @@ import {
     type GameEconomyMutation,
     type GameInventoryChange,
 } from "@/lib/game-core";
+import { getItemById, isSinglePurchaseShopItem } from "@/lib/shop-items";
 
 export type GameShopItemType = "frame" | "battle_item";
 
@@ -27,8 +28,9 @@ export function createShopPurchaseIdempotencyKey(input: {
     studentId: string;
     item: GameShopCatalogItem;
 }): string | undefined {
-    if (input.item.type !== "frame") return undefined;
-    return `shop:${input.studentId}:frame:${input.item.id}`;
+    const catalogItem = getItemById(input.item.id);
+    if (!catalogItem || !isSinglePurchaseShopItem(catalogItem)) return undefined;
+    return `shop:${input.studentId}:single:${input.item.id}`;
 }
 
 export function createShopPurchasePlan(input: {
@@ -38,7 +40,12 @@ export function createShopPurchasePlan(input: {
     inventory: string[];
     item: GameShopCatalogItem;
 }): ShopPurchasePlan {
-    if (input.item.type === "frame" && countInventoryItem(input.inventory, input.item.id) > 0) {
+    const catalogItem = getItemById(input.item.id);
+    if (
+        catalogItem &&
+        isSinglePurchaseShopItem(catalogItem) &&
+        countInventoryItem(input.inventory, input.item.id) > 0
+    ) {
         return { ok: false, reason: "already_owned" };
     }
 

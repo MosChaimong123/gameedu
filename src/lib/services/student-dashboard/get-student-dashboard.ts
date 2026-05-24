@@ -10,6 +10,7 @@ import type {
     SubmissionRecord,
 } from "./student-dashboard.types";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
+import { normalizeStudentBattleKit } from "@/lib/shop-item-migration";
 
 type StudentSubmission = {
     assignmentId: string;
@@ -136,6 +137,11 @@ export async function getStudentDashboard(
     const rankEntry = getRankEntry(academicTotal, classroom.levelConfig as LevelConfigInput);
     const negamonSkills = (student.negamonSkills as string[]) ?? [];
 
+    const battleKit = normalizeStudentBattleKit({
+        inventory: student.inventory,
+        battleLoadout: student.battleLoadout,
+    });
+
     const studentRecord = {
         id: student.id,
         classId: student.classId,
@@ -150,8 +156,8 @@ export async function getStudentDashboard(
         lastCheckIn: student.lastCheckIn instanceof Date
             ? student.lastCheckIn.toISOString()
             : student.lastCheckIn ?? null,
-        inventory: (student.inventory as string[]) ?? [],
-        battleLoadout: (student.battleLoadout as string[]) ?? [],
+        inventory: battleKit.inventory,
+        battleLoadout: battleKit.battleLoadout,
         equippedFrame: student.equippedFrame ?? null,
         negamonSkills,
     } satisfies DashboardStudent;

@@ -4,6 +4,7 @@ import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
 import type { GameInventoryChange, GameItemEffect } from "@/lib/game-core";
 import { normalizeLoadoutInput } from "@/lib/battle-loadout";
 import { validateNegamonBattleItemLoadout } from "@/lib/game-negamon/core/battle-items";
+import { normalizeStudentInventoryItemIds } from "@/lib/shop-item-migration";
 
 type Deps = { db: PrismaClient };
 
@@ -36,7 +37,7 @@ export async function setStudentBattleLoadout(
         return { ok: false, reason: "student_not_found" };
     }
 
-    const inv = Array.isArray(student.inventory) ? (student.inventory as string[]) : [];
+    const inv = normalizeStudentInventoryItemIds(student.inventory);
     const ids = normalizeLoadoutInput(rawItemIds);
     const v = validateNegamonBattleItemLoadout({ loadoutIds: ids, inventory: inv });
     if (!v.ok) {

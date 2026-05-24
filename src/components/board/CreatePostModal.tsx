@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,31 @@ const COLORS = [
 
 type PostType = "link" | "file" | "video" | "youtube" | "poll" | "album";
 
+const LIBRARY_TYPES_FOR_POST: Record<PostType, string[]> = {
+    file: ["file"],
+    album: ["image"],
+    video: ["video"],
+    youtube: ["youtube"],
+    link: ["link"],
+    poll: [],
+};
+
+const POST_TAB_FOR_LIBRARY_TYPE: Record<string, PostType> = {
+    file: "file",
+    image: "album",
+    video: "video",
+    youtube: "youtube",
+    link: "link",
+};
+
+const LIBRARY_TYPE_LABEL: Record<string, string> = {
+    file: "ไฟล์",
+    image: "รูปภาพ",
+    video: "วิดีโอ",
+    youtube: "YouTube",
+    link: "ลิงก์",
+};
+
 const BOARD_UPLOAD_ERR_KEYS: Partial<Record<AppErrorCode, string>> = {
     AUTH_REQUIRED: "boardUploadErrAuth",
     NO_FILE: "boardUploadErrNoFile",
@@ -108,7 +133,7 @@ export function CreatePostModal({
     const [uploadPhase, setUploadPhase] = useState<BoardUploadProgress | null>(null);
     const [albumPreviewUrls, setAlbumPreviewUrls] = useState<string[]>([]);
     const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
-    const [mediaItems, setMediaItems] = useState<TeachingMediaItem[]>([]);
+    const [allMediaItems, setAllMediaItems] = useState<TeachingMediaItem[]>([]);
     const [mediaQuery, setMediaQuery] = useState("");
     const [mediaLoading, setMediaLoading] = useState(false);
     const uploadAbortRef = useRef<AbortController | null>(null);
@@ -161,21 +186,40 @@ export function CreatePostModal({
         });
     };
 
-    const getLibraryType = () => {
-        if (type === "album") return "image";
-        return type;
-    };
+    const compatibleMediaItems = useMemo(
+        () =>
+            allMediaItems.filter((item) =>
+                LIBRARY_TYPES_FOR_POST[type].includes(item.type)
+            ),
+        [allMediaItems, type]
+    );
+
+    const otherMediaItems = useMemo(
+        () =>
+            allMediaItems.filter(
+                (item) => !LIBRARY_TYPES_FOR_POST[type].includes(item.type)
+            ),
+        [allMediaItems, type]
+    );
+
+    const otherMediaTabHints = useMemo(() => {
+        const tabs = new Set<PostType>();
+        for (const item of otherMediaItems) {
+            const tab = POST_TAB_FOR_LIBRARY_TYPE[item.type];
+            if (tab) tabs.add(tab);
+        }
+        return [...tabs];
+    }, [otherMediaItems]);
 
     const loadMediaLibrary = async () => {
         if (!canUseMediaLibrary) return;
         setMediaLoading(true);
         try {
             const items = await listTeachingMedia({
-                type: getLibraryType(),
                 query: mediaQuery,
                 limit: 80,
             });
-            setMediaItems(items);
+            setAllMediaItems(items);
         } catch {
             toast({ variant: "destructive", title: t("error"), description: "โหลดคลังสื่อไม่สำเร็จ" });
         } finally {
@@ -514,18 +558,78 @@ export function CreatePostModal({
                                     </Button>
                                 </div>
 
+                                {compatibleMediaItems.length > 0 &&
+                                    allMediaItems.length > compatibleMediaItems.length && (
+                                        <p className="text-[10px] font-medium text-indigo-600/90">
+                                            แสดง {compatibleMediaItems.length} รายการที่ใช้กับแท็บนี้ (จาก{" "}
+                                            {allMediaItems.length} ในคลัง)
+                                        </p>
+                                    )}
+
                                 <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
                                     {mediaLoading ? (
                                         <div className="rounded-xl bg-white/70 p-4 text-center text-xs font-bold text-slate-500">
                                             กำลังโหลดคลังสื่อ...
                                         </div>
-                                    ) : mediaItems.length === 0 ? (
+                                    ) : compatibleMediaItems.length === 0 ? (
                                         <div className="rounded-xl border border-dashed border-indigo-100 bg-white/70 p-4 text-center">
-                                            <p className="text-xs font-black text-slate-600">ยังไม่มีสื่อประเภทนี้ในคลัง</p>
-                                            <p className="mt-1 text-[10px] text-slate-400">อัปโหลดหรือโพสต์ครั้งนี้แล้วระบบจะบันทึกไว้ให้</p>
+                                            <p className="text-xs font-black text-slate-600">
+                                                {allMediaItems.length === 0
+                                                    ? "ยังไม่มีสื่อในคลัง"
+                                                    : `ยังไม่มีสื่อสำหรับแท็บ「${t(
+                                                          type === "album"
+                                                              ? "boardPostTypeAlbum"
+                                                              : type === "file"
+                                                                ? "boardPostTypeFile"
+                                                                : type === "video"
+                                                                  ? "boardPostTypeVideo"
+                                                                  : type === "youtube"
+                                                                    ? "boardPostTypeYoutube"
+                                                                    : "boardPostTypeLink"
+                                                      )}」`}
+                                            </p>
+                                            {otherMediaItems.length > 0 ? (
+                                                <>
+                                                    <p className="mt-1 text-[10px] text-slate-500">
+                                                        ในคลังมี {otherMediaItems.length} รายการประเภทอื่น (
+                                                        {otherMediaItems
+                                                            .map((item) => LIBRARY_TYPE_LABEL[item.type] ?? item.type)
+                                                            .filter((label, index, labels) => labels.indexOf(label) === index)
+                                                            .join(", ")}
+                                                        )
+                                                    </p>
+                                                    <div className="mt-3 flex flex-wrap justify-center gap-2">
+                                                        {otherMediaTabHints.map((tab) => (
+                                                            <button
+                                                                key={tab}
+                                                                type="button"
+                                                                onClick={() => setType(tab)}
+                                                                className="rounded-full bg-indigo-100 px-3 py-1 text-[10px] font-black text-indigo-700 transition hover:bg-indigo-200"
+                                                            >
+                                                                ไปแท็บ{" "}
+                                                                {t(
+                                                                    tab === "album"
+                                                                        ? "boardPostTypeAlbum"
+                                                                        : tab === "file"
+                                                                          ? "boardPostTypeFile"
+                                                                          : tab === "video"
+                                                                            ? "boardPostTypeVideo"
+                                                                            : tab === "youtube"
+                                                                              ? "boardPostTypeYoutube"
+                                                                              : "boardPostTypeLink"
+                                                                )}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <p className="mt-1 text-[10px] text-slate-400">
+                                                    อัปโหลดจากคลังสื่อการสอน หรือโพสต์ครั้งนี้แล้วระบบจะบันทึกไว้ให้
+                                                </p>
+                                            )}
                                         </div>
                                     ) : (
-                                        mediaItems.map((item) => (
+                                        compatibleMediaItems.map((item) => (
                                             <button
                                                 key={item.id}
                                                 type="button"

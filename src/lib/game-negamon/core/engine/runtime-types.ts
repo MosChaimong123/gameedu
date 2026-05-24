@@ -41,7 +41,7 @@ export type NegamonRuntimeCombatant = NegamonFormulaCombatant & {
     rewardGoldBonus?: number;
     rewardGoldMultiplier?: number;
     rewardExpMultiplier?: number;
-    hookFlags?: Record<string, boolean>;
+    hookFlags?: Record<string, boolean | number | string>;
     statusImmunities?: NegamonRuntimeStatusId[];
     statuses: NegamonRuntimeStatusState[];
     volatileStates: NegamonRuntimeVolatileState[];

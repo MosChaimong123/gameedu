@@ -65,11 +65,11 @@ describe("game-quests claim contracts", () => {
             reward: {
                 gold: 25,
                 exp: 15,
-                grantedItemIds: ["item_minor_potion"],
+                grantedItemIds: ["use_vital_vial"],
                 unlockedSkillIds: ["naga-aqua-jet"],
             },
             inventoryChange: {
-                grantedItemIds: ["item_minor_potion"],
+                grantedItemIds: ["use_vital_vial"],
             },
             historyEvents: [
                 {
@@ -105,7 +105,7 @@ describe("game-quests claim contracts", () => {
         })).toEqual({
             gold: 90,
             exp: 80,
-            itemIds: ["item_energy_orb"],
+            itemIds: ["use_charge_capsule"],
             skillIds: ["naga-aqua-jet"],
         });
         expect(
@@ -156,14 +156,14 @@ describe("game-quests claim contracts", () => {
         expect(snapshot.weekly.every((quest) => quest.completed)).toBe(true);
         expect(snapshot.challenge.every((quest) => quest.completed)).toBe(true);
         expect(snapshot.daily.find((quest) => quest.id === "quest_checkin")).toMatchObject({
-            rewardItemIds: ["item_minor_potion"],
+            rewardItemIds: ["use_vital_vial"],
         });
         expect(snapshot.weekly.find((quest) => quest.id === "wq_submit3_week")).toMatchObject({
-            rewardItemIds: ["item_energy_orb"],
+            rewardItemIds: ["use_charge_capsule"],
             rewardSkillIds: ["naga-aqua-jet"],
         });
         expect(snapshot.challenge.find((quest) => quest.id === "cq_streak14")).toMatchObject({
-            rewardItemIds: ["item_lucky_coin"],
+            rewardItemIds: ["reward_lucky_coin"],
             rewardFormRank: 3,
         });
         expect(snapshot.chain[0]).toMatchObject({
@@ -222,9 +222,9 @@ describe("game-quests claim contracts", () => {
             claimed: step.claimed,
             rewards: step.rewardItemIds,
         }))).toEqual([
-            { id: "prepare_item", completed: true, claimed: true, rewards: ["item_energy_orb"] },
-            { id: "first_battle", completed: true, claimed: false, rewards: ["item_minor_potion"] },
-            { id: "first_win", completed: false, claimed: false, rewards: ["item_lucky_coin"] },
+            { id: "prepare_item", completed: true, claimed: true, rewards: ["use_charge_capsule"] },
+            { id: "first_battle", completed: true, claimed: false, rewards: ["use_vital_vial"] },
+            { id: "first_win", completed: false, claimed: false, rewards: ["reward_lucky_coin"] },
         ]);
     });
 });

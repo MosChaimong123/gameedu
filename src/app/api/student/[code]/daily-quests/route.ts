@@ -44,23 +44,46 @@ import {
     type GameQuestType,
 } from "@/lib/game-quests";
 import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
+import { normalizeRewardItemIds, normalizeStudentInventoryItemIds } from "@/lib/shop-item-migration";
 
 type QuestType = GameQuestType;
 type ClaimField = "dailyQuestsClaimed" | "weeklyQuestsClaimed" | "challengeQuestsClaimed";
 
+/** MongoDB Prisma does not support `isSet` on JSON filters — skip guard when unset. */
 function buildClaimFieldGuard(field: ClaimField, currentValue: unknown) {
     if (currentValue == null) {
-        return {
-            OR: [
-                { [field]: { equals: null } },
-                { [field]: { isSet: false } },
-            ],
-        };
+        return {};
     }
 
     return {
         [field]: { equals: currentValue },
     };
+}
+
+function buildDailyQuestClaimGuard(raw: unknown) {
+    if (raw == null || typeof raw !== "object") {
+        return {};
+    }
+
+    const record = raw as Record<string, unknown>;
+    if (record.date !== todayDateKey()) {
+        return {};
+    }
+
+    return { dailyQuestsClaimed: { equals: raw } };
+}
+
+function buildWeeklyQuestClaimGuard(raw: unknown) {
+    if (raw == null || typeof raw !== "object") {
+        return {};
+    }
+
+    const record = raw as Record<string, unknown>;
+    if (record.weekKey !== thisWeekKey()) {
+        return {};
+    }
+
+    return { weeklyQuestsClaimed: { equals: raw } };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -128,7 +151,7 @@ async function persistQuestClaim(params: {
         classroom?: {
             gamifiedSettings?: unknown;
             levelConfig?: unknown;
-        };
+        } | null;
     };
     questType: QuestType;
     questId: string;
@@ -149,9 +172,9 @@ async function persistQuestClaim(params: {
       }
 > {
     const { student, field, nextClaimed, goldEarned } = params;
-    const itemRewardIds = params.rewardRule?.itemIds ?? [];
+    const itemRewardIds = normalizeRewardItemIds(params.rewardRule?.itemIds ?? []);
     const skillRewardIds = params.rewardRule?.skillIds ?? [];
-    const currentInventory = Array.isArray(student.inventory) ? (student.inventory as string[]) : [];
+    const currentInventory = normalizeStudentInventoryItemIds(student.inventory);
     const currentSkillIds = Array.isArray(student.negamonSkills) ? (student.negamonSkills as string[]) : [];
     const updateData: Record<string, unknown> = {
         gold: { increment: goldEarned },
@@ -166,11 +189,17 @@ async function persistQuestClaim(params: {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (db as any).$transaction(async (tx: any) => {
+        const claimGuard =
+            field === "dailyQuestsClaimed"
+                ? buildDailyQuestClaimGuard(student.dailyQuestsClaimed)
+                : field === "weeklyQuestsClaimed"
+                  ? buildWeeklyQuestClaimGuard(student.weeklyQuestsClaimed)
+                  : buildClaimFieldGuard(field, student[field]);
+
         const updatedCount = await tx.student.updateMany({
             where: {
                 id: student.id,
-                // Prisma JSON fields in `where` must use JsonFilter (`equals` / `not` / `isSet`)
-                ...buildClaimFieldGuard(field, student[field]),
+                ...claimGuard,
             },
             data: updateData,
         });
@@ -386,6 +415,7 @@ export async function POST(
     req: NextRequest,
     { params }: { params: Promise<{ code: string }> }
 ) {
+    try {
     const { code } = await params;
     const body = (await req.json()) as { questId: string; questType: QuestType };
     const { questId, questType = "daily" } = body;
@@ -397,7 +427,7 @@ export async function POST(
     const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
     
     // Multiplier from Active Events
-    const multiplier = getActiveGoldMultiplier(student.classroom.gamifiedSettings);
+    const multiplier = getActiveGoldMultiplier(student.classroom?.gamifiedSettings);
 
     if (questType === "daily") {
         const questDef = DAILY_QUESTS.find((q) => q.id === questId);
@@ -424,22 +454,23 @@ export async function POST(
             multiplier,
         });
         const goldEarned = rewardRule.gold ?? Math.floor(questDef.goldReward * multiplier);
+        const todayKey = todayDateKey();
         const claimResult = await persistQuestClaim({
             student,
             questType,
             questId,
             field: "dailyQuestsClaimed",
             nextClaimed: {
-                date: todayDateKey(),
+                date: todayKey,
                 claimed: [...claimedIds, questId],
             },
             goldEarned,
             rewardRule,
-            idempotencyKey: `quest:${student.id}:daily:${todayDateKey()}:${questId}`,
+            idempotencyKey: `quest:${student.id}:daily:${todayKey}:${questId}`,
             metadata: {
                 baseReward: questDef.goldReward,
                 eventMultiplier: multiplier,
-                date: todayDateKey(),
+                date: todayKey,
             },
         });
         if (!claimResult.ok) return NextResponse.json({ error: "ALREADY_CLAIMED" }, { status: 400 });
@@ -659,4 +690,8 @@ export async function POST(
     }
 
     return NextResponse.json({ error: "INVALID_TYPE" }, { status: 400 });
+    } catch (error) {
+        console.error("[daily-quests] claim failed", error);
+        return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+    }
 }

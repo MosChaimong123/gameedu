@@ -54,6 +54,8 @@ describe("buyStudentShopItem ledger", () => {
       inventoryChange: {
         consumedItemIds: [],
         grantedItemIds: ["frame_fire_t1"],
+        equippedItemIds: [],
+        unequippedItemIds: [],
       },
       itemEffects: [],
       gameState: {
@@ -81,6 +83,7 @@ describe("buyStudentShopItem ledger", () => {
         amount: -100,
         balanceBefore: 250,
         balanceAfter: 150,
+        sourceRefId: null,
         metadata: {
           itemId: "frame_fire_t1",
           itemType: "frame",
@@ -111,45 +114,65 @@ describe("buyStudentShopItem ledger", () => {
     expect(tx.economyTransaction.create).not.toHaveBeenCalled();
   });
 
-  it("returns V2 inventory and effect summaries for battle item purchases", async () => {
+  it("returns V2 inventory and effect summaries for held battle item purchases", async () => {
     tx.student.findFirst.mockResolvedValue({
       id: "student-1",
       classId: "class-1",
       gold: 1200,
-      inventory: ["item_buckler"],
+      inventory: [],
     });
     tx.student.updateMany.mockResolvedValue({ count: 1 });
     tx.student.findUniqueOrThrow.mockResolvedValue({
-      gold: 200,
-      inventory: ["item_buckler", "item_iron_shield"],
+      gold: 0,
+      inventory: ["held_guard_core"],
     });
     tx.economyTransaction.create.mockResolvedValue({ id: "ledger-1" });
 
     const { buyStudentShopItem } = await import(
       "@/lib/services/student-economy/buy-student-shop-item"
     );
-    const result = await buyStudentShopItem("abc123", "item_iron_shield", {
+    const result = await buyStudentShopItem("abc123", "held_guard_core", {
       db: db as never,
     });
 
     expect(result).toMatchObject({
       ok: true,
-      inventory: ["item_buckler", "item_iron_shield"],
+      inventory: ["held_guard_core"],
       inventoryChange: {
         consumedItemIds: [],
-        grantedItemIds: ["item_iron_shield"],
+        grantedItemIds: ["held_guard_core"],
       },
-      itemEffects: [{ kind: "stat_boost", stat: "def", multiplier: 1.15 }],
+      itemEffects: [{ kind: "damage_taken_multiplier", multiplier: 0.9 }],
     });
     expect(tx.student.updateMany).toHaveBeenCalledWith({
       where: {
         id: "student-1",
-        gold: { gte: 1000 },
+        gold: { gte: 1200 },
+        NOT: { inventory: { has: "held_guard_core" } },
       },
       data: {
-        gold: { decrement: 1000 },
-        inventory: ["item_buckler", "item_iron_shield"],
+        gold: { decrement: 1200 },
+        inventory: ["held_guard_core"],
       },
     });
+  });
+
+  it("rejects buying the same held item twice (including legacy inventory ids)", async () => {
+    tx.student.findFirst.mockResolvedValue({
+      id: "student-1",
+      classId: "class-1",
+      gold: 5000,
+      inventory: ["item_buckler"],
+    });
+
+    const { buyStudentShopItem } = await import(
+      "@/lib/services/student-economy/buy-student-shop-item"
+    );
+    const result = await buyStudentShopItem("abc123", "held_guard_core", {
+      db: db as never,
+    });
+
+    expect(result).toEqual({ ok: false, reason: "already_owned" });
+    expect(tx.student.updateMany).not.toHaveBeenCalled();
   });
 });

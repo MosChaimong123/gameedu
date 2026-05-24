@@ -13,6 +13,7 @@ import {
     type GameLevelUpSummary,
     type GameRewardResult,
 } from "@/lib/game-core";
+import { normalizeRewardItemIds } from "@/lib/shop-item-migration";
 import {
     NEGAMON_BATTLE_GOLD_MULTIPLIER_CAP,
     NEGAMON_BATTLE_GOLD_REWARD_BASE,
@@ -167,9 +168,10 @@ export function createNegamonBattleRewardFinalizationPlan(input: {
         reason: "battle-finalize",
     });
     const duplicate = new Set(input.finalizedRewardKeys ?? []).has(idempotencyKey);
+    const itemRewardIds = normalizeRewardItemIds(input.itemRewardIds ?? []);
     const inventoryChange = mergeInventoryChanges([
         createInventoryConsumeChange(input.consumedItemIds ?? []),
-        createInventoryGrantChange(input.itemRewardIds ?? []),
+        createInventoryGrantChange(itemRewardIds),
     ]);
 
     if (duplicate) {
@@ -217,7 +219,7 @@ export function createNegamonBattleRewardFinalizationPlan(input: {
     const reward = createGameRewardResult({
         gold: input.goldReward,
         exp: expReward,
-        grantedItemIds: input.itemRewardIds,
+        grantedItemIds: itemRewardIds,
         levelUps: progression.levelUps,
         unlockedSkillIds: progression.unlockedSkillIds,
         idempotencyKey,

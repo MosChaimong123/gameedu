@@ -5,6 +5,7 @@ exports.getRequestClientIdentifier = getRequestClientIdentifier;
 exports.consumeRateLimit = consumeRateLimit;
 exports.createRateLimitResponse = createRateLimitResponse;
 exports.resetRateLimitStore = resetRateLimitStore;
+exports.resetEmailVerificationAttemptLimits = resetEmailVerificationAttemptLimits;
 exports.consumeRateLimitWithStore = consumeRateLimitWithStore;
 const api_error_1 = require("@/lib/api-error");
 const env_1 = require("@/lib/env");
@@ -67,6 +68,32 @@ function createRateLimitResponse(retryAfterSeconds) {
 }
 function resetRateLimitStore() {
     rateLimitStore.clear();
+}
+function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+/** Clears stored rate-limit counters for an email after a fresh code is sent. */
+async function resetEmailVerificationAttemptLimits(email) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail)
+        return;
+    const suffix = `:${normalizedEmail}`;
+    const exactIds = [
+        `auth:verify-email-code:fail:${normalizedEmail}`,
+        `auth:verify-email-code:fail:${buildRateLimitKey(normalizedEmail)}`,
+    ];
+    if ((0, env_1.resolveRateLimitStore)() === "mongo") {
+        const collection = await (0, mongo_admin_1.getRateLimitCollection)();
+        await collection.deleteMany({
+            $or: [{ _id: { $in: exactIds } }, { _id: { $regex: `${escapeRegex(suffix)}$` } }],
+        });
+        return;
+    }
+    for (const storeKey of rateLimitStore.keys()) {
+        if (exactIds.includes(storeKey) || storeKey.endsWith(suffix)) {
+            rateLimitStore.delete(storeKey);
+        }
+    }
 }
 async function consumeMongoRateLimit({ bucket, key, limit, windowMs, now = Date.now(), }) {
     const collection = await (0, mongo_admin_1.getRateLimitCollection)();

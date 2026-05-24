@@ -68,7 +68,14 @@ export function DailyQuestPanel({ loginCode, onGoldChange }: DailyQuestPanelProp
                 body: JSON.stringify({ questId, questType }),
             });
             if (!res.ok) {
-                setToast({ msg: "รับรางวัลไม่สำเร็จ ลองรีเฟรชแล้วกดรับอีกครั้ง", tone: "error" });
+                const errBody = (await res.json().catch(() => null)) as { error?: string } | null;
+                const msg =
+                    errBody?.error === "NOT_COMPLETED"
+                        ? "ยังทำภารกิจไม่ครบ"
+                        : errBody?.error === "ALREADY_CLAIMED"
+                          ? "รับรางวัลนี้ไปแล้ว"
+                          : "รับรางวัลไม่สำเร็จ ลองรีเฟรชแล้วกดรับอีกครั้ง";
+                setToast({ msg, tone: "error" });
                 setTimeout(() => setToast(null), 3000);
                 void fetchQuests();
                 return;
@@ -131,7 +138,9 @@ export function DailyQuestPanel({ loginCode, onGoldChange }: DailyQuestPanelProp
                                 ? t("questPanelWeeklyResetHint", { time: weekCountdown })
                                 : activeTab === "challenge"
                                     ? t("questPanelChallengeHint")
-                                    : t("questPanelResetHint")}
+                                    : activeTab === "chain"
+                                        ? t("questPanelChainHint")
+                                        : t("questPanelResetHint")}
                         </p>
                     </div>
                 </div>

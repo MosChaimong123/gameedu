@@ -3,13 +3,15 @@
 import { motion } from "framer-motion";
 import { BatteryCharging, Lock, Sparkles, Swords } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useLanguage } from "@/components/providers/language-provider";
 import type { NegamonMonsterSnapshot, NegamonSkillDefinition } from "@/lib/game-negamon";
 import { cn } from "@/lib/utils";
-import { formatNegamonSkillEffect, formatNegamonSkillRequirement } from "./ui-content";
-
-function effectText(skill: NegamonSkillDefinition): string {
-    return formatNegamonSkillEffect(skill);
-}
+import {
+    formatNegamonElementType,
+    formatNegamonSkillCategory,
+    formatNegamonSkillEffect,
+    formatNegamonSkillRequirement,
+} from "./ui-content";
 
 export function SkillLoadoutPanel({
     monster,
@@ -18,6 +20,7 @@ export function SkillLoadoutPanel({
     monster: NegamonMonsterSnapshot;
     className?: string;
 }) {
+    const { t } = useLanguage();
     const equipped = new Set(monster.equippedSkillIds);
 
     return (
@@ -25,9 +28,9 @@ export function SkillLoadoutPanel({
             <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                        Roster Rework
+                        {t("negamonSkillsEyebrow")}
                     </p>
-                    <h3 className="text-lg font-black text-slate-950">Signature Skills</h3>
+                    <h3 className="text-lg font-black text-slate-950">{t("negamonSkillsTitle")}</h3>
                 </div>
                 <Badge className="rounded-lg bg-slate-950 text-white">
                     {monster.equippedSkillIds.length}/{Math.max(1, monster.skillCatalog.length)}
@@ -35,7 +38,7 @@ export function SkillLoadoutPanel({
             </div>
 
             <div className="grid gap-2">
-                {monster.skillCatalog.map((skill, index) => {
+                {monster.skillCatalog.map((skill: NegamonSkillDefinition, index: number) => {
                     const isEquipped = equipped.has(skill.id);
                     return (
                         <motion.div
@@ -65,30 +68,30 @@ export function SkillLoadoutPanel({
                                     <div className="flex flex-wrap items-center gap-1.5">
                                         <p className="text-sm font-black leading-tight text-slate-950">{skill.name}</p>
                                         <Badge variant="outline" className="rounded-md text-[9px] font-black">
-                                            {skill.elementType}
+                                            {formatNegamonElementType(skill.elementType, t)}
                                         </Badge>
                                         <Badge variant="outline" className="rounded-md text-[9px] font-black">
-                                            {skill.category}
+                                            {formatNegamonSkillCategory(skill.category, t)}
                                         </Badge>
                                     </div>
                                     <p className="mt-1 text-xs font-medium leading-relaxed text-slate-600">
-                                        {effectText(skill)}
+                                        {formatNegamonSkillEffect(skill, t)}
                                     </p>
                                     <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-black text-slate-500">
                                         <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1">
                                             <Lock className="h-3 w-3 text-slate-400" />
-                                            {formatNegamonSkillRequirement(skill)}
+                                            {formatNegamonSkillRequirement(skill, t)}
                                         </span>
                                         <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1">
                                             <BatteryCharging className="h-3 w-3 text-cyan-500" />
-                                            EN {skill.energyCost}
+                                            {t("negamonSkillEn", { cost: skill.energyCost })}
                                         </span>
                                         <span className="rounded-md bg-white px-2 py-1">
-                                            ACC {skill.accuracy}%
+                                            {t("negamonSkillAcc", { pct: skill.accuracy })}
                                         </span>
                                         {skill.cooldownTurns > 0 ? (
                                             <span className="rounded-md bg-white px-2 py-1">
-                                                CD {skill.cooldownTurns}
+                                                {t("negamonSkillCd", { turns: skill.cooldownTurns })}
                                             </span>
                                         ) : null}
                                     </div>

@@ -25,17 +25,17 @@ describe("Negamon battle items V2", () => {
     });
 
     it("creates battle item definitions from the shop catalog", () => {
-        const item = createNegamonBattleItemDefinition(getBattleItemById("item_iron_shield")!);
+        const item = createNegamonBattleItemDefinition(getBattleItemById("held_guard_core")!);
 
         expect(item).toMatchObject({
-            id: "item_iron_shield",
+            id: "held_guard_core",
             itemType: "battle",
             rarity: "rare",
             allowedInBattle: true,
             stackable: true,
-            battleCategory: "stat_boost",
+            battleCategory: "held",
         });
-        expect(item?.effects).toContainEqual({ kind: "stat_boost", stat: "def", multiplier: 1.15 });
+        expect(item?.effects).toContainEqual({ kind: "damage_taken_multiplier", multiplier: 0.9 });
         expect(findNegamonBattleItemDefinition("frame_fire_t1")).toBeNull();
     });
 
@@ -43,32 +43,32 @@ describe("Negamon battle items V2", () => {
         const catalog = getNegamonBattleItemCatalog();
 
         expect(catalog.length).toBeGreaterThan(0);
-        expect(catalog.map((item) => item.id)).toContain("item_lucky_coin");
+        expect(catalog.map((item) => item.id)).toContain("reward_lucky_coin");
     });
 
     it("validates loadout ownership, categories, and consume delta", () => {
         const valid = validateNegamonBattleItemLoadout({
-            loadoutIds: ["item_iron_shield", "item_lucky_coin"],
-            inventory: ["item_iron_shield", "item_lucky_coin"],
+            loadoutIds: ["item_iron_shield"],
+            inventory: ["item_iron_shield"],
         });
         const duplicateCategory = validateNegamonBattleItemLoadout({
-            loadoutIds: ["item_iron_shield", "item_spark_charm"],
-            inventory: ["item_iron_shield", "item_spark_charm"],
+            loadoutIds: ["held_guard_core", "item_spark_charm"],
+            inventory: ["held_guard_core", "item_spark_charm"],
         });
-        const missing = validateNegamonBattleItemLoadout({
-            loadoutIds: ["item_buckler"],
-            inventory: [],
+        const rewardRejected = validateNegamonBattleItemLoadout({
+            loadoutIds: ["reward_lucky_coin"],
+            inventory: ["reward_lucky_coin"],
         });
 
         expect(valid).toMatchObject({
             ok: true,
-            normalizedIds: ["item_iron_shield", "item_lucky_coin"],
+            normalizedIds: ["held_guard_core"],
             inventoryChange: {
-                consumedItemIds: ["item_iron_shield", "item_lucky_coin"],
+                consumedItemIds: ["held_guard_core"],
                 grantedItemIds: [],
             },
         });
         expect(duplicateCategory).toMatchObject({ ok: false, code: "CATEGORY_LIMIT" });
-        expect(missing).toMatchObject({ ok: false, code: "NOT_IN_STOCK", rejectedItemId: "item_buckler" });
+        expect(rewardRejected).toMatchObject({ ok: false, code: "CATEGORY_LIMIT", rejectedItemId: "reward_lucky_coin" });
     });
 });

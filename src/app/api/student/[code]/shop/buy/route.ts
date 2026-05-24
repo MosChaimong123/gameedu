@@ -6,25 +6,30 @@ export async function POST(
     req: NextRequest,
     { params }: { params: Promise<{ code: string }> }
 ) {
-    const { code } = await params;
-    const { itemId } = (await req.json()) as { itemId?: unknown };
-    const result = await buyStudentShopItem(code, itemId);
+    try {
+        const { code } = await params;
+        const { itemId } = (await req.json()) as { itemId?: unknown };
+        const result = await buyStudentShopItem(code, itemId);
 
-    if (!result.ok) {
-        if (result.reason === "invalid_payload") {
-            return createAppErrorResponse("INVALID_PAYLOAD", "Missing itemId", 400);
+        if (!result.ok) {
+            if (result.reason === "invalid_payload") {
+                return createAppErrorResponse("INVALID_PAYLOAD", "Missing itemId", 400);
+            }
+            if (result.reason === "item_not_found") {
+                return createAppErrorResponse("SHOP_ITEM_NOT_FOUND", "Item not found", 404);
+            }
+            if (result.reason === "student_not_found") {
+                return createAppErrorResponse("NOT_FOUND", "Student not found", 404);
+            }
+            if (result.reason === "already_owned") {
+                return createAppErrorResponse("SHOP_ALREADY_OWNED", "Already owned", 409);
+            }
+            return createAppErrorResponse("NOT_ENOUGH_GOLD", "Not enough gold", 400);
         }
-        if (result.reason === "item_not_found") {
-            return createAppErrorResponse("SHOP_ITEM_NOT_FOUND", "Item not found", 404);
-        }
-        if (result.reason === "student_not_found") {
-            return createAppErrorResponse("NOT_FOUND", "Student not found", 404);
-        }
-        if (result.reason === "already_owned") {
-            return createAppErrorResponse("SHOP_ALREADY_OWNED", "Already owned", 409);
-        }
-        return createAppErrorResponse("NOT_ENOUGH_GOLD", "Not enough gold", 400);
+
+        return NextResponse.json(result);
+    } catch (error) {
+        console.error("[student-shop-buy] failed to complete purchase", error);
+        return createAppErrorResponse("INTERNAL_ERROR", "Shop purchase failed", 500);
     }
-
-    return NextResponse.json(result);
 }

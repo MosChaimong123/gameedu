@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.InvalidGamificationSettingsError = exports.gamificationSettingsSchema = exports.classEventSchema = exports.customAchievementSchema = exports.negamonSettingsSchema = void 0;
+exports.InvalidGamificationSettingsError = exports.gamificationSettingsSchema = exports.classEventSchema = exports.customAchievementSchema = exports.negamonSettingsSchema = exports.negamonBalanceSettingsSchema = void 0;
 exports.normalizeGamificationSettings = normalizeGamificationSettings;
 const zod_1 = require("zod");
 const monsterTypeSchema = zod_1.z.enum([
@@ -78,7 +78,14 @@ const monsterSpeciesSchema = zod_1.z.object({
     forms: zod_1.z.array(monsterFormSchema),
     moves: zod_1.z.array(monsterMoveSchema),
 });
+exports.negamonBalanceSettingsSchema = zod_1.z.object({
+    expMultiplier: zod_1.z.number().min(0.25).max(4).optional(),
+    questGoldMultiplier: zod_1.z.number().min(0).max(4).optional(),
+    battleGoldCap: zod_1.z.number().min(0).max(500).optional(),
+    battleExpMultiplier: zod_1.z.number().min(0.25).max(4).optional(),
+});
 exports.negamonSettingsSchema = zod_1.z.object({
+    engineVersion: zod_1.z.enum(["lite", "pokemon_v3"]).optional(),
     enabled: zod_1.z.boolean().optional(),
     allowStudentChoice: zod_1.z.boolean().optional(),
     expPerPoint: zod_1.z.number().optional(),
@@ -86,6 +93,7 @@ exports.negamonSettingsSchema = zod_1.z.object({
     species: zod_1.z.array(monsterSpeciesSchema).optional(),
     studentMonsters: zod_1.z.record(zod_1.z.string(), zod_1.z.string()).optional(),
     disabledMoves: zod_1.z.array(zod_1.z.string()).optional(),
+    balance: exports.negamonBalanceSettingsSchema.optional(),
 });
 exports.customAchievementSchema = zod_1.z.object({
     id: zod_1.z.string(),

@@ -5,8 +5,6 @@
 export type QuestId =
     | "quest_login"
     | "quest_checkin"
-    | "quest_streak3"
-    | "quest_streak7"
     | "quest_submit";
 
 export type QuestCondition =
@@ -49,22 +47,6 @@ export const DAILY_QUESTS: DailyQuestDef[] = [
         descKey: "questCheckinDesc",
         goldReward: 10,
         condition: "checkin",
-    },
-    {
-        id: "quest_streak3",
-        icon: "🔥",
-        nameKey: "questStreak3Name",
-        descKey: "questStreak3Desc",
-        goldReward: 15,
-        condition: "streak_3",
-    },
-    {
-        id: "quest_streak7",
-        icon: "⚡",
-        nameKey: "questStreak7Name",
-        descKey: "questStreak7Desc",
-        goldReward: 30,
-        condition: "streak_7",
     },
     {
         id: "quest_submit",

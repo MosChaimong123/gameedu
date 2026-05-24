@@ -24,6 +24,7 @@ export type NegamonRuntimeHookEffect =
     | { kind: "reward_bonus"; goldFlat?: number; goldMultiplier?: number; expMultiplier?: number }
     | { kind: "heal_percent"; percentOfMaxHp: number; onceWhenHpAtOrBelow?: number; flagId?: string }
     | { kind: "damage_multiplier"; multiplier: number; when: "always" | "low_hp" }
+    | { kind: "incoming_damage_multiplier"; multiplier: number }
     | { kind: "apply_status_to_attacker"; statusId: NegamonRuntimeStatusId; chance: number };
 
 export type NegamonRuntimeHook = {
@@ -68,11 +69,23 @@ function mapGameItemEffectToHooks(effect: GameItemEffect): NegamonRuntimeHook[] 
     if (effect.kind === "gold_multiplier") {
         return [{ trigger: "battle_start", effect: { kind: "reward_bonus", goldMultiplier: effect.multiplier } }];
     }
+    if (effect.kind === "exp_multiplier") {
+        return [{ trigger: "battle_start", effect: { kind: "reward_bonus", expMultiplier: effect.multiplier } }];
+    }
     if (effect.kind === "restore_hp") {
         return [{ trigger: "after_move", effect: { kind: "heal_percent", percentOfMaxHp: effect.percent } }];
     }
     if (effect.kind === "restore_energy") {
         return [{ trigger: "after_move", effect: { kind: "energy_regen", amount: effect.amount } }];
+    }
+    if (effect.kind === "crit_bonus") {
+        return [{ trigger: "before_move", effect: { kind: "critical_bonus", percent: effect.percent } }];
+    }
+    if (effect.kind === "damage_taken_multiplier") {
+        return [{ trigger: "battle_start", effect: { kind: "incoming_damage_multiplier", multiplier: effect.multiplier } }];
+    }
+    if (effect.kind === "energy_regen") {
+        return [{ trigger: "turn_end", effect: { kind: "energy_regen", amount: effect.amount } }];
     }
     return [];
 }
@@ -231,6 +244,13 @@ export function applyRuntimeHooks(input: {
                 continue;
             }
             input.combatant.outgoingDamageMultiplier = (input.combatant.outgoingDamageMultiplier ?? 1) * effect.multiplier;
+            continue;
+        }
+        if (effect.kind === "incoming_damage_multiplier") {
+            input.combatant.hookFlags = {
+                ...(input.combatant.hookFlags ?? {}),
+                "system:incoming_damage_multiplier": effect.multiplier,
+            };
             continue;
         }
         if (effect.kind === "apply_status_to_attacker" && input.attacker) {

@@ -10,6 +10,7 @@ exports.updateGamificationSettings = updateGamificationSettings;
 exports.updateClassroomGamificationSettingsById = updateClassroomGamificationSettingsById;
 const zod_1 = require("zod");
 const db_1 = require("@/lib/db");
+const negamon_compat_1 = require("@/lib/negamon-compat");
 const prisma_json_1 = require("@/lib/prisma-json");
 const gamification_settings_schema_1 = require("@/lib/services/classroom-settings/gamification-settings-schema");
 var gamification_settings_schema_2 = require("@/lib/services/classroom-settings/gamification-settings-schema");
@@ -22,7 +23,7 @@ function getNegamonSettingsFromGamification(value) {
     if (!parsed.success) {
         return null;
     }
-    return parsed.data;
+    return (0, negamon_compat_1.normalizeNegamonSettingsForRuntime)(parsed.data);
 }
 function getCustomAchievementsFromGamification(value) {
     const settings = (0, gamification_settings_schema_1.normalizeGamificationSettings)(value);

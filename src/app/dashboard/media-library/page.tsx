@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
 import { listTeachingMedia } from "@/lib/actions/teaching-media-actions";
+import { AddTeachingMediaDialog } from "@/components/dashboard/add-teaching-media-dialog";
 import { FileText, ImageIcon, Library, LinkIcon, PlaySquare, Youtube } from "lucide-react";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -48,12 +49,15 @@ export default async function MediaLibraryPage() {
                             รวมไฟล์ รูป วิดีโอ YouTube และลิงก์ที่เคยใช้บนกระดานชั้นเรียน เพื่อดึงกลับไปใช้ซ้ำโดยไม่ต้องอัปโหลดใหม่ทีละห้อง
                         </p>
                     </div>
-                    <Link
-                        href="/dashboard/classrooms"
-                        className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-black text-indigo-700 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl"
-                    >
-                        ไปเลือกห้องเรียนเพื่อใช้สื่อ
-                    </Link>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <AddTeachingMediaDialog />
+                        <Link
+                            href="/dashboard/classrooms"
+                            className="inline-flex items-center justify-center rounded-2xl border border-white/30 bg-white/10 px-4 py-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/20"
+                        >
+                            ไปใช้บนกระดาน
+                        </Link>
+                    </div>
                 </div>
             </div>
 
@@ -70,11 +74,14 @@ export default async function MediaLibraryPage() {
             </div>
 
             <div className="rounded-[2rem] border border-slate-100 bg-white p-4 shadow-sm">
-                <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h2 className="text-lg font-black text-slate-900">สื่อล่าสุด</h2>
-                        <p className="text-xs font-medium text-slate-400">รายการนี้จะเพิ่มอัตโนมัติเมื่อครูอัปโหลดหรือแนบสื่อจากกระดาน</p>
+                        <p className="text-xs font-medium text-slate-400">
+                            เพิ่มจากปุ่มด้านบน หรือบันทึกอัตโนมัติเมื่อแนบสื่อจากกระดาน
+                        </p>
                     </div>
+                    <AddTeachingMediaDialog variant="outline" />
                 </div>
 
                 {media.length === 0 ? (
@@ -83,7 +90,12 @@ export default async function MediaLibraryPage() {
                             <Library className="h-8 w-8" />
                         </div>
                         <h3 className="font-black text-slate-700">ยังไม่มีสื่อในคลัง</h3>
-                        <p className="mt-1 text-sm text-slate-400">เริ่มจากการโพสต์ไฟล์หรือรูปภาพในกระดานชั้นเรียน ระบบจะบันทึกไว้ให้ใช้ซ้ำ</p>
+                        <p className="mt-1 text-sm text-slate-400">
+                            กดปุ่มเพิ่มสื่อเพื่ออัปโหลดหรือบันทึกลิงก์ หรือแนบสื่อจากกระดานชั้นเรียน
+                        </p>
+                        <div className="mt-5 flex justify-center">
+                            <AddTeachingMediaDialog variant="outline" />
+                        </div>
                     </div>
                 ) : (
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

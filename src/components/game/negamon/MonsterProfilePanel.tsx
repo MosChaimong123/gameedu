@@ -4,14 +4,16 @@ import { motion } from "framer-motion";
 import { Activity, GitBranch, Heart, Shield, Sparkles, Sword, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
+import { useLanguage } from "@/components/providers/language-provider";
 import type { NegamonMonsterSnapshot } from "@/lib/game-negamon";
 import { cn } from "@/lib/utils";
+import { formatNegamonElementType, formatNegamonTraitTiming } from "./ui-content";
 
-const STAT_ROWS = [
-    { key: "maxHp", label: "HP", icon: Heart, color: "text-rose-500", bar: "bg-rose-500" },
-    { key: "atk", label: "ATK", icon: Sword, color: "text-orange-500", bar: "bg-orange-500" },
-    { key: "def", label: "DEF", icon: Shield, color: "text-sky-500", bar: "bg-sky-500" },
-    { key: "spd", label: "SPD", icon: Zap, color: "text-amber-500", bar: "bg-amber-500" },
+const STAT_ROW_KEYS = [
+    { key: "maxHp", labelKey: "negamonStatHp", icon: Heart, color: "text-rose-500", bar: "bg-rose-500" },
+    { key: "atk", labelKey: "negamonStatAtk", icon: Sword, color: "text-orange-500", bar: "bg-orange-500" },
+    { key: "def", labelKey: "negamonStatDef", icon: Shield, color: "text-sky-500", bar: "bg-sky-500" },
+    { key: "spd", labelKey: "negamonStatSpd", icon: Zap, color: "text-amber-500", bar: "bg-amber-500" },
 ] as const;
 
 export function MonsterProfilePanel({
@@ -21,6 +23,7 @@ export function MonsterProfilePanel({
     monster: NegamonMonsterSnapshot;
     className?: string;
 }) {
+    const { t } = useLanguage();
     const maxStat = Math.max(
         monster.derivedStats.maxHp,
         monster.derivedStats.atk,
@@ -73,7 +76,7 @@ export function MonsterProfilePanel({
                         <div className="mb-2 flex flex-wrap gap-1.5">
                             {monster.elementTypes.map((type) => (
                                 <Badge key={type} className="rounded-md bg-white/14 text-[10px] font-black text-white">
-                                    {type}
+                                    {formatNegamonElementType(type, t)}
                                 </Badge>
                             ))}
                         </div>
@@ -86,7 +89,7 @@ export function MonsterProfilePanel({
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                                Roster Rework
+                                {t("negamonMonsterProfileEyebrow")}
                             </p>
                             <h4 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
                                 {monster.displayName}
@@ -96,15 +99,23 @@ export function MonsterProfilePanel({
                             </p>
                         </div>
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right">
-                            <p className="text-[10px] font-black uppercase text-slate-400">Level</p>
+                            <p className="text-[10px] font-black uppercase text-slate-400">
+                                {t("negamonMonsterLevelLabel")}
+                            </p>
                             <p className="text-2xl font-black tabular-nums text-slate-950">{monster.level}</p>
                         </div>
                     </div>
 
                     <div>
                         <div className="mb-2 flex items-center justify-between text-xs font-bold text-slate-500">
-                            <span>EXP {monster.exp.toLocaleString()}</span>
-                            <span>{monster.expToNextLevel <= 0 ? "MAX" : `${monster.expToNextLevel.toLocaleString()} to next`}</span>
+                            <span>{t("negamonMonsterExpLine", { exp: monster.exp.toLocaleString() })}</span>
+                            <span>
+                                {monster.expToNextLevel <= 0
+                                    ? t("negamonMonsterExpMax")
+                                    : t("negamonMonsterExpToNext", {
+                                          amount: monster.expToNextLevel.toLocaleString(),
+                                      })}
+                            </span>
                         </div>
                         <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                             <motion.div
@@ -117,7 +128,7 @@ export function MonsterProfilePanel({
                     </div>
 
                     <div className="grid gap-2 sm:grid-cols-2">
-                        {STAT_ROWS.map(({ key, label, icon: Icon, color, bar }) => {
+                        {STAT_ROW_KEYS.map(({ key, labelKey, icon: Icon, color, bar }) => {
                             const value = monster.derivedStats[key];
                             const pct = Math.max(8, Math.min(100, (value / maxStat) * 100));
                             return (
@@ -125,7 +136,7 @@ export function MonsterProfilePanel({
                                     <div className="mb-2 flex items-center justify-between gap-2">
                                         <span className="flex items-center gap-1.5 text-xs font-black text-slate-600">
                                             <Icon className={cn("h-3.5 w-3.5", color)} />
-                                            {label}
+                                            {t(labelKey)}
                                         </span>
                                         <span className="font-black tabular-nums text-slate-950">{value}</span>
                                     </div>
@@ -147,7 +158,7 @@ export function MonsterProfilePanel({
                                 {monster.trait.description}
                             </p>
                             <p className="mt-2 text-[10px] font-black uppercase text-emerald-700">
-                                Trait applies: {monster.trait.appliesAt.replace("_", " ")}
+                                {formatNegamonTraitTiming(monster.trait.appliesAt, t)}
                             </p>
                         </div>
                     ) : null}
@@ -156,7 +167,7 @@ export function MonsterProfilePanel({
                         <div className="mb-2 flex items-center justify-between gap-3">
                             <p className="flex items-center gap-1.5 text-xs font-black text-violet-950">
                                 <GitBranch className="h-3.5 w-3.5" />
-                                Evolution
+                                {t("negamonEvolutionTitle")}
                             </p>
                             <span className="text-xs font-black tabular-nums text-violet-800">
                                 {monster.evolution.progressPercent}%
@@ -164,8 +175,11 @@ export function MonsterProfilePanel({
                         </div>
                         <p className="text-xs font-medium leading-relaxed text-violet-800">
                             {monster.evolution.next
-                                ? `Next form: ${monster.evolution.next.formName} at level ${monster.evolution.next.requiredLevel}`
-                                : "Max form unlocked"}
+                                ? t("negamonEvolutionNext", {
+                                      name: monster.evolution.next.formName,
+                                      level: monster.evolution.next.requiredLevel,
+                                  })
+                                : t("negamonEvolutionMax")}
                         </p>
                         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
                             <div
@@ -178,10 +192,10 @@ export function MonsterProfilePanel({
                     <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-500">
                         <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1">
                             <Activity className="h-3.5 w-3.5" />
-                            Energy {monster.derivedStats.maxEnergy}
+                            {t("negamonEnergyMax", { value: monster.derivedStats.maxEnergy })}
                         </span>
                         <span className="rounded-lg bg-slate-100 px-2 py-1">
-                            Regen {monster.derivedStats.energyRegen}/turn
+                            {t("negamonEnergyRegen", { value: monster.derivedStats.energyRegen })}
                         </span>
                     </div>
                 </div>

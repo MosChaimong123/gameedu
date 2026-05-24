@@ -24,6 +24,7 @@ import {
 } from "@/lib/negamon-lite/session";
 import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
 import { resolveBattleRewardPayout } from "@/lib/services/student-economy/battle-reward-policy";
+import { normalizeStudentBattleKit } from "@/lib/shop-item-migration";
 
 const NEGAMON_LITE_BASE_GOLD_REWARD = 30;
 
@@ -121,14 +122,22 @@ export async function startNegamonLiteBattle(
     }
 
     const placeholderBattleId = `negamon-lite:${input.classId}:${input.challengerId}:${input.defenderId}`;
-    const challengerInventory = Array.isArray(challenger.inventory) ? (challenger.inventory as string[]) : [];
-    const defenderInventory = Array.isArray(defender.inventory) ? (defender.inventory as string[]) : [];
+    const challengerBattleKit = normalizeStudentBattleKit({
+        inventory: challenger.inventory,
+        battleLoadout: challenger.battleLoadout,
+    });
+    const defenderBattleKit = normalizeStudentBattleKit({
+        inventory: defender.inventory,
+        battleLoadout: defender.battleLoadout,
+    });
+    const challengerInventory = challengerBattleKit.inventory;
+    const defenderInventory = defenderBattleKit.inventory;
     const challengerBattleItemPlan = createNegamonBattleItemRuntimePlanOrEmpty({
-        loadoutIds: Array.isArray(challenger.battleLoadout) ? (challenger.battleLoadout as string[]) : [],
+        loadoutIds: challengerBattleKit.battleLoadout,
         inventory: challengerInventory,
     });
     const defenderBattleItemPlan = createNegamonBattleItemRuntimePlanOrEmpty({
-        loadoutIds: Array.isArray(defender.battleLoadout) ? (defender.battleLoadout as string[]) : [],
+        loadoutIds: defenderBattleKit.battleLoadout,
         inventory: defenderInventory,
     });
     const state = createNegamonLiteBattleState({

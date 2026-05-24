@@ -97,7 +97,7 @@ export function StudentDashboardMonsterTab({
                         </div>
                     ) : (
                         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-                            <p className="text-sm font-black text-slate-600">Monster snapshot is not ready.</p>
+                            <p className="text-sm font-black text-slate-600">{t("negamonSnapshotNotReady")}</p>
                         </div>
                     )
                 ) : negamonSettings.allowStudentChoice ? (

@@ -6,8 +6,27 @@ import {
     formatNegamonStatusTimeline,
     summarizeNegamonBattleEvent,
     summarizeNegamonReward,
+    type NegamonUiTranslateFn,
 } from "../ui-content";
 import type { NegamonSkillDefinition } from "@/lib/game-negamon";
+
+const enT: NegamonUiTranslateFn = (key, params) => {
+    const templates: Record<string, string> = {
+        negamonSkillEffectStatStage: "{target} {stat} {stages}",
+        negamonSkillEffectTargetEnemy: "Enemy",
+        negamonSkillEffectTargetSelf: "Self",
+        negamonSkillEffectStatus: "{effect} {chance}%",
+        negamonSkillLevelReq: "Level {level}",
+        negamonSkillRankReq: "Rank {rank}",
+        negamonItemEffectImmune: "Immune {status}",
+    };
+    const template = templates[key] ?? key;
+    if (!params) return template;
+    return Object.entries(params).reduce(
+        (text, [paramKey, value]) => text.replace(`{${paramKey}}`, String(value)),
+        template
+    );
+};
 
 function makeSkill(overrides: Partial<NegamonSkillDefinition> = {}): NegamonSkillDefinition {
     return {
@@ -44,12 +63,14 @@ describe("Negamon UI content helpers", () => {
     it("formats skill effects and requirements for compact UI labels", () => {
         const skill = makeSkill();
 
-        expect(formatNegamonSkillEffect(skill)).toBe("Enemy accuracy -1 / PARALYZE 50%");
-        expect(formatNegamonSkillRequirement(skill)).toBe("Level 3 / Rank 3");
+        expect(formatNegamonSkillEffect(skill, enT)).toBe("Enemy accuracy -1 / PARALYZE 50%");
+        expect(formatNegamonSkillRequirement(skill, enT)).toBe("Level 3 / Rank 3");
     });
 
     it("formats item, status timeline, battle event, and reward summaries", () => {
-        expect(formatNegamonItemEffect({ kind: "status_immunity", status: "POISON" })).toBe("Immune POISON");
+        expect(formatNegamonItemEffect({ kind: "status_immunity", status: "POISON" }, enT)).toBe(
+            "Immune POISON"
+        );
         expect(formatNegamonStatusTimeline({
             side: "opponent",
             status: "BURN",

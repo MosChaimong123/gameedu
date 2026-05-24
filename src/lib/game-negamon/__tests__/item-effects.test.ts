@@ -41,21 +41,21 @@ function makeMonster(itemIds: string[] = []): NegamonMonsterSnapshot {
 describe("Negamon item effect runtime V2", () => {
     it("creates runtime item plans with stat and reward modifiers", () => {
         const plan = createNegamonBattleItemRuntimePlan({
-            loadoutIds: ["item_iron_shield", "item_lucky_coin"],
-            inventory: ["item_iron_shield", "item_lucky_coin"],
+            loadoutIds: ["held_guard_core"],
+            inventory: ["held_guard_core"],
         });
 
         expect(plan).toMatchObject({
             ok: true,
-            itemIds: ["item_iron_shield", "item_lucky_coin"],
+            itemIds: ["held_guard_core"],
             inventoryChange: {
-                consumedItemIds: ["item_iron_shield", "item_lucky_coin"],
+                consumedItemIds: ["held_guard_core"],
                 grantedItemIds: [],
             },
-            statMultipliers: { atk: 1, def: 1.15, spd: 1 },
-            rewardModifiers: { goldBonus: 15, goldMultiplier: 1, expMultiplier: 1 },
+            statMultipliers: { atk: 1, def: 1, spd: 1 },
+            rewardModifiers: { goldBonus: 0, goldMultiplier: 1, expMultiplier: 1 },
         });
-        expect(plan.ok && plan.effects).toContainEqual({ kind: "gold_bonus", amount: 15 });
+        expect(plan.ok && plan.effects).toContainEqual({ kind: "damage_taken_multiplier", multiplier: 0.9 });
         expect(plan.ok && plan.statusImmunities).toEqual([]);
     });
 
@@ -65,13 +65,14 @@ describe("Negamon item effect runtime V2", () => {
             inventory: ["item_antidote_charm"],
             catalog: [
                 {
-                    id: "item_antidote_charm",
+                    id: "held_clear_mind_charm",
                     nameKey: "Antidote Charm",
                     rarity: "rare",
                     itemType: "battle",
                     stackable: true,
                     allowedInBattle: true,
-                    battleCategory: "status",
+                    battleCategory: "held",
+                    battleKind: "held",
                     effects: [{ kind: "status_immunity", status: "POISON" }],
                 },
             ],
@@ -98,30 +99,30 @@ describe("Negamon item effect runtime V2", () => {
 
     it("applies battle item inventory changes exactly once", () => {
         const plan = createNegamonBattleItemRuntimePlanOrEmpty({
-            loadoutIds: ["item_iron_shield"],
-            inventory: ["item_iron_shield", "item_lucky_coin"],
+            loadoutIds: ["held_guard_core"],
+            inventory: ["held_guard_core", "reward_lucky_coin"],
         });
 
         expect(applyNegamonBattleItemInventoryChange({
-            inventory: ["item_iron_shield", "item_lucky_coin"],
+            inventory: ["held_guard_core", "reward_lucky_coin"],
             plan,
-        })).toEqual(["item_lucky_coin"]);
+        })).toEqual(["reward_lucky_coin"]);
         expect(() =>
             applyNegamonBattleItemInventoryChange({ inventory: [], plan })
-        ).toThrow("MISSING_ITEM:item_iron_shield");
+        ).toThrow("MISSING_ITEM:held_guard_core");
     });
 
     it("applies item stat and reward modifiers to lite battle combatants", () => {
         const combatant = createNegamonLiteCombatant({
             side: "player",
             student: { id: "student-1", name: "A", behaviorPoints: 20 },
-            monster: makeMonster(["item_iron_shield", "item_lucky_coin"]),
+            monster: makeMonster(["held_guard_core"]),
         });
 
-        expect(combatant.stats.defense).toBe(23);
-        expect(combatant.battleItemIds).toEqual(["item_iron_shield", "item_lucky_coin"]);
-        expect(combatant.itemEffectKinds).toEqual(["stat_boost", "gold_bonus"]);
-        expect(combatant.rewardGoldBonus).toBe(15);
+        expect(combatant.stats.defense).toBe(20);
+        expect(combatant.battleItemIds).toEqual(["held_guard_core"]);
+        expect(combatant.itemEffectKinds).toEqual(["damage_taken_multiplier"]);
+        expect(combatant.rewardGoldBonus).toBe(0);
         expect(combatant.rewardGoldMultiplier).toBe(1);
     });
 
@@ -136,8 +137,10 @@ describe("Negamon item effect runtime V2", () => {
         expect(plan.effects).toEqual([
             { kind: "restore_hp", percent: 25 },
             { kind: "status_immunity", status: "POISON" },
+            { kind: "status_immunity", status: "BURN" },
+            { kind: "status_immunity", status: "SLEEP" },
         ]);
-        expect(plan.statusImmunities).toEqual(["POISON", "BADLY_POISON"]);
+        expect(plan.statusImmunities).toEqual(["POISON", "BADLY_POISON", "BURN", "SLEEP"]);
     });
 
     it("maps the energy orb into an active-use energy restore effect", () => {
@@ -186,10 +189,10 @@ describe("Negamon item effect runtime V2", () => {
 
     it("can derive stat modifiers from equipped item ids on monster snapshots", () => {
         const runtime = applyNegamonBattleItemRuntimeEffects({
-            monster: makeMonster(["item_spark_charm", "item_lucky_coin"]),
+            monster: makeMonster(["item_spark_charm"]),
         });
 
-        expect(runtime.stats.atk).toBe(32);
-        expect(runtime.plan.rewardModifiers.goldBonus).toBe(15);
+        expect(runtime.stats.atk).toBe(30);
+        expect(runtime.plan.effects).toContainEqual({ kind: "crit_bonus", percent: 18 });
     });
 });

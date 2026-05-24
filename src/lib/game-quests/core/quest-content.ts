@@ -10,18 +10,17 @@ export type GameQuestRewardContentInput = {
 
 const QUEST_REWARD_CONTENT: Record<string, Omit<GameQuestRewardRule, "gold">> = {
     "daily:quest_login": { exp: 5 },
-    "daily:quest_checkin": { exp: 10, itemIds: ["item_minor_potion"] },
-    "daily:quest_submit": { exp: 20, itemIds: ["item_energy_orb"] },
-    "daily:quest_streak3": { exp: 25, itemIds: ["item_antidote_charm"] },
-    "daily:quest_streak7": { exp: 40, itemIds: ["item_flame_ward"] },
+    "daily:quest_checkin": { exp: 10, itemIds: ["use_vital_vial"] },
+    "daily:quest_submit": { exp: 20, itemIds: ["use_charge_capsule"] },
+    "weekly:wq_streak3": { exp: 25, itemIds: ["held_clear_mind_charm"] },
+    "weekly:wq_streak5": { exp: 70, itemIds: ["held_clear_mind_charm"] },
+    "weekly:wq_streak7": { exp: 40, itemIds: ["held_clear_mind_charm"] },
+    "weekly:wq_submit3_week": { exp: 80, itemIds: ["use_charge_capsule"], skillIds: ["naga-aqua-jet"] },
+    "weekly:wq_daily_complete": { exp: 60, itemIds: ["use_vital_vial", "held_clear_mind_charm"] },
 
-    "weekly:wq_streak5": { exp: 70, itemIds: ["item_dream_bell"] },
-    "weekly:wq_submit3_week": { exp: 80, itemIds: ["item_energy_orb"], skillIds: ["naga-aqua-jet"] },
-    "weekly:wq_daily_complete": { exp: 60, itemIds: ["item_minor_potion", "item_antidote_charm"] },
-
-    "challenge:cq_streak14": { exp: 140, itemIds: ["item_lucky_coin"], formRank: 3 },
-    "challenge:cq_submit10": { exp: 120, itemIds: ["item_flame_ward"], skillIds: ["garuda-flame-burst"] },
-    "challenge:cq_first_buy": { exp: 50, itemIds: ["item_energy_orb"] },
+    "challenge:cq_streak14": { exp: 140, itemIds: ["reward_lucky_coin"], formRank: 3 },
+    "challenge:cq_submit10": { exp: 120, itemIds: ["held_clear_mind_charm"], skillIds: ["garuda-flame-burst"] },
+    "challenge:cq_first_buy": { exp: 50, itemIds: ["use_charge_capsule"] },
 };
 
 function contentKey(questType: GameQuestType, questId: string): string {

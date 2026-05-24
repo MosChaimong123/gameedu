@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/providers/language-provider";
 import { OpponentPicker } from "@/components/negamon/OpponentPicker";
 import { BattleHistoryPanel } from "@/components/negamon/BattleHistoryPanel";
-import { BattleItemBagPanel, BattlePrepDialog } from "@/components/negamon/battle-inventory-ui";
+import { BattlePrepDialog } from "@/components/negamon/battle-inventory-ui";
 import type { BattleFinalRewardPayload, BattleTabProps, Opponent } from "@/components/negamon/battle-tab.types";
 import { BattleV2Arena } from "@/components/game/negamon/BattleV2Arena";
 import type { NegamonBattleStateV3, NegamonBattleValidChoiceV3 } from "@/lib/game-negamon";
@@ -232,7 +232,6 @@ export function BattleTab({
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <BattleItemBagPanel inventory={inventory} />
                                 <OpponentPicker
                                     opponents={opponents}
                                     onChallenge={handlePickOpponent}

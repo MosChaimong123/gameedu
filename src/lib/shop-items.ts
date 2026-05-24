@@ -1,30 +1,23 @@
 export type ShopItemType = "frame" | "battle_item";
 export type ShopItemRarity = "common" | "rare" | "epic" | "legendary";
 
-/** Sub-groups inside the battle-items shop block (easier browsing). */
-export type ShopBattleItemCategory = "stat_boost" | "restore" | "status" | "reward";
+export type ShopBattleItemCategory = "held" | "usable" | "reward";
 
 export const BATTLE_ITEM_CATEGORY_ORDER: ShopBattleItemCategory[] = [
-    "stat_boost",
-    "restore",
-    "status",
+    "held",
+    "usable",
     "reward",
 ];
 
-/** Visual tier DNA for profile frames (distinct silhouette per level). */
 export type FrameTierVariant = "t1_minimal" | "t2_dual" | "t3_ascendant" | "t4_sovereign";
 
 export interface FramePreview {
     borderColor: string;
     shadow?: string;
-    /** CSS gradient — ring / card bezel fill */
     gradient?: string;
     variant: FrameTierVariant;
-    /** Outer bezel width in px */
     borderWidthPx: number;
-    /** Secondary glow layer (concat with shadow where supported) */
     haloShadow?: string;
-    /** T4: rotating conic under bezel */
     animated?: boolean;
     conicGradient?: string;
 }
@@ -32,10 +25,7 @@ export interface FramePreview {
 function hexToRgba(hex: string, alpha: number): string {
     let h = hex.replace("#", "").trim();
     if (h.length === 3) {
-        h = h
-            .split("")
-            .map((c) => c + c)
-            .join("");
+        h = h.split("").map((c) => c + c).join("");
     }
     const n = parseInt(h, 16);
     const r = (n >> 16) & 255;
@@ -45,18 +35,16 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 export interface BattleEffect {
-    /** Stat multipliers applied at battle start (e.g. 1.15 = +15%) */
     statBoost?: { atk?: number; def?: number; spd?: number };
-    /** Status effects this item grants immunity to */
     immunity?: string[];
-    /** HP restored when consumed as an active battle item. */
     restoreHpPercent?: number;
-    /** Energy restored when consumed as an active battle item. */
     restoreEnergy?: number;
-    /** Bonus gold added to reward if this fighter wins (before multiplier) */
     goldBonus?: number;
-    /** Multiplier on total gold reward if this fighter wins (applied after flat bonus) */
     goldMultiplier?: number;
+    expMultiplier?: number;
+    critBonusPercent?: number;
+    damageTakenMultiplier?: number;
+    energyRegen?: number;
 }
 
 export interface ShopItem {
@@ -64,12 +52,11 @@ export interface ShopItem {
     type: ShopItemType;
     price: number;
     rarity: ShopItemRarity;
-    icon?: string;           // emoji — used by battle_item type
-    preview?: FramePreview;  // used by frame type
+    icon?: string;
+    preview?: FramePreview;
     battleEffect?: BattleEffect;
-    /** When `type` is `battle_item`, used to group rows in the shop dialog. */
     battleCategory?: ShopBattleItemCategory;
-    /** Optional elemental theme metadata for profile frame items */
+    battleKind?: "held" | "usable" | "reward";
     frameElement?: FrameElement;
     frameTier?: 1 | 2 | 3 | 4;
 }
@@ -84,6 +71,14 @@ export function shopItemDescKey(id: string): string {
     return `shopItem_${id}_desc`;
 }
 
+/** Frames and held (wearable) battle items can only be bought once per student. */
+export function isSinglePurchaseShopItem(
+    item: Pick<ShopItem, "type" | "battleCategory">
+): boolean {
+    if (item.type === "frame") return true;
+    return item.type === "battle_item" && item.battleCategory === "held";
+}
+
 export const RARITY_COLOR: Record<ShopItemRarity, string> = {
     common: "#94a3b8",
     rare: "#3b82f6",
@@ -91,7 +86,6 @@ export const RARITY_COLOR: Record<ShopItemRarity, string> = {
     legendary: "#f59e0b",
 };
 
-/** Gold/hour multiplier by equipped frame rarity. */
 export const FRAME_GOLD_RATE_MULTIPLIER_BY_RARITY: Record<ShopItemRarity, number> = {
     common: 1.05,
     rare: 1.1,
@@ -107,171 +101,144 @@ const RARITY_ORDER: Record<ShopItemRarity, number> = {
 };
 
 export const BATTLE_ITEMS: ShopItem[] = [
-    // ── DEF tiers ──
     {
-        id: "item_buckler",
+        id: "held_guard_core",
         type: "battle_item",
-        price: 100,
-        rarity: "common",
-        icon: "🥏",
-        battleCategory: "stat_boost",
-        battleEffect: { statBoost: { def: 1.08 } },
-    },
-    {
-        id: "item_iron_shield",
-        type: "battle_item",
-        price: 1000,
+        price: 1200,
         rarity: "rare",
         icon: "🛡️",
-        battleCategory: "stat_boost",
-        battleEffect: { statBoost: { def: 1.15 } },
+        battleCategory: "held",
+        battleKind: "held",
+        battleEffect: { damageTakenMultiplier: 0.9 },
     },
     {
-        id: "item_aegis_plate",
-        type: "battle_item",
-        price: 5000,
-        rarity: "epic",
-        icon: "🔰",
-        battleCategory: "stat_boost",
-        battleEffect: { statBoost: { def: 1.22 } },
-    },
-    // ── SPD tiers ──
-    {
-        id: "item_wind_thread",
-        type: "battle_item",
-        price: 100,
-        rarity: "common",
-        icon: "🎗️",
-        battleCategory: "stat_boost",
-        battleEffect: { statBoost: { spd: 1.10 } },
-    },
-    {
-        id: "item_swift_feather",
+        id: "held_swift_anklet",
         type: "battle_item",
         price: 1000,
         rarity: "rare",
-        icon: "🪶",
-        battleCategory: "stat_boost",
-        battleEffect: { statBoost: { spd: 1.20 } },
+        icon: "🪽",
+        battleCategory: "held",
+        battleKind: "held",
+        battleEffect: { statBoost: { spd: 1.18 } },
     },
     {
-        id: "item_gale_plume",
+        id: "held_scope_prism",
         type: "battle_item",
         price: 5000,
         rarity: "epic",
-        icon: "🪁",
-        battleCategory: "stat_boost",
-        battleEffect: { statBoost: { spd: 1.28 } },
-    },
-    // ── ATK tiers ──
-    {
-        id: "item_spark_charm",
-        type: "battle_item",
-        price: 100,
-        rarity: "common",
-        icon: "✳️",
-        battleCategory: "stat_boost",
-        battleEffect: { statBoost: { atk: 1.08 } },
+        icon: "🔷",
+        battleCategory: "held",
+        battleKind: "held",
+        battleEffect: { critBonusPercent: 18 },
     },
     {
-        id: "item_ember_charm",
-        type: "battle_item",
-        price: 1000,
-        rarity: "rare",
-        icon: "🔮",
-        battleCategory: "stat_boost",
-        battleEffect: { statBoost: { atk: 1.15 } },
-    },
-    {
-        id: "item_inferno_talisman",
-        type: "battle_item",
-        price: 5000,
-        rarity: "epic",
-        icon: "🔥",
-        battleCategory: "stat_boost",
-        battleEffect: { statBoost: { atk: 1.22 } },
-    },
-    // Restore items for active-use battle flow.
-    {
-        id: "item_minor_potion",
-        type: "battle_item",
-        price: 150,
-        rarity: "common",
-        icon: "HP",
-        battleCategory: "restore",
-        battleEffect: { restoreHpPercent: 25 },
-    },
-    {
-        id: "item_energy_orb",
-        type: "battle_item",
-        price: 250,
-        rarity: "common",
-        icon: "EN",
-        battleCategory: "restore",
-        battleEffect: { restoreEnergy: 18 },
-    },
-    // Status immunity charms.
-    {
-        id: "item_antidote_charm",
-        type: "battle_item",
-        price: 800,
-        rarity: "rare",
-        icon: "POI",
-        battleCategory: "status",
-        battleEffect: { immunity: ["POISON"] },
-    },
-    {
-        id: "item_flame_ward",
+        id: "held_echo_battery",
         type: "battle_item",
         price: 900,
-        rarity: "rare",
-        icon: "BRN",
-        battleCategory: "status",
-        battleEffect: { immunity: ["BURN"] },
+        rarity: "common",
+        icon: "🔋",
+        battleCategory: "held",
+        battleKind: "held",
+        battleEffect: { energyRegen: 12 },
     },
     {
-        id: "item_dream_bell",
+        id: "held_clear_mind_charm",
         type: "battle_item",
         price: 1100,
         rarity: "rare",
-        icon: "SLP",
-        battleCategory: "status",
-        battleEffect: { immunity: ["SLEEP"] },
+        icon: "🧿",
+        battleCategory: "held",
+        battleKind: "held",
+        battleEffect: { immunity: ["POISON", "BURN", "SLEEP"] },
     },
     {
-        id: "item_lucky_coin",
+        id: "use_vital_vial",
+        type: "battle_item",
+        price: 150,
+        rarity: "common",
+        icon: "🧪",
+        battleCategory: "usable",
+        battleKind: "usable",
+        battleEffect: { restoreHpPercent: 25 },
+    },
+    {
+        id: "use_charge_capsule",
+        type: "battle_item",
+        price: 250,
+        rarity: "common",
+        icon: "🔋",
+        battleCategory: "usable",
+        battleKind: "usable",
+        battleEffect: { restoreEnergy: 18 },
+    },
+    {
+        id: "reward_lucky_coin",
         type: "battle_item",
         price: 5000,
         rarity: "epic",
         icon: "🪙",
         battleCategory: "reward",
+        battleKind: "reward",
         battleEffect: { goldBonus: 15 },
     },
     {
-        id: "item_merchants_sigil",
+        id: "reward_scholar_seal",
         type: "battle_item",
         price: 5000,
-        rarity: "legendary",
-        icon: "✨",
+        rarity: "rare",
+        icon: "📜",
         battleCategory: "reward",
-        battleEffect: { goldMultiplier: 1.25 },
+        battleKind: "reward",
+        battleEffect: { expMultiplier: 1.2 },
+    },
+    {
+        id: "reward_trait_crystal",
+        type: "battle_item",
+        price: 7500,
+        rarity: "epic",
+        icon: "💎",
+        battleCategory: "reward",
+        battleKind: "reward",
     },
 ];
+
+export const LEGACY_BATTLE_ITEM_ALIASES: Record<string, string> = {
+    item_buckler: "held_guard_core",
+    item_iron_shield: "held_guard_core",
+    item_aegis_plate: "held_guard_core",
+    item_wind_thread: "held_swift_anklet",
+    item_swift_feather: "held_swift_anklet",
+    item_gale_plume: "held_swift_anklet",
+    item_spark_charm: "held_scope_prism",
+    item_ember_charm: "held_scope_prism",
+    item_inferno_talisman: "held_scope_prism",
+    item_minor_potion: "use_vital_vial",
+    item_energy_orb: "use_charge_capsule",
+    item_antidote_charm: "held_clear_mind_charm",
+    item_flame_ward: "held_clear_mind_charm",
+    item_dream_bell: "held_clear_mind_charm",
+    item_lucky_coin: "reward_lucky_coin",
+    item_merchants_sigil: "reward_lucky_coin",
+};
+
+export function resolveLegacyBattleItemId(id: string): string {
+    return LEGACY_BATTLE_ITEM_ALIASES[id] ?? id;
+}
 
 export function groupBattleItemsByCategory(
     items: ShopItem[]
 ): { category: ShopBattleItemCategory; items: ShopItem[] }[] {
     const map = new Map<ShopBattleItemCategory, ShopItem[]>();
-    for (const c of BATTLE_ITEM_CATEGORY_ORDER) {
-        map.set(c, []);
+    for (const category of BATTLE_ITEM_CATEGORY_ORDER) {
+        map.set(category, []);
     }
     for (const item of items) {
         if (item.type !== "battle_item") continue;
-        const cat = item.battleCategory ?? "stat_boost";
-        map.get(cat)?.push(item);
+        const category = item.battleCategory ?? "held";
+        map.get(category)?.push(item);
     }
-    for (const cat of BATTLE_ITEM_CATEGORY_ORDER) {
-        map.get(cat)?.sort((a, b) => {
+    for (const category of BATTLE_ITEM_CATEGORY_ORDER) {
+        map.get(category)?.sort((a, b) => {
             const byRarity = RARITY_ORDER[a.rarity] - RARITY_ORDER[b.rarity];
             if (byRarity !== 0) return byRarity;
             const byPrice = a.price - b.price;
@@ -282,7 +249,7 @@ export function groupBattleItemsByCategory(
     return BATTLE_ITEM_CATEGORY_ORDER.map((category) => ({
         category,
         items: map.get(category) ?? [],
-    })).filter((g) => g.items.length > 0);
+    })).filter((group) => group.items.length > 0);
 }
 
 const FRAME_TIER_META: Array<{ tier: 1 | 2 | 3 | 4; rarity: ShopItemRarity; price: number }> = [
@@ -367,6 +334,7 @@ const FRAME_TIER_NAME_TH: Record<1 | 2 | 3 | 4, string> = {
     3: "อัญเชิญ",
     4: "จักรพรรดิ",
 };
+
 const FRAME_TIER_NAME_EN: Record<1 | 2 | 3 | 4, string> = {
     1: "Initiate",
     2: "Refined",
@@ -375,15 +343,72 @@ const FRAME_TIER_NAME_EN: Record<1 | 2 | 3 | 4, string> = {
 };
 
 export function getFallbackShopItemName(id: string, locale: "th" | "en"): string {
+    const names: Record<string, { th: string; en: string }> = {
+        held_guard_core: { th: "แกนพิทักษ์", en: "Guard Core" },
+        held_swift_anklet: { th: "กำไลวายุ", en: "Swift Anklet" },
+        held_scope_prism: { th: "ปริซึมจู่โจม", en: "Scope Prism" },
+        held_echo_battery: { th: "แบตสะท้อนพลัง", en: "Echo Battery" },
+        held_clear_mind_charm: { th: "เครื่องรางจิตใส", en: "Clear Mind Charm" },
+        use_vital_vial: { th: "ขวดยาฟื้นชีพ", en: "Vital Vial" },
+        use_charge_capsule: { th: "แคปซูลชาร์จพลัง", en: "Charge Capsule" },
+        reward_lucky_coin: { th: "เหรียญโชคดี", en: "Lucky Coin" },
+        reward_scholar_seal: { th: "ตรานักปราชญ์", en: "Scholar Seal" },
+        reward_trait_crystal: { th: "ผลึกพรสวรรค์", en: "Trait Crystal" },
+    };
+    if (names[id]) return locale === "th" ? names[id].th : names[id].en;
+
     const match = /^frame_(fire|water|earth|wind|thunder|light|dark)_t([1-4])$/.exec(id);
     if (!match) return id;
     const element = match[1] as FrameElement;
     const palette = FRAME_ELEMENT_PALETTES[element];
-    if (locale === "th") return `กรอบ${palette.thName}`;
-    return `${palette.enName} Frame`;
+    return locale === "th" ? `กรอบ${palette.thName}` : `${palette.enName} Frame`;
 }
 
 export function getFallbackShopItemDesc(id: string, locale: "th" | "en"): string {
+    const descriptions: Record<string, { th: string; en: string }> = {
+        held_guard_core: {
+            th: "ลดความเสียหายที่ได้รับเล็กน้อยตลอดการต่อสู้",
+            en: "Slightly reduces incoming damage throughout the battle.",
+        },
+        held_swift_anklet: {
+            th: "เพิ่มความเร็วตั้งแต่เริ่มการต่อสู้",
+            en: "Boosts speed at the start of battle.",
+        },
+        held_scope_prism: {
+            th: "เพิ่มโอกาสคริติคอลของท่าโจมตี",
+            en: "Raises the critical-hit chance of damaging moves.",
+        },
+        held_echo_battery: {
+            th: "ฟื้นพลังงานเพิ่มตอนจบเทิร์น",
+            en: "Restores extra energy at the end of each turn.",
+        },
+        held_clear_mind_charm: {
+            th: "ป้องกันพิษ ไหม้ และหลับในการต่อสู้",
+            en: "Guards against poison, burn, and sleep in battle.",
+        },
+        use_vital_vial: {
+            th: "ฟื้น HP 25% เมื่อใช้ในการต่อสู้",
+            en: "Restore 25% HP when used in battle.",
+        },
+        use_charge_capsule: {
+            th: "ฟื้นพลังงาน +18 เมื่อใช้ในการต่อสู้",
+            en: "Restore +18 energy when used in battle.",
+        },
+        reward_lucky_coin: {
+            th: "โบนัสทอง +15 ถ้าชนะ",
+            en: "+15 bonus gold if you win.",
+        },
+        reward_scholar_seal: {
+            th: "EXP หลังชนะ x1.2",
+            en: "×1.2 EXP reward if you win.",
+        },
+        reward_trait_crystal: {
+            th: "ทรัพยากรสำหรับระบบ trait ในอนาคต",
+            en: "Progression material for future trait systems.",
+        },
+    };
+    if (descriptions[id]) return locale === "th" ? descriptions[id].th : descriptions[id].en;
+
     const match = /^frame_(fire|water|earth|wind|thunder|light|dark)_t([1-4])$/.exec(id);
     if (!match) return "";
     const element = match[1] as FrameElement;
@@ -397,16 +422,18 @@ export function getFallbackShopItemDesc(id: string, locale: "th" | "en"): string
 }
 
 export function getItemById(id: string): ShopItem | undefined {
-    return [...SHOP_ITEMS, ...BATTLE_ITEMS].find((i) => i.id === id);
+    const normalized = resolveLegacyBattleItemId(id);
+    return [...SHOP_ITEMS, ...BATTLE_ITEMS].find((item) => item.id === normalized);
 }
 
 export function getBattleItemById(id: string): ShopItem | undefined {
-    return BATTLE_ITEMS.find((i) => i.id === id);
+    const normalized = resolveLegacyBattleItemId(id);
+    return BATTLE_ITEMS.find((item) => item.id === normalized);
 }
 
 export function getFrameGoldRateMultiplierById(frameId: string | null | undefined): number {
     if (!frameId) return 1;
-    const frame = SHOP_ITEMS.find((i) => i.type === "frame" && i.id === frameId);
+    const frame = SHOP_ITEMS.find((item) => item.type === "frame" && item.id === frameId);
     if (!frame) return 1;
     return FRAME_GOLD_RATE_MULTIPLIER_BY_RARITY[frame.rarity] ?? 1;
 }

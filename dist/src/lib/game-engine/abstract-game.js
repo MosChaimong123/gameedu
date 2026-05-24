@@ -7,6 +7,12 @@ class AbstractGameEngine {
         this.hasArchived = false;
         /** หลัง sync EXP เข้าห้องเรียน (Negamon + negamonRewardClassroomId) สำเร็จ */
         this.negamonClassroomRewardsSynced = false;
+        /** Guards the async reward sync so the game loop cannot start parallel sync jobs. */
+        this.negamonClassroomRewardsSyncInProgress = false;
+        /** Last failed reward sync message, kept for logs/debugging and future host UI surfacing. */
+        this.negamonClassroomRewardsLastError = null;
+        /** Last reward sync attempt time. Used to avoid retrying every tick after transient failures. */
+        this.negamonClassroomRewardsLastAttemptAt = 0;
         this.pin = pin;
         this.hostId = hostId;
         this.setId = setId;

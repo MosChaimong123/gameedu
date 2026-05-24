@@ -261,7 +261,9 @@ export function resolveRuntimeSkill(input: {
             flatModifier: actor.outgoingDamageMultiplier ?? 1,
         });
 
-        const reduced = applyRuntimeShieldReduction({ combatant: target, damage: damageResult.damage });
+        const passiveIncomingMultiplier = Number(target.hookFlags?.["system:incoming_damage_multiplier"] ?? 1);
+        const incomingAdjustedDamage = Math.max(1, Math.floor(damageResult.damage * passiveIncomingMultiplier));
+        const reduced = applyRuntimeShieldReduction({ combatant: target, damage: incomingAdjustedDamage });
         damage = reduced.damage;
         target.hp = Math.max(0, target.hp - damage);
         timeline.push(...reduced.timeline);

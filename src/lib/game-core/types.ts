@@ -59,8 +59,12 @@ export type GameItemEffect =
     | { kind: "status_immunity"; status: string }
     | { kind: "gold_bonus"; amount: number }
     | { kind: "gold_multiplier"; multiplier: number }
+    | { kind: "exp_multiplier"; multiplier: number }
     | { kind: "restore_hp"; percent: number }
     | { kind: "restore_energy"; amount: number }
+    | { kind: "crit_bonus"; percent: number }
+    | { kind: "damage_taken_multiplier"; multiplier: number }
+    | { kind: "energy_regen"; amount: number }
     | { kind: "unlock_skill"; skillId: string };
 
 export type GameItemDefinition = {

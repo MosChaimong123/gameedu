@@ -12,6 +12,7 @@ import {
     type NegamonBattleItemDefinition,
 } from "./battle-items";
 import type { NegamonMonsterSnapshot } from "./monster-snapshot";
+import { resolveLegacyBattleItemId } from "@/lib/shop-items";
 
 function mapItemStatusImmunity(status: string): NegamonLiteStatus[] {
     const normalized = status.trim().toUpperCase();
@@ -142,7 +143,9 @@ export function applyNegamonBattleItemInventoryChange(input: {
 export function getNegamonBattleItemRuntimePlanFromIds(itemIds: string[]) {
     const catalog = getNegamonBattleItemCatalog();
     const byId = new Map(catalog.map((item) => [item.id, item]));
-    const items = itemIds.map((id) => byId.get(id)).filter((item): item is NegamonBattleItemDefinition => Boolean(item));
+    const items = itemIds
+        .map((id) => byId.get(resolveLegacyBattleItemId(id)))
+        .filter((item): item is NegamonBattleItemDefinition => Boolean(item));
     return createNegamonBattleItemRuntimePlan({
         loadoutIds: items.map((item) => item.id),
         inventory: items.map((item) => item.id),

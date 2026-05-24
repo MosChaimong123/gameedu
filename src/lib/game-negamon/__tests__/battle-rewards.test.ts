@@ -82,12 +82,12 @@ describe("Negamon progression and reward contracts", () => {
         expect(plan.reward).toMatchObject({
             gold: 30,
             exp: 25,
-            grantedItemIds: ["item_lucky_coin"],
+            grantedItemIds: ["reward_lucky_coin"],
             unlockedSkillIds: ["naga-aqua-jet"],
         });
         expect(plan.inventoryChange).toEqual({
             consumedItemIds: ["item_potion"],
-            grantedItemIds: ["item_lucky_coin"],
+            grantedItemIds: ["reward_lucky_coin"],
             equippedItemIds: [],
             unequippedItemIds: [],
         });

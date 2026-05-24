@@ -1,5 +1,19 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 
+const MONGO_OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+
+/** Prisma stores `sourceRefId` as MongoDB ObjectId — shop/quest slugs must not be written there. */
+export function isMongoObjectId(value: string): boolean {
+    return MONGO_OBJECT_ID_PATTERN.test(value.trim());
+}
+
+export function sanitizeEconomySourceRefId(value?: string | null): string | null {
+    if (value == null) return null;
+    const trimmed = value.trim();
+    if (!trimmed || !isMongoObjectId(trimmed)) return null;
+    return trimmed;
+}
+
 export type EconomyTransactionType = "earn" | "spend" | "adjust";
 
 export type EconomyTransactionSource =
@@ -31,7 +45,11 @@ export async function recordEconomyTransaction(
     input: RecordEconomyTransactionInput
 ) {
     if (input.balanceAfter !== input.balanceBefore + input.amount) {
-        throw new Error("ECONOMY_LEDGER_BALANCE_MISMATCH");
+        throw new Error(
+            `ECONOMY_LEDGER_BALANCE_MISMATCH: expected ${
+                input.balanceBefore + input.amount
+            } but got ${input.balanceAfter} (before: ${input.balanceBefore}, amount: ${input.amount})`
+        );
     }
 
     const idempotencyKey = input.idempotencyKey?.trim() || null;
@@ -54,7 +72,7 @@ export async function recordEconomyTransaction(
         amount: input.amount,
         balanceBefore: input.balanceBefore,
         balanceAfter: input.balanceAfter,
-        sourceRefId: input.sourceRefId ?? null,
+        sourceRefId: sanitizeEconomySourceRefId(input.sourceRefId),
         idempotencyKey,
         metadata: input.metadata ?? undefined,
     };

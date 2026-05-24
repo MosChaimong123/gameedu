@@ -8,7 +8,9 @@ import type { QuestStatus } from "@/lib/daily-quests";
 // ── Weekly ──────────────────────────────────────────────────
 
 export type WeeklyQuestId =
+    | "wq_streak3"
     | "wq_streak5"
+    | "wq_streak7"
     | "wq_submit3_week"
     | "wq_daily_complete";
 
@@ -18,10 +20,18 @@ export type WeeklyQuestDef = {
     nameKey: string;
     descKey: string;
     goldReward: number;
-    condition: "streak_5" | "submit_3_week" | "daily_complete";
+    condition: "streak_3" | "streak_5" | "streak_7" | "submit_3_week" | "daily_complete";
 };
 
 export const WEEKLY_QUESTS: WeeklyQuestDef[] = [
+    {
+        id: "wq_streak3",
+        icon: "🔥",
+        nameKey: "questStreak3Name",
+        descKey: "questStreak3Desc",
+        goldReward: 15,
+        condition: "streak_3",
+    },
     {
         id: "wq_streak5",
         icon: "🔥",
@@ -29,6 +39,14 @@ export const WEEKLY_QUESTS: WeeklyQuestDef[] = [
         descKey: "wqStreak5Desc",
         goldReward: 80,
         condition: "streak_5",
+    },
+    {
+        id: "wq_streak7",
+        icon: "⚡",
+        nameKey: "questStreak7Name",
+        descKey: "questStreak7Desc",
+        goldReward: 30,
+        condition: "streak_7",
     },
     {
         id: "wq_submit3_week",
@@ -152,7 +170,9 @@ export function isWeeklyQuestCompleted(
     input: WeeklyCheckInput
 ): boolean {
     switch (condition) {
+        case "streak_3":          return input.streak >= 3;
         case "streak_5":          return input.streak >= 5;
+        case "streak_7":          return input.streak >= 7;
         case "submit_3_week":     return input.submissionsThisWeek >= 3;
         case "daily_complete":    return input.allDailyClaimedToday;
     }

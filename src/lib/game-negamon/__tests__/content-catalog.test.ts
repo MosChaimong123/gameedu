@@ -24,8 +24,8 @@ describe("Negamon content catalog foundation", () => {
 
         expect(catalog.monsters.map((monster) => monster.id)).toContain("pyronox");
         expect(catalog.skills.map((skill) => skill.id)).toContain("basic-attack");
-        expect(catalog.items.map((item) => item.id)).toContain("item_lucky_coin");
-        expect(catalog.items.map((item) => item.id)).toContain("item_minor_potion");
+        expect(catalog.items.map((item) => item.id)).toContain("reward_lucky_coin");
+        expect(catalog.items.map((item) => item.id)).toContain("use_vital_vial");
         expect(catalog.statuses.map((status) => status.id)).toContain("status_burn");
         expect(catalog.rewardTables.map((entry) => entry.id)).toContain("reward_normal_win");
     });
@@ -87,7 +87,7 @@ describe("Negamon content catalog foundation", () => {
     it("normalizes skill requirements and item effects for battle runtime phases", () => {
         const catalog = buildNegamonContentCatalog();
         const skill = catalog.skills.find((item) => item.id === "pyronox-ember-fang");
-        const luckyCoin = findNegamonContentItem(catalog, "item_lucky_coin");
+        const luckyCoin = findNegamonContentItem(catalog, "reward_lucky_coin");
 
         expect(skill).toMatchObject({
             contentType: "skill",
@@ -101,9 +101,9 @@ describe("Negamon content catalog foundation", () => {
         expect(skill?.effects.some((effect) => effect.kind === "damage")).toBe(true);
         expect(luckyCoin).toMatchObject({
             contentType: "item",
-            itemType: "battle",
+            itemType: "material",
             battleCategory: "reward",
-            allowedInBattle: true,
+            allowedInBattle: false,
         });
         expect(luckyCoin?.effects).toContainEqual({ kind: "gold_bonus", amount: 15 });
     });
@@ -113,20 +113,19 @@ describe("Negamon content catalog foundation", () => {
         const byId = new Map(catalog.items.map((item) => [item.id, item]));
 
         expect(catalog.items.length).toBeGreaterThanOrEqual(8);
-        expect(byId.get("item_minor_potion")).toMatchObject({
-            battleCategory: "restore",
+        expect(byId.get("use_vital_vial")).toMatchObject({
+            battleCategory: "usable",
             effects: [{ kind: "restore_hp", percent: 25 }],
         });
-        expect(byId.get("item_energy_orb")).toMatchObject({
-            battleCategory: "restore",
+        expect(byId.get("use_charge_capsule")).toMatchObject({
+            battleCategory: "usable",
             effects: [{ kind: "restore_energy", amount: 18 }],
         });
-        expect(byId.get("item_antidote_charm")).toMatchObject({
-            battleCategory: "status",
-            effects: [{ kind: "status_immunity", status: "POISON" }],
+        expect(byId.get("held_clear_mind_charm")).toMatchObject({
+            battleCategory: "held",
         });
-        expect(byId.get("item_spark_charm")?.effects).toContainEqual({ kind: "stat_boost", stat: "atk", multiplier: 1.08 });
-        expect(byId.get("item_lucky_coin")?.effects).toContainEqual({ kind: "gold_bonus", amount: 15 });
+        expect(byId.get("held_scope_prism")?.effects).toContainEqual({ kind: "crit_bonus", percent: 18 });
+        expect(byId.get("reward_lucky_coin")?.effects).toContainEqual({ kind: "gold_bonus", amount: 15 });
     });
 
     it("defines status metadata and battle reward tables for future runtime resolvers", () => {
@@ -145,7 +144,7 @@ describe("Negamon content catalog foundation", () => {
         expect(NEGAMON_BATTLE_REWARD_TABLE.find((entry) => entry.id === "reward_hard_win")).toMatchObject({
             difficulty: "hard",
             outcome: "win",
-            itemDropIds: ["item_lucky_coin", "item_flame_ward"],
+            itemDropIds: ["reward_lucky_coin", "held_clear_mind_charm"],
             unlockConditions: { minRankIndex: 2 },
         });
     });
@@ -161,28 +160,28 @@ describe("Negamon content catalog foundation", () => {
         }
 
         expect(catalog.rewardTables.find((entry) => entry.id === "reward_easy_win")?.itemDropIds).toEqual([
-            "item_minor_potion",
+            "use_vital_vial",
         ]);
         expect(catalog.rewardTables.find((entry) => entry.id === "reward_normal_win")?.itemDropIds).toEqual([
-            "item_energy_orb",
-            "item_antidote_charm",
+            "use_charge_capsule",
+            "held_clear_mind_charm",
         ]);
     });
 
     it("allows future DB-backed or event-backed items to merge without replacing the static shop catalog", () => {
         const potion = createNegamonExtraItemDefinition({
-            id: "item_minor_potion",
+            id: "use_vital_vial",
             rarity: "common",
             priceGold: 150,
             effects: [{ kind: "restore_hp", percent: 25 }],
         });
         const catalog = buildNegamonContentCatalog({ extraItems: [potion] });
 
-        expect(findNegamonContentItem(catalog, "item_minor_potion")).toMatchObject({
-            id: "item_minor_potion",
+        expect(findNegamonContentItem(catalog, "use_vital_vial")).toMatchObject({
+            id: "use_vital_vial",
             contentType: "item",
             effects: [{ kind: "restore_hp", percent: 25 }],
         });
-        expect(findNegamonContentItem(catalog, "item_lucky_coin")).not.toBeNull();
+        expect(findNegamonContentItem(catalog, "reward_lucky_coin")).not.toBeNull();
     });
 });

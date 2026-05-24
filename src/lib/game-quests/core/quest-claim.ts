@@ -10,6 +10,7 @@ import {
     type GameInventoryChange,
     type GameRewardResult,
 } from "@/lib/game-core";
+import { normalizeRewardItemIds } from "@/lib/shop-item-migration";
 
 export type GameQuestType = "daily" | "weekly" | "challenge" | "chain";
 
@@ -89,14 +90,15 @@ export function createQuestClaimRewardPlan(input: QuestClaimRewardInput): QuestC
     }
 
     const gold = calculateQuestGoldReward(input.rewardRule?.gold ?? input.baseReward, input.multiplier);
+    const rewardItemIds = normalizeRewardItemIds(input.rewardRule?.itemIds ?? []);
     const reward = createGameRewardResult({
         gold,
         exp: input.rewardRule?.exp,
-        grantedItemIds: input.rewardRule?.itemIds,
+        grantedItemIds: rewardItemIds,
         unlockedSkillIds: input.rewardRule?.skillIds,
         idempotencyKey,
     });
-    const inventoryChange = createInventoryGrantChange(input.rewardRule?.itemIds ?? []);
+    const inventoryChange = createInventoryGrantChange(rewardItemIds);
 
     return {
         ok: true,

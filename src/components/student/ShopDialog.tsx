@@ -1,16 +1,12 @@
 "use client";
 
-import { useState, type ComponentType } from "react";
+import { useMemo, useState } from "react";
 import {
     ShoppingBag,
     Coins,
     CheckCircle2,
     Shirt,
     Swords,
-    TrendingUp,
-    Shield,
-    Sparkles,
-    HeartPulse,
 } from "lucide-react";
 import {
     Dialog,
@@ -28,15 +24,17 @@ import {
     getFallbackShopItemDesc,
     getFallbackShopItemName,
     groupBattleItemsByCategory,
+    isSinglePurchaseShopItem,
     shopItemDescKey,
     shopItemNameKey,
-    type ShopBattleItemCategory,
     type ShopItem,
     type ShopItemRarity,
 } from "@/lib/shop-items";
+import { normalizeStudentInventoryItemIds } from "@/lib/shop-item-migration";
 import { useLanguage } from "@/components/providers/language-provider";
 import { getLocalizedMessageFromApiErrorBody } from "@/lib/ui-error-messages";
 import { FrameRing } from "@/components/ui/frame-visual";
+import { BattleItemKindBadge, BattleItemVisual, getBattleItemKindMeta } from "@/components/game/negamon/item-visuals";
 
 const RARITY_I18N_KEY: Record<ShopItemRarity, string> = {
     common: "shopRarityCommon",
@@ -75,13 +73,6 @@ const FRAME_ELEMENT_META: Record<
     dark: { emoji: "🌙", colorClass: "text-violet-600", th: "ธาตุความมืด", en: "Dark" },
 };
 
-const BATTLE_CATEGORY_ICON: Record<ShopBattleItemCategory, ComponentType<{ className?: string }>> = {
-    stat_boost: TrendingUp,
-    restore: HeartPulse,
-    status: Shield,
-    reward: Sparkles,
-};
-
 interface ShopDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -91,6 +82,16 @@ interface ShopDialogProps {
     equippedFrame: string | null;
     onBuy: (itemId: string, newGold: number, newInventory: string[]) => void;
     onEquip: (itemId: string | null) => void;
+}
+
+async function readJsonSafely(response: Response): Promise<unknown> {
+    const text = await response.text();
+    if (!text.trim()) return null;
+    try {
+        return JSON.parse(text) as unknown;
+    } catch {
+        return null;
+    }
 }
 
 export function ShopDialog({
@@ -104,6 +105,10 @@ export function ShopDialog({
     onEquip,
 }: ShopDialogProps) {
     const { t, language } = useLanguage();
+    const normalizedInventory = useMemo(
+        () => normalizeStudentInventoryItemIds(inventory),
+        [inventory]
+    );
     const [buying, setBuying] = useState<string | null>(null);
     const [equipping, setEquipping] = useState<string | null>(null);
     const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -122,15 +127,23 @@ export function ShopDialog({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ itemId: item.id }),
             });
-            const data = (await res.json()) as unknown;
+            const data = await readJsonSafely(res);
             if (!res.ok) {
-                showToast(getLocalizedMessageFromApiErrorBody(data, t));
+                showToast(
+                    data
+                        ? getLocalizedMessageFromApiErrorBody(data, t)
+                        : t("genericError")
+                );
             } else {
                 const body = data as {
                     newGold: number;
                     inventory: string[];
                     gameState?: { gold?: number; inventory?: string[] };
-                };
+                } | null;
+                if (!body) {
+                    showToast(t("genericError"));
+                    return;
+                }
                 onBuy(
                     item.id,
                     body.gameState?.gold ?? body.newGold,
@@ -155,6 +168,9 @@ export function ShopDialog({
             if (res.ok) {
                 onEquip(itemId);
                 showToast(itemId ? t("shopFrameEquippedToast") : t("shopFrameUnequippedToast"));
+            } else {
+                const data = await readJsonSafely(res);
+                showToast(data ? getLocalizedMessageFromApiErrorBody(data, t) : t("genericError"));
             }
         } finally {
             setEquipping(null);
@@ -200,10 +216,14 @@ export function ShopDialog({
         return getFallbackShopItemDesc(item.id, language);
     }
 
+    function shopItemOwned(item: ShopItem): boolean {
+        return isSinglePurchaseShopItem(item) && normalizedInventory.includes(item.id);
+    }
+
     function renderBuyButton(item: ShopItem) {
-        const owned = inventory.includes(item.id);
+        const owned = shopItemOwned(item);
         const canAfford = gold >= item.price;
-        if (item.type === "frame" && owned) {
+        if (owned) {
             return (
                 <span className="flex items-center gap-1 rounded-xl bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-black text-emerald-700">
                     <CheckCircle2 className="h-3 w-3" /> {t("shopOwned")}
@@ -268,38 +288,43 @@ export function ShopDialog({
                         </div>
 
                         {battleItemGroups.map(({ category, items }) => {
-                            const CatIcon = BATTLE_CATEGORY_ICON[category];
-                            const titleKey = `shopBattleCategory_${category}` as const;
-                            const hintKey = `shopBattleCategory_${category}_hint` as const;
+                            const kindMeta = getBattleItemKindMeta(category);
                             return (
                                 <div key={category} className="space-y-2">
-                                    <div className="flex items-center gap-2 rounded-xl border border-rose-100/80 bg-white/60 px-2.5 py-2">
-                                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-rose-100/90 text-rose-700">
-                                            <CatIcon className="h-3.5 w-3.5" />
-                                        </span>
+                                    <div
+                                        className={cn(
+                                            "flex items-center justify-between gap-2 rounded-xl border px-2.5 py-2",
+                                            category === "reward"
+                                                ? "border-violet-100/90 bg-violet-50/80"
+                                                : "border-rose-100/80 bg-white/60"
+                                        )}
+                                    >
                                         <div className="min-w-0">
-                                            <p className="text-[11px] font-black text-rose-900">{t(titleKey)}</p>
-                                            <p className="text-[10px] font-bold leading-tight text-rose-500/90">
-                                                {t(hintKey)}
+                                            <p className="text-[11px] font-black text-slate-900">{t(kindMeta.titleKey)}</p>
+                                            <p className="text-[10px] font-bold leading-tight text-slate-500/90">
+                                                {t(kindMeta.hintKey)}
                                             </p>
                                         </div>
+                                        <BattleItemKindBadge kind={category} label={t(kindMeta.titleKey)} />
                                     </div>
                                     {items.map((item) => {
-                                        const owned = inventory.includes(item.id);
+                                        const owned = shopItemOwned(item);
                                         return (
                                             <div
                                                 key={item.id}
                                                 className={cn(
                                                     "flex items-center gap-3 rounded-xl border p-3 transition-all bg-white/80",
-                                                    owned ? "border-emerald-200" : "border-slate-100 hover:border-rose-200"
+                                                    owned
+                                                        ? "border-emerald-200"
+                                                        : category === "reward"
+                                                          ? "border-violet-100 hover:border-violet-200"
+                                                          : "border-slate-100 hover:border-rose-200"
                                                 )}
                                             >
-                                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-slate-100 bg-white text-2xl shadow-sm">
-                                                    {item.icon}
-                                                </div>
+                                                <BattleItemVisual itemId={item.id} />
 
                                                 <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-1.5">
+                                                    <div className="flex flex-wrap items-center gap-1.5">
                                                         <p className="text-sm font-black text-slate-900">
                                                             {itemName(item)}
                                                         </p>
@@ -312,6 +337,11 @@ export function ShopDialog({
                                                         >
                                                             {t(RARITY_I18N_KEY[item.rarity])}
                                                         </span>
+                                                        <BattleItemKindBadge
+                                                            kind={category}
+                                                            label={t(kindMeta.titleKey)}
+                                                            className="px-1.5 py-0.5 text-[9px] tracking-[0.08em]"
+                                                        />
                                                     </div>
                                                     <p className="text-[11px] text-slate-500">
                                                         {itemDesc(item)}
@@ -351,7 +381,7 @@ export function ShopDialog({
                                 </div>
 
                                 {items.map((item) => {
-                                    const owned = inventory.includes(item.id);
+                                    const owned = shopItemOwned(item);
                                     const equipped = equippedFrame === item.id;
                                     const canAfford = gold >= item.price;
                                     const framePreview = item.preview;

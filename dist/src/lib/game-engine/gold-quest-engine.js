@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GoldQuestEngine = void 0;
+const node_crypto_1 = require("node:crypto");
 const abstract_game_1 = require("./abstract-game");
 const gold_quest_rewards_1 = require("./gold-quest-rewards");
 const socket_error_messages_1 = require("../socket-error-messages");
@@ -70,6 +71,7 @@ class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
         const reward = (0, gold_quest_rewards_1.generateChestReward)({
             seedSalt: `${this.pin}:${player.name}`,
             chestIndex: safeIndex,
+            rollNonce: (0, node_crypto_1.randomUUID)(),
         });
         let newTotal = player.gold;
         if (reward.type === "GOLD") {
@@ -86,11 +88,15 @@ class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
             player.gold = Math.max(0, player.gold - loss);
             newTotal = player.gold;
         }
+        else if (reward.type === "STEAL") {
+            player.pendingStealPercent = reward.value;
+        }
         player.pendingChest = false;
         socket.emit("chest-result", { reward, newTotal });
         this.statusUpdate(); // Broadcast new scores
     }
     handleInteraction(socket, payload) {
+        var _a;
         const { targetId, type } = payload;
         const actor = this.getPlayer(socket.id);
         const victim = this.getPlayer(targetId);
@@ -109,7 +115,8 @@ class GoldQuestEngine extends abstract_game_1.AbstractGameEngine {
             this.io.to(victim.id).emit("player-gold-update", { gold: victim.gold });
         }
         else if (type === "STEAL") {
-            const stealPercent = 25; // Could be config
+            const stealPercent = (_a = actor.pendingStealPercent) !== null && _a !== void 0 ? _a : 25;
+            actor.pendingStealPercent = undefined;
             const stealAmount = Math.floor(victim.gold * (stealPercent / 100));
             victim.gold -= stealAmount;
             actor.gold += stealAmount;

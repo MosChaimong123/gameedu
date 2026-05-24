@@ -9,6 +9,7 @@ import {
 import {
     BATTLE_ITEMS,
     getBattleItemById,
+    resolveLegacyBattleItemId,
     shopItemDescKey,
     shopItemNameKey,
     type BattleEffect,
@@ -18,6 +19,7 @@ import {
 
 export type NegamonBattleItemDefinition = GameItemDefinition & {
     battleCategory: ShopBattleItemCategory;
+    battleKind: "held" | "usable" | "reward";
 };
 
 export type NegamonBattleItemLoadoutValidation =
@@ -61,6 +63,18 @@ export function mapBattleEffectToGameItemEffects(effect: BattleEffect | undefine
     if (effect.goldMultiplier) {
         effects.push({ kind: "gold_multiplier", multiplier: effect.goldMultiplier });
     }
+    if (effect.expMultiplier) {
+        effects.push({ kind: "exp_multiplier", multiplier: effect.expMultiplier });
+    }
+    if (effect.critBonusPercent) {
+        effects.push({ kind: "crit_bonus", percent: effect.critBonusPercent });
+    }
+    if (effect.damageTakenMultiplier) {
+        effects.push({ kind: "damage_taken_multiplier", multiplier: effect.damageTakenMultiplier });
+    }
+    if (effect.energyRegen) {
+        effects.push({ kind: "energy_regen", amount: effect.energyRegen });
+    }
     return effects;
 }
 
@@ -73,13 +87,14 @@ export function createNegamonBattleItemDefinition(item: ShopItem): NegamonBattle
             descriptionKey: shopItemDescKey(item.id),
             icon: item.icon,
             rarity: item.rarity,
-            itemType: "battle",
+            itemType: item.battleKind === "reward" ? "material" : "battle",
             priceGold: item.price,
             stackable: true,
-            allowedInBattle: true,
+            allowedInBattle: item.battleKind !== "reward",
             effects: mapBattleEffectToGameItemEffects(item.battleEffect),
         }),
-        battleCategory: item.battleCategory ?? "stat_boost",
+        battleCategory: item.battleCategory ?? "held",
+        battleKind: item.battleKind ?? "held",
     };
 }
 
@@ -103,11 +118,12 @@ export function validateNegamonBattleItemLoadout(input: {
     const byId = new Map(catalog.map((item) => [item.id, item]));
     const seen = new Set<string>();
     const perCategory = new Map<ShopBattleItemCategory, string>();
+    const normalizedInventory = input.inventory.map(resolveLegacyBattleItemId);
     const normalizedIds: string[] = [];
     const items: NegamonBattleItemDefinition[] = [];
 
     for (const rawId of input.loadoutIds) {
-        const id = String(rawId).trim();
+        const id = resolveLegacyBattleItemId(String(rawId).trim());
         if (!id) continue;
 
         if (seen.has(id)) {
@@ -118,6 +134,14 @@ export function validateNegamonBattleItemLoadout(input: {
         const item = byId.get(id);
         if (!item) {
             return { ok: false, code: "UNKNOWN_ITEM", message: `battleLoadoutUnknownItem:${id}`, rejectedItemId: id };
+        }
+        if (item.battleKind === "reward") {
+            return {
+                ok: false,
+                code: "CATEGORY_LIMIT",
+                message: "battleLoadoutCategoryLimit:reward",
+                rejectedItemId: id,
+            };
         }
 
         if (perCategory.has(item.battleCategory)) {
@@ -130,7 +154,7 @@ export function validateNegamonBattleItemLoadout(input: {
         }
         perCategory.set(item.battleCategory, id);
 
-        if (countInventoryItem(input.inventory, id) < 1) {
+        if (countInventoryItem(normalizedInventory, id) < 1) {
             return { ok: false, code: "NOT_IN_STOCK", message: `battleLoadoutNotOwned:${id}`, rejectedItemId: id };
         }
 

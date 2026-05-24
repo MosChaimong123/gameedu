@@ -65,8 +65,7 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
                 id: socket.id, // Ensure we use the socket ID
                 isConnected: true,
                 crypto: 0,
-                // If joining late (HACKING phase), auto-assign password to prevent bugs
-                password: this.hackState === "HACKING" ? "GuestPass" : "",
+                password: "",
                 hackChance: 1.0,
                 isGlitched: false,
                 score: 0,
@@ -79,6 +78,9 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
             };
             this.players.push(newPlayer);
             console.log(`[${this.pin}] New player joined: ${newPlayer.name}`);
+            if (this.status === "PLAYING") {
+                socket.emit("choose-password", { options: this.passwords });
+            }
         }
         this.io.to(this.pin).emit("player-joined", { players: this.players });
     }
@@ -122,7 +124,9 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
         }
     }
     handleSelectPassword(player, password) {
-        if (this.hackState !== "PASSWORD_SELECTION")
+        if (this.hackState !== "PASSWORD_SELECTION" && this.hackState !== "HACKING")
+            return;
+        if (player.password)
             return;
         // Prevent Duplicate Password Selection
         const isTaken = this.players.some(p => p.id !== player.id && p.password === password);
@@ -133,9 +137,14 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
         player.password = password;
         console.log(`[${this.pin}] ${player.name} selected password: ${password}`);
         this.statusUpdate(); // Refresh available list
-        // If all players selected, move to next phase
-        const allSelected = this.players.every(p => p.password !== "");
-        if (allSelected && this.players.length > 0) {
+        this.maybeStartHackingPhase();
+    }
+    maybeStartHackingPhase() {
+        if (this.hackState !== "PASSWORD_SELECTION")
+            return;
+        const activePlayers = this.players.filter((p) => p.isConnected !== false);
+        const selectedActiveCount = activePlayers.filter((p) => p.password !== "").length;
+        if (selectedActiveCount >= 2) {
             this.startHackingPhase();
         }
     }
@@ -167,6 +176,11 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
         super.handleReconnection(player, socket);
         // Player object state (including pendingRewards) is preserved by reference or restore
         console.log(`[Crypto] Player reconnected: ${player.name}`);
+    }
+    handleDisconnect(socketId) {
+        super.handleDisconnect(socketId);
+        this.statusUpdate();
+        this.maybeStartHackingPhase();
     }
     // Updated signature to handle full payload
     handleAnswerPayload(player, payload, socket) {
@@ -203,11 +217,11 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
         const rewards = [];
         for (let i = 0; i < 3; i++) {
             const roll = Math.random();
-            if (roll < 0.6) {
-                // 60% Common Crypto
+            if (roll < 0.45) {
+                // 45% Common Crypto
                 rewards.push({ type: "CRYPTO", amount: Math.floor(Math.random() * 40) + 10 });
             }
-            else if (roll < 0.8) {
+            else if (roll < 0.65) {
                 // 20% Multiplier or Rare Crypto
                 if (Math.random() > 0.5)
                     rewards.push({ type: "MULTIPLIER", value: 2 });
@@ -215,7 +229,7 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
                     rewards.push({ type: "CRYPTO", amount: 50 });
             }
             else if (roll < 0.95) {
-                // 15% HACK (High chance if rare rolled)
+                // 30% HACK
                 rewards.push({ type: "HACK" });
             }
             else {
@@ -361,18 +375,18 @@ class CryptoHackEngine extends abstract_game_1.AbstractGameEngine {
         this.statusUpdate();
     }
     handleRequestQuestion(socket) {
-        // Enforce Phase Check
-        if (this.hackState === "PASSWORD_SELECTION") {
-            const player = this.getPlayer(socket.id);
-            if (player && !player.password) {
-                // If player hasn't selected password, resent options instead of question
-                socket.emit("choose-password", { options: this.passwords });
-            }
-            return; // STOP HERE
-        }
         const player = this.getPlayer(socket.id);
         if (!player)
             return;
+        // Players must finish choosing a password before they can receive questions,
+        // even if the room already advanced to HACKING.
+        if (!player.password) {
+            socket.emit("choose-password", { options: this.passwords });
+            if (this.hackState === "PASSWORD_SELECTION") {
+                return; // STOP HERE
+            }
+            return; // STOP HERE
+        }
         // Check for Pending Rewards (Stuck in Box Selection)
         if (player.pendingRewards && player.pendingRewards.length > 0) {
             console.log(`[Crypto] Player ${player.name} requested question but has pending rewards. Resending choose-box.`);

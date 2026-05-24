@@ -1,4 +1,5 @@
 import type { GameItemDefinition, GameItemEffect, GameItemRarity } from "@/lib/game-core";
+import { resolveLegacyBattleItemId } from "@/lib/shop-items";
 import type { MonsterSpecies, MonsterType, PassiveAbility, StatusEffect } from "@/lib/types/negamon";
 import { getNegamonBattleItemCatalog, type NegamonBattleItemDefinition } from "../battle-items";
 import { calculateNegamonBattleExpReward, calculateNegamonBattleGoldReward } from "../battle-rewards";
@@ -236,21 +237,21 @@ export const NEGAMON_BATTLE_REWARD_TABLE: NegamonBattleRewardTableEntry[] = [
         outcome: "win",
         baseGold: 20,
         turnCount: 2,
-        itemDropIds: ["item_minor_potion"],
+        itemDropIds: ["use_vital_vial"],
     }),
     createRewardTableEntry({
         difficulty: "normal",
         outcome: "win",
         baseGold: 30,
         turnCount: 4,
-        itemDropIds: ["item_energy_orb", "item_antidote_charm"],
+        itemDropIds: ["use_charge_capsule", "held_clear_mind_charm"],
     }),
     createRewardTableEntry({
         difficulty: "hard",
         outcome: "win",
         baseGold: 45,
         turnCount: 6,
-        itemDropIds: ["item_lucky_coin", "item_flame_ward"],
+        itemDropIds: ["reward_lucky_coin", "held_clear_mind_charm"],
         minRankIndex: 2,
     }),
     createRewardTableEntry({
@@ -258,7 +259,7 @@ export const NEGAMON_BATTLE_REWARD_TABLE: NegamonBattleRewardTableEntry[] = [
         outcome: "win",
         baseGold: 60,
         turnCount: 8,
-        itemDropIds: ["item_merchants_sigil", "item_dream_bell"],
+        itemDropIds: ["reward_scholar_seal", "held_clear_mind_charm"],
         minRankIndex: 4,
     }),
     createRewardTableEntry({ difficulty: "normal", outcome: "draw", baseGold: 0, turnCount: 4 }),
@@ -296,7 +297,8 @@ export function findNegamonContentItem(
     catalog: NegamonContentCatalog,
     itemId: string
 ): NegamonItemContentDefinition | null {
-    return catalog.items.find((item) => item.id === itemId) ?? null;
+    const normalizedId = resolveLegacyBattleItemId(itemId);
+    return catalog.items.find((item) => item.id === normalizedId) ?? null;
 }
 
 export function createNegamonExtraItemDefinition(input: {

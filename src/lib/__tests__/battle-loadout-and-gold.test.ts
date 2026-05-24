@@ -12,24 +12,21 @@ import {
 
 describe("validateBattleLoadout", () => {
     it("accepts empty loadout", () => {
-        const v = validateBattleLoadout([], ["item_buckler"]);
+        const v = validateBattleLoadout([], ["held_guard_core"]);
         expect(v.ok).toBe(true);
         expect(v.ok && v.normalizedIds).toEqual([]);
     });
 
-    it("rejects two stat_boost items", () => {
-        const inv = ["item_iron_shield", "item_spark_charm"];
-        const v = validateBattleLoadout(["item_iron_shield", "item_spark_charm"], inv);
+    it("rejects two held items", () => {
+        const inv = ["held_guard_core", "item_spark_charm"];
+        const v = validateBattleLoadout(["held_guard_core", "item_spark_charm"], inv);
         expect(v.ok).toBe(false);
     });
 
-    it("allows valid mixed categories", () => {
-        const inv = ["item_iron_shield", "item_lucky_coin"];
-        const v = validateBattleLoadout(
-            ["item_iron_shield", "item_lucky_coin"],
-            inv
-        );
-        expect(v.ok).toBe(true);
+    it("rejects reward items from battle loadout", () => {
+        const inv = ["held_guard_core", "reward_lucky_coin"];
+        const v = validateBattleLoadout(["reward_lucky_coin"], inv);
+        expect(v.ok).toBe(false);
     });
 
     it("rejects profile frames and unowned battle items", () => {
@@ -37,7 +34,7 @@ describe("validateBattleLoadout", () => {
         expect(frame.ok).toBe(false);
         expect(!frame.ok && frame.code).toBe("UNKNOWN_ITEM");
 
-        const missing = validateBattleLoadout(["item_buckler"], ["item_lucky_coin"]);
+        const missing = validateBattleLoadout(["item_buckler"], ["reward_lucky_coin"]);
         expect(missing.ok).toBe(false);
         expect(!missing.ok && missing.code).toBe("NOT_IN_STOCK");
     });
@@ -51,8 +48,8 @@ describe("applyConsumeInventory", () => {
 
 describe("battle item inventory mutation", () => {
     it("throws when finalizing would consume an item stack that no longer exists", () => {
-        expect(() => removeBattleItemsFromInventory(["item_buckler"], ["item_buckler", "item_buckler"]))
-            .toThrow("MISSING_ITEM:item_buckler");
+        expect(() => removeBattleItemsFromInventory(["held_guard_core"], ["held_guard_core", "held_guard_core"]))
+            .toThrow("MISSING_ITEM:held_guard_core");
     });
 
     it("sanitizes saved loadout against remaining inventory one stack at a time", () => {

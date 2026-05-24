@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
 import {
     applyInventoryChange,
+    countInventoryItem,
     createGameStatePatch,
     type GameInventoryChange,
     type GameItemEffect,
@@ -10,7 +11,12 @@ import {
 } from "@/lib/game-core";
 import { findNegamonBattleItemDefinition } from "@/lib/game-negamon/core/battle-items";
 import { createShopPurchasePlan, getGameShopCatalogItemById } from "@/lib/game-shop";
+import { isSinglePurchaseShopItem } from "@/lib/shop-items";
 import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
+import {
+    normalizeInventoryChangeIds,
+    normalizeStudentInventoryItemIds,
+} from "@/lib/shop-item-migration";
 
 type BuyStudentShopItemDeps = {
     db: PrismaClient;
@@ -58,27 +64,28 @@ export async function buyStudentShopItem(
             return { ok: false, reason: "student_not_found" };
         }
 
+        const inventory = normalizeStudentInventoryItemIds(student.inventory);
         const purchasePlan = createShopPurchasePlan({
             studentId: student.id,
             classId: student.classId,
             gold: student.gold,
-            inventory: student.inventory as string[],
+            inventory,
             item,
         });
         if (!purchasePlan.ok) return { ok: false, reason: purchasePlan.reason };
 
+        const normalizedInventoryChange = normalizeInventoryChangeIds(purchasePlan.inventoryChange);
         const nextInventory = applyInventoryChange(
-            Array.isArray(student.inventory) ? (student.inventory as string[]) : [],
-            purchasePlan.inventoryChange
+            inventory,
+            normalizedInventoryChange
         );
+        const singlePurchase = isSinglePurchaseShopItem(item);
 
         const updatedCount = await tx.student.updateMany({
             where: {
                 id: student.id,
                 gold: { gte: item.price },
-                ...(item.type === "frame"
-                    ? { NOT: { inventory: { has: itemId } } }
-                    : {}),
+                ...(singlePurchase ? { NOT: { inventory: { has: itemId } } } : {}),
             },
             data: {
                 gold: { decrement: item.price },
@@ -91,7 +98,8 @@ export async function buyStudentShopItem(
                 where: { id: student.id },
                 select: { gold: true, inventory: true },
             });
-            if (item.type === "frame" && (fresh?.inventory as string[] | undefined)?.includes(itemId)) {
+            const freshInventory = normalizeStudentInventoryItemIds(fresh?.inventory);
+            if (singlePurchase && countInventoryItem(freshInventory, itemId) > 0) {
                 return { ok: false, reason: "already_owned" };
             }
             return { ok: false, reason: "not_enough_gold" };
@@ -109,7 +117,7 @@ export async function buyStudentShopItem(
             source: purchasePlan.economyMutation.source,
             amount: purchasePlan.economyMutation.amount,
             balanceBefore: purchasePlan.economyMutation.balanceBefore,
-            balanceAfter: updated.gold,
+            balanceAfter: Math.trunc(updated.gold),
             sourceRefId: purchasePlan.economyMutation.sourceRefId,
             idempotencyKey: purchasePlan.economyMutation.idempotencyKey,
             metadata: {
@@ -124,15 +132,15 @@ export async function buyStudentShopItem(
             ok: true,
             success: true,
             newGold: updated.gold,
-            inventory: updated.inventory as string[],
-            inventoryChange: purchasePlan.inventoryChange,
+            inventory: normalizeStudentInventoryItemIds(updated.inventory),
+            inventoryChange: normalizedInventoryChange,
             itemEffects:
                 item.type === "battle_item"
                     ? (findNegamonBattleItemDefinition(item.id)?.effects ?? [])
                     : [],
             gameState: createGameStatePatch({
                 gold: updated.gold,
-                inventory: updated.inventory as string[],
+                inventory: normalizeStudentInventoryItemIds(updated.inventory),
             }),
         };
     });

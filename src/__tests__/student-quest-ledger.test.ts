@@ -81,17 +81,13 @@ describe("student quest ledger", () => {
       ok: true,
       newGold: 15,
       goldEarned: 5,
-      reward: { gold: 5, exp: 0 },
+      reward: { gold: 5, exp: 5 },
       progression: null,
       gameState: { gold: 15 },
     });
     expect(mockStudentUpdateMany).toHaveBeenCalledWith({
       where: {
         id: "student-1",
-        OR: [
-          { dailyQuestsClaimed: { equals: null } },
-          { dailyQuestsClaimed: { isSet: false } },
-        ],
       },
       data: {
         gold: { increment: 5 },
@@ -164,7 +160,7 @@ describe("student quest ledger", () => {
       ok: true,
       newGold: 115,
       goldEarned: 5,
-      reward: { gold: 5, exp: 0 },
+      reward: { gold: 5, exp: 5 },
       progression: null,
       gameState: { gold: 115 },
     });
@@ -305,7 +301,7 @@ describe("student quest ledger", () => {
       ok: true,
       newGold: 15,
       goldEarned: 5,
-      reward: { gold: 5, exp: 0 },
+      reward: { gold: 5, exp: 5 },
       progression: null,
       gameState: { gold: 15 },
     });

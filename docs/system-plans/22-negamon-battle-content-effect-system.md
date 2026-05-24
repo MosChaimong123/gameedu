@@ -67,15 +67,15 @@ Goal:
 
 Tasks:
 
-- [ ] Inventory current monster, skill, and item catalogs
-- [ ] Define `NegamonContentCatalog` contract
-- [ ] Define monster species fields: element, role, base stats, growth curve, traits, evolution/form rules
-- [ ] Define skill fields: category, target, power, accuracy, cost, cooldown, status effect, unlock requirements
-- [ ] Define item fields: battle effect, rarity, stack behavior, requirements, economy price, sell value
-- [ ] Define status effect fields: duration, stacking, immunity, tick timing, display label
-- [ ] Define battle reward table fields: difficulty, gold, exp, item drops, unlock conditions
-- [ ] Add contract tests for catalog shape and stable ids
-- [ ] Add migration notes for future DB-backed catalogs
+- [x] Inventory current monster, skill, and item catalogs
+- [x] Define `NegamonContentCatalog` contract
+- [x] Define monster species fields: element, role, base stats, growth curve, traits, evolution/form rules
+- [x] Define skill fields: category, target, power, accuracy, cost, cooldown, status effect, unlock requirements
+- [x] Define item fields: battle effect, rarity, stack behavior, requirements, economy price, sell value
+- [x] Define status effect fields: duration, stacking, immunity, tick timing, display label
+- [x] Define battle reward table fields: difficulty, gold, exp, item drops, unlock conditions
+- [x] Add contract tests for catalog shape and stable ids
+- [x] Add migration notes for future DB-backed catalogs
 
 Exit criteria:
 
@@ -86,6 +86,25 @@ Implementation notes:
 - Start with static TypeScript catalogs under `src/lib/game-negamon/core/content/*`.
 - Avoid Prisma schema changes until catalog editing is required.
 - Use stable ids such as `skill_shadow_jab`, `item_minor_potion`, `status_burn`.
+
+Status: completed on 2026-05-24 as Content Catalog Foundation.
+
+Phase 25 implementation notes:
+
+- Added `src/lib/game-negamon/core/content/catalog.ts` as a static content facade over the existing species, skill, and battle item catalogs.
+- Added `NegamonContentCatalog` with `monsters`, `skills`, `items`, `statuses`, and `rewardTables`.
+- Monster content now exposes role, growth curve, element types, base stats, traits from passive abilities, and form/evolution requirements.
+- Skill content now exposes normalized unlock requirements while preserving the existing skill definition and source move.
+- Item content now exposes battle category, rarity, stack behavior, battle eligibility, economy price, sell value, and V2 item effects.
+- Status content now exposes stable ids, source status, readable label, duration, stacking, tick timing, and immunity metadata.
+- Battle reward table now defines difficulty, outcome, gold, exp, item drops, and unlock conditions for future runtime reward selection.
+- Added `createNegamonExtraItemDefinition` for future DB-backed/event-backed item catalogs without replacing static shop items.
+- No Prisma schema changes were made in this phase.
+- Added contract tests in `src/lib/game-negamon/__tests__/content-catalog.test.ts`.
+
+Phase 25 validation notes:
+
+- Run targeted catalog and existing V2 tests before closing implementation.
 
 ## Phase 26: Skill Effect Runtime V2
 

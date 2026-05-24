@@ -11,6 +11,11 @@ import {
     type ChallengeCheckInput,
     type WeeklyCheckInput,
 } from "@/lib/quest-system";
+import {
+    createQuestChainProgressSnapshot,
+    getChainClaimedAll,
+    type GameQuestChainDefinition,
+} from "./quest-chains";
 
 export type QuestProgressSnapshotInput = {
     daily: {
@@ -25,12 +30,24 @@ export type QuestProgressSnapshotInput = {
     challenge: ChallengeCheckInput & {
         claimedRaw: unknown;
     };
+    chain?: {
+        dailyClaimedIds: string[];
+        weeklyClaimedIds: string[];
+        challengeClaimedIds: string[];
+        chainClaimedRaw: unknown;
+        streak: number;
+        submissionsThisWeek: number;
+        totalSubmissions: number;
+        inventoryCount: number;
+        chains?: GameQuestChainDefinition[];
+    };
 };
 
 export type QuestProgressSnapshot = {
     daily: QuestStatus[];
     weekly: QuestStatus[];
     challenge: QuestStatus[];
+    chain: QuestStatus[];
 };
 
 export function createQuestProgressSnapshot(input: QuestProgressSnapshotInput): QuestProgressSnapshot {
@@ -59,5 +76,20 @@ export function createQuestProgressSnapshot(input: QuestProgressSnapshotInput): 
             },
             getChallengeClaimedAll(input.challenge.claimedRaw)
         ),
+        chain: input.chain
+            ? createQuestChainProgressSnapshot({
+                  chains: input.chain.chains,
+                  progress: {
+                      dailyClaimedIds: input.chain.dailyClaimedIds,
+                      weeklyClaimedIds: input.chain.weeklyClaimedIds,
+                      challengeClaimedIds: input.chain.challengeClaimedIds,
+                      chainClaimedIds: getChainClaimedAll(input.chain.chainClaimedRaw),
+                      streak: input.chain.streak,
+                      submissionsThisWeek: input.chain.submissionsThisWeek,
+                      totalSubmissions: input.chain.totalSubmissions,
+                      inventoryCount: input.chain.inventoryCount,
+                  },
+              })
+            : [],
     };
 }

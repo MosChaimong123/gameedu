@@ -277,17 +277,26 @@ Goal:
 
 Tasks:
 
-- [ ] Define quest chain contract
-- [ ] Support daily, weekly, challenge, and chain quests in one normalized model
-- [ ] Support quest rewards: gold, exp, item, skill unlock, form unlock
-- [ ] Add idempotent reward finalization for quest-chain steps
-- [ ] Add teacher-visible reward visibility rows for quest-chain rewards
-- [ ] Add student UI for quest-chain progress
-- [ ] Add tests for chain progress, duplicate claim, and mixed reward grants
+- [x] Define quest chain contract
+- [x] Support daily, weekly, challenge, and chain quests in one normalized model
+- [x] Support quest rewards: gold, exp, item, skill unlock, form unlock
+- [x] Add idempotent reward finalization for quest-chain steps
+- [x] Add teacher-visible reward visibility rows for quest-chain rewards
+- [x] Add student UI for quest-chain progress
+- [x] Add tests for chain progress, duplicate claim, and mixed reward grants
 
 Exit criteria:
 
 - learning activity can unlock items, skills, and monster forms through one auditable reward path
+
+Phase 30 completion notes:
+
+- Added quest-chain contracts with ordered steps, prerequisite conditions, and mixed reward rules.
+- Quest snapshots now normalize daily, weekly, challenge, and chain quests into one `QuestStatus` model.
+- Quest reward plans now support gold, exp, item grants, skill unlock ids, form-rank metadata, inventory changes, history events, and duplicate finalization guards.
+- `/api/student/[code]/daily-quests` now returns chain progress and accepts `questType: "chain"` claims without adding a new database field.
+- Student quest UI includes a chain tab and updates chain claim state from the same claim flow.
+- Added tests for chain gating, duplicate claims, mixed reward grants, and normalized progress snapshots.
 
 ## Phase 31: Teacher Balancing and Visibility
 

@@ -17,11 +17,19 @@ export type QuestCondition =
     | "submit_today"; // มี submission ที่ submittedAt = วันนี้
 
 export type DailyQuestDef = {
-    id: QuestId;
+    id: string;
     icon: string;
     nameKey: string;
     descKey: string;
     goldReward: number;
+    rewardItemIds?: string[];
+    rewardSkillIds?: string[];
+    rewardFormRank?: number;
+    questType?: "daily" | "weekly" | "challenge" | "chain";
+    chainId?: string;
+    stepId?: string;
+    stepIndex?: number;
+    totalSteps?: number;
     condition: QuestCondition;
 };
 
@@ -69,11 +77,19 @@ export const DAILY_QUESTS: DailyQuestDef[] = [
 ];
 
 export type QuestStatus = {
-    id: QuestId;
+    id: string;
     icon: string;
     nameKey: string;
     descKey: string;
     goldReward: number;
+    rewardItemIds?: string[];
+    rewardSkillIds?: string[];
+    rewardFormRank?: number;
+    questType?: "daily" | "weekly" | "challenge" | "chain";
+    chainId?: string;
+    stepId?: string;
+    stepIndex?: number;
+    totalSteps?: number;
     completed: boolean; // เงื่อนไขผ่านแล้ว
     claimed: boolean;   // รับรางวัลแล้ว
 };
@@ -131,6 +147,6 @@ export function buildQuestStatuses(input: CheckInput, claimedIds: QuestId[]): Qu
         descKey: q.descKey,
         goldReward: q.goldReward,
         completed: isQuestCompleted(q.condition, input),
-        claimed: claimedIds.includes(q.id),
+        claimed: claimedIds.includes(q.id as QuestId),
     }));
 }

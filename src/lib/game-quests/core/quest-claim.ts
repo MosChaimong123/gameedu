@@ -1,11 +1,25 @@
 import {
     createGameEconomyMutation,
+    createGameHistoryEvent,
+    createGameHistoryId,
     createGameRewardResult,
+    createInventoryGrantChange,
+    mergeInventoryChanges,
     type GameEconomyMutation,
+    type GameHistoryEvent,
+    type GameInventoryChange,
     type GameRewardResult,
 } from "@/lib/game-core";
 
-export type GameQuestType = "daily" | "weekly" | "challenge";
+export type GameQuestType = "daily" | "weekly" | "challenge" | "chain";
+
+export type GameQuestRewardRule = {
+    gold?: number;
+    exp?: number;
+    itemIds?: string[];
+    skillIds?: string[];
+    formRank?: number;
+};
 
 export type QuestClaimRewardInput = {
     studentId: string;
@@ -13,14 +27,32 @@ export type QuestClaimRewardInput = {
     questType: GameQuestType;
     questId: string;
     baseReward: number;
+    rewardRule?: GameQuestRewardRule;
     multiplier?: number;
     balanceBefore: number;
+    periodKey?: string;
+    finalizedRewardKeys?: Iterable<string>;
+    createdAt?: string | Date;
 };
 
-export type QuestClaimRewardPlan = {
-    reward: GameRewardResult;
-    economyMutation: GameEconomyMutation;
-};
+export type QuestClaimRewardPlan =
+    | {
+          ok: true;
+          idempotencyKey: string;
+          reward: GameRewardResult;
+          economyMutation: GameEconomyMutation;
+          inventoryChange: GameInventoryChange;
+          historyEvents: GameHistoryEvent[];
+      }
+    | {
+          ok: false;
+          idempotencyKey: string;
+          reason: "duplicate_claim";
+          reward: GameRewardResult;
+          economyMutation: null;
+          inventoryChange: GameInventoryChange;
+          historyEvents: GameHistoryEvent[];
+      };
 
 export function createQuestClaimIdempotencyKey(input: {
     studentId: string;
@@ -38,18 +70,38 @@ export function calculateQuestGoldReward(baseReward: number, multiplier = 1): nu
 }
 
 export function createQuestClaimRewardPlan(input: QuestClaimRewardInput): QuestClaimRewardPlan {
-    const gold = calculateQuestGoldReward(input.baseReward, input.multiplier);
     const idempotencyKey = createQuestClaimIdempotencyKey({
         studentId: input.studentId,
         questType: input.questType,
         questId: input.questId,
+        periodKey: input.periodKey,
     });
+    if (new Set(input.finalizedRewardKeys ?? []).has(idempotencyKey)) {
+        return {
+            ok: false,
+            idempotencyKey,
+            reason: "duplicate_claim",
+            reward: createGameRewardResult({ blockedReason: "duplicate_finalize", idempotencyKey }),
+            economyMutation: null,
+            inventoryChange: mergeInventoryChanges([]),
+            historyEvents: [],
+        };
+    }
+
+    const gold = calculateQuestGoldReward(input.rewardRule?.gold ?? input.baseReward, input.multiplier);
+    const reward = createGameRewardResult({
+        gold,
+        exp: input.rewardRule?.exp,
+        grantedItemIds: input.rewardRule?.itemIds,
+        unlockedSkillIds: input.rewardRule?.skillIds,
+        idempotencyKey,
+    });
+    const inventoryChange = createInventoryGrantChange(input.rewardRule?.itemIds ?? []);
 
     return {
-        reward: createGameRewardResult({
-            gold,
-            idempotencyKey,
-        }),
+        ok: true,
+        idempotencyKey,
+        reward,
         economyMutation: createGameEconomyMutation({
             studentId: input.studentId,
             classId: input.classId,
@@ -60,5 +112,25 @@ export function createQuestClaimRewardPlan(input: QuestClaimRewardInput): QuestC
             sourceRefId: input.questId,
             idempotencyKey,
         }),
+        inventoryChange,
+        historyEvents: [
+            createGameHistoryEvent({
+                id: createGameHistoryId({
+                    gameKind: "quest",
+                    kind: "quest_claimed",
+                    studentId: input.studentId,
+                    refId: input.questId,
+                }),
+                kind: "quest_claimed",
+                gameKind: "quest",
+                studentId: input.studentId,
+                classId: input.classId ?? undefined,
+                sessionId: input.questId,
+                titleKey: input.questType === "chain" ? "questChainStepClaimedHistoryTitle" : "questClaimedHistoryTitle",
+                reward,
+                inventoryChange,
+                createdAt: input.createdAt ?? new Date(0),
+            }),
+        ],
     };
 }

@@ -7,12 +7,13 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { msUntilWeekReset } from "@/lib/quest-system";
 import type { QuestStatus } from "@/lib/daily-quests";
 
-type QuestType = "daily" | "weekly" | "challenge";
+type QuestType = "daily" | "weekly" | "challenge" | "chain";
 
 interface AllQuestData {
     daily: QuestStatus[];
     weekly: QuestStatus[];
     challenge: QuestStatus[];
+    chain: QuestStatus[];
     gold: number;
 }
 
@@ -88,6 +89,7 @@ export function DailyQuestPanel({ loginCode, onGoldChange }: DailyQuestPanelProp
                         daily: questType === "daily" ? update(prev.daily) : prev.daily,
                         weekly: questType === "weekly" ? update(prev.weekly) : prev.weekly,
                         challenge: questType === "challenge" ? update(prev.challenge) : prev.challenge,
+                        chain: questType === "chain" ? update(prev.chain) : prev.chain,
                         gold: nextGold,
                     };
                 });
@@ -113,6 +115,7 @@ export function DailyQuestPanel({ loginCode, onGoldChange }: DailyQuestPanelProp
         { type: "daily",     icon: "📋", labelKey: "questTabDaily",     color: "text-amber-700",  activeClass: "bg-amber-500 text-white shadow-[0_3px_0_0_rgba(180,83,9,0.4)]" },
         { type: "weekly",    icon: "📅", labelKey: "questTabWeekly",    color: "text-indigo-700", activeClass: "bg-indigo-500 text-white shadow-[0_3px_0_0_rgba(67,56,202,0.4)]" },
         { type: "challenge", icon: "🏆", labelKey: "questTabChallenge", color: "text-rose-700",   activeClass: "bg-rose-500 text-white shadow-[0_3px_0_0_rgba(190,18,60,0.4)]" },
+        { type: "chain",     icon: "⛓", labelKey: "questTabChain",     color: "text-emerald-700", activeClass: "bg-emerald-500 text-white shadow-[0_3px_0_0_rgba(4,120,87,0.4)]" },
     ];
 
     return (
@@ -142,7 +145,7 @@ export function DailyQuestPanel({ loginCode, onGoldChange }: DailyQuestPanelProp
             </div>
 
             {/* Tab selector */}
-            <div className="grid grid-cols-3 gap-1 rounded-2xl border-2 border-amber-200 bg-amber-100/60 p-1">
+            <div className="grid grid-cols-4 gap-1 rounded-2xl border-2 border-amber-200 bg-amber-100/60 p-1">
                 {TABS.map(({ type, icon, labelKey, color, activeClass }) => (
                     <button
                         key={type}
@@ -170,6 +173,7 @@ export function DailyQuestPanel({ loginCode, onGoldChange }: DailyQuestPanelProp
                         "from-amber-400 to-yellow-500": activeTab === "daily",
                         "from-indigo-400 to-violet-500": activeTab === "weekly",
                         "from-rose-400 to-pink-500": activeTab === "challenge",
+                        "from-emerald-400 to-teal-500": activeTab === "chain",
                     })}
                 />
             </div>
@@ -259,6 +263,7 @@ function QuestRow({
         daily:     "border-amber-600 bg-gradient-to-b from-amber-400 to-amber-500 text-amber-900",
         weekly:    "border-indigo-600 bg-gradient-to-b from-indigo-400 to-indigo-500 text-white",
         challenge: "border-rose-600 bg-gradient-to-b from-rose-400 to-rose-500 text-white",
+        chain: "border-emerald-600 bg-gradient-to-b from-emerald-400 to-emerald-500 text-white",
     }[questType];
 
     return (

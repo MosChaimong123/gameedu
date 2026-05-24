@@ -37,6 +37,9 @@ import {
 import {
     createQuestClaimRewardPlan,
     createQuestProgressSnapshot,
+    createQuestChainClaimId,
+    findQuestChainStep,
+    getChainClaimedAll,
     type GameQuestType,
 } from "@/lib/game-quests";
 import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
@@ -74,7 +77,7 @@ async function resolveStudent(code: string): Promise<any | null> {
             gold: true,
             behaviorPoints: true,
             negamonSkills: true,
-            inventory: true,
+        inventory: true,
             dailyQuestsClaimed: true,
             weeklyQuestsClaimed: true,
             challengeQuestsClaimed: true,
@@ -102,6 +105,7 @@ async function persistQuestClaim(params: {
         name?: string | null;
         behaviorPoints?: number | null;
         negamonSkills?: unknown;
+        inventory?: unknown;
         classroom?: {
             gamifiedSettings?: unknown;
             levelConfig?: unknown;
@@ -112,6 +116,7 @@ async function persistQuestClaim(params: {
     field: ClaimField;
     nextClaimed: unknown;
     goldEarned: number;
+    rewardRule?: Parameters<typeof createQuestClaimRewardPlan>[0]["rewardRule"];
     idempotencyKey: string;
     metadata: Record<string, unknown>;
 }): Promise<
@@ -125,6 +130,20 @@ async function persistQuestClaim(params: {
       }
 > {
     const { student, field, nextClaimed, goldEarned } = params;
+    const itemRewardIds = params.rewardRule?.itemIds ?? [];
+    const skillRewardIds = params.rewardRule?.skillIds ?? [];
+    const currentInventory = Array.isArray(student.inventory) ? (student.inventory as string[]) : [];
+    const currentSkillIds = Array.isArray(student.negamonSkills) ? (student.negamonSkills as string[]) : [];
+    const updateData: Record<string, unknown> = {
+        gold: { increment: goldEarned },
+        [field]: nextClaimed,
+    };
+    if (itemRewardIds.length > 0) {
+        updateData.inventory = [...currentInventory, ...itemRewardIds];
+    }
+    if (skillRewardIds.length > 0) {
+        updateData.negamonSkills = [...new Set([...currentSkillIds, ...skillRewardIds])];
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (db as any).$transaction(async (tx: any) => {
@@ -134,10 +153,7 @@ async function persistQuestClaim(params: {
                 // Prisma JSON fields in `where` must use JsonFilter (`equals` / `not` / `isSet`)
                 ...buildClaimFieldGuard(field, student[field]),
             },
-            data: {
-                gold: { increment: goldEarned },
-                [field]: nextClaimed,
-            },
+            data: updateData,
         });
 
         if (updatedCount.count !== 1) {
@@ -235,8 +251,11 @@ async function persistQuestClaim(params: {
                 questType: params.questType,
                 questId: params.questId,
                 baseReward: goldEarned,
+                rewardRule: params.rewardRule,
                 balanceBefore: updated.gold - goldEarned,
+                periodKey: params.idempotencyKey,
             });
+            if (!questPlan.ok) throw new Error("DUPLICATE_QUEST_PLAN");
             await recordEconomyTransaction(tx, {
                 studentId: student.id,
                 classId: student.classId,
@@ -252,6 +271,7 @@ async function persistQuestClaim(params: {
                     questId: params.questId,
                     rewardIdempotencyKey: rewardPlan?.idempotencyKey,
                     expReward,
+                    rewardRule: params.rewardRule,
                     ...params.metadata,
                 },
             });
@@ -266,6 +286,9 @@ async function persistQuestClaim(params: {
                 rewardPlan?.reward ??
                 createGameRewardResult({
                     gold: goldEarned,
+                    exp: params.rewardRule?.exp,
+                    grantedItemIds: itemRewardIds,
+                    unlockedSkillIds: skillRewardIds,
                     idempotencyKey: params.idempotencyKey,
                 }),
             progression: progressionResult?.plan ?? null,
@@ -300,6 +323,8 @@ export async function GET(
         (s: { submittedAt: Date | null }) =>
             s.submittedAt && new Date(s.submittedAt) >= weekStart
     ).length;
+    const weeklyClaimedIds = getWeeklyClaimedThisWeek(student.weeklyQuestsClaimed);
+    const challengeClaimedIds = getChallengeClaimedAll(student.challengeQuestsClaimed);
 
     const snapshot = createQuestProgressSnapshot({
         daily: {
@@ -318,10 +343,20 @@ export async function GET(
             hasItem: student.inventory.length > 0,
             claimedRaw: student.challengeQuestsClaimed,
         },
+        chain: {
+            dailyClaimedIds,
+            weeklyClaimedIds,
+            challengeClaimedIds,
+            chainClaimedRaw: student.challengeQuestsClaimed,
+            streak: student.streak,
+            submissionsThisWeek,
+            totalSubmissions: student.submissions.length,
+            inventoryCount: student.inventory.length,
+        },
     });
-    const { daily, weekly, challenge } = snapshot;
+    const { daily, weekly, challenge, chain } = snapshot;
 
-    return NextResponse.json({ daily, weekly, challenge, gold: student.gold });
+    return NextResponse.json({ daily, weekly, challenge, chain, gold: student.gold });
 }
 
 /** POST — claim รางวัล quest (ทุกประเภท) */
@@ -469,6 +504,99 @@ export async function POST(
             idempotencyKey: `quest:${student.id}:challenge:${questId}`,
             metadata: {
                 baseReward: questDef.goldReward,
+                eventMultiplier: multiplier,
+            },
+        });
+        if (!claimResult.ok) return NextResponse.json({ error: "ALREADY_CLAIMED" }, { status: 400 });
+        return NextResponse.json({
+            ok: true,
+            newGold: claimResult.newGold,
+            goldEarned,
+            reward: claimResult.reward,
+            progression: claimResult.progression,
+            historyEvents: claimResult.historyEvents,
+            gameState: createGameStatePatch({ gold: claimResult.newGold }),
+        });
+    }
+
+    if (questType === "chain") {
+        const [prefix, chainId, stepId] = questId.split(":");
+        if (prefix !== "chain" || !chainId || !stepId) {
+            return NextResponse.json({ error: "INVALID_QUEST" }, { status: 400 });
+        }
+        const chainStep = findQuestChainStep({ chainId, stepId });
+        if (!chainStep) return NextResponse.json({ error: "INVALID_QUEST" }, { status: 400 });
+
+        const claimedIds = getChainClaimedAll(student.challengeQuestsClaimed);
+        const claimId = createQuestChainClaimId(chainId, stepId);
+        if (claimedIds.includes(claimId)) {
+            return NextResponse.json({ error: "ALREADY_CLAIMED" }, { status: 400 });
+        }
+
+        const dailyClaimedIds = getClaimedToday(student.dailyQuestsClaimed);
+        const weeklyClaimedIds = getWeeklyClaimedThisWeek(student.weeklyQuestsClaimed);
+        const challengeClaimedIds = getChallengeClaimedAll(student.challengeQuestsClaimed);
+        const submissionsThisWeek = student.submissions.filter(
+            (s: { submittedAt: Date | null }) =>
+                s.submittedAt && new Date(s.submittedAt) >= weekStart
+        ).length;
+        const chainSnapshot = createQuestProgressSnapshot({
+            daily: {
+                streak: student.streak,
+                lastCheckIn: student.lastCheckIn,
+                hasSubmitToday: student.submissions.some(
+                    (s: { submittedAt: Date | null }) =>
+                        s.submittedAt && new Date(s.submittedAt) >= todayStart
+                ),
+                claimedRaw: student.dailyQuestsClaimed,
+            },
+            weekly: {
+                streak: student.streak,
+                submissionsThisWeek,
+                allDailyClaimedToday: dailyClaimedIds.length >= DAILY_QUESTS.length,
+                claimedRaw: student.weeklyQuestsClaimed,
+            },
+            challenge: {
+                streak: student.streak,
+                totalSubmissions: student.submissions.length,
+                hasItem: student.inventory.length > 0,
+                claimedRaw: student.challengeQuestsClaimed,
+            },
+            chain: {
+                dailyClaimedIds,
+                weeklyClaimedIds,
+                challengeClaimedIds,
+                chainClaimedRaw: student.challengeQuestsClaimed,
+                streak: student.streak,
+                submissionsThisWeek,
+                totalSubmissions: student.submissions.length,
+                inventoryCount: student.inventory.length,
+            },
+        }).chain;
+        const status = chainSnapshot.find((quest) => quest.id === claimId);
+        if (!status?.completed) return NextResponse.json({ error: "NOT_COMPLETED" }, { status: 400 });
+
+        const allChallengeClaims = Array.isArray(student.challengeQuestsClaimed)
+            ? (student.challengeQuestsClaimed as string[])
+            : [];
+        const goldEarned = Math.floor((chainStep.step.reward.gold ?? 0) * multiplier);
+        const claimResult = await persistQuestClaim({
+            student,
+            questType,
+            questId: claimId,
+            field: "challengeQuestsClaimed",
+            nextClaimed: [...allChallengeClaims, claimId],
+            goldEarned,
+            rewardRule: {
+                ...chainStep.step.reward,
+                gold: goldEarned,
+            },
+            idempotencyKey: `quest:${student.id}:chain:${chainId}:${stepId}`,
+            metadata: {
+                chainId,
+                stepId,
+                stepIndex: chainStep.index + 1,
+                baseReward: chainStep.step.reward.gold ?? 0,
                 eventMultiplier: multiplier,
             },
         });

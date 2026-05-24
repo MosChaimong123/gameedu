@@ -1,6 +1,6 @@
 # System Plans Index
 
-Last updated: 2026-05-23
+Last updated: 2026-05-24
 
 Use this folder for system-by-system analysis and development planning across GameEdu.
 
@@ -27,6 +27,7 @@ Use this folder for system-by-system analysis and development planning across Ga
 19. [Game System V2 Foundation](./19-game-system-v2-foundation.md)
 20. [Negamon Game System V2 Roadmap](./20-negamon-game-system-v2-roadmap.md)
 21. [Negamon Game System V2 Production Completion](./21-negamon-game-system-v2-production-completion.md)
+22. [Negamon Battle Content and Effect System](./22-negamon-battle-content-effect-system.md)
 
 ## How To Use
 

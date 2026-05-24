@@ -17,6 +17,8 @@ import {
     updateClassroomGamificationSettingsById,
 } from "@/lib/services/classroom-settings/gamification-settings";
 import { getLimitsForUser, validateNegamonSpeciesForPlan } from "@/lib/plan/plan-access";
+import { logAuditEvent } from "@/lib/security/audit-log";
+import { readNegamonBalanceSettings } from "@/lib/negamon/teacher-balance-report";
 
 export async function GET(
     _req: Request,
@@ -65,7 +67,7 @@ export async function PATCH(
     const isAdmin = session.user.role === "ADMIN";
     const classroom = await db.classroom.findUnique({
         where: { id },
-        select: { teacherId: true },
+        select: { teacherId: true, gamifiedSettings: true },
     });
 
     if (!classroom) {
@@ -107,6 +109,21 @@ export async function PATCH(
         const updated = isAdmin
             ? await updateClassroomGamificationSettingsById(id, settings)
             : await updateGamificationSettings(id, session.user.id, settings);
+        const previousBalance = readNegamonBalanceSettings(classroom.gamifiedSettings);
+        const nextBalance = readNegamonBalanceSettings(updated.gamifiedSettings);
+        if (JSON.stringify(previousBalance) !== JSON.stringify(nextBalance)) {
+            logAuditEvent({
+                actorUserId: session.user.id,
+                action: "classroom.negamon_balance.settings_updated",
+                category: "classroom",
+                targetType: "classroom",
+                targetId: id,
+                metadata: {
+                    previousBalance,
+                    nextBalance,
+                },
+            });
+        }
 
         return NextResponse.json({
             gamifiedSettings: normalizeGamificationSettings(updated.gamifiedSettings),

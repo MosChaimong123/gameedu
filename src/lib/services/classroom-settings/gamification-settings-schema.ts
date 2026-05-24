@@ -82,6 +82,13 @@ const monsterSpeciesSchema = z.object({
     moves: z.array(monsterMoveSchema),
 });
 
+export const negamonBalanceSettingsSchema = z.object({
+    expMultiplier: z.number().min(0.25).max(4).optional(),
+    questGoldMultiplier: z.number().min(0).max(4).optional(),
+    battleGoldCap: z.number().min(0).max(500).optional(),
+    battleExpMultiplier: z.number().min(0.25).max(4).optional(),
+});
+
 export const negamonSettingsSchema = z.object({
     enabled: z.boolean().optional(),
     allowStudentChoice: z.boolean().optional(),
@@ -90,6 +97,7 @@ export const negamonSettingsSchema = z.object({
     species: z.array(monsterSpeciesSchema).optional(),
     studentMonsters: z.record(z.string(), z.string()).optional(),
     disabledMoves: z.array(z.string()).optional(),
+    balance: negamonBalanceSettingsSchema.optional(),
 });
 
 export const customAchievementSchema = z.object({

@@ -306,16 +306,24 @@ Goal:
 
 Tasks:
 
-- [ ] Add teacher summary for top exp earners, level-ups, item usage, and battle outcomes
-- [ ] Add read-only catalog preview for monsters, skills, and items
-- [ ] Add classroom-level balance settings for exp multipliers and reward caps
-- [ ] Add guardrails for extreme reward values
-- [ ] Add audit rows when a teacher changes balance settings
-- [ ] Add tests for validation and audit metadata
+- [x] Add teacher summary for top exp earners, level-ups, item usage, and battle outcomes
+- [x] Add read-only catalog preview for monsters, skills, and items
+- [x] Add classroom-level balance settings for exp multipliers and reward caps
+- [x] Add guardrails for extreme reward values
+- [x] Add audit rows when a teacher changes balance settings
+- [x] Add tests for validation and audit metadata
 
 Exit criteria:
 
 - teacher can inspect game balance and tune safe classroom-level settings without breaking reward rules
+
+Phase 31 completion notes:
+
+- Added `/api/classrooms/[id]/negamon/balance` for teacher-owned classroom balance visibility.
+- Added a teacher balance report helper for top progression earners, level-ups, skill unlocks, item usage, battle outcomes, and read-only catalog preview.
+- Added `negamon.balance` settings with guardrails for EXP multiplier, quest gold multiplier, battle gold cap, and battle EXP multiplier.
+- Gamification settings PATCH now audits balance changes with previous and next values.
+- Added route/helper/settings tests for balance visibility, guardrail validation, and audit metadata.
 
 ## Phase 32: Negamon UI Content Polish and QA
 

@@ -11,6 +11,7 @@ const mockAuth = vi.fn();
 const mockClassroomFindUnique = vi.fn();
 const mockClassroomUpdate = vi.fn();
 const mockUserFindUnique = vi.fn();
+const mockLogAuditEvent = vi.fn();
 
 vi.mock("@/auth", () => ({
   auth: mockAuth,
@@ -30,6 +31,10 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/prisma-json", () => ({
   toPrismaJson: (value: unknown) => value,
+}));
+
+vi.mock("@/lib/security/audit-log", () => ({
+  logAuditEvent: mockLogAuditEvent,
 }));
 
 describe("classroom gamification settings route", () => {
@@ -121,7 +126,7 @@ describe("classroom gamification settings route", () => {
 
   it("updates gamified settings when caller is the owning teacher", async () => {
     mockAuth.mockResolvedValue({ user: { id: "teacher-1", role: "TEACHER" } });
-    mockClassroomFindUnique.mockResolvedValue({ teacherId: "teacher-1" });
+    mockClassroomFindUnique.mockResolvedValue({ teacherId: "teacher-1", gamifiedSettings: {} });
     mockClassroomUpdate.mockResolvedValue({
       gamifiedSettings: { negamon: { enabled: true } },
     });
@@ -138,7 +143,7 @@ describe("classroom gamification settings route", () => {
     });
     expect(mockClassroomFindUnique).toHaveBeenCalledWith({
       where: { id: "class-1" },
-      select: { teacherId: true },
+      select: { teacherId: true, gamifiedSettings: true },
     });
     expect(mockClassroomUpdate).toHaveBeenCalledWith({
       where: {
@@ -156,7 +161,7 @@ describe("classroom gamification settings route", () => {
 
   it("updates gamified settings for legacy USER accounts that own the classroom", async () => {
     mockAuth.mockResolvedValue({ user: { id: "teacher-1", role: "USER" } });
-    mockClassroomFindUnique.mockResolvedValue({ teacherId: "teacher-1" });
+    mockClassroomFindUnique.mockResolvedValue({ teacherId: "teacher-1", gamifiedSettings: {} });
     mockClassroomUpdate.mockResolvedValue({
       gamifiedSettings: { negamon: { enabled: true } },
     });
@@ -187,7 +192,7 @@ describe("classroom gamification settings route", () => {
 
   it("rejects PATCH for non-owner teachers", async () => {
     mockAuth.mockResolvedValue({ user: { id: "teacher-1", role: "TEACHER" } });
-    mockClassroomFindUnique.mockResolvedValue({ teacherId: "teacher-2" });
+    mockClassroomFindUnique.mockResolvedValue({ teacherId: "teacher-2", gamifiedSettings: {} });
 
     const { PATCH } = await import("@/app/api/classrooms/[id]/gamification-settings/route");
     const response = await PATCH(
@@ -205,7 +210,7 @@ describe("classroom gamification settings route", () => {
 
   it("keeps plan-limit validation for owning teachers selecting Negamon species", async () => {
     mockAuth.mockResolvedValue({ user: { id: "teacher-1", role: "TEACHER" } });
-    mockClassroomFindUnique.mockResolvedValue({ teacherId: "teacher-1" });
+    mockClassroomFindUnique.mockResolvedValue({ teacherId: "teacher-1", gamifiedSettings: {} });
     mockUserFindUnique.mockResolvedValue({
       role: "TEACHER",
       plan: "FREE",
@@ -230,6 +235,68 @@ describe("classroom gamification settings route", () => {
       status: 403,
       code: "PLAN_LIMIT_NEGAMON_SPECIES",
       message: "Negamon species selection exceeds your plan",
+    });
+    expect(mockClassroomUpdate).not.toHaveBeenCalled();
+  });
+
+  it("accepts guarded Negamon balance settings and writes an audit event", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "teacher-1", role: "TEACHER" } });
+    mockClassroomFindUnique.mockResolvedValue({
+      teacherId: "teacher-1",
+      gamifiedSettings: { negamon: { balance: { expMultiplier: 1 } } },
+    });
+    mockClassroomUpdate.mockResolvedValue({
+      gamifiedSettings: { negamon: { balance: { expMultiplier: 1.25, battleGoldCap: 120 } } },
+    });
+
+    const { PATCH } = await import("@/app/api/classrooms/[id]/gamification-settings/route");
+    const response = await PATCH(
+      makeJsonRequest({
+        gamifiedSettings: {
+          negamon: {
+            balance: {
+              expMultiplier: 1.25,
+              battleGoldCap: 120,
+            },
+          },
+        },
+      }) as never,
+      makeRouteParams({ id: "class-1" })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockLogAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
+      action: "classroom.negamon_balance.settings_updated",
+      targetId: "class-1",
+      metadata: {
+        previousBalance: { expMultiplier: 1 },
+        nextBalance: { expMultiplier: 1.25, battleGoldCap: 120 },
+      },
+    }));
+  });
+
+  it("rejects extreme Negamon balance settings", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "teacher-1", role: "TEACHER" } });
+    mockClassroomFindUnique.mockResolvedValue({ teacherId: "teacher-1", gamifiedSettings: {} });
+
+    const { PATCH } = await import("@/app/api/classrooms/[id]/gamification-settings/route");
+    const response = await PATCH(
+      makeJsonRequest({
+        gamifiedSettings: {
+          negamon: {
+            balance: {
+              expMultiplier: 99,
+            },
+          },
+        },
+      }) as never,
+      makeRouteParams({ id: "class-1" })
+    );
+
+    await expectAppErrorResponse(response, {
+      status: 400,
+      code: "INVALID_PAYLOAD",
+      message: "Invalid gamification settings",
     });
     expect(mockClassroomUpdate).not.toHaveBeenCalled();
   });

@@ -618,3 +618,36 @@ model TeacherMission {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
+
+/// LINE group registered when the debt-collection bot joins.
+model LineBotGroup {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  lineGroupId String          @unique
+  name        String?
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  debts       LineGroupDebt[]
+}
+
+/// Open/paid debt row scoped to one LINE group (amount in THB, whole baht).
+model LineGroupDebt {
+  id                  String       @id @default(auto()) @map("_id") @db.ObjectId
+  groupId             String       @db.ObjectId
+  group               LineBotGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  shortCode           Int
+  debtorLabel         String
+  debtorLineUserId    String?
+  amountBaht          Int
+  note                String?
+  status              String       @default("OPEN")
+  createdByLineUserId String?
+  createdByLabel      String?
+  paidAt              DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@unique([groupId, shortCode])
+  @@index([groupId, status])
+  @@index([groupId, createdAt])
+}

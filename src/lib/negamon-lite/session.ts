@@ -14,7 +14,9 @@ import type {
     NegamonLiteBattleSide,
     NegamonLiteBattleState,
     NegamonLiteCombatant,
+    NegamonLiteDifficulty,
     NegamonLiteMove,
+    NegamonLiteStatus,
     NegamonLiteType,
 } from "./types";
 import { NEGAMON_LITE_TYPES } from "./type-chart";
@@ -72,6 +74,41 @@ function toNegamonLiteTypes(types: string[]): NegamonLiteType[] {
     return types.filter((type): type is NegamonLiteType => NEGAMON_LITE_TYPE_SET.has(type));
 }
 
+function getTraitStatusImmunities(traitIds: string[]): NegamonLiteStatus[] {
+    const immunities: NegamonLiteStatus[] = [];
+    if (traitIds.includes("trait_flame_body")) immunities.push("BURN");
+    if (traitIds.includes("trait_acid_rain")) immunities.push("POISON", "BADLY_POISON");
+    if (traitIds.includes("trait_iron_shell")) immunities.push("STUN");
+    return [...new Set(immunities)];
+}
+
+export function applyNegamonLiteDifficultyModifier(
+    combatant: NegamonLiteCombatant,
+    difficulty: NegamonLiteDifficulty = "normal"
+): NegamonLiteCombatant {
+    const multipliers: Record<NegamonLiteDifficulty, { hp: number; offense: number; defense: number; speed: number }> = {
+        easy: { hp: 0.9, offense: 0.95, defense: 0.95, speed: 1 },
+        normal: { hp: 1, offense: 1, defense: 1, speed: 1 },
+        hard: { hp: 1.15, offense: 1.08, defense: 1.05, speed: 1.05 },
+        boss: { hp: 1.35, offense: 1.15, defense: 1.12, speed: 1.08 },
+    };
+    const multiplier = multipliers[difficulty];
+    const stats = {
+        hp: Math.max(1, Math.floor(combatant.stats.hp * multiplier.hp)),
+        attack: Math.max(1, Math.floor(combatant.stats.attack * multiplier.offense)),
+        defense: Math.max(1, Math.floor(combatant.stats.defense * multiplier.defense)),
+        specialAttack: Math.max(1, Math.floor(combatant.stats.specialAttack * multiplier.offense)),
+        specialDefense: Math.max(1, Math.floor(combatant.stats.specialDefense * multiplier.defense)),
+        speed: Math.max(1, Math.floor(combatant.stats.speed * multiplier.speed)),
+    };
+    return {
+        ...combatant,
+        stats,
+        hp: Math.min(stats.hp, Math.max(1, Math.floor(combatant.hp * multiplier.hp))),
+        difficulty,
+    };
+}
+
 export function createNegamonLiteChoiceRequestId(state: NegamonLiteBattleState): string {
     return `${state.battleId}:${state.turn}:${state.seed}`;
 }
@@ -120,6 +157,12 @@ export function createNegamonLiteCombatant(input: {
         energy: passive.maxEnergy,
         maxEnergy: passive.maxEnergy,
         moves: moves.length > 0 ? moves : [fallbackMove(input.monster)],
+        statusImmunities: [
+            ...new Set([
+                ...itemRuntime.plan.statusImmunities,
+                ...getTraitStatusImmunities(passive.passiveTraitIds),
+            ]),
+        ],
         passiveTraitIds: passive.passiveTraitIds,
         battleItemIds: itemRuntime.plan.itemIds,
         itemEffectKinds: itemRuntime.plan.effects.map((effect) => effect.kind),
@@ -138,6 +181,7 @@ export function createNegamonLiteBattleState(input: {
     negamonSettings: Parameters<typeof createNegamonMonsterSnapshot>[0]["negamonSettings"];
     challengerBattleItemIds?: string[];
     defenderBattleItemIds?: string[];
+    opponentDifficulty?: NegamonLiteDifficulty;
     nowMs?: number;
 }): NegamonLiteBattleState | null {
     const challengerMonster = createNegamonMonsterSnapshot({
@@ -167,22 +211,28 @@ export function createNegamonLiteBattleState(input: {
         input.nowMs ?? Date.now()
     );
 
+    const player = createNegamonLiteCombatant({
+        side: "player",
+        student: input.challenger,
+        monster: challengerMonster,
+    });
+    const opponent = applyNegamonLiteDifficultyModifier(
+        createNegamonLiteCombatant({
+            side: "opponent",
+            student: input.defender,
+            monster: defenderMonster,
+        }),
+        input.opponentDifficulty ?? "normal"
+    );
+
     return {
         battleId: input.battleId,
         seed,
         turn: 1,
         phase: "choosing",
         sides: {
-            player: createNegamonLiteCombatant({
-                side: "player",
-                student: input.challenger,
-                monster: challengerMonster,
-            }),
-            opponent: createNegamonLiteCombatant({
-                side: "opponent",
-                student: input.defender,
-                monster: defenderMonster,
-            }),
+            player,
+            opponent,
         },
         events: [
             {

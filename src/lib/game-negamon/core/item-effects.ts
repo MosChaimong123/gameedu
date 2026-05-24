@@ -5,12 +5,31 @@ import {
     type GameItemEffect,
 } from "@/lib/game-core";
 import type { NegamonLiteCombatant } from "@/lib/negamon-lite";
+import type { NegamonLiteStatus } from "@/lib/negamon-lite";
 import {
     getNegamonBattleItemCatalog,
     validateNegamonBattleItemLoadout,
     type NegamonBattleItemDefinition,
 } from "./battle-items";
 import type { NegamonMonsterSnapshot } from "./monster-snapshot";
+
+function mapItemStatusImmunity(status: string): NegamonLiteStatus[] {
+    const normalized = status.trim().toUpperCase();
+    if (normalized === "POISON") return ["POISON", "BADLY_POISON"];
+    if (normalized === "FREEZE") return ["STUN"];
+    if (
+        normalized === "BURN" ||
+        normalized === "BADLY_POISON" ||
+        normalized === "PARALYZE" ||
+        normalized === "SLEEP" ||
+        normalized === "STUN" ||
+        normalized === "SHIELD" ||
+        normalized === "FOCUS"
+    ) {
+        return [normalized];
+    }
+    return [];
+}
 
 export type NegamonBattleItemRuntimePlan =
     | {
@@ -19,6 +38,7 @@ export type NegamonBattleItemRuntimePlan =
           items: NegamonBattleItemDefinition[];
           inventoryChange: GameInventoryChange;
           effects: GameItemEffect[];
+          statusImmunities: NegamonLiteStatus[];
           statMultipliers: { atk: number; def: number; spd: number };
           rewardModifiers: { goldBonus: number; goldMultiplier: number; expMultiplier: number };
       }
@@ -31,6 +51,7 @@ export type NegamonBattleItemRuntimePlan =
           items: [];
           inventoryChange: GameInventoryChange;
           effects: [];
+          statusImmunities: [];
           statMultipliers: { atk: 1; def: 1; spd: 1 };
           rewardModifiers: { goldBonus: 0; goldMultiplier: 1; expMultiplier: 1 };
       };
@@ -51,12 +72,14 @@ export function createNegamonBattleItemRuntimePlan(input: {
             items: [],
             inventoryChange: mergeInventoryChanges([]),
             effects: [],
+            statusImmunities: [],
             statMultipliers: { atk: 1, def: 1, spd: 1 },
             rewardModifiers: { goldBonus: 0, goldMultiplier: 1, expMultiplier: 1 },
         };
     }
 
     const effects = validation.items.flatMap((item) => item.effects);
+    const statusImmunities: NegamonLiteStatus[] = [];
     const statMultipliers = { atk: 1, def: 1, spd: 1 };
     const rewardModifiers = { goldBonus: 0, goldMultiplier: 1, expMultiplier: 1 };
 
@@ -70,6 +93,9 @@ export function createNegamonBattleItemRuntimePlan(input: {
         if (effect.kind === "gold_multiplier") {
             rewardModifiers.goldMultiplier *= effect.multiplier;
         }
+        if (effect.kind === "status_immunity") {
+            statusImmunities.push(...mapItemStatusImmunity(effect.status));
+        }
     }
 
     return {
@@ -78,6 +104,7 @@ export function createNegamonBattleItemRuntimePlan(input: {
         items: validation.items,
         inventoryChange: validation.inventoryChange,
         effects,
+        statusImmunities: [...new Set(statusImmunities)],
         statMultipliers,
         rewardModifiers,
     };
@@ -90,6 +117,7 @@ export function createEmptyNegamonBattleItemRuntimePlan(): Extract<NegamonBattle
         items: [],
         inventoryChange: mergeInventoryChanges([]),
         effects: [],
+        statusImmunities: [],
         statMultipliers: { atk: 1, def: 1, spd: 1 },
         rewardModifiers: { goldBonus: 0, goldMultiplier: 1, expMultiplier: 1 },
     };

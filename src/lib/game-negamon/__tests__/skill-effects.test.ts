@@ -160,6 +160,36 @@ describe("Negamon skill effect runtime V2", () => {
         expect(mapNegamonSkillToLiteMove(focus).effect).toEqual({ kind: "debuff", stat: "accuracy", stages: 1 });
     });
 
+    it("maps condition status effects into lite battle statuses", () => {
+        const burn = makeSkill({
+            id: "skill_burn_mark",
+            category: "status",
+            target: "enemy",
+            power: 0,
+            effects: [{ kind: "status", effect: "BURN", chance: 75, durationTurns: 2 }],
+        });
+        const freeze = makeSkill({
+            id: "skill_frost_lock",
+            category: "status",
+            target: "enemy",
+            power: 0,
+            effects: [{ kind: "status", effect: "FREEZE", chance: 100, durationTurns: 1 }],
+        });
+
+        expect(mapNegamonSkillToLiteMove(burn).effect).toEqual({
+            kind: "status",
+            status: "BURN",
+            chance: 75,
+            durationTurns: 2,
+        });
+        expect(mapNegamonSkillToLiteMove(freeze).effect).toEqual({
+            kind: "status",
+            status: "STUN",
+            chance: 100,
+            durationTurns: 1,
+        });
+    });
+
     it("applies mapped skill effects during battle resolution and logs them deterministically", () => {
         const guard = mapNegamonSkillToLiteMove(makeSkill({
             id: "skill_guard_shell",

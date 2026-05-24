@@ -248,17 +248,26 @@ Goal:
 
 Tasks:
 
-- [ ] Add status resolver for burn, shield, stun, focus, and poison-like damage over time
-- [ ] Add duration and stacking rules
-- [ ] Add status immunity rules from items or traits
-- [ ] Add enemy/opponent difficulty modifiers
-- [ ] Add battle log summaries readable by students
-- [ ] Add result payload fields for status timeline
-- [ ] Add tests for each status effect and interaction
+- [x] Add status resolver for burn, shield, stun, focus, and poison-like damage over time
+- [x] Add duration and stacking rules
+- [x] Add status immunity rules from items or traits
+- [x] Add enemy/opponent difficulty modifiers
+- [x] Add battle log summaries readable by students
+- [x] Add result payload fields for status timeline
+- [x] Add tests for each status effect and interaction
 
 Exit criteria:
 
 - battle logs explain why HP changed, why a move failed, and which effect caused it
+
+Phase 29 completion notes:
+
+- Added lite battle status runtime for burn, poison, badly poisoned stacking, paralysis, sleep, stun, shield, and focus.
+- Battle events now expose `statusTimeline` entries for applied, blocked, ticked, expired, skipped, and shielded outcomes.
+- Status rules are deterministic and run inside the server-authoritative battle resolver.
+- Status immunities can come from battle items and passive traits.
+- Shield reduces incoming damage, focus improves accuracy, and damage-over-time statuses explain HP loss in logs.
+- Added tests for status application, skip turns, shield/focus, immunity, and skill/item status mapping.
 
 ## Phase 30: Quest Chains and Reward Rules
 

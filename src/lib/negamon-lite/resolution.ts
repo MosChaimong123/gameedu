@@ -1,5 +1,12 @@
 import { getValidChoices } from "./choices";
-import { createSeededRng } from "./rng";
+import { createSeededRng, type NegamonLiteRng } from "./rng";
+import {
+    applyNegamonLiteShieldDamageReduction,
+    applyNegamonLiteStatus,
+    getNegamonLiteStatusAccuracyBonus,
+    resolveNegamonLiteTurnEndStatuses,
+    resolveNegamonLiteTurnStartStatuses,
+} from "./status-effects";
 import { getEffectivenessLabel, getTypeMultiplier } from "./type-chart";
 import type {
     NegamonLiteBattleEvent,
@@ -24,6 +31,8 @@ function cloneCombatant(combatant: NegamonLiteCombatant): NegamonLiteCombatant {
         types: [...combatant.types],
         stats: { ...combatant.stats },
         moves: combatant.moves.map((move) => ({ ...move })),
+        statuses: combatant.statuses?.map((status) => ({ ...status })),
+        statusImmunities: [...(combatant.statusImmunities ?? [])],
         passiveTraitIds: [...(combatant.passiveTraitIds ?? [])],
         battleItemIds: [...(combatant.battleItemIds ?? [])],
         itemEffectKinds: [...(combatant.itemEffectKinds ?? [])],
@@ -110,7 +119,7 @@ function applyStatEffect(stats: NegamonLiteStats, stat: Exclude<NegamonLiteEffec
 }
 
 function getAccuracyMultiplier(combatant: NegamonLiteCombatant): number {
-    return Math.max(0.25, 1 + (combatant.accuracyStage ?? 0) * STATUS_STAGE_STEP);
+    return Math.max(0.25, 1 + (combatant.accuracyStage ?? 0) * STATUS_STAGE_STEP + getNegamonLiteStatusAccuracyBonus(combatant));
 }
 
 function applyMoveEffect(args: {
@@ -118,15 +127,16 @@ function applyMoveEffect(args: {
     side: NegamonLiteBattleSide;
     targetSide: NegamonLiteBattleSide;
     move: NegamonLiteMove;
-}): { healing: number; effectApplied: boolean } {
+    rng: NegamonLiteRng;
+}): { healing: number; effectApplied: boolean; statusTimeline: NegamonLiteBattleEvent["statusTimeline"] } {
     const effect = args.move.effect;
-    if (!effect) return { healing: 0, effectApplied: false };
+    if (!effect) return { healing: 0, effectApplied: false, statusTimeline: [] };
 
     if (effect.kind === "heal") {
         const target = args.state.sides[args.targetSide];
         const healing = Math.max(1, Math.floor(target.stats.hp * (effect.percent / 100)));
         target.hp = Math.min(target.stats.hp, target.hp + healing);
-        return { healing, effectApplied: true };
+        return { healing, effectApplied: true, statusTimeline: [] };
     }
 
     if (effect.kind === "buff") {
@@ -136,7 +146,21 @@ function applyMoveEffect(args: {
         } else {
             target.stats = applyStatEffect(target.stats, effect.stat, Math.abs(effect.stages));
         }
-        return { healing: 0, effectApplied: true };
+        return { healing: 0, effectApplied: true, statusTimeline: [] };
+    }
+
+    if (effect.kind === "status") {
+        const target = args.state.sides[args.targetSide];
+        const status = applyNegamonLiteStatus({
+            combatant: target,
+            side: args.targetSide,
+            status: effect.status,
+            chance: effect.chance,
+            durationTurns: effect.durationTurns,
+            sourceMoveId: args.move.id,
+            rng: args.rng,
+        });
+        return { healing: 0, effectApplied: status.applied, statusTimeline: status.timeline };
     }
 
     const target = args.state.sides[args.targetSide];
@@ -145,7 +169,7 @@ function applyMoveEffect(args: {
     } else {
         target.stats = applyStatEffect(target.stats, effect.stat, -Math.abs(effect.stages));
     }
-    return { healing: 0, effectApplied: true };
+    return { healing: 0, effectApplied: true, statusTimeline: [] };
 }
 
 function pushEvent(state: NegamonLiteBattleState, event: Omit<NegamonLiteBattleEvent, "id" | "turn"> & { idSuffix: string }) {
@@ -190,6 +214,48 @@ export function resolveChoice(state: NegamonLiteBattleState, choice: NegamonLite
 
     const targetSide = resolveTargetSide(choice, move);
     const target = nextState.sides[targetSide];
+    const startStatus = resolveNegamonLiteTurnStartStatuses({
+        combatant: actor,
+        side: choice.side,
+        rng,
+    });
+    if (startStatus.skipTurn) {
+        const endTimeline = [
+            ...startStatus.timeline,
+            ...resolveNegamonLiteTurnEndStatuses({ combatant: actor, side: choice.side }),
+            ...resolveNegamonLiteTurnEndStatuses({ combatant: target, side: targetSide }),
+        ];
+        nextState.seed = rng.seed;
+        pushEvent(nextState, {
+            idSuffix: "turn-skipped",
+            kind: "turn_resolved",
+            side: choice.side,
+            moveId: move.id,
+            targetSide,
+            damage: 0,
+            healing: 0,
+            effectApplied: false,
+            statusTimeline: endTimeline,
+            message: startStatus.timeline.at(0)?.message ?? `${actor.name} could not move.`,
+        });
+        if (actor.hp <= 0 || target.hp <= 0) {
+            nextState.phase = "ended";
+            nextState.winner = actor.hp <= 0 ? targetSide : choice.side;
+            pushEvent(nextState, {
+                idSuffix: "battle-ended",
+                kind: "battle_ended",
+                side: nextState.winner,
+                targetSide: nextState.winner === choice.side ? targetSide : choice.side,
+                statusTimeline: endTimeline,
+                message: `${nextState.sides[nextState.winner].name} wins.`,
+            });
+            return { state: nextState, accepted: true };
+        }
+        nextState.turn += 1;
+        nextState.phase = "choosing";
+        return { state: nextState, accepted: true };
+    }
+
     move.pp = Math.max(0, move.pp - 1);
     actor.energy = Math.max(0, actor.energy - (move.energyCost ?? 0));
     move.cooldownRemaining = Math.max(0, Math.floor(move.cooldownTurns ?? 0));
@@ -197,17 +263,30 @@ export function resolveChoice(state: NegamonLiteBattleState, choice: NegamonLite
     const effectiveAccuracy = Math.max(0, Math.min(100, Math.floor(move.accuracy * getAccuracyMultiplier(actor))));
     const missed = !rng.chance(effectiveAccuracy);
     const critical = !missed && move.category !== "STATUS" && rng.chance(CRIT_CHANCE_PERCENT);
-    const damageResult = missed
+    let damageResult = missed
         ? { damage: 0, stab: false, typeMultiplier: 1, effectiveness: "normal" as const }
         : calculateDamage({ actor, target, move, critical });
+    const shieldResult = applyNegamonLiteShieldDamageReduction({
+        combatant: target,
+        side: targetSide,
+        damage: damageResult.damage,
+    });
+    damageResult = { ...damageResult, damage: shieldResult.damage };
 
     if (damageResult.damage > 0) {
         target.hp = Math.max(0, target.hp - damageResult.damage);
     }
 
     const effectResult = missed
-        ? { healing: 0, effectApplied: false }
-        : applyMoveEffect({ state: nextState, side: choice.side, targetSide, move });
+        ? { healing: 0, effectApplied: false, statusTimeline: [] }
+        : applyMoveEffect({ state: nextState, side: choice.side, targetSide, move, rng });
+    const statusTimeline = [
+        ...startStatus.timeline,
+        ...shieldResult.timeline,
+        ...(effectResult.statusTimeline ?? []),
+        ...resolveNegamonLiteTurnEndStatuses({ combatant: actor, side: choice.side }),
+        ...resolveNegamonLiteTurnEndStatuses({ combatant: target, side: targetSide }),
+    ];
 
     nextState.seed = rng.seed;
     pushEvent(nextState, {
@@ -225,6 +304,7 @@ export function resolveChoice(state: NegamonLiteBattleState, choice: NegamonLite
         stab: damageResult.stab,
         typeMultiplier: damageResult.typeMultiplier,
         effectiveness: damageResult.effectiveness,
+        statusTimeline,
         message: missed
             ? `${actor.name} used ${move.name}, but it missed.`
             : `${actor.name} used ${move.name}.`,
@@ -238,6 +318,7 @@ export function resolveChoice(state: NegamonLiteBattleState, choice: NegamonLite
             kind: "battle_ended",
             side: choice.side,
             targetSide,
+            statusTimeline,
             message: `${actor.name} wins.`,
         });
         return { state: nextState, accepted: true };

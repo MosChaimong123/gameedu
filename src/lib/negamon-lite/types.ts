@@ -6,6 +6,8 @@ export type NegamonLiteBattleSide = "player" | "opponent";
 
 export type NegamonLiteBattlePhase = "choosing" | "resolving" | "ended";
 
+export type NegamonLiteDifficulty = "easy" | "normal" | "hard" | "boss";
+
 export type NegamonLiteStats = {
     hp: number;
     attack: number;
@@ -17,10 +19,40 @@ export type NegamonLiteStats = {
 
 export type NegamonLiteEffectStat = keyof Omit<NegamonLiteStats, "hp"> | "accuracy";
 
+export type NegamonLiteStatus =
+    | "BURN"
+    | "POISON"
+    | "BADLY_POISON"
+    | "PARALYZE"
+    | "SLEEP"
+    | "STUN"
+    | "SHIELD"
+    | "FOCUS";
+
+export type NegamonLiteStatusInstance = {
+    status: NegamonLiteStatus;
+    remainingTurns: number | null;
+    stacks?: number;
+    sourceMoveId?: string;
+};
+
+export type NegamonLiteStatusTimelineEvent = {
+    side: NegamonLiteBattleSide;
+    status: NegamonLiteStatus;
+    action: "applied" | "blocked" | "ticked" | "expired" | "skipped" | "shielded";
+    damage?: number;
+    preventedDamage?: number;
+    remainingTurns?: number | null;
+    stacks?: number;
+    sourceMoveId?: string;
+    message: string;
+};
+
 export type NegamonLiteMoveEffect =
     | { kind: "buff"; stat: NegamonLiteEffectStat; stages: number }
     | { kind: "debuff"; stat: NegamonLiteEffectStat; stages: number }
-    | { kind: "heal"; percent: number };
+    | { kind: "heal"; percent: number }
+    | { kind: "status"; status: NegamonLiteStatus; chance?: number; durationTurns?: number | null };
 
 export type NegamonLiteMove = {
     id: string;
@@ -51,6 +83,8 @@ export type NegamonLiteCombatant = {
     maxEnergy: number;
     moves: NegamonLiteMove[];
     status?: "BURN" | "POISON" | "PARALYZE" | "SLEEP";
+    statuses?: NegamonLiteStatusInstance[];
+    statusImmunities?: NegamonLiteStatus[];
     accuracyStage?: number;
     passiveTraitIds?: string[];
     battleItemIds?: string[];
@@ -58,6 +92,7 @@ export type NegamonLiteCombatant = {
     rewardGoldBonus?: number;
     rewardGoldMultiplier?: number;
     rewardExpMultiplier?: number;
+    difficulty?: NegamonLiteDifficulty;
 };
 
 export type NegamonLiteBattleEvent = {
@@ -76,6 +111,7 @@ export type NegamonLiteBattleEvent = {
     effectiveness?: "immune" | "resisted" | "normal" | "effective";
     effect?: NegamonLiteMoveEffect;
     effectApplied?: boolean;
+    statusTimeline?: NegamonLiteStatusTimelineEvent[];
     message: string;
 };
 

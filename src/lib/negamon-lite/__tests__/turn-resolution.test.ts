@@ -176,6 +176,138 @@ describe("negamon-lite turn resolution", () => {
         });
     });
 
+    it("applies burn damage over time and records a status timeline", () => {
+        const result = resolveChoice(
+            makeState({
+                sides: {
+                    player: makeCombatant({
+                        moves: [
+                            {
+                                ...waterStrike,
+                                id: "ember-mark",
+                                name: "Ember Mark",
+                                type: "FIRE",
+                                power: 0,
+                                category: "STATUS",
+                                effect: { kind: "status", status: "BURN", chance: 100, durationTurns: 2 },
+                            },
+                        ],
+                    }),
+                    opponent: makeCombatant({ id: "garuda-1", name: "Garuda", types: ["WIND"], hp: 100 }),
+                },
+            }),
+            { side: "player", kind: "move", moveId: "ember-mark" }
+        );
+
+        expect(result.state.sides.opponent.statuses).toEqual([
+            { status: "BURN", remainingTurns: 1, sourceMoveId: "ember-mark" },
+        ]);
+        expect(result.state.sides.opponent.hp).toBe(96);
+        expect(result.state.events.at(-1)?.statusTimeline).toEqual([
+            expect.objectContaining({ action: "applied", status: "BURN" }),
+            expect.objectContaining({ action: "ticked", status: "BURN", damage: 4 }),
+        ]);
+    });
+
+    it("uses sleep to skip a turn and expires the status", () => {
+        const result = resolveChoice(
+            makeState({
+                sides: {
+                    player: makeCombatant({
+                        statuses: [{ status: "SLEEP", remainingTurns: 1 }],
+                    }),
+                    opponent: makeCombatant({ id: "garuda-1", name: "Garuda", types: ["FIRE"], hp: 100 }),
+                },
+            }),
+            { side: "player", kind: "move", moveId: "water-strike" }
+        );
+
+        expect(result.accepted).toBe(true);
+        expect(result.state.sides.player.moves[0].pp).toBe(10);
+        expect(result.state.sides.opponent.hp).toBe(100);
+        expect(result.state.sides.player.statuses).toEqual([]);
+        expect(result.state.events.at(-1)).toMatchObject({
+            kind: "turn_resolved",
+            effectApplied: false,
+            statusTimeline: [
+                expect.objectContaining({ action: "skipped", status: "SLEEP" }),
+                expect.objectContaining({ action: "expired", status: "SLEEP" }),
+            ],
+        });
+    });
+
+    it("reduces damage with shield and improves accuracy with focus", () => {
+        const shielded = resolveChoice(
+            makeState({
+                sides: {
+                    player: makeCombatant({ moves: [{ ...waterStrike, power: 100 }] }),
+                    opponent: makeCombatant({
+                        id: "garuda-1",
+                        name: "Garuda",
+                        types: ["FIRE"],
+                        statuses: [{ status: "SHIELD", remainingTurns: 2 }],
+                    }),
+                },
+            }),
+            { side: "player", kind: "move", moveId: "water-strike" }
+        );
+
+        expect(shielded.state.events.at(-1)?.statusTimeline).toEqual(
+            expect.arrayContaining([expect.objectContaining({ action: "shielded", status: "SHIELD" })])
+        );
+
+        const focused = resolveChoice(
+            makeState({
+                sides: {
+                    player: makeCombatant({
+                        statuses: [{ status: "FOCUS", remainingTurns: 2 }],
+                        moves: [{ ...waterStrike, accuracy: 80 }],
+                    }),
+                    opponent: makeCombatant({ id: "garuda-1", name: "Garuda", types: ["FIRE"], hp: 100 }),
+                },
+            }),
+            { side: "player", kind: "move", moveId: "water-strike" }
+        );
+
+        expect(focused.state.events.at(-1)).toMatchObject({
+            missed: false,
+        });
+    });
+
+    it("blocks status application by immunity", () => {
+        const result = resolveChoice(
+            makeState({
+                sides: {
+                    player: makeCombatant({
+                        moves: [
+                            {
+                                ...waterStrike,
+                                id: "toxic-mark",
+                                name: "Toxic Mark",
+                                power: 0,
+                                category: "STATUS",
+                                effect: { kind: "status", status: "POISON", chance: 100 },
+                            },
+                        ],
+                    }),
+                    opponent: makeCombatant({
+                        id: "garuda-1",
+                        name: "Garuda",
+                        types: ["FIRE"],
+                        statusImmunities: ["POISON"],
+                    }),
+                },
+            }),
+            { side: "player", kind: "move", moveId: "toxic-mark" }
+        );
+
+        expect(result.state.sides.opponent.statuses).toEqual([]);
+        expect(result.state.events.at(-1)).toMatchObject({
+            effectApplied: false,
+            statusTimeline: [expect.objectContaining({ action: "blocked", status: "POISON" })],
+        });
+    });
+
     it("rejects unavailable moves without mutating battle progress", () => {
         const result = resolveChoice(
             makeState({

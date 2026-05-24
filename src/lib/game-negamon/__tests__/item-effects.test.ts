@@ -7,7 +7,7 @@ import {
     createNegamonBattleItemRuntimePlan,
     createNegamonBattleItemRuntimePlanOrEmpty,
 } from "@/lib/game-negamon";
-import { createNegamonLiteCombatant } from "@/lib/negamon-lite/session";
+import { applyNegamonLiteDifficultyModifier, createNegamonLiteCombatant } from "@/lib/negamon-lite/session";
 
 function makeMonster(itemIds: string[] = []): NegamonMonsterSnapshot {
     return {
@@ -56,6 +56,30 @@ describe("Negamon item effect runtime V2", () => {
             rewardModifiers: { goldBonus: 15, goldMultiplier: 1, expMultiplier: 1 },
         });
         expect(plan.ok && plan.effects).toContainEqual({ kind: "gold_bonus", amount: 15 });
+        expect(plan.ok && plan.statusImmunities).toEqual([]);
+    });
+
+    it("maps status immunity items into battle runtime immunities", () => {
+        const plan = createNegamonBattleItemRuntimePlan({
+            loadoutIds: ["item_antidote_charm"],
+            inventory: ["item_antidote_charm"],
+            catalog: [
+                {
+                    id: "item_antidote_charm",
+                    nameKey: "Antidote Charm",
+                    rarity: "rare",
+                    itemType: "battle",
+                    stackable: true,
+                    allowedInBattle: true,
+                    battleCategory: "charm",
+                    effects: [{ kind: "status_immunity", status: "POISON" }],
+                },
+            ],
+        });
+
+        expect(plan.ok).toBe(true);
+        if (!plan.ok) throw new Error("expected ok plan");
+        expect(plan.statusImmunities).toEqual(["POISON", "BADLY_POISON"]);
     });
 
     it("falls back to an empty plan when saved loadout is no longer owned", () => {
@@ -99,6 +123,20 @@ describe("Negamon item effect runtime V2", () => {
         expect(combatant.itemEffectKinds).toEqual(["stat_boost", "gold_bonus"]);
         expect(combatant.rewardGoldBonus).toBe(15);
         expect(combatant.rewardGoldMultiplier).toBe(1);
+    });
+
+    it("applies opponent difficulty modifiers deterministically", () => {
+        const combatant = createNegamonLiteCombatant({
+            side: "opponent",
+            student: { id: "student-2", name: "B", behaviorPoints: 20 },
+            monster: makeMonster(),
+        });
+        const boss = applyNegamonLiteDifficultyModifier(combatant, "boss");
+
+        expect(boss.difficulty).toBe("boss");
+        expect(boss.stats.hp).toBe(135);
+        expect(boss.stats.attack).toBe(34);
+        expect(boss.stats.defense).toBe(22);
     });
 
     it("supports consumable HP and energy restore item effects for future active-use items", () => {

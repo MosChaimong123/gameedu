@@ -95,7 +95,7 @@ describe("Negamon content catalog foundation", () => {
             target: "enemy",
             requirements: {
                 speciesId: "pyronox",
-                rankIndex: 2,
+                rankIndex: 0,
             },
         });
         expect(skill?.effects.some((effect) => effect.kind === "damage")).toBe(true);

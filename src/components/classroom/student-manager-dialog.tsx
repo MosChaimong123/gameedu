@@ -182,6 +182,7 @@ export function StudentManagerDialog({
 
     const [editName, setEditName] = useState("");
     const [editNickname, setEditNickname] = useState("");
+    const [editOrder, setEditOrder] = useState("");
     const [searchTerm, setSearchTerm] = useState(initialSearchTerm ?? "");
     const activeEditStudent = resolveStudentManagerEditStudent(editStudent, localStudents);
 
@@ -205,12 +206,15 @@ export function StudentManagerDialog({
         setEditStudent(s);
         setEditName(s.name);
         setEditNickname(s.nickname ?? "");
+        const currentIndex = localStudents.findIndex((student) => student.id === s.id);
+        setEditOrder(currentIndex !== -1 ? String(currentIndex + 1) : "");
     };
 
     const cancelEdit = () => {
         setEditStudent(null);
         setEditName("");
         setEditNickname("");
+        setEditOrder("");
     };
 
     const handleSaveEdit = async () => {
@@ -237,7 +241,7 @@ export function StudentManagerDialog({
                 );
             }
 
-            const nextStudents = updateStudentManagerRosterStudent(
+            let finalStudents = updateStudentManagerRosterStudent(
                 localStudents,
                 editStudent.id,
                 {
@@ -245,13 +249,46 @@ export function StudentManagerDialog({
                     nickname: editNickname.trim() || null,
                 }
             );
-            setLocalStudents(nextStudents);
+
+            const oldIndex = localStudents.findIndex((s) => s.id === editStudent.id);
+            const targetNum = parseInt(editOrder, 10);
+            if (!isNaN(targetNum) && oldIndex !== -1 && oldIndex + 1 !== targetNum) {
+                const clampedNum = Math.max(1, Math.min(localStudents.length, targetNum));
+                const newIndex = clampedNum - 1;
+                if (newIndex !== oldIndex) {
+                    const reordered = arrayMove(finalStudents, oldIndex, newIndex).map((student, index) => ({
+                        ...student,
+                        order: index,
+                    }));
+
+                    const reorderRes = await fetch(`/api/classrooms/${classId}/students`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(
+                            reordered.map((student, index) => ({ id: student.id, order: index }))
+                        ),
+                    });
+                    if (!reorderRes.ok) {
+                        throw new Error(
+                            await getLocalizedErrorMessageFromResponse(
+                                reorderRes,
+                                "toastStudentOrderFailDesc",
+                                t,
+                                language
+                            )
+                        );
+                    }
+                    finalStudents = reordered;
+                }
+            }
+
+            setLocalStudents(finalStudents);
 
             toast({
                 title: t("toastStudentProfileSaveSuccessTitle"),
                 description: t("toastStudentProfileSaveSuccessDesc"),
             });
-            onChanged(nextStudents);
+            onChanged(finalStudents);
             cancelEdit();
         } catch (error) {
             toast({
@@ -558,6 +595,18 @@ export function StudentManagerDialog({
                                             value={editNickname}
                                             onChange={(e) => setEditNickname(e.target.value)}
                                             placeholder={t("studentNicknameFieldPlaceholder")}
+                                            className="h-11 text-base focus-visible:ring-amber-400"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="font-bold text-sm">{t("studentOrderLabel")}</Label>
+                                        <Input
+                                            type="number"
+                                            min={1}
+                                            max={localStudents.length}
+                                            value={editOrder}
+                                            onChange={(e) => setEditOrder(e.target.value)}
+                                            placeholder={t("studentOrderPlaceholder")}
                                             className="h-11 text-base focus-visible:ring-amber-400"
                                         />
                                     </div>

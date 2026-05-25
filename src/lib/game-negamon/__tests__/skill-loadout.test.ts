@@ -30,7 +30,7 @@ describe("Negamon skill catalog and loadout V2", () => {
             category: "special",
             target: "enemy",
             cooldownTurns: 2,
-            unlock: { level: 6, rankIndex: 5, speciesId: "pyronox" },
+            unlock: { level: 26, rankIndex: 3, speciesId: "pyronox" },
         });
         expect(skill.energyCost).toBeGreaterThan(0);
         expect(skill.effects.map((effect) => effect.kind)).toEqual(["damage", "status", "energy_cost"]);
@@ -44,16 +44,20 @@ describe("Negamon skill catalog and loadout V2", () => {
         expect(catalog.map((skill) => skill.id)).toContain("pyronox-ember-fang");
     });
 
-    it("unlocks skills by rank and filters disabled skills", () => {
+    it("unlocks skills by level pacing and filters disabled skills", () => {
         const pyronox = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "pyronox")!;
         const unlocked = getUnlockedNegamonSkillDefinitions({
             species: pyronox,
-            rankIndex: 3,
+            rankIndex: 1,
             includeBasic: true,
             disabledSkillIds: ["pyronox-ember-fang"],
         });
 
-        expect(unlocked.map((skill) => skill.id)).toEqual(["basic-attack", "pyronox-shadow-rend"]);
+        expect(unlocked.map((skill) => skill.id)).toEqual([
+            "basic-attack",
+            "pyronox-shadow-rend",
+            "pyronox-war-cry",
+        ]);
     });
 
     it("validates loadout ids and falls back to first unlocked skills", () => {

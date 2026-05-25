@@ -11,6 +11,7 @@ import { buildBasicAttackMove } from "@/lib/negamon-basic-move";
 import { NegamonTypeChart } from "@/components/negamon/negamon-type-chart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getNegamonFormLevelBand, getNegamonMoveLearnLevel } from "@/lib/game-negamon";
 
 const CODEX_TYPE_ORDER: MonsterType[] = [
     "FIRE",
@@ -206,7 +207,9 @@ export function NegamonCodexClient({ code, speciesList, negamonEnabled }: Negamo
                     {filtered.map((sp) => {
                         const moves = [
                             buildBasicAttackMove(),
-                            ...[...sp.moves].sort((a, b) => a.learnRank - b.learnRank),
+                            ...[...sp.moves].sort(
+                                (a, b) => getNegamonMoveLearnLevel(a) - getNegamonMoveLearnLevel(b)
+                            ),
                         ];
                         const showcase = sp.forms[Math.min(3, sp.forms.length - 1)] ?? sp.forms[0];
                         return (
@@ -287,6 +290,46 @@ export function NegamonCodexClient({ code, speciesList, negamonEnabled }: Negamo
                                             </p>
                                         </div>
                                     ) : null}
+                                    <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                                        <p className="mb-2 text-[10px] font-black uppercase tracking-wide text-slate-500">
+                                            {t("negamonInfoFormsHeading")}
+                                        </p>
+                                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                            {sp.forms.map((form, index) => {
+                                                const band = getNegamonFormLevelBand(index);
+                                                return (
+                                                    <div
+                                                        key={form.rank}
+                                                        className="rounded-xl border border-slate-200 bg-white p-2.5"
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-slate-50">
+                                                                <NegamonFormIcon
+                                                                    icon={form.icon}
+                                                                    label={form.name}
+                                                                    emojiClassName="text-2xl"
+                                                                    width={40}
+                                                                    height={40}
+                                                                    imageClassName="h-10 w-10 object-cover"
+                                                                />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="truncate text-xs font-black text-slate-900">
+                                                                    {form.name}
+                                                                </p>
+                                                                <p className="text-[10px] font-bold text-slate-500">
+                                                                    {t("negamonMonsterFormBandRange", {
+                                                                        min: band.levelMin,
+                                                                        max: band.levelMax,
+                                                                    })}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
                                     <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
                                         {t("negamonInfoMovesAll")}
                                     </p>

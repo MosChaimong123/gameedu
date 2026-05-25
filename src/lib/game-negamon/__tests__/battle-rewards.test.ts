@@ -7,10 +7,10 @@ import {
 } from "@/lib/game-negamon";
 
 const monsterBefore = {
-    exp: 390,
+    exp: 1255,
     expToNextLevel: 10,
-    level: 2,
-    rankIndex: 1,
+    level: 7,
+    rankIndex: 0,
     unlockedSkillIds: ["basic-attack"],
 };
 
@@ -21,42 +21,42 @@ describe("Negamon progression and reward contracts", () => {
     });
 
     it("calculates battle exp by outcome with a capped turn bonus", () => {
-        expect(calculateNegamonBattleExpReward({ outcome: "win", turnCount: 20 })).toBe(100);
-        expect(calculateNegamonBattleExpReward({ outcome: "draw", turnCount: 3 })).toBe(46);
-        expect(calculateNegamonBattleExpReward({ outcome: "loss", turnCount: 0 })).toBe(25);
+        expect(calculateNegamonBattleExpReward({ outcome: "win", turnCount: 20 })).toBe(60);
+        expect(calculateNegamonBattleExpReward({ outcome: "draw", turnCount: 3 })).toBe(31);
+        expect(calculateNegamonBattleExpReward({ outcome: "loss", turnCount: 0 })).toBe(18);
     });
 
     it("summarizes exp, level-up, and newly unlocked skills", () => {
         const summary = calculateNegamonProgressionReward({
             monsterBefore,
             expReward: 25,
-            unlockedSkillIdsAfter: ["basic-attack", "naga-aqua-jet"],
+            unlockedSkillIdsAfter: ["basic-attack", "pyronox-ember-fang"],
         });
 
         expect(summary).toMatchObject({
-            expBefore: 390,
-            expAfter: 415,
-            levelBefore: 2,
-            levelAfter: 3,
-            rankIndexBefore: 1,
-            rankIndexAfter: 2,
-            unlockedSkillIds: ["naga-aqua-jet"],
+            expBefore: 1255,
+            expAfter: 1280,
+            levelBefore: 7,
+            levelAfter: 8,
+            rankIndexBefore: 0,
+            rankIndexAfter: 1,
+            unlockedSkillIds: ["pyronox-ember-fang"],
             evolutionUnlocks: [
                 {
-                    fromRankIndex: 1,
-                    toRankIndex: 2,
-                    formRank: 2,
+                    fromRankIndex: 0,
+                    toRankIndex: 1,
+                    formRank: 1,
                 },
             ],
         });
         expect(summary.levelUps).toEqual([
             {
-                fromLevel: 2,
-                toLevel: 3,
-                fromRankIndex: 1,
-                toRankIndex: 2,
-                expBefore: 390,
-                expAfter: 415,
+                fromLevel: 7,
+                toLevel: 8,
+                fromRankIndex: 0,
+                toRankIndex: 1,
+                expBefore: 1255,
+                expAfter: 1280,
             },
         ]);
     });
@@ -73,7 +73,7 @@ describe("Negamon progression and reward contracts", () => {
             expReward: 25,
             itemRewardIds: ["item_lucky_coin"],
             consumedItemIds: ["item_potion"],
-            unlockedSkillIdsAfter: ["basic-attack", "naga-aqua-jet"],
+            unlockedSkillIdsAfter: ["basic-attack", "pyronox-ember-fang"],
             createdAt: "2026-05-23T12:00:00.000Z",
         });
 
@@ -83,7 +83,7 @@ describe("Negamon progression and reward contracts", () => {
             gold: 30,
             exp: 25,
             grantedItemIds: ["reward_lucky_coin"],
-            unlockedSkillIds: ["naga-aqua-jet"],
+            unlockedSkillIds: ["pyronox-ember-fang"],
         });
         expect(plan.inventoryChange).toEqual({
             consumedItemIds: ["item_potion"],

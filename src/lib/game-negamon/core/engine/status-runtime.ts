@@ -4,6 +4,7 @@ import type {
     NegamonRuntimeStatusId,
     NegamonRuntimeStatusState,
     NegamonRuntimeTimelineEvent,
+    NegamonRuntimeVolatileStat,
     NegamonRuntimeVolatileId,
     NegamonRuntimeVolatileState,
 } from "./runtime-types";
@@ -20,6 +21,8 @@ const DEFAULT_STATUS_DURATION: Record<NegamonRuntimeStatusId, number | null> = {
 const DEFAULT_VOLATILE_DURATION: Record<NegamonRuntimeVolatileId, number | null> = {
     SHIELD: 2,
     FOCUS: 2,
+    STAT_STAGE_MOD: 2,
+    ENERGY_REGEN_DOWN: 2,
 };
 
 function findStatus(
@@ -49,6 +52,7 @@ export function applyRuntimeStatus(input: {
     chance?: number;
     durationTurns?: number | null;
     sourceMoveId?: string;
+    data?: Record<string, number | string | boolean>;
     rng: NegamonDeterministicRng;
 }): { rng: NegamonDeterministicRng; applied: boolean; timeline: NegamonRuntimeTimelineEvent[] } {
     const blockedByImmunity = (input.combatant.statusImmunities ?? []).includes(input.statusId);
@@ -77,6 +81,7 @@ export function applyRuntimeStatus(input: {
     if (existing) {
         existing.remainingTurns = remainingTurns;
         existing.sourceMoveId = input.sourceMoveId ?? existing.sourceMoveId;
+        existing.data = input.data ?? existing.data;
         if (input.statusId === "BADLY_POISON") {
             existing.stacks = Math.min(4, (existing.stacks ?? 1) + 1);
         }
@@ -86,6 +91,7 @@ export function applyRuntimeStatus(input: {
             remainingTurns,
             sourceMoveId: input.sourceMoveId,
             stacks: input.statusId === "BADLY_POISON" ? 1 : undefined,
+            data: input.data,
         });
     }
 
@@ -167,6 +173,21 @@ export function resolveRuntimeTurnStartStatuses(input: {
         return { rng: input.rng, skipTurn: false, timeline: [] };
     }
 
+    if (paralyze.data?.["fullSkip"]) {
+        return {
+            rng: input.rng,
+            skipTurn: true,
+            timeline: [
+                {
+                    kind: "turn_skipped",
+                    actorSide: input.combatant.side,
+                    effectId: "PARALYZE",
+                    message: `${input.combatant.name} was locked down by PARALYZE.`,
+                },
+            ],
+        };
+    }
+
     const roll = rollPercent(input.rng, 50);
     if (!roll.success) {
         return { rng: roll.rng, skipTurn: false, timeline: [] };
@@ -184,6 +205,11 @@ export function resolveRuntimeTurnStartStatuses(input: {
             },
         ],
     };
+}
+
+function getVolatileNumericData(state: NegamonRuntimeVolatileState, key: string): number {
+    const value = state.data?.[key];
+    return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
 export function applyRuntimeShieldReduction(input: {
@@ -213,6 +239,48 @@ export function getRuntimeAccuracyBonusMultiplier(combatant: NegamonRuntimeComba
     return hasRuntimeVolatile(combatant, "FOCUS") ? 1.25 : 1;
 }
 
+export function getRuntimeEnergyRegenPenalty(combatant: NegamonRuntimeCombatant): number {
+    return combatant.volatileStates
+        .filter((state) => state.id === "ENERGY_REGEN_DOWN")
+        .reduce((sum, state) => sum + Math.max(0, getVolatileNumericData(state, "penalty")), 0);
+}
+
+export function restoreRuntimeTurnEndEnergy(input: {
+    combatant: NegamonRuntimeCombatant;
+}): NegamonRuntimeTimelineEvent[] {
+    if (input.combatant.energyRegenPerTurn <= 0) return [];
+
+    const penalty = getRuntimeEnergyRegenPenalty(input.combatant);
+    const amount = Math.max(0, input.combatant.energyRegenPerTurn - penalty);
+    if (amount <= 0) {
+        return [
+            {
+                kind: "heal",
+                targetSide: input.combatant.side,
+                amount: 0,
+                message: `${input.combatant.name} could not restore energy this turn.`,
+            },
+        ];
+    }
+
+    const before = input.combatant.energy;
+    input.combatant.energy = Math.min(input.combatant.maxEnergy, input.combatant.energy + amount);
+    const restored = input.combatant.energy - before;
+    if (restored <= 0) return [];
+
+    return [
+        {
+            kind: "heal",
+            targetSide: input.combatant.side,
+            amount: restored,
+            message:
+                penalty > 0
+                    ? `${input.combatant.name} restored ${restored} energy after a ${penalty} energy drain penalty.`
+                    : `${input.combatant.name} restored ${restored} energy.`,
+        },
+    ];
+}
+
 export function resolveRuntimeTurnEndStatuses(input: {
     combatant: NegamonRuntimeCombatant;
 }): NegamonRuntimeTimelineEvent[] {
@@ -224,7 +292,7 @@ export function resolveRuntimeTurnEndStatuses(input: {
         if (status.id === "BURN" || status.id === "POISON" || status.id === "BADLY_POISON") {
             const rate =
                 status.id === "BURN"
-                    ? 0.04
+                    ? (typeof status.data?.["dotRate"] === "number" ? status.data.dotRate : 0.04)
                     : status.id === "POISON"
                       ? 0.03
                       : 0.02 * (status.stacks ?? 1);
@@ -256,6 +324,26 @@ export function resolveRuntimeTurnEndStatuses(input: {
     for (const state of input.combatant.volatileStates) {
         const nextTurns = state.remainingTurns == null ? null : Math.max(0, state.remainingTurns - 1);
         if (nextTurns === 0) {
+            if (state.id === "STAT_STAGE_MOD") {
+                const stat = state.data?.["stat"];
+                const appliedStages = getVolatileNumericData(state, "appliedStages");
+                if (
+                    (stat === "attack" || stat === "defense" || stat === "speed" || stat === "accuracy") &&
+                    appliedStages !== 0
+                ) {
+                    input.combatant.statStages[stat as NegamonRuntimeVolatileStat] = Math.max(
+                        -6,
+                        Math.min(6, (input.combatant.statStages[stat as NegamonRuntimeVolatileStat] ?? 0) - appliedStages)
+                    );
+                    timeline.push({
+                        kind: "stat_stage_changed",
+                        targetSide: input.combatant.side,
+                        effectId: String(stat),
+                        amount: -appliedStages,
+                        message: `${input.combatant.name}'s temporary ${stat} shift expired.`,
+                    });
+                }
+            }
             timeline.push({
                 kind: "volatile_expired",
                 targetSide: input.combatant.side,

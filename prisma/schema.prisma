@@ -338,6 +338,8 @@ model Assignment {
   maxScore    Int      @default(100)
   passScore   Int?
   deadline    DateTime?
+  /// Quiz only: max minutes per attempt (null = unlimited)
+  timeLimitMinutes Int?
   order       Int      @default(0)
   
   classId     String   @db.ObjectId
@@ -361,6 +363,10 @@ model AssignmentSubmission {
   score        Int        @default(0)
   content      String?    // Optional text/link submission
   cheatingLogs Json?      // Log of browser tab switches etc
+  /// Quiz: set when student opens first question; null for legacy / non-quiz rows
+  attemptStartedAt DateTime?
+  /// Quiz: set when student finishes; null while attempt in progress
+  quizCompletedAt  DateTime?
   assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   student      Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
   submittedAt  DateTime   @default(now())

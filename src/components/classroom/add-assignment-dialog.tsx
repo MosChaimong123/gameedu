@@ -275,6 +275,7 @@ export function AddAssignmentDialog({
     const [deadlineLocal, setDeadlineLocal] = useState("");
     const [quizSetId, setQuizSetId] = useState("");
     const [quizReviewPolicy, setQuizReviewPolicy] = useState<string>(QUIZ_REVIEW_INHERIT);
+    const [quizTimeLimitMinutes, setQuizTimeLimitMinutes] = useState("");
     const [questionSets, setQuestionSets] = useState<QuestionSetOption[]>([]);
     const [worksheetData, setWorksheetData] = useState<WorksheetData>(buildDefaultWorksheetData());
 
@@ -289,6 +290,7 @@ export function AddAssignmentDialog({
         setDeadlineLocal("");
         setQuizSetId("");
         setQuizReviewPolicy(QUIZ_REVIEW_INHERIT);
+        setQuizTimeLimitMinutes("");
         setWorksheetData(buildDefaultWorksheetData());
     }, []);
 
@@ -341,6 +343,8 @@ export function AddAssignmentDialog({
         } else {
             setQuizReviewPolicy(QUIZ_REVIEW_INHERIT);
         }
+        const limit = (a as Assignment & { timeLimitMinutes?: number | null }).timeLimitMinutes;
+        setQuizTimeLimitMinutes(limit != null && limit > 0 ? String(limit) : "");
     };
 
     const handleAddChecklist = () => setChecklists([...checklists, { text: "", points: 1 }]);
@@ -423,6 +427,9 @@ export function AddAssignmentDialog({
                 payload.quizSetId = quizSetId;
                 payload.quizReviewMode =
                     quizReviewPolicy === QUIZ_REVIEW_INHERIT ? null : quizReviewPolicy;
+                const limitRaw = quizTimeLimitMinutes.trim();
+                payload.timeLimitMinutes =
+                    limitRaw.length > 0 ? parseInt(limitRaw, 10) : null;
             }
             if (type === "worksheet") {
                 payload.worksheetData = worksheetData;
@@ -940,6 +947,23 @@ export function AddAssignmentDialog({
                                             </Select>
                                             <p className="text-[11px] text-yellow-900/75 leading-snug">
                                                 {t("assignmentQuizReviewPerQuestionNote")}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-2 pt-2 border-t border-yellow-200/80">
+                                            <Label className="text-sm font-bold text-yellow-900">
+                                                {t("assignmentQuizTimeLimitLabel")}
+                                            </Label>
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                max={1440}
+                                                value={quizTimeLimitMinutes}
+                                                onChange={(e) => setQuizTimeLimitMinutes(e.target.value)}
+                                                placeholder={t("assignmentQuizTimeLimitUnlimited")}
+                                                className="h-11 border-yellow-200 bg-white"
+                                            />
+                                            <p className="text-[11px] text-yellow-900/75 leading-snug">
+                                                {t("assignmentQuizTimeLimitHint")}
                                             </p>
                                         </div>
                                     </div>

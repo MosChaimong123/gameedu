@@ -92,10 +92,8 @@ export function negamonMoveEffectTurns(move: MonsterMove): number | null {
 }
 
 function effectOnlyDescription(t: NegamonTranslateFn, move: MonsterMove): string | null {
+    if (move.displayDescription?.trim()) return move.displayDescription.trim();
     if (!move.effect) return null;
-    const perMoveKey = `monsterMoveEffectFor_${move.id.replace(/-/g, "_")}`;
-    const perMove = t(perMoveKey);
-    if (perMove !== perMoveKey) return perMove;
     const key = effectDescriptionKey(move.effect);
     if (move.effect === "IGNORE_DEF") {
         const mult = move.effectIgnoreDefRetained ?? NEGAMON_IGNORE_DEF_RETAINED_DEF_MULTIPLIER;
@@ -136,8 +134,9 @@ export function negamonMoveEffectRealDescription(t: NegamonTranslateFn, move: Mo
 }
 
 export function negamonMoveDisplayName(t: NegamonTranslateFn, move: MonsterMove): string {
+    if (move.name.trim()) return move.name;
     const key = `move_${move.id.replace(/-/g, "_")}`;
     const out = t(key);
     if (out !== key) return out;
-    return move.name;
+    return move.id;
 }

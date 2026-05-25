@@ -4,8 +4,16 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Activity, Backpack, Bolt, Footprints, ShieldAlert, Sparkles, Swords, Users } from "lucide-react";
 import { RewardResultModal } from "@/components/game/negamon/RewardResultModal";
-import { summarizeNegamonBattleEvent } from "@/components/game/negamon/ui-content";
+import {
+    formatNegamonSkillFamily,
+    formatNegamonSkillPriority,
+    formatNegamonSkillRoleTag,
+    formatNegamonSkillTarget,
+    summarizeNegamonBattleEvent,
+    type NegamonUiTranslateFn,
+} from "@/components/game/negamon/ui-content";
 import type { BattleFinalRewardPayload } from "@/components/negamon/battle-tab.types";
+import { useLanguage } from "@/components/providers/language-provider";
 import { cn } from "@/lib/utils";
 import type {
     NegamonBattleEventV3,
@@ -159,7 +167,7 @@ function FighterPanel({
     );
 }
 
-function getChoiceDetails(state: ArenaBattleState, choice: ArenaValidChoice) {
+function getChoiceDetails(state: ArenaBattleState, choice: ArenaValidChoice, t: NegamonUiTranslateFn) {
     if (isV3State(state) && isV3Choice(choice)) {
         const slot = state.sides.player.moveSlots[choice.moveSlot];
         return {
@@ -172,6 +180,10 @@ function getChoiceDetails(state: ArenaBattleState, choice: ArenaValidChoice) {
             energyCost: choice.cost.energy,
             cooldownRemaining: slot?.cooldownRemaining ?? 0,
             priority: choice.priority,
+            priorityLabel: formatNegamonSkillPriority(choice.priority, t),
+            roleTag: slot?.skill.roleTag ? formatNegamonSkillRoleTag(slot.skill.roleTag, t) : null,
+            targetTag: slot?.skill.target ? formatNegamonSkillTarget(slot.skill.target, t) : null,
+            familyTag: slot?.skill.effectFamily ? formatNegamonSkillFamily(slot.skill.effectFamily, t) : null,
             enabled: choice.enabled,
             reason: choice.reason,
             helperText: "Server-authoritative V3 choice",
@@ -192,6 +204,10 @@ function getChoiceDetails(state: ArenaBattleState, choice: ArenaValidChoice) {
         energyCost: move.energyCost ?? 0,
         cooldownRemaining: move.cooldownRemaining ?? 0,
         priority: move.priority ?? 0,
+        priorityLabel: formatNegamonSkillPriority(move.priority ?? 0, t),
+        roleTag: null,
+        targetTag: move.target === "self" ? formatNegamonSkillTarget("self", t) : formatNegamonSkillTarget("enemy", t),
+        familyTag: null,
         enabled: liteChoice.enabled,
         reason: liteChoice.reason,
         helperText: "Legacy lite choice",
@@ -257,6 +273,7 @@ export function NegamonLiteBattleArena({
     onFinish,
     onReset,
 }: NegamonLiteBattleArenaProps) {
+    const { t } = useLanguage();
     const [state, setState] = useState<ArenaBattleState>(initialState);
     const [choiceRequestId, setChoiceRequestId] = useState(initialChoiceRequestId);
     const [validChoices, setValidChoices] = useState<ArenaValidChoice[]>(initialValidChoices);
@@ -276,7 +293,7 @@ export function NegamonLiteBattleArena({
     }, [opponent.name, player.name, state.winner]);
 
     async function chooseMove(choice: ArenaValidChoice) {
-        const details = getChoiceDetails(state, choice);
+        const details = getChoiceDetails(state, choice, t);
         if (busyKey || ended) return;
         setBusyKey(details.busyKey);
         setError(null);
@@ -428,7 +445,7 @@ export function NegamonLiteBattleArena({
                 <div className="grid gap-2 sm:grid-cols-2">
                     <AnimatePresence>
                         {validChoices.map((choice, index) => {
-                            const details = getChoiceDetails(state, choice);
+                            const details = getChoiceDetails(state, choice, t);
                             return (
                                 <motion.button
                                     key={details.choiceKey}
@@ -463,11 +480,26 @@ export function NegamonLiteBattleArena({
                                         <span className="rounded-full bg-yellow-300/10 px-2 py-0.5 text-yellow-100">
                                             EN {details.energyCost}
                                         </span>
-                                        {details.priority !== 0 && (
-                                            <span className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-cyan-100">
-                                                PRI {details.priority > 0 ? `+${details.priority}` : details.priority}
+                                        {details.roleTag ? (
+                                            <span className="rounded-full bg-white/10 px-2 py-0.5 text-white/70">
+                                                {details.roleTag}
                                             </span>
-                                        )}
+                                        ) : null}
+                                        {details.targetTag ? (
+                                            <span className="rounded-full bg-white/10 px-2 py-0.5 text-white/70">
+                                                {details.targetTag}
+                                            </span>
+                                        ) : null}
+                                        {details.familyTag ? (
+                                            <span className="rounded-full bg-violet-300/10 px-2 py-0.5 text-violet-100">
+                                                {details.familyTag}
+                                            </span>
+                                        ) : null}
+                                        {details.priorityLabel ? (
+                                            <span className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-cyan-100">
+                                                {details.priorityLabel}
+                                            </span>
+                                        ) : null}
                                         {details.cooldownRemaining > 0 && (
                                             <span className="rounded-full bg-rose-300/10 px-2 py-0.5 text-rose-100">
                                                 CD {details.cooldownRemaining}

@@ -44,6 +44,24 @@ export function getNegamonSettingsFromGamification(value: unknown): NegamonSetti
     return normalizeNegamonSettingsForRuntime(parsed.data as NegamonSettings);
 }
 
+export function sanitizeGamificationSettingsNegamon(value: unknown): Record<string, unknown> {
+    const settings = normalizeGamificationSettings(value);
+    const parsed = negamonSettingsSchema.safeParse(settings.negamon);
+    if (!parsed.success) {
+        return settings;
+    }
+
+    const negamon = normalizeNegamonSettingsForRuntime(parsed.data as NegamonSettings);
+    if (!negamon) {
+        return settings;
+    }
+
+    return {
+        ...settings,
+        negamon,
+    };
+}
+
 export type CustomAchievement = z.infer<typeof customAchievementSchema>;
 
 export function getCustomAchievementsFromGamification(value: unknown): CustomAchievement[] {
@@ -88,7 +106,7 @@ export async function getClassroomGamificationRecord(
 
     return {
         teacherId: classroom.teacherId,
-        gamifiedSettings: normalizeGamificationSettings(classroom.gamifiedSettings),
+        gamifiedSettings: sanitizeGamificationSettingsNegamon(classroom.gamifiedSettings),
     };
 }
 
@@ -108,7 +126,7 @@ export async function getGamificationSettings(
     });
 
     if (!classroom) return null;
-    return normalizeGamificationSettings(classroom.gamifiedSettings);
+    return sanitizeGamificationSettingsNegamon(classroom.gamifiedSettings);
 }
 
 export async function updateGamificationSettings(
@@ -125,6 +143,7 @@ export async function updateGamificationSettings(
     if (!parsed.success) {
         throw new InvalidGamificationSettingsError("gamifiedSettings has an invalid structure");
     }
+    const sanitized = sanitizeGamificationSettingsNegamon(parsed.data);
 
     return deps.db.classroom.update({
         where: {
@@ -132,7 +151,7 @@ export async function updateGamificationSettings(
             teacherId,
         },
         data: {
-            gamifiedSettings: toPrismaJson(parsed.data),
+            gamifiedSettings: toPrismaJson(sanitized),
         },
         select: {
             gamifiedSettings: true,
@@ -153,13 +172,14 @@ export async function updateClassroomGamificationSettingsById(
     if (!parsed.success) {
         throw new InvalidGamificationSettingsError("gamifiedSettings has an invalid structure");
     }
+    const sanitized = sanitizeGamificationSettingsNegamon(parsed.data);
 
     return deps.db.classroom.update({
         where: {
             id: classroomId,
         },
         data: {
-            gamifiedSettings: toPrismaJson(parsed.data),
+            gamifiedSettings: toPrismaJson(sanitized),
         },
         select: {
             gamifiedSettings: true,

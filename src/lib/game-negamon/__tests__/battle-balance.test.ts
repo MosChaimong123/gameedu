@@ -49,7 +49,7 @@ describe("Negamon battle balance pass 1", () => {
     it("keeps ultimate and high-impact skills gated by energy and cooldowns", () => {
         const catalog = buildNegamonContentCatalog();
         const highImpactSkills = catalog.skills.filter((skill) =>
-            (skill.unlock.rankIndex ?? 0) >= 5 ||
+            (skill.unlock.level ?? 1) >= 26 ||
             skill.effects.some((effect) =>
                 effect.kind === "status" &&
                 (effect.effect === "PARALYZE" || effect.effect === "SLEEP" || effect.effect === "FREEZE")
@@ -59,7 +59,7 @@ describe("Negamon battle balance pass 1", () => {
         expect(highImpactSkills.length).toBeGreaterThan(0);
         for (const skill of highImpactSkills) {
             expect(skill.energyCost).toBeGreaterThanOrEqual(26);
-            if ((skill.unlock.rankIndex ?? 0) >= 5) {
+            if ((skill.unlock.level ?? 1) >= 26) {
                 expect(skill.energyCost).toBeGreaterThanOrEqual(60);
                 expect(skill.cooldownTurns).toBeGreaterThanOrEqual(2);
             }

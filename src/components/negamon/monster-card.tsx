@@ -34,6 +34,7 @@ import { getMoveEnergyCost } from "@/lib/negamon-energy";
 import { buildBasicAttackMove } from "@/lib/negamon-basic-move";
 import { getFrameGoldRateMultiplierById, getItemById, type FramePreview } from "@/lib/shop-items";
 import { FrameCardChrome } from "@/components/ui/frame-visual";
+import { calculateNegamonExpProgress, getNegamonMoveLearnLevel } from "@/lib/game-negamon";
 
 function MonsterCardBezel({
     framePreview,
@@ -220,8 +221,13 @@ export function MonsterCard({
     const maxStat = Math.max(monster.stats.hp, monster.stats.atk, monster.stats.def, monster.stats.spd);
 
     const species = findSpeciesById(monster.speciesId);
+    const currentLevel = calculateNegamonExpProgress({
+        points: behaviorPoints,
+        rankIndex: monster.rankIndex,
+        expPerPoint: negamon.expPerPoint,
+    }).level;
     const lockedMoves = species
-        ? species.moves.filter((m) => m.learnRank > monster.rankIndex + 1)
+        ? species.moves.filter((m) => getNegamonMoveLearnLevel(m) > currentLevel)
         : [];
 
     const totalTp =
@@ -619,8 +625,8 @@ export function MonsterCard({
                             <div className="space-y-3 text-sm">
                                 <p className="flex items-center gap-2 text-amber-200/80">
                                     <Lock className="h-4 w-4 shrink-0" />
-                                    {t("monsterLockedMoveRank", {
-                                        rank: String(dialogMove.learnRank),
+                                    {t("monsterLockedMoveLevel", {
+                                        level: String(getNegamonMoveLearnLevel(dialogMove)),
                                     })}
                                 </p>
                                 <div className="flex flex-wrap gap-1">

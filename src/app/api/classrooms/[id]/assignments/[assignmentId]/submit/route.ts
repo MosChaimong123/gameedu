@@ -102,13 +102,30 @@ export async function POST(
             newPoints: number;
         };
 
+        const completedAt = new Date();
+
         const { submission, rankNotifyPayload } = await db.$transaction(async (tx) => {
-            const sub = await tx.assignmentSubmission.create({
-                data: {
+            const sub = await tx.assignmentSubmission.upsert({
+                where: {
+                    studentId_assignmentId: {
+                        studentId: ctx.studentId,
+                        assignmentId,
+                    },
+                },
+                create: {
                     studentId: ctx.studentId,
                     assignmentId,
                     score,
                     cheatingLogs: cheatingLogs as Prisma.InputJsonValue,
+                    attemptStartedAt: completedAt,
+                    quizCompletedAt: completedAt,
+                    submittedAt: completedAt,
+                },
+                update: {
+                    score,
+                    cheatingLogs: cheatingLogs as Prisma.InputJsonValue,
+                    quizCompletedAt: completedAt,
+                    submittedAt: completedAt,
                 },
             });
 

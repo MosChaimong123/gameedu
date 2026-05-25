@@ -3,12 +3,13 @@
 import { Assignment } from "@prisma/client";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
 import { getRankEntry, type LevelConfigInput } from "@/lib/classroom-utils";
 import { useLanguage } from "@/components/providers/language-provider";
-import { AlertTriangle, Check } from "lucide-react";
+import { AlertTriangle, Check, Loader2, RotateCcw } from "lucide-react";
 import {
     attendanceBadgeClass,
     attendanceLabelKey,
@@ -34,7 +35,9 @@ import {
     tryLocalizeFetchNetworkFailureMessage,
 } from "@/lib/ui-error-messages";
 import { WorksheetSubmissionReviewDialog } from "@/components/classroom/worksheet-submission-review-dialog";
+import { QuizAllowRetakeButton } from "@/components/classroom/quiz-allow-retake-button";
 import { parseWorksheetSubmissionContent } from "@/lib/worksheet-review";
+import { isQuizSubmissionCompleted } from "@/lib/quiz-attempt";
 
 type ChecklistItem = string | { text?: string; points?: number };
 
@@ -45,9 +48,28 @@ export type AssignmentWithChecklist = Assignment & {
 type StudentScoreMap = Record<string, Record<string, number>>;
 
 type StudentWithSubmissions = ClassroomDashboardViewModel["students"][number];
+type StudentSubmission = StudentWithSubmissions["submissions"][number];
 
-function getStudentSubmissions(student: StudentWithSubmissions) {
-    return student.submissions ?? [];
+function buildSubmissionMap(students: StudentWithSubmissions[]) {
+    const map: Record<string, Record<string, StudentSubmission>> = {};
+    students.forEach((student) => {
+        map[student.id] = {};
+        (student.submissions ?? []).forEach((submission) => {
+            map[student.id][submission.assignmentId] = submission;
+        });
+    });
+    return map;
+}
+
+function buildInitialScores(students: StudentWithSubmissions[]) {
+    const next: StudentScoreMap = {};
+    students.forEach((student) => {
+        next[student.id] = {};
+        (student.submissions ?? []).forEach((submission) => {
+            next[student.id][submission.assignmentId] = submission.score;
+        });
+    });
+    return next;
 }
 
 interface ClassroomTableProps {
@@ -85,27 +107,42 @@ export function ClassroomTable({
         }, 2800);
         return () => window.clearTimeout(timer);
     }, [highlightAssignmentId]);
-    const sortedStudents = [...students].sort((a, b) => a.order - b.order);
-    const initialScores: StudentScoreMap = {};
-    sortedStudents.forEach(s => {
-        initialScores[s.id] = {};
-        getStudentSubmissions(s).forEach(sub => {
-            initialScores[s.id][sub.assignmentId] = sub.score;
-        });
-    });
-
-    const [scores, setScores] = useState(initialScores);
+    const sortedStudents = useMemo(
+        () => [...students].sort((a, b) => a.order - b.order),
+        [students]
+    );
+    const [scores, setScores] = useState<StudentScoreMap>(() => buildInitialScores(sortedStudents));
+    const [submissionMap, setSubmissionMap] = useState<Record<string, Record<string, StudentSubmission>>>(
+        () => buildSubmissionMap(sortedStudents)
+    );
     const [savingChecklist, setSavingChecklist] = useState<string | null>(null);
+    const [refreshingSubmissions, setRefreshingSubmissions] = useState(false);
     const { toast } = useToast();
+
+    useEffect(() => {
+        setScores(buildInitialScores(sortedStudents));
+        setSubmissionMap(buildSubmissionMap(sortedStudents));
+    }, [sortedStudents]);
+
+    const getLiveSubmission = (studentId: string, assignmentId: string) =>
+        submissionMap[studentId]?.[assignmentId] ?? null;
+
+    const refreshableAssignments = useMemo(
+        () =>
+            assignments.filter((assignment) => {
+                const formType = dbAssignmentTypeToFormType(assignment.type);
+                return formType === "quiz" || formType === "worksheet";
+            }),
+        [assignments]
+    );
+
     const pendingWorksheetReviews = useMemo(() => {
         return assignments.flatMap((assignment) => {
             if (dbAssignmentTypeToFormType(assignment.type) !== "worksheet") {
                 return [];
             }
             return sortedStudents.flatMap((student) => {
-                const submission = getStudentSubmissions(student).find(
-                    (entry) => entry.assignmentId === assignment.id
-                );
+                const submission = getLiveSubmission(student.id, assignment.id);
                 if (!submission) return [];
                 const parsed = parseWorksheetSubmissionContent(submission.content);
                 if (!parsed) return [];
@@ -121,7 +158,7 @@ export function ClassroomTable({
                 ];
             });
         });
-    }, [assignments, sortedStudents]);
+    }, [assignments, sortedStudents, submissionMap]);
 
     const resolveMutationFailureDescription = (
         error: unknown,
@@ -153,10 +190,7 @@ export function ClassroomTable({
 
     const handleBlur = async (studentId: string, assignmentId: string) => {
         const currentScore = scores[studentId][assignmentId] || 0;
-        const matchedStudent = students.find(s => s.id === studentId);
-        const originalSubmission = matchedStudent
-            ? getStudentSubmissions(matchedStudent).find(sub => sub.assignmentId === assignmentId)
-            : undefined;
+        const originalSubmission = getLiveSubmission(studentId, assignmentId) ?? undefined;
         const originalScore = originalSubmission?.score || 0;
         
         if (currentScore === originalScore) return;
@@ -197,6 +231,87 @@ export function ClassroomTable({
                     [assignmentId]: originalScore
                 }
             }));
+        }
+    };
+
+    const handleRefreshAllSubmissions = async () => {
+        if (refreshingSubmissions || refreshableAssignments.length === 0 || sortedStudents.length === 0) return;
+        setRefreshingSubmissions(true);
+        try {
+            const targets = sortedStudents.flatMap((student) =>
+                refreshableAssignments.map((assignment) => ({
+                    studentId: student.id,
+                    assignmentId: assignment.id,
+                    maxScore: assignment.maxScore,
+                }))
+            );
+            const results = await Promise.allSettled(
+                targets.map(async (target) => {
+                    const res = await fetch(
+                        `/api/classrooms/${classId}/assignments/${target.assignmentId}/submission?studentId=${target.studentId}`
+                    );
+                    if (!res.ok) {
+                        throw new Error(
+                            await getLocalizedErrorMessageFromResponse(res, "toastGenericError", t, language)
+                        );
+                    }
+                    const data = (await res.json()) as { submission?: StudentSubmission | null };
+                    return { ...target, submission: data.submission ?? null };
+                })
+            );
+
+            const fulfilled = results
+                .filter((result): result is PromiseFulfilledResult<{
+                    studentId: string;
+                    assignmentId: string;
+                    maxScore: number;
+                    submission: StudentSubmission | null;
+                }> => result.status === "fulfilled")
+                .map((result) => result.value);
+            const failed = results.length - fulfilled.length;
+
+            setSubmissionMap((prev) => {
+                const next: Record<string, Record<string, StudentSubmission>> = {};
+                sortedStudents.forEach((student) => {
+                    next[student.id] = { ...(prev[student.id] ?? {}) };
+                });
+                fulfilled.forEach(({ studentId, assignmentId, submission }) => {
+                    next[studentId] = { ...(next[studentId] ?? {}) };
+                    if (submission) {
+                        next[studentId][assignmentId] = submission;
+                    } else {
+                        delete next[studentId][assignmentId];
+                    }
+                });
+                return next;
+            });
+
+            setScores((prev) => ({
+                ...prev,
+                ...fulfilled.reduce<StudentScoreMap>((acc, { studentId, assignmentId, maxScore, submission }) => {
+                    acc[studentId] = {
+                        ...(acc[studentId] ?? prev[studentId] ?? {}),
+                        [assignmentId]: submission ? Math.min(submission.score, maxScore) : 0,
+                    };
+                    return acc;
+                }, {}),
+            }));
+
+            if (failed > 0) {
+                toast({
+                    title: t("toastGenericError"),
+                    description: t("toastGenericError"),
+                    variant: "destructive",
+                });
+            }
+        } catch (error) {
+            toast({
+                title: t("toastGenericError"),
+                description: resolveMutationFailureDescription(error, "toastGenericError"),
+                variant: "destructive",
+            });
+        } finally {
+            setRefreshingSubmissions(false);
         }
     };
 
@@ -330,6 +445,26 @@ export function ClassroomTable({
             ) : null}
 
         <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-sm">
+            {refreshableAssignments.length > 0 && sortedStudents.length > 0 ? (
+                <div className="flex shrink-0 justify-end border-b border-slate-200 bg-slate-50/70 px-3 py-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleRefreshAllSubmissions()}
+                        disabled={refreshingSubmissions}
+                        className="h-9 rounded-lg px-3 text-xs font-bold"
+                    >
+                        {refreshingSubmissions ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                        )}
+                        {t("refresh")}
+                    </Button>
+                </div>
+            ) : null}
+
             {/* Mobile: stacked cards (touch-friendly) */}
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 md:hidden">
                 {sortedStudents.length === 0 ? (
@@ -501,13 +636,18 @@ export function ClassroomTable({
                                             {formType === "quiz" && (
                                                 <div className="space-y-1 text-center">
                                                     {(() => {
-                                                        const sub = getStudentSubmissions(student).find(
-                                                            (s) => s.assignmentId === a.id
-                                                        );
+                                                        const sub = getLiveSubmission(student.id, a.id);
                                                         const flagged =
                                                             sub &&
                                                             shouldFlagIntegrityForTeacher(sub.cheatingLogs);
-                                                        return sub ? (
+                                                        const quizDone =
+                                                            sub &&
+                                                            isQuizSubmissionCompleted({
+                                                                score: sub.score,
+                                                                attemptStartedAt: sub.attemptStartedAt,
+                                                                quizCompletedAt: sub.quizCompletedAt,
+                                                            });
+                                                        return sub && quizDone ? (
                                                             <div className="flex flex-col items-center gap-1">
                                                                 <p className="text-sm font-black text-indigo-600">
                                                                     {t("classroomTableQuizScoreDisplay", { current: sub.score, max: a.maxScore })}
@@ -521,11 +661,40 @@ export function ClassroomTable({
                                                                         {t("classroomTableIntegrityShort")}
                                                                     </span>
                                                                 ) : null}
+                                                                <QuizAllowRetakeButton
+                                                                    classId={classId}
+                                                                    assignmentId={a.id}
+                                                                    studentId={student.id}
+                                                                    onRetakeGranted={() => {
+                                                                        setSubmissionMap((prev) => {
+                                                                            const next = {
+                                                                                ...prev,
+                                                                                [student.id]: { ...(prev[student.id] ?? {}) },
+                                                                            };
+                                                                            delete next[student.id][a.id];
+                                                                            return next;
+                                                                        });
+                                                                        setScores((prev) => ({
+                                                                            ...prev,
+                                                                            [student.id]: {
+                                                                                ...(prev[student.id] ?? {}),
+                                                                                [a.id]: 0,
+                                                                            },
+                                                                        }));
+                                                                    }}
+                                                                    className="h-9 min-h-[36px] rounded-xl text-[10px]"
+                                                                />
                                                             </div>
-                                                        ) : (
-                                                            <p className="text-[11px] font-semibold text-slate-400">
-                                                                {t("classroomTableNotSubmitted")}
+                                                        ) : sub ? (
+                                                            <p className="text-[11px] font-semibold text-amber-700">
+                                                                {t("classroomTableQuizInProgress")}
                                                             </p>
+                                                        ) : (
+                                                            <div className="flex flex-col items-center gap-2">
+                                                                <p className="text-[11px] font-semibold text-slate-400">
+                                                                    {t("classroomTableNotSubmitted")}
+                                                                </p>
+                                                            </div>
                                                         );
                                                     })()}
                                                     <p className="text-[10px] text-slate-500">
@@ -536,9 +705,7 @@ export function ClassroomTable({
                                             {formType === "worksheet" && (
                                                 <div className="space-y-2">
                                                     {(() => {
-                                                        const sub = getStudentSubmissions(student).find(
-                                                            (s) => s.assignmentId === a.id
-                                                        );
+                                                        const sub = getLiveSubmission(student.id, a.id);
                                                         return sub ? (
                                                             <>
                                                                 <p className="text-sm font-black text-indigo-600">
@@ -556,9 +723,11 @@ export function ClassroomTable({
                                                                 />
                                                             </>
                                                         ) : (
-                                                            <p className="text-[11px] font-semibold text-slate-400">
-                                                                {t("classroomTableNotSubmitted")}
-                                                            </p>
+                                                            <div className="flex flex-col items-center gap-2">
+                                                                <p className="text-[11px] font-semibold text-slate-400">
+                                                                    {t("classroomTableNotSubmitted")}
+                                                                </p>
+                                                            </div>
                                                         );
                                                     })()}
                                                 </div>
@@ -747,15 +916,20 @@ export function ClassroomTable({
                                         )}
                                         {dbAssignmentTypeToFormType(a.type) === "quiz" && (
                                             (() => {
-                                                const sub = getStudentSubmissions(student).find(
-                                                    (s) => s.assignmentId === a.id
-                                                );
+                                                const sub = getLiveSubmission(student.id, a.id);
                                                 const flagged =
                                                     sub &&
                                                     shouldFlagIntegrityForTeacher(sub.cheatingLogs);
+                                                const quizDone =
+                                                    sub &&
+                                                    isQuizSubmissionCompleted({
+                                                        score: sub.score,
+                                                        attemptStartedAt: sub.attemptStartedAt,
+                                                        quizCompletedAt: sub.quizCompletedAt,
+                                                    });
                                                 return (
                                                     <div className="flex flex-col items-center gap-0.5 px-1 py-0.5">
-                                                        {sub ? (
+                                                        {sub && quizDone ? (
                                                             <>
                                                                 <span className="flex items-center gap-0.5">
                                                                     <span className="text-sm font-black text-indigo-600">
@@ -773,11 +947,40 @@ export function ClassroomTable({
                                                                 <span className="text-[9px] text-slate-400">
                                                                     / {a.maxScore}
                                                                 </span>
+                                                                <QuizAllowRetakeButton
+                                                                    classId={classId}
+                                                                    assignmentId={a.id}
+                                                                    studentId={student.id}
+                                                                    onRetakeGranted={() => {
+                                                                        setSubmissionMap((prev) => {
+                                                                            const next = {
+                                                                                ...prev,
+                                                                                [student.id]: { ...(prev[student.id] ?? {}) },
+                                                                            };
+                                                                            delete next[student.id][a.id];
+                                                                            return next;
+                                                                        });
+                                                                        setScores((prev) => ({
+                                                                            ...prev,
+                                                                            [student.id]: {
+                                                                                ...(prev[student.id] ?? {}),
+                                                                                [a.id]: 0,
+                                                                            },
+                                                                        }));
+                                                                    }}
+                                                                    className="mt-1 h-7 rounded-md px-2 text-[9px]"
+                                                                />
                                                             </>
-                                                        ) : (
-                                                            <span className="text-[10px] font-semibold text-slate-400">
-                                                                {t("classroomTableNotSubmitted")}
+                                                        ) : sub ? (
+                                                            <span className="text-[10px] font-semibold text-amber-700">
+                                                                {t("classroomTableQuizInProgress")}
                                                             </span>
+                                                        ) : (
+                                                            <div className="flex flex-col items-center gap-1 py-1">
+                                                                <span className="text-[10px] font-semibold text-slate-400">
+                                                                    {t("classroomTableNotSubmitted")}
+                                                                </span>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 );
@@ -785,9 +988,7 @@ export function ClassroomTable({
                                         )}
                                         {dbAssignmentTypeToFormType(a.type) === "worksheet" && (
                                             (() => {
-                                                const sub = getStudentSubmissions(student).find(
-                                                    (s) => s.assignmentId === a.id
-                                                );
+                                                const sub = getLiveSubmission(student.id, a.id);
                                                 return sub ? (
                                                     <div className="flex flex-col items-center gap-1 px-1 py-1.5">
                                                         <span className="text-sm font-black text-indigo-600">
@@ -805,9 +1006,11 @@ export function ClassroomTable({
                                                         />
                                                     </div>
                                                 ) : (
-                                                    <span className="text-[10px] font-semibold text-slate-400">
-                                                        {t("classroomTableNotSubmitted")}
-                                                    </span>
+                                                    <div className="flex flex-col items-center gap-1 py-1">
+                                                        <span className="text-[10px] font-semibold text-slate-400">
+                                                            {t("classroomTableNotSubmitted")}
+                                                        </span>
+                                                    </div>
                                                 );
                                             })()
                                         )}
@@ -838,3 +1041,4 @@ export function ClassroomTable({
         </div>
     );
 }
+

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loadQuizTakeContext } from "@/lib/quiz-take-context";
+import { ensureQuizAttemptStarted, loadQuizTakeContext } from "@/lib/quiz-take-context";
 import {
   QUIZ_PLAIN_ERR_ALREADY_SUBMITTED,
   QUIZ_PLAIN_ERR_INTERNAL,
@@ -54,7 +54,26 @@ export async function GET(
       return new NextResponse(QUIZ_PLAIN_ERR_INVALID_INDEX, { status: 400 });
     }
 
+    if (ctx.timer) {
+      await ensureQuizAttemptStarted({
+        studentId: ctx.studentId,
+        assignmentId,
+      });
+    }
+
     const q = ctx.questions[index];
+    const refreshed = ctx.timer
+      ? await loadQuizTakeContext(id, assignmentId, studentCode)
+      : ctx;
+    const timer =
+      refreshed.kind === "ok" && refreshed.timer
+        ? {
+            timeLimitMinutes: refreshed.timer.timeLimitMinutes,
+            expiresAt: refreshed.timer.expiresAt,
+            secondsRemaining: refreshed.timer.secondsRemaining,
+          }
+        : null;
+
     return NextResponse.json({
       index,
       total: ctx.questions.length,
@@ -63,6 +82,7 @@ export async function GET(
         question: q.question,
         options: q.options,
       },
+      timer,
     });
   } catch (e) {
     console.error("[QUIZ_QUESTION_GET]", e);

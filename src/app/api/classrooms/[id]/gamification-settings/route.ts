@@ -13,6 +13,7 @@ import {
     getGamificationSettings,
     InvalidGamificationSettingsError,
     normalizeGamificationSettings,
+    sanitizeGamificationSettingsNegamon,
     updateGamificationSettings,
     updateClassroomGamificationSettingsById,
 } from "@/lib/services/classroom-settings/gamification-settings";
@@ -40,7 +41,7 @@ export async function GET(
             return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
         return NextResponse.json({
-            gamifiedSettings: normalizeGamificationSettings(row.gamifiedSettings),
+            gamifiedSettings: sanitizeGamificationSettingsNegamon(row.gamifiedSettings),
         });
     }
 
@@ -50,7 +51,7 @@ export async function GET(
     }
 
     return NextResponse.json({
-        gamifiedSettings: normalizeGamificationSettings(settings),
+        gamifiedSettings: sanitizeGamificationSettingsNegamon(settings),
     });
 }
 
@@ -126,7 +127,7 @@ export async function PATCH(
         }
 
         return NextResponse.json({
-            gamifiedSettings: normalizeGamificationSettings(updated.gamifiedSettings),
+            gamifiedSettings: sanitizeGamificationSettingsNegamon(updated.gamifiedSettings),
         });
     } catch (error) {
         if (error instanceof InvalidGamificationSettingsError) {

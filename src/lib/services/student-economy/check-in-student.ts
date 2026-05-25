@@ -144,7 +144,7 @@ export async function checkInStudent(
         const pointDelta =
             expReward <= 0 || !negamon
                 ? 0
-                : Math.ceil(expReward / Math.max(1, Math.floor(negamon.expPerPoint ?? 10)));
+                : Math.ceil(expReward / Math.max(1, Math.floor(negamon.expPerPoint ?? 6)));
         const monsterBefore =
             negamon && expReward > 0
                 ? createNegamonMonsterSnapshot({
@@ -192,6 +192,7 @@ export async function checkInStudent(
                       },
                       progression: rewardPlan.progression,
                       expPerPoint: negamon?.expPerPoint,
+                      canonicalUnlockedSkillIdsBefore: monsterBefore?.unlockedSkillIds ?? [],
                       studentDelegate: tx.student,
                   })
                 : null;

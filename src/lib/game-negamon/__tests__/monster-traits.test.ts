@@ -6,47 +6,47 @@ import {
     createNegamonTraitSnapshot,
 } from "@/lib/game-negamon";
 
-const naga = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "naga")!;
+const pyronox = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "pyronox")!;
 
 describe("Negamon monster traits and evolution", () => {
     it("maps passive ability into a stable trait snapshot", () => {
-        expect(createNegamonTraitSnapshot(naga.ability)).toMatchObject({
-            id: "trait_acid_rain",
-            sourceAbilityId: "acid_rain",
-            appliesAt: "turn_end",
+        expect(createNegamonTraitSnapshot(pyronox.ability)).toMatchObject({
+            id: "trait_rage_mode",
+            sourceAbilityId: "rage_mode",
+            appliesAt: "battle_start",
         });
     });
 
     it("creates next evolution progress from level and rank", () => {
         const evolution = createNegamonEvolutionSnapshot({
-            species: naga,
+            species: pyronox,
             rankIndex: 2,
-            level: 3,
-            currentFormName: naga.forms[2].name,
+            level: 16,
+            currentFormName: pyronox.forms[2].name,
         });
 
         expect(evolution).toMatchObject({
             currentFormRank: 2,
-            currentFormName: naga.forms[2].name,
-            currentLevel: 3,
+            currentFormName: pyronox.forms[2].name,
+            currentLevel: 16,
             currentRankIndex: 2,
             isMaxEvolution: false,
             next: {
                 formRank: 3,
-                formName: naga.forms[3].name,
+                formName: pyronox.forms[3].name,
                 requiredRankIndex: 3,
-                requiredLevel: 4,
+                requiredLevel: 26,
             },
         });
-        expect(evolution.progressPercent).toBe(66);
+        expect(evolution.progressPercent).toBe(61);
     });
 
     it("reports max evolution when no higher form remains", () => {
         const evolution = createNegamonEvolutionSnapshot({
-            species: naga,
+            species: pyronox,
             rankIndex: 5,
-            level: 6,
-            currentFormName: naga.forms[5].name,
+            level: 50,
+            currentFormName: pyronox.forms[5].name,
         });
 
         expect(evolution.next).toBeNull();
@@ -55,18 +55,18 @@ describe("Negamon monster traits and evolution", () => {
     });
 
     it("summarizes newly unlocked form ranks", () => {
-        expect(createNegamonEvolutionUnlocks({ fromRankIndex: 1, toRankIndex: 3, species: naga })).toEqual([
+        expect(createNegamonEvolutionUnlocks({ fromRankIndex: 1, toRankIndex: 3, species: pyronox })).toEqual([
             {
                 fromRankIndex: 1,
                 toRankIndex: 3,
                 formRank: 2,
-                formName: naga.forms[2].name,
+                formName: pyronox.forms[2].name,
             },
             {
                 fromRankIndex: 1,
                 toRankIndex: 3,
                 formRank: 3,
-                formName: naga.forms[3].name,
+                formName: pyronox.forms[3].name,
             },
         ]);
     });

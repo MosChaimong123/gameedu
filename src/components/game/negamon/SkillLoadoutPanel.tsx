@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BatteryCharging, Lock, Sparkles, Swords } from "lucide-react";
+import { BatteryCharging, Lock, Sparkles, Swords, Target, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/components/providers/language-provider";
 import type { NegamonMonsterSnapshot, NegamonSkillDefinition } from "@/lib/game-negamon";
@@ -10,7 +10,11 @@ import {
     formatNegamonElementType,
     formatNegamonSkillCategory,
     formatNegamonSkillEffect,
+    formatNegamonSkillFamily,
+    formatNegamonSkillPriority,
     formatNegamonSkillRequirement,
+    formatNegamonSkillRoleTag,
+    formatNegamonSkillTarget,
 } from "./ui-content";
 
 export function SkillLoadoutPanel({
@@ -31,6 +35,13 @@ export function SkillLoadoutPanel({
                         {t("negamonSkillsEyebrow")}
                     </p>
                     <h3 className="text-lg font-black text-slate-950">{t("negamonSkillsTitle")}</h3>
+                    <p className="mt-1 text-xs font-medium text-slate-500">
+                        {monster.nextSkillUnlock
+                            ? t("negamonMonsterNextSkillHint", {
+                                  level: monster.nextSkillUnlock.level,
+                              })
+                            : t("negamonMonsterNextSkillMax")}
+                    </p>
                 </div>
                 <Badge className="rounded-lg bg-slate-950 text-white">
                     {monster.equippedSkillIds.length}/{Math.max(1, monster.skillCatalog.length)}
@@ -73,10 +84,28 @@ export function SkillLoadoutPanel({
                                         <Badge variant="outline" className="rounded-md text-[9px] font-black">
                                             {formatNegamonSkillCategory(skill.category, t)}
                                         </Badge>
+                                        <Badge className="rounded-md bg-slate-900 text-[9px] font-black text-white">
+                                            {formatNegamonSkillRoleTag(skill.roleTag, t)}
+                                        </Badge>
+                                        {skill.priority > 0 ? (
+                                            <Badge className="rounded-md bg-sky-100 text-[9px] font-black text-sky-800">
+                                                {formatNegamonSkillPriority(skill.priority, t)}
+                                            </Badge>
+                                        ) : null}
                                     </div>
                                     <p className="mt-1 text-xs font-medium leading-relaxed text-slate-600">
                                         {formatNegamonSkillEffect(skill, t)}
                                     </p>
+                                    <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-black">
+                                        <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-slate-600 ring-1 ring-slate-200">
+                                            <Target className="h-3 w-3 text-slate-400" />
+                                            {formatNegamonSkillTarget(skill.target, t)}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-slate-600 ring-1 ring-slate-200">
+                                            <Sparkles className="h-3 w-3 text-violet-500" />
+                                            {formatNegamonSkillFamily(skill.effectFamily, t)}
+                                        </span>
+                                    </div>
                                     <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-black text-slate-500">
                                         <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1">
                                             <Lock className="h-3 w-3 text-slate-400" />
@@ -92,6 +121,12 @@ export function SkillLoadoutPanel({
                                         {skill.cooldownTurns > 0 ? (
                                             <span className="rounded-md bg-white px-2 py-1">
                                                 {t("negamonSkillCd", { turns: skill.cooldownTurns })}
+                                            </span>
+                                        ) : null}
+                                        {skill.priority > 0 ? (
+                                            <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1">
+                                                <Zap className="h-3 w-3 text-sky-500" />
+                                                {formatNegamonSkillPriority(skill.priority, t)}
                                             </span>
                                         ) : null}
                                     </div>

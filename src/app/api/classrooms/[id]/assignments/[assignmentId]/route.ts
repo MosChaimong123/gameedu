@@ -12,6 +12,7 @@ import {
     createAppErrorResponse,
 } from "@/lib/api-error";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
+import { normalizeQuizTimeLimitMinutes } from "@/lib/quiz-attempt";
 
 export async function PATCH(
     req: Request,
@@ -108,6 +109,10 @@ export async function PATCH(
             data.quizReviewMode = null;
             data.quizData = parsedWorksheet.data;
             data.maxScore = sumWorksheetMaxScore(parsedWorksheet.data);
+        }
+
+        if (effectiveType === "quiz" && body.timeLimitMinutes !== undefined) {
+            data.timeLimitMinutes = normalizeQuizTimeLimitMinutes(body.timeLimitMinutes);
         }
 
         if (effectiveType === "quiz" && body.quizReviewMode !== undefined) {

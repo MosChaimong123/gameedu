@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { RankEntry } from "@/lib/classroom-utils";
+import type { NegamonSettings } from "@/lib/types/negamon";
 
 export type ChecklistItem = string | { text: string; points?: number };
 
@@ -13,12 +14,15 @@ export interface AssignmentRecord {
     maxScore?: number;
     passScore?: number;
     deadline?: string | Date | null;
+    timeLimitMinutes?: number | null;
 }
 
 export interface SubmissionRecord {
     assignmentId: string;
     score: number;
     submittedAt?: Date | string;
+    attemptStartedAt?: Date | string | null;
+    quizCompletedAt?: Date | string | null;
 }
 
 export interface HistoryRecord {
@@ -42,6 +46,7 @@ export interface ClassroomRecord {
     name: string;
     teacher: TeacherRecord;
     gamifiedSettings: Record<string, unknown>;
+    negamonSettings?: NegamonSettings | null;
     levelConfig?: unknown;
     assignments?: AssignmentRecord[];
 }

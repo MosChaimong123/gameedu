@@ -56,6 +56,7 @@ vi.mock("@/lib/classroom-utils", () => ({
 }));
 
 vi.mock("@/lib/negamon-species", () => ({
+    DEFAULT_NEGAMON_SPECIES: [],
     findSpeciesById: vi.fn(() => null),
 }));
 

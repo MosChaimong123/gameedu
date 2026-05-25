@@ -234,7 +234,7 @@ describe("Negamon skill effect runtime V2", () => {
 
         expect(catalog.monsters.find((monster) => monster.id === "pyronox")).toMatchObject({ role: "attacker" });
         expect(mapNegamonSkillToLiteMove(bySkillId.get("pyronox-hell-dive")!)).toMatchObject({
-            power: 52,
+            power: 54,
             effect: { kind: "status", status: "BURN", chance: 100 },
         });
 

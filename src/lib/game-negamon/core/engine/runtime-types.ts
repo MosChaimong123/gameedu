@@ -10,14 +10,21 @@ export type NegamonRuntimeStatusId =
     | "SLEEP"
     | "STUN";
 
-export type NegamonRuntimeVolatileId = "SHIELD" | "FOCUS";
+export type NegamonRuntimeVolatileId =
+    | "SHIELD"
+    | "FOCUS"
+    | "STAT_STAGE_MOD"
+    | "ENERGY_REGEN_DOWN";
 
 export type NegamonRuntimeStatusState = {
     id: NegamonRuntimeStatusId;
     sourceMoveId?: string;
     remainingTurns: number | null;
     stacks?: number;
+    data?: Record<string, number | string | boolean>;
 };
+
+export type NegamonRuntimeVolatileStat = "attack" | "defense" | "speed" | "accuracy";
 
 export type NegamonRuntimeVolatileState = {
     id: NegamonRuntimeVolatileId;
@@ -35,6 +42,7 @@ export type NegamonRuntimeCombatant = NegamonFormulaCombatant & {
     hp: number;
     energy: number;
     maxEnergy: number;
+    energyRegenPerTurn: number;
     accuracyBonusMultiplier?: number;
     critChanceBonusPercent?: number;
     outgoingDamageMultiplier?: number;
@@ -92,6 +100,7 @@ export function createRuntimeCombatant(input: {
     hp?: number;
     energy?: number;
     maxEnergy?: number;
+    energyRegenPerTurn?: number;
     accuracyBonusMultiplier?: number;
     statusImmunities?: NegamonRuntimeStatusId[];
     statuses?: NegamonRuntimeStatusState[];
@@ -120,6 +129,7 @@ export function createRuntimeCombatant(input: {
         hp: input.hp ?? input.stats.maxHp,
         energy: input.energy ?? input.maxEnergy ?? 40,
         maxEnergy: input.maxEnergy ?? 40,
+        energyRegenPerTurn: input.energyRegenPerTurn ?? 0,
         accuracyBonusMultiplier: input.accuracyBonusMultiplier,
         critChanceBonusPercent: 0,
         outgoingDamageMultiplier: 1,

@@ -10,6 +10,10 @@ export type NegamonProgressionPersistencePlan = {
     behaviorPointDelta: number;
     behaviorPointsBefore: number;
     behaviorPointsAfter: number;
+    levelBefore: number;
+    levelAfter: number;
+    rankIndexBefore: number;
+    rankIndexAfter: number;
     unlockedSkillIdsBefore: string[];
     unlockedSkillIdsAfter: string[];
     newlyUnlockedSkillIds: string[];
@@ -46,14 +50,18 @@ export function createNegamonProgressionPersistencePlan(input: {
     student: NegamonProgressionStudentRecord;
     progression: NegamonProgressionRewardSummary;
     expPerPoint?: number;
+    canonicalUnlockedSkillIdsBefore?: string[];
 }): NegamonProgressionPersistencePlan {
     const expDelta = Math.max(
         0,
         Math.floor(input.progression.expAfter - input.progression.expBefore)
     );
-    const expPerPoint = Math.max(1, Math.floor(input.expPerPoint ?? 10));
+    const expPerPoint = Math.max(1, Math.floor(input.expPerPoint ?? 6));
     const behaviorPointDelta = expDelta <= 0 ? 0 : Math.ceil(expDelta / expPerPoint);
-    const beforeSkills = normalizeSkillIds(input.student.negamonSkills);
+    const beforeSkills = normalizeSkillIds([
+        ...normalizeSkillIds(input.student.negamonSkills),
+        ...normalizeSkillIds(input.canonicalUnlockedSkillIdsBefore),
+    ]);
     const beforeSet = new Set(beforeSkills);
     const newlyUnlockedSkillIds = normalizeSkillIds(input.progression.unlockedSkillIds).filter(
         (id) => !beforeSet.has(id)
@@ -67,6 +75,10 @@ export function createNegamonProgressionPersistencePlan(input: {
         behaviorPointDelta,
         behaviorPointsBefore,
         behaviorPointsAfter,
+        levelBefore: input.progression.levelBefore,
+        levelAfter: input.progression.levelAfter,
+        rankIndexBefore: input.progression.rankIndexBefore,
+        rankIndexAfter: input.progression.rankIndexAfter,
         unlockedSkillIdsBefore: beforeSkills,
         unlockedSkillIdsAfter,
         newlyUnlockedSkillIds,
@@ -79,6 +91,7 @@ export async function applyNegamonProgressionReward(input: {
     student: NegamonProgressionStudentRecord;
     progression: NegamonProgressionRewardSummary;
     expPerPoint?: number;
+    canonicalUnlockedSkillIdsBefore?: string[];
     studentDelegate: NegamonProgressionStudentDelegate;
 }): Promise<{
     plan: NegamonProgressionPersistencePlan;
@@ -88,6 +101,7 @@ export async function applyNegamonProgressionReward(input: {
         student: input.student,
         progression: input.progression,
         expPerPoint: input.expPerPoint,
+        canonicalUnlockedSkillIdsBefore: input.canonicalUnlockedSkillIdsBefore,
     });
 
     if (!plan.shouldPersist) {

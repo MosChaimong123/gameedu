@@ -407,7 +407,7 @@ export async function chooseNegamonLiteMove(
             outcome: "win",
             turnCount: resolved.state.turn,
         }) * Math.max(1, winnerCombatantAfterChoice.rewardExpMultiplier ?? 1));
-        const pointDelta = Math.ceil(expReward / Math.max(1, Math.floor(negamon.expPerPoint ?? 10)));
+        const pointDelta = Math.ceil(expReward / Math.max(1, Math.floor(negamon.expPerPoint ?? 6)));
         const monsterAfter = createNegamonMonsterSnapshot({
             studentId: winnerId,
             studentName: winnerStudent.name,
@@ -491,6 +491,7 @@ export async function chooseNegamonLiteMove(
                               },
                               progression: v2RewardPlan.progression,
                               expPerPoint: negamon.expPerPoint,
+                              canonicalUnlockedSkillIdsBefore: monsterBefore?.unlockedSkillIds ?? [],
                               studentDelegate: tx.student,
                           })
                         : null;

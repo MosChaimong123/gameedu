@@ -344,6 +344,9 @@ Expected first-pass pacing with the frozen baseline:
 Primary file targets:
 
 - [src/lib/game-negamon/core/monster-growth.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/core/monster-growth.ts:1)
+- [src/lib/game-core/monster.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-core/monster.ts:1)
+- [src/lib/game-negamon/core/monster-snapshot.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/core/monster-snapshot.ts:1)
+- [src/lib/game-negamon/core/monster-traits.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/core/monster-traits.ts:1)
 - [src/lib/types/negamon.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/types/negamon.ts:115)
 - [src/lib/negamon-species.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/negamon-species.ts:44)
 
@@ -359,6 +362,38 @@ Implementation goals:
 Done only when:
 
 - all progression surfaces use one canonical level-to-form mapping
+
+### Phase 3 Completion Notes
+
+Status: complete on May 24, 2026
+
+What changed:
+
+- added canonical level helpers for `1-60` progression:
+  - `normalizeNegamonLevel()`
+  - `getNegamonLevelFromRank()`
+  - `getNegamonEvolutionThresholds()`
+  - `getNegamonFormIndexFromLevel()`
+  - `getNegamonFormLevelBand()`
+  - `getNegamonCumulativeExpForLevel()`
+- froze runtime form bands at `1-7`, `8-15`, `16-25`, `26-37`, `38-49`, `50-60`
+- changed legacy rank migration floors to `1 / 8 / 16 / 26 / 38 / 50`
+- updated evolution rules to derive `requiredLevel` from canonical form thresholds instead of `rank + 1`
+- updated negamon runtime snapshots to carry canonical `level` through to the shared game monster snapshot layer
+- updated student monster state creation so species form selection resolves from canonical level bands
+
+Verification completed:
+
+- `npm.cmd test -- src/lib/game-negamon/__tests__/monster-snapshot.test.ts src/lib/game-negamon/__tests__/monster-traits.test.ts src/lib/game-negamon/__tests__/learning-rewards.test.ts src/lib/game-negamon/__tests__/progression.test.ts`
+- `npm.cmd run predev`
+- `npm.cmd run build`
+
+Phase 3 checklist:
+
+- [x] Expose canonical level-to-form helper functions
+- [x] Route evolution thresholds through level bands instead of raw rank math
+- [x] Pass canonical levels through negamon runtime snapshots
+- [x] Cover level/form migration behavior with targeted tests
 
 ## Phase 4: Stat Growth Rework
 
@@ -384,6 +419,42 @@ Stat design goals:
 - tanks stay durable
 - attackers scale harder in offense
 - supports do not become irrelevant at high level
+
+### Phase 4 Completion Notes
+
+Status: complete on May 24, 2026
+
+What changed:
+
+- replaced the old `rankIndex + 1` stat formula with canonical level-based growth anchors at:
+  - `Lv1`
+  - `Lv8`
+  - `Lv16`
+  - `Lv26`
+  - `Lv38`
+  - `Lv50`
+  - `Lv60`
+- kept migration-safe anchor multipliers at the legacy form floors so existing roster balance does not jump abruptly at current classroom progression checkpoints
+- added smooth interpolation between anchor levels so intermediate levels can scale naturally once persistence starts carrying full `1-60` levels
+- introduced shared helpers in [src/lib/game-negamon/core/monster-growth.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/core/monster-growth.ts:1):
+  - `getNegamonStatMultipliersForLevel()`
+  - `calculateNegamonStatsForLevel()`
+- updated runtime stat consumers to use the new canonical curve:
+  - [src/lib/game-negamon/core/monster-snapshot.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/core/monster-snapshot.ts:1)
+  - [src/lib/classroom-utils.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/classroom-utils.ts:1)
+
+Verification completed:
+
+- `npm.cmd test -- src/lib/game-negamon/__tests__/monster-snapshot.test.ts src/lib/game-negamon/__tests__/monster-traits.test.ts src/lib/game-negamon/__tests__/progression.test.ts src/lib/game-negamon/__tests__/battle-balance.test.ts`
+- `npm.cmd run predev`
+- `npm.cmd run build`
+
+Phase 4 checklist:
+
+- [x] Replace rank-step stat growth with level-based growth anchors
+- [x] Preserve roster identity at migrated form thresholds
+- [x] Support smooth scaling between anchor levels
+- [x] Route classroom/runtime stat consumers through the shared curve
 
 ## Phase 5: Skill Unlock Rework
 
@@ -413,6 +484,42 @@ Optional extended pacing:
 - unlock 5 at level `38`
 - unlock 6 at level `50`
 
+### Phase 5 Completion Notes
+
+Status: complete on May 24, 2026
+
+What changed:
+
+- added canonical `learnLevel` support to [src/lib/types/negamon.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/types/negamon.ts:49) while preserving `learnRank` as a compatibility fallback
+- rebuilt skill unlock resolution in:
+  - [src/lib/game-negamon/core/skills.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/core/skills.ts:1)
+  - [src/lib/game-negamon/core/skill-unlock.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/core/skill-unlock.ts:1)
+  - [src/lib/game-negamon/core/monster-snapshot.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/core/monster-snapshot.ts:1)
+  - [src/lib/classroom-utils.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/classroom-utils.ts:1)
+- updated the first-pass roster in [src/lib/negamon-species.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/negamon-species.ts:61) so the four signature moves now unlock at:
+  - `Lv4`
+  - `Lv8`
+  - `Lv16`
+  - `Lv26`
+- updated shared skill snapshots in [src/lib/game-core/monster.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-core/monster.ts:1) so displayed unlock levels no longer fall back to raw rank values when `learnLevel` is present
+- aligned classroom settings schema parsing with the new move contract in [src/lib/services/classroom-settings/gamification-settings-schema.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/services/classroom-settings/gamification-settings-schema.ts:45)
+
+Verification completed:
+
+- `npm.cmd test -- src/lib/game-negamon/__tests__/skill-loadout.test.ts src/lib/game-negamon/__tests__/monster-snapshot.test.ts src/lib/game-negamon/__tests__/monster-traits.test.ts src/lib/game-negamon/__tests__/progression.test.ts src/lib/game-negamon/__tests__/battle-balance.test.ts`
+- `npm.cmd run predev`
+
+Build note:
+
+- `npm.cmd run build` is currently blocked in this environment by external `next/font` fetch failures for Google Fonts (`Geist`, `Geist Mono`, `Noto Sans Thai`), not by the Phase 5 code changes
+
+Phase 5 checklist:
+
+- [x] Add canonical `learnLevel` support with rank fallback
+- [x] Rebuild unlock resolution around level-based pacing
+- [x] Update roster move pacing to `4 / 8 / 16 / 26`
+- [x] Cover snapshot/loadout/balance regression with targeted tests
+
 ## Phase 6: Persistence And Migration
 
 Primary file targets:
@@ -438,6 +545,44 @@ Recommended migration table:
 
 This preserves old form ownership while expanding the new level runway above it.
 
+### Phase 6 Completion Notes
+
+Status: complete on May 24, 2026
+
+What changed:
+
+- upgraded [src/lib/game-negamon/core/monster-growth.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/core/monster-growth.ts:1) so runtime progression now derives level from EXP while still respecting legacy minimum form ownership floors
+  - added `getNegamonLevelFromExp()`
+  - added `getNegamonRankIndexFromLevel()`
+  - updated `calculateNegamonExpProgress()` to use `max(legacy floor, exp-derived level)`
+- rebuilt reward progression serialization in [src/lib/game-negamon/core/battle-rewards.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/core/battle-rewards.ts:1) so `levelAfter`, `rankIndexAfter`, and `levelUps` come from EXP-based progression rather than raw rank delta assumptions
+- upgraded persistence planning in [src/lib/game-negamon/server/progression.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/server/progression.ts:1) to:
+  - carry `levelBefore/After`
+  - carry `rankIndexBefore/After`
+  - hydrate stored skill lists with canonical unlocked skills before applying newly unlocked skills
+- wired canonical unlocked-skill hydration into runtime reward save paths:
+  - [src/lib/game-negamon/server/battle.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/server/battle.ts:1)
+  - [src/lib/game-negamon/server/lite-battle.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/server/lite-battle.ts:1)
+  - [src/lib/services/student-economy/check-in-student.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/services/student-economy/check-in-student.ts:1)
+  - [src/app/api/student/[code]/daily-quests/route.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/app/api/student/[code]/daily-quests/route.ts:1)
+- updated migration-facing tests and route expectations so legacy item ids / legacy skill ids no longer define the persisted runtime contract
+
+Verification completed:
+
+- `npm.cmd test -- src/lib/game-negamon/__tests__/progression.test.ts src/lib/game-negamon/__tests__/battle-rewards.test.ts src/lib/game-negamon/__tests__/learning-rewards.test.ts src/lib/game-negamon/__tests__/monster-snapshot.test.ts src/__tests__/student-checkin-route.test.ts src/__tests__/student-quest-ledger.test.ts src/__tests__/negamon-v3-session-routes.test.ts src/__tests__/negamon-lite-session-routes.test.ts`
+- `npm.cmd run predev`
+
+Build note:
+
+- `npm.cmd run build` remains blocked in this environment by external `next/font` fetch failures for Google Fonts (`Geist`, `Geist Mono`, `Noto Sans Thai`), not by the Phase 6 migration changes
+
+Phase 6 checklist:
+
+- [x] Preserve legacy rank ownership floors while allowing EXP-derived level growth
+- [x] Serialize progression results with canonical level/rank snapshots
+- [x] Hydrate stale persisted skill lists from canonical unlocked skills on write
+- [x] Cover route/runtime migration behavior with focused tests
+
 ## Phase 7: Reward And Progression Economy Alignment
 
 Primary file targets:
@@ -458,6 +603,45 @@ Likely changes:
 - raise early-game progression speed intentionally
 - reduce late-game overshoot from high classroom scores
 - add soft caps or band scaling if needed
+
+### Phase 7 Completion Notes
+
+Status: complete on May 24, 2026
+
+What changed:
+
+- aligned the baseline classroom economy in [src/lib/negamon-species.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/negamon-species.ts:183), [src/lib/types/negamon.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/types/negamon.ts:120), and [src/components/negamon/negamon-settings.tsx](C:/Users/IHCK/GAMEEDU/gamedu/src/components/negamon/negamon-settings.tsx:84) to the frozen Phase 2 values:
+  - `expPerPoint = 6`
+  - `expPerAttendance = 18`
+- rebalanced battle progression rewards in [src/lib/game-negamon/core/battle-rewards.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/core/battle-rewards.ts:73) to fit the 60-level curve better:
+  - win base `48`
+  - draw base `28`
+  - loss base `18`
+  - capped turn bonus `+12`
+- boosted quest-to-exp conversion in [src/lib/game-negamon/core/learning-rewards.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/core/learning-rewards.ts:26) to `floor(goldReward * 1.2)` so early quests help push the first evolution window sooner
+- aligned progression fallback math with the new baseline in:
+  - [src/lib/game-negamon/server/progression.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/server/progression.ts:52)
+  - [src/lib/game-negamon/server/lite-battle.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/server/lite-battle.ts:406)
+  - [src/lib/game-negamon/server/battle.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/server/battle.ts:484)
+  - [src/lib/services/student-economy/check-in-student.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/services/student-economy/check-in-student.ts:123)
+  - [src/app/api/student/[code]/daily-quests/route.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/app/api/student/[code]/daily-quests/route.ts:224)
+- updated route/runtime tests so mocked classroom settings and expected reward payloads now reflect the new economy baseline instead of the old `10 / 20` pacing
+
+Verification completed:
+
+- `npm.cmd test -- src/lib/game-negamon/__tests__/battle-rewards.test.ts src/lib/game-negamon/__tests__/learning-rewards.test.ts src/__tests__/negamon-lite-session-routes.test.ts src/__tests__/negamon-v3-session-routes.test.ts`
+- `npm.cmd run predev`
+
+Build note:
+
+- `npm.cmd run build` may still be blocked in this environment by external `next/font` fetch failures for Google Fonts (`Geist`, `Geist Mono`, `Noto Sans Thai`), not by the Phase 7 reward economy changes
+
+Phase 7 checklist:
+
+- [x] Align baseline classroom EXP defaults with the `1-60` curve
+- [x] Rebalance battle reward EXP pacing
+- [x] Rebalance quest and attendance progression inputs
+- [x] Update route/runtime regressions to the new economy numbers
 
 ## Phase 8: UI Alignment
 
@@ -480,6 +664,49 @@ UI should show:
 Done only when:
 
 - players can understand growth without reading external instructions
+
+### Phase 8 Completion Notes
+
+Status: complete on May 24, 2026
+
+What changed:
+
+- extended canonical monster snapshots in [src/lib/game-negamon/core/monster-snapshot.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/core/monster-snapshot.ts:1) with:
+  - current `formBand`
+  - `nextSkillUnlock`
+- upgraded [src/components/game/negamon/MonsterProfilePanel.tsx](C:/Users/IHCK/GAMEEDU/gamedu/src/components/game/negamon/MonsterProfilePanel.tsx:1) so the profile card now shows:
+  - current level
+  - EXP to next level
+  - current form band
+  - next skill unlock threshold
+  - next evolution threshold
+- upgraded [src/components/game/negamon/SkillLoadoutPanel.tsx](C:/Users/IHCK/GAMEEDU/gamedu/src/components/game/negamon/SkillLoadoutPanel.tsx:1) so skill loadout surfaces the next unlock threshold directly in the header
+- aligned the full student partner page in:
+  - [src/app/student/[code]/negamon/page.tsx](C:/Users/IHCK/GAMEEDU/gamedu/src/app/student/[code]/negamon/page.tsx:1)
+  - [src/components/negamon/negamon-my-profile-client.tsx](C:/Users/IHCK/GAMEEDU/gamedu/src/components/negamon/negamon-my-profile-client.tsx:1)
+  so it renders from the same snapshot-driven progression model as the dashboard panel instead of relying only on the older rank-oriented presentation
+- aligned codex progression presentation in:
+  - [src/components/negamon/negamon-codex-client.tsx](C:/Users/IHCK/GAMEEDU/gamedu/src/components/negamon/negamon-codex-client.tsx:1)
+  - [src/components/negamon/negamon-moves-grid.tsx](C:/Users/IHCK/GAMEEDU/gamedu/src/components/negamon/negamon-moves-grid.tsx:1)
+  so form cards show level bands and move chips show canonical level unlocks (`Lv 4 / 8 / 16 / 26`) instead of rank-only labels
+- refreshed supporting copy in [src/lib/translations.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/translations.ts:529) for the new progression language
+- improved reward summary wording in [src/components/game/negamon/ui-content.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/components/game/negamon/ui-content.ts:156) so level-up summaries read as concrete levels instead of only counts
+
+Verification completed:
+
+- `npm.cmd test -- src/lib/game-negamon/__tests__/monster-snapshot.test.ts src/components/game/negamon/__tests__/ui-content.test.ts`
+- `npm.cmd run predev`
+- `npm.cmd run build`
+- local HTTP smoke check confirmed:
+  - `/student/7FUM5RLTLA4C/negamon` renders `ช่วงร่างปัจจุบัน` and `สกิลถัดไป`
+  - `/student/7FUM5RLTLA4C/negamon/codex` renders form level bands and `Lv` unlock badges
+
+Phase 8 checklist:
+
+- [x] Show current level, form, and EXP-to-next-level on profile surfaces
+- [x] Show next evolution and next skill unlock thresholds
+- [x] Align codex move/form presentation with level-based progression
+- [x] Keep UI copy synced with the `1-60` progression model
 
 ## Phase 9: Testing, Balance, And QA
 
@@ -505,6 +732,50 @@ Balance checks:
 - first evolution should happen early enough to feel rewarding
 - final form should not be unreachable in normal classroom play
 - level 50-60 should feel meaningful, not empty
+
+### Phase 9 Completion Notes
+
+Status: complete on May 25, 2026
+
+What changed:
+
+- expanded regression coverage in [src/lib/game-negamon/__tests__/monster-snapshot.test.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/__tests__/monster-snapshot.test.ts:1) so snapshots now assert:
+  - canonical form bands for the new level windows
+  - `nextSkillUnlock` payloads for mid-game monsters
+  - no stale next-unlock hints for capped late-game monsters
+- expanded progression curve coverage in [src/lib/game-negamon/__tests__/progression.test.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/lib/game-negamon/__tests__/progression.test.ts:1) to lock the first-pass `1-60` pacing at key migration anchors:
+  - `Lv 1` at the true start state
+  - `Lv 8` at the first evolution threshold
+  - `Lv 16` at the third-form transition
+- updated route/service regression expectations in:
+  - [src/__tests__/student-checkin-route.test.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/__tests__/student-checkin-route.test.ts:1)
+  - [src/__tests__/student-quest-ledger.test.ts](C:/Users/IHCK/GAMEEDU/gamedu/src/__tests__/student-quest-ledger.test.ts:1)
+  so attendance and quest rewards now verify the aligned economy baseline (`expPerAttendance = 18`, quest EXP derived from `goldReward * 1.2`)
+- re-verified battle and reward regression paths after the progression rework across:
+  - V3 session routes
+  - legacy-compatible session routes
+  - reward summaries
+  - balance tests
+  - learning reward tests
+
+Balance and QA conclusions:
+
+- the first meaningful growth beat now lands early:
+  - first move unlock at `Lv 4`
+  - first form evolution at `Lv 8`
+- migrated students keep their owned form band because runtime progression preserves minimum legacy rank ownership before further EXP-based growth
+- late-game progression still has headroom:
+  - form 6 remains gated to `Lv 50-60`
+  - `nextSkillUnlock` correctly disappears once a monster has its full core kit
+
+Verification completed:
+
+- `npm.cmd test -- src/lib/game-negamon/__tests__/progression.test.ts src/lib/game-negamon/__tests__/monster-snapshot.test.ts src/lib/game-negamon/__tests__/battle-rewards.test.ts src/lib/game-negamon/__tests__/learning-rewards.test.ts src/lib/game-negamon/__tests__/battle-balance.test.ts src/components/game/negamon/__tests__/ui-content.test.ts src/__tests__/student-checkin-route.test.ts src/__tests__/student-quest-ledger.test.ts src/__tests__/negamon-v3-session-routes.test.ts src/__tests__/negamon-lite-session-routes.test.ts`
+- `npm.cmd run build`
+- local manual QA evidence from the aligned profile and codex flows confirmed:
+  - current form band labels render on `/student/[code]/negamon`
+  - next skill unlock labels render on `/student/[code]/negamon`
+  - codex level bands and `Lv` unlock chips render on `/student/[code]/negamon/codex`
 
 ## Risks
 
@@ -551,10 +822,10 @@ This plan is complete when:
 - [x] Freeze form thresholds
 - [x] Freeze skill unlock pacing
 - [x] Freeze migration mapping from old ranks
-- [ ] Rebuild growth and stat formulas
-- [ ] Rebuild skill unlock rules
-- [ ] Migrate persistence and runtime snapshots
-- [ ] Align reward economy with the new curve
-- [ ] Align UI with level/form/next unlock info
-- [ ] Run automated progression regression tests
-- [ ] Run manual progression QA
+- [x] Rebuild growth and stat formulas
+- [x] Rebuild skill unlock rules
+- [x] Migrate persistence and runtime snapshots
+- [x] Align reward economy with the new curve
+- [x] Align UI with level/form/next unlock info
+- [x] Run automated progression regression tests
+- [x] Run manual progression QA

@@ -70,8 +70,8 @@ vi.mock("@/lib/classroom-utils", () => ({
     engineVersion: "pokemon_v3",
     enabled: true,
     allowStudentChoice: true,
-    expPerPoint: 10,
-    expPerAttendance: 20,
+    expPerPoint: 6,
+    expPerAttendance: 18,
     species: DEFAULT_NEGAMON_SPECIES,
     studentMonsters: {
       "challenger-1": "pyronox",
@@ -193,7 +193,8 @@ describe("Negamon V3 battle session routes", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    const payload = await response.json();
+    expect(payload).toMatchObject({
       mode: "negamon_battle",
       engineVersion: "negamon_v3_pokemon_inspired",
       sessionId: "507f1f77bcf86cd799439099",
@@ -201,8 +202,8 @@ describe("Negamon V3 battle session routes", () => {
         battleId: "507f1f77bcf86cd799439099",
         phase: "choosing",
       },
-      validChoices: [expect.objectContaining({ enabled: true })],
     });
+    expect(payload.validChoices).toEqual(expect.arrayContaining([expect.objectContaining({ enabled: true })]));
     expect(mockBattleSessionCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         classId: "class-1",
@@ -222,7 +223,7 @@ describe("Negamon V3 battle session routes", () => {
     const gameNegamon = await import("@/lib/game-negamon");
     const skill = {
       id: "pyronox-ember-fang",
-      name: "Ember Fang",
+      name: "Cinder Snap",
       description: "Attack",
       elementType: "FIRE" as const,
       category: "attack" as const,
@@ -239,7 +240,7 @@ describe("Negamon V3 battle session routes", () => {
       unlock: { rankIndex: 1, speciesId: "pyronox" },
       sourceMove: {
         id: "pyronox-ember-fang",
-        name: "Ember Fang",
+        name: "Cinder Snap",
         type: "FIRE" as const,
         category: "PHYSICAL" as const,
         power: 34,
@@ -299,12 +300,12 @@ describe("Negamon V3 battle session routes", () => {
         {
           ...skill,
           id: "aerolisk-gale-cut",
-          name: "Gale Cut",
+          name: "Gale Peck",
           elementType: "WIND",
           sourceMove: {
             ...skill.sourceMove,
             id: "aerolisk-gale-cut",
-            name: "Gale Cut",
+            name: "Gale Peck",
             type: "WIND",
           },
         },
@@ -418,14 +419,14 @@ describe("Negamon V3 battle session routes", () => {
               {
                 slot: 0,
                 skillId: "pyronox-ember-fang",
-                label: "Ember Fang",
+                label: "Cinder Snap",
                 targetSlot: "opponent",
                 maxPp: 6,
                 pp: 6,
                 cooldownRemaining: 0,
                 skill: {
                   id: "pyronox-ember-fang",
-                  name: "Ember Fang",
+                  name: "Cinder Snap",
                   description: "Attack",
                   elementType: "FIRE",
                   category: "attack",
@@ -437,7 +438,7 @@ describe("Negamon V3 battle session routes", () => {
                   priority: 0,
                   effects: [{ kind: "damage", power: 34 }, { kind: "energy_cost", value: 8 }],
                   unlock: { rankIndex: 1, speciesId: "pyronox" },
-                  sourceMove: { id: "pyronox-ember-fang", name: "Ember Fang", type: "FIRE", category: "PHYSICAL", power: 34, accuracy: 100, learnRank: 1, energyCost: 8 },
+                  sourceMove: { id: "pyronox-ember-fang", name: "Cinder Snap", type: "FIRE", category: "PHYSICAL", power: 34, accuracy: 100, learnRank: 1, energyCost: 8 },
                 },
               },
             ],

@@ -5,16 +5,16 @@ import {
 } from "@/lib/game-negamon";
 
 const monsterBefore = {
-    exp: 40,
+    exp: 1255,
     expToNextLevel: 10,
-    level: 1,
+    level: 7,
     rankIndex: 0,
     unlockedSkillIds: ["basic-attack"],
 };
 
 describe("Negamon learning rewards", () => {
     it("maps quest gold into optional monster exp", () => {
-        expect(calculateNegamonQuestExpReward({ goldReward: 7.8 })).toBe(7);
+        expect(calculateNegamonQuestExpReward({ goldReward: 7.8 })).toBe(9);
         expect(calculateNegamonQuestExpReward({ goldReward: -3 })).toBe(0);
     });
 
@@ -28,7 +28,7 @@ describe("Negamon learning rewards", () => {
             goldReward: 5,
             expReward: 12,
             rankIndexAfter: 1,
-            unlockedSkillIdsAfter: ["basic-attack", "naga-aqua-jet"],
+            unlockedSkillIdsAfter: ["basic-attack", "pyronox-ember-fang"],
             createdAt: "2026-04-07T08:00:00.000Z",
         });
 
@@ -37,13 +37,13 @@ describe("Negamon learning rewards", () => {
             exp: 12,
             levelUps: [
                 {
-                    fromLevel: 1,
-                    toLevel: 2,
+                    fromLevel: 7,
+                    toLevel: 8,
                     fromRankIndex: 0,
                     toRankIndex: 1,
                 },
             ],
-            unlockedSkillIds: ["naga-aqua-jet"],
+            unlockedSkillIds: ["pyronox-ember-fang"],
         });
         expect(plan.historyEvents.map((event) => event.kind)).toEqual([
             "reward_granted",

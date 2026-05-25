@@ -232,19 +232,22 @@ describe("student quest ledger", () => {
     expect(response.status).toBe(200);
     expect(body.reward).toMatchObject({
       gold: 5,
-      exp: 5,
+      exp: 6,
       idempotencyKey:
         "game:negamon:daily:quest_login:quest:student-1:daily:2026-04-07:quest_login:student-1:quest-progression",
     });
     expect(body.progression).toMatchObject({
-      expDelta: 5,
+      expDelta: 6,
       behaviorPointDelta: 1,
       behaviorPointsBefore: 4,
       behaviorPointsAfter: 5,
     });
     expect(mockStudentUpdate).toHaveBeenCalledWith({
       where: { id: "student-1" },
-      data: { behaviorPoints: { increment: 1 } },
+      data: {
+        behaviorPoints: { increment: 1 },
+        negamonSkills: ["basic-attack", "pyronox-ember-fang", "pyronox-shadow-rend", "pyronox-war-cry"],
+      },
       select: { behaviorPoints: true, negamonSkills: true },
     });
     expect(mockPointHistoryCreateMany).toHaveBeenCalledWith({

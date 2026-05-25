@@ -19,6 +19,7 @@ import {
     NEGAMON_BATTLE_GOLD_REWARD_BASE,
 } from "./battle-constants";
 import type { NegamonMonsterSnapshot } from "./monster-snapshot";
+import { getNegamonLevelFromExp, getNegamonLevelFromRank, getNegamonRankIndexFromLevel } from "./monster-growth";
 import { createNegamonEvolutionUnlocks, type NegamonEvolutionUnlockSummary } from "./monster-traits";
 
 export type NegamonRewardOutcome = "win" | "loss" | "draw";
@@ -78,11 +79,11 @@ export function calculateNegamonBattleExpReward(input: {
 }): number {
     const base =
         input.outcome === "win"
-            ? input.baseWinExp ?? 80
+            ? input.baseWinExp ?? 48
             : input.outcome === "draw"
-              ? input.baseDrawExp ?? 40
-              : input.baseLossExp ?? 25;
-    const turnBonus = Math.min(20, Math.max(0, Math.floor(input.turnCount ?? 0)) * 2);
+              ? input.baseDrawExp ?? 28
+              : input.baseLossExp ?? 18;
+    const turnBonus = Math.min(12, Math.max(0, Math.floor(input.turnCount ?? 0)));
     return Math.max(0, Math.floor(base + turnBonus));
 }
 
@@ -99,27 +100,33 @@ export function calculateNegamonProgressionReward(input: {
     const expReward = Math.max(0, Math.floor(input.expReward));
     const expAfter = expBefore + expReward;
     const rankIndexBefore = Math.max(0, Math.floor(input.monsterBefore.rankIndex));
-    const crossedNextLevel =
-        input.monsterBefore.expToNextLevel > 0 && expReward >= input.monsterBefore.expToNextLevel;
+    const levelBefore = Math.max(1, Math.floor(input.monsterBefore.level));
+    const computedLevelAfter = Math.max(levelBefore, getNegamonLevelFromExp(expAfter));
+    const levelAfter = Math.max(
+        computedLevelAfter,
+        typeof input.rankIndexAfter === "number"
+            ? getNegamonLevelFromRank(input.rankIndexAfter)
+            : computedLevelAfter
+    );
+    const computedRankIndexAfter = getNegamonRankIndexFromLevel(levelAfter);
     const rankIndexAfter = Math.max(
         rankIndexBefore,
-        Math.floor(input.rankIndexAfter ?? (crossedNextLevel ? rankIndexBefore + 1 : rankIndexBefore))
+        computedRankIndexAfter,
+        Math.max(0, Math.floor(input.rankIndexAfter ?? rankIndexBefore))
     );
-    const levelBefore = Math.max(1, Math.floor(input.monsterBefore.level));
-    const levelAfter = Math.max(levelBefore, levelBefore + (rankIndexAfter - rankIndexBefore));
-    const levelUps =
-        levelAfter > levelBefore
-            ? [
-                  {
-                      fromLevel: levelBefore,
-                      toLevel: levelAfter,
-                      fromRankIndex: rankIndexBefore,
-                      toRankIndex: rankIndexAfter,
-                      expBefore,
-                      expAfter,
-                  },
-              ]
-            : [];
+    const levelUps: GameLevelUpSummary[] = [];
+    if (levelAfter > levelBefore) {
+        for (let nextLevel = levelBefore + 1; nextLevel <= levelAfter; nextLevel += 1) {
+            levelUps.push({
+                fromLevel: nextLevel - 1,
+                toLevel: nextLevel,
+                fromRankIndex: getNegamonRankIndexFromLevel(nextLevel - 1),
+                toRankIndex: getNegamonRankIndexFromLevel(nextLevel),
+                expBefore,
+                expAfter,
+            });
+        }
+    }
     const beforeSkills = new Set(input.monsterBefore.unlockedSkillIds);
     const unlockedSkillIds = (input.unlockedSkillIdsAfter ?? [])
         .map((id) => id.trim())

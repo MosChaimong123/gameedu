@@ -226,7 +226,7 @@ async function persistQuestClaim(params: {
         const pointDelta =
             expReward <= 0 || !negamon
                 ? 0
-                : Math.ceil(expReward / Math.max(1, Math.floor(negamon.expPerPoint ?? 10)));
+                : Math.ceil(expReward / Math.max(1, Math.floor(negamon.expPerPoint ?? 6)));
         const sourceId = `${params.questType}:${params.questId}:${params.idempotencyKey}`;
         const monsterBefore =
             negamon && expReward > 0
@@ -275,6 +275,7 @@ async function persistQuestClaim(params: {
                       },
                       progression: rewardPlan.progression,
                       expPerPoint: negamon?.expPerPoint,
+                      canonicalUnlockedSkillIdsBefore: monsterBefore?.unlockedSkillIds ?? [],
                       studentDelegate: tx.student,
                   })
                 : null;

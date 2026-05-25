@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
     formatNegamonItemEffect,
+    formatNegamonSkillFamily,
     formatNegamonSkillEffect,
+    formatNegamonSkillPriority,
     formatNegamonSkillRequirement,
+    formatNegamonSkillRoleTag,
+    formatNegamonSkillTarget,
     formatNegamonStatusTimeline,
     summarizeNegamonBattleEvent,
     summarizeNegamonReward,
@@ -14,10 +18,15 @@ const enT: NegamonUiTranslateFn = (key, params) => {
     const templates: Record<string, string> = {
         negamonSkillEffectStatStage: "{target} {stat} {stages}",
         negamonSkillEffectTargetEnemy: "Enemy",
+        negamonSkillEffectTargetAllEnemies: "All enemies",
         negamonSkillEffectTargetSelf: "Self",
+        negamonSkillEffectEnergyShift: "{target} EN {amount}",
         negamonSkillEffectStatus: "{effect} {chance}%",
         negamonSkillLevelReq: "Level {level}",
-        negamonSkillRankReq: "Rank {rank}",
+        negamonSkillRole_tempo: "Tempo",
+        negamonSkillTarget_enemy: "Enemy target",
+        negamonSkillFamily_PRIORITY_STRIKE: "Priority strike",
+        negamonSkillPriority: "PRI {value}",
         negamonItemEffectImmune: "Immune {status}",
     };
     const template = templates[key] ?? key;
@@ -64,7 +73,22 @@ describe("Negamon UI content helpers", () => {
         const skill = makeSkill();
 
         expect(formatNegamonSkillEffect(skill, enT)).toBe("Enemy accuracy -1 / PARALYZE 50%");
-        expect(formatNegamonSkillRequirement(skill, enT)).toBe("Level 3 / Rank 3");
+        expect(formatNegamonSkillRequirement(skill, enT)).toBe("Level 3");
+    });
+
+    it("formats role, target, family, priority, and energy-shift labels", () => {
+        const skill = makeSkill({
+            priority: 1,
+            roleTag: "tempo",
+            effectFamily: "PRIORITY_STRIKE",
+            effects: [{ kind: "energy_shift", amount: -15, target: "enemy", regenPenalty: 15 }],
+        });
+
+        expect(formatNegamonSkillRoleTag(skill.roleTag, enT)).toBe("Tempo");
+        expect(formatNegamonSkillTarget(skill.target, enT)).toBe("Enemy target");
+        expect(formatNegamonSkillFamily(skill.effectFamily, enT)).toBe("Priority strike");
+        expect(formatNegamonSkillPriority(skill.priority, enT)).toBe("PRI +1");
+        expect(formatNegamonSkillEffect(skill, enT)).toBe("Enemy EN 15");
     });
 
     it("formats item, status timeline, battle event, and reward summaries", () => {
@@ -100,6 +124,6 @@ describe("Negamon UI content helpers", () => {
             grantedItemIds: ["item_minor_potion"],
             levelUps: [{ fromLevel: 1, toLevel: 2, expBefore: 0, expAfter: 10 }],
             unlockedSkillIds: ["naga-aqua-jet"],
-        })).toEqual(["Gold +15", "EXP +10", "Items 1", "Level ups 1", "Skills 1"]);
+        })).toEqual(["Gold +15", "EXP +10", "Items 1", "Level 2", "Skills 1"]);
     });
 });

@@ -13,6 +13,39 @@ export type MonsterType =
     | "DARK";
 
 export type MoveCategory = "PHYSICAL" | "SPECIAL" | "STATUS" | "HEAL";
+export type MonsterBattleRole =
+    | "burst"
+    | "tempo"
+    | "wall"
+    | "support"
+    | "control"
+    | "bruiser";
+export type MonsterMoveEffectFamily =
+    | "STRIKE"
+    | "STRIKE_STATUS"
+    | "STRIKE_DEBUFF"
+    | "STRIKE_DRAIN"
+    | "SELF_BOOST"
+    | "ENEMY_DEBUFF"
+    | "HEAL"
+    | "CLEANSE"
+    | "SHIELD"
+    | "PRIORITY_STRIKE"
+    | "FINISHER"
+    | "TEMPO_CONTROL"
+    | "ENERGY_SHIFT"
+    | "ANTI_SETUP_PUNISH";
+export type MonsterMoveFlag =
+    | "contact"
+    | "sound"
+    | "pulse"
+    | "slicing"
+    | "bite"
+    | "protectable"
+    | "highCrit"
+    | "cannotMiss"
+    | "selfOnly"
+    | "allEnemies";
 
 export type StatusEffect =
     | "BURN"          // ปลายเทิร์น: เสีย 3% max HP (min 1) × 3 เทิร์น
@@ -54,6 +87,7 @@ export type MonsterMove = {
     power: number;       // 0 = status/heal move
     accuracy: number;    // 0-100
     learnRank: number;   // สกิลใน species: 3–6 (ปลดเมื่อ rankIndex+1 >= learnRank); ท่าตีธรรมดา inject แยก
+    learnLevel?: number; // canonical unlock level on the 1-60 progression curve; learnRank remains as compatibility fallback
     priority?: number;   // turn-order priority: +1 ไปก่อน, -1 ไปหลัง (default 0)
     critBonus?: number;  // เพิ่ม crit rate เป็น % เช่น 20 = +20%
     effect?: StatusEffect;
@@ -75,6 +109,10 @@ export type MonsterMove = {
     /** ฟื้น HP หลังตี = floor(damage * drainPct / 100) */
     drainPct?: number;
     energyCost?: number; // energy used per cast (resolved by engine/UI when omitted)
+    displayDescription?: string;
+    effectFamily?: MonsterMoveEffectFamily;
+    flags?: MonsterMoveFlag[];
+    roleTag?: "opener" | "setup" | "control" | "sustain" | "tempo" | "punish" | "finisher";
 };
 
 export type MonsterForm = {
@@ -109,6 +147,7 @@ export type MonsterSpecies = {
     forms: MonsterForm[];  // ต้องมีครบ 6 forms (index 0-5)
     moves: MonsterMove[];
     ability?: PassiveAbility;
+    battleRole?: MonsterBattleRole;
 };
 
 // เก็บใน Classroom.gamifiedSettings.negamon
@@ -116,8 +155,8 @@ export type NegamonSettings = {
     engineVersion?: "lite" | "pokemon_v3";
     enabled: boolean;
     allowStudentChoice: boolean;  // ให้นักเรียนเลือก species เองได้ไหม
-    expPerPoint: number;          // EXP ต่อ 1 แต้ม (default: 10)
-    expPerAttendance: number;     // EXP เมื่อเข้าเรียน (default: 20)
+    expPerPoint: number;          // EXP ต่อ 1 แต้ม (default: 6)
+    expPerAttendance: number;     // EXP เมื่อเข้าเรียน (default: 18)
     species: MonsterSpecies[];    // species ที่อนุญาตในห้องนี้
     studentMonsters: Record<string, string>; // studentId → speciesId
     disabledMoves?: string[];     // move IDs ที่ครูปิดไว้ (ไม่แสดงในห้อง)

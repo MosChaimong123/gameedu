@@ -8,7 +8,6 @@ import { useLanguage } from "@/components/providers/language-provider";
 import {
     calcMonsterStats,
     getActiveGoldMultiplier,
-    getNegamonSettings,
     getStudentMonsterState,
     type LevelConfigInput,
 } from "@/lib/classroom-utils";
@@ -17,6 +16,7 @@ import { useEvolveAnimation } from "@/components/negamon/evolve-animation";
 import { StarterSelectionModal } from "@/components/negamon/StarterSelectionModal";
 import { getFrameGoldRateMultiplierById } from "@/lib/shop-items";
 import { createNegamonMonsterSnapshot } from "@/lib/game-negamon";
+import type { NegamonSettings } from "@/lib/types/negamon";
 import type {
     DashboardStudent,
     HistoryRecord,
@@ -155,9 +155,9 @@ export function StudentDashboardClient({
     });
 
     const levelConfigResolved = classroom.levelConfig as LevelConfigInput;
-    const negamonSettings = useMemo(
-        () => getNegamonSettings(classroom.gamifiedSettings),
-        [classroom.gamifiedSettings]
+    const negamonSettings = useMemo<NegamonSettings | null>(
+        () => classroom.negamonSettings ?? null,
+        [classroom.negamonSettings]
     );
 
     const totalGoldRate = useMemo(() => {

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.normalizeGamificationSettings = exports.InvalidGamificationSettingsError = exports.gamificationSettingsSchema = void 0;
 exports.getNegamonSettingsFromGamification = getNegamonSettingsFromGamification;
+exports.sanitizeGamificationSettingsNegamon = sanitizeGamificationSettingsNegamon;
 exports.getCustomAchievementsFromGamification = getCustomAchievementsFromGamification;
 exports.getClassEventsFromGamification = getClassEventsFromGamification;
 exports.getClassroomGamificationRecord = getClassroomGamificationRecord;
@@ -24,6 +25,21 @@ function getNegamonSettingsFromGamification(value) {
         return null;
     }
     return (0, negamon_compat_1.normalizeNegamonSettingsForRuntime)(parsed.data);
+}
+function sanitizeGamificationSettingsNegamon(value) {
+    const settings = (0, gamification_settings_schema_1.normalizeGamificationSettings)(value);
+    const parsed = gamification_settings_schema_1.negamonSettingsSchema.safeParse(settings.negamon);
+    if (!parsed.success) {
+        return settings;
+    }
+    const negamon = (0, negamon_compat_1.normalizeNegamonSettingsForRuntime)(parsed.data);
+    if (!negamon) {
+        return settings;
+    }
+    return {
+        ...settings,
+        negamon,
+    };
 }
 function getCustomAchievementsFromGamification(value) {
     const settings = (0, gamification_settings_schema_1.normalizeGamificationSettings)(value);
@@ -55,7 +71,7 @@ async function getClassroomGamificationRecord(classroomId, deps = { db: db_1.db 
         return null;
     return {
         teacherId: classroom.teacherId,
-        gamifiedSettings: (0, gamification_settings_schema_1.normalizeGamificationSettings)(classroom.gamifiedSettings),
+        gamifiedSettings: sanitizeGamificationSettingsNegamon(classroom.gamifiedSettings),
     };
 }
 async function getGamificationSettings(classroomId, teacherId, deps = { db: db_1.db }) {
@@ -70,7 +86,7 @@ async function getGamificationSettings(classroomId, teacherId, deps = { db: db_1
     });
     if (!classroom)
         return null;
-    return (0, gamification_settings_schema_1.normalizeGamificationSettings)(classroom.gamifiedSettings);
+    return sanitizeGamificationSettingsNegamon(classroom.gamifiedSettings);
 }
 async function updateGamificationSettings(classroomId, teacherId, gamifiedSettings, deps = { db: db_1.db }) {
     if (!gamifiedSettings || typeof gamifiedSettings !== "object" || Array.isArray(gamifiedSettings)) {
@@ -80,13 +96,14 @@ async function updateGamificationSettings(classroomId, teacherId, gamifiedSettin
     if (!parsed.success) {
         throw new gamification_settings_schema_1.InvalidGamificationSettingsError("gamifiedSettings has an invalid structure");
     }
+    const sanitized = sanitizeGamificationSettingsNegamon(parsed.data);
     return deps.db.classroom.update({
         where: {
             id: classroomId,
             teacherId,
         },
         data: {
-            gamifiedSettings: (0, prisma_json_1.toPrismaJson)(parsed.data),
+            gamifiedSettings: (0, prisma_json_1.toPrismaJson)(sanitized),
         },
         select: {
             gamifiedSettings: true,
@@ -101,12 +118,13 @@ async function updateClassroomGamificationSettingsById(classroomId, gamifiedSett
     if (!parsed.success) {
         throw new gamification_settings_schema_1.InvalidGamificationSettingsError("gamifiedSettings has an invalid structure");
     }
+    const sanitized = sanitizeGamificationSettingsNegamon(parsed.data);
     return deps.db.classroom.update({
         where: {
             id: classroomId,
         },
         data: {
-            gamifiedSettings: (0, prisma_json_1.toPrismaJson)(parsed.data),
+            gamifiedSettings: (0, prisma_json_1.toPrismaJson)(sanitized),
         },
         select: {
             gamifiedSettings: true,

@@ -16,6 +16,7 @@ import { getNegamonBattleValidChoicesV3, resolveNegamonBattleTurnV3 } from "@/li
 import { createRuntimeCombatant } from "@/lib/game-negamon/core/engine/runtime-types";
 import { createNegamonSkillLoadoutPlan } from "@/lib/game-negamon/server/skill-loadout";
 import { applyNegamonProgressionReward } from "@/lib/game-negamon/server/progression";
+import { getEnergyProfileForSpecies } from "@/lib/negamon-energy";
 import { parseNegamonLiteSessionResult } from "@/lib/negamon-lite/session";
 import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
 import { resolveBattleRewardPayout } from "@/lib/services/student-economy/battle-reward-policy";
@@ -93,6 +94,7 @@ function createV3BattleCombatant(input: {
         monster: snapshot,
         requestedSkillIds: input.equippedSkillIds,
     });
+    const energyProfile = getEnergyProfileForSpecies(snapshot.speciesId);
     const runtime = createRuntimeCombatant({
         id: input.studentId,
         side: input.side,
@@ -110,6 +112,7 @@ function createV3BattleCombatant(input: {
         hp: snapshot.derivedStats.maxHp,
         energy: snapshot.derivedStats.maxEnergy,
         maxEnergy: snapshot.derivedStats.maxEnergy,
+        energyRegenPerTurn: energyProfile.regenPerTurn,
         abilityId: snapshot.abilityId,
         battleItemIds: input.battleItemIds,
     });
@@ -486,7 +489,7 @@ async function chooseNegamonBattleMoveV3(
                 turnCount: resolved.state.turn,
             }) * Math.max(1, winnerCombatantAfterChoice.rewardExpMultiplier ?? 1)
         );
-        const pointDelta = Math.ceil(expReward / Math.max(1, Math.floor(negamon.expPerPoint ?? 10)));
+        const pointDelta = Math.ceil(expReward / Math.max(1, Math.floor(negamon.expPerPoint ?? 6)));
         const monsterAfter = createNegamonMonsterSnapshot({
             studentId: winnerId,
             studentName: winnerStudent.name,
@@ -570,6 +573,7 @@ async function chooseNegamonBattleMoveV3(
                               },
                               progression: v2RewardPlan.progression,
                               expPerPoint: negamon.expPerPoint,
+                              canonicalUnlockedSkillIdsBefore: monsterBefore?.unlockedSkillIds ?? [],
                               studentDelegate: tx.student,
                           })
                         : null;

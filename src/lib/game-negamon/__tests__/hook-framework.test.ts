@@ -37,7 +37,7 @@ function makeCombatant(overrides: Partial<ReturnType<typeof createRuntimeCombata
 function makeSkill(overrides: Partial<NegamonSkillDefinition> = {}): NegamonSkillDefinition {
     return {
         id: "pyronox-hell-dive",
-        name: "Hell Dive",
+        name: "Hellfall",
         description: "Attack",
         elementType: "FIRE",
         category: "special",
@@ -51,7 +51,7 @@ function makeSkill(overrides: Partial<NegamonSkillDefinition> = {}): NegamonSkil
         unlock: { rankIndex: 3, speciesId: "pyronox" },
         sourceMove: {
             id: "pyronox-hell-dive",
-            name: "Hell Dive",
+            name: "Hellfall",
             type: "FIRE",
             category: "SPECIAL",
             power: 74,

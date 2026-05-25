@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Trophy, BookOpen, ShieldAlert, Loader2 } from "lucide-react";
+import { ChevronRight, Trophy, BookOpen, ShieldAlert, Loader2, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuizIntegrity } from "@/hooks/use-quiz-integrity";
 import type { QuizReviewMode } from "@/lib/quiz-review-policy";
 import { useLanguage } from "@/components/providers/language-provider";
 import { getLocalizedMessageFromApiErrorBody } from "@/lib/ui-error-messages";
 import { formatQuizLoadPlainError } from "@/lib/quiz-load-error-messages";
+import { cn } from "@/lib/utils";
 
 type QuestionSlice = { id: string; question: string; options: string[] };
 
@@ -24,6 +25,13 @@ interface QuizClientProps {
   themeClass: string;
   themeStyle: React.CSSProperties;
   reviewMode: QuizReviewMode;
+  timeLimitMinutes?: number | null;
+};
+
+function formatQuizCountdown(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 export function QuizClient({
@@ -33,6 +41,7 @@ export function QuizClient({
   themeClass,
   themeStyle,
   reviewMode,
+  timeLimitMinutes,
 }: QuizClientProps) {
   const { t } = useLanguage();
   const router = useRouter();
@@ -51,6 +60,8 @@ export function QuizClient({
   const [submitting, setSubmitting] = useState(false);
   const [showExplain, setShowExplain] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
+  const autoSubmitTriggered = useRef(false);
 
   const integrityActive = !showResult;
   const { getPayload } = useQuizIntegrity(integrityActive);
@@ -93,11 +104,21 @@ export function QuizClient({
         const data = (await res.json()) as {
           total: number;
           question: QuestionSlice;
+          timer?: { secondsRemaining: number | null } | null;
         };
         if (cancelled) return;
         setTotal(data.total);
         setSlide(data.question);
         setAnswers((prev) => (prev.length === data.total ? prev : new Array(data.total).fill(-1)));
+        if (
+          data.timer &&
+          typeof data.timer.secondsRemaining === "number" &&
+          data.timer.secondsRemaining >= 0
+        ) {
+          setSecondsRemaining(data.timer.secondsRemaining);
+        } else if (!timeLimitMinutes) {
+          setSecondsRemaining(null);
+        }
       } catch (e) {
         if (!cancelled) {
           setLoadError(e instanceof Error ? e.message : t("quizLoadFailed"));
@@ -110,7 +131,16 @@ export function QuizClient({
     return () => {
       cancelled = true;
     };
-  }, [classId, assignment.id, studentCode, currentQ, fetchNonce, t]);
+  }, [classId, assignment.id, studentCode, currentQ, fetchNonce, t, timeLimitMinutes]);
+
+  useEffect(() => {
+    if (secondsRemaining == null || showResult) return;
+    if (secondsRemaining <= 0) return;
+    const id = window.setInterval(() => {
+      setSecondsRemaining((prev) => (prev == null ? null : Math.max(0, prev - 1)));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [secondsRemaining, showResult]);
 
   const isLastQ = total > 0 && currentQ === total - 1;
   const progress = total > 0 ? ((currentQ + 1) / total) * 100 : 0;
@@ -146,12 +176,15 @@ export function QuizClient({
     [answers, checking, slide, questionLoading, classId, assignment.id, studentCode, currentQ]
   );
 
-  async function submitQuiz() {
+  const submitQuiz = useCallback(async (options?: { force?: boolean }) => {
     const unanswered = answers.some((a) => a < 0);
-    if (unanswered) {
+    if (unanswered && !options?.force) {
       setLoadError(t("quizAnswerAllBeforeSubmit"));
       return;
     }
+    const payloadAnswers = options?.force
+      ? answers.map((a) => (a < 0 ? 0 : a))
+      : answers;
 
     setSubmitting(true);
     try {
@@ -160,7 +193,7 @@ export function QuizClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           studentCode,
-          answers,
+          answers: payloadAnswers,
           integrity: getPayload(),
         }),
       });
@@ -191,7 +224,15 @@ export function QuizClient({
     } finally {
       setSubmitting(false);
     }
-  }
+  }, [answers, classId, assignment.id, studentCode, getPayload, t]);
+
+  useEffect(() => {
+    if (secondsRemaining !== 0 || showResult || submitting) return;
+    if (autoSubmitTriggered.current) return;
+    autoSubmitTriggered.current = true;
+    setLoadError(t("quizTimeExpiredAutoSubmit"));
+    void submitQuiz({ force: true });
+  }, [secondsRemaining, showResult, submitting, submitQuiz, t]);
 
   async function handleNext() {
     setShowExplain(false);
@@ -259,7 +300,26 @@ export function QuizClient({
             <BookOpen className="h-5 w-5" />
             <span className="font-bold">{assignment.name}</span>
           </div>
-          <span className="text-sm font-semibold text-white/80">{total > 0 ? `${currentQ + 1} / ${total}` : "—"}</span>
+          <div className="flex items-center gap-3">
+            {secondsRemaining != null && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-black tabular-nums",
+                  secondsRemaining <= 60
+                    ? "bg-red-500/90 text-white"
+                    : "bg-white/20 text-white"
+                )}
+              >
+                <Timer className="h-3.5 w-3.5" />
+                {t("quizTimeRemaining", {
+                  time: formatQuizCountdown(secondsRemaining),
+                })}
+              </span>
+            )}
+            <span className="text-sm font-semibold text-white/80">
+              {total > 0 ? `${currentQ + 1} / ${total}` : "—"}
+            </span>
+          </div>
         </div>
         <div className="mx-auto mt-3 max-w-2xl">
           <div className="h-2 overflow-hidden rounded-full bg-white/20">

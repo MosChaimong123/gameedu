@@ -13,6 +13,7 @@ import {
     createAppErrorResponse,
 } from "@/lib/api-error";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
+import { normalizeQuizTimeLimitMinutes } from "@/lib/quiz-attempt";
 
 type AssignmentChecklist = {
     text?: string;
@@ -30,6 +31,7 @@ type AssignmentRequestBody = {
     quizSetId?: string | null;
     quizData?: unknown;
     quizReviewMode?: string | null;
+    timeLimitMinutes?: number | string | null;
     worksheetData?: unknown;
 };
 
@@ -112,6 +114,9 @@ export async function POST(
             quizReviewMode = parsed.value === undefined ? null : parsed.value;
         }
 
+        const timeLimitMinutes =
+            effectiveType === "quiz" ? normalizeQuizTimeLimitMinutes(body.timeLimitMinutes) : null;
+
         const assignment = await db.assignment.create({
             data: {
                 classId: classroom.id,
@@ -128,6 +133,7 @@ export async function POST(
                 ...(effectiveType === "quiz" && quizReviewMode !== undefined
                     ? { quizReviewMode }
                     : {}),
+                ...(effectiveType === "quiz" ? { timeLimitMinutes } : {}),
             }
         });
 

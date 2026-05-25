@@ -157,7 +157,10 @@ export function createBattleCombatantV3(input: {
         types: [...input.runtime.types] as NegamonFormulaTypeId[],
         stats: { ...input.runtime.stats },
         statStages: { ...input.runtime.statStages },
-        statuses: input.runtime.statuses.map((status) => ({ ...status })),
+        statuses: input.runtime.statuses.map((status) => ({
+            ...status,
+            data: status.data ? { ...status.data } : undefined,
+        })),
         volatileStates: input.runtime.volatileStates.map((state) => ({
             ...state,
             data: state.data ? { ...state.data } : undefined,

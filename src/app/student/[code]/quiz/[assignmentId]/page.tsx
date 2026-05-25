@@ -4,6 +4,7 @@ import { QuizClient } from "@/components/student/quiz-client";
 import { getThemeBgStyle } from "@/lib/classroom-utils";
 import { resolveQuizReviewMode } from "@/lib/quiz-review-policy";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
+import { isQuizSubmissionCompleted } from "@/lib/quiz-attempt";
 
 export default async function QuizPage(props: {
     params: Promise<{ code: string; assignmentId: string }>
@@ -30,6 +31,7 @@ export default async function QuizPage(props: {
                             maxScore: true,
                             quizData: true,
                             deadline: true,
+                            timeLimitMinutes: true,
                             description: true,
                             quizReviewMode: true,
                         }
@@ -38,7 +40,12 @@ export default async function QuizPage(props: {
             },
             submissions: {
                 where: { assignmentId },
-                select: { id: true, score: true }
+                select: {
+                    id: true,
+                    score: true,
+                    attemptStartedAt: true,
+                    quizCompletedAt: true,
+                },
             }
         }
     });
@@ -49,8 +56,8 @@ export default async function QuizPage(props: {
     if (!assignment || !assignment.quizData) return notFound();
     if (assignment.deadline && new Date(assignment.deadline) < new Date()) return notFound();
 
-    // Already submitted → redirect back
-    if (student.submissions.length > 0) {
+    const submission = student.submissions[0];
+    if (submission && isQuizSubmissionCompleted(submission)) {
         redirect(`/student/${code}`);
     }
 
@@ -81,6 +88,7 @@ export default async function QuizPage(props: {
             themeClass={themeClass}
             themeStyle={themeStyle}
             reviewMode={reviewMode}
+            timeLimitMinutes={assignment.timeLimitMinutes}
         />
     );
 }

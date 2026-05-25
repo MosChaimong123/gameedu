@@ -49,17 +49,18 @@ function createBalanceCombatant(input: {
     rankIndex: number;
 }): NegamonLiteCombatant {
     const rankIndex = normalizeNegamonRankIndex(input.rankIndex);
-    const stats = calculateNegamonStats(input.species.baseStats, rankIndex);
+    const level = getNegamonLevelFromRank(rankIndex);
+    const stats = calculateNegamonStats(input.species.baseStats, rankIndex, input.species.battleRole);
     const energy = getEnergyProfileForSpecies(input.species.id);
     const moves = getNegamonSpeciesSkillCatalog(input.species, { includeBasic: true })
-        .filter((skill) => (skill.unlock.rankIndex ?? 0) <= rankIndex)
+        .filter((skill) => (skill.unlock.level ?? 1) <= level)
         .map(mapNegamonSkillToLiteMove);
 
     return {
         id: `${input.side}:${input.species.id}`,
         name: input.species.name,
         speciesId: input.species.id,
-        level: getNegamonLevelFromRank(rankIndex),
+        level,
         types: [input.species.type, input.species.type2].filter(Boolean) as NegamonLiteCombatant["types"],
         stats: toLiteStats(stats),
         hp: stats.hp,

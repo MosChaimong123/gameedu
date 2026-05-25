@@ -67,6 +67,8 @@
     "prisma:regen": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/prisma-generate-unlock.ps1",
     "db:cleanup-rpg": "node scripts/cleanup-rpg-data.mjs",
     "db:cleanup-rpg:dry-run": "node scripts/cleanup-rpg-data.mjs --dry-run",
+    "db:cleanup-negamon-legacy": "node scripts/cleanup-negamon-legacy-settings.mjs",
+    "db:cleanup-negamon-legacy:dry-run": "node scripts/cleanup-negamon-legacy-settings.mjs --dry-run",
     "user:set-role": "node scripts/promote-user-role.mjs",
     "db:backfill-email-verified": "node scripts/backfill-email-verified.mjs",
     "billing:stripe-listen": "node scripts/stripe-listen.mjs",

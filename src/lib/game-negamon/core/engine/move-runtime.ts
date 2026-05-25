@@ -31,7 +31,7 @@ function cloneRuntimeCombatant(combatant: NegamonRuntimeCombatant): NegamonRunti
         stats: { ...combatant.stats },
         statStages: { ...combatant.statStages },
         statusImmunities: [...(combatant.statusImmunities ?? [])],
-        statuses: combatant.statuses.map((status) => ({ ...status })),
+        statuses: combatant.statuses.map((status) => ({ ...status, data: status.data ? { ...status.data } : undefined })),
         volatileStates: combatant.volatileStates.map((state) => ({ ...state, data: state.data ? { ...state.data } : undefined })),
     };
 }
@@ -94,24 +94,79 @@ function applySkillEffect(input: {
     }
 
     if (input.effect.kind === "stat_stage") {
-        const recipient = (input.effect.target ?? (input.effect.stages >= 0 ? "self" : "enemy")) === "self"
+        const recipientTarget = input.effect.target ?? (input.effect.stages >= 0 ? "self" : "enemy");
+        const recipient = recipientTarget === "self"
             ? input.actor
             : input.target;
-        recipient.statStages[input.effect.stat] = Math.max(
+        const previous = recipient.statStages[input.effect.stat] ?? 0;
+        const next = Math.max(
             -6,
-            Math.min(6, (recipient.statStages[input.effect.stat] ?? 0) + input.effect.stages)
+            Math.min(6, previous + input.effect.stages)
         );
+        const appliedStages = next - previous;
+        recipient.statStages[input.effect.stat] = next;
+        if (appliedStages === 0) {
+            return { rng: input.rng, applied: false, timeline, effectsApplied, healing };
+        }
+        if (input.effect.durationTurns != null && input.effect.durationTurns > 0) {
+            const volatile = applyRuntimeVolatile({
+                combatant: recipient,
+                volatileId: "STAT_STAGE_MOD",
+                durationTurns: input.effect.durationTurns,
+                sourceMoveId: input.skill.id,
+                data: {
+                    stat: input.effect.stat,
+                    appliedStages,
+                },
+            });
+            timeline.push(...volatile.timeline);
+        }
         timeline.push({
             kind: "stat_stage_changed",
             actorSide: input.actor.side,
             targetSide: recipient.side,
             moveId: input.skill.id,
             effectId: input.effect.stat,
-            amount: input.effect.stages,
-            message: `${recipient.name} ${input.effect.stat} stage changed by ${input.effect.stages}.`,
+            amount: appliedStages,
+            message: `${recipient.name} ${input.effect.stat} stage changed by ${appliedStages}.`,
         });
         effectsApplied.push(`stage:${input.effect.stat}`);
         return { rng: input.rng, applied: true, timeline, effectsApplied, healing };
+    }
+
+    if (input.effect.kind === "energy_shift") {
+        const recipient = (input.effect.target ?? "enemy") === "self" ? input.actor : input.target;
+        const before = recipient.energy;
+        recipient.energy = Math.max(0, Math.min(recipient.maxEnergy, recipient.energy + input.effect.amount));
+        const appliedAmount = recipient.energy - before;
+        if (appliedAmount !== 0) {
+            timeline.push({
+                kind: "heal",
+                actorSide: input.actor.side,
+                targetSide: recipient.side,
+                moveId: input.skill.id,
+                amount: appliedAmount,
+                message:
+                    appliedAmount > 0
+                        ? `${recipient.name} restored ${appliedAmount} energy.`
+                        : `${recipient.name} lost ${Math.abs(appliedAmount)} energy.`,
+            });
+            effectsApplied.push("energy");
+        }
+        if (input.effect.regenPenalty != null && input.effect.regenPenalty > 0) {
+            const volatile = applyRuntimeVolatile({
+                combatant: recipient,
+                volatileId: "ENERGY_REGEN_DOWN",
+                durationTurns: input.effect.durationTurns,
+                sourceMoveId: input.skill.id,
+                data: {
+                    penalty: input.effect.regenPenalty,
+                },
+            });
+            timeline.push(...volatile.timeline);
+            effectsApplied.push("energy_regen_down");
+        }
+        return { rng: input.rng, applied: appliedAmount !== 0 || (input.effect.regenPenalty ?? 0) > 0, timeline, effectsApplied, healing };
     }
 
     const statusId = mapStatusId(input.effect);
@@ -123,6 +178,10 @@ function applySkillEffect(input: {
             chance: input.effect.kind === "status" ? input.effect.chance : 100,
             durationTurns,
             sourceMoveId: input.skill.id,
+            data: {
+                ...(("fullSkip" in input.effect && input.effect.fullSkip) ? { fullSkip: true } : {}),
+                ...(("dotRate" in input.effect && typeof input.effect.dotRate === "number") ? { dotRate: input.effect.dotRate } : {}),
+            },
             rng: input.rng,
         });
         if (result.applied) effectsApplied.push(`status:${statusId}`);
@@ -223,6 +282,9 @@ export function resolveRuntimeSkill(input: {
     let critical = false;
     let damage = 0;
     let healing = 0;
+    const drainEffect = input.skill.effects.find(
+        (effect): effect is Extract<NegamonSkillEffect, { kind: "drain" }> => effect.kind === "drain"
+    );
 
     if (!missed && input.skill.power > 0) {
         const critPercent = getCriticalChancePercent(
@@ -263,7 +325,25 @@ export function resolveRuntimeSkill(input: {
 
         const passiveIncomingMultiplier = Number(target.hookFlags?.["system:incoming_damage_multiplier"] ?? 1);
         const incomingAdjustedDamage = Math.max(1, Math.floor(damageResult.damage * passiveIncomingMultiplier));
-        const reduced = applyRuntimeShieldReduction({ combatant: target, damage: incomingAdjustedDamage });
+        const punishMultiplier =
+            input.skill.effectFamily === "ANTI_SETUP_PUNISH" &&
+            (
+                Object.values(target.statStages).some((stage) => stage > 0) ||
+                target.volatileStates.some((state) => state.id === "SHIELD" || state.id === "FOCUS")
+            )
+                ? 1.5
+                : 1;
+        const punishedDamage = Math.max(1, Math.floor(incomingAdjustedDamage * punishMultiplier));
+        if (punishMultiplier > 1) {
+            timeline.push({
+                kind: "move_used",
+                actorSide: actor.side,
+                targetSide: target.side,
+                moveId: input.skill.id,
+                message: `${input.skill.name} punished the target's setup.`,
+            });
+        }
+        const reduced = applyRuntimeShieldReduction({ combatant: target, damage: punishedDamage });
         damage = reduced.damage;
         target.hp = Math.max(0, target.hp - damage);
         timeline.push(...reduced.timeline);
@@ -283,6 +363,23 @@ export function resolveRuntimeSkill(input: {
             amount: damage,
             message: `${target.name} took ${damage} damage.`,
         });
+        if (drainEffect && damage > 0) {
+            const drained = Math.max(1, Math.floor(damage * (drainEffect.percent / 100)));
+            const actualHealing = Math.min(actor.stats.maxHp - actor.hp, drained);
+            if (actualHealing > 0) {
+                actor.hp += actualHealing;
+                healing += actualHealing;
+                timeline.push({
+                    kind: "heal",
+                    actorSide: actor.side,
+                    targetSide: actor.side,
+                    moveId: input.skill.id,
+                    amount: actualHealing,
+                    message: `${actor.name} drained ${actualHealing} HP.`,
+                });
+                effectsApplied.push("drain");
+            }
+        }
     }
 
     if (missed) {

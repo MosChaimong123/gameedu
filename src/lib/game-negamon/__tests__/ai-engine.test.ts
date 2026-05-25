@@ -22,6 +22,9 @@ function makeSkill(overrides: Partial<NegamonSkillDefinition> = {}): NegamonSkil
         energyCost: 10,
         cooldownTurns: 0,
         priority: 0,
+        effectFamily: "STRIKE",
+        flags: [],
+        roleTag: "opener",
         effects: [{ kind: "damage", power: 40 }, { kind: "energy_cost", value: 10 }],
         unlock: { rankIndex: 1, speciesId: "pyronox" },
         sourceMove: {
@@ -79,14 +82,14 @@ describe("Negamon V3 AI engine", () => {
     it("prefers healing when low HP instead of a normal attack", () => {
         const heal = makeSkill({
             id: "soft-glow",
-            name: "Soft Glow",
+            name: "Tender Glow",
             category: "heal",
             target: "self",
             power: 0,
             effects: [{ kind: "heal", percent: 25 }, { kind: "energy_cost", value: 12 }],
             sourceMove: {
                 id: "soft-glow",
-                name: "Soft Glow",
+                name: "Tender Glow",
                 type: "LIGHT",
                 category: "HEAL",
                 power: 0,
@@ -114,12 +117,12 @@ describe("Negamon V3 AI engine", () => {
     it("prefers a finishing blow when it can KO the target", () => {
         const finisher = makeSkill({
             id: "hell-dive",
-            name: "Hell Dive",
+            name: "Hellfall",
             power: 140,
             energyCost: 12,
             sourceMove: {
                 id: "hell-dive",
-                name: "Hell Dive",
+                name: "Hellfall",
                 type: "FIRE",
                 category: "SPECIAL",
                 power: 140,
@@ -130,13 +133,13 @@ describe("Negamon V3 AI engine", () => {
         });
         const debuff = makeSkill({
             id: "war-cry",
-            name: "War Cry",
+            name: "Predator Roar",
             power: 0,
             category: "buff",
             effects: [{ kind: "self_status", effect: "BOOST_ATK", durationTurns: 2 }, { kind: "energy_cost", value: 8 }],
             sourceMove: {
                 id: "war-cry",
-                name: "War Cry",
+                name: "Predator Roar",
                 type: "DARK",
                 category: "STATUS",
                 power: 0,
@@ -158,13 +161,13 @@ describe("Negamon V3 AI engine", () => {
     it("penalizes repeating the same setup move and prefers an attack", () => {
         const setup = makeSkill({
             id: "tail-rush",
-            name: "Tail Rush",
+            name: "Jetstream",
             power: 0,
             category: "buff",
             effects: [{ kind: "self_status", effect: "BOOST_SPD", durationTurns: 2 }, { kind: "energy_cost", value: 8 }],
             sourceMove: {
                 id: "tail-rush",
-                name: "Tail Rush",
+                name: "Jetstream",
                 type: "WIND",
                 category: "STATUS",
                 power: 0,
@@ -176,11 +179,11 @@ describe("Negamon V3 AI engine", () => {
         });
         const attack = makeSkill({
             id: "gale-cut",
-            name: "Gale Cut",
+            name: "Gale Peck",
             power: 55,
             sourceMove: {
                 id: "gale-cut",
-                name: "Gale Cut",
+                name: "Gale Peck",
                 type: "WIND",
                 category: "PHYSICAL",
                 power: 55,
@@ -201,7 +204,7 @@ describe("Negamon V3 AI engine", () => {
                 actorSide: "opponent",
                 targetSide: "opponent",
                 moveId: "tail-rush",
-                message: "Aerolisk used Tail Rush.",
+                message: "Aerolisk used Jetstream.",
             },
             {
                 id: "e2",
@@ -211,7 +214,7 @@ describe("Negamon V3 AI engine", () => {
                 actorSide: "opponent",
                 targetSide: "opponent",
                 moveId: "tail-rush",
-                message: "Aerolisk used Tail Rush.",
+                message: "Aerolisk used Jetstream.",
             }
         );
 
@@ -230,6 +233,175 @@ describe("Negamon V3 AI engine", () => {
         const decision = chooseNegamonBattleAiActionV3({ state, side: "opponent" });
 
         expect(attackScore).toBeGreaterThan(setupScore);
+        expect(decision.action.action.moveSlot).toBe(1);
+    });
+
+    it("treats priority damage as tempo when the actor is slower", () => {
+        const priorityStrike = makeSkill({
+            id: "scorch-rush",
+            name: "Scorch Rush",
+            power: 32,
+            priority: 1,
+            effectFamily: "PRIORITY_STRIKE",
+            roleTag: "tempo",
+            sourceMove: {
+                id: "scorch-rush",
+                name: "Scorch Rush",
+                type: "FIRE",
+                category: "PHYSICAL",
+                power: 32,
+                accuracy: 100,
+                learnRank: 1,
+                energyCost: 10,
+                priority: 1,
+            },
+        });
+        const heavyStrike = makeSkill({
+            id: "heavy-burst",
+            name: "Heavy Burst",
+            power: 40,
+            effectFamily: "STRIKE",
+            roleTag: "punish",
+            sourceMove: {
+                id: "heavy-burst",
+                name: "Heavy Burst",
+                type: "FIRE",
+                category: "PHYSICAL",
+                power: 40,
+                accuracy: 100,
+                learnRank: 1,
+                energyCost: 10,
+            },
+        });
+
+        const player = makeBattleCombatant({ id: "p1", side: "player", name: "Aerolisk", hp: 45, speed: 220, moveSkills: [makeSkill()] });
+        const opponent = makeBattleCombatant({ id: "o1", side: "opponent", name: "Pyronox", speed: 140, moveSkills: [heavyStrike, priorityStrike] });
+        const state = createBattleStateV3({ battleId: "ai-4", seed: 4, player, opponent });
+
+        const decision = chooseNegamonBattleAiActionV3({ state, side: "opponent" });
+        expect(decision.action.action.moveSlot).toBe(1);
+        expect(decision.scoredChoices[0]?.choice.moveId).toBe("scorch-rush");
+    });
+
+    it("prefers setup early when healthy and the target is still sturdy", () => {
+        const setup = makeSkill({
+            id: "predator-roar",
+            name: "Predator Roar",
+            power: 0,
+            category: "buff",
+            effectFamily: "SELF_BOOST",
+            roleTag: "setup",
+            target: "self",
+            effects: [
+                { kind: "stat_stage", stat: "attack", stages: 1, target: "self", durationTurns: 2 },
+                { kind: "energy_cost", value: 8 },
+            ],
+            sourceMove: {
+                id: "predator-roar",
+                name: "Predator Roar",
+                type: "DARK",
+                category: "STATUS",
+                power: 0,
+                accuracy: 100,
+                learnRank: 1,
+                energyCost: 8,
+                effect: "BOOST_ATK",
+            },
+        });
+        const attack = makeSkill({
+            id: "cinder-snap",
+            name: "Cinder Snap",
+            power: 30,
+            effectFamily: "STRIKE",
+            roleTag: "opener",
+            sourceMove: {
+                id: "cinder-snap",
+                name: "Cinder Snap",
+                type: "FIRE",
+                category: "PHYSICAL",
+                power: 30,
+                accuracy: 100,
+                learnRank: 1,
+                energyCost: 8,
+            },
+        });
+        const player = makeBattleCombatant({ id: "p1", side: "player", name: "Terranoir", hp: 300, moveSkills: [makeSkill()] });
+        const opponent = makeBattleCombatant({ id: "o1", side: "opponent", name: "Pyronox", hp: 300, moveSkills: [setup, attack] });
+        const state = createBattleStateV3({ battleId: "ai-5", seed: 5, player, opponent });
+
+        const decision = chooseNegamonBattleAiActionV3({ state, side: "opponent" });
+        expect(decision.action.action.moveSlot).toBe(0);
+        expect(decision.scoredChoices[0]?.choice.moveId).toBe("predator-roar");
+    });
+
+    it("avoids wasting control into already-controlled targets and punishes boosted enemies", () => {
+        const control = makeSkill({
+            id: "night-tether",
+            name: "Night Tether",
+            power: 0,
+            category: "debuff",
+            effectFamily: "TEMPO_CONTROL",
+            roleTag: "control",
+            effects: [
+                { kind: "stat_stage", stat: "speed", stages: -2, target: "enemy", durationTurns: 2 },
+                { kind: "energy_cost", value: 10 },
+            ],
+            sourceMove: {
+                id: "night-tether",
+                name: "Night Tether",
+                type: "DARK",
+                category: "STATUS",
+                power: 0,
+                accuracy: 100,
+                learnRank: 1,
+                energyCost: 10,
+                effect: "LOWER_SPD",
+            },
+        });
+        const punish = makeSkill({
+            id: "tomb-tax",
+            name: "Tomb Tax",
+            power: 36,
+            effectFamily: "ANTI_SETUP_PUNISH",
+            roleTag: "punish",
+            effects: [
+                { kind: "damage", power: 36 },
+                { kind: "stat_stage", stat: "attack", stages: -1, target: "enemy", durationTurns: 2 },
+                { kind: "energy_cost", value: 10 },
+            ],
+            sourceMove: {
+                id: "tomb-tax",
+                name: "Tomb Tax",
+                type: "DARK",
+                category: "SPECIAL",
+                power: 36,
+                accuracy: 100,
+                learnRank: 1,
+                energyCost: 10,
+                effect: "LOWER_ATK_ALL",
+            },
+        });
+        const player = makeBattleCombatant({ id: "p1", side: "player", name: "Aerolisk", speed: 180, moveSkills: [makeSkill()] });
+        player.statStages.attack = 1;
+        player.statStages.speed = 1;
+        const opponent = makeBattleCombatant({ id: "o1", side: "opponent", name: "Terranoir", speed: 120, moveSkills: [control, punish] });
+        const state = createBattleStateV3({ battleId: "ai-6", seed: 6, player, opponent });
+
+        const choices = state.sides.opponent.moveSlots.map((slot, index) => ({
+            moveSlot: index as 0 | 1 | 2 | 3,
+            moveId: slot.skillId,
+            label: slot.label,
+            targetSlot: slot.targetSlot,
+            enabled: true,
+            cost: { pp: 1, energy: slot.skill.energyCost },
+            priority: slot.skill.priority,
+        }));
+
+        const controlScore = scoreNegamonBattleChoiceV3({ state, side: "opponent", choice: choices[0]! });
+        const punishScore = scoreNegamonBattleChoiceV3({ state, side: "opponent", choice: choices[1]! });
+        const decision = chooseNegamonBattleAiActionV3({ state, side: "opponent" });
+
+        expect(punishScore).toBeGreaterThan(controlScore);
         expect(decision.action.action.moveSlot).toBe(1);
     });
 });

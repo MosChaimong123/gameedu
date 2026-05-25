@@ -2,7 +2,7 @@ import { findNegamonBattleItemDefinition } from "../battle-items";
 import type { PassiveAbilityId } from "@/lib/types/negamon";
 import type { GameItemEffect } from "@/lib/game-core";
 import { rollPercent, type NegamonDeterministicRng } from "../rules";
-import { applyRuntimeStatus } from "./status-runtime";
+import { applyRuntimeStatus, getRuntimeEnergyRegenPenalty } from "./status-runtime";
 import type {
     NegamonRuntimeCombatant,
     NegamonRuntimeStatusId,
@@ -192,12 +192,17 @@ export function applyRuntimeHooks(input: {
             continue;
         }
         if (effect.kind === "energy_regen") {
-            input.combatant.energy = Math.min(input.combatant.maxEnergy, input.combatant.energy + effect.amount);
+            const penalty = getRuntimeEnergyRegenPenalty(input.combatant);
+            const restored = Math.max(0, effect.amount - penalty);
+            input.combatant.energy = Math.min(input.combatant.maxEnergy, input.combatant.energy + restored);
             timeline.push({
                 kind: "heal",
                 targetSide: input.combatant.side,
-                amount: effect.amount,
-                message: `${input.combatant.name} restored ${effect.amount} energy.`,
+                amount: restored,
+                message:
+                    penalty > 0
+                        ? `${input.combatant.name} restored ${restored} energy after a ${penalty} energy drain penalty.`
+                        : `${input.combatant.name} restored ${restored} energy.`,
             });
             continue;
         }

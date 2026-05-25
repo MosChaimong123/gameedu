@@ -28,6 +28,7 @@ import {
     checklistCheckedScore,
 } from "@/lib/academic-score";
 import { cn } from "@/lib/utils";
+import { isQuizSubmissionCompleted } from "@/lib/quiz-attempt";
 import type {
     ClassroomRecord,
     StudentDashboardTranslateFn,
@@ -84,11 +85,26 @@ export function StudentDashboardAssignmentsTab({
             ? checklistCheckedCount(submission?.score || 0, checklistItems)
             : score;
         const maxValue = isChecklist ? assignment.checklists?.length || 1 : maxScore;
-        const isCompleted = Boolean(
+        const isQuiz = formType === "quiz";
+        const isQuizCompleted =
+            isQuiz &&
             submission &&
-                (isChecklist
-                    ? progressValue >= (assignment.passScore || maxValue * 0.5)
-                    : score >= (assignment.passScore || maxScore * 0.5))
+            isQuizSubmissionCompleted({
+                score: submission.score,
+                attemptStartedAt: submission.attemptStartedAt
+                    ? new Date(submission.attemptStartedAt)
+                    : null,
+                quizCompletedAt: submission.quizCompletedAt
+                    ? new Date(submission.quizCompletedAt)
+                    : null,
+            });
+        const isCompleted = Boolean(
+            isQuizCompleted ||
+                (submission &&
+                    !isQuiz &&
+                    (isChecklist
+                        ? progressValue >= (assignment.passScore || maxValue * 0.5)
+                        : score >= (assignment.passScore || maxScore * 0.5)))
         );
 
         return {
@@ -282,6 +298,15 @@ export function StudentDashboardAssignmentsTab({
                                                     })}
                                                 </p>
                                             ) : null}
+                                            {isQuiz &&
+                                            assignment.timeLimitMinutes != null &&
+                                            assignment.timeLimitMinutes > 0 ? (
+                                                <p className="mt-1 text-[10px] font-bold text-amber-700">
+                                                    {t("studentDashQuizTimeLimit", {
+                                                        minutes: assignment.timeLimitMinutes,
+                                                    })}
+                                                </p>
+                                            ) : null}
                                             {assignment.description?.trim() ? (
                                                 <p className="mt-2 line-clamp-3 text-xs font-medium leading-relaxed text-slate-500">
                                                     {assignment.description.trim()}
@@ -306,7 +331,7 @@ export function StudentDashboardAssignmentsTab({
                                                 }`}
                                             />
                                         </div>
-                                        {(isQuiz || isWorksheet) && !submission ? (
+                                        {(isQuiz || isWorksheet) && !isCompleted ? (
                                             <div className="mt-4">
                                                 {isDeadlinePast ? (
                                                     <p className="text-center text-xs font-bold text-red-600">

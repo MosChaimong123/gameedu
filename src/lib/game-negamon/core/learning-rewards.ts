@@ -24,7 +24,7 @@ export type NegamonLearningRewardFinalizationPlan = {
 };
 
 export function calculateNegamonQuestExpReward(input: { goldReward: number }): number {
-    return Math.max(0, Math.floor(input.goldReward));
+    return Math.max(0, Math.floor(input.goldReward * 1.2));
 }
 
 function learningTitleKey(source: NegamonLearningRewardSource): string {

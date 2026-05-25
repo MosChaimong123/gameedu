@@ -161,7 +161,7 @@ describe("student checkin route", () => {
     mockStudentUpdateMany.mockResolvedValue({ count: 1 });
     mockStudentFindUniqueOrThrow.mockResolvedValue({ gold: 30, streak: 2 });
     mockStudentUpdate.mockResolvedValue({
-      behaviorPoints: 6,
+      behaviorPoints: 7,
       negamonSkills: ["basic-attack", "naga-aqua-jet"],
     });
     mockEconomyTransactionCreate.mockResolvedValue({ id: "ledger-1" });
@@ -177,20 +177,26 @@ describe("student checkin route", () => {
     expect(response.status).toBe(200);
     expect(body.reward).toMatchObject({
       gold: 10,
-      exp: 20,
+      exp: 18,
       idempotencyKey: "game:negamon:checkin:student-1:2026-04-07:student-1:attendance-progression",
     });
     expect(body.progression).toMatchObject({
-      expDelta: 20,
-      behaviorPointDelta: 2,
+      expDelta: 18,
+      behaviorPointDelta: 3,
       behaviorPointsBefore: 4,
-      behaviorPointsAfter: 6,
+      behaviorPointsAfter: 7,
     });
     expect(mockStudentUpdate).toHaveBeenCalledWith({
       where: { id: "student-1" },
       data: {
-        behaviorPoints: { increment: 2 },
-        negamonSkills: ["basic-attack", "naga-aqua-jet"],
+        behaviorPoints: { increment: 3 },
+        negamonSkills: [
+          "basic-attack",
+          "pyronox-ember-fang",
+          "pyronox-shadow-rend",
+          "pyronox-war-cry",
+          "pyronox-scorch-rush",
+        ],
       },
       select: { behaviorPoints: true, negamonSkills: true },
     });
@@ -198,7 +204,7 @@ describe("student checkin route", () => {
       data: expect.arrayContaining([
         expect.objectContaining({
           studentId: "student-1",
-          value: 2,
+          value: 3,
           reason: "negamon_attendance_reward:checkin:student-1:2026-04-07",
         }),
       ]),

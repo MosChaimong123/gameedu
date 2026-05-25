@@ -14,6 +14,13 @@ import { NegamonMoveInlineDescription } from "@/components/negamon/negamon-move-
 import { useLanguage } from "@/components/providers/language-provider";
 import { getMoveEnergyCost } from "@/lib/negamon-energy";
 import { isNegamonBasicAttackMoveId } from "@/lib/negamon-basic-move";
+import { getNegamonMoveLearnLevel } from "@/lib/game-negamon";
+import {
+    formatNegamonSkillFamily,
+    formatNegamonSkillPriority,
+    formatNegamonSkillRoleTag,
+    formatNegamonSkillTarget,
+} from "@/components/game/negamon/ui-content";
 
 export type NegamonMovesGridProps = {
     speciesId: string;
@@ -37,6 +44,15 @@ export function NegamonMovesGrid({ speciesId, moves, variant }: NegamonMovesGrid
                 const energyCost = move.energyCost ?? getMoveEnergyCost(move, speciesId);
                 const locked = variant === "locked";
                 const codex = variant === "codex";
+                const priorityLabel = formatNegamonSkillPriority(move.priority ?? 0, t);
+                const targetLabel = formatNegamonSkillTarget(
+                    move.flags?.includes("selfOnly")
+                        ? "self"
+                        : move.flags?.includes("allEnemies")
+                          ? "allEnemies"
+                          : "enemy",
+                    t
+                );
 
                 return (
                     <div
@@ -59,14 +75,10 @@ export function NegamonMovesGrid({ speciesId, moves, variant }: NegamonMovesGrid
                                     moveName
                                 )}
                             </p>
-                            {!locked ? (
-                                <div className="flex shrink-0 items-center gap-1">
-                                    {(move.priority ?? 0) > 0 ? (
-                                        <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[8px] font-black text-sky-700">
-                                            ⚡
-                                        </span>
-                                    ) : null}
-                                </div>
+                            {!locked && priorityLabel ? (
+                                <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[8px] font-black text-sky-700">
+                                    {priorityLabel}
+                                </span>
                             ) : null}
                         </div>
                         <div className="flex flex-wrap gap-1">
@@ -82,7 +94,22 @@ export function NegamonMovesGrid({ speciesId, moves, variant }: NegamonMovesGrid
                             </span>
                             {codex && !isNegamonBasicAttackMoveId(move.id) ? (
                                 <span className="rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[9px] font-black text-violet-800">
-                                    {t("negamonInfoLearnRankShort", { rank: move.learnRank })}
+                                    {t("negamonInfoLearnLevelShort", { level: getNegamonMoveLearnLevel(move) })}
+                                </span>
+                            ) : null}
+                            {move.roleTag ? (
+                                <span className="rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[9px] font-black text-slate-700">
+                                    {formatNegamonSkillRoleTag(move.roleTag, t)}
+                                </span>
+                            ) : null}
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                            <span className="rounded-md border border-stone-200 bg-white/80 px-1.5 py-0.5 text-[9px] font-bold text-stone-600">
+                                {targetLabel}
+                            </span>
+                            {move.effectFamily ? (
+                                <span className="rounded-md border border-stone-200 bg-white/80 px-1.5 py-0.5 text-[9px] font-bold text-stone-600">
+                                    {formatNegamonSkillFamily(move.effectFamily, t)}
                                 </span>
                             ) : null}
                         </div>
@@ -90,7 +117,7 @@ export function NegamonMovesGrid({ speciesId, moves, variant }: NegamonMovesGrid
                             <span>
                                 {t("monsterMovePowerShort")}{" "}
                                 <span className="text-stone-800">
-                                    {move.power > 0 ? move.power : "—"}
+                                    {move.power > 0 ? move.power : "-"}
                                 </span>
                             </span>
                             <span>
@@ -99,7 +126,7 @@ export function NegamonMovesGrid({ speciesId, moves, variant }: NegamonMovesGrid
                         </div>
                         {locked ? (
                             <p className="mt-1 text-[9px] font-bold text-stone-400">
-                                {t("monsterLockedMoveRank", { rank: String(move.learnRank) })}
+                                {t("monsterLockedMoveLevel", { level: String(getNegamonMoveLearnLevel(move)) })}
                             </p>
                         ) : null}
                         <NegamonMoveInlineDescription

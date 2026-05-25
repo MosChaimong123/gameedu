@@ -1,5 +1,5 @@
 import type { PassiveAbility, MonsterSpecies } from "@/lib/types/negamon";
-import { normalizeNegamonRankIndex } from "./monster-growth";
+import { getNegamonFormLevelBand, normalizeNegamonRankIndex } from "./monster-growth";
 
 export type NegamonTraitApplyTiming = "battle_start" | "turn_start" | "turn_end" | "reward_finalize";
 
@@ -62,7 +62,7 @@ export function createNegamonEvolutionRules(species: MonsterSpecies): NegamonEvo
             formRank: form.rank,
             formName: form.name,
             requiredRankIndex: form.rank,
-            requiredLevel: form.rank + 1,
+            requiredLevel: getNegamonFormLevelBand(form.rank).levelMin,
         }))
         .sort((a, b) => a.formRank - b.formRank);
 }

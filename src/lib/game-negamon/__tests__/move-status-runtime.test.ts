@@ -10,7 +10,7 @@ import type { NegamonSkillDefinition } from "@/lib/game-negamon";
 function makeSkill(overrides: Partial<NegamonSkillDefinition> = {}): NegamonSkillDefinition {
     return {
         id: "voltshade-chain-shock",
-        name: "Chain Shock",
+        name: "Chain Lock",
         description: "Damage plus status",
         elementType: "THUNDER",
         category: "special",
@@ -28,7 +28,7 @@ function makeSkill(overrides: Partial<NegamonSkillDefinition> = {}): NegamonSkil
         unlock: { rankIndex: 2, speciesId: "voltshade" },
         sourceMove: {
             id: "voltshade-chain-shock",
-            name: "Chain Shock",
+            name: "Chain Lock",
             type: "THUNDER",
             category: "SPECIAL",
             power: 40,
@@ -104,7 +104,7 @@ describe("Negamon V3 move and status runtime", () => {
         const target = makeCombatant({ id: "student-2", side: "opponent", name: "Terranoir" });
         const skill = makeSkill({
             id: "lumilune-soft-glow",
-            name: "Soft Glow",
+            name: "Tender Glow",
             category: "heal",
             target: "self",
             power: 0,
@@ -115,7 +115,7 @@ describe("Negamon V3 move and status runtime", () => {
             ],
             sourceMove: {
                 id: "lumilune-soft-glow",
-                name: "Soft Glow",
+                name: "Tender Glow",
                 type: "LIGHT",
                 category: "HEAL",
                 power: 0,
@@ -186,6 +186,173 @@ describe("Negamon V3 move and status runtime", () => {
                 expect.objectContaining({ message: expect.stringContaining("shield reduced") }),
                 expect.objectContaining({ kind: "status_blocked", effectId: "PARALYZE" }),
             ])
+        );
+    });
+
+    it("supports drain attacks and temporary stat-stage moves", () => {
+        const actor = makeCombatant({ hp: 140 });
+        const target = makeCombatant({
+            id: "student-2",
+            side: "opponent",
+            name: "Terranoir",
+            stats: {
+                maxHp: 400,
+                attack: 150,
+                defense: 150,
+                specialAttack: 150,
+                specialDefense: 150,
+                speed: 90,
+            },
+            hp: 400,
+        });
+
+        const drainSkill = makeSkill({
+            id: "tidemaw-deep-feast",
+            name: "Deep Feast",
+            power: 42,
+            effects: [
+                { kind: "damage", power: 42 },
+                { kind: "drain", percent: 50 },
+                { kind: "energy_cost", value: 10 },
+            ],
+            sourceMove: {
+                id: "tidemaw-deep-feast",
+                name: "Deep Feast",
+                type: "WATER",
+                category: "SPECIAL",
+                power: 42,
+                accuracy: 100,
+                learnRank: 4,
+                energyCost: 10,
+            },
+        });
+
+        const drainResult = resolveRuntimeSkill({
+            actor,
+            target,
+            skill: drainSkill,
+            rng: createDeterministicRng(13),
+        });
+
+        expect(drainResult.resolution.damage).toBeGreaterThan(0);
+        expect(drainResult.resolution.actor.hp).toBeGreaterThan(140);
+        expect(drainResult.resolution.timeline).toEqual(
+            expect.arrayContaining([expect.objectContaining({ kind: "heal", message: expect.stringContaining("drained") })])
+        );
+
+        const buffSkill = makeSkill({
+            id: "aerolisk-jetstream",
+            name: "Jetstream",
+            category: "buff",
+            target: "self",
+            power: 0,
+            effects: [
+                { kind: "stat_stage", stat: "speed", stages: 1, target: "self", durationTurns: 1 },
+                { kind: "energy_cost", value: 8 },
+            ],
+            sourceMove: {
+                id: "aerolisk-jetstream",
+                name: "Jetstream",
+                type: "WIND",
+                category: "STATUS",
+                power: 0,
+                accuracy: 100,
+                learnRank: 4,
+                energyCost: 8,
+            },
+        });
+
+        const buffResult = resolveRuntimeSkill({
+            actor: makeCombatant(),
+            target: makeCombatant({ id: "student-2", side: "opponent", name: "Pyronox" }),
+            skill: buffSkill,
+            rng: createDeterministicRng(3),
+        });
+
+        expect(buffResult.resolution.actor.statStages.speed).toBe(0);
+        expect(buffResult.resolution.timeline).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ kind: "stat_stage_changed", amount: 1 }),
+                expect.objectContaining({ kind: "stat_stage_changed", amount: -1 }),
+                expect.objectContaining({ kind: "volatile_expired", effectId: "STAT_STAGE_MOD" }),
+            ])
+        );
+    });
+
+    it("supports full-skip paralysis and energy denial effects", () => {
+        const actor = makeCombatant();
+        const target = makeCombatant({
+            id: "student-2",
+            side: "opponent",
+            name: "Voltshade",
+            energy: 35,
+            maxEnergy: 40,
+            energyRegenPerTurn: 12,
+        });
+
+        const chainLock = makeSkill({
+            id: "voltshade-chain-lock",
+            name: "Chain Lock",
+            effects: [
+                { kind: "damage", power: 38 },
+                { kind: "status", effect: "PARALYZE", chance: 100, durationTurns: 1, fullSkip: true },
+                { kind: "energy_cost", value: 10 },
+            ],
+        });
+        const blackSignal = makeSkill({
+            id: "voltshade-black-signal",
+            name: "Black Signal",
+            category: "status",
+            target: "enemy",
+            power: 0,
+            effects: [
+                { kind: "energy_shift", amount: -15, target: "enemy", durationTurns: 2, regenPenalty: 15 },
+                { kind: "energy_cost", value: 10 },
+            ],
+            sourceMove: {
+                id: "voltshade-black-signal",
+                name: "Black Signal",
+                type: "DARK",
+                category: "STATUS",
+                power: 0,
+                accuracy: 100,
+                learnRank: 3,
+                energyCost: 10,
+            },
+        });
+
+        const paralyzeResult = resolveRuntimeSkill({
+            actor,
+            target,
+            skill: chainLock,
+            rng: createDeterministicRng(7),
+            processTurnEnd: false,
+        });
+        expect(paralyzeResult.resolution.target.statuses).toEqual(
+            expect.arrayContaining([expect.objectContaining({ id: "PARALYZE", data: expect.objectContaining({ fullSkip: true }) })])
+        );
+
+        const skipResult = resolveRuntimeSkill({
+            actor: paralyzeResult.resolution.target,
+            target: paralyzeResult.resolution.actor,
+            skill: makeSkill(),
+            rng: paralyzeResult.rng,
+            processTurnEnd: false,
+        });
+        expect(skipResult.resolution.timeline).toEqual(
+            expect.arrayContaining([expect.objectContaining({ kind: "turn_skipped", message: expect.stringContaining("locked down") })])
+        );
+
+        const energyResult = resolveRuntimeSkill({
+            actor,
+            target,
+            skill: blackSignal,
+            rng: createDeterministicRng(11),
+            processTurnEnd: false,
+        });
+        expect(energyResult.resolution.target.energy).toBe(20);
+        expect(energyResult.resolution.target.volatileStates).toEqual(
+            expect.arrayContaining([expect.objectContaining({ id: "ENERGY_REGEN_DOWN" })])
         );
     });
 });

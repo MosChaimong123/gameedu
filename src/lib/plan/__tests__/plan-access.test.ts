@@ -7,6 +7,7 @@ import {
     validateNegamonSpeciesForPlan,
 } from "../plan-access";
 import { PLAN_LIMITS } from "@/constants/plan-limits";
+import { DEFAULT_NEGAMON_SPECIES } from "@/lib/negamon-species";
 
 describe("getEffectivePlan", () => {
     it("normalizes unknown to FREE", () => {
@@ -94,7 +95,8 @@ describe("validateNegamonSpeciesForPlan", () => {
     });
 
     it("FREE rejects species outside first three defaults", () => {
-        expect(validateNegamonSpeciesForPlan(PLAN_LIMITS.FREE, [{ id: "naga" }])).toBeNull();
-        expect(validateNegamonSpeciesForPlan(PLAN_LIMITS.FREE, [{ id: "kinnaree" }])).toBe("species_not_allowed");
+        expect(validateNegamonSpeciesForPlan(PLAN_LIMITS.FREE, [{ id: DEFAULT_NEGAMON_SPECIES[0].id }])).toBeNull();
+        expect(validateNegamonSpeciesForPlan(PLAN_LIMITS.FREE, [{ id: DEFAULT_NEGAMON_SPECIES[3].id }])).toBe("species_not_allowed");
+        expect(validateNegamonSpeciesForPlan(PLAN_LIMITS.FREE, [{ id: "custom-species" }])).toBe("custom_species_not_allowed");
     });
 });

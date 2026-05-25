@@ -1,13 +1,20 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Activity, GitBranch, Heart, Shield, Sparkles, Sword, Zap } from "lucide-react";
+import { Activity, GitBranch, Heart, Shield, Sparkles, Sword, Target, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 import { useLanguage } from "@/components/providers/language-provider";
 import type { NegamonMonsterSnapshot } from "@/lib/game-negamon";
 import { cn } from "@/lib/utils";
-import { formatNegamonElementType, formatNegamonTraitTiming } from "./ui-content";
+import {
+    formatNegamonElementType,
+    formatNegamonSkillFamily,
+    formatNegamonSkillPriority,
+    formatNegamonSkillRoleTag,
+    formatNegamonSkillTarget,
+    formatNegamonTraitTiming,
+} from "./ui-content";
 
 const STAT_ROW_KEYS = [
     { key: "maxHp", labelKey: "negamonStatHp", icon: Heart, color: "text-rose-500", bar: "bg-rose-500" },
@@ -35,6 +42,9 @@ export function MonsterProfilePanel({
         monster.expToNextLevel <= 0
             ? 100
             : Math.max(0, Math.min(100, (monster.exp / (monster.exp + monster.expToNextLevel)) * 100));
+    const nextSkill = monster.nextSkillUnlock
+        ? monster.skillCatalog.find((skill) => skill.id === monster.nextSkillUnlock?.id) ?? null
+        : null;
 
     return (
         <motion.section
@@ -103,6 +113,61 @@ export function MonsterProfilePanel({
                                 {t("negamonMonsterLevelLabel")}
                             </p>
                             <p className="text-2xl font-black tabular-nums text-slate-950">{monster.level}</p>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                                {t("negamonMonsterFormBandTitle")}
+                            </p>
+                            <p className="mt-1 text-sm font-black text-slate-950">
+                                {t("negamonMonsterFormBandRange", {
+                                    min: monster.formBand.levelMin,
+                                    max: monster.formBand.levelMax,
+                                })}
+                            </p>
+                            <p className="mt-1 text-xs font-medium text-slate-500">{monster.formName}</p>
+                        </div>
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                            <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                                <Target className="h-3 w-3" />
+                                {t("negamonMonsterNextSkillTitle")}
+                            </p>
+                            {monster.nextSkillUnlock ? (
+                                <>
+                                    <p className="mt-1 text-sm font-black text-slate-950">
+                                        {monster.nextSkillUnlock.name}
+                                    </p>
+                                    <p className="mt-1 text-xs font-medium text-slate-500">
+                                        {t("negamonMonsterNextSkillHint", {
+                                            level: monster.nextSkillUnlock.level,
+                                        })}
+                                    </p>
+                                    {nextSkill ? (
+                                        <div className="mt-2 flex flex-wrap gap-1.5">
+                                            <Badge className="rounded-md bg-slate-900 text-[9px] font-black text-white">
+                                                {formatNegamonSkillRoleTag(nextSkill.roleTag, t)}
+                                            </Badge>
+                                            <Badge variant="outline" className="rounded-md text-[9px] font-black">
+                                                {formatNegamonSkillTarget(nextSkill.target, t)}
+                                            </Badge>
+                                            <Badge variant="outline" className="rounded-md text-[9px] font-black">
+                                                {formatNegamonSkillFamily(nextSkill.effectFamily, t)}
+                                            </Badge>
+                                            {nextSkill.priority > 0 ? (
+                                                <Badge className="rounded-md bg-sky-100 text-[9px] font-black text-sky-800">
+                                                    {formatNegamonSkillPriority(nextSkill.priority, t)}
+                                                </Badge>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
+                                </>
+                            ) : (
+                                <p className="mt-1 text-sm font-black text-emerald-700">
+                                    {t("negamonMonsterNextSkillMax")}
+                                </p>
+                            )}
                         </div>
                     </div>
 

@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { Heart, Shield, Sparkles, Swords, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-    getNegamonSettings,
     getNextRankProgress,
     getStudentMonsterState,
     type LevelConfigInput,
@@ -21,7 +20,10 @@ import { NegamonInfoNav } from "@/components/negamon/negamon-info-nav";
 import { NegamonMovesGrid, NegamonMovesSectionHeader } from "@/components/negamon/negamon-moves-grid";
 import { buildBasicAttackMove } from "@/lib/negamon-basic-move";
 import { Progress } from "@/components/ui/progress";
-import type { MonsterType } from "@/lib/types/negamon";
+import type { MonsterType, NegamonSettings } from "@/lib/types/negamon";
+import { createNegamonMonsterSnapshot, getNegamonMoveLearnLevel } from "@/lib/game-negamon";
+import { MonsterProfilePanel } from "@/components/game/negamon/MonsterProfilePanel";
+import { SkillLoadoutPanel } from "@/components/game/negamon/SkillLoadoutPanel";
 
 function monsterTypeLabel(
     t: (key: string, params?: Record<string, string | number>) => string,
@@ -46,25 +48,48 @@ const TYPE_BADGE: Record<string, string> = {
 export type NegamonMyProfileClientProps = {
     code: string;
     studentId: string;
+    studentName: string;
     behaviorPoints: number;
     levelConfig: LevelConfigInput;
-    gamifiedSettings: Record<string, unknown>;
+    negamonSettings?: NegamonSettings | null;
+    negamonSkills?: string[];
 };
 
 export function NegamonMyProfileClient({
     code,
     studentId,
+    studentName,
     behaviorPoints,
     levelConfig,
-    gamifiedSettings,
+    negamonSettings = null,
+    negamonSkills = [],
 }: NegamonMyProfileClientProps) {
     const { t } = useLanguage();
 
-    const negamon = useMemo(() => getNegamonSettings(gamifiedSettings), [gamifiedSettings]);
+    const negamon = useMemo(
+        () =>
+            negamonSettings &&
+            typeof negamonSettings === "object" &&
+            !Array.isArray(negamonSettings)
+                ? negamonSettings
+                : null,
+        [negamonSettings]
+    );
     const monster = useMemo(() => {
         if (!negamon?.enabled) return null;
         return getStudentMonsterState(studentId, behaviorPoints, levelConfig, negamon);
     }, [negamon, studentId, behaviorPoints, levelConfig]);
+    const monsterSnapshot = useMemo(() => {
+        if (!negamon?.enabled) return null;
+        return createNegamonMonsterSnapshot({
+            studentId,
+            studentName,
+            points: behaviorPoints,
+            levelConfig,
+            negamonSettings: negamon,
+            equippedSkillIds: negamonSkills,
+        });
+    }, [behaviorPoints, levelConfig, negamon, negamonSkills, studentId, studentName]);
 
     const rankProgress = useMemo(
         () => getNextRankProgress(behaviorPoints, levelConfig),
@@ -74,8 +99,9 @@ export function NegamonMyProfileClient({
     const species = monster ? findSpeciesById(monster.speciesId) : undefined;
     const lockedMoves = useMemo(() => {
         if (!species || !monster) return [];
-        return species.moves.filter((m) => m.learnRank > monster.rankIndex + 1);
-    }, [species, monster]);
+        const currentLevel = monsterSnapshot?.level ?? 1;
+        return species.moves.filter((m) => getNegamonMoveLearnLevel(m) > currentLevel);
+    }, [species, monster, monsterSnapshot?.level]);
 
     const profileUnlockedMoves = useMemo(() => {
         if (!monster) return [];
@@ -152,42 +178,10 @@ export function NegamonMyProfileClient({
 
             <div className="space-y-6">
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                        <div className="mx-auto flex h-36 w-36 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-violet-200 bg-slate-900/5 sm:mx-0 sm:h-40 sm:w-40">
-                            <NegamonFormIcon
-                                icon={monster.form.icon}
-                                label={monster.form.name}
-                                className="flex h-full w-full items-center justify-center"
-                                emojiClassName="text-6xl"
-                                width={256}
-                                height={256}
-                                imageClassName="h-full w-full object-cover"
-                            />
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-3">
-                            <div>
-                                <h2 className="text-xl font-black text-slate-900">{monster.form.name}</h2>
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                    <span
-                                        className={cn(
-                                            "rounded-lg border px-2 py-0.5 text-xs font-black",
-                                            TYPE_BADGE[monster.type] ?? "bg-slate-100 text-slate-700"
-                                        )}
-                                    >
-                                        {monsterTypeLabel(t, monster.type)}
-                                    </span>
-                                    {monster.type2 ? (
-                                        <span
-                                            className={cn(
-                                                "rounded-lg border px-2 py-0.5 text-xs font-black",
-                                                TYPE_BADGE[monster.type2] ?? "bg-slate-100 text-slate-700"
-                                            )}
-                                        >
-                                            {monsterTypeLabel(t, monster.type2)}
-                                        </span>
-                                    ) : null}
-                                </div>
-                            </div>
+                    {monsterSnapshot ? (
+                        <div className="space-y-4">
+                            <MonsterProfilePanel monster={monsterSnapshot} />
+                            <SkillLoadoutPanel monster={monsterSnapshot} />
                             <div className="rounded-xl border border-amber-100 bg-amber-50/80 p-3">
                                 <div className="mb-1.5 flex items-center justify-between gap-2">
                                     <span className="text-[10px] font-black uppercase tracking-wide text-amber-900">
@@ -207,7 +201,46 @@ export function NegamonMyProfileClient({
                                 <Progress value={rankProgress.progress} className="h-2" />
                             </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                            <div className="mx-auto flex h-36 w-36 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-violet-200 bg-slate-900/5 sm:mx-0 sm:h-40 sm:w-40">
+                                <NegamonFormIcon
+                                    icon={monster.form.icon}
+                                    label={monster.form.name}
+                                    className="flex h-full w-full items-center justify-center"
+                                    emojiClassName="text-6xl"
+                                    width={256}
+                                    height={256}
+                                    imageClassName="h-full w-full object-cover"
+                                />
+                            </div>
+                            <div className="min-w-0 flex-1 space-y-3">
+                                <div>
+                                    <h2 className="text-xl font-black text-slate-900">{monster.form.name}</h2>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        <span
+                                            className={cn(
+                                                "rounded-lg border px-2 py-0.5 text-xs font-black",
+                                                TYPE_BADGE[monster.type] ?? "bg-slate-100 text-slate-700"
+                                            )}
+                                        >
+                                            {monsterTypeLabel(t, monster.type)}
+                                        </span>
+                                        {monster.type2 ? (
+                                            <span
+                                                className={cn(
+                                                    "rounded-lg border px-2 py-0.5 text-xs font-black",
+                                                    TYPE_BADGE[monster.type2] ?? "bg-slate-100 text-slate-700"
+                                                )}
+                                            >
+                                                {monsterTypeLabel(t, monster.type2)}
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </section>
 
                 {species ? (

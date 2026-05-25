@@ -7,7 +7,7 @@ import {
 import { applyRuntimeHooks } from "./hook-framework";
 import { resolveRuntimeSkill } from "./move-runtime";
 import type { NegamonRuntimeTimelineEvent } from "./runtime-types";
-import { resolveRuntimeTurnEndStatuses } from "./status-runtime";
+import { resolveRuntimeTurnEndStatuses, restoreRuntimeTurnEndEnergy } from "./status-runtime";
 import type {
     NegamonBattleActionIntentV3,
     NegamonBattleCombatantV3,
@@ -308,6 +308,8 @@ function tickMoveCooldowns(state: NegamonBattleStateV3) {
 
 function resolveTurnEnd(state: NegamonBattleStateV3) {
     let rng = getStateRng(state);
+    appendTimelineEvents(state, "turn_end", restoreRuntimeTurnEndEnergy({ combatant: state.sides.player }));
+    appendTimelineEvents(state, "turn_end", restoreRuntimeTurnEndEnergy({ combatant: state.sides.opponent }));
     const playerHooks = applyRuntimeHooks({ trigger: "turn_end", combatant: state.sides.player, attacker: state.sides.opponent, rng });
     rng = playerHooks.rng;
     appendTimelineEvents(state, "turn_end", playerHooks.timeline);

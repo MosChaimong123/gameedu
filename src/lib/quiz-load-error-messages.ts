@@ -9,6 +9,7 @@ export const QUIZ_PLAIN_ERR_NOT_QUIZ_ASSIGNMENT = "quizPlainErrNotQuizAssignment
 export const QUIZ_PLAIN_ERR_ASSIGNMENT_CLOSED = "quizPlainErrAssignmentClosed"
 export const QUIZ_PLAIN_ERR_NO_QUESTIONS = "quizPlainErrNoQuestions"
 export const QUIZ_PLAIN_ERR_ALREADY_SUBMITTED = "quizPlainErrAlreadySubmitted"
+export const QUIZ_PLAIN_ERR_TIME_EXPIRED = "quizPlainErrTimeExpired"
 export const QUIZ_PLAIN_ERR_INVALID_INDEX = "quizPlainErrInvalidIndex"
 export const QUIZ_PLAIN_ERR_INTERNAL = "quizPlainErrInternal"
 
@@ -19,6 +20,7 @@ export const QUIZ_LOAD_PLAIN_ERROR_KEYS: Record<string, string> = {
     [QUIZ_PLAIN_ERR_ASSIGNMENT_CLOSED]: QUIZ_PLAIN_ERR_ASSIGNMENT_CLOSED,
     [QUIZ_PLAIN_ERR_NO_QUESTIONS]: QUIZ_PLAIN_ERR_NO_QUESTIONS,
     [QUIZ_PLAIN_ERR_ALREADY_SUBMITTED]: QUIZ_PLAIN_ERR_ALREADY_SUBMITTED,
+    [QUIZ_PLAIN_ERR_TIME_EXPIRED]: QUIZ_PLAIN_ERR_TIME_EXPIRED,
     [QUIZ_PLAIN_ERR_INVALID_INDEX]: QUIZ_PLAIN_ERR_INVALID_INDEX,
     [QUIZ_PLAIN_ERR_INTERNAL]: QUIZ_PLAIN_ERR_INTERNAL,
     "Bad Request": QUIZ_PLAIN_ERR_BAD_REQUEST,
@@ -27,6 +29,7 @@ export const QUIZ_LOAD_PLAIN_ERROR_KEYS: Record<string, string> = {
     "Assignment closed": QUIZ_PLAIN_ERR_ASSIGNMENT_CLOSED,
     "No questions": QUIZ_PLAIN_ERR_NO_QUESTIONS,
     "Already submitted": QUIZ_PLAIN_ERR_ALREADY_SUBMITTED,
+    "Quiz time expired": QUIZ_PLAIN_ERR_TIME_EXPIRED,
     "Invalid index": QUIZ_PLAIN_ERR_INVALID_INDEX,
     "Invalid question index": QUIZ_PLAIN_ERR_INVALID_INDEX,
     "Invalid option index": QUIZ_PLAIN_ERR_INVALID_INDEX,

@@ -242,4 +242,93 @@ describe("Negamon V3 battle state engine", () => {
             });
         }
     });
+
+    it("applies turn-end energy regen and respects energy-drain penalties", () => {
+        const blackSignal = makeSkill({
+            id: "voltshade-black-signal",
+            name: "Black Signal",
+            category: "status",
+            target: "enemy",
+            power: 0,
+            effects: [
+                { kind: "energy_shift", amount: -15, target: "enemy", durationTurns: 2, regenPenalty: 15 },
+                { kind: "energy_cost", value: 10 },
+            ],
+            sourceMove: {
+                id: "voltshade-black-signal",
+                name: "Black Signal",
+                type: "DARK",
+                category: "STATUS",
+                power: 0,
+                accuracy: 100,
+                learnRank: 3,
+                energyCost: 10,
+            },
+        });
+        const supportTap = makeSkill({
+            id: "lumilune-tap",
+            name: "Support Tap",
+            power: 10,
+            sourceMove: {
+                id: "lumilune-tap",
+                name: "Support Tap",
+                type: "LIGHT",
+                category: "SPECIAL",
+                power: 10,
+                accuracy: 100,
+                learnRank: 1,
+                energyCost: 6,
+            },
+        });
+
+        const player = makeBattleCombatant({
+            id: "p1",
+            side: "player",
+            name: "Voltshade",
+            energy: 30,
+            moveSkills: [blackSignal],
+        });
+        player.energyRegenPerTurn = 20;
+        const opponent = makeBattleCombatant({
+            id: "o1",
+            side: "opponent",
+            name: "Lumilune",
+            energy: 30,
+            moveSkills: [supportTap],
+        });
+        opponent.energyRegenPerTurn = 20;
+
+        const state = createBattleStateV3({ battleId: "battle-4", seed: 19, player, opponent });
+        const result = resolveNegamonBattleTurnV3({
+            state,
+            playerAction: {
+                battleId: state.battleId,
+                choiceRequestId: state.choiceRequestId,
+                stateVersion: state.stateVersion,
+                side: "player",
+                action: { kind: "move", moveSlot: 0, targetSlot: "opponent" },
+            },
+            opponentAction: {
+                battleId: state.battleId,
+                choiceRequestId: state.choiceRequestId,
+                stateVersion: state.stateVersion,
+                side: "opponent",
+                action: { kind: "move", moveSlot: 0, targetSlot: "opponent" },
+            },
+        });
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(result.state.sides.player.energy).toBe(40);
+            expect(result.state.sides.opponent.energy).toBe(10);
+            expect(result.state.events).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        phase: "turn_end",
+                        message: expect.stringContaining("energy drain penalty"),
+                    }),
+                ])
+            );
+        }
+    });
 });

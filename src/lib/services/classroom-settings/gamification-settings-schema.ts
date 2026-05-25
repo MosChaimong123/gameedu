@@ -52,6 +52,7 @@ const monsterMoveSchema = z.object({
     power: z.number(),
     accuracy: z.number(),
     learnRank: z.number(),
+    learnLevel: z.number().optional(),
     effect: statusEffectSchema.optional(),
     effectChance: z.number().optional(),
     effectDurationTurns: z.number().optional(),

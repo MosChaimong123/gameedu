@@ -69,8 +69,8 @@ vi.mock("@/lib/classroom-utils", () => ({
   getNegamonSettings: vi.fn(() => ({
     enabled: true,
     allowStudentChoice: true,
-    expPerPoint: 10,
-    expPerAttendance: 20,
+    expPerPoint: 6,
+    expPerAttendance: 18,
     species: DEFAULT_NEGAMON_SPECIES,
     studentMonsters: {
       "challenger-1": "pyronox",
@@ -86,7 +86,7 @@ vi.mock("@/lib/classroom-utils", () => ({
     unlockedMoves: [
       {
         id: studentId === "challenger-1" ? "pyronox-ember-fang" : "aerolisk-gale-cut",
-        name: studentId === "challenger-1" ? "Ember Fang" : "Gale Cut",
+        name: studentId === "challenger-1" ? "Cinder Snap" : "Gale Peck",
         type: studentId === "challenger-1" ? "FIRE" : "WIND",
         category: "PHYSICAL",
         power: studentId === "challenger-1" ? 34 : 32,
@@ -148,12 +148,12 @@ describe("Negamon lite battle session routes", () => {
         battleId: "507f1f77bcf86cd799439011",
         phase: "choosing",
       },
-      validChoices: [
+      validChoices: expect.arrayContaining([
         expect.objectContaining({
           moveId: "basic-attack",
           enabled: true,
         }),
-      ],
+      ]),
     });
     expect(mockBattleSessionCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -205,34 +205,33 @@ describe("Negamon lite battle session routes", () => {
     expect(response.body).toMatchObject({
       inventoryChanges: {
         challenger: {
-          consumedItemIds: ["item_iron_shield", "item_lucky_coin"],
+          consumedItemIds: ["held_guard_core"],
           grantedItemIds: [],
         },
       },
       itemEffects: {
         challenger: expect.arrayContaining([
-          { kind: "stat_boost", stat: "def", multiplier: 1.15 },
-          { kind: "gold_bonus", amount: 15 },
+          { kind: "damage_taken_multiplier", multiplier: 0.9 },
         ]),
       },
       state: {
         sides: {
           player: expect.objectContaining({
-            battleItemIds: ["item_iron_shield", "item_lucky_coin"],
-            rewardGoldBonus: 15,
+            battleItemIds: ["held_guard_core"],
+            rewardGoldBonus: 0,
           }),
         },
       },
     });
     expect(mockBattleSessionCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        challengerBattleItems: ["item_iron_shield", "item_lucky_coin"],
+        challengerBattleItems: ["held_guard_core"],
         defenderBattleItems: [],
       }),
     });
     expect(mockStudentUpdate).toHaveBeenCalledWith({
       where: { id: "challenger-1" },
-      data: { inventory: [] },
+      data: { inventory: ["reward_lucky_coin"] },
     });
   });
 
@@ -260,7 +259,7 @@ describe("Negamon lite battle session routes", () => {
             moves: [
               {
                 id: "pyronox-ember-fang",
-                name: "Ember Fang",
+                name: "Cinder Snap",
                 type: "FIRE",
                 category: "PHYSICAL",
                 power: 220,
@@ -387,7 +386,7 @@ describe("Negamon lite battle session routes", () => {
         amount: 30,
         balanceBefore: 100,
         balanceAfter: 130,
-        sourceRefId: "session-1",
+        sourceRefId: null,
         idempotencyKey: "battle:session-1:negamon-lite:reward",
         metadata: expect.objectContaining({
           mode: "negamon_lite",
@@ -434,7 +433,7 @@ describe("Negamon lite battle session routes", () => {
               moves: [
                 {
                   id: "pyronox-ember-fang",
-                  name: "Ember Fang",
+                  name: "Cinder Snap",
                   type: "FIRE",
                   category: "PHYSICAL",
                   power: 220,
@@ -508,7 +507,7 @@ describe("Negamon lite battle session routes", () => {
           rewardIdempotencyKey: "game:negamon:session-1:challenger-1:battle-finalize",
           reward: {
             gold: 30,
-            exp: 82,
+            exp: 49,
             grantedItemIds: [],
             levelUps: [],
             unlockedSkillIds: [],
@@ -516,7 +515,7 @@ describe("Negamon lite battle session routes", () => {
           },
           progression: {
             studentId: "challenger-1",
-            expDelta: 82,
+            expDelta: 49,
             behaviorPointDelta: 9,
             unlockedSkillIds: [],
             nextBehaviorPoints: 19,
@@ -577,8 +576,8 @@ describe("Negamon lite battle session routes", () => {
         winnerId: "challenger-1",
         goldReward: 30,
         rewardIdempotencyKey: "game:negamon:session-1:challenger-1:battle-finalize",
-        reward: { gold: 30, exp: 82 },
-        progression: { expDelta: 82, behaviorPointDelta: 9 },
+        reward: { gold: 30, exp: 49 },
+        progression: { expDelta: 49, behaviorPointDelta: 9 },
       },
       state: { phase: "ended", winner: "player" },
       validChoices: [],
@@ -693,7 +692,7 @@ describe("Negamon lite battle session routes", () => {
               moves: [
                 {
                   id: "pyronox-ember-fang",
-                  name: "Ember Fang",
+                  name: "Cinder Snap",
                   type: "FIRE",
                   category: "PHYSICAL",
                   power: 80,

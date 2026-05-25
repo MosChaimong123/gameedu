@@ -13,6 +13,17 @@ const mockClassroomUpdate = vi.fn();
 const mockUserFindUnique = vi.fn();
 const mockLogAuditEvent = vi.fn();
 
+const expectedSanitizedEnabledNegamon = {
+  gamifiedSettings: {
+    negamon: expect.objectContaining({
+      enabled: true,
+      species: expect.arrayContaining([
+        expect.objectContaining({ id: DEFAULT_NEGAMON_SPECIES[0].id }),
+      ]),
+    }),
+  },
+};
+
 vi.mock("@/auth", () => ({
   auth: mockAuth,
 }));
@@ -58,9 +69,7 @@ describe("classroom gamification settings route", () => {
     const response = await GET({} as Request, makeRouteParams({ id: "class-1" }));
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      gamifiedSettings: { negamon: { enabled: true } },
-    });
+    await expect(response.json()).resolves.toMatchObject(expectedSanitizedEnabledNegamon);
   });
 
   it("rejects non-object payloads", async () => {
@@ -108,15 +117,13 @@ describe("classroom gamification settings route", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      gamifiedSettings: { negamon: { enabled: true } },
-    });
+    await expect(response.json()).resolves.toMatchObject(expectedSanitizedEnabledNegamon);
     expect(mockClassroomUpdate).toHaveBeenCalledWith({
       where: {
         id: "class-1",
       },
       data: {
-        gamifiedSettings: { negamon: { enabled: true } },
+        gamifiedSettings: expectedSanitizedEnabledNegamon.gamifiedSettings,
       },
       select: {
         gamifiedSettings: true,
@@ -138,9 +145,7 @@ describe("classroom gamification settings route", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      gamifiedSettings: { negamon: { enabled: true } },
-    });
+    await expect(response.json()).resolves.toMatchObject(expectedSanitizedEnabledNegamon);
     expect(mockClassroomFindUnique).toHaveBeenCalledWith({
       where: { id: "class-1" },
       select: { teacherId: true, gamifiedSettings: true },
@@ -151,7 +156,7 @@ describe("classroom gamification settings route", () => {
         teacherId: "teacher-1",
       },
       data: {
-        gamifiedSettings: { negamon: { enabled: true } },
+        gamifiedSettings: expectedSanitizedEnabledNegamon.gamifiedSettings,
       },
       select: {
         gamifiedSettings: true,
@@ -173,16 +178,14 @@ describe("classroom gamification settings route", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      gamifiedSettings: { negamon: { enabled: true } },
-    });
+    await expect(response.json()).resolves.toMatchObject(expectedSanitizedEnabledNegamon);
     expect(mockClassroomUpdate).toHaveBeenCalledWith({
       where: {
         id: "class-1",
         teacherId: "teacher-1",
       },
       data: {
-        gamifiedSettings: { negamon: { enabled: true } },
+        gamifiedSettings: expectedSanitizedEnabledNegamon.gamifiedSettings,
       },
       select: {
         gamifiedSettings: true,

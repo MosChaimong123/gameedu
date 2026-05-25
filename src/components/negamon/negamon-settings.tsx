@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 import { normalizeGamificationSettings } from "@/lib/services/classroom-settings/gamification-settings-schema";
+import { getNegamonMoveLearnLevel } from "@/lib/game-negamon";
 
 const UNASSIGNED_VALUE = "__negamon_unassigned__";
 
@@ -81,8 +82,8 @@ export function NegamonSettingsDialog({
 
     const [enabled, setEnabled] = useState(currentSettings?.enabled ?? false);
     const [allowStudentChoice, setAllowStudentChoice] = useState(currentSettings?.allowStudentChoice ?? true);
-    const [expPerPoint, setExpPerPoint] = useState(currentSettings?.expPerPoint ?? 10);
-    const [expPerAttendance, setExpPerAttendance] = useState(currentSettings?.expPerAttendance ?? 20);
+    const [expPerPoint, setExpPerPoint] = useState(currentSettings?.expPerPoint ?? 6);
+    const [expPerAttendance, setExpPerAttendance] = useState(currentSettings?.expPerAttendance ?? 18);
     const currentPlan =
         status === "loading"
             ? null
@@ -141,8 +142,8 @@ export function NegamonSettingsDialog({
         const s = currentSettings;
         setEnabled(s?.enabled ?? false);
         setAllowStudentChoice(s?.allowStudentChoice ?? true);
-        setExpPerPoint(s?.expPerPoint ?? 10);
-        setExpPerAttendance(s?.expPerAttendance ?? 20);
+        setExpPerPoint(s?.expPerPoint ?? 6);
+        setExpPerAttendance(s?.expPerAttendance ?? 18);
         setSelectedSpeciesIds(
             normalizeSelectedSpeciesIdsForPlan(
                 s?.species?.map((x) => x.id),
@@ -637,10 +638,10 @@ export function NegamonSettingsDialog({
                                                     {isExpanded && (
                                                         <div className="divide-y divide-slate-100 bg-white">
                                                             {species.moves
-                                                                .sort((a, b) => a.learnRank - b.learnRank)
+                                                                .sort((a, b) => getNegamonMoveLearnLevel(a) - getNegamonMoveLearnLevel(b))
                                                                 .map((move) => {
                                                                     const isDisabled = disabledMoves.includes(move.id);
-                                                                    const moveName = t(`move_${move.id.replace(/-/g, "_")}` as Parameters<typeof t>[0]) || move.name;
+                                                                    const moveName = move.name;
                                                                     return (
                                                                         <button
                                                                             key={move.id}
@@ -666,7 +667,11 @@ export function NegamonSettingsDialog({
                                                                                     {moveName}
                                                                                 </p>
                                                                                 <div className="flex items-center gap-2 mt-1">
-                                                                                    <span className="text-[9px] font-bold text-slate-400 uppercase">Rank {move.learnRank}</span>
+                                                                                    <span className="text-[9px] font-bold text-slate-400 uppercase">
+                                                                                        {t("negamonInfoLearnLevelShort", {
+                                                                                            level: getNegamonMoveLearnLevel(move),
+                                                                                        })}
+                                                                                    </span>
                                                                                     <Badge className={cn("text-[8px] font-black px-1.5 py-0 border uppercase leading-tight", TYPE_COLORS[move.type] ?? "bg-slate-50 text-slate-500")}>
                                                                                         {t(`monsterType_${move.type as MonsterType}`).replace(/.*\s/, "")}
                                                                                     </Badge>

@@ -3,6 +3,12 @@ import {
     resolveNegamonAssignedSpeciesId,
     resolveNegamonRuntimeSpeciesCatalog,
 } from "@/lib/negamon-compat";
+import {
+    calculateNegamonExpProgress,
+    calculateNegamonStatsForLevel,
+    getNegamonFormIndexFromLevel,
+} from "@/lib/game-negamon/core/monster-growth";
+import { getNegamonMoveLearnLevel } from "@/lib/game-negamon/core/skills";
 
 export type LevelConfig = {
     [key: string]: number;
@@ -351,38 +357,46 @@ export function getStudentMonsterState(
     if (!species) return null;
 
     const rankIndex = getRankIndex(points, levelConfig);
-    const form = species.forms[rankIndex] ?? species.forms[0];
-    const stats = calcMonsterStats(species.baseStats, rankIndex);
-    const unlockedMoves = getUnlockedMoves(species, rankIndex, negamon.disabledMoves);
+    const progress = calculateNegamonExpProgress({ points, rankIndex });
+    const formIndex = getNegamonFormIndexFromLevel(progress.level);
+    const form = species.forms[formIndex] ?? species.forms[0];
+    const stats = calcMonsterStats(species.baseStats, rankIndex, species.battleRole, progress.level);
+    const unlockedMoves = getUnlockedMoves(species, rankIndex, negamon.disabledMoves, progress.level);
     const type2 = species.type2;
 
     return { speciesId, speciesName: species.name, type: species.type, type2, form, stats, unlockedMoves, rankIndex, ability: species.ability };
 }
 
 /** คำนวณ Stats จาก baseStats + rankIndex (0-5) */
-export function calcMonsterStats(baseStats: MonsterBaseStats, rankIndex: number): MonsterStats {
-    const level = rankIndex + 1; // 1-6
-    return {
-        hp:  Math.floor(baseStats.hp  * (1 + level * 0.30)),
-        atk: Math.floor(baseStats.atk * (1 + level * 0.25)),
-        def: Math.floor(baseStats.def * (1 + level * 0.25)),
-        spd: Math.floor(baseStats.spd * (1 + level * 0.20)),
-    };
+export function calcMonsterStats(
+    baseStats: MonsterBaseStats,
+    rankIndex: number,
+    battleRole?: MonsterSpecies["battleRole"],
+    level?: number
+): MonsterStats {
+    const resolvedLevel =
+        typeof level === "number"
+            ? level
+            : calculateNegamonExpProgress({ points: 0, rankIndex }).level;
+    return calculateNegamonStatsForLevel(baseStats, resolvedLevel, battleRole);
 }
 
 /**
  * สกิลจาก `species.moves` เท่านั้น — ไม่รวมท่าตีธรรมดา (ระบบฝังใน battle/UI)
- * rankIndex 0–1: ยังไม่มีสกิล; 2+ ปลดตาม learnRank (สกิลใน catalog ใช้ learnRank 3–6)
+ * สกิลปลดตาม canonical learnLevel บนโค้งเลเวล 1-60 โดยยัง fallback ไปหา learnRank ได้
  */
 export function getUnlockedMoves(
     species: MonsterSpecies,
     rankIndex: number,
-    disabledMoves: string[] = []
+    disabledMoves: string[] = [],
+    level?: number
 ): MonsterMove[] {
     const disabled = new Set(disabledMoves);
-    if (rankIndex < 2) return [];
-    const threshold = rankIndex + 1;
-    return species.moves.filter((m) => m.learnRank <= threshold && !disabled.has(m.id));
+    const resolvedLevel =
+        typeof level === "number"
+            ? level
+            : calculateNegamonExpProgress({ points: 0, rankIndex }).level;
+    return species.moves.filter((move) => getNegamonMoveLearnLevel(move) <= resolvedLevel && !disabled.has(move.id));
 }
 
 /** Type multiplier จาก type chart */

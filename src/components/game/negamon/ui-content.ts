@@ -31,6 +31,26 @@ export function formatNegamonElementType(type: string, t: NegamonUiTranslateFn):
     return tr(t, key, undefined, type);
 }
 
+export function formatNegamonSkillRoleTag(roleTag: string | null | undefined, t: NegamonUiTranslateFn): string {
+    if (!roleTag) return tr(t, "negamonSkillRole_unknown", undefined, "Skill");
+    return tr(t, `negamonSkillRole_${roleTag}`, undefined, roleTag);
+}
+
+export function formatNegamonSkillTarget(target: string, t: NegamonUiTranslateFn): string {
+    return tr(t, `negamonSkillTarget_${target}`, undefined, target);
+}
+
+export function formatNegamonSkillFamily(effectFamily: string, t: NegamonUiTranslateFn): string {
+    return tr(t, `negamonSkillFamily_${effectFamily}`, undefined, effectFamily.replaceAll("_", " "));
+}
+
+export function formatNegamonSkillPriority(priority: number, t: NegamonUiTranslateFn): string | null {
+    if (!priority) return null;
+    return tr(t, "negamonSkillPriority", {
+        value: priority > 0 ? `+${priority}` : priority,
+    });
+}
+
 export function formatNegamonSkillEffect(skill: NegamonSkillDefinition, t: NegamonUiTranslateFn): string {
     const parts = skill.effects
         .filter((effect) => effect.kind !== "energy_cost")
@@ -49,14 +69,24 @@ export function formatNegamonSkillEffect(skill: NegamonSkillDefinition, t: Negam
             }
             if (effect.kind === "stat_stage") {
                 const sign = effect.stages > 0 ? "+" : "";
+                const resolvedTarget = effect.target ?? (effect.stages > 0 ? "self" : "enemy");
                 const targetKey =
-                    (effect.target ?? (effect.stages > 0 ? "self" : "enemy")) === "self"
+                    resolvedTarget === "self"
                         ? "negamonSkillEffectTargetSelf"
-                        : "negamonSkillEffectTargetEnemy";
+                        : resolvedTarget === "allEnemies"
+                          ? "negamonSkillEffectTargetAllEnemies"
+                          : "negamonSkillEffectTargetEnemy";
                 return tr(t, "negamonSkillEffectStatStage", {
                     target: tr(t, targetKey),
                     stat: effect.stat,
                     stages: `${sign}${effect.stages}`,
+                });
+            }
+            if (effect.kind === "energy_shift") {
+                const targetKey = effect.target === "self" ? "negamonSkillEffectTargetSelf" : "negamonSkillEffectTargetEnemy";
+                return tr(t, "negamonSkillEffectEnergyShift", {
+                    target: tr(t, targetKey),
+                    amount: Math.abs(effect.amount),
                 });
             }
             if (effect.kind === "drain") {
@@ -75,9 +105,6 @@ export function formatNegamonSkillRequirement(skill: NegamonSkillDefinition, t: 
     const requirements = [];
     if (skill.unlock.level != null) {
         requirements.push(tr(t, "negamonSkillLevelReq", { level: skill.unlock.level }));
-    }
-    if (skill.unlock.rankIndex != null) {
-        requirements.push(tr(t, "negamonSkillRankReq", { rank: skill.unlock.rankIndex + 1 }));
     }
     if (skill.unlock.itemId) {
         const itemKey = `shopItem_${skill.unlock.itemId}_name`;
@@ -158,7 +185,10 @@ export function summarizeNegamonReward(reward: GameRewardResult): string[] {
     if (reward.gold > 0) lines.push(`Gold +${reward.gold}`);
     if (reward.exp > 0) lines.push(`EXP +${reward.exp}`);
     if (reward.grantedItemIds.length > 0) lines.push(`Items ${reward.grantedItemIds.length}`);
-    if (reward.levelUps.length > 0) lines.push(`Level ups ${reward.levelUps.length}`);
+    if (reward.levelUps.length > 0) {
+        const lastLevel = reward.levelUps[reward.levelUps.length - 1]?.toLevel;
+        lines.push(lastLevel ? `Level ${lastLevel}` : `Level ups ${reward.levelUps.length}`);
+    }
     if (reward.unlockedSkillIds.length > 0) lines.push(`Skills ${reward.unlockedSkillIds.length}`);
     if (reward.blockedReason) lines.push(`Blocked: ${reward.blockedReason}`);
     return lines;

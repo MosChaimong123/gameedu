@@ -2,7 +2,7 @@ import { isNegamonBasicAttackMoveId } from "@/lib/negamon-basic-move";
 import type { MonsterSpecies } from "@/lib/types/negamon";
 import type { NegamonSkillDefinition } from "./skills";
 import { getNegamonSpeciesSkillCatalog } from "./skills";
-import { normalizeNegamonRankIndex } from "./monster-growth";
+import { getNegamonLevelFromRank, normalizeNegamonLevel, normalizeNegamonRankIndex } from "./monster-growth";
 
 export const NEGAMON_SKILL_LOADOUT_MAX = 4;
 
@@ -15,15 +15,20 @@ export type NegamonSkillLoadoutValidation = {
 export function getUnlockedNegamonSkillDefinitions(input: {
     species: MonsterSpecies;
     rankIndex: number;
+    level?: number;
     disabledSkillIds?: string[];
     includeBasic?: boolean;
 }): NegamonSkillDefinition[] {
     const rankIndex = normalizeNegamonRankIndex(input.rankIndex);
+    const level =
+        typeof input.level === "number"
+            ? normalizeNegamonLevel(input.level)
+            : getNegamonLevelFromRank(rankIndex);
     const disabled = new Set(input.disabledSkillIds ?? []);
     return getNegamonSpeciesSkillCatalog(input.species, { includeBasic: input.includeBasic }).filter((skill) => {
         if (disabled.has(skill.id)) return false;
         if (isNegamonBasicAttackMoveId(skill.id)) return true;
-        return (skill.unlock.rankIndex ?? 0) <= rankIndex;
+        return (skill.unlock.level ?? getNegamonLevelFromRank((skill.unlock.rankIndex ?? 0))) <= level;
     });
 }
 

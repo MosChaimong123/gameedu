@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": "20.x"
   },
   "scripts": {
     "predev": "tsc --project tsconfig.server.json",
@@ -119,6 +119,7 @@
     "mongodb": "^7.1.0",
     "next": "^16.2.4",
     "next-auth": "^5.0.0-beta.30",
+    "nodemailer": "^7.0.7",
     "papaparse": "^5.5.3",
     "pdf-parse": "^1.1.1",
     "pdfjs-dist": "^5.7.284",

@@ -1,8 +1,8 @@
 import { getNegamonSettingsFromGamification } from "@/lib/services/classroom-settings/gamification-settings";
 import {
-    resolveNegamonAssignedSpeciesId,
-    resolveNegamonRuntimeSpeciesCatalog,
-} from "@/lib/negamon-compat";
+    getCanonicalNegamonSpeciesCatalog,
+    resolveCanonicalNegamonAssignment,
+} from "@/lib/negamon-catalog";
 import {
     calculateNegamonExpProgress,
     calculateNegamonStatsForLevel,
@@ -346,8 +346,8 @@ export function getStudentMonsterState(
     levelConfig: LevelConfigInput,
     negamon: NegamonSettings
 ): StudentMonsterState | null {
-    const speciesCatalog = resolveNegamonRuntimeSpeciesCatalog(negamon.species);
-    const speciesId = resolveNegamonAssignedSpeciesId({
+    const speciesCatalog = getCanonicalNegamonSpeciesCatalog(negamon.species);
+    const speciesId = resolveCanonicalNegamonAssignment({
         rawSpeciesId: negamon.studentMonsters?.[studentId],
         allowStudentChoice: negamon.allowStudentChoice,
         speciesCatalog,
@@ -494,7 +494,7 @@ export function getNegamonSettings(gamifiedSettings: unknown): NegamonSettings |
  * ถ้า id ตรงกับชุดในโค้ด ให้ใช้ข้อมูลจากโค้ดเพื่อให้บาลานซ์อัปเดตตามเวอร์ชันเกม
  */
 export function resolveNegamonSpeciesCatalog(negamon: NegamonSettings | null): MonsterSpecies[] {
-    return resolveNegamonRuntimeSpeciesCatalog(negamon?.species);
+    return getCanonicalNegamonSpeciesCatalog(negamon?.species);
 }
 
 /** Format large numbers with abbreviations (K, M, G, T) */

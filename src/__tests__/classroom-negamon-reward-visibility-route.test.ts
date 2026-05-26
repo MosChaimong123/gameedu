@@ -184,8 +184,11 @@ describe("classroom Negamon reward visibility route", () => {
         winnerId: "student-1",
         goldReward: 0,
         result: {
-          mode: "negamon_lite",
+          mode: "negamon_battle_v4",
+          engineVersion: "negamon_v4_showdown_adapter",
           status: "finished",
+          choiceRequestId: "session-1:v4:2:3",
+          state: {},
           winnerId: "student-1",
           goldReward: 0,
           rewardBlockedReason: "daily_cap",

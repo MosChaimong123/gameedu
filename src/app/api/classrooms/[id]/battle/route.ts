@@ -1,7 +1,7 @@
 /**
  * POST /api/classrooms/[id]/battle
  * - legacy auto-battle is retired.
- * Interactive Negamon V2 battles are served by /battle/lite/*.
+ * Interactive Negamon battles are served by /battle/v4/*.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -18,7 +18,7 @@ export async function POST(
     return NextResponse.json(
         {
             error: "NEGAMON_AUTO_BATTLE_RETIRED",
-            replacement: "/api/classrooms/[id]/battle/lite/start",
+            replacement: "/api/classrooms/[id]/battle/v4/start",
         },
         { status: 410 }
     );

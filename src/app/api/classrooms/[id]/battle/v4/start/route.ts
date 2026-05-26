@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { startNegamonBattle } from "@/lib/game-negamon";
+import { startNegamonBattleV4 } from "@/lib/game-negamon/server/battle-v4";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id: classId } = await params;
@@ -9,7 +9,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         studentCode?: string;
     };
 
-    const result = await startNegamonBattle({
+    const result = await startNegamonBattleV4({
         classId,
         challengerId: body.challengerId?.trim() ?? "",
         defenderId: body.defenderId?.trim() ?? "",

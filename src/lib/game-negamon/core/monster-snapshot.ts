@@ -1,9 +1,9 @@
 import { createGameMonsterSnapshot } from "@/lib/game-core";
 import type { GameMonsterSnapshot } from "@/lib/game-core";
 import {
-    resolveNegamonAssignedSpeciesId,
-    resolveNegamonRuntimeSpeciesCatalog,
-} from "@/lib/negamon-compat";
+    getCanonicalNegamonSpeciesCatalog,
+    resolveCanonicalNegamonAssignment,
+} from "@/lib/negamon-catalog";
 import { buildBasicAttackMove } from "@/lib/negamon-basic-move";
 import type { LevelConfigInput, RankEntry } from "@/lib/classroom-utils";
 import type {
@@ -182,7 +182,7 @@ export function createNegamonMonsterSnapshotFromState(input: {
     studentId: string;
     studentName?: string | null;
     monster: StudentMonsterState;
-    species?: MonsterSpecies;
+    species: MonsterSpecies;
     speciesBaseStats?: MonsterStats;
     disabledSkillIds?: string[];
     points?: number;
@@ -196,31 +196,26 @@ export function createNegamonMonsterSnapshotFromState(input: {
         rankIndex,
         expPerPoint: input.expPerPoint,
     });
-    const resolvedBaseStats = input.speciesBaseStats ?? input.species?.baseStats ?? input.monster.stats;
-    const resolvedBattleStats = input.species
-        ? calculateNegamonStatsForLevel(input.species.baseStats, progress.level, input.species.battleRole)
-        : input.monster.stats;
+    const resolvedBaseStats = input.speciesBaseStats ?? input.species.baseStats;
+    const resolvedBattleStats = calculateNegamonStatsForLevel(
+        input.species.baseStats,
+        progress.level,
+        input.species.battleRole
+    );
     const energyProfile = getEnergyProfileForSpecies(input.monster.speciesId);
     const elementTypes = getNegamonElementTypes(input.monster);
     const basicMove = buildBasicAttackMove();
-    const skillCatalog = input.species
-        ? getUnlockedNegamonSkillDefinitions({
-          species: input.species,
-          rankIndex,
-          level: progress.level,
-          includeBasic: true,
-          disabledSkillIds: input.disabledSkillIds,
-      })
-        : [basicMove, ...input.monster.unlockedMoves].map((move) =>
-              createNegamonSkillDefinition(move, input.monster.speciesId)
-          );
-    const fullSkillCatalog = input.species
-        ? getNegamonSpeciesSkillCatalog(input.species, { includeBasic: true })
-        : fallbackSkillCatalogFromMoves(input.monster, basicMove);
-    const fallbackSkillCatalog =
-        skillCatalog.length > 0
-            ? skillCatalog
-            : [createNegamonSkillDefinition(basicMove, input.monster.speciesId)];
+    const unlockedSkillCatalog = getUnlockedNegamonSkillDefinitions({
+        species: input.species,
+        rankIndex,
+        level: progress.level,
+        includeBasic: true,
+        disabledSkillIds: input.disabledSkillIds,
+    });
+    const fullSkillCatalog = getNegamonSpeciesSkillCatalog(input.species, { includeBasic: true });
+    const skillCatalog = unlockedSkillCatalog.length > 0
+        ? unlockedSkillCatalog
+        : [createNegamonSkillDefinition(basicMove, input.monster.speciesId)];
     const nextSkill = fullSkillCatalog.find(
         (skill) =>
             skill.id !== basicMove.id &&
@@ -228,9 +223,9 @@ export function createNegamonMonsterSnapshotFromState(input: {
     );
     const loadout = validateNegamonSkillLoadout({
         requestedSkillIds: input.equippedSkillIds,
-        unlockedSkills: fallbackSkillCatalog,
+        unlockedSkills: skillCatalog,
     });
-    const unlockedMoves = fallbackSkillCatalog
+    const unlockedMoves = skillCatalog
         .map((skill) => skill.sourceMove)
         .filter((move) => move.id !== basicMove.id);
     const gameSnapshot = createGameMonsterSnapshot({
@@ -290,17 +285,17 @@ export function createNegamonMonsterSnapshotFromState(input: {
                   rankIndex: nextSkill.unlock.rankIndex ?? 0,
               }
             : null,
-        unlockedSkillIds: fallbackSkillCatalog.map((skill) => skill.id),
+        unlockedSkillIds: skillCatalog.map((skill) => skill.id),
         equippedSkillIds: loadout.normalizedSkillIds,
         equippedItemIds: input.equippedItemIds ?? [],
-        skillCatalog: fallbackSkillCatalog,
+        skillCatalog,
         unlockedMoves,
     };
 }
 
 export function createNegamonMonsterSnapshot(input: CreateNegamonMonsterSnapshotInput): NegamonMonsterSnapshot | null {
-    const speciesCatalog = resolveNegamonRuntimeSpeciesCatalog(input.negamonSettings.species);
-    const speciesId = resolveNegamonAssignedSpeciesId({
+    const speciesCatalog = getCanonicalNegamonSpeciesCatalog(input.negamonSettings.species);
+    const speciesId = resolveCanonicalNegamonAssignment({
         rawSpeciesId: input.negamonSettings.studentMonsters?.[input.studentId],
         allowStudentChoice: input.negamonSettings.allowStudentChoice,
         speciesCatalog,
@@ -327,13 +322,4 @@ export function createNegamonMonsterSnapshot(input: CreateNegamonMonsterSnapshot
         equippedSkillIds: input.equippedSkillIds,
         equippedItemIds: input.equippedItemIds,
     });
-}
-
-function fallbackSkillCatalogFromMoves(
-    monster: StudentMonsterState,
-    basicMove: MonsterMove
-): NegamonSkillDefinition[] {
-    return [basicMove, ...monster.unlockedMoves].map((move) =>
-        createNegamonSkillDefinition(move, monster.speciesId)
-    );
 }

@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { normalizeNegamonSettingsForRuntime } from "@/lib/negamon-compat";
+import { normalizeNegamonSettingsToCanonical } from "@/lib/negamon-catalog";
 import { toPrismaJson } from "@/lib/prisma-json";
 import type { NegamonSettings } from "@/lib/types/negamon";
 import {
@@ -41,7 +41,7 @@ export function getNegamonSettingsFromGamification(value: unknown): NegamonSetti
     if (!parsed.success) {
         return null;
     }
-    return normalizeNegamonSettingsForRuntime(parsed.data as NegamonSettings);
+    return normalizeNegamonSettingsToCanonical(parsed.data as NegamonSettings);
 }
 
 export function sanitizeGamificationSettingsNegamon(value: unknown): Record<string, unknown> {
@@ -51,7 +51,7 @@ export function sanitizeGamificationSettingsNegamon(value: unknown): Record<stri
         return settings;
     }
 
-    const negamon = normalizeNegamonSettingsForRuntime(parsed.data as NegamonSettings);
+    const negamon = normalizeNegamonSettingsToCanonical(parsed.data as NegamonSettings);
     if (!negamon) {
         return settings;
     }

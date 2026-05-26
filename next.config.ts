@@ -16,6 +16,7 @@ function resolveR2ImageRemotePatterns(): RemotePattern[] {
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+  serverExternalPackages: ["pokemon-showdown"],
   images: {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',

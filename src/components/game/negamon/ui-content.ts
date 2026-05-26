@@ -1,6 +1,5 @@
 import type { GameItemEffect, GameRewardResult } from "@/lib/game-core";
-import type { NegamonBattleEventV3, NegamonSkillDefinition } from "@/lib/game-negamon";
-import type { NegamonLiteBattleEvent, NegamonLiteStatusTimelineEvent } from "@/lib/negamon-lite";
+import type { NegamonBattleEventV3, NegamonBattleEventV4, NegamonSkillDefinition } from "@/lib/game-negamon";
 
 export type NegamonUiTranslateFn = (
     key: string,
@@ -161,7 +160,24 @@ export function formatNegamonTraitTiming(appliesAt: string, t: NegamonUiTranslat
     return tr(t, "negamonTraitTimingLabel", { timing });
 }
 
-export function formatNegamonStatusTimeline(event: NegamonLiteStatusTimelineEvent): string {
+type NegamonStatusTimelineEvent = {
+    status: string;
+    action: "applied" | "blocked" | "ticked" | "expired" | "skipped" | "shielded";
+    message: string;
+    damage?: number;
+    preventedDamage?: number;
+};
+
+type NegamonBattleEventWithStatusTimeline = {
+    statusTimeline?: NegamonStatusTimelineEvent[];
+    missed?: boolean;
+    damage?: number;
+    healing?: number;
+    critical?: boolean;
+    message: string;
+};
+
+export function formatNegamonStatusTimeline(event: NegamonStatusTimelineEvent): string {
     if (event.action === "applied") return `${event.status} applied`;
     if (event.action === "blocked") return `${event.status} blocked`;
     if (event.action === "ticked") return `${event.status} dealt ${event.damage ?? 0} damage`;
@@ -171,7 +187,9 @@ export function formatNegamonStatusTimeline(event: NegamonLiteStatusTimelineEven
     return event.message;
 }
 
-export function summarizeNegamonBattleEvent(event: NegamonLiteBattleEvent | NegamonBattleEventV3): string {
+export function summarizeNegamonBattleEvent(
+    event: NegamonBattleEventWithStatusTimeline | NegamonBattleEventV3 | NegamonBattleEventV4
+): string {
     const statusLine = "statusTimeline" in event ? event.statusTimeline?.map(formatNegamonStatusTimeline).join(" / ") : null;
     if (statusLine) return statusLine;
     if ("missed" in event && event.missed) return "Move missed";

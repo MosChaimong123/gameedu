@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authorizeBattleRead } from "@/lib/services/battle-read-auth";
-import { parseNegamonLiteSessionResult } from "@/lib/negamon-lite/session";
 import {
-    createNegamonBattleSessionViewV3,
-    createNegamonLiteSessionView,
-    getNegamonLiteViewerSide,
-    parseNegamonBattleSessionResultV3,
-} from "@/lib/game-negamon";
+    createNegamonBattleSessionViewV4,
+    getNegamonBattleViewerSideV4,
+    parseNegamonBattleSessionResultV4,
+} from "@/lib/game-negamon/core/session-v4";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id: classId } = await params;
@@ -40,7 +38,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             result: true,
         },
     });
-
     if (!session) {
         return NextResponse.json({ error: "SESSION_NOT_FOUND" }, { status: 404 });
     }
@@ -53,26 +50,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     }
 
-    const viewerSide = getNegamonLiteViewerSide(
+    const parsed = parseNegamonBattleSessionResultV4(session.result);
+    if (!parsed) {
+        return NextResponse.json({ error: "INVALID_SESSION_STATE" }, { status: 409 });
+    }
+
+    const viewerSide = getNegamonBattleViewerSideV4(
         { challengerId: session.challengerId, defenderId: session.defenderId },
         auth.scope === "student" ? auth.studentId : studentId
     );
-    const v3Result = parseNegamonBattleSessionResultV3(session.result);
-    if (v3Result) {
-        const view = createNegamonBattleSessionViewV3(session, { viewerSide });
-        if (!view) {
-            return NextResponse.json({ error: "INVALID_SESSION_STATE" }, { status: 409 });
-        }
-        return NextResponse.json(view);
-    }
-
-    const liteResult = parseNegamonLiteSessionResult(session.result);
-    if (!liteResult) {
-        return NextResponse.json({ error: "INVALID_SESSION_STATE" }, { status: 409 });
-    }
-    const view = createNegamonLiteSessionView(session, { viewerSide });
+    const view = createNegamonBattleSessionViewV4(session, { viewerSide });
     if (!view) {
         return NextResponse.json({ error: "INVALID_SESSION_STATE" }, { status: 409 });
     }
+
     return NextResponse.json(view);
 }

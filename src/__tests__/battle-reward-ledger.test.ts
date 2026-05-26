@@ -17,7 +17,7 @@ vi.mock("@/lib/services/battle-read-auth", () => ({
 }));
 
 describe("legacy auto battle route", () => {
-  it("retires POST auto battle in favor of Negamon Lite V2", async () => {
+  it("retires POST auto battle in favor of Negamon V4", async () => {
     const { POST } = await import("@/app/api/classrooms/[id]/battle/route");
     const response = await POST({} as never, {
       params: Promise.resolve({ id: "class-1" }),
@@ -26,7 +26,7 @@ describe("legacy auto battle route", () => {
     expect(response.status).toBe(410);
     await expect(response.json()).resolves.toEqual({
       error: "NEGAMON_AUTO_BATTLE_RETIRED",
-      replacement: "/api/classrooms/[id]/battle/lite/start",
+      replacement: "/api/classrooms/[id]/battle/v4/start",
     });
   });
 });

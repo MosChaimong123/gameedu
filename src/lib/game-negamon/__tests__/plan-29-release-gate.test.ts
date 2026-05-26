@@ -4,7 +4,6 @@ import {
     calculateNegamonStatsForLevel,
     createNegamonSkillDefinition,
     getUnlockedNegamonSkillDefinitions,
-    simulateNegamonBalanceMatchup,
 } from "@/lib/game-negamon";
 
 const speciesById = new Map(DEFAULT_NEGAMON_SPECIES.map((species) => [species.id, species]));
@@ -116,27 +115,15 @@ describe("Plan 29 release gate", () => {
         expect(midGame.tidemaw.def).toBeGreaterThan(midGame.pyronox.def);
     });
 
-    it("keeps support and control matchups proactive inside the balance window", () => {
-        const lumiluneVsPyronox = simulateNegamonBalanceMatchup({
-            player: requireSpecies("lumilune"),
-            opponent: requireSpecies("pyronox"),
-            rankIndex: 5,
-            maxTurns: 16,
-        });
-        const voltshadeVsTidemaw = simulateNegamonBalanceMatchup({
-            player: requireSpecies("voltshade"),
-            opponent: requireSpecies("tidemaw"),
-            rankIndex: 5,
-            maxTurns: 16,
-        });
+    it("keeps support and control movepools proactive inside the canonical unlock curve", () => {
+        const lumilune = requireSpecies("lumilune");
+        const voltshade = requireSpecies("voltshade");
 
-        expect(lumiluneVsPyronox.rejectedChoices).toBe(0);
-        expect(voltshadeVsTidemaw.rejectedChoices).toBe(0);
-        expect(lumiluneVsPyronox.turns).toBeGreaterThanOrEqual(3);
-        expect(voltshadeVsTidemaw.turns).toBeGreaterThanOrEqual(3);
-        expect(lumiluneVsPyronox.maxSingleHitPercent).toBeLessThanOrEqual(0.55);
-        expect(voltshadeVsTidemaw.maxSingleHitPercent).toBeLessThanOrEqual(0.55);
-        expect(1 - lumiluneVsPyronox.opponentRemainingHpPercent).toBeGreaterThanOrEqual(0.12);
-        expect(1 - voltshadeVsTidemaw.opponentRemainingHpPercent).toBeGreaterThanOrEqual(0.12);
+        expect(lumilune.moves.some((move) => move.category === "HEAL")).toBe(true);
+        expect(lumilune.moves.some((move) => move.effectFamily === "TEMPO_CONTROL")).toBe(true);
+        expect(voltshade.moves.some((move) => move.effect === "PARALYZE")).toBe(true);
+        expect(voltshade.moves.some((move) => move.effectFamily === "ENERGY_SHIFT")).toBe(true);
+        expect(lumilune.moves.at(-1)?.learnLevel).toBe(26);
+        expect(voltshade.moves.at(-1)?.learnLevel).toBe(26);
     });
 });

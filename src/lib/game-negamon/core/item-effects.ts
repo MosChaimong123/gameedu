@@ -4,8 +4,6 @@ import {
     type GameInventoryChange,
     type GameItemEffect,
 } from "@/lib/game-core";
-import type { NegamonLiteCombatant } from "@/lib/negamon-lite";
-import type { NegamonLiteStatus } from "@/lib/negamon-lite";
 import {
     getNegamonBattleItemCatalog,
     validateNegamonBattleItemLoadout,
@@ -14,7 +12,26 @@ import {
 import type { NegamonMonsterSnapshot } from "./monster-snapshot";
 import { resolveLegacyBattleItemId } from "@/lib/shop-items";
 
-function mapItemStatusImmunity(status: string): NegamonLiteStatus[] {
+export type NegamonBattleStatusId =
+    | "BURN"
+    | "POISON"
+    | "BADLY_POISON"
+    | "PARALYZE"
+    | "SLEEP"
+    | "STUN"
+    | "SHIELD"
+    | "FOCUS";
+
+export type NegamonConsumableBattleCombatant = {
+    hp: number;
+    energy: number;
+    maxEnergy: number;
+    stats: {
+        hp: number;
+    };
+};
+
+function mapItemStatusImmunity(status: string): NegamonBattleStatusId[] {
     const normalized = status.trim().toUpperCase();
     if (normalized === "POISON") return ["POISON", "BADLY_POISON"];
     if (normalized === "FREEZE") return ["STUN"];
@@ -39,7 +56,7 @@ export type NegamonBattleItemRuntimePlan =
           items: NegamonBattleItemDefinition[];
           inventoryChange: GameInventoryChange;
           effects: GameItemEffect[];
-          statusImmunities: NegamonLiteStatus[];
+          statusImmunities: NegamonBattleStatusId[];
           statMultipliers: { atk: number; def: number; spd: number };
           rewardModifiers: { goldBonus: number; goldMultiplier: number; expMultiplier: number };
       }
@@ -80,7 +97,7 @@ export function createNegamonBattleItemRuntimePlan(input: {
     }
 
     const effects = validation.items.flatMap((item) => item.effects);
-    const statusImmunities: NegamonLiteStatus[] = [];
+    const statusImmunities: NegamonBattleStatusId[] = [];
     const statMultipliers = { atk: 1, def: 1, spd: 1 };
     const rewardModifiers = { goldBonus: 0, goldMultiplier: 1, expMultiplier: 1 };
 
@@ -171,9 +188,9 @@ export function applyNegamonBattleItemRuntimeEffects(input: {
 }
 
 export function applyNegamonConsumableBattleItemEffect(input: {
-    combatant: NegamonLiteCombatant;
+    combatant: NegamonConsumableBattleCombatant;
     effect: GameItemEffect;
-}): NegamonLiteCombatant {
+}): NegamonConsumableBattleCombatant {
     if (input.effect.kind === "restore_hp") {
         const healing = Math.max(1, Math.floor(input.combatant.stats.hp * (input.effect.percent / 100)));
         return {

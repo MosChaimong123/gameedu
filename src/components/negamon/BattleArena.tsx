@@ -10,9 +10,8 @@ import { BattleHistoryPanel } from "@/components/negamon/BattleHistoryPanel";
 import { BattlePrepDialog } from "@/components/negamon/battle-inventory-ui";
 import type { BattleFinalRewardPayload, BattleTabProps, Opponent } from "@/components/negamon/battle-tab.types";
 import { BattleV2Arena } from "@/components/game/negamon/BattleV2Arena";
-import type { NegamonBattleStateV3, NegamonBattleValidChoiceV3 } from "@/lib/game-negamon";
+import type { NegamonBattleChoiceV4, NegamonBattleStateV4 } from "@/lib/game-negamon";
 import { sanitizeLoadoutAgainstInventory, validateBattleLoadout } from "@/lib/battle-loadout";
-import type { NegamonLiteBattleState, NegamonLiteValidChoice } from "@/lib/negamon-lite";
 
 type BattleView = "fight" | "history";
 
@@ -49,14 +48,14 @@ export function BattleTab({
     const [opponents, setOpponents] = useState<Opponent[]>([]);
     const [loadingOpponents, setLoadingOpponents] = useState(true);
     const [challenging, setChallenging] = useState<string | null>(null);
-    const [liteSession, setLiteSession] = useState<{
-        mode?: "negamon_lite" | "negamon_battle";
+    const [battleSession, setBattleSession] = useState<{
+        mode?: "negamon_battle_v4";
         engineVersion?: string;
         defenderId: string;
         sessionId: string;
         choiceRequestId: string;
-        state: NegamonLiteBattleState | NegamonBattleStateV3;
-        validChoices: NegamonLiteValidChoice[] | NegamonBattleValidChoiceV3[];
+        state: NegamonBattleStateV4;
+        validChoices: NegamonBattleChoiceV4[];
     } | null>(null);
     const [prepOpen, setPrepOpen] = useState(false);
     const [prepTargetId, setPrepTargetId] = useState<string | null>(null);
@@ -87,7 +86,7 @@ export function BattleTab({
         setChallenging(defenderId);
         setError(null);
         try {
-            const res = await fetch(`/api/classrooms/${classId}/battle/lite/start`, {
+            const res = await fetch(`/api/classrooms/${classId}/battle/v4/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -97,12 +96,12 @@ export function BattleTab({
                 }),
             });
             const data = (await res.json()) as {
-                mode?: "negamon_lite" | "negamon_battle";
+                mode?: "negamon_battle_v4";
                 engineVersion?: string;
                 sessionId?: string;
                 choiceRequestId?: string;
-                state?: NegamonLiteBattleState | NegamonBattleStateV3;
-                validChoices?: NegamonLiteValidChoice[] | NegamonBattleValidChoiceV3[];
+                state?: NegamonBattleStateV4;
+                validChoices?: NegamonBattleChoiceV4[];
                 error?: string;
                 code?: string;
                 retryAfterSeconds?: number;
@@ -116,7 +115,7 @@ export function BattleTab({
                 setError(battleStartErrorMessage(data.error, t, data.retryAfterSeconds));
                 return;
             }
-            setLiteSession({
+            setBattleSession({
                 mode: data.mode,
                 engineVersion: data.engineVersion,
                 defenderId,
@@ -133,7 +132,7 @@ export function BattleTab({
     }
 
     function handleReset() {
-        setLiteSession(null);
+        setBattleSession(null);
         setView("fight");
     }
 
@@ -202,16 +201,16 @@ export function BattleTab({
                         exit={{ opacity: 0, x: -10 }}
                         transition={{ duration: 0.15 }}
                     >
-                        {liteSession ? (
+                        {battleSession ? (
                             <BattleV2Arena
                                 classId={classId}
                                 challengerId={myStudentId}
-                                defenderId={liteSession.defenderId}
+                                defenderId={battleSession.defenderId}
                                 studentCode={myStudentCode}
-                                sessionId={liteSession.sessionId}
-                                initialChoiceRequestId={liteSession.choiceRequestId}
-                                initialState={liteSession.state}
-                                initialValidChoices={liteSession.validChoices}
+                                sessionId={battleSession.sessionId}
+                                initialChoiceRequestId={battleSession.choiceRequestId}
+                                initialState={battleSession.state}
+                                initialValidChoices={battleSession.validChoices}
                                 onFinish={(final: BattleFinalRewardPayload) => {
                                     setHistoryRefreshKey((k) => k + 1);
                                     if (lastAttackLoadout.length) {

@@ -7,7 +7,6 @@ import {
     createNegamonBattleItemRuntimePlan,
     createNegamonBattleItemRuntimePlanOrEmpty,
 } from "@/lib/game-negamon";
-import { applyNegamonLiteDifficultyModifier, createNegamonLiteCombatant } from "@/lib/negamon-lite/session";
 
 function makeMonster(itemIds: string[] = []): NegamonMonsterSnapshot {
     return {
@@ -112,20 +111,6 @@ describe("Negamon item effect runtime V2", () => {
         ).toThrow("MISSING_ITEM:held_guard_core");
     });
 
-    it("applies item stat and reward modifiers to lite battle combatants", () => {
-        const combatant = createNegamonLiteCombatant({
-            side: "player",
-            student: { id: "student-1", name: "A", behaviorPoints: 20 },
-            monster: makeMonster(["held_guard_core"]),
-        });
-
-        expect(combatant.stats.defense).toBe(20);
-        expect(combatant.battleItemIds).toEqual(["held_guard_core"]);
-        expect(combatant.itemEffectKinds).toEqual(["damage_taken_multiplier"]);
-        expect(combatant.rewardGoldBonus).toBe(0);
-        expect(combatant.rewardGoldMultiplier).toBe(1);
-    });
-
     it("maps content pack restore and immunity items from the shop catalog", () => {
         const plan = createNegamonBattleItemRuntimePlan({
             loadoutIds: ["item_minor_potion", "item_antidote_charm"],
@@ -154,32 +139,13 @@ describe("Negamon item effect runtime V2", () => {
         expect(plan.effects).toEqual([{ kind: "restore_energy", amount: 18 }]);
     });
 
-    it("applies opponent difficulty modifiers deterministically", () => {
-        const combatant = createNegamonLiteCombatant({
-            side: "opponent",
-            student: { id: "student-2", name: "B", behaviorPoints: 20 },
-            monster: makeMonster(),
-        });
-        const boss = applyNegamonLiteDifficultyModifier(combatant, "boss");
-
-        expect(boss.difficulty).toBe("boss");
-        expect(boss.stats.hp).toBe(135);
-        expect(boss.stats.attack).toBe(34);
-        expect(boss.stats.defense).toBe(22);
-    });
-
     it("supports consumable HP and energy restore item effects for future active-use items", () => {
-        const combatant = createNegamonLiteCombatant({
-            side: "player",
-            student: { id: "student-1", name: "A", behaviorPoints: 20 },
-            monster: makeMonster(),
-        });
         const healed = applyNegamonConsumableBattleItemEffect({
-            combatant: { ...combatant, hp: 40 },
+            combatant: { hp: 40, energy: 30, maxEnergy: 40, stats: { hp: 100 } },
             effect: { kind: "restore_hp", percent: 25 },
         });
         const energized = applyNegamonConsumableBattleItemEffect({
-            combatant: { ...combatant, energy: 10 },
+            combatant: { hp: 100, energy: 10, maxEnergy: 40, stats: { hp: 100 } },
             effect: { kind: "restore_energy", amount: 12 },
         });
 

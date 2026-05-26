@@ -105,9 +105,36 @@ function cloneState(state: NegamonBattleStateV4): NegamonBattleStateV4 {
     };
 }
 
-async function loadShowdownRuntime() {
-    const module = await import("pokemon-showdown");
-    return module.default;
+type ShowdownRuntimeModule = {
+    BattleStream: new () => unknown;
+    getPlayerStreams: (stream: unknown) => {
+        omniscient: AsyncIterable<string> & { write(message: string): void };
+        p1: AsyncIterable<string> & { write(message: string): void };
+        p2: AsyncIterable<string> & { write(message: string): void };
+    };
+};
+
+function isShowdownRuntimeModule(value: unknown): value is ShowdownRuntimeModule {
+    if (!value || typeof value !== "object") return false;
+    const candidate = value as Record<string, unknown>;
+    return typeof candidate.BattleStream === "function" && typeof candidate.getPlayerStreams === "function";
+}
+
+async function loadShowdownRuntime(): Promise<ShowdownRuntimeModule> {
+    const module = (await import("pokemon-showdown")) as {
+        default?: unknown;
+        "module.exports"?: unknown;
+    };
+    const candidate =
+        (isShowdownRuntimeModule(module) ? module : null) ??
+        (isShowdownRuntimeModule(module.default) ? module.default : null) ??
+        (isShowdownRuntimeModule(module["module.exports"]) ? module["module.exports"] : null);
+
+    if (!candidate) {
+        throw new Error("Pokemon Showdown runtime is missing BattleStream/getPlayerStreams exports.");
+    }
+
+    return candidate;
 }
 
 function parseRequestChunk(chunk: string | undefined): ParsedShowdownRequest | null {

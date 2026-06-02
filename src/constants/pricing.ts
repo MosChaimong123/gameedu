@@ -14,6 +14,7 @@ export type PlusPlanDef = {
     unitKey?: string;
     descriptionKey: string;
     featureKeys: readonly string[];
+    lineFeatureKeys?: readonly string[];
     buttonTextKey: string;
     highlight: boolean;
     color: PlanColor;
@@ -26,6 +27,7 @@ export const PLUS_PLANS: readonly PlusPlanDef[] = [
         price: "0",
         descriptionKey: "planFreeDescription",
         featureKeys: ["planFreeFeat0", "planFreeFeat1", "planFreeFeat2", "planFreeFeat3"],
+        lineFeatureKeys: ["planFreeLineFeat0", "planFreeLineFeat1"],
         buttonTextKey: "planFreeButton",
         highlight: false,
         color: "slate",
@@ -44,6 +46,12 @@ export const PLUS_PLANS: readonly PlusPlanDef[] = [
             "planPlusFeat3",
             "planPlusFeat4",
         ],
+        lineFeatureKeys: [
+            "planPlusLineFeat0",
+            "planPlusLineFeat1",
+            "planPlusLineFeat2",
+            "planPlusLineFeat3",
+        ],
         buttonTextKey: "planPlusButton",
         highlight: true,
         color: "indigo",
@@ -61,6 +69,7 @@ export const PLUS_PLANS: readonly PlusPlanDef[] = [
             "planProFeat3",
             "planProFeat4",
         ],
+        lineFeatureKeys: ["planProLineFeat0", "planProLineFeat1"],
         buttonTextKey: "planProButton",
         highlight: false,
         color: "emerald",

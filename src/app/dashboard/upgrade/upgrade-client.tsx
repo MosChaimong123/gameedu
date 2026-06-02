@@ -9,7 +9,7 @@ import type { PlusPricesFromStripe } from "@/lib/billing/plus-price-types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Sparkles, Rocket, Zap, ShieldCheck, Mail, Info } from "lucide-react";
+import { Check, Sparkles, Rocket, Zap, ShieldCheck, Mail, Info, MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { PageBackLink } from "@/components/ui/page-back-link";
 import { useLanguage } from "@/components/providers/language-provider";
@@ -258,6 +258,45 @@ export function UpgradePageClient({
                                                 <span className="font-bold text-slate-600">{t(featureKey)}</span>
                                             </div>
                                         ))}
+
+                                        {plan.lineFeatureKeys?.length ? (
+                                            <div
+                                                className={cn(
+                                                    "mt-6 rounded-2xl border p-4",
+                                                    plan.id === "PLUS"
+                                                        ? "border-brand-pink/20 bg-brand-pink/5"
+                                                        : "border-slate-200 bg-slate-50"
+                                                )}
+                                            >
+                                                <div className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-wide text-slate-700">
+                                                    <MessageCircle className="h-4 w-4 text-brand-pink" />
+                                                    {t("planLineFeatureSection")}
+                                                </div>
+                                                <div className="space-y-3">
+                                                    {plan.lineFeatureKeys.map((featureKey) => (
+                                                        <div key={featureKey} className="flex items-start gap-3">
+                                                            <div
+                                                                className={cn(
+                                                                    "mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
+                                                                    plan.id === "FREE"
+                                                                        ? "border-amber-100 bg-amber-50"
+                                                                        : "border-emerald-100 bg-emerald-50"
+                                                                )}
+                                                            >
+                                                                {plan.id === "FREE" ? (
+                                                                    <Info className="h-3 w-3 text-amber-600" />
+                                                                ) : (
+                                                                    <Check className="h-3 w-3 text-emerald-600" />
+                                                                )}
+                                                            </div>
+                                                            <span className="text-sm font-bold leading-relaxed text-slate-600">
+                                                                {t(featureKey)}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : null}
                                     </div>
 
                                     {plan.id === "FREE" || currentPlan === plan.id ? (

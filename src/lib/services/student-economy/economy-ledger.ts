@@ -21,6 +21,7 @@ export type EconomyTransactionSource =
     | "checkin"
     | "quest"
     | "battle"
+    | "line_assignment"
     | "shop"
     | "admin_adjustment"
     | "migration";

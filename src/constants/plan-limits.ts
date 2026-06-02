@@ -11,6 +11,12 @@ export type PlanLimits = {
     maxClassrooms: number;
     aiQuestionGeneration: boolean;
     aiFileParse: boolean;
+    aiLessonGeneration: boolean;
+    lineCreatedAssignmentsPerMonth: number;
+    lineSubmission: boolean;
+    lineAutoReminders: boolean;
+    lineExport: boolean;
+    lineAiPreliminaryGrading: boolean;
     /** Max distinct species rows allowed in classroom Negamon settings */
     maxNegamonSpeciesInClassroom: number;
     /**
@@ -31,6 +37,12 @@ export const PLAN_LIMITS: Record<SubscriptionPlanId, PlanLimits> = {
         maxClassrooms: 5,
         aiQuestionGeneration: false,
         aiFileParse: false,
+        aiLessonGeneration: false,
+        lineCreatedAssignmentsPerMonth: 5,
+        lineSubmission: false,
+        lineAutoReminders: false,
+        lineExport: false,
+        lineAiPreliminaryGrading: false,
         maxNegamonSpeciesInClassroom: 3,
         negamonDefaultSpeciesSlotCount: 3,
         negamonAllowCustomSpecies: false,
@@ -43,6 +55,12 @@ export const PLAN_LIMITS: Record<SubscriptionPlanId, PlanLimits> = {
         maxClassrooms: 50,
         aiQuestionGeneration: true,
         aiFileParse: true,
+        aiLessonGeneration: true,
+        lineCreatedAssignmentsPerMonth: 100,
+        lineSubmission: true,
+        lineAutoReminders: true,
+        lineExport: true,
+        lineAiPreliminaryGrading: true,
         maxNegamonSpeciesInClassroom: 32,
         negamonDefaultSpeciesSlotCount: null,
         negamonAllowCustomSpecies: false,
@@ -55,6 +73,12 @@ export const PLAN_LIMITS: Record<SubscriptionPlanId, PlanLimits> = {
         maxClassrooms: Number.POSITIVE_INFINITY,
         aiQuestionGeneration: true,
         aiFileParse: true,
+        aiLessonGeneration: true,
+        lineCreatedAssignmentsPerMonth: Number.POSITIVE_INFINITY,
+        lineSubmission: true,
+        lineAutoReminders: true,
+        lineExport: true,
+        lineAiPreliminaryGrading: true,
         maxNegamonSpeciesInClassroom: Number.POSITIVE_INFINITY,
         negamonDefaultSpeciesSlotCount: null,
         negamonAllowCustomSpecies: true,

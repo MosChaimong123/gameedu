@@ -641,6 +641,22 @@ model LineBotGroup {
   @@index([classroomId])
 }
 
+/// Links a LINE user inside a classroom group to a GameEdu student login code.
+model LineStudentBinding {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  lineUserId     String
+  lineGroupId    String
+  classroomId    String   @db.ObjectId
+  studentId      String   @db.ObjectId
+  studentLoginCode String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([lineUserId, classroomId])
+  @@index([studentId])
+  @@index([lineGroupId])
+}
+
 /// Open/paid debt row scoped to one LINE group (amount in THB, whole baht).
 model LineGroupDebt {
   id                  String       @id @default(auto()) @map("_id") @db.ObjectId
@@ -661,4 +677,22 @@ model LineGroupDebt {
   @@unique([groupId, shortCode])
   @@index([groupId, status])
   @@index([groupId, createdAt])
+}
+
+/// Idempotency log for scheduled LINE classroom assignment reminders.
+model LineAssignmentReminderDelivery {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  lineBotGroupId String
+  lineGroupId    String
+  classroomId    String   @db.ObjectId
+  assignmentId   String   @db.ObjectId
+  reminderKey    String
+  reminderType   String
+  targetCount    Int
+  sentAt         DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@unique([lineBotGroupId, assignmentId, reminderKey])
+  @@index([lineGroupId, sentAt])
+  @@index([classroomId, sentAt])
 }

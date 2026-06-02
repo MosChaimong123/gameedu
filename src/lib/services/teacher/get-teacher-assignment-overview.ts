@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { db, getOptionalDbModel } from "@/lib/db";
 
 export const ASSIGNMENT_OVERVIEW_RANGE_DAYS = [7, 14, 30] as const;
 export type AssignmentOverviewRangeDays = (typeof ASSIGNMENT_OVERVIEW_RANGE_DAYS)[number];
@@ -34,6 +34,9 @@ export type TeacherAssignmentOverviewItem = {
     missingSubmissions: number;
     overdue: boolean;
     dueWithinRange: boolean;
+    lineReminderCount: number;
+    lastLineReminderSentAt: string | null;
+    lastLineReminderTargetCount: number | null;
 };
 
 export type TeacherAssignmentOverviewPayload = {
@@ -48,6 +51,14 @@ export type TeacherAssignmentOverviewPayload = {
     };
     classrooms: TeacherAssignmentOverviewClassroom[];
     items: TeacherAssignmentOverviewItem[];
+};
+
+type LineReminderDeliveryModel = {
+    findMany(input: {
+        where: { assignmentId: { in: string[] } };
+        select: { assignmentId: true; sentAt: true; targetCount: true };
+        orderBy: { sentAt: "desc" };
+    }): Promise<Array<{ assignmentId: string; sentAt: Date; targetCount: number }>>;
 };
 
 export async function getTeacherAssignmentOverview(
@@ -125,6 +136,8 @@ export async function getTeacherAssignmentOverview(
         submissionCountByAssignment.set(row.assignmentId, row._count._all);
     }
 
+    const lineReminderStatsByAssignment = await getLineReminderStatsByAssignment(assignmentIds);
+
     const studentCountByClass = new Map(classrooms.map((c) => [c.id, c._count.students]));
 
     type Enriched = {
@@ -137,6 +150,9 @@ export async function getTeacherAssignmentOverview(
         missing: number;
         overdue: boolean;
         dueWithinRange: boolean;
+        lineReminderCount: number;
+        lastLineReminderSentAt: Date | null;
+        lastLineReminderTargetCount: number | null;
     };
 
     const enriched: Enriched[] = assignments.map((a) => {
@@ -146,6 +162,7 @@ export async function getTeacherAssignmentOverview(
         const dl = a.deadline;
         const overdue = dl != null && dl < now;
         const dueWithinRange = dl != null && dl >= now && dl <= horizon;
+        const lineStats = lineReminderStatsByAssignment.get(a.id);
         return {
             id: a.id,
             classId: a.classId,
@@ -156,6 +173,9 @@ export async function getTeacherAssignmentOverview(
             missing,
             overdue,
             dueWithinRange,
+            lineReminderCount: lineStats?.count ?? 0,
+            lastLineReminderSentAt: lineStats?.lastSentAt ?? null,
+            lastLineReminderTargetCount: lineStats?.lastTargetCount ?? null,
         };
     });
 
@@ -210,6 +230,9 @@ export async function getTeacherAssignmentOverview(
         missingSubmissions: e.missing,
         overdue: e.overdue,
         dueWithinRange: e.dueWithinRange,
+        lineReminderCount: e.lineReminderCount,
+        lastLineReminderSentAt: e.lastLineReminderSentAt ? e.lastLineReminderSentAt.toISOString() : null,
+        lastLineReminderTargetCount: e.lastLineReminderTargetCount,
     }));
 
     return {
@@ -225,4 +248,37 @@ export async function getTeacherAssignmentOverview(
         classrooms: Array.from(byClass.values()),
         items,
     };
+}
+
+async function getLineReminderStatsByAssignment(assignmentIds: string[]) {
+    const stats = new Map<string, {
+        count: number;
+        lastSentAt: Date | null;
+        lastTargetCount: number | null;
+    }>();
+    if (assignmentIds.length === 0) return stats;
+
+    const deliveryModel = getOptionalDbModel<LineReminderDeliveryModel>("lineAssignmentReminderDelivery");
+    if (!deliveryModel) return stats;
+
+    const deliveries = await deliveryModel.findMany({
+        where: { assignmentId: { in: assignmentIds } },
+        select: { assignmentId: true, sentAt: true, targetCount: true },
+        orderBy: { sentAt: "desc" },
+    });
+
+    for (const delivery of deliveries) {
+        const current = stats.get(delivery.assignmentId);
+        if (!current) {
+            stats.set(delivery.assignmentId, {
+                count: 1,
+                lastSentAt: delivery.sentAt,
+                lastTargetCount: delivery.targetCount,
+            });
+            continue;
+        }
+        current.count += 1;
+    }
+
+    return stats;
 }

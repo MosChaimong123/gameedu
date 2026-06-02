@@ -35,8 +35,14 @@ describe("getLimitsForUser", () => {
     it("TEACHER uses plan", () => {
         const free = getLimitsForUser("TEACHER", "FREE");
         expect(free.maxQuestionSets).toBe(PLAN_LIMITS.FREE.maxQuestionSets);
+        expect(free.lineSubmission).toBe(false);
+        expect(free.lineCreatedAssignmentsPerMonth).toBe(5);
         const plus = getLimitsForUser("TEACHER", "PLUS", "ACTIVE", null, now);
         expect(plus.aiQuestionGeneration).toBe(true);
+        expect(plus.lineSubmission).toBe(true);
+        expect(plus.lineAutoReminders).toBe(true);
+        expect(plus.lineExport).toBe(true);
+        expect(plus.lineAiPreliminaryGrading).toBe(true);
     });
 
     it("downgrades PLUS when planStatus is EXPIRED", () => {

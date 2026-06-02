@@ -1,15 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockBindLineGroupToClassroom = vi.fn();
+const mockBindLineStudentToStudentCode = vi.fn();
+const mockCreateAssignmentForLineGroup = vi.fn();
 const mockCreateLineGroupDebt = vi.fn();
 const mockGetClassroomReminderSummaryForLineGroup = vi.fn();
+const mockGetLineMyWorkSummary = vi.fn();
 const mockGetLineClassroomBindingSecret = vi.fn();
 const mockListOpenDebtsForLineGroup = vi.fn();
 const mockMarkLineGroupDebtPaid = vi.fn();
+const mockPushLineText = vi.fn();
+const mockReplyLineText = vi.fn();
+const mockSubmitTextAssignmentForLineGroup = vi.fn();
 const mockUpsertLineBotGroup = vi.fn();
 
 vi.mock("@/lib/line-bot/client", () => ({
-    replyLineText: vi.fn(),
+    pushLineText: mockPushLineText,
+    replyLineText: mockReplyLineText,
 }));
 
 vi.mock("@/lib/line-bot/config", () => ({
@@ -18,10 +25,14 @@ vi.mock("@/lib/line-bot/config", () => ({
 
 vi.mock("@/lib/line-bot/repository", () => ({
     bindLineGroupToClassroom: mockBindLineGroupToClassroom,
+    bindLineStudentToStudentCode: mockBindLineStudentToStudentCode,
+    createAssignmentForLineGroup: mockCreateAssignmentForLineGroup,
     createLineGroupDebt: mockCreateLineGroupDebt,
     getClassroomReminderSummaryForLineGroup: mockGetClassroomReminderSummaryForLineGroup,
+    getLineMyWorkSummary: mockGetLineMyWorkSummary,
     listOpenDebtsForLineGroup: mockListOpenDebtsForLineGroup,
     markLineGroupDebtPaid: mockMarkLineGroupDebtPaid,
+    submitTextAssignmentForLineGroup: mockSubmitTextAssignmentForLineGroup,
     upsertLineBotGroup: mockUpsertLineBotGroup,
 }));
 
@@ -29,8 +40,14 @@ describe("line-bot handlers", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockGetLineClassroomBindingSecret.mockReturnValue("test-secret");
+        mockCreateAssignmentForLineGroup.mockResolvedValue({ ok: false, reason: "UNBOUND" });
+        mockBindLineStudentToStudentCode.mockResolvedValue({ ok: false, reason: "UNBOUND" });
+        mockGetLineMyWorkSummary.mockResolvedValue({ ok: false, reason: "NOT_BOUND" });
+        mockSubmitTextAssignmentForLineGroup.mockResolvedValue({ ok: false, reason: "UNBOUND" });
         mockGetClassroomReminderSummaryForLineGroup.mockResolvedValue(null);
         mockListOpenDebtsForLineGroup.mockResolvedValue([]);
+        mockPushLineText.mockResolvedValue(undefined);
+        mockReplyLineText.mockResolvedValue(undefined);
     });
 
     it("replies with classroom help", async () => {
@@ -125,5 +142,263 @@ describe("line-bot handlers", () => {
         expect(summary.replyText).toContain("5");
         expect(remind.replyText).toContain("Quiz 1");
         expect(remind.replyText).toContain("GameEdu");
+    });
+
+    it("returns group-safe student self-service work after binding", async () => {
+        mockGetClassroomReminderSummaryForLineGroup.mockResolvedValue({
+            classroomName: "M1/1",
+            studentCount: 30,
+            assignments: [
+                {
+                    assignmentId: "assignment-1",
+                    name: "Homework 1",
+                    type: "score",
+                    deadline: null,
+                    missingSubmissions: 4,
+                    overdue: false,
+                    dueSoon: false,
+                },
+            ],
+            totals: {
+                visibleAssignments: 1,
+                overdueAssignments: 0,
+                dueSoonAssignments: 0,
+                missingSubmissionSlots: 4,
+            },
+        });
+
+        const { processGroupTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processGroupTextCommand({
+            lineGroupId: "line-group-1",
+            text: "missing work",
+        });
+
+        expect(result.replyText).toContain("Homework 1");
+        expect(result.replyText).toContain("ไม่แสดงรายชื่อรายคน");
+    });
+
+    it("requires classroom binding before student self-service work commands", async () => {
+        const { processGroupTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processGroupTextCommand({
+            lineGroupId: "line-group-1",
+            text: "missing work",
+        });
+
+        expect(result.replyText).toContain("<classroomId> <secret>");
+    });
+
+    it("creates a classroom assignment through LINE when group is bound", async () => {
+        mockCreateAssignmentForLineGroup.mockResolvedValue({
+            ok: true,
+            assignment: {
+                id: "assignment-1",
+                name: "Homework 1",
+                classroomName: "M1/1",
+                deadline: null,
+            },
+        });
+
+        const { processGroupTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processGroupTextCommand({
+            lineGroupId: "line-group-1",
+            text: "create assignment Homework 1 no due",
+        });
+
+        expect(mockCreateAssignmentForLineGroup).toHaveBeenCalledWith({
+            lineGroupId: "line-group-1",
+            name: "Homework 1",
+            deadlineText: null,
+        });
+        expect(result.replyText).toContain("Homework 1");
+        expect(result.replyText).toContain("M1/1");
+    });
+
+    it("requires classroom binding before creating assignments", async () => {
+        const { processGroupTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processGroupTextCommand({
+            lineGroupId: "line-group-1",
+            text: "create assignment Homework 1 due tomorrow",
+        });
+
+        expect(result.replyText).toContain("<classroomId> <secret>");
+    });
+
+    it("returns a helpful message when assignment deadline cannot be parsed", async () => {
+        mockCreateAssignmentForLineGroup.mockResolvedValue({ ok: false, reason: "INVALID_DEADLINE" });
+
+        const { processGroupTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processGroupTextCommand({
+            lineGroupId: "line-group-1",
+            text: "create assignment Homework 1 due sometime soon",
+        });
+
+        expect(result.replyText).toContain("สร้างงาน");
+    });
+
+    it("submits text work through LINE when group is bound", async () => {
+        mockSubmitTextAssignmentForLineGroup.mockResolvedValue({
+            ok: true,
+            submission: {
+                assignmentName: "Homework 1",
+                classroomName: "M1/1",
+                replacedPreviousSubmission: false,
+            },
+        });
+
+        const { processGroupTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processGroupTextCommand({
+            lineGroupId: "line-group-1",
+            text: "submit work S123 Homework 1: My answer",
+        });
+
+        expect(mockSubmitTextAssignmentForLineGroup).toHaveBeenCalledWith({
+            lineGroupId: "line-group-1",
+            studentCode: "S123",
+            assignmentRef: "Homework 1",
+            content: "My answer",
+        });
+        expect(result.replyText).toContain("Homework 1");
+        expect(result.replyText).toContain("M1/1");
+    });
+
+    it("requires classroom binding before text submission", async () => {
+        const { processGroupTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processGroupTextCommand({
+            lineGroupId: "line-group-1",
+            text: "submit work S123 Homework 1: My answer",
+        });
+
+        expect(result.replyText).toContain("<classroomId> <secret>");
+    });
+
+    it("returns a private binding confirmation for a LINE user student code", async () => {
+        mockBindLineStudentToStudentCode.mockResolvedValue({
+            ok: true,
+            binding: {
+                classroomName: "M1/1",
+                studentName: "Somchai",
+            },
+        });
+
+        const { processGroupTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processGroupTextCommand({
+            lineGroupId: "line-group-1",
+            createdByLineUserId: "line-user-1",
+            text: "bind student S123",
+        });
+
+        expect(mockBindLineStudentToStudentCode).toHaveBeenCalledWith({
+            lineGroupId: "line-group-1",
+            lineUserId: "line-user-1",
+            studentCode: "S123",
+        });
+        expect(result.replyText).not.toContain("Somchai");
+        expect(result.privateReply).toEqual({
+            toLineUserId: "line-user-1",
+            text: expect.stringContaining("Somchai"),
+        });
+    });
+
+    it("returns personal work as a private reply for a bound LINE student", async () => {
+        mockGetLineMyWorkSummary.mockResolvedValue({
+            ok: true,
+            summary: {
+                classroomName: "M1/1",
+                studentName: "Somchai",
+                items: [{ assignmentName: "Homework 1", deadline: null }],
+            },
+        });
+
+        const { processGroupTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processGroupTextCommand({
+            lineGroupId: "line-group-1",
+            createdByLineUserId: "line-user-1",
+            text: "my assignments",
+        });
+
+        expect(mockGetLineMyWorkSummary).toHaveBeenCalledWith({
+            lineGroupId: "line-group-1",
+            lineUserId: "line-user-1",
+        });
+        expect(result.replyText).not.toContain("Homework 1");
+        expect(result.privateReply).toEqual({
+            toLineUserId: "line-user-1",
+            text: expect.stringContaining("Homework 1"),
+        });
+    });
+
+    it("pushes private personal work and replies only with a group acknowledgement", async () => {
+        mockGetLineMyWorkSummary.mockResolvedValue({
+            ok: true,
+            summary: {
+                classroomName: "M1/1",
+                studentName: "Somchai",
+                items: [{ assignmentName: "Homework 1", deadline: null }],
+            },
+        });
+
+        const { handleLineWebhookEvents } = await import("@/lib/line-bot/handlers");
+        await handleLineWebhookEvents([
+            {
+                type: "message",
+                replyToken: "reply-token-1",
+                source: {
+                    type: "group",
+                    groupId: "line-group-1",
+                    userId: "line-user-1",
+                },
+                message: {
+                    type: "text",
+                    id: "message-1",
+                    quoteToken: "quote-token-1",
+                    text: "my assignments",
+                },
+                mode: "active",
+                timestamp: 1,
+                webhookEventId: "event-1",
+                deliveryContext: { isRedelivery: false },
+            },
+        ]);
+
+        expect(mockPushLineText).toHaveBeenCalledWith("line-user-1", expect.stringContaining("Homework 1"));
+        expect(mockReplyLineText).toHaveBeenCalledWith("reply-token-1", expect.not.stringContaining("Homework 1"));
+    });
+
+    it("does not leak personal work to the group when private push fails", async () => {
+        mockPushLineText.mockRejectedValue(new Error("LINE push failed"));
+        mockGetLineMyWorkSummary.mockResolvedValue({
+            ok: true,
+            summary: {
+                classroomName: "M1/1",
+                studentName: "Somchai",
+                items: [{ assignmentName: "Homework 1", deadline: null }],
+            },
+        });
+
+        const { handleLineWebhookEvents } = await import("@/lib/line-bot/handlers");
+        await handleLineWebhookEvents([
+            {
+                type: "message",
+                replyToken: "reply-token-1",
+                source: {
+                    type: "group",
+                    groupId: "line-group-1",
+                    userId: "line-user-1",
+                },
+                message: {
+                    type: "text",
+                    id: "message-1",
+                    quoteToken: "quote-token-1",
+                    text: "my assignments",
+                },
+                mode: "active",
+                timestamp: 1,
+                webhookEventId: "event-1",
+                deliveryContext: { isRedelivery: false },
+            },
+        ]);
+
+        expect(mockReplyLineText).toHaveBeenCalledWith("reply-token-1", expect.not.stringContaining("Homework 1"));
+        expect(mockReplyLineText).toHaveBeenCalledWith("reply-token-1", expect.stringContaining("เพิ่มบอทเป็นเพื่อน"));
     });
 });

@@ -23,3 +23,11 @@ export async function replyLineText(replyToken: string, text: string): Promise<v
         messages: [{ type: "text", text }],
     });
 }
+
+export async function pushLineText(to: string, text: string): Promise<void> {
+    const lineClient = getLineMessagingClient();
+    await lineClient.pushMessage({
+        to,
+        messages: [{ type: "text", text }],
+    });
+}

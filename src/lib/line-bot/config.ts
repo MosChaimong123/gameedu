@@ -21,3 +21,8 @@ export function getLineClassroomBindingSecret(): string | undefined {
     const value = process.env.LINE_CLASSROOM_BINDING_SECRET?.trim();
     return value || undefined;
 }
+
+export function getLineReminderCronSecret(): string | undefined {
+    const value = process.env.LINE_REMINDER_CRON_SECRET?.trim() || process.env.ADMIN_SECRET?.trim();
+    return value || undefined;
+}

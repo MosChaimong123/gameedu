@@ -7,24 +7,44 @@ import {
     formatClassroomWorkSummary,
     formatClassroomReminderHelpMessage,
     formatDebtHelpMessage,
+    formatLineAssignmentCreatedMessage,
+    formatLineAssignmentCreateFailedMessage,
+    formatLineMyWorkMessage,
+    formatLinePrivateReplySentMessage,
+    formatLinePrivateReplyUnavailableMessage,
+    formatLinePlanLimitMessage,
+    formatLineStudentBindingFailedMessage,
+    formatLineStudentBindingRequiredMessage,
+    formatLineStudentBindingSuccessMessage,
+    formatLineTextSubmissionFailedMessage,
+    formatLineTextSubmissionSuccessMessage,
     formatOpenDebtSummary,
     formatRemindMessage,
+    formatStudentSelfServiceWork,
     parseLineDebtCommand,
 } from "@/lib/line-bot/commands";
-import { replyLineText } from "@/lib/line-bot/client";
+import { pushLineText, replyLineText } from "@/lib/line-bot/client";
 import { getLineClassroomBindingSecret } from "@/lib/line-bot/config";
 import {
     bindLineGroupToClassroom,
+    bindLineStudentToStudentCode,
+    createAssignmentForLineGroup,
     createLineGroupDebt,
     getClassroomReminderSummaryForLineGroup,
     listOpenDebtsForLineGroup,
     markLineGroupDebtPaid,
+    getLineMyWorkSummary,
+    submitTextAssignmentForLineGroup,
     upsertLineBotGroup,
 } from "@/lib/line-bot/repository";
 
 export type LineHandlerResult = {
     handled: boolean;
     replyText?: string;
+    privateReply?: {
+        toLineUserId: string;
+        text: string;
+    };
 };
 
 export async function handleLineWebhookEvents(events: WebhookEvent[]): Promise<void> {
@@ -53,11 +73,24 @@ async function handleLineWebhookEvent(event: WebhookEvent): Promise<void> {
         createdByLineUserId: event.source.userId,
     });
 
-    if (!result.handled || !result.replyText || !event.replyToken) {
+    if (!result.handled || !event.replyToken) {
         return;
     }
 
-    await replyLineText(event.replyToken, result.replyText);
+    let replyText = result.replyText;
+    if (result.privateReply) {
+        try {
+            await pushLineText(result.privateReply.toLineUserId, result.privateReply.text);
+        } catch {
+            replyText = formatLinePrivateReplyUnavailableMessage();
+        }
+    }
+
+    if (!replyText) {
+        return;
+    }
+
+    await replyLineText(event.replyToken, replyText);
 }
 
 export async function processGroupTextCommand(input: {
@@ -87,6 +120,107 @@ export async function processGroupTextCommand(input: {
                 handled: true,
                 replyText: summary ? formatClassroomWorkReminder(summary) : formatClassroomBindingRequiredMessage(),
             };
+        }
+        case "classroom_student_work": {
+            const summary = await getClassroomReminderSummaryForLineGroup(input.lineGroupId);
+            return {
+                handled: true,
+                replyText: summary
+                    ? formatStudentSelfServiceWork(summary, command.scope)
+                    : formatClassroomBindingRequiredMessage(),
+            };
+        }
+        case "classroom_bind_student": {
+            if (!input.createdByLineUserId) {
+                return { handled: true, replyText: formatLineStudentBindingFailedMessage() };
+            }
+            const result = await bindLineStudentToStudentCode({
+                lineGroupId: input.lineGroupId,
+                lineUserId: input.createdByLineUserId,
+                studentCode: command.studentCode,
+            });
+            if (!result.ok) {
+                return {
+                    handled: true,
+                    replyText:
+                        result.reason === "UNBOUND"
+                            ? formatClassroomBindingRequiredMessage()
+                            : formatLineStudentBindingFailedMessage(),
+                };
+            }
+            return {
+                handled: true,
+                replyText: formatLinePrivateReplySentMessage(),
+                privateReply: {
+                    toLineUserId: input.createdByLineUserId,
+                    text: formatLineStudentBindingSuccessMessage(result.binding),
+                },
+            };
+        }
+        case "classroom_my_work": {
+            if (!input.createdByLineUserId) {
+                return { handled: true, replyText: formatLineStudentBindingRequiredMessage() };
+            }
+            const result = await getLineMyWorkSummary({
+                lineGroupId: input.lineGroupId,
+                lineUserId: input.createdByLineUserId,
+            });
+            if (!result.ok) {
+                return {
+                    handled: true,
+                    replyText:
+                        result.reason === "UNBOUND"
+                            ? formatClassroomBindingRequiredMessage()
+                            : formatLineStudentBindingRequiredMessage(),
+                };
+            }
+            return {
+                handled: true,
+                replyText: formatLinePrivateReplySentMessage(),
+                privateReply: {
+                    toLineUserId: input.createdByLineUserId,
+                    text: formatLineMyWorkMessage(result.summary),
+                },
+            };
+        }
+        case "classroom_create_assignment": {
+            const result = await createAssignmentForLineGroup({
+                lineGroupId: input.lineGroupId,
+                name: command.name,
+                deadlineText: command.deadlineText,
+            });
+            if (!result.ok) {
+                return {
+                    handled: true,
+                    replyText:
+                        result.reason === "UNBOUND"
+                            ? formatClassroomBindingRequiredMessage()
+                            : result.reason === "PLAN_LIMIT"
+                              ? formatLinePlanLimitMessage()
+                            : formatLineAssignmentCreateFailedMessage(),
+                };
+            }
+            return { handled: true, replyText: formatLineAssignmentCreatedMessage(result.assignment) };
+        }
+        case "classroom_submit_text": {
+            const result = await submitTextAssignmentForLineGroup({
+                lineGroupId: input.lineGroupId,
+                studentCode: command.studentCode,
+                assignmentRef: command.assignmentRef,
+                content: command.content,
+            });
+            if (!result.ok) {
+                return {
+                    handled: true,
+                    replyText:
+                        result.reason === "UNBOUND"
+                            ? formatClassroomBindingRequiredMessage()
+                            : result.reason === "PLAN_LIMIT"
+                              ? formatLinePlanLimitMessage()
+                            : formatLineTextSubmissionFailedMessage(),
+                };
+            }
+            return { handled: true, replyText: formatLineTextSubmissionSuccessMessage(result.submission) };
         }
         case "bind_classroom": {
             const expectedSecret = getLineClassroomBindingSecret();

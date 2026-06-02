@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { AlertCircle, ArrowRight, CalendarClock, Check, Clipboard, ClipboardList, RefreshCw, TimerOff } from "lucide-react";
+import { AlertCircle, ArrowRight, CalendarClock, Check, Clipboard, ClipboardList, Download, RefreshCw, TimerOff } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,7 +50,9 @@ export function AssignmentCommandCenter() {
     const { t } = useLanguage();
     const [copiedAssignmentId, setCopiedAssignmentId] = useState<string | null>(null);
     const [sendingAssignmentId, setSendingAssignmentId] = useState<string | null>(null);
+    const [sendingLineAssignmentId, setSendingLineAssignmentId] = useState<string | null>(null);
     const [sentReminder, setSentReminder] = useState<{ assignmentId: string; targetCount: number } | null>(null);
+    const [sentLineReminder, setSentLineReminder] = useState<{ assignmentId: string; targetCount: number } | null>(null);
     const [reminderError, setReminderError] = useState<string | null>(null);
     const { rangeDays, setRangeDays, data, loading, error, load } = useTeacherAssignmentOverview(
         t("assignmentCommandLoadError")
@@ -84,6 +86,30 @@ export function AssignmentCommandCenter() {
             setReminderError(t("assignmentReminderSendFailed"));
         } finally {
             setSendingAssignmentId(null);
+        }
+    }
+
+    async function sendLineReminder(item: (typeof reminderCandidates)[number]) {
+        setSendingLineAssignmentId(item.assignmentId);
+        setReminderError(null);
+        try {
+            const res = await fetch(
+                `/api/classrooms/${item.classId}/assignments/${item.assignmentId}/line-reminders`,
+                { method: "POST" }
+            );
+            const payload = (await res.json()) as { targetCount?: number; sentCount?: number };
+            if (!res.ok || (payload.sentCount ?? 0) <= 0) {
+                throw new Error("line_send_failed");
+            }
+            setSentLineReminder({
+                assignmentId: item.assignmentId,
+                targetCount: payload.targetCount ?? 0,
+            });
+            void load();
+        } catch {
+            setReminderError("Could not send LINE reminder. Check that this classroom is linked to a LINE group.");
+        } finally {
+            setSendingLineAssignmentId(null);
         }
     }
 
@@ -229,6 +255,12 @@ export function AssignmentCommandCenter() {
                                             String(item.missingSubmissions)
                                         )}
                                     </p>
+                                    <p className="mt-1 text-[11px] font-semibold text-indigo-700">
+                                        LINE sent {item.lineReminderCount}x
+                                        {item.lastLineReminderSentAt
+                                            ? `, last ${new Date(item.lastLineReminderSentAt).toLocaleString()}`
+                                            : ", not sent yet"}
+                                    </p>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2">
                                     <Button
@@ -262,12 +294,32 @@ export function AssignmentCommandCenter() {
                                               )
                                             : sendingAssignmentId === item.assignmentId
                                               ? t("assignmentReminderSending")
-                                              : t("assignmentReminderSend")}
+                                            : t("assignmentReminderSend")}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                        disabled={sendingLineAssignmentId === item.assignmentId}
+                                        onClick={() => void sendLineReminder(item)}
+                                    >
+                                        {sentLineReminder?.assignmentId === item.assignmentId
+                                            ? `LINE sent (${sentLineReminder.targetCount})`
+                                            : sendingLineAssignmentId === item.assignmentId
+                                              ? "Sending LINE..."
+                                              : "Send LINE"}
                                     </Button>
                                     <Button asChild size="sm" className="h-8">
                                         <Link href={buildAssignmentClassroomHref(item.classId, item.assignmentId)}>
                                             {t("assignmentCommandHighlight")}
                                         </Link>
+                                    </Button>
+                                    <Button asChild size="sm" variant="ghost" className="h-8 gap-1 text-slate-600">
+                                        <a href={`/api/classrooms/${item.classId}/assignments/${item.assignmentId}/export`}>
+                                            <Download className="h-3.5 w-3.5" />
+                                            Export
+                                        </a>
                                     </Button>
                                 </div>
                             </li>
@@ -344,20 +396,31 @@ export function AssignmentCommandCenter() {
                                                 {t("assignmentCommandBadgeDueSoon")}
                                             </span>
                                         ) : null}
-                                        {item.missingSubmissions > 0 ? (
-                                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                                                {t("assignmentCommandMissingSlotsBadge").replace(
-                                                    "{count}",
-                                                    String(item.missingSubmissions)
-                                                )}
-                                            </span>
-                                        ) : null}
-                                    </div>
+                                    {item.missingSubmissions > 0 ? (
+                                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                                            {t("assignmentCommandMissingSlotsBadge").replace(
+                                                "{count}",
+                                                String(item.missingSubmissions)
+                                            )}
+                                        </span>
+                                    ) : null}
+                                    {item.lineReminderCount > 0 ? (
+                                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                                            LINE {item.lineReminderCount}x
+                                        </span>
+                                    ) : null}
+                                </div>
                                 </div>
                                 <Button asChild size="sm" className="h-8">
                                     <Link href={buildAssignmentClassroomHref(item.classId, item.assignmentId)}>
                                         {t("assignmentCommandHighlight")}
                                     </Link>
+                                </Button>
+                                <Button asChild size="sm" variant="ghost" className="h-8 gap-1 text-slate-600">
+                                    <a href={`/api/classrooms/${item.classId}/assignments/${item.assignmentId}/export`}>
+                                        <Download className="h-3.5 w-3.5" />
+                                        Export
+                                    </a>
                                 </Button>
                             </li>
                         ))}

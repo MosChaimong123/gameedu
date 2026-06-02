@@ -6,6 +6,23 @@ const LINE_ASSIGNMENT_AI_BONUS_GOLD = 5;
 
 type LineAssignmentRewardDb = Pick<PrismaClient, "$transaction">;
 
+type LineAssignmentRewardTransaction = {
+    economyTransaction?: {
+        findFirst?: (args: { where: { idempotencyKey: string } }) => Promise<unknown | null>;
+    };
+    student?: {
+        findUnique?: (args: {
+            where: { id: string };
+            select: { gold: true };
+        }) => Promise<{ gold: number } | null>;
+        update?: (args: {
+            where: { id: string };
+            data: { gold: { increment: number } };
+            select: { gold: true };
+        }) => Promise<{ gold: number }>;
+    };
+};
+
 export type LineAssignmentRewardInput = {
     studentId: string;
     classId: string;
@@ -53,35 +70,9 @@ export async function awardLineAssignmentSubmissionReward(
     const gold = calculateLineAssignmentRewardGold(input);
 
     return db.$transaction(async (tx) => {
-        const economyTransaction = (tx as {
-            economyTransaction?: {
-                findFirst?: (args: { where: { idempotencyKey: string } }) => Promise<unknown | null>;
-            };
-            student?: {
-                findUnique?: (args: {
-                    where: { id: string };
-                    select: { gold: true };
-                }) => Promise<{ gold: number } | null>;
-                update?: (args: {
-                    where: { id: string };
-                    data: { gold: { increment: number } };
-                    select: { gold: true };
-                }) => Promise<{ gold: number }>;
-            };
-        }).economyTransaction;
-        const studentDelegate = (tx as {
-            student?: {
-                findUnique?: (args: {
-                    where: { id: string };
-                    select: { gold: true };
-                }) => Promise<{ gold: number } | null>;
-                update?: (args: {
-                    where: { id: string };
-                    data: { gold: { increment: number } };
-                    select: { gold: true };
-                }) => Promise<{ gold: number }>;
-            };
-        }).student;
+        const txModels = tx as unknown as LineAssignmentRewardTransaction;
+        const economyTransaction = txModels.economyTransaction;
+        const studentDelegate = txModels.student;
 
         if (!economyTransaction?.findFirst || !studentDelegate?.findUnique || !studentDelegate.update) {
             return { awarded: false, gold: 0, idempotencyKey, reason: "model_unavailable" };
@@ -106,7 +97,7 @@ export async function awardLineAssignmentSubmissionReward(
             select: { gold: true },
         });
 
-        await recordEconomyTransaction(tx as Prisma.TransactionClient, {
+        await recordEconomyTransaction(tx as unknown as Prisma.TransactionClient, {
             studentId: input.studentId,
             classId: input.classId,
             type: "earn",

@@ -3,6 +3,7 @@ import legacyThaiTranslations from "./translations-th-legacy.json";
 export type Language = "en" | "th";
 
 export const thaiPack = {
+        economyLedgerSourceLineAssignment: "ส่งงานผ่าน LINE",
         planLineFeatureSection: "ผู้ช่วย LINE",
         planFreeLineFeat0: "สร้างงานผ่าน LINE ได้ 5 งานต่อเดือน",
         planFreeLineFeat1: "การส่งงาน แจ้งเตือน Export และ AI ตรวจเบื้องต้นผ่าน LINE ต้องใช้ Plus",
@@ -1200,6 +1201,7 @@ const englishPack = {
         economyLedgerSourceQuest: "Quest",
         economyLedgerSourceCheckin: "Check-in",
         economyLedgerSourcePassiveGold: "Passive gold",
+        economyLedgerSourceLineAssignment: "LINE assignment",
         economyLedgerSourceAdminAdjustment: "Admin adjustment",
         economyLedgerSourceMigration: "Migration",
         economyLedgerTypeEarn: "Earn",

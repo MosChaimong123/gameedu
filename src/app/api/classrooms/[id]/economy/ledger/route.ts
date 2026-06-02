@@ -13,6 +13,7 @@ const ECONOMY_SOURCES = new Set<EconomyTransactionSource>([
     "checkin",
     "quest",
     "battle",
+    "line_assignment",
     "shop",
     "admin_adjustment",
     "migration",

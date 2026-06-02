@@ -219,6 +219,7 @@ const SOURCE_OPTIONS = [
   "quest",
   "checkin",
   "passive_gold",
+  "line_assignment",
   "admin_adjustment",
   "migration",
 ] as const;
@@ -245,6 +246,7 @@ const LEDGER_SOURCE_KEYS: Record<string, string> = {
   quest: "economyLedgerSourceQuest",
   checkin: "economyLedgerSourceCheckin",
   passive_gold: "economyLedgerSourcePassiveGold",
+  line_assignment: "economyLedgerSourceLineAssignment",
   admin_adjustment: "economyLedgerSourceAdminAdjustment",
   migration: "economyLedgerSourceMigration",
 };

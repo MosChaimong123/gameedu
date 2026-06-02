@@ -94,6 +94,7 @@ export type GameEconomySource =
     | "checkin"
     | "quest"
     | "battle"
+    | "line_assignment"
     | "shop"
     | "admin_adjustment"
     | "migration";

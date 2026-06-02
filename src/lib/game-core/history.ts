@@ -112,7 +112,15 @@ export type EconomyLedgerHistorySource = {
     id: string;
     studentId: string;
     classId?: string | null;
-    source: "quest" | "shop" | "battle" | "passive_gold" | "checkin" | "admin_adjustment" | "migration";
+    source:
+        | "quest"
+        | "shop"
+        | "battle"
+        | "line_assignment"
+        | "passive_gold"
+        | "checkin"
+        | "admin_adjustment"
+        | "migration";
     type: "earn" | "spend" | "adjust";
     amount: number;
     sourceRefId?: string | null;

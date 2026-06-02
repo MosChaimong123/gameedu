@@ -1,13 +1,22 @@
 import type { WebhookEvent } from "@line/bot-sdk";
 import {
+    formatClassroomBindingFailedMessage,
+    formatClassroomBindingRequiredMessage,
+    formatClassroomBindingSuccessMessage,
+    formatClassroomWorkReminder,
+    formatClassroomWorkSummary,
+    formatClassroomReminderHelpMessage,
     formatDebtHelpMessage,
     formatOpenDebtSummary,
     formatRemindMessage,
     parseLineDebtCommand,
 } from "@/lib/line-bot/commands";
 import { replyLineText } from "@/lib/line-bot/client";
+import { getLineClassroomBindingSecret } from "@/lib/line-bot/config";
 import {
+    bindLineGroupToClassroom,
     createLineGroupDebt,
+    getClassroomReminderSummaryForLineGroup,
     listOpenDebtsForLineGroup,
     markLineGroupDebtPaid,
     upsertLineBotGroup,
@@ -38,11 +47,9 @@ async function handleLineWebhookEvent(event: WebhookEvent): Promise<void> {
         return;
     }
 
-    const lineGroupId = event.source.groupId;
-    const text = event.message.text;
     const result = await processGroupTextCommand({
-        lineGroupId,
-        text,
+        lineGroupId: event.source.groupId,
+        text: event.message.text,
         createdByLineUserId: event.source.userId,
     });
 
@@ -65,8 +72,43 @@ export async function processGroupTextCommand(input: {
     }
 
     switch (command.type) {
+        case "classroom_help":
+            return { handled: true, replyText: formatClassroomReminderHelpMessage() };
+        case "classroom_summary": {
+            const summary = await getClassroomReminderSummaryForLineGroup(input.lineGroupId);
+            return {
+                handled: true,
+                replyText: summary ? formatClassroomWorkSummary(summary) : formatClassroomBindingRequiredMessage(),
+            };
+        }
+        case "classroom_remind": {
+            const summary = await getClassroomReminderSummaryForLineGroup(input.lineGroupId);
+            return {
+                handled: true,
+                replyText: summary ? formatClassroomWorkReminder(summary) : formatClassroomBindingRequiredMessage(),
+            };
+        }
+        case "bind_classroom": {
+            const expectedSecret = getLineClassroomBindingSecret();
+            if (!expectedSecret || command.secret !== expectedSecret) {
+                return { handled: true, replyText: formatClassroomBindingFailedMessage() };
+            }
+
+            const result = await bindLineGroupToClassroom({
+                lineGroupId: input.lineGroupId,
+                classroomId: command.classroomId,
+            });
+            if (!result.ok) {
+                return { handled: true, replyText: formatClassroomBindingFailedMessage() };
+            }
+
+            return {
+                handled: true,
+                replyText: formatClassroomBindingSuccessMessage(result.classroomName),
+            };
+        }
         case "ping":
-            return { handled: true, replyText: "pong — บอททวงงานพร้อมใช้งาน" };
+            return { handled: true, replyText: "pong - LINE bot พร้อมใช้งาน" };
         case "help":
             return { handled: true, replyText: formatDebtHelpMessage() };
         case "summary": {
@@ -89,7 +131,7 @@ export async function processGroupTextCommand(input: {
             const note = debt.note ? ` (${debt.note})` : "";
             return {
                 handled: true,
-                replyText: `✅ บันทึก #${debt.shortCode}: ${debt.debtorLabel} ${debt.amountBaht} บาท${note}`,
+                replyText: `บันทึก #${debt.shortCode}: ${debt.debtorLabel} ${debt.amountBaht} บาท${note}`,
             };
         }
         case "mark_paid": {
@@ -102,7 +144,7 @@ export async function processGroupTextCommand(input: {
             }
             return {
                 handled: true,
-                replyText: `✅ ปิดแล้ว #${paid.shortCode}: ${paid.debtorLabel} ${paid.amountBaht} บาท`,
+                replyText: `ปิดแล้ว #${paid.shortCode}: ${paid.debtorLabel} ${paid.amountBaht} บาท`,
             };
         }
         default:

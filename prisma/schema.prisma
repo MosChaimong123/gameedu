@@ -190,6 +190,7 @@ model Classroom {
   /// Quiz result review: "end_only" | "never". null = follow QUIZ_REVIEW_MODE env default
   quizReviewMode String?
   battleSessions BattleSession[]
+  lineBotGroups LineBotGroup[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -630,10 +631,14 @@ model LineBotGroup {
   id          String          @id @default(auto()) @map("_id") @db.ObjectId
   lineGroupId String          @unique
   name        String?
+  classroomId String?         @db.ObjectId
+  classroom   Classroom?      @relation(fields: [classroomId], references: [id], onDelete: SetNull)
   isActive    Boolean         @default(true)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   debts       LineGroupDebt[]
+
+  @@index([classroomId])
 }
 
 /// Open/paid debt row scoped to one LINE group (amount in THB, whole baht).

@@ -53,7 +53,7 @@ export async function POST(
         }
         if (ctx.kind === "already_submitted") {
             return NextResponse.json(
-                { alreadySubmitted: true, score: ctx.score },
+                { alreadySubmitted: true, score: ctx.score, expBonus: 0 },
                 { status: 200 }
             );
         }
@@ -104,7 +104,7 @@ export async function POST(
 
         const completedAt = new Date();
 
-        const { submission, rankNotifyPayload } = await db.$transaction(async (tx) => {
+        const { submission, rankNotifyPayload, expBonus } = await db.$transaction(async (tx) => {
             const sub = await tx.assignmentSubmission.upsert({
                 where: {
                     studentId_assignmentId: {
@@ -130,6 +130,7 @@ export async function POST(
             });
 
             let payload: RankNotifyPayload | null = null;
+            let awardedExp = 0;
 
             if (negamon?.enabled) {
                 const expBonus = calcAssignmentEXP(score, maxScoreForExp, negamon.expPerPoint);
@@ -159,11 +160,12 @@ export async function POST(
                             oldPoints: before.behaviorPoints,
                             newPoints: after.behaviorPoints,
                         };
+                        awardedExp = expBonus;
                     }
                 }
             }
 
-            return { submission: sub, rankNotifyPayload: payload };
+            return { submission: sub, rankNotifyPayload: payload, expBonus: awardedExp };
         });
 
         if (rankNotifyPayload && classroom) {
@@ -182,6 +184,7 @@ export async function POST(
             return NextResponse.json({
                 score,
                 submissionId: submission.id,
+                expBonus,
             });
         }
 
@@ -190,6 +193,7 @@ export async function POST(
             correct,
             total: questions.length,
             submissionId: submission.id,
+            expBonus,
         });
 
     } catch (error) {

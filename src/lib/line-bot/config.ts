@@ -16,3 +16,8 @@ export function getLineChannelAccessToken(): string | undefined {
     const value = process.env.LINE_CHANNEL_ACCESS_TOKEN?.trim();
     return value || undefined;
 }
+
+export function getLineClassroomBindingSecret(): string | undefined {
+    const value = process.env.LINE_CLASSROOM_BINDING_SECRET?.trim();
+    return value || undefined;
+}

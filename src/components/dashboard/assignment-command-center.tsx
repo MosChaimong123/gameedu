@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { AlertCircle, ArrowRight, CalendarClock, ClipboardList, RefreshCw, TimerOff } from "lucide-react";
+import { AlertCircle, ArrowRight, CalendarClock, Check, Clipboard, ClipboardList, RefreshCw, TimerOff } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 import { Button } from "@/components/ui/button";
 import {
+    buildAssignmentReminderMessage,
     buildAssignmentClassroomHref,
     formatAssignmentClassSummary,
+    getReminderCandidates,
 } from "./assignment-command-center.helpers";
 import { useTeacherAssignmentOverview } from "./use-teacher-assignment-overview";
 
@@ -45,9 +48,44 @@ function StatChip({
 
 export function AssignmentCommandCenter() {
     const { t } = useLanguage();
+    const [copiedAssignmentId, setCopiedAssignmentId] = useState<string | null>(null);
+    const [sendingAssignmentId, setSendingAssignmentId] = useState<string | null>(null);
+    const [sentReminder, setSentReminder] = useState<{ assignmentId: string; targetCount: number } | null>(null);
+    const [reminderError, setReminderError] = useState<string | null>(null);
     const { rangeDays, setRangeDays, data, loading, error, load } = useTeacherAssignmentOverview(
         t("assignmentCommandLoadError")
     );
+    const reminderCandidates = useMemo(() => (data ? getReminderCandidates(data.items, 3) : []), [data]);
+
+    async function copyReminder(item: (typeof reminderCandidates)[number]) {
+        const message = buildAssignmentReminderMessage(item);
+        await navigator.clipboard.writeText(message);
+        setCopiedAssignmentId(item.assignmentId);
+        window.setTimeout(() => setCopiedAssignmentId(null), 1800);
+    }
+
+    async function sendReminder(item: (typeof reminderCandidates)[number]) {
+        setSendingAssignmentId(item.assignmentId);
+        setReminderError(null);
+        try {
+            const res = await fetch(
+                `/api/classrooms/${item.classId}/assignments/${item.assignmentId}/reminders`,
+                { method: "POST" }
+            );
+            const payload = (await res.json()) as { targetCount?: number };
+            if (!res.ok) {
+                throw new Error("send_failed");
+            }
+            setSentReminder({
+                assignmentId: item.assignmentId,
+                targetCount: payload.targetCount ?? 0,
+            });
+        } catch {
+            setReminderError(t("assignmentReminderSendFailed"));
+        } finally {
+            setSendingAssignmentId(null);
+        }
+    }
 
     if (loading && !data) {
         return (
@@ -157,6 +195,91 @@ export function AssignmentCommandCenter() {
                     tone="slate"
                 />
             </div>
+
+            {reminderCandidates.length > 0 ? (
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
+                    <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                        <div>
+                            <h3 className="text-sm font-black uppercase tracking-wider text-indigo-900">
+                                {t("assignmentReminderTitle")}
+                            </h3>
+                            <p className="mt-1 text-xs font-medium text-indigo-700">
+                                {t("assignmentReminderSubtitle")}
+                            </p>
+                        </div>
+                        <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-indigo-800 shadow-sm">
+                            {t("assignmentReminderCandidateCount").replace(
+                                "{count}",
+                                String(reminderCandidates.length)
+                            )}
+                        </span>
+                    </div>
+                    <ul className="space-y-2">
+                        {reminderCandidates.map((item) => (
+                            <li
+                                key={item.assignmentId}
+                                className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 shadow-sm"
+                            >
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-black text-slate-900">{item.name}</p>
+                                    <p className="text-xs text-slate-500">
+                                        {item.classroomName} -{" "}
+                                        {t("assignmentCommandMissingSlotsBadge").replace(
+                                            "{count}",
+                                            String(item.missingSubmissions)
+                                        )}
+                                    </p>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 gap-1"
+                                        onClick={() => void copyReminder(item)}
+                                    >
+                                        {copiedAssignmentId === item.assignmentId ? (
+                                            <Check className="h-3.5 w-3.5" />
+                                        ) : (
+                                            <Clipboard className="h-3.5 w-3.5" />
+                                        )}
+                                        {copiedAssignmentId === item.assignmentId
+                                            ? t("assignmentReminderCopied")
+                                            : t("assignmentReminderCopy")}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="secondary"
+                                        className="h-8"
+                                        disabled={sendingAssignmentId === item.assignmentId}
+                                        onClick={() => void sendReminder(item)}
+                                    >
+                                        {sentReminder?.assignmentId === item.assignmentId
+                                            ? t("assignmentReminderSent").replace(
+                                                  "{count}",
+                                                  String(sentReminder.targetCount)
+                                              )
+                                            : sendingAssignmentId === item.assignmentId
+                                              ? t("assignmentReminderSending")
+                                              : t("assignmentReminderSend")}
+                                    </Button>
+                                    <Button asChild size="sm" className="h-8">
+                                        <Link href={buildAssignmentClassroomHref(item.classId, item.assignmentId)}>
+                                            {t("assignmentCommandHighlight")}
+                                        </Link>
+                                    </Button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                    {reminderError ? (
+                        <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800">
+                            {reminderError}
+                        </p>
+                    ) : null}
+                </div>
+            ) : null}
 
             {data.classrooms.length > 0 ? (
                 <div>

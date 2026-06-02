@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
     BookOpen,
+    BellRing,
     CheckCircle2,
     CheckSquare,
     Clock,
@@ -34,6 +35,10 @@ import type {
     StudentDashboardTranslateFn,
     SubmissionRecord,
 } from "@/lib/services/student-dashboard/student-dashboard.types";
+import {
+    estimateQuizAssignmentExpPreview,
+    getStudentDueWork,
+} from "./student-dashboard-assignments.helpers";
 
 interface StudentDashboardAssignmentsTabProps {
     t: StudentDashboardTranslateFn;
@@ -86,6 +91,11 @@ export function StudentDashboardAssignmentsTab({
             : score;
         const maxValue = isChecklist ? assignment.checklists?.length || 1 : maxScore;
         const isQuiz = formType === "quiz";
+        const rewardPreviewExp = estimateQuizAssignmentExpPreview({
+            isQuiz,
+            maxScore,
+            negamonSettings: classroom.negamonSettings,
+        });
         const isQuizCompleted =
             isQuiz &&
             submission &&
@@ -121,6 +131,7 @@ export function StudentDashboardAssignmentsTab({
             maxValue,
             progress: (progressValue / maxValue) * 100,
             isCompleted,
+            rewardPreviewExp,
         };
     });
 
@@ -141,6 +152,20 @@ export function StudentDashboardAssignmentsTab({
                   return a.deadlineAt.getTime() - b.deadlineAt.getTime();
               })
             : filtered;
+    const dueWork = getStudentDueWork(
+        withMeta.map((item) => ({
+            id: item.assignment.id,
+            name: item.assignment.name,
+            deadlineAt: item.deadlineAt,
+            deadlineValid: item.deadlineValid,
+            isCompleted: item.isCompleted,
+            isQuiz: item.isQuiz,
+            isWorksheet: item.isWorksheet,
+        })),
+        new Date(),
+        3
+    );
+    const metaByAssignmentId = new Map(withMeta.map((item) => [item.assignment.id, item]));
 
     return (
         <div className="space-y-4">
@@ -185,6 +210,84 @@ export function StudentDashboardAssignmentsTab({
                 </div>
             </div>
 
+            {dueWork.length > 0 ? (
+                <div className="rounded-3xl border border-amber-200/70 bg-amber-50/80 p-4 shadow-sm">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <h4 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-amber-900">
+                                <BellRing className="h-4 w-4" />
+                                {t("studentDashDueWorkTitle")}
+                            </h4>
+                            <p className="mt-1 text-xs font-bold text-amber-800/80">
+                                {t("studentDashDueWorkSubtitle")}
+                            </p>
+                        </div>
+                        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-amber-900 shadow-sm">
+                            {t("studentDashDueWorkCount", { count: dueWork.length })}
+                        </span>
+                    </div>
+                    <div className="grid gap-2">
+                        {dueWork.map((item) => {
+                            const meta = metaByAssignmentId.get(item.id);
+                            const statusLabel = item.isOverdue
+                                ? t("studentDashDueWorkOverdue")
+                                : item.isDueToday
+                                  ? t("studentDashDueWorkToday")
+                                  : t("studentDashDueWorkSoon");
+                            const href = item.isWorksheet
+                                ? `/student/${code}/worksheet/${item.id}`
+                                : item.isQuiz
+                                  ? `/student/${code}/quiz/${item.id}`
+                                  : null;
+
+                            return (
+                                <div
+                                    key={item.id}
+                                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-3 py-3"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-black text-slate-900">{item.name}</p>
+                                        <p className="text-xs font-bold text-slate-500">
+                                            {statusLabel}
+                                            {item.deadlineAt
+                                                ? ` - ${format(item.deadlineAt, "d MMM yyyy HH:mm", {
+                                                      locale: dateLocale,
+                                                  })}`
+                                                : ""}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {meta ? (
+                                            <Badge
+                                                variant="outline"
+                                                className={cn(
+                                                    "rounded-lg border px-2 py-0.5 text-[10px] font-black uppercase",
+                                                    assignmentTypeBadgeClassName(meta.formType)
+                                                )}
+                                            >
+                                                {assignmentFormTypeLabel(t, meta.formType)}
+                                            </Badge>
+                                        ) : null}
+                                        {meta && meta.rewardPreviewExp > 0 ? (
+                                            <Badge className="rounded-lg border-none bg-indigo-100 px-2 py-0.5 text-[10px] font-black uppercase text-indigo-700">
+                                                {t("studentDashRewardPreview", {
+                                                    amount: meta.rewardPreviewExp,
+                                                })}
+                                            </Badge>
+                                        ) : null}
+                                        {href ? (
+                                            <Button asChild size="sm" className="h-8 rounded-xl font-black">
+                                                <Link href={href}>{t("studentDashDueWorkOpen")}</Link>
+                                            </Button>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            ) : null}
+
             {sorted.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 rounded-3xl border border-slate-100 bg-white/40 py-16 text-center">
                     <LayoutDashboard className="h-10 w-10 text-slate-200" />
@@ -221,6 +324,7 @@ export function StudentDashboardAssignmentsTab({
                             maxValue,
                             progress,
                             isCompleted,
+                            rewardPreviewExp,
                         }) => {
                             const iconBoxClass =
                                 formType === "quiz"
@@ -277,6 +381,15 @@ export function StudentDashboardAssignmentsTab({
                                                         </span>
                                                     </Badge>
                                                 )}
+                                                {!isCompleted && rewardPreviewExp > 0 ? (
+                                                    <Badge className="rounded-lg border-none bg-indigo-100 px-2 py-0.5 text-indigo-700">
+                                                        <span className="text-[10px] font-black uppercase">
+                                                            {t("studentDashRewardPreview", {
+                                                                amount: rewardPreviewExp,
+                                                            })}
+                                                        </span>
+                                                    </Badge>
+                                                ) : null}
                                             </div>
                                         </div>
                                         <div className="mb-4">

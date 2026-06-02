@@ -68,7 +68,7 @@ export function WorksheetClient({
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ score: number; maxScore: number } | null>(null);
+  const [result, setResult] = useState<{ score: number; maxScore: number; expBonus: number } | null>(null);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
   const [recordingItemId, setRecordingItemId] = useState<string | null>(null);
   const [recordingError, setRecordingError] = useState<string | null>(null);
@@ -269,14 +269,14 @@ export function WorksheetClient({
         }
       );
       const payload = (await res.json()) as
-        | { score: number; maxScore: number; showScoreToStudent: boolean }
+        | { score: number; maxScore: number; showScoreToStudent: boolean; expBonus?: number }
         | { message?: string };
       if (!res.ok) {
         setLoadError(t("worksheetSubmitFailed"));
         return;
       }
       if ("score" in payload && payload.showScoreToStudent) {
-        setResult({ score: payload.score, maxScore: payload.maxScore });
+        setResult({ score: payload.score, maxScore: payload.maxScore, expBonus: payload.expBonus ?? 0 });
         return;
       }
       router.push(`/student/${studentCode}`);
@@ -305,6 +305,11 @@ export function WorksheetClient({
             <p className="text-6xl font-black">{result.score}</p>
             <p className="text-sm text-white/70">/ {result.maxScore}</p>
           </div>
+          {result.expBonus > 0 ? (
+            <div className="mb-6 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm font-black text-indigo-700">
+              {t("worksheetExpRewardLabel", { amount: result.expBonus })}
+            </div>
+          ) : null}
           <Button
             onClick={() => router.push(`/student/${studentCode}`)}
             className={`h-12 w-full rounded-xl font-bold text-white ${themeClass}`}

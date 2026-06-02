@@ -4,7 +4,9 @@ import {
   buildAssignmentClassroomHref,
   buildClassroomAssignmentsHref,
   buildAssignmentOverviewUrl,
+  buildAssignmentReminderMessage,
   formatAssignmentClassSummary,
+  getReminderCandidates,
 } from "@/components/dashboard/assignment-command-center.helpers";
 
 describe("assignment command center helpers", () => {
@@ -38,9 +40,68 @@ describe("assignment command center helpers", () => {
 
   it("formats class summary placeholders", () => {
     const text = formatAssignmentClassSummary(
-      "{overdue} overdue · {dueSoon} due soon · {missing} missing slots",
+      "{overdue} overdue - {dueSoon} due soon - {missing} missing slots",
       { overdueCount: 2, dueWithinRangeCount: 5, missingSubmissionSlots: 9 }
     );
-    expect(text).toBe("2 overdue · 5 due soon · 9 missing slots");
+    expect(text).toBe("2 overdue - 5 due soon - 9 missing slots");
+  });
+
+  it("keeps reminder candidates focused on missing urgent work", () => {
+    const candidates = getReminderCandidates([
+      {
+        assignmentId: "a-overdue",
+        classId: "class-1",
+        classroomName: "Math",
+        name: "Old homework",
+        type: "assignment",
+        deadline: "2026-04-05T00:00:00.000Z",
+        missingSubmissions: 2,
+        overdue: true,
+        dueWithinRange: false,
+      },
+      {
+        assignmentId: "a-complete",
+        classId: "class-1",
+        classroomName: "Math",
+        name: "Done",
+        type: "assignment",
+        deadline: "2026-04-08T00:00:00.000Z",
+        missingSubmissions: 0,
+        overdue: false,
+        dueWithinRange: true,
+      },
+      {
+        assignmentId: "a-no-deadline",
+        classId: "class-2",
+        classroomName: "Science",
+        name: "No deadline",
+        type: "assignment",
+        deadline: null,
+        missingSubmissions: 4,
+        overdue: false,
+        dueWithinRange: false,
+      },
+    ]);
+
+    expect(candidates.map((item) => item.assignmentId)).toEqual(["a-overdue"]);
+  });
+
+  it("builds a copyable assignment reminder message", () => {
+    const message = buildAssignmentReminderMessage({
+      assignmentId: "a-soon",
+      classId: "class-1",
+      classroomName: "Math",
+      name: "Quiz 1",
+      type: "quiz",
+      deadline: "2026-04-08T00:00:00.000Z",
+      missingSubmissions: 3,
+      overdue: false,
+      dueWithinRange: true,
+    });
+
+    expect(message).toContain("GameEdu reminder");
+    expect(message).toContain("Class: Math");
+    expect(message).toContain("Assignment: Quiz 1");
+    expect(message).toContain("Still missing: 3 submission(s)");
   });
 });

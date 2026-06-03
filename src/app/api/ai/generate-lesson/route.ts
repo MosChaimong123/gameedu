@@ -216,52 +216,58 @@ Return ONLY valid JSON (no markdown, no code blocks) matching this exact structu
 }`
 
         const parts: GeminiContentPart[] = []
-        if (pdfData) {
-            parts.push({ inlineData: { data: pdfData, mimeType: "application/pdf" } })
+        const trimmedText = text?.trim() ?? ""
+        // Prefer the already-extracted text. Only attach the raw PDF inline when text
+        // extraction came up short — sending the full PDF makes each Gemini call much
+        // slower and, with Cloudflare's 100s edge timeout, risks "Failed to fetch".
+        if (trimmedText.length > 0) {
+            parts.push({ text: `CURRICULUM CONTENT:\n${trimmedText}` })
         }
-        if (text && text.trim().length > 0) {
-            parts.push({ text: `CURRICULUM CONTENT:\n${text}` })
+        if (pdfData && trimmedText.length < 200) {
+            parts.push({ inlineData: { data: pdfData, mimeType: "application/pdf" } })
         }
         parts.push({ text: prompt })
 
         // Valid models for this API key (verified via ListModels), free-tier friendly, in preference order.
         const MODELS = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-flash-lite-latest"]
-        const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-        function parseRetryDelay(msg: string): number {
-            const match = msg.match(/retryDelay['":\s]+(\d+)s/)
-            return match ? (parseInt(match[1]) + 2) * 1000 : 50_000
-        }
 
         let raw = ""
         let lastError: unknown
+        let rateLimited = false
         for (const modelName of MODELS) {
-            let attempts = 0
-            while (attempts < 2) {
-                try {
-                    const m = genAI.getGenerativeModel({ model: modelName })
-                    const result = await m.generateContent(parts)
-                    raw = result.response.text()
-                    break
-                } catch (err) {
-                    lastError = err
-                    const msg = err instanceof Error ? err.message : ""
-                    const is503 = msg.includes("503") || msg.includes("overloaded") || msg.includes("Service Unavailable")
-                    const is429 = msg.includes("429") || msg.includes("Too Many Requests")
-                    const is404 = msg.includes("404") || msg.includes("not found")
-                    const isHardQuota = msg.includes("limit: 0") || msg.includes("limit\": 0")
-                    if (is404 || isHardQuota) break          // model unavailable on this tier → next model
-                    if (is503) break                         // overloaded → next model
-                    if (is429 && attempts === 0) {
-                        attempts++
-                        await sleep(parseRetryDelay(msg))    // temporary rate limit → wait then retry same model
-                        continue
-                    }
-                    throw err
-                }
+            try {
+                const m = genAI.getGenerativeModel({ model: modelName })
+                const result = await m.generateContent(parts)
+                raw = result.response.text()
                 break
+            } catch (err) {
+                lastError = err
+                const msg = err instanceof Error ? err.message : ""
+                const is503 = msg.includes("503") || msg.includes("overloaded") || msg.includes("Service Unavailable")
+                const is429 = msg.includes("429") || msg.includes("Too Many Requests")
+                const is404 = msg.includes("404") || msg.includes("not found")
+                const isHardQuota = msg.includes("limit: 0") || msg.includes("limit\": 0")
+                if (is429) rateLimited = true
+                // For any transient/availability issue, move on to the next model immediately.
+                // Never sleep-and-retry: a long wait would blow past the 100s edge timeout.
+                if (is404 || isHardQuota || is503 || is429) continue
+                throw err
             }
-            if (raw) break
+        }
+        if (!raw && rateLimited) {
+            logAuditEvent({
+                actorUserId,
+                action: "ai.lesson_generate.failed",
+                category: "ai",
+                status: "error",
+                reason: "rate_limited",
+                targetType: "aiLesson",
+            })
+            return createAppErrorResponse(
+                "RATE_LIMITED",
+                "AI กำลังถูกใช้งานหนาแน่น กรุณาลองใหม่อีกครั้งในอีกสักครู่",
+                429
+            )
         }
         if (!raw) throw lastError
 

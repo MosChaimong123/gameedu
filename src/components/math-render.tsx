@@ -15,10 +15,13 @@ type Props = {
 export function textHasLatexMarkup(text: string) {
     const trimmed = text.trim()
     if (!trimmed) return false
+    // $...$ or $$...$$ math delimiters
     if (/\$\$[\s\S]+?\$\$|\$[^$\n]+?\$/.test(trimmed)) return true
-    if (/\\(?:frac|sqrt|sum|int|left|right|begin|end|text|mathrm|mathbf|overline|underline|cdot|times|div|pm|leq|geq|neq|approx|infty|alpha|beta|gamma|theta|pi)\b/.test(trimmed)) {
-        return true
-    }
+    // Any LaTeX command: a backslash followed by letters (e.g. \omega, \lambda, \frac).
+    // Plain prose (incl. Thai answers) does not contain backslash-commands.
+    if (/\\[a-zA-Z]+/.test(trimmed)) return true
+    // Superscript/subscript with braces, e.g. x^{2}, a_{ij}
+    if (/[\^_]\{[^}]+\}/.test(trimmed)) return true
     return false
 }
 

@@ -8,9 +8,15 @@ import {
     createAppErrorResponse,
 } from "@/lib/api-error";
 import { db, getOptionalDbModel } from "@/lib/db";
-import { pushLineText } from "@/lib/line-bot/client";
+import { pushLineFlex } from "@/lib/line-bot/client";
 import { canUseLineFeature } from "@/lib/line-bot/plan-access";
+import { createMissingStudentNameResolver } from "@/lib/line-bot/missing-student-names";
+import { buildReminderFlexBubble } from "@/lib/line-bot/reminder-flex";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
+
+function getAppUrl(): string | undefined {
+    return process.env.NEXT_PUBLIC_APP_URL?.trim() || process.env.LINE_BOT_CHAT_URL?.trim() || undefined;
+}
 
 type LineReminderDeliveryModel = {
     create(input: {
@@ -61,7 +67,7 @@ export async function POST(
                                 planExpiry: true,
                             },
                         },
-                        students: { select: { id: true } },
+                        students: { select: { id: true, name: true } },
                         lineBotGroups: {
                             where: { isActive: true },
                             select: { id: true, lineGroupId: true },
@@ -94,7 +100,8 @@ export async function POST(
         }
 
         const submitted = new Set(assignment.submissions.map((submission) => submission.studentId));
-        const targetCount = assignment.classroom.students.filter((student) => !submitted.has(student.id)).length;
+        const missing = assignment.classroom.students.filter((student) => !submitted.has(student.id));
+        const targetCount = missing.length;
         const groups = assignment.classroom.lineBotGroups;
         if (groups.length === 0) {
             return NextResponse.json({
@@ -107,12 +114,7 @@ export async function POST(
 
         const now = new Date();
         const reminderKey = `manual:${now.toISOString()}`;
-        const message = formatManualLineReminderMessage({
-            classroomName: assignment.classroom.name,
-            assignmentName: assignment.name,
-            deadline: assignment.deadline,
-            targetCount,
-        });
+        const tone = assignment.deadline && assignment.deadline < now ? "overdue" : "today";
 
         let sentCount = 0;
         let failedCount = 0;
@@ -129,7 +131,28 @@ export async function POST(
                         targetCount,
                     },
                 });
-                await pushLineText(group.lineGroupId, message);
+                const resolveMissingNames = await createMissingStudentNameResolver({
+                    lineGroupId: group.lineGroupId,
+                    classroomId: assignment.classroom.id,
+                });
+                const missingStudents = await resolveMissingNames(
+                    missing.map((student) => ({ id: student.id, name: student.name }))
+                );
+                const bubble = buildReminderFlexBubble({
+                    tone,
+                    classroomName: assignment.classroom.name,
+                    assignmentName: assignment.name,
+                    deadline: assignment.deadline,
+                    missingSubmissions: targetCount,
+                    totalStudents: assignment.classroom.students.length,
+                    missingStudents,
+                    footerUrl: getAppUrl(),
+                });
+                await pushLineFlex(
+                    group.lineGroupId,
+                    `กริ่งเตือนจากครู: ${assignment.name} (ยังขาด ${targetCount} คน)`,
+                    bubble
+                );
                 sentCount += 1;
             } catch (error) {
                 failedCount += 1;
@@ -151,27 +174,3 @@ export async function POST(
     }
 }
 
-function formatManualLineReminderMessage(input: {
-    classroomName: string;
-    assignmentName: string;
-    deadline: Date | null;
-    targetCount: number;
-}) {
-    return [
-        "กริ่งเตือนจากครู",
-        `ห้อง ${input.classroomName}`,
-        `งาน: ${input.assignmentName}`,
-        `ยังขาด ${input.targetCount} คน`,
-        input.deadline ? `กำหนดส่ง: ${formatBangkokDateTime(input.deadline)}` : "กำหนดส่ง: ไม่มีกำหนด",
-        "",
-        "เปิด GameEdu เพื่อตรวจงานของตัวเองได้เลย",
-    ].join("\n");
-}
-
-function formatBangkokDateTime(date: Date): string {
-    return date.toLocaleString("th-TH", {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "Asia/Bangkok",
-    });
-}

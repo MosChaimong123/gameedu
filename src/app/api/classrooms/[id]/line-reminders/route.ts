@@ -7,11 +7,17 @@ import {
     NOT_FOUND_MESSAGE,
     createAppErrorResponse,
 } from "@/lib/api-error";
+import type { messagingApi } from "@line/bot-sdk";
 import { db } from "@/lib/db";
-import { pushLineText } from "@/lib/line-bot/client";
-import { formatClassroomWorkReminder } from "@/lib/line-bot/commands";
+import { pushLineFlex } from "@/lib/line-bot/client";
 import { canUseLineFeature } from "@/lib/line-bot/plan-access";
+import { createMissingStudentNameResolver } from "@/lib/line-bot/missing-student-names";
+import { buildReminderFlexBubble, type ReminderFlexTone } from "@/lib/line-bot/reminder-flex";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
+
+function getAppUrl(): string | undefined {
+    return process.env.NEXT_PUBLIC_APP_URL?.trim() || process.env.LINE_BOT_CHAT_URL?.trim() || undefined;
+}
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
     const session = await auth();
@@ -40,7 +46,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
                         planExpiry: true,
                     },
                 },
-                students: { select: { id: true } },
+                students: { select: { id: true, name: true } },
                 lineBotGroups: {
                     where: { isActive: true },
                     select: { id: true, lineGroupId: true },
@@ -79,7 +85,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         const summaryAssignments = classroom.assignments
             .map((assignment) => {
                 const submitted = new Set(assignment.submissions.map((submission) => submission.studentId));
-                const missingSubmissions = classroom.students.filter((student) => !submitted.has(student.id)).length;
+                const missing = classroom.students.filter((student) => !submitted.has(student.id));
                 const deadline = assignment.deadline ?? null;
                 const overdue = Boolean(deadline && deadline < now);
                 const dueSoon = Boolean(deadline && deadline >= now && deadline <= soonHorizon);
@@ -89,9 +95,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
                     name: assignment.name,
                     type: assignment.type,
                     deadline,
-                    missingSubmissions,
+                    missingSubmissions: missing.length,
                     overdue,
                     dueSoon,
+                    missingStudentList: missing.map((student) => ({ id: student.id, name: student.name })),
                 };
             })
             .filter((assignment) => assignment.missingSubmissions > 0 || assignment.overdue || assignment.dueSoon)
@@ -110,18 +117,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
             0
         );
 
-        const message = formatClassroomWorkReminder({
-            classroomName: classroom.name,
-            studentCount: classroom.students.length,
-            assignments: summaryAssignments,
-            totals: {
-                visibleAssignments: classroom.assignments.length,
-                overdueAssignments: summaryAssignments.filter((assignment) => assignment.overdue).length,
-                dueSoonAssignments: summaryAssignments.filter((assignment) => assignment.dueSoon).length,
-                missingSubmissionSlots,
-            },
-        });
-
         const groups = classroom.lineBotGroups;
         if (groups.length === 0) {
             return NextResponse.json({
@@ -133,11 +128,52 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
             });
         }
 
+        // LINE carousels allow at most 12 bubbles. Show the most urgent assignments.
+        const carouselAssignments = summaryAssignments
+            .filter((assignment) => assignment.missingSubmissions > 0)
+            .slice(0, 12);
+
         let sentCount = 0;
         let failedCount = 0;
         for (const group of groups) {
             try {
-                await pushLineText(group.lineGroupId, message);
+                const resolveMissingNames = await createMissingStudentNameResolver({
+                    lineGroupId: group.lineGroupId,
+                    classroomId: classroom.id,
+                });
+                const bubbles: messagingApi.FlexBubble[] = [];
+                for (const assignment of carouselAssignments) {
+                    const tone: ReminderFlexTone = assignment.overdue
+                        ? "overdue"
+                        : assignment.dueSoon
+                          ? "today"
+                          : "before";
+                    const missingStudents = await resolveMissingNames(assignment.missingStudentList);
+                    bubbles.push(
+                        buildReminderFlexBubble({
+                            tone,
+                            classroomName: classroom.name,
+                            assignmentName: assignment.name,
+                            deadline: assignment.deadline,
+                            missingSubmissions: assignment.missingSubmissions,
+                            totalStudents: classroom.students.length,
+                            missingStudents,
+                            footerUrl: getAppUrl(),
+                        })
+                    );
+                }
+
+                if (bubbles.length === 0) {
+                    continue;
+                }
+
+                const contents: messagingApi.FlexContainer =
+                    bubbles.length === 1 ? bubbles[0] : { type: "carousel", contents: bubbles };
+                await pushLineFlex(
+                    group.lineGroupId,
+                    `กริ่งเตือนงานค้าง ห้อง ${classroom.name} (${carouselAssignments.length} งาน)`,
+                    contents
+                );
                 sentCount += 1;
             } catch (error) {
                 failedCount += 1;

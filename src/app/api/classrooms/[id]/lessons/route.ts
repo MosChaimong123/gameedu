@@ -46,7 +46,6 @@ export async function GET(_req: Request, { params }: Params) {
                             gradeLevel: true,
                             description: true,
                             content: true,
-                            estimatedMinutes: false,
                         },
                     },
                     completions: {

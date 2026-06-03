@@ -6,6 +6,7 @@ import { BookOpen, Swords } from "lucide-react";
 import { PageBackLink } from "@/components/ui/page-back-link";
 import { LanguageToggle } from "@/components/language-toggle";
 import { SyncAccountButton } from "./sync-account-button";
+import { StudentLineLinkDialog } from "./student-line-link-dialog";
 import type {
     ClassroomRecord,
     DashboardStudent,
@@ -100,6 +101,9 @@ export function StudentDashboardHeader({
 
                 <div className="relative z-10 flex flex-wrap items-center gap-4 rounded-[1.5rem] border border-white/10 bg-black/10 px-4 py-3 backdrop-blur-md">
                     {currentUserId && !student.userId && <SyncAccountButton loginCode={code} />}
+                    {currentUserId && student.userId === currentUserId ? (
+                        <StudentLineLinkDialog loginCode={code} />
+                    ) : null}
                     {notificationTray}
                     <LanguageToggle className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white" />
                     <button

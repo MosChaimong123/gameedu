@@ -5,11 +5,13 @@ export type LineDebtCommand =
     | { type: "classroom_summary" }
     | { type: "classroom_remind" }
     | { type: "classroom_student_work"; scope: LineStudentWorkScope }
+    | { type: "student_link_account"; code: string }
     | { type: "classroom_bind_student"; studentCode: string }
     | { type: "classroom_my_work" }
     | { type: "classroom_submit_text"; studentCode: string; assignmentRef: string; content: string }
     | { type: "classroom_create_assignment"; name: string; deadlineText: string | null }
     | { type: "bind_classroom"; classroomId: string; secret: string }
+    | { type: "bind_classroom_token"; token: string }
     | { type: "add"; debtorLabel: string; amountBaht: number; note?: string }
     | { type: "summary" }
     | { type: "remind" }
@@ -49,6 +51,11 @@ export function parseLineDebtCommand(rawText: string): LineDebtCommand | null {
         if (keywords.has(lower)) return { type: "classroom_student_work", scope };
     }
 
+    const studentLinkMatch = text.match(/^(?:เชื่อม|link)\s+(\d{6})$/i);
+    if (studentLinkMatch) {
+        return { type: "student_link_account", code: studentLinkMatch[1] };
+    }
+
     const studentBindMatch = text.match(/^(?:ผูกนักเรียน|bind student)\s+(\S{3,64})$/i);
     if (studentBindMatch) {
         return { type: "classroom_bind_student", studentCode: studentBindMatch[1].trim() };
@@ -63,6 +70,11 @@ export function parseLineDebtCommand(rawText: string): LineDebtCommand | null {
     const bindMatch = text.match(/^(?:ผูกห้อง|bind classroom)\s+([a-f0-9]{24})\s+(\S{4,128})$/i);
     if (bindMatch) {
         return { type: "bind_classroom", classroomId: bindMatch[1], secret: bindMatch[2] };
+    }
+
+    const bindTokenMatch = text.match(/^(?:ผูกห้อง|bind classroom)\s+([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i);
+    if (bindTokenMatch) {
+        return { type: "bind_classroom_token", token: bindTokenMatch[1] };
     }
 
     if (PING_KEYWORDS.has(lower)) return { type: "ping" };
@@ -471,6 +483,39 @@ export function formatLineStudentBindingRequiredMessage(): string {
         "พิมพ์: ผูกนักเรียน <studentCode>",
         "",
         "หลังผูกแล้วใช้ งานของฉัน ได้",
+    ].join("\n");
+}
+
+export function formatLineDirectHelpMessage(): string {
+    return [
+        "เชื่อม LINE กับบัญชีนักเรียน",
+        "- ไปที่หน้า GameEdu ของนักเรียน",
+        "- กดปุ่ม เชื่อม LINE",
+        "- คัดลอกคำสั่ง เชื่อม <code> มาวางในแชตนี้",
+        "",
+        "ตัวอย่าง: เชื่อม 483921",
+        "หลังเชื่อมแล้ว LINE จะผูกกับห้องเรียนนี้ให้อัตโนมัติ",
+    ].join("\n");
+}
+
+export function formatLineStudentAccountLinkedMessage(input: {
+    studentName: string;
+    classroomName: string;
+}): string {
+    return [
+        "เชื่อม LINE กับบัญชีนักเรียนสำเร็จแล้ว",
+        `ห้อง: ${input.classroomName}`,
+        `นักเรียน: ${input.studentName}`,
+        "",
+        "กลับไปที่ GameEdu ได้เลย ถ้าเปิดหน้าต่างเชื่อม LINE ค้างไว้ สถานะจะอัปเดตเอง",
+    ].join("\n");
+}
+
+export function formatLineStudentAccountLinkFailedMessage(): string {
+    return [
+        "เชื่อม LINE ไม่สำเร็จ",
+        "รหัสเชื่อมไม่ถูกต้องหรือหมดอายุแล้ว",
+        "กลับไปกดปุ่ม เชื่อม LINE ใน GameEdu เพื่อรับรหัสใหม่อีกครั้ง",
     ].join("\n");
 }
 

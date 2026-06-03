@@ -13,6 +13,7 @@ import {
     type ClassroomBasicUpdateInput,
     updateClassroomBasics,
 } from "@/lib/services/classroom-settings/update-classroom-basics";
+import { getClassroomDashboardForTeacher } from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 export async function GET(
@@ -31,32 +32,15 @@ export async function GET(
     }
 
     try {
-        const classroom = await db.classroom.findUnique({
-            where: {
-                id,
-                teacherId: session.user.id as string,
-            },
-            include: {
-                students: {
-                    orderBy: { name: "asc" },
-                    include: {
-                        submissions: true,
-                    },
-                },
-                skills: true,
-                assignments: {
-                    orderBy: {
-                        order: "asc",
-                    },
-                },
-            },
-        });
-
-        if (!classroom) {
+        const classroomResult = await getClassroomDashboardForTeacher(id, session.user.id as string);
+        if (classroomResult.status === "not_found") {
             return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
+        if (classroomResult.status === "forbidden") {
+            return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+        }
 
-        return NextResponse.json(classroom);
+        return NextResponse.json(classroomResult.classroom);
     } catch (error) {
         console.error("[CLASSROOM_GET]", error);
         return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);

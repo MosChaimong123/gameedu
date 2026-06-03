@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import {
     classroomDashboardSelect,
+    type ClassroomDashboardStudentViewModel,
     type ClassroomDashboardViewModel,
 } from "./classroom-dashboard.types";
 
@@ -29,7 +30,32 @@ export async function getClassroomDashboard(
         return null;
     }
 
-    return classroom;
+    const links = await deps.db.lineStudentAccountLink.findMany({
+        where: {
+            classroomId,
+        },
+        select: {
+            studentId: true,
+            createdAt: true,
+        },
+    });
+
+    const linkByStudentId = new Map(
+        links.map((link) => [link.studentId, link.createdAt] as const)
+    );
+
+    return {
+        ...classroom,
+        students: classroom.students.map(
+            (student): ClassroomDashboardStudentViewModel => ({
+                ...student,
+                lineLink: {
+                    linked: linkByStudentId.has(student.id),
+                    linkedAt: linkByStudentId.get(student.id) ?? null,
+                },
+            })
+        ),
+    };
 }
 
 export async function getClassroomDashboardForTeacher(

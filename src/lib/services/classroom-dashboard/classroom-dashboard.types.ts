@@ -86,10 +86,31 @@ export const classroomDashboardSelect = {
             updatedAt: true,
         },
     },
+    lineBotGroups: {
+        where: { isActive: true },
+        select: {
+            id: true,
+            lineGroupId: true,
+            name: true,
+            isActive: true,
+        },
+    },
 } satisfies Prisma.ClassroomSelect;
 
 type ClassroomDashboardBaseViewModel = Prisma.ClassroomGetPayload<{
     select: typeof classroomDashboardSelect;
 }>;
 
-export type ClassroomDashboardViewModel = ClassroomDashboardBaseViewModel;
+export type ClassroomDashboardStudentLineLinkViewModel = {
+    linked: boolean;
+    linkedAt: Date | null;
+};
+
+export type ClassroomDashboardStudentViewModel =
+    ClassroomDashboardBaseViewModel["students"][number] & {
+        lineLink: ClassroomDashboardStudentLineLinkViewModel;
+    };
+
+export type ClassroomDashboardViewModel = Omit<ClassroomDashboardBaseViewModel, "students"> & {
+    students: ClassroomDashboardStudentViewModel[];
+};

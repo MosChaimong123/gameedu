@@ -33,9 +33,15 @@ type ReportsTabsProps = {
         accuracy: string;
         players: string;
     };
+    assignmentLabels: {
+        title: string;
+        subtitle: string;
+        primaryButton: string;
+        secondaryButton: string;
+    };
 };
 
-export function ReportsTabs({ gameCards, tabLabels, gameLabels }: ReportsTabsProps) {
+export function ReportsTabs({ gameCards, tabLabels, gameLabels, assignmentLabels }: ReportsTabsProps) {
     return (
         <Tabs defaultValue="teacher" className="space-y-6">
             <TabsList className="h-auto w-full justify-start rounded-2xl bg-white/90 p-1.5 shadow-sm">
@@ -55,6 +61,27 @@ export function ReportsTabs({ gameCards, tabLabels, gameLabels }: ReportsTabsPro
             </TabsContent>
 
             <TabsContent value="assignments" className="space-y-6">
+                <Card className="border-indigo-100 bg-indigo-50/70 shadow-sm">
+                    <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
+                        <div className="max-w-2xl">
+                            <h2 className="text-lg font-black text-indigo-950">{assignmentLabels.title}</h2>
+                            <p className="mt-1 text-sm text-indigo-800">{assignmentLabels.subtitle}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <Button asChild className="h-9 rounded-full">
+                                <Link href="/dashboard/classrooms">
+                                    {assignmentLabels.primaryButton}
+                                    <ArrowRight className="ml-1.5 h-4 w-4" />
+                                </Link>
+                            </Button>
+                            <Button asChild variant="outline" className="h-9 rounded-full border-indigo-200 bg-white text-indigo-800 hover:bg-indigo-50">
+                                <Link href="/dashboard/classrooms">
+                                    {assignmentLabels.secondaryButton}
+                                </Link>
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
                 <AssignmentCommandCenter />
             </TabsContent>
 

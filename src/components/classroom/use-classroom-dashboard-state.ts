@@ -94,9 +94,17 @@ export function useClassroomDashboardState(
         }));
     };
 
+    const replaceClassroomSnapshot = (nextClassroom: ClassroomDashboardViewModel) => {
+        setClassroom({
+            ...nextClassroom,
+            students: nextClassroom.students.map(normalizeDashboardStudent),
+        });
+    };
+
     return {
         classroom,
         setClassroom,
+        replaceClassroomSnapshot,
         applyUpdatedStudentPoints,
         updateAssignments,
         updateStudents,

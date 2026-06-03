@@ -5,6 +5,7 @@ import Image from "next/image";
 import { BookOpen, ClipboardList, LogOut, PanelsTopLeft, PlayCircle, Star, Trophy } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { JoinClassDialog } from "@/components/student/join-class-dialog";
+import { StudentLineLinkDialog } from "@/components/student/student-line-link-dialog";
 import { getThemeBgStyle } from "@/lib/classroom-utils";
 import {
     assignmentTypeBadgeClassName,
@@ -238,6 +239,10 @@ export function StudentHomeContent({
                                     >
                                         {t("studentHomeOpenProfile")}
                                     </Link>
+                                    <StudentLineLinkDialog
+                                        loginCode={record.loginCode}
+                                        className="w-full justify-center rounded-xl border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                                    />
                                 </div>
                             </div>
                         );

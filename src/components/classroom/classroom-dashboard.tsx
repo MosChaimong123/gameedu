@@ -32,6 +32,7 @@ import { useSocket } from "@/components/providers/socket-provider";
 import useSound from "use-sound";
 import { getNegamonSettings, type LevelConfigInput } from "@/lib/classroom-utils";
 import { sumAcademicTotal } from "@/lib/academic-score";
+import { fetchClassroomDashboard } from "@/lib/classroom-dashboard-actions";
 import { NegamonClassroomOverview } from "@/components/negamon/negamon-classroom-overview";
 import { NegamonSettingsDialog } from "@/components/negamon/negamon-settings";
 import {
@@ -44,6 +45,7 @@ import { useClassroomDashboardUiState } from "./use-classroom-dashboard-ui-state
 import { useClassroomPointsFlow } from "./use-classroom-points-flow";
 import { useClassroomPresence } from "./use-classroom-presence";
 import { useClassroomSelectionFlow } from "./use-classroom-selection-flow";
+import { ClassroomLineAssignmentPanel } from "./classroom-line-assignment-panel";
 import type { AssignmentWithChecklist } from "./classroom-table";
 import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 
@@ -75,11 +77,15 @@ export function ClassroomDashboard({
     const { t } = useLanguage();
     const { data: session, status: sessionStatus } = useSession();
     const [selectedStudent, setSelectedStudent] = useState<ClassroomDashboardViewModel["students"][number] | null>(null);
+    const [activeHighlightAssignmentId, setActiveHighlightAssignmentId] = useState<string | null>(
+        highlightAssignmentId
+    );
     const { toast } = useToast();
     const { socket, isConnected } = useSocket();
     const {
         classroom,
         setClassroom,
+        replaceClassroomSnapshot,
         applyUpdatedStudentPoints,
         updateAssignments,
         updateStudents,
@@ -247,6 +253,10 @@ export function ClassroomDashboard({
         setHistoryStudentId(initialHistoryStudentId);
     }, [initialHistoryStudentId, setHistoryStudentId]);
 
+    useEffect(() => {
+        setActiveHighlightAssignmentId(highlightAssignmentId);
+    }, [highlightAssignmentId]);
+
     const gamificationToolbarMode =
         sessionStatus === "loading"
             ? "loading"
@@ -378,6 +388,18 @@ export function ClassroomDashboard({
                 </div>
             ) : null}
 
+            <ClassroomLineAssignmentPanel
+                classroom={classroom}
+                onOpenAssignment={(assignmentId) => {
+                    setViewMode("table");
+                    setActiveHighlightAssignmentId(assignmentId ?? null);
+                }}
+                onRefreshBindingStatus={async () => {
+                    const refreshed = await fetchClassroomDashboard(classroom.id);
+                    replaceClassroomSnapshot(refreshed);
+                }}
+            />
+
             {/* Grid Area */}
             {viewMode === "grid" ? (
                 <div className={`min-h-0 flex-1 overflow-y-auto rounded-[22px] border p-4 transition-all sm:p-6 ${isAttendanceMode ? "border-blue-200 bg-blue-50/20" : "border-[#f2f2f2] bg-[#fafafa]"}`}>
@@ -440,7 +462,7 @@ export function ClassroomDashboard({
                         levelConfig={classroom.levelConfig as LevelConfigInput}
                         isAttendanceMode={isAttendanceMode}
                         onStudentClick={handleStudentClick as never}
-                        highlightAssignmentId={highlightAssignmentId}
+                        highlightAssignmentId={activeHighlightAssignmentId}
                     />
                 </div>
             )}

@@ -101,6 +101,7 @@ export async function getStudentDashboard(
             battleLoadout: true,
             equippedFrame: true,
             negamonSkills: true,
+            negamonSkillLoadout: true,
             classroom: {
                 select: {
                     id: true,
@@ -162,6 +163,7 @@ export async function getStudentDashboard(
     const academicTotal = sumAcademicTotal(classroom.assignments, submissions);
     const rankEntry = getRankEntry(academicTotal, classroom.levelConfig as LevelConfigInput);
     const negamonSkills = (student.negamonSkills as string[]) ?? [];
+    const negamonSkillLoadout = (student.negamonSkillLoadout as string[]) ?? [];
 
     const battleKit = normalizeStudentBattleKit({
         inventory: student.inventory,
@@ -186,6 +188,7 @@ export async function getStudentDashboard(
         battleLoadout: battleKit.battleLoadout,
         equippedFrame: student.equippedFrame ?? null,
         negamonSkills,
+        negamonSkillLoadout,
     } satisfies DashboardStudent;
 
     const theme = classroom.theme || "from-indigo-500 to-purple-600";

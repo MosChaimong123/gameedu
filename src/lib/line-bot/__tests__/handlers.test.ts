@@ -13,6 +13,7 @@ const mockPushLineText = vi.fn();
 const mockReplyLineText = vi.fn();
 const mockSubmitTextAssignmentForLineGroup = vi.fn();
 const mockUpsertLineBotGroup = vi.fn();
+const mockConsumeStudentLineLinkCode = vi.fn();
 
 vi.mock("@/lib/line-bot/client", () => ({
     pushLineText: mockPushLineText,
@@ -21,6 +22,10 @@ vi.mock("@/lib/line-bot/client", () => ({
 
 vi.mock("@/lib/line-bot/config", () => ({
     getLineClassroomBindingSecret: mockGetLineClassroomBindingSecret,
+}));
+
+vi.mock("@/lib/line-bot/student-linking", () => ({
+    consumeStudentLineLinkCode: mockConsumeStudentLineLinkCode,
 }));
 
 vi.mock("@/lib/line-bot/repository", () => ({
@@ -44,6 +49,7 @@ describe("line-bot handlers", () => {
         mockBindLineStudentToStudentCode.mockResolvedValue({ ok: false, reason: "UNBOUND" });
         mockGetLineMyWorkSummary.mockResolvedValue({ ok: false, reason: "NOT_BOUND" });
         mockSubmitTextAssignmentForLineGroup.mockResolvedValue({ ok: false, reason: "UNBOUND" });
+        mockConsumeStudentLineLinkCode.mockResolvedValue({ ok: false, reason: "NOT_FOUND" });
         mockGetClassroomReminderSummaryForLineGroup.mockResolvedValue(null);
         mockListOpenDebtsForLineGroup.mockResolvedValue([]);
         mockPushLineText.mockResolvedValue(undefined);
@@ -59,6 +65,41 @@ describe("line-bot handlers", () => {
 
         expect(result).toMatchObject({ handled: true });
         expect(result.replyText).toContain("LINE");
+    });
+
+    it("links a student account from a private LINE chat", async () => {
+        mockConsumeStudentLineLinkCode.mockResolvedValue({
+            ok: true,
+            link: {
+                classroomName: "M1/1",
+                studentName: "Somchai",
+                linkedAt: "2026-06-03T12:00:00.000Z",
+            },
+        });
+
+        const { processDirectTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processDirectTextCommand({
+            lineUserId: "line-user-1",
+            text: "เชื่อม 483921",
+        });
+
+        expect(mockConsumeStudentLineLinkCode).toHaveBeenCalledWith({
+            lineUserId: "line-user-1",
+            code: "483921",
+        });
+        expect(result.replyText).toContain("Somchai");
+        expect(result.replyText).toContain("M1/1");
+    });
+
+    it("replies to direct help in a private LINE chat", async () => {
+        const { processDirectTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processDirectTextCommand({
+            lineUserId: "line-user-1",
+            text: "help",
+        });
+
+        expect(result.handled).toBe(true);
+        expect(result.replyText).toContain("เชื่อม");
     });
 
     it("requires classroom binding before summary and remind commands", async () => {

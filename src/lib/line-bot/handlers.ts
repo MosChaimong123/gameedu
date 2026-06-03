@@ -9,7 +9,10 @@ import {
     formatDebtHelpMessage,
     formatLineAssignmentCreatedMessage,
     formatLineAssignmentCreateFailedMessage,
+    formatLineDirectHelpMessage,
     formatLineMyWorkMessage,
+    formatLineStudentAccountLinkFailedMessage,
+    formatLineStudentAccountLinkedMessage,
     formatLinePrivateReplySentMessage,
     formatLinePrivateReplyUnavailableMessage,
     formatLinePlanLimitMessage,
@@ -25,6 +28,8 @@ import {
 } from "@/lib/line-bot/commands";
 import { pushLineText, replyLineText } from "@/lib/line-bot/client";
 import { getLineClassroomBindingSecret } from "@/lib/line-bot/config";
+import { decodeLineClassroomBindingToken } from "@/lib/line-bot/classroom-binding-token";
+import { consumeStudentLineLinkCode } from "@/lib/line-bot/student-linking";
 import {
     bindLineGroupToClassroom,
     bindLineStudentToStudentCode,
@@ -63,6 +68,20 @@ async function handleLineWebhookEvent(event: WebhookEvent): Promise<void> {
         return;
     }
 
+    if (event.source.type === "user" && event.source.userId) {
+        const result = await processDirectTextCommand({
+            lineUserId: event.source.userId,
+            text: event.message.text,
+        });
+
+        if (!result.handled || !event.replyToken || !result.replyText) {
+            return;
+        }
+
+        await replyLineText(event.replyToken, result.replyText);
+        return;
+    }
+
     if (event.source.type !== "group" || !event.source.groupId) {
         return;
     }
@@ -91,6 +110,46 @@ async function handleLineWebhookEvent(event: WebhookEvent): Promise<void> {
     }
 
     await replyLineText(event.replyToken, replyText);
+}
+
+export async function processDirectTextCommand(input: {
+    lineUserId: string;
+    text: string;
+}): Promise<LineHandlerResult> {
+    const command = parseLineDebtCommand(input.text);
+    if (!command) {
+        return { handled: false };
+    }
+
+    switch (command.type) {
+        case "student_link_account": {
+            const result = await consumeStudentLineLinkCode({
+                lineUserId: input.lineUserId,
+                code: command.code,
+            });
+            if (!result.ok) {
+                return {
+                    handled: true,
+                    replyText: formatLineStudentAccountLinkFailedMessage(),
+                };
+            }
+
+            return {
+                handled: true,
+                replyText: formatLineStudentAccountLinkedMessage(result.link),
+            };
+        }
+        case "classroom_help":
+        case "help":
+            return {
+                handled: true,
+                replyText: formatLineDirectHelpMessage(),
+            };
+        case "ping":
+            return { handled: true, replyText: "pong - LINE bot พร้อมใช้งาน" };
+        default:
+            return { handled: false };
+    }
 }
 
 export async function processGroupTextCommand(input: {
@@ -231,6 +290,30 @@ export async function processGroupTextCommand(input: {
             const result = await bindLineGroupToClassroom({
                 lineGroupId: input.lineGroupId,
                 classroomId: command.classroomId,
+            });
+            if (!result.ok) {
+                return { handled: true, replyText: formatClassroomBindingFailedMessage() };
+            }
+
+            return {
+                handled: true,
+                replyText: formatClassroomBindingSuccessMessage(result.classroomName),
+            };
+        }
+        case "bind_classroom_token": {
+            const expectedSecret = getLineClassroomBindingSecret();
+            if (!expectedSecret) {
+                return { handled: true, replyText: formatClassroomBindingFailedMessage() };
+            }
+
+            const decoded = decodeLineClassroomBindingToken(command.token, expectedSecret);
+            if (!decoded) {
+                return { handled: true, replyText: formatClassroomBindingFailedMessage() };
+            }
+
+            const result = await bindLineGroupToClassroom({
+                lineGroupId: input.lineGroupId,
+                classroomId: decoded.classroomId,
             });
             if (!result.ok) {
                 return { handled: true, replyText: formatClassroomBindingFailedMessage() };

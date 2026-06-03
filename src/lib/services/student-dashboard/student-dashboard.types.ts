@@ -67,7 +67,10 @@ export interface DashboardStudent {
     /** Preset battle consumables when defending (max 1 per category). */
     battleLoadout: string[];
     equippedFrame: string | null;
+    /** Unlocked Negamon skill ids from progression. */
     negamonSkills: string[];
+    /** Active Negamon battle skill slots. */
+    negamonSkillLoadout: string[];
 }
 
 export type StudentDashboardMode = "learn" | "game";

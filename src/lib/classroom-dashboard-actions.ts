@@ -134,3 +134,51 @@ export async function fetchClassroomDashboard(
 
     return response.json() as Promise<ClassroomDashboardViewModel>;
 }
+
+export type SendAssignmentLineReminderResult = {
+    success: boolean;
+    lineGroupCount: number;
+    sentCount: number;
+    failedCount?: number;
+    targetCount: number;
+    reminderKey?: string;
+};
+
+export type SendClassroomLineReminderResult = {
+    success: boolean;
+    lineGroupCount: number;
+    sentCount: number;
+    failedCount?: number;
+    assignmentCount: number;
+    missingSubmissionSlots: number;
+};
+
+export async function sendAssignmentLineReminder(input: {
+    classroomId: string;
+    assignmentId: string;
+}): Promise<SendAssignmentLineReminderResult> {
+    const response = await fetch(
+        `/api/classrooms/${input.classroomId}/assignments/${input.assignmentId}/line-reminders`,
+        { method: "POST" }
+    );
+
+    if (!response.ok) {
+        throw new Error(await extractDashboardActionError(response, "assignmentReminderSendFailed"));
+    }
+
+    return response.json() as Promise<SendAssignmentLineReminderResult>;
+}
+
+export async function sendClassroomLineReminder(
+    classroomId: string
+): Promise<SendClassroomLineReminderResult> {
+    const response = await fetch(`/api/classrooms/${classroomId}/line-reminders`, {
+        method: "POST",
+    });
+
+    if (!response.ok) {
+        throw new Error(await extractDashboardActionError(response, "assignmentReminderSendFailed"));
+    }
+
+    return response.json() as Promise<SendClassroomLineReminderResult>;
+}

@@ -99,6 +99,12 @@ export default async function ReportsPage() {
                     accuracy: t("gameReportClassAccuracy"),
                     players: t("gameReportsListPlayersLabel"),
                 }}
+                assignmentLabels={{
+                    title: t("assignmentOverviewSurfaceTitle"),
+                    subtitle: t("assignmentOverviewSurfaceSubtitle"),
+                    primaryButton: t("assignmentOverviewSurfacePrimary"),
+                    secondaryButton: t("assignmentOverviewSurfaceSecondary"),
+                }}
             />
         </div>
     );

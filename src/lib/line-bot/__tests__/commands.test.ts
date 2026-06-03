@@ -8,7 +8,10 @@ import {
     formatClassroomWorkSummary,
     formatLineAssignmentCreatedMessage,
     formatLineAssignmentCreateFailedMessage,
+    formatLineDirectHelpMessage,
     formatLineMyWorkMessage,
+    formatLineStudentAccountLinkFailedMessage,
+    formatLineStudentAccountLinkedMessage,
     formatLineStudentBindingRequiredMessage,
     formatLineStudentBindingSuccessMessage,
     formatLineTextSubmissionFailedMessage,
@@ -49,6 +52,14 @@ describe("line-bot commands", () => {
         expect(parseLineDebtCommand("งานวันนี้")).toEqual({ type: "classroom_student_work", scope: "today" });
         expect(parseLineDebtCommand("งานใกล้ส่ง")).toEqual({ type: "classroom_student_work", scope: "soon" });
         expect(parseLineDebtCommand("missing work")).toEqual({ type: "classroom_student_work", scope: "missing" });
+        expect(parseLineDebtCommand("เชื่อม 483921")).toEqual({
+            type: "student_link_account",
+            code: "483921",
+        });
+        expect(parseLineDebtCommand("link 483921")).toEqual({
+            type: "student_link_account",
+            code: "483921",
+        });
         expect(parseLineDebtCommand("bind student S123")).toEqual({
             type: "classroom_bind_student",
             studentCode: "S123",
@@ -101,6 +112,14 @@ describe("line-bot commands", () => {
         expect(formatClassroomBindingSuccessMessage("M1/1")).toContain("M1/1");
         expect(formatClassroomBindingFailedMessage()).toContain("secret");
         expect(formatLineAssignmentCreateFailedMessage()).toContain("สร้างงาน");
+        expect(formatLineDirectHelpMessage()).toContain("เชื่อม");
+        expect(formatLineStudentAccountLinkFailedMessage()).toContain("รหัสเชื่อม");
+        expect(
+            formatLineStudentAccountLinkedMessage({
+                classroomName: "M1/1",
+                studentName: "Somchai",
+            })
+        ).toContain("Somchai");
         expect(formatLineStudentBindingRequiredMessage()).toContain("ผูกนักเรียน");
         expect(
             formatLineStudentBindingSuccessMessage({

@@ -26,3 +26,10 @@ export function getLineReminderCronSecret(): string | undefined {
     const value = process.env.LINE_REMINDER_CRON_SECRET?.trim() || process.env.ADMIN_SECRET?.trim();
     return value || undefined;
 }
+
+export function getLineBotChatUrl(): string | undefined {
+    const value =
+        process.env.NEXT_PUBLIC_LINE_BOT_URL?.trim() ||
+        process.env.LINE_BOT_CHAT_URL?.trim();
+    return value || undefined;
+}

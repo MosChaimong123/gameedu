@@ -26,8 +26,24 @@ export async function GET(_req: Request, { params }: Params) {
                         id: true,
                         classId: true,
                         assignedAt: true,
-                        classroom: { select: { id: true, name: true } },
-                        completions: { select: { studentId: true, quizScore: true, completedAt: true } },
+                        classroom: {
+                            select: {
+                                id: true,
+                                name: true,
+                                students: {
+                                    orderBy: { order: "asc" },
+                                    select: { id: true, name: true, nickname: true, order: true },
+                                },
+                            },
+                        },
+                        completions: {
+                            select: {
+                                studentId: true,
+                                quizScore: true,
+                                completedAt: true,
+                                student: { select: { id: true, name: true, nickname: true, order: true } },
+                            },
+                        },
                     },
                 },
             },

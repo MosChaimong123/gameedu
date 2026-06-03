@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAppErrorResponse } from "@/lib/api-error"
 import { db } from "@/lib/db"
+import { getStudentLoginCodeVariants } from "@/lib/student-login-code"
 
 type Params = { params: Promise<{ code: string }> }
 
@@ -14,8 +15,12 @@ export async function GET(_req: Request, { params }: Params) {
             return createAppErrorResponse("INVALID_PAYLOAD", "Student code is required", 400)
         }
 
-        const student = await db.student.findUnique({
-            where: { loginCode: trimmedCode },
+        const student = await db.student.findFirst({
+            where: {
+                OR: getStudentLoginCodeVariants(trimmedCode).map((candidate) => ({
+                    loginCode: candidate,
+                })),
+            },
             select: { id: true, classId: true },
         })
         if (!student) {

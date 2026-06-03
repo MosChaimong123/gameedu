@@ -35,6 +35,16 @@ type LessonContent = {
 type GeneratedLesson = { title: string; content: LessonContent }
 
 type Step = "upload" | "preview"
+type SourceMode = "text" | "pdf"
+
+function getLessonErrorMessage(payload: unknown, fallback: string) {
+    if (!payload || typeof payload !== "object") return fallback
+    const data = payload as { error?: { code?: string; message?: string }; message?: string }
+    if (data.error?.code === "INVALID_AI_RESPONSE") {
+        return "AI ส่งโครงสร้างบทเรียนกลับมาไม่ครบ ลองลดความยาวเนื้อหา หรือกดสร้างใหม่อีกครั้ง"
+    }
+    return data.error?.message ?? data.message ?? fallback
+}
 
 export default function CreateLessonPage() {
     const router = useRouter()
@@ -43,6 +53,8 @@ export default function CreateLessonPage() {
     const [step, setStep] = useState<Step>("upload")
 
     // Upload form state
+    const [sourceMode, setSourceMode] = useState<SourceMode>("text")
+    const [sourceText, setSourceText] = useState("")
     const [file, setFile] = useState<File | null>(null)
     const [subject, setSubject] = useState("")
     const [gradeLevel, setGradeLevel] = useState("")
@@ -61,10 +73,12 @@ export default function CreateLessonPage() {
 
     // Save state
     const [saving, setSaving] = useState(false)
+    const [saveError, setSaveError] = useState("")
 
     const handleFileSelect = useCallback((selected: File) => {
         if (selected.type === "application/pdf" || selected.name.toLowerCase().endsWith(".pdf")) {
             setFile(selected)
+            setSourceMode("pdf")
         }
     }, [])
 
@@ -79,6 +93,43 @@ export default function CreateLessonPage() {
     )
 
     async function handleGenerate() {
+        const trimmedSourceText = sourceText.trim()
+        if (sourceMode === "text") {
+            if (trimmedSourceText.length < 20) {
+                setGenerateError("ใส่เนื้อหาอย่างน้อย 20 ตัวอักษร เพื่อให้ AI สร้างบทเรียนได้แม่นขึ้น")
+                return
+            }
+            setGenerating(true)
+            setGenerateError("")
+            try {
+                const genRes = await fetch("/api/ai/generate-lesson", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        text: trimmedSourceText,
+                        pdfData: null,
+                        subject,
+                        gradeLevel,
+                        language,
+                        sectionCount: Number(sectionCount),
+                    }),
+                })
+                if (!genRes.ok) {
+                    const err = await genRes.json().catch(() => ({}))
+                    throw new Error(getLessonErrorMessage(err, "AI สร้างบทเรียนไม่สำเร็จ"))
+                }
+                const generated = await genRes.json() as GeneratedLesson
+                setLessonTitle(generated.title)
+                setLessonContent(generated.content)
+                setStep("preview")
+            } catch (e) {
+                setGenerateError(e instanceof Error ? e.message : "เกิดข้อผิดพลาด")
+            } finally {
+                setGenerating(false)
+            }
+            return
+        }
+
         if (!file) return
         setGenerating(true)
         setGenerateError("")
@@ -102,6 +153,9 @@ export default function CreateLessonPage() {
             })
             if (!genRes.ok) {
                 const err = await genRes.json().catch(() => ({}))
+                if (err?.error?.code === "INVALID_AI_RESPONSE") {
+                    throw new Error(getLessonErrorMessage(err, "AI สร้างบทเรียนไม่สำเร็จ"))
+                }
                 throw new Error(err?.message ?? "AI สร้างบทเรียนไม่สำเร็จ")
             }
             const generated = await genRes.json() as GeneratedLesson
@@ -118,6 +172,7 @@ export default function CreateLessonPage() {
     async function handleSave(status: "DRAFT" | "PUBLISHED") {
         if (!lessonContent) return
         setSaving(true)
+        setSaveError("")
         try {
             const res = await fetch("/api/lessons", {
                 method: "POST",
@@ -126,28 +181,39 @@ export default function CreateLessonPage() {
                     title: lessonTitle,
                     subject: subject || undefined,
                     gradeLevel: gradeLevel || undefined,
-                    sourceFileName: file?.name,
+                    sourceFileName: sourceMode === "pdf" ? file?.name : undefined,
                     content: lessonContent,
                 }),
             })
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                throw new Error(getLessonErrorMessage(err, "บันทึกบทเรียนไม่สำเร็จ"))
+            }
             if (!res.ok) throw new Error("บันทึกไม่สำเร็จ")
             const saved = await res.json() as { id: string }
 
             if (status === "PUBLISHED") {
-                await fetch(`/api/lessons/${saved.id}`, {
+                const publishRes = await fetch(`/api/lessons/${saved.id}`, {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ status: "PUBLISHED" }),
                 })
+                if (!publishRes.ok) {
+                    const err = await publishRes.json().catch(() => ({}))
+                    throw new Error(getLessonErrorMessage(err, "เผยแพร่บทเรียนไม่สำเร็จ"))
+                }
             }
 
             router.push(`/dashboard/lessons/${saved.id}/edit`)
-        } catch {
+        } catch (error) {
+            setSaveError(error instanceof Error ? error.message : "บันทึกบทเรียนไม่สำเร็จ")
             // keep on page so user can retry
         } finally {
             setSaving(false)
         }
     }
+
+    const canGenerate = sourceMode === "pdf" ? Boolean(file) : sourceText.trim().length >= 20
 
     return (
         <div className="mx-auto max-w-4xl space-y-6">
@@ -197,7 +263,60 @@ export default function CreateLessonPage() {
 
             {step === "upload" && (
                 <div className="space-y-5">
+                    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                        <h2 className="mb-4 font-black text-slate-800">เลือกแหล่งข้อมูล</h2>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <Button
+                                type="button"
+                                variant={sourceMode === "text" ? "default" : "outline"}
+                                onClick={() => setSourceMode("text")}
+                                className={cn(
+                                    "h-auto justify-start rounded-2xl p-4 text-left",
+                                    sourceMode === "text" && "bg-emerald-600 text-white hover:bg-emerald-700"
+                                )}
+                            >
+                                <AlignLeft className="mr-3 h-5 w-5" />
+                                <span>
+                                    <span className="block font-black">วางข้อความเอง</span>
+                                    <span className="text-xs opacity-80">เหมาะกับชีต สรุป หรือแผนการสอนที่คัดลอกมาแล้ว</span>
+                                </span>
+                            </Button>
+                            <Button
+                                type="button"
+                                variant={sourceMode === "pdf" ? "default" : "outline"}
+                                onClick={() => setSourceMode("pdf")}
+                                className={cn(
+                                    "h-auto justify-start rounded-2xl p-4 text-left",
+                                    sourceMode === "pdf" && "bg-emerald-600 text-white hover:bg-emerald-700"
+                                )}
+                            >
+                                <FileText className="mr-3 h-5 w-5" />
+                                <span>
+                                    <span className="block font-black">อัปโหลด PDF</span>
+                                    <span className="text-xs opacity-80">ใช้ route แปลงไฟล์เดิมก่อนให้ AI สร้างบทเรียน</span>
+                                </span>
+                            </Button>
+                        </div>
+                    </div>
+
+                    {sourceMode === "text" && (
+                        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                            <h2 className="mb-4 font-black text-slate-800">วางเนื้อหาบทเรียน</h2>
+                            <Textarea
+                                value={sourceText}
+                                onChange={(e) => setSourceText(e.target.value)}
+                                rows={10}
+                                className="rounded-2xl text-sm"
+                                placeholder="วางเนื้อหาจากเอกสาร หนังสือเรียน แผนการสอน หรือสรุปบทเรียนที่นี่..."
+                            />
+                            <p className="mt-2 text-xs font-bold text-slate-400">
+                                {sourceText.trim().length.toLocaleString()} ตัวอักษร
+                            </p>
+                        </div>
+                    )}
+
                     {/* PDF upload zone */}
+                    {sourceMode === "pdf" && (
                     <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
                         <h2 className="mb-4 font-black text-slate-800">1. อัพโหลดไฟล์หลักสูตร</h2>
                         <div
@@ -249,6 +368,7 @@ export default function CreateLessonPage() {
                             )}
                         </div>
                     </div>
+                    )}
 
                     {/* Settings */}
                     <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
@@ -308,7 +428,7 @@ export default function CreateLessonPage() {
 
                     <Button
                         onClick={handleGenerate}
-                        disabled={!file || generating}
+                        disabled={!canGenerate || generating}
                         className="w-full rounded-2xl bg-emerald-600 py-6 text-base font-black text-white hover:bg-emerald-700 disabled:opacity-50"
                     >
                         {generating ? (
@@ -475,6 +595,11 @@ export default function CreateLessonPage() {
                     </div>
 
                     {/* Action buttons */}
+                    {saveError && (
+                        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+                            {saveError}
+                        </div>
+                    )}
                     <div className="flex gap-3">
                         <Button
                             variant="outline"

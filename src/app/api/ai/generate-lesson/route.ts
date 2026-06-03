@@ -269,7 +269,22 @@ Return ONLY valid JSON (no markdown, no code blocks) matching this exact structu
             raw = raw.replace(/```json/g, "").replace(/```/g, "").trim()
         }
 
-        const parsed = normalizeGeneratedLesson(JSON.parse(raw))
+        let jsonPayload: unknown
+        try {
+            jsonPayload = JSON.parse(raw)
+        } catch {
+            logAuditEvent({
+                actorUserId,
+                action: "ai.lesson_generate.failed",
+                category: "ai",
+                status: "error",
+                reason: "invalid_ai_json",
+                targetType: "aiLesson",
+            })
+            return createAppErrorResponse("INVALID_AI_RESPONSE", "AI returned invalid JSON", 502)
+        }
+
+        const parsed = normalizeGeneratedLesson(jsonPayload)
         if (!parsed) {
             logAuditEvent({
                 actorUserId,

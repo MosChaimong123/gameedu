@@ -134,6 +134,9 @@ export async function POST(req: Request, { params }: Params) {
         if (lesson.ownerUserId !== session.user.id && session.user.role !== "ADMIN") {
             return createAppErrorResponse("FORBIDDEN", "You do not own this lesson", 403)
         }
+        if (lesson.status !== "PUBLISHED") {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Lesson must be published before assignment", 400)
+        }
 
         const assignment = await db.lessonAssignment.upsert({
             where: { lessonId_classId: { lessonId, classId } },

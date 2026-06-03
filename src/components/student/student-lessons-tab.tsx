@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
     BookOpen,
@@ -39,18 +39,67 @@ interface StudentLessonsTabProps {
 export function StudentLessonsTab({ code }: StudentLessonsTabProps) {
     const [lessons, setLessons] = useState<AssignedLesson[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const loadLessons = useCallback(() => {
+        setLoading(true);
+        setError(null);
+        fetch(`/api/student/${code}/lessons`)
+            .then((r) => {
+                if (!r.ok) throw new Error("โหลดบทเรียนไม่สำเร็จ");
+                return r.json();
+            })
+            .then((data) => {
+                if (Array.isArray(data)) setLessons(data);
+                else throw new Error("ข้อมูลไม่ถูกต้อง");
+            })
+            .catch((e: Error) => setError(e.message))
+            .finally(() => setLoading(false));
+    }, [code]);
 
     useEffect(() => {
+        let active = true;
         fetch(`/api/student/${code}/lessons`)
-            .then((r) => r.json())
-            .then((data) => Array.isArray(data) && setLessons(data))
-            .finally(() => setLoading(false));
+            .then((r) => {
+                if (!r.ok) throw new Error("โหลดบทเรียนไม่สำเร็จ");
+                return r.json();
+            })
+            .then((data) => {
+                if (!active) return;
+                if (Array.isArray(data)) setLessons(data);
+                else throw new Error("ข้อมูลไม่ถูกต้อง");
+            })
+            .catch((e: Error) => {
+                if (active) setError(e.message);
+            })
+            .finally(() => {
+                if (active) setLoading(false);
+            });
+
+        return () => {
+            active = false;
+        };
     }, [code]);
 
     if (loading) {
         return (
             <div className="flex items-center justify-center py-16">
                 <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex flex-col items-center justify-center gap-3 rounded-[2rem] border border-red-100 bg-red-50 py-12 text-center shadow-sm">
+                <p className="font-bold text-red-600">{error}</p>
+                <button
+                    type="button"
+                    onClick={loadLessons}
+                    className="rounded-xl bg-red-500 px-4 py-2 text-sm font-black text-white hover:bg-red-600"
+                >
+                    ลองอีกครั้ง
+                </button>
             </div>
         );
     }

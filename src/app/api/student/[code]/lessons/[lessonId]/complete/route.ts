@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createAppErrorResponse } from "@/lib/api-error"
 import { db } from "@/lib/db"
 import { sendNotification } from "@/lib/notifications"
+import { getStudentLoginCodeVariants } from "@/lib/student-login-code"
 
 const LESSON_COMPLETE_XP = 5
 const LESSON_COMPLETE_GOLD = 20
@@ -13,8 +14,17 @@ export async function POST(req: Request, { params }: Params) {
     try {
         const { code, lessonId } = await params
 
-        const student = await db.student.findUnique({
-            where: { loginCode: code },
+        const trimmedCode = code.trim()
+        if (!trimmedCode) {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Student code is required", 400)
+        }
+
+        const student = await db.student.findFirst({
+            where: {
+                OR: getStudentLoginCodeVariants(trimmedCode).map((candidate) => ({
+                    loginCode: candidate,
+                })),
+            },
             select: { id: true, classId: true, behaviorPoints: true, gold: true },
         })
         if (!student) {
@@ -34,7 +44,10 @@ export async function POST(req: Request, { params }: Params) {
 
         const body = await req.json().catch(() => ({})) as { quizScore?: number }
         const quizScore =
-            typeof body.quizScore === "number" && body.quizScore >= 0 && body.quizScore <= 100
+            typeof body.quizScore === "number" &&
+            Number.isInteger(body.quizScore) &&
+            body.quizScore >= 0 &&
+            body.quizScore <= 100
                 ? body.quizScore
                 : null
 
@@ -88,7 +101,7 @@ export async function POST(req: Request, { params }: Params) {
             await sendNotification({
                 studentId: student.id,
                 type: "SUCCESS",
-                link: `/student/${code}`,
+                link: `/student/${trimmedCode}`,
                 i18n: {
                     titleKey: "lessonCompleteTitle",
                     messageKey: "lessonCompleteBody",

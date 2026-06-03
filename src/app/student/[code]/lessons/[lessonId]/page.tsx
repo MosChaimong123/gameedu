@@ -63,26 +63,29 @@ export default function StudentLessonPage() {
 
     const [assignment, setAssignment] = useState<AssignedLesson | null>(null);
     const [loading, setLoading] = useState(true);
+    const [fetchError, setFetchError] = useState<string | null>(null);
     const [expandedSection, setExpandedSection] = useState<string | null>(null);
-    const [allRead, setAllRead] = useState(false);
     const [completing, setCompleting] = useState(false);
     const [completed, setCompleted] = useState(false);
+    const [completeError, setCompleteError] = useState<string | null>(null);
+    const [quizError, setQuizError] = useState<string | null>(null);
 
     const [quiz, setQuiz] = useState<QuizState>({ phase: "idle" });
 
     useEffect(() => {
-        // Fetch via classroom lessons endpoint (includes completion status)
-        // We need classId — fetch all lessons for this student code and find the right one
         fetch(`/api/student/${code}/lessons/${lessonId}`)
-            .then((r) => r.json())
+            .then((r) => {
+                if (!r.ok) throw new Error(r.status === 404 ? "ไม่พบบทเรียนนี้" : "โหลดบทเรียนไม่สำเร็จ");
+                return r.json();
+            })
             .then((data: AssignedLesson) => {
-                setAssignment(data)
-                if (data.completions.length > 0) setCompleted(true)
-                // Auto-expand first section
+                setAssignment(data);
+                if (data.completions.length > 0) setCompleted(true);
                 if (data.lesson.content.sections?.[0]) {
-                    setExpandedSection(data.lesson.content.sections[0].id)
+                    setExpandedSection(data.lesson.content.sections[0].id);
                 }
             })
+            .catch((e: Error) => setFetchError(e.message))
             .finally(() => setLoading(false));
     }, [code, lessonId]);
 
@@ -90,6 +93,7 @@ export default function StudentLessonPage() {
         async (quizScore?: number) => {
             if (!assignment || completing) return;
             setCompleting(true);
+            setCompleteError(null);
             try {
                 const res = await fetch(
                     `/api/student/${code}/lessons/${lessonId}/complete`,
@@ -103,13 +107,14 @@ export default function StudentLessonPage() {
                     setCompleted(true);
                     setAssignment((prev) =>
                         prev
-                            ? {
-                                  ...prev,
-                                  completions: [{ completedAt: new Date().toISOString(), quizScore: quizScore ?? null }],
-                              }
+                            ? { ...prev, completions: [{ completedAt: new Date().toISOString(), quizScore: quizScore ?? null }] }
                             : prev
                     );
+                } else {
+                    setCompleteError("บันทึกผลไม่สำเร็จ ลองอีกครั้ง");
                 }
+            } catch {
+                setCompleteError("เชื่อมต่อไม่สำเร็จ ลองอีกครั้ง");
             } finally {
                 setCompleting(false);
             }
@@ -120,24 +125,18 @@ export default function StudentLessonPage() {
     async function handleGenerateQuiz() {
         if (!assignment) return;
         setQuiz({ phase: "generating" });
+        setQuizError(null);
         try {
-            const content = assignment.lesson.content;
-            const text = [
-                content.objectives.join("\n"),
-                content.sections.map((s) => `${s.heading}\n${s.content}`).join("\n\n"),
-                content.summary,
-            ].join("\n\n");
-
-            const res = await fetch("/api/ai/generate-questions", {
+            const res = await fetch(`/api/student/${code}/lessons/${lessonId}/quiz`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ content: text, count: 5, language: "th", difficulty: "MEDIUM" }),
             });
             if (!res.ok) throw new Error("สร้าง quiz ไม่สำเร็จ");
             const questions = await res.json() as QuizQuestion[];
             setQuiz({ phase: "taking", questions, answers: Array(questions.length).fill(null), submitted: false });
-        } catch {
+        } catch (e: unknown) {
             setQuiz({ phase: "idle" });
+            setQuizError(e instanceof Error ? e.message : "สร้าง quiz ไม่สำเร็จ ลองอีกครั้ง");
         }
     }
 
@@ -166,10 +165,10 @@ export default function StudentLessonPage() {
         );
     }
 
-    if (!assignment) {
+    if (fetchError || !assignment) {
         return (
-            <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-                <p className="text-slate-500">ไม่พบบทเรียนนี้</p>
+            <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
+                <p className="text-center font-bold text-slate-500">{fetchError ?? "ไม่พบบทเรียนนี้"}</p>
                 <Button variant="outline" onClick={() => router.back()}>กลับ</Button>
             </div>
         );
@@ -311,26 +310,55 @@ export default function StudentLessonPage() {
                     </div>
                 )}
 
-                {/* Quiz section */}
-                {quiz.phase === "idle" && (
+                {/* Completed banner — shown when re-opening a finished lesson */}
+                {completed && quiz.phase === "idle" && (
+                    <div className="rounded-[2rem] border border-emerald-200 bg-emerald-50 p-6 text-center shadow-sm">
+                        <div className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-md">
+                            <CheckCircle2 className="h-7 w-7" />
+                        </div>
+                        <h3 className="font-black text-emerald-800">เรียนบทนี้จบแล้ว!</h3>
+                        {assignment.completions[0]?.quizScore !== null && assignment.completions[0]?.quizScore !== undefined && (
+                            <p className="mt-1 flex items-center justify-center gap-1.5 font-bold text-emerald-700">
+                                <Star className="h-4 w-4 fill-current" />
+                                คะแนน Quiz: {assignment.completions[0].quizScore}%
+                            </p>
+                        )}
+                        <p className="mt-1 text-sm text-emerald-600">
+                            เรียนเสร็จเมื่อ {new Date(assignment.completions[0]?.completedAt ?? "").toLocaleDateString("th-TH")}
+                        </p>
+                        <Button
+                            onClick={() => router.push(`/student/${code}`)}
+                            className="mt-4 rounded-xl bg-emerald-600 font-black text-white hover:bg-emerald-700"
+                        >
+                            กลับหน้าหลัก
+                        </Button>
+                    </div>
+                )}
+
+                {/* Quiz section — only show if not yet completed */}
+                {!completed && quiz.phase === "idle" && (
                     <div className="rounded-[2rem] border border-slate-100 bg-white p-6 shadow-sm text-center">
                         <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
                             <Sparkles className="h-7 w-7" />
                         </div>
                         <h3 className="font-black text-slate-800">ทำ Quiz ท้ายบท</h3>
                         <p className="mt-1 text-sm text-slate-500">AI จะสร้างคำถามจากเนื้อหาบทเรียนนี้ 5 ข้อ</p>
+                        {quizError && (
+                            <p className="mt-2 text-sm font-bold text-red-500">{quizError}</p>
+                        )}
+                        {completeError && (
+                            <p className="mt-2 text-sm font-bold text-red-500">{completeError}</p>
+                        )}
                         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
-                            {!completed && (
-                                <Button
-                                    variant="outline"
-                                    onClick={() => handleMarkComplete()}
-                                    disabled={completing}
-                                    className="rounded-xl font-bold"
-                                >
-                                    {completing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    ข้ามและเรียนเสร็จแล้ว
-                                </Button>
-                            )}
+                            <Button
+                                variant="outline"
+                                onClick={() => handleMarkComplete()}
+                                disabled={completing}
+                                className="rounded-xl font-bold"
+                            >
+                                {completing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                ข้ามและเรียนเสร็จแล้ว
+                            </Button>
                             <Button
                                 onClick={handleGenerateQuiz}
                                 className="rounded-xl bg-amber-500 font-black text-white hover:bg-amber-600"
@@ -409,6 +437,9 @@ export default function StudentLessonPage() {
                             </div>
                         ))}
 
+                        {completeError && (
+                            <p className="text-center text-sm font-bold text-red-500">{completeError}</p>
+                        )}
                         {!quiz.submitted && (
                             <Button
                                 onClick={handleSubmitQuiz}

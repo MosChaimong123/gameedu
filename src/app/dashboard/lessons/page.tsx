@@ -175,6 +175,17 @@ export default function LessonsPage() {
                                                 {lesson.classroomAssignments.length} ห้อง
                                             </span>
                                         )}
+                                        {lesson.classroomAssignments.length > 0 && (
+                                            <span className="max-w-full truncate">
+                                                {lesson.classroomAssignments
+                                                    .map((assignment) => assignment.classroom.name)
+                                                    .slice(0, 3)
+                                                    .join(", ")}
+                                                {lesson.classroomAssignments.length > 3
+                                                    ? ` +${lesson.classroomAssignments.length - 3}`
+                                                    : ""}
+                                            </span>
+                                        )}
                                         <span className="flex items-center gap-1">
                                             <Clock className="h-3 w-3" />
                                             {new Date(lesson.createdAt).toLocaleDateString("th-TH")}

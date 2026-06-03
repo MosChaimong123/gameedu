@@ -19,6 +19,7 @@ const DEFAULT_THAI_ERROR_MESSAGES: Record<AppErrorCode, string> = {
     ALREADY_IN_CLASSROOM: "บัญชีนี้อยู่ในห้องเรียนนี้แล้ว",
     RATE_LIMITED: "คุณลองหลายครั้งเกินไป โปรดรอสักครู่แล้วลองใหม่",
     INVALID_PAYLOAD: "ข้อมูลที่ส่งมาไม่ถูกต้อง",
+    INVALID_AI_RESPONSE: "AI returned an invalid response. Please try generating again.",
     REGISTER_EMAIL_ALREADY_EXISTS: "อีเมลนี้ลงทะเบียนแล้ว ลองเข้าสู่ระบบหรือใช้อีเมลอื่น",
     REGISTER_USERNAME_TAKEN: "ชื่อผู้ใช้ที่สร้างอัตโนมัติซ้ำกับผู้อื่น ลองอีกครั้งหรือใช้อีเมลอื่น",
     REGISTER_VERIFICATION_EMAIL_FAILED:
@@ -67,6 +68,7 @@ const DEFAULT_THAI_ERROR_MESSAGES: Record<AppErrorCode, string> = {
 
 /** Ensures every AppErrorCode has a Thai message at compile time (must stay inside the literal above). */
 const _allAppErrorCodesHaveThaiMessages: Record<AppErrorCode, string> = DEFAULT_THAI_ERROR_MESSAGES;
+void _allAppErrorCodesHaveThaiMessages;
 
 const LEGACY_TEXT_ERROR_MESSAGES: Array<[needle: string, message: string]> = [
     ["Too many login attempts", "คุณพยายามเข้าสู่ระบบหลายครั้งเกินไป โปรดรอสักครู่แล้วลองใหม่"],

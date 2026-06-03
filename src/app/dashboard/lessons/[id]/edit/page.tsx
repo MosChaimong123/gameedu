@@ -17,6 +17,8 @@ import {
     Trash2,
     BarChart3,
     Star,
+    Download,
+    Sparkles,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,7 +42,20 @@ type LessonContent = {
     keyTerms: Array<{ term: string; definition: string }>
     summary: string
     estimatedMinutes: number
+    quizDraft?: LessonQuizDraft
 }
+type LessonQuizQuestion = {
+    id: string
+    question: string
+    options: string[]
+    correctAnswer: number
+    explanation: string
+}
+type LessonQuizDraft = {
+    questions: LessonQuizQuestion[]
+    generatedAt?: string
+}
+type LessonStudent = { id: string; name: string; nickname: string | null; order: number }
 type Lesson = {
     id: string
     title: string
@@ -52,8 +67,13 @@ type Lesson = {
     classroomAssignments: Array<{
         id: string
         classId: string
-        classroom: { id: string; name: string }
-        completions: Array<{ studentId: string; quizScore: number | null; completedAt: string }>
+        classroom: { id: string; name: string; students: LessonStudent[] }
+        completions: Array<{
+            studentId: string
+            quizScore: number | null
+            completedAt: string
+            student?: LessonStudent
+        }>
     }>
 }
 type Classroom = { id: string; name: string; grade: string | null; _count: { students: number } }
@@ -73,11 +93,14 @@ export default function EditLessonPage() {
     // Save state
     const [saving, setSaving] = useState(false)
     const [savedOk, setSavedOk] = useState(false)
+    const [quizGenerating, setQuizGenerating] = useState(false)
+    const [quizError, setQuizError] = useState("")
 
     // Assign dialog
     const [assignOpen, setAssignOpen] = useState(false)
     const [classrooms, setClassrooms] = useState<Classroom[]>([])
     const [assigning, setAssigning] = useState<string | null>(null)
+    const [assignError, setAssignError] = useState("")
 
     useEffect(() => {
         fetch(`/api/lessons/${id}`)
@@ -137,18 +160,69 @@ export default function EditLessonPage() {
         }
     }
 
-    async function handleAssign(classId: string) {
-        setAssigning(classId)
+    async function handleGenerateQuizDraft() {
+        if (!content) return
+        setQuizGenerating(true)
+        setQuizError("")
         try {
-            await fetch(`/api/classrooms/${classId}/lessons`, {
+            const res = await fetch(`/api/lessons/${id}/quiz/generate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ count: 5, difficulty: "MEDIUM", language: "th" }),
+            })
+            const data = await res.json().catch(() => null) as LessonQuizDraft | { error?: { message?: string } } | null
+            if (!res.ok || !data || !("questions" in data)) {
+                throw new Error(data && "error" in data ? data.error?.message : "สร้าง quiz ไม่สำเร็จ")
+            }
+            setContent({ ...content, quizDraft: data })
+            setLesson((prev) => prev ? { ...prev, content: { ...prev.content, quizDraft: data } } : prev)
+            setSavedOk(true)
+            setTimeout(() => setSavedOk(false), 2000)
+        } catch (error) {
+            setQuizError(error instanceof Error ? error.message : "สร้าง quiz ไม่สำเร็จ")
+        } finally {
+            setQuizGenerating(false)
+        }
+    }
+
+    function updateQuizQuestion(index: number, patch: Partial<LessonQuizQuestion>) {
+        if (!content?.quizDraft) return
+        const questions = [...content.quizDraft.questions]
+        questions[index] = { ...questions[index], ...patch }
+        setContent({ ...content, quizDraft: { ...content.quizDraft, questions } })
+    }
+
+    function updateQuizOption(questionIndex: number, optionIndex: number, value: string) {
+        if (!content?.quizDraft) return
+        const question = content.quizDraft.questions[questionIndex]
+        const options = [...question.options]
+        options[optionIndex] = value
+        updateQuizQuestion(questionIndex, { options })
+    }
+
+    async function handleAssign(classId: string) {
+        if (!lesson || lesson.status !== "PUBLISHED") {
+            setAssignError("ต้องเผยแพร่บทเรียนก่อน จึงจะ assign ให้ห้องเรียนได้")
+            return
+        }
+        setAssigning(classId)
+        setAssignError("")
+        try {
+            const assignRes = await fetch(`/api/classrooms/${classId}/lessons`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ lessonId: id }),
             })
+            if (!assignRes.ok) {
+                const err = await assignRes.json().catch(() => ({}))
+                throw new Error(err?.error?.message ?? "assign บทเรียนไม่สำเร็จ")
+            }
             // Refresh lesson to get updated assignments
             const res = await fetch(`/api/lessons/${id}`)
             const updated = await res.json() as Lesson
             setLesson(updated)
+        } catch (error) {
+            setAssignError(error instanceof Error ? error.message : "assign บทเรียนไม่สำเร็จ")
         } finally {
             setAssigning(null)
         }
@@ -167,6 +241,24 @@ export default function EditLessonPage() {
     }
 
     const assignedClassIds = new Set(lesson.classroomAssignments.map((a) => a.classId))
+    const totalAssignedStudents = lesson.classroomAssignments.reduce(
+        (sum, assignment) => sum + assignment.classroom.students.length,
+        0
+    )
+    const totalCompletions = lesson.classroomAssignments.reduce(
+        (sum, assignment) => sum + assignment.completions.length,
+        0
+    )
+    const scoredCompletions = lesson.classroomAssignments.flatMap((assignment) =>
+        assignment.completions.filter((completion) => completion.quizScore !== null)
+    )
+    const averageQuizScore =
+        scoredCompletions.length > 0
+            ? Math.round(
+                  scoredCompletions.reduce((sum, completion) => sum + (completion.quizScore ?? 0), 0) /
+                      scoredCompletions.length
+              )
+            : null
 
     return (
         <div className="mx-auto max-w-4xl space-y-6">
@@ -198,7 +290,7 @@ export default function EditLessonPage() {
                 <div className="flex flex-wrap gap-2">
                     <Button
                         variant="outline"
-                        onClick={() => { fetchClassrooms(); setAssignOpen(true) }}
+                        onClick={() => { setAssignError(""); fetchClassrooms(); setAssignOpen(true) }}
                         className="rounded-xl font-bold"
                     >
                         <Users className="mr-2 h-4 w-4" />
@@ -246,6 +338,21 @@ export default function EditLessonPage() {
                     </div>
                 </div>
             )}
+
+            {/* Progress summary */}
+            <div className="grid gap-3 sm:grid-cols-4">
+                {[
+                    { label: "ห้องที่ assign", value: lesson.classroomAssignments.length },
+                    { label: "นักเรียนทั้งหมด", value: totalAssignedStudents },
+                    { label: "เรียนจบแล้ว", value: totalCompletions },
+                    { label: "คะแนนเฉลี่ย", value: averageQuizScore === null ? "-" : `${averageQuizScore}%` },
+                ].map((item) => (
+                    <div key={item.label} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                        <p className="text-2xl font-black text-slate-900">{item.value}</p>
+                        <p className="mt-1 text-xs font-bold text-slate-400">{item.label}</p>
+                    </div>
+                ))}
+            </div>
 
             {/* Meta fields */}
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
@@ -385,6 +492,222 @@ export default function EditLessonPage() {
                 </div>
             )}
 
+            {/* Lesson quiz draft */}
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-amber-500" />
+                        <div>
+                            <h3 className="font-black text-slate-800">Quiz ท้ายบท</h3>
+                            <p className="text-xs font-bold text-slate-400">
+                                สร้างชุดคำถามเดียวกันให้นักเรียนทุกคน และบันทึกคะแนนลง progress
+                            </p>
+                        </div>
+                    </div>
+                    <Button
+                        type="button"
+                        variant={content.quizDraft ? "outline" : "default"}
+                        onClick={handleGenerateQuizDraft}
+                        disabled={quizGenerating}
+                        className={
+                            content.quizDraft
+                                ? "rounded-xl font-bold"
+                                : "rounded-xl bg-amber-500 font-black text-white hover:bg-amber-600"
+                        }
+                    >
+                        {quizGenerating ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Sparkles className="mr-2 h-4 w-4" />
+                        )}
+                        {content.quizDraft ? "สร้างใหม่" : "Generate quiz"}
+                    </Button>
+                </div>
+
+                {quizError && (
+                    <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+                        {quizError}
+                    </div>
+                )}
+
+                {!content.quizDraft ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                        <p className="font-black text-slate-700">ยังไม่มี quiz draft</p>
+                        <p className="mt-1 text-sm text-slate-400">กด Generate quiz เพื่อสร้างคำถามจากเนื้อหาบทเรียนนี้</p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {content.quizDraft.questions.map((question, questionIndex) => (
+                            <div key={question.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                <div className="mb-3 flex items-center gap-2">
+                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-black text-amber-700">
+                                        {questionIndex + 1}
+                                    </span>
+                                    <Input
+                                        value={question.question}
+                                        onChange={(e) => updateQuizQuestion(questionIndex, { question: e.target.value })}
+                                        className="rounded-xl font-black"
+                                        placeholder="คำถาม"
+                                    />
+                                </div>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    {question.options.map((option, optionIndex) => (
+                                        <div key={optionIndex} className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => updateQuizQuestion(questionIndex, { correctAnswer: optionIndex })}
+                                                className={
+                                                    question.correctAnswer === optionIndex
+                                                        ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-xs font-black text-white"
+                                                        : "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-xs font-black text-slate-400"
+                                                }
+                                                aria-label={`Set option ${optionIndex + 1} as correct`}
+                                            >
+                                                {String.fromCharCode(65 + optionIndex)}
+                                            </button>
+                                            <Input
+                                                value={option}
+                                                onChange={(e) => updateQuizOption(questionIndex, optionIndex, e.target.value)}
+                                                className="rounded-xl"
+                                                placeholder={`ตัวเลือก ${optionIndex + 1}`}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                                <Textarea
+                                    value={question.explanation}
+                                    onChange={(e) => updateQuizQuestion(questionIndex, { explanation: e.target.value })}
+                                    rows={2}
+                                    className="mt-3 rounded-xl text-sm"
+                                    placeholder="คำอธิบายเฉลย"
+                                />
+                            </div>
+                        ))}
+                        <p className="text-xs font-bold text-slate-400">
+                            หลังแก้คำถามแล้วให้กด “บันทึกการเปลี่ยนแปลง” เพื่อเก็บ quiz draft ล่าสุด
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            {/* Student completion list */}
+            {lesson.classroomAssignments.length > 0 && (
+                <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                            <BarChart3 className="h-5 w-5 text-blue-500" />
+                            <h3 className="font-black text-slate-800">รายชื่อนักเรียนและผลการเรียน</h3>
+                        </div>
+                        <a href={`/api/lessons/${lesson.id}/progress/export`}>
+                            <Button variant="outline" size="sm" className="rounded-xl font-bold">
+                                <Download className="mr-2 h-4 w-4" />
+                                Export CSV
+                            </Button>
+                        </a>
+                    </div>
+                    <div className="space-y-4">
+                        {lesson.classroomAssignments.map((assignment) => {
+                            const completionByStudent = new Map(
+                                assignment.completions.map((completion) => [completion.studentId, completion])
+                            )
+                            const totalStudents = assignment.classroom.students.length
+                            const completedCount = assignment.completions.length
+                            const withScore = assignment.completions.filter((completion) => completion.quizScore !== null)
+                            const avgScore =
+                                withScore.length > 0
+                                    ? Math.round(
+                                          withScore.reduce((sum, completion) => sum + (completion.quizScore ?? 0), 0) /
+                                              withScore.length
+                                      )
+                                    : null
+                            const progressPercent =
+                                totalStudents > 0 ? Math.round((completedCount / totalStudents) * 100) : 0
+
+                            return (
+                                <div key={assignment.id} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                        <div>
+                                            <p className="font-bold text-slate-800">{assignment.classroom.name}</p>
+                                            <p className="text-xs font-bold text-slate-400">
+                                                {completedCount}/{totalStudents} คนเรียนจบ
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-sm">
+                                            <span className="flex items-center gap-1 font-bold text-emerald-600">
+                                                <Users className="h-3.5 w-3.5" />
+                                                {progressPercent}%
+                                            </span>
+                                            {avgScore !== null && (
+                                                <span className="flex items-center gap-1 font-bold text-amber-600">
+                                                    <Star className="h-3.5 w-3.5 fill-current" />
+                                                    Quiz เฉลี่ย {avgScore}%
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                                        <div
+                                            className="h-full rounded-full bg-emerald-500 transition-all"
+                                            style={{ width: `${progressPercent}%` }}
+                                        />
+                                    </div>
+                                    <div className="overflow-hidden rounded-xl border border-slate-100 bg-white">
+                                        {assignment.classroom.students.length === 0 ? (
+                                            <p className="p-4 text-sm text-slate-400">ยังไม่มีนักเรียนในห้องนี้</p>
+                                        ) : (
+                                            <div className="divide-y divide-slate-100">
+                                                {assignment.classroom.students.map((student) => {
+                                                    const completion = completionByStudent.get(student.id)
+                                                    return (
+                                                        <div
+                                                            key={student.id}
+                                                            className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1fr_auto_auto]"
+                                                        >
+                                                            <div>
+                                                                <p className="font-bold text-slate-800">
+                                                                    {student.order + 1}. {student.name}
+                                                                </p>
+                                                                {student.nickname && (
+                                                                    <p className="text-xs text-slate-400">{student.nickname}</p>
+                                                                )}
+                                                            </div>
+                                                            <Badge
+                                                                className={
+                                                                    completion
+                                                                        ? "w-fit bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                                                                        : "w-fit bg-slate-100 text-slate-500 hover:bg-slate-100"
+                                                                }
+                                                            >
+                                                                {completion ? "เรียนจบแล้ว" : "ยังไม่จบ"}
+                                                            </Badge>
+                                                            <div className="text-left text-xs font-bold text-slate-500 sm:text-right">
+                                                                {completion ? (
+                                                                    <>
+                                                                        <p>{new Date(completion.completedAt).toLocaleDateString("th-TH")}</p>
+                                                                        <p>
+                                                                            คะแนน{" "}
+                                                                            {completion.quizScore === null
+                                                                                ? "-"
+                                                                                : `${completion.quizScore}%`}
+                                                                        </p>
+                                                                    </>
+                                                                ) : (
+                                                                    <p>-</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* Progress Tracker */}
             {lesson.classroomAssignments.length > 0 && (
                 <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
@@ -480,6 +803,16 @@ export default function EditLessonPage() {
                         <DialogTitle className="font-black">Assign บทเรียนให้ห้องเรียน</DialogTitle>
                         <DialogDescription>เลือกห้องเรียนที่ต้องการให้นักเรียนเข้าถึงบทเรียนนี้</DialogDescription>
                     </DialogHeader>
+                    {lesson.status !== "PUBLISHED" && (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+                            ต้องเผยแพร่บทเรียนก่อน จึงจะ assign ให้ห้องเรียนได้
+                        </div>
+                    )}
+                    {assignError && (
+                        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+                            {assignError}
+                        </div>
+                    )}
                     <div className="mt-2 space-y-2">
                         {classrooms.length === 0 ? (
                             <p className="py-4 text-center text-sm text-slate-400">ยังไม่มีห้องเรียน</p>
@@ -507,7 +840,7 @@ export default function EditLessonPage() {
                                                 size="sm"
                                                 className="rounded-xl bg-emerald-600 font-bold text-white hover:bg-emerald-700"
                                                 onClick={() => handleAssign(cls.id)}
-                                                disabled={assigning === cls.id}
+                                                disabled={lesson.status !== "PUBLISHED" || assigning === cls.id}
                                             >
                                                 {assigning === cls.id ? (
                                                     <Loader2 className="h-4 w-4 animate-spin" />

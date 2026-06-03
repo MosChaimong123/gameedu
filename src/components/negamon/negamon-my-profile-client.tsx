@@ -249,7 +249,7 @@ export function NegamonMyProfileClient({
 
             {/* Skills */}
             {monsterSnapshot ? (
-                <SkillLoadoutPanel code={code} monster={monsterSnapshot} />
+                <SkillLoadoutPanel monster={monsterSnapshot} />
             ) : allMoves.basic && (allMoves.unlocked.length > 0 || allMoves.locked.length > 0) ? (
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <p className="mb-3 text-[10px] font-black uppercase tracking-wide text-slate-400">สกิล</p>

@@ -426,7 +426,7 @@ export function MonsterCard({
 
                             <div className="grid grid-cols-2 gap-2">
                                 {STAT_CONFIG.map(({ key, labelKey, icon: Icon, iconColor, barFrom, barTo }) => {
-                                    const val = monster.stats[key as keyof typeof monster.stats];
+                                    const val = monster.stats[key as keyof typeof monster.stats] ?? 0;
                                     const pct = Math.round((val / (maxStat * 1.1)) * 100);
                                     return (
                                         <div

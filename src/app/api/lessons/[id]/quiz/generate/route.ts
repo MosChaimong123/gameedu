@@ -8,7 +8,11 @@ import {
     createAppErrorResponse,
 } from "@/lib/api-error";
 import { db } from "@/lib/db";
-import { buildLessonQuizSourceText, normalizeLessonQuizQuestions } from "@/lib/lessons/lesson-quiz";
+import {
+    buildLessonQuizSourceText,
+    normalizeLessonQuizQuestions,
+    type LessonContentWithQuiz,
+} from "@/lib/lessons/lesson-quiz";
 import { getLimitsForUser } from "@/lib/plan/plan-access";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
 import { logAuditEvent } from "@/lib/security/audit-log";
@@ -78,7 +82,16 @@ export async function POST(req: Request, { params }: Params) {
             return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
         }
 
-        const sourceText = buildLessonQuizSourceText(lesson.content);
+        const lessonContent =
+            lesson.content && typeof lesson.content === "object" && !Array.isArray(lesson.content)
+                ? (lesson.content as LessonContentWithQuiz)
+                : null;
+
+        if (!lessonContent) {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Lesson content is empty", 400);
+        }
+
+        const sourceText = buildLessonQuizSourceText(lessonContent);
         if (!sourceText.trim()) {
             return createAppErrorResponse("INVALID_PAYLOAD", "Lesson content is empty", 400);
         }
@@ -115,7 +128,7 @@ ${sourceText}
         );
 
         const nextContent = {
-            ...(lesson.content && typeof lesson.content === "object" ? lesson.content : {}),
+            ...lessonContent,
             quizDraft: {
                 questions,
                 generatedAt: new Date().toISOString(),

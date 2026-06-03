@@ -38,7 +38,7 @@ function getStatusBadgeClassName(status: "success" | "rejected" | "error") {
   }
 }
 
-function getCategoryBadgeClassName(category: "admin" | "classroom" | "socket" | "upload" | "auth" | "other") {
+function getCategoryBadgeClassName(category: AuditLogListItem["category"]) {
   switch (category) {
     case "admin":
       return "bg-violet-100 text-violet-700";
@@ -50,6 +50,10 @@ function getCategoryBadgeClassName(category: "admin" | "classroom" | "socket" | 
       return "bg-fuchsia-100 text-fuchsia-700";
     case "auth":
       return "bg-indigo-100 text-indigo-700";
+    case "ai":
+      return "bg-amber-100 text-amber-700";
+    case "line":
+      return "bg-emerald-100 text-emerald-700";
     default:
       return "bg-slate-100 text-slate-700";
   }

@@ -65,6 +65,7 @@ export default function StudentLessonPage() {
     const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [expandedSection, setExpandedSection] = useState<string | null>(null);
+    const [allRead, setAllRead] = useState(false);
     const [completing, setCompleting] = useState(false);
     const [completed, setCompleted] = useState(false);
     const [completeError, setCompleteError] = useState<string | null>(null);

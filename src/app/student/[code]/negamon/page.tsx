@@ -22,6 +22,7 @@ export default async function StudentNegamonProfilePage(props: { params: Promise
             levelConfig={dashboard.classroom.levelConfig as LevelConfigInput}
             negamonSettings={dashboard.classroom.negamonSettings ?? null}
             negamonSkills={dashboard.student.negamonSkills}
+            negamonSkillLoadout={dashboard.student.negamonSkillLoadout}
         />
     );
 }

@@ -14,23 +14,21 @@ import { Input } from "@/components/ui/input";
 import { getNegamonFormLevelBand, getNegamonMoveLearnLevel } from "@/lib/game-negamon";
 
 const CODEX_TYPE_ORDER: MonsterType[] = [
-    "FIRE",
+    "GRASS",
     "WATER",
-    "EARTH",
-    "WIND",
-    "THUNDER",
-    "LIGHT",
-    "DARK",
+    "FIRE",
+    "ELECTRICITY",
 ];
 
 const TYPE_BADGE: Record<string, string> = {
-    FIRE: "bg-orange-100 text-orange-800 border-orange-200",
-    WATER: "bg-sky-100 text-sky-800 border-sky-200",
-    EARTH: "bg-green-100 text-green-800 border-green-200",
-    WIND: "bg-cyan-100 text-cyan-800 border-cyan-200",
-    THUNDER: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    LIGHT: "bg-amber-100 text-amber-800 border-amber-200",
-    DARK: "bg-purple-100 text-purple-800 border-purple-200",
+    GRASS:       "bg-green-100 text-green-800 border-green-200",
+    WATER:       "bg-sky-100 text-sky-800 border-sky-200",
+    FIRE:        "bg-orange-100 text-orange-800 border-orange-200",
+    ELECTRICITY: "bg-yellow-100 text-yellow-800 border-yellow-200",
+};
+
+const TYPE_ICON: Record<string, string> = {
+    GRASS: "🌿", WATER: "💧", FIRE: "🔥", ELECTRICITY: "⚡",
 };
 
 function monsterTypeLabel(
@@ -62,8 +60,7 @@ export function NegamonCodexClient({ code, speciesList, negamonEnabled }: Negamo
         const q = filterText.trim().toLowerCase();
         return sorted.filter((sp) => {
             if (typeFilter.size > 0) {
-                const matchType =
-                    typeFilter.has(sp.type) || (sp.type2 ? typeFilter.has(sp.type2) : false);
+                const matchType = typeFilter.has(sp.type);
                 if (!matchType) return false;
             }
             if (!q) return true;
@@ -158,13 +155,13 @@ export function NegamonCodexClient({ code, speciesList, negamonEnabled }: Negamo
                                         type="button"
                                         onClick={() => toggleTypeFilter(mt)}
                                         className={cn(
-                                            "rounded-lg border px-2 py-1 text-[10px] font-black transition-colors",
+                                            "rounded-lg border px-2.5 py-1 text-[11px] font-black transition-colors",
                                             on
                                                 ? TYPE_BADGE[mt] ?? "bg-slate-800 text-white"
                                                 : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"
                                         )}
                                     >
-                                        {monsterTypeLabel(t, mt)}
+                                        {TYPE_ICON[mt]} {monsterTypeLabel(t, mt)}
                                     </button>
                                 );
                             })}
@@ -248,18 +245,8 @@ export function NegamonCodexClient({ code, speciesList, negamonEnabled }: Negamo
                                                         TYPE_BADGE[sp.type] ?? "bg-slate-100"
                                                     )}
                                                 >
-                                                    {monsterTypeLabel(t, sp.type)}
+                                                    {TYPE_ICON[sp.type]} {monsterTypeLabel(t, sp.type)}
                                                 </span>
-                                                {sp.type2 ? (
-                                                    <span
-                                                        className={cn(
-                                                            "rounded-md border px-2 py-0.5 text-[10px] font-black",
-                                                            TYPE_BADGE[sp.type2] ?? "bg-slate-100"
-                                                        )}
-                                                    >
-                                                        {monsterTypeLabel(t, sp.type2)}
-                                                    </span>
-                                                ) : null}
                                             </div>
                                         </div>
                                     </div>

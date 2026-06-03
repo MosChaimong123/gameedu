@@ -153,6 +153,13 @@ export type SendClassroomLineReminderResult = {
     missingSubmissionSlots: number;
 };
 
+export type ResetStudentLineLinkResult = {
+    success: boolean;
+    studentId: string;
+    accountLinksDeleted: number;
+    groupBindingsDeleted: number;
+};
+
 export async function sendAssignmentLineReminder(input: {
     classroomId: string;
     assignmentId: string;
@@ -181,4 +188,20 @@ export async function sendClassroomLineReminder(
     }
 
     return response.json() as Promise<SendClassroomLineReminderResult>;
+}
+
+export async function resetStudentLineLink(input: {
+    classroomId: string;
+    studentId: string;
+}): Promise<ResetStudentLineLinkResult> {
+    const response = await fetch(
+        `/api/classrooms/${input.classroomId}/students/${input.studentId}/line-link`,
+        { method: "DELETE" }
+    );
+
+    if (!response.ok) {
+        throw new Error(await extractDashboardActionError(response, "assignmentReminderSendFailed"));
+    }
+
+    return response.json() as Promise<ResetStudentLineLinkResult>;
 }

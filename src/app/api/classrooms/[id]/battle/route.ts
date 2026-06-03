@@ -8,8 +8,11 @@ import { db } from "@/lib/db";
 import { authorizeBattleRead } from "@/lib/services/battle-read-auth";
 import {
     aggregateGameHistoryAnalytics,
-    createBattleHistorySummary,
 } from "@/lib/game-core";
+import {
+    createNegamonBattleSessionHistorySummaryV4,
+    createNegamonBattleSessionViewV4,
+} from "@/lib/game-negamon/core/session-v4";
 
 export async function POST(
     _req: NextRequest,
@@ -68,28 +71,39 @@ export async function GET(
         take: 30,
         select: {
             id: true,
+            classId: true,
             challengerId: true,
             defenderId: true,
             winnerId: true,
             goldReward: true,
+            interactivePending: true,
+            stateVersion: true,
+            result: true,
             createdAt: true,
         },
     });
 
     const historyStudentId = auth.scope === "student" ? auth.studentId : studentId;
+    const battleViews = sessions
+        .map((session) =>
+            createNegamonBattleSessionViewV4({
+                id: session.id,
+                classId: session.classId,
+                challengerId: session.challengerId,
+                defenderId: session.defenderId,
+                winnerId: session.winnerId,
+                goldReward: session.goldReward,
+                interactivePending: session.interactivePending,
+                stateVersion: session.stateVersion,
+                createdAt: session.createdAt,
+                result: session.result,
+            })
+        )
+        .filter((view): view is NonNullable<typeof view> => Boolean(view));
     const gameHistory = historyStudentId
-        ? sessions.map((session) =>
-              createBattleHistorySummary({
-                  id: session.id,
-                  classId,
-                  studentId: historyStudentId,
-                  challengerId: session.challengerId,
-                  defenderId: session.defenderId,
-                  winnerId: session.winnerId,
-                  goldReward: session.goldReward,
-                  createdAt: session.createdAt,
-              })
-          )
+        ? battleViews
+              .map((view) => createNegamonBattleSessionHistorySummaryV4({ view, studentId: historyStudentId }))
+              .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
         : [];
 
     const studentIds = [
@@ -116,6 +130,7 @@ export async function GET(
 
     return NextResponse.json({
         sessions,
+        battleViews,
         studentNames,
         gameHistory,
         gameHistoryAnalytics: aggregateGameHistoryAnalytics(gameHistory),

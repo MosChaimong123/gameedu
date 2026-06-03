@@ -3,14 +3,11 @@
 // ============================================================
 
 export type MonsterType =
-    | "NORMAL" // ไร้ธาตุ — ใช้ท่าตีธรรมดาที่ฝังจากระบบเท่านั้น (ไม่ใช้เป็นธาตุมอน)
-    | "FIRE"
-    | "WATER"
-    | "EARTH"
-    | "WIND"
-    | "THUNDER"
-    | "LIGHT"
-    | "DARK";
+    | "NORMAL"       // ไร้ธาตุ — basic attack เท่านั้น ไม่มี type advantage/disadvantage
+    | "FIRE"         // ธาตุไฟ — ชนะ ELECTRICITY แพ้ WATER
+    | "WATER"        // ธาตุน้ำ — ชนะ FIRE แพ้ GRASS
+    | "GRASS"        // ธาตุพืช — ชนะ WATER แพ้ ELECTRICITY
+    | "ELECTRICITY"; // ธาตุไฟฟ้า — ชนะ GRASS แพ้ FIRE
 
 export type MoveCategory = "PHYSICAL" | "SPECIAL" | "STATUS" | "HEAL";
 export type MonsterBattleRole =
@@ -64,6 +61,7 @@ export type StatusEffect =
     | "BOOST_WATER_DMG" // Water move +35% (2 ตา)
     | "LOWER_ATK"     // ลด ATK opponent -15%
     | "LOWER_ATK_ALL" // ลด ATK ทุกคน -15% (AoE)
+    | "LOWER_SPA"     // ลดพลังเวท/Sp.Atk ของศัตรู
     | "LOWER_DEF"     // ลด DEF opponent -15%
     | "LOWER_SPD"     // ลด SPD opponent 50% (×0.5)
     | "LOWER_EN_REGEN" // ลด EN ที่ฟื้นต่อปลายเทิร์นของฝ่ายตรงข้าม (ค่าใน effectRegenPenalty)
@@ -75,6 +73,12 @@ export type MonsterBaseStats = {
     atk: number;
     def: number;
     spd: number;
+    /**
+     * Special attack. Powers SPECIAL-category moves; physical moves continue to use `atk`.
+     * Defense (`def`) currently serves as both physical and special defense.
+     * Optional for backward compatibility with stored data — callers should fall back to `atk`.
+     */
+    spa?: number;
 };
 
 export type MonsterStats = MonsterBaseStats; // computed stats (same shape)

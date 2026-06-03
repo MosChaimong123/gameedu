@@ -13,4 +13,18 @@ describe("student dashboard production QA guardrails", () => {
     expect(source).toContain("BattleV2Arena");
     expect(source).not.toContain("LegacyInteractiveBattle");
   });
+
+  it("keeps the student V4 battle surface free of retired battle wording and shows resources", () => {
+    const source = readFileSync(
+      join(process.cwd(), "src/components/negamon/NegamonBattleArenaV4.tsx"),
+      "utf8"
+    );
+
+    expect(source).toContain("NegamonBattleStateV4");
+    expect(source).toContain("statusIds");
+    expect(source).toContain("stat_stage_changed");
+    expect(source).toContain("PP {resource.pp}/{resource.maxPp}");
+    expect(source).toContain("CD {resource.cooldown}");
+    expect(source).not.toMatch(/Pokemon-Lite|Pokemon Lite|\\bLite\\b|\\bLegacy\\b/);
+  });
 });

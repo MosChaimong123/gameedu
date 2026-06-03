@@ -10,7 +10,7 @@ export function buildBasicAttackMove(): MonsterMove {
         name: "โจมตีธรรมดา",
         type: "NORMAL",
         category: "PHYSICAL",
-        power: 24,
+        power: 40,
         accuracy: 100,
         learnRank: 0,
         energyCost: 0,

@@ -14,6 +14,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { formatDeadlineDisplayTh, isAssignmentDeadlinePast } from "@/lib/datetime-local";
 import {
+    resetStudentLineLink,
     sendAssignmentLineReminder,
     sendClassroomLineReminder,
     type SendClassroomLineReminderResult,
@@ -86,6 +87,12 @@ function summarizeAssignments(classroom: ClassroomDashboardViewModel): Assignmen
         });
 }
 
+function maskLineUserId(lineUserId: string | null | undefined) {
+    if (!lineUserId) return null;
+    if (lineUserId.length <= 10) return lineUserId;
+    return `${lineUserId.slice(0, 4)}...${lineUserId.slice(-4)}`;
+}
+
 export function ClassroomLineAssignmentPanel({
     classroom,
     onOpenAssignment,
@@ -104,6 +111,7 @@ export function ClassroomLineAssignmentPanel({
     const [bindingStatusRefreshing, setBindingStatusRefreshing] = useState(false);
     const [bindingPollingActive, setBindingPollingActive] = useState(false);
     const [showAllStudentStatuses, setShowAllStudentStatuses] = useState(false);
+    const [resettingStudentId, setResettingStudentId] = useState<string | null>(null);
     const rows = useMemo(() => summarizeAssignments(classroom), [classroom]);
 
     const connectedGroupCount = classroom.lineBotGroups.length;
@@ -113,6 +121,10 @@ export function ClassroomLineAssignmentPanel({
     const hotRows = rows.filter((row) => row.missingSubmissions > 0 || row.overdue || row.dueSoon).slice(0, 8);
     const linkedStudents = classroom.students.filter((student) => student.lineLink?.linked);
     const pendingLinkedStudents = classroom.students.filter((student) => !student.lineLink?.linked);
+    const linkedPercent =
+        classroom.students.length > 0
+            ? Math.round((linkedStudents.length / classroom.students.length) * 100)
+            : 0;
     const visibleStudentStatuses =
         showAllStudentStatuses || classroom.students.length <= 8
             ? classroom.students
@@ -280,6 +292,38 @@ export function ClassroomLineAssignmentPanel({
             });
         } finally {
             setBulkSending(false);
+        }
+    }
+
+    async function handleResetStudentLineLink(student: ClassroomDashboardViewModel["students"][number]) {
+        if (!student.lineLink?.linked) return;
+        const confirmed = window.confirm(
+            `รีเซ็ตการเชื่อม LINE ของ ${student.name} ใช่ไหม?\nนักเรียนจะต้องกด เชื่อม LINE และส่งรหัสใหม่อีกครั้ง`
+        );
+        if (!confirmed) return;
+
+        setResettingStudentId(student.id);
+        try {
+            const result = await resetStudentLineLink({
+                classroomId: classroom.id,
+                studentId: student.id,
+            });
+            await onRefreshBindingStatus();
+            toast({
+                title: "รีเซ็ต LINE แล้ว",
+                description:
+                    result.accountLinksDeleted + result.groupBindingsDeleted > 0
+                        ? `${student.name} สามารถเชื่อม LINE ใหม่ได้แล้ว`
+                        : `${student.name} ยังไม่มี LINE link ที่ต้องรีเซ็ต`,
+            });
+        } catch (error) {
+            toast({
+                title: "รีเซ็ต LINE ไม่สำเร็จ",
+                description: error instanceof Error ? error.message : "ลองใหม่อีกครั้ง",
+                variant: "destructive",
+            });
+        } finally {
+            setResettingStudentId(null);
         }
     }
 
@@ -458,6 +502,9 @@ export function ClassroomLineAssignmentPanel({
                         <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
                             ยังไม่เชื่อม {pendingLinkedStudents.length} คน
                         </span>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                            พร้อมใช้ {linkedPercent}%
+                        </span>
                     </div>
                 </div>
 
@@ -470,6 +517,8 @@ export function ClassroomLineAssignmentPanel({
                                   timeZone: "Asia/Bangkok",
                               })
                             : null;
+                        const maskedLineUserId = maskLineUserId(student.lineLink?.lineUserId);
+                        const isResetting = resettingStudentId === student.id;
 
                         return (
                             <div
@@ -496,9 +545,23 @@ export function ClassroomLineAssignmentPanel({
                                 </div>
                                 <p className="mt-2 text-xs text-slate-500">
                                     {student.lineLink?.linked && linkedAtLabel
-                                        ? `เชื่อมเมื่อ ${linkedAtLabel}`
+                                        ? `เชื่อมเมื่อ ${linkedAtLabel}${maskedLineUserId ? ` • LINE ${maskedLineUserId}` : ""}`
                                         : "ให้นักเรียนล็อกอินแล้วกด เชื่อม LINE จากหน้าเว็บของตน"}
                                 </p>
+                                {student.lineLink?.linked ? (
+                                    <div className="mt-3 flex justify-end">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 rounded-full border-rose-200 px-3 text-xs font-bold text-rose-700 hover:bg-rose-50"
+                                            disabled={isResetting}
+                                            onClick={() => void handleResetStudentLineLink(student)}
+                                        >
+                                            {isResetting ? "กำลังรีเซ็ต..." : "รีเซ็ต LINE"}
+                                        </Button>
+                                    </div>
+                                ) : null}
                             </div>
                         );
                     })}

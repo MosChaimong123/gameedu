@@ -56,7 +56,15 @@ export function validateNegamonSkillLoadout(input: {
     }
 
     if (normalizedSkillIds.length === 0 && input.fallbackToFirstSkills !== false) {
-        normalizedSkillIds.push(...input.unlockedSkills.slice(0, maxSlots).map((skill) => skill.id));
+        const basicSkills = input.unlockedSkills.filter((skill) => isNegamonBasicAttackMoveId(skill.id));
+        const nonBasicSkills = input.unlockedSkills.filter((skill) => !isNegamonBasicAttackMoveId(skill.id));
+        const remainingSlots = Math.max(0, maxSlots - basicSkills.length);
+        // Pick highest-tier skills by unlock level, then restore catalog order for stable UI slots.
+        const byTierDesc = [...nonBasicSkills].sort((a, b) => (b.unlock.level ?? 0) - (a.unlock.level ?? 0));
+        const selectedIds = new Set(byTierDesc.slice(0, remainingSlots).map((s) => s.id));
+        const selectedNonBasic = nonBasicSkills.filter((skill) => selectedIds.has(skill.id));
+        normalizedSkillIds.push(...basicSkills.slice(0, maxSlots).map((skill) => skill.id));
+        normalizedSkillIds.push(...selectedNonBasic.map((skill) => skill.id));
     }
 
     return {

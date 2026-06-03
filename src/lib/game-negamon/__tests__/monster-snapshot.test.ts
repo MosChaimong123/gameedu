@@ -55,6 +55,7 @@ describe("Negamon character and monster contracts", () => {
             atk: Math.floor(pyronox.baseStats.atk * 1.75),
             def: Math.floor(pyronox.baseStats.def * 1.75),
             spd: Math.floor(pyronox.baseStats.spd * 1.6),
+            spa: Math.floor(pyronox.baseStats.spa! * 1.75),
         });
         expect(calculateNegamonExpProgress({ points: 25, rankIndex: 2, expPerPoint: 8 })).toMatchObject({
             level: 16,
@@ -68,18 +69,21 @@ describe("Negamon character and monster contracts", () => {
             atk: 1.25,
             def: 1.25,
             spd: 1.2,
+            spa: 1.25,
         });
         expect(getNegamonStatMultipliersForLevel(60)).toEqual({
             hp: 3,
             atk: 2.65,
             def: 2.65,
             spd: 2.3,
+            spa: 2.65,
         });
         expect(calculateNegamonStatsForLevel(pyronox.baseStats, 12)).toEqual({
             hp: Math.floor(pyronox.baseStats.hp * 1.75),
             atk: Math.floor(pyronox.baseStats.atk * 1.625),
             def: Math.floor(pyronox.baseStats.def * 1.625),
             spd: Math.floor(pyronox.baseStats.spd * 1.5),
+            spa: Math.floor(pyronox.baseStats.spa! * 1.625),
         });
     });
 
@@ -190,22 +194,17 @@ describe("Negamon character and monster contracts", () => {
         expect(snapshot?.unlockedSkillIds).toEqual([
             "basic-attack",
             "pyronox-ember-fang",
-            "pyronox-shadow-rend",
             "pyronox-war-cry",
-            "pyronox-scorch-rush",
         ]);
         expect(snapshot?.equippedSkillIds).toEqual([
             "basic-attack",
             "pyronox-ember-fang",
-            "pyronox-shadow-rend",
             "pyronox-war-cry",
         ]);
         expect(snapshot?.skillCatalog.map((skill) => skill.id)).toEqual([
             "basic-attack",
             "pyronox-ember-fang",
-            "pyronox-shadow-rend",
             "pyronox-war-cry",
-            "pyronox-scorch-rush",
         ]);
     });
 
@@ -309,9 +308,7 @@ describe("Negamon character and monster contracts", () => {
         });
         expect(state.unlockedMoves.map((move) => move.id)).toEqual([
             "pyronox-ember-fang",
-            "pyronox-shadow-rend",
             "pyronox-war-cry",
-            "pyronox-scorch-rush",
         ]);
     });
 

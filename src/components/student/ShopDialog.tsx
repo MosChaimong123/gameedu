@@ -11,6 +11,7 @@ import {
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
@@ -252,6 +253,9 @@ export function ShopDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md rounded-3xl border-0 shadow-2xl bg-white p-0 overflow-hidden">
                 <DialogHeader className="px-6 pt-6 pb-4 bg-gradient-to-br from-yellow-50 to-amber-50 border-b border-yellow-100">
+                    <DialogDescription className="sr-only">
+                        {t("shopDialogTitle")}
+                    </DialogDescription>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-100 text-yellow-700">

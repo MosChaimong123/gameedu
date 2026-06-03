@@ -90,7 +90,7 @@ describe("Negamon V3 AI engine", () => {
             sourceMove: {
                 id: "soft-glow",
                 name: "Tender Glow",
-                type: "LIGHT",
+                type: "WATER",
                 category: "HEAL",
                 power: 0,
                 accuracy: 100,
@@ -140,7 +140,7 @@ describe("Negamon V3 AI engine", () => {
             sourceMove: {
                 id: "war-cry",
                 name: "Predator Roar",
-                type: "DARK",
+                type: "ELECTRICITY",
                 category: "STATUS",
                 power: 0,
                 accuracy: 100,
@@ -168,7 +168,7 @@ describe("Negamon V3 AI engine", () => {
             sourceMove: {
                 id: "tail-rush",
                 name: "Jetstream",
-                type: "WIND",
+                type: "GRASS",
                 category: "STATUS",
                 power: 0,
                 accuracy: 100,
@@ -184,7 +184,7 @@ describe("Negamon V3 AI engine", () => {
             sourceMove: {
                 id: "gale-cut",
                 name: "Gale Peck",
-                type: "WIND",
+                type: "GRASS",
                 category: "PHYSICAL",
                 power: 55,
                 accuracy: 100,
@@ -299,7 +299,7 @@ describe("Negamon V3 AI engine", () => {
             sourceMove: {
                 id: "predator-roar",
                 name: "Predator Roar",
-                type: "DARK",
+                type: "ELECTRICITY",
                 category: "STATUS",
                 power: 0,
                 accuracy: 100,
@@ -349,7 +349,7 @@ describe("Negamon V3 AI engine", () => {
             sourceMove: {
                 id: "night-tether",
                 name: "Night Tether",
-                type: "DARK",
+                type: "ELECTRICITY",
                 category: "STATUS",
                 power: 0,
                 accuracy: 100,
@@ -372,7 +372,7 @@ describe("Negamon V3 AI engine", () => {
             sourceMove: {
                 id: "tomb-tax",
                 name: "Tomb Tax",
-                type: "DARK",
+                type: "ELECTRICITY",
                 category: "SPECIAL",
                 power: 36,
                 accuracy: 100,

@@ -304,7 +304,7 @@ export function StudentAvatarSection({
                                         width={320}
                                         height={320}
                                         className="h-full w-full object-contain"
-                                        priority={false}
+                                        priority
                                     />
                                     <button
                                         type="button"
@@ -486,6 +486,7 @@ export function StudentAvatarSection({
                                             fill
                                             sizes="144px"
                                             className="relative z-10 object-contain p-3 drop-shadow-md"
+                                            priority
                                         />
                                         <button
                                             type="button"
@@ -509,6 +510,7 @@ export function StudentAvatarSection({
                                         width={144}
                                         height={144}
                                         className="relative z-10 p-3 drop-shadow-md"
+                                        priority
                                     />
                                     <button
                                         type="button"

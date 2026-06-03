@@ -18,7 +18,7 @@ const SOUNDS = {
     "swap": "/sounds/sfx-swap.mp3",
     "steal": "/sounds/sfx-steal.mp3",
     "game-over": "/sounds/sfx-game-over.mp3",
-    "click": "/sounds/sfx-click.mp3"
+    "click": "/sounds/sfx-swap.mp3"
 }
 
 export type SoundKey = keyof typeof SOUNDS

@@ -13,9 +13,17 @@ import {
 } from "@/lib/game-negamon";
 
 describe("Negamon formula core", () => {
-    it("calculates type multiplier across dual types", () => {
-        expect(getFormulaTypeMultiplier("FIRE", ["WIND", "LIGHT"])).toBe(4);
-        expect(getFormulaTypeMultiplier("LIGHT", ["DARK", "FIRE"])).toBe(1);
+    it("calculates type multiplier in 4-element rock-paper-scissors cycle", () => {
+        // FIRE beats ELECTRICITY ×2
+        expect(getFormulaTypeMultiplier("FIRE", ["ELECTRICITY"])).toBe(2);
+        // FIRE resisted by WATER ×0.5
+        expect(getFormulaTypeMultiplier("FIRE", ["WATER"])).toBe(0.5);
+        // GRASS beats WATER ×2
+        expect(getFormulaTypeMultiplier("GRASS", ["WATER"])).toBe(2);
+        // ELECTRICITY beats GRASS ×2
+        expect(getFormulaTypeMultiplier("ELECTRICITY", ["GRASS"])).toBe(2);
+        // NORMAL always ×1
+        expect(getFormulaTypeMultiplier("NORMAL", ["FIRE"])).toBe(1);
     });
 
     it("applies stat stages with bounds", () => {
@@ -42,7 +50,7 @@ describe("Negamon formula core", () => {
     it("calculates Pokemon-inspired damage with stab, type, and crit", () => {
         const actor = {
             level: 6,
-            types: ["FIRE", "DARK"] as const,
+            types: ["FIRE"] as const,
             stats: {
                 maxHp: 320,
                 attack: 196,
@@ -55,7 +63,7 @@ describe("Negamon formula core", () => {
         };
         const target = {
             level: 6,
-            types: ["WIND", "LIGHT"] as const,
+            types: ["ELECTRICITY"] as const,
             stats: {
                 maxHp: 300,
                 attack: 178,
@@ -91,9 +99,66 @@ describe("Negamon formula core", () => {
         });
 
         expect(normal.stab).toBe(true);
-        expect(normal.typeMultiplier).toBe(4);
+        expect(normal.typeMultiplier).toBe(2);
+        expect(normal.rawDamage).toBeGreaterThanOrEqual(normal.damage);
         expect(normal.damage).toBeGreaterThan(critical.damage / 2);
         expect(critical.damage).toBeGreaterThan(normal.damage);
+        expect(critical.critical).toBe(true);
+    });
+
+    it("returns zero damage for status moves and keeps damaging moves above the minimum", () => {
+        const actor = {
+            level: 60,
+            types: ["NORMAL"] as const,
+            stats: { maxHp: 500, attack: 200, defense: 200, specialAttack: 200, specialDefense: 200, speed: 100 },
+            statStages: createNeutralStatStages(),
+        };
+        const target = {
+            level: 60,
+            types: ["DARK"] as const,
+            stats: { maxHp: 500, attack: 200, defense: 200, specialAttack: 200, specialDefense: 200, speed: 100 },
+            statStages: createNeutralStatStages(),
+        };
+
+        expect(
+            calculateFormulaDamage({
+                actor,
+                target,
+                move: { id: "guard", type: "LIGHT", category: "STATUS", power: 0, accuracy: 100, priority: 0 },
+            }).damage
+        ).toBe(0);
+        expect(
+            calculateFormulaDamage({
+                actor,
+                target,
+                move: { id: "neutral-hit", type: "NORMAL", category: "PHYSICAL", power: 80, accuracy: 100, priority: 0 },
+            }).damage
+        ).toBeGreaterThanOrEqual(1);
+    });
+
+    it("caps one-hit burst damage to a classroom-safe target HP ratio", () => {
+        const actor = {
+            level: 60,
+            types: ["FIRE"] as const,
+            stats: { maxHp: 999, attack: 5000, defense: 100, specialAttack: 5000, specialDefense: 100, speed: 100 },
+            statStages: createNeutralStatStages(),
+        };
+        const target = {
+            level: 60,
+            types: ["WIND"] as const,
+            stats: { maxHp: 100, attack: 100, defense: 1, specialAttack: 100, specialDefense: 1, speed: 100 },
+            statStages: createNeutralStatStages(),
+        };
+        const result = calculateFormulaDamage({
+            actor,
+            target,
+            move: { id: "burst", type: "FIRE", category: "SPECIAL", power: 250, accuracy: 100, priority: 0 },
+            randomMultiplier: 1,
+        });
+
+        expect(result.rawDamage).toBeGreaterThan(75);
+        expect(result.damage).toBe(75);
+        expect(result.capped).toBe(true);
     });
 
     it("provides deterministic rng outputs", () => {

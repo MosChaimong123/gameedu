@@ -252,75 +252,25 @@ export type {
     SelectedAction,
 };
 
-/** ลำดับจุดบนวง UI = ทิศทามลูกศรชนะทาง ×2 (น้ำ→ไฟ→ลม→ดิน→ไฟฟ้า→น้ำ) */
+/** ลำดับวงชนะทาง: พืช→น้ำ→ไฟ→ไฟฟ้า→พืช */
 export const NEGAMON_ELEMENT_CYCLE_ORDER: MonsterType[] = [
+    "GRASS",
     "WATER",
     "FIRE",
-    "WIND",
-    "EARTH",
-    "THUNDER",
+    "ELECTRICITY",
 ];
 
 /**
- * Type Chart: moveType → defenderType → multiplier (×2 super, ×0.5 resist)
+ * Type Chart: moveType → defenderType → multiplier (×2 ชนะทาง, ×0.5 แพ้ทาง)
  *
- * วง 5 ธาตุ: น้ำ→ไฟ→ลม→ดิน→ไฟฟ้า→น้ำ
- * มืด ชนะ ไฟ ลม ดิน ไฟฟ้า น้ำ | แสง ชนะ มืด | ทั้ง 5 ธาตุข้างบน ชนะ แสง
+ * วง 4 ธาตุ rock-paper-scissors:
+ * พืช ชนะ น้ำ | น้ำ ชนะ ไฟ | ไฟ ชนะ ไฟฟ้า | ไฟฟ้า ชนะ พืช
  */
 export const MONSTER_TYPE_CHART: Partial<Record<MonsterType, Partial<Record<MonsterType, number>>>> = {
-    WATER: {
-        FIRE: 2,
-        THUNDER: 0.5,
-        LIGHT: 2,
-        DARK: 0.5,
-        WATER: 0.5,
-    },
-    FIRE: {
-        WIND: 2,
-        WATER: 0.5,
-        LIGHT: 2,
-        DARK: 0.5,
-        FIRE: 0.5,
-    },
-    WIND: {
-        EARTH: 2,
-        FIRE: 0.5,
-        LIGHT: 2,
-        DARK: 0.5,
-        WIND: 0.5,
-    },
-    EARTH: {
-        THUNDER: 2,
-        WIND: 0.5,
-        LIGHT: 2,
-        DARK: 0.5,
-        EARTH: 0.5,
-    },
-    THUNDER: {
-        WATER: 2,
-        EARTH: 0.5,
-        LIGHT: 2,
-        DARK: 0.5,
-        THUNDER: 0.5,
-    },
-    DARK: {
-        FIRE: 2,
-        WATER: 2,
-        WIND: 2,
-        EARTH: 2,
-        THUNDER: 2,
-        LIGHT: 0.5,
-        DARK: 0.5,
-    },
-    LIGHT: {
-        DARK: 2,
-        FIRE: 0.5,
-        WATER: 0.5,
-        WIND: 0.5,
-        EARTH: 0.5,
-        THUNDER: 0.5,
-        LIGHT: 0.5,
-    },
+    GRASS:       { WATER: 2, ELECTRICITY: 0.5 },
+    WATER:       { FIRE: 2,  GRASS: 0.5 },
+    FIRE:        { ELECTRICITY: 2, WATER: 0.5 },
+    ELECTRICITY: { GRASS: 2, FIRE: 0.5 },
 };
 
 export type NegamonTableProgressHint =

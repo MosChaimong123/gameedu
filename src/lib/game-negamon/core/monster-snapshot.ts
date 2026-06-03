@@ -40,6 +40,7 @@ export type NegamonDerivedStats = {
     atk: number;
     def: number;
     spd: number;
+    spa: number;
     maxEnergy: number;
     energyRegen: number;
 };
@@ -224,6 +225,7 @@ export function createNegamonMonsterSnapshotFromState(input: {
     const loadout = validateNegamonSkillLoadout({
         requestedSkillIds: input.equippedSkillIds,
         unlockedSkills: skillCatalog,
+        fallbackToFirstSkills: !input.equippedSkillIds || input.equippedSkillIds.length === 0,
     });
     const unlockedMoves = skillCatalog
         .map((skill) => skill.sourceMove)
@@ -265,6 +267,7 @@ export function createNegamonMonsterSnapshotFromState(input: {
             atk: resolvedBattleStats.atk,
             def: resolvedBattleStats.def,
             spd: resolvedBattleStats.spd,
+            spa: resolvedBattleStats.spa ?? resolvedBattleStats.atk,
             maxEnergy: energyProfile.maxEnergy,
             energyRegen: energyProfile.regenPerTurn,
         },

@@ -18,7 +18,7 @@ export type NegamonSkillEffect =
     | { kind: "heal"; percent: number }
     | {
           kind: "stat_stage";
-          stat: "attack" | "defense" | "speed" | "accuracy";
+          stat: "attack" | "defense" | "speed" | "accuracy" | "specialAttack";
           stages: number;
           target?: "self" | "enemy" | "allEnemies";
           durationTurns?: number;
@@ -166,6 +166,14 @@ function mapStatusEffectToSkillEffects(input: {
                 target: input.target,
                 durationTurns,
             }];
+        case "LOWER_SPA":
+            return [{
+                kind: "stat_stage",
+                stat: "specialAttack",
+                stages: -2,
+                target: input.target,
+                durationTurns,
+            }];
         case "LOWER_DEF":
             return [{
                 kind: "stat_stage",
@@ -220,7 +228,7 @@ export function createNegamonSkillDefinition(
     const effects: NegamonSkillEffect[] = [];
     if (move.power > 0) effects.push({ kind: "damage", power: move.power });
     if (move.category === "HEAL") {
-        effects.push({ kind: "heal", percent: 25 });
+        effects.push({ kind: "heal", percent: 50 });
     } else if (move.effect) {
         effects.push(
             ...mapStatusEffectToSkillEffects({

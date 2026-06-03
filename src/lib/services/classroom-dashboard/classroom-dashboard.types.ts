@@ -104,6 +104,7 @@ type ClassroomDashboardBaseViewModel = Prisma.ClassroomGetPayload<{
 export type ClassroomDashboardStudentLineLinkViewModel = {
     linked: boolean;
     linkedAt: Date | null;
+    lineUserId: string | null;
 };
 
 export type ClassroomDashboardStudentViewModel =

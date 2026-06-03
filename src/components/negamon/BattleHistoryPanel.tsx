@@ -15,6 +15,45 @@ interface BattleHistoryPanelProps {
     refreshKey?: number;
 }
 
+type BattleHistoryRewardMeta = {
+    requestedGoldReward: number;
+    goldReward: number;
+    rewardBlockedReason: "daily_cap" | "pair_cooldown" | null;
+};
+
+export function formatBattleHistoryRewardStatus(
+    entry: GameHistorySummary,
+    rewardMeta: BattleHistoryRewardMeta | null
+) {
+    const won = entry.outcome === "win";
+    if (!won) {
+        return {
+            badge: "แพ้",
+            detail: "รอบนี้ไม่ได้รับรางวัลจากการต่อสู้",
+            tone: "loss" as const,
+        };
+    }
+    if (rewardMeta?.rewardBlockedReason === "pair_cooldown") {
+        return {
+            badge: "พักรางวัล",
+            detail: `ชนะแล้ว แต่ทองยังไม่เข้า เพราะคู่นี้ยังอยู่ในช่วงพักรางวัล (${rewardMeta.requestedGoldReward}G -> ${rewardMeta.goldReward}G)`,
+            tone: "blocked" as const,
+        };
+    }
+    if (rewardMeta?.rewardBlockedReason === "daily_cap") {
+        return {
+            badge: "ถึงโควตา",
+            detail: `ชนะแล้ว แต่ทองยังไม่เข้าเพิ่ม เพราะถึงโควตารางวัลประจำวันแล้ว (${rewardMeta.requestedGoldReward}G -> ${rewardMeta.goldReward}G)`,
+            tone: "blocked" as const,
+        };
+    }
+    return {
+        badge: `+${entry.goldDelta}G`,
+        detail: entry.goldDelta > 0 ? `ได้รับทองจากการชนะ ${entry.goldDelta}G` : "ชนะแล้ว แต่รอบนี้ไม่มีทองเพิ่ม",
+        tone: "win" as const,
+    };
+}
+
 function timeAgo(iso: string, t: (key: string, params?: Record<string, string | number>) => string): string {
     const diff = Date.now() - new Date(iso).getTime();
     const minutes = Math.floor(diff / 60000);
@@ -35,6 +74,7 @@ export function BattleHistoryPanel({
     const { t } = useLanguage();
     const [history, setHistory] = useState<GameHistorySummary[]>([]);
     const [names, setNames] = useState<Record<string, string>>({});
+    const [rewardMetaBySessionId, setRewardMetaBySessionId] = useState<Record<string, BattleHistoryRewardMeta>>({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -49,8 +89,29 @@ export function BattleHistoryPanel({
             .then((d: {
                 gameHistory?: GameHistorySummary[];
                 sessions?: BattleSessionEntry[];
+                battleViews?: Array<{
+                    sessionId?: string;
+                    final?: {
+                        requestedGoldReward?: number;
+                        goldReward?: number;
+                        rewardBlockedReason?: "daily_cap" | "pair_cooldown" | null;
+                    } | null;
+                }>;
                 studentNames?: Record<string, string>;
             }) => {
+                const rewardMeta = Object.fromEntries(
+                    (d.battleViews ?? [])
+                        .filter((view) => view.sessionId)
+                        .map((view) => [
+                            view.sessionId as string,
+                            {
+                                requestedGoldReward: view.final?.requestedGoldReward ?? view.final?.goldReward ?? 0,
+                                goldReward: view.final?.goldReward ?? 0,
+                                rewardBlockedReason: view.final?.rewardBlockedReason ?? null,
+                            } satisfies BattleHistoryRewardMeta,
+                        ])
+                );
+                setRewardMetaBySessionId(rewardMeta);
                 if (Array.isArray(d.gameHistory)) {
                     setHistory(d.gameHistory);
                 } else {
@@ -60,7 +121,7 @@ export function BattleHistoryPanel({
                             const opponentId = isChallenger ? s.defenderId : s.challengerId;
                             const won = s.winnerId === myStudentId;
                             return {
-                                id: `legacy:${s.id}`,
+                                id: `session:${s.id}`,
                                 kind: "battle_finished",
                                 gameKind: "negamon",
                                 studentId: myStudentId,
@@ -79,7 +140,10 @@ export function BattleHistoryPanel({
                 }
                 setNames(d.studentNames ?? {});
             })
-            .catch(() => setHistory([]))
+            .catch(() => {
+                setHistory([]);
+                setRewardMetaBySessionId({});
+            })
             .finally(() => setLoading(false));
 
         return () => window.clearTimeout(timer);
@@ -112,6 +176,10 @@ export function BattleHistoryPanel({
                 const opponentId = entry.opponentId ?? "";
                 const opponentName = names[opponentId] ?? "?";
                 const won = entry.outcome === "win";
+                const rewardStatus = formatBattleHistoryRewardStatus(
+                    entry,
+                    entry.sourceRefId ? rewardMetaBySessionId[entry.sourceRefId] ?? null : null
+                );
 
                 return (
                     <motion.div
@@ -139,10 +207,18 @@ export function BattleHistoryPanel({
                                 <span className="truncate text-sm font-black text-slate-800">{opponentName}</span>
                             </div>
                             <p className="text-[11px] font-bold text-slate-400">{timeAgo(entry.createdAt, t)}</p>
+                            <p className="mt-1 text-[11px] font-medium leading-5 text-slate-500">{rewardStatus.detail}</p>
                         </div>
 
-                        <div className={cn("shrink-0 tabular-nums text-sm font-black", won ? "text-yellow-600" : "text-slate-400")}>
-                            {won ? `+${entry.goldDelta}G` : t("battleResultLoserBadge")}
+                        <div
+                            className={cn(
+                                "shrink-0 rounded-full px-2.5 py-1 text-xs font-black",
+                                rewardStatus.tone === "win" && "bg-yellow-100 text-yellow-700",
+                                rewardStatus.tone === "blocked" && "bg-rose-100 text-rose-700",
+                                rewardStatus.tone === "loss" && "bg-slate-100 text-slate-500"
+                            )}
+                        >
+                            {rewardStatus.badge}
                         </div>
                     </motion.div>
                 );

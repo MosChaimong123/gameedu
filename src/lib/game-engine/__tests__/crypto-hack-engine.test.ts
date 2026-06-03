@@ -80,4 +80,37 @@ describe("CryptoHackEngine", () => {
     const player = engine.players.find((entry) => entry.name === "Charlie");
     expect(player?.password).toBe("Dogecoin");
   });
+
+  it("offers exactly 4 hack password options with the target password included", () => {
+    const alice = mockSocket("alice-socket");
+    const bob = mockSocket("bob-socket");
+
+    engine.addPlayer({ name: "Alice", avatar: "" }, alice);
+    engine.addPlayer({ name: "Bob", avatar: "" }, bob);
+    engine.startGame();
+
+    engine.handleEvent("select-password", { password: "Bitcoin" }, alice);
+    engine.handleEvent("select-password", { password: "Ethereum" }, bob);
+
+    engine.handleEvent("request-hack-options", { targetId: bob.id }, alice);
+
+    expect(alice.emit).toHaveBeenCalledWith(
+      "hack-options",
+      expect.objectContaining({
+        targetId: bob.id,
+        options: expect.arrayContaining(["Ethereum"]),
+      })
+    );
+
+    const latestHackOptionsCall = vi
+      .mocked(alice.emit)
+      .mock.calls
+      .filter(([eventName]) => eventName === "hack-options")
+      .at(-1);
+
+    expect(latestHackOptionsCall).toBeDefined();
+    const payload = latestHackOptionsCall?.[1] as { options: string[] };
+    expect(payload.options).toHaveLength(4);
+    expect(new Set(payload.options).size).toBe(4);
+  });
 });

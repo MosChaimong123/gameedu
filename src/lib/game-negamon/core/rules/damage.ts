@@ -4,6 +4,8 @@ import type { NegamonFormulaCombatant, NegamonFormulaMove } from "./types";
 
 export const NEGAMON_FORMULA_STAB_MULTIPLIER = 1.5;
 export const NEGAMON_FORMULA_CRIT_MULTIPLIER = 1.5;
+export const NEGAMON_FORMULA_MIN_DAMAGE = 1;
+export const NEGAMON_FORMULA_MAX_BURST_TARGET_HP_RATIO = 0.75;
 
 function getAttackValue(actor: NegamonFormulaCombatant, move: NegamonFormulaMove): number {
     const stats = applyCombatStatStages({
@@ -30,18 +32,22 @@ export function calculateFormulaDamage(input: {
     flatModifier?: number;
 }): {
     damage: number;
+    rawDamage: number;
     stab: boolean;
     typeMultiplier: number;
     effectiveness: "immune" | "resisted" | "normal" | "effective";
     critical: boolean;
+    capped: boolean;
 } {
     if (input.move.category === "STATUS" || input.move.power <= 0) {
         return {
             damage: 0,
+            rawDamage: 0,
             stab: false,
             typeMultiplier: 1,
             effectiveness: "normal",
             critical: Boolean(input.critical),
+            capped: false,
         };
     }
 
@@ -63,11 +69,17 @@ export function calculateFormulaDamage(input: {
         randomMultiplier *
         flatModifier;
 
+    const maxBurstDamage = Math.max(NEGAMON_FORMULA_MIN_DAMAGE, Math.floor(input.target.stats.maxHp * NEGAMON_FORMULA_MAX_BURST_TARGET_HP_RATIO));
+    const uncappedDamage = typeMultiplier <= 0 ? 0 : Math.max(NEGAMON_FORMULA_MIN_DAMAGE, Math.floor(rawDamage));
+    const damage = typeMultiplier <= 0 ? 0 : Math.min(uncappedDamage, maxBurstDamage);
+
     return {
-        damage: typeMultiplier <= 0 ? 0 : Math.max(1, Math.floor(rawDamage)),
+        damage,
+        rawDamage,
         stab,
         typeMultiplier,
         effectiveness: getFormulaEffectivenessLabel(typeMultiplier),
         critical: Boolean(input.critical),
+        capped: damage !== uncappedDamage,
     };
 }

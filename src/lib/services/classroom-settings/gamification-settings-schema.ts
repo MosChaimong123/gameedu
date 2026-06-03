@@ -4,6 +4,9 @@ const monsterTypeSchema = z.enum([
     "NORMAL",
     "FIRE",
     "WATER",
+    "GRASS",
+    "ELECTRICITY",
+    // legacy — รับ type เก่าเพื่อ backward compat กับ classroom settings ที่บันทึกไว้แล้ว
     "EARTH",
     "WIND",
     "THUNDER",
@@ -42,6 +45,9 @@ const monsterBaseStatsSchema = z.object({
     atk: z.number(),
     def: z.number(),
     spd: z.number(),
+    // Special attack — optional for backward compatibility with stored species
+    // that predate the stat (callers fall back to `atk`).
+    spa: z.number().optional(),
 });
 
 const monsterMoveSchema = z.object({

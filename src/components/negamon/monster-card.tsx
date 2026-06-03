@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
@@ -620,6 +621,11 @@ export function MonsterCard({
                             <DialogTitle className="font-black text-amber-100">
                                 {negamonMoveDisplayName(t, dialogMove)}
                             </DialogTitle>
+                            <DialogDescription className="sr-only">
+                                {t("monsterMoveDetailAriaLabel", {
+                                    move: negamonMoveDisplayName(t, dialogMove),
+                                })}
+                            </DialogDescription>
                         </DialogHeader>
                         {isDialogLocked ? (
                             <div className="space-y-3 text-sm">

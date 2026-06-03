@@ -51,6 +51,7 @@ interface StudentDashboardMainTabsProps {
     } | null;
     negamonMonsterSnapshot: NegamonMonsterSnapshot | null;
     questGold?: number;
+    battleResetSignal?: number;
     onActiveTabChange: (value: string) => void;
     onAssignmentFilterChange: (value: "all" | "pending" | "completed") => void;
     onAssignmentSortToggle: () => void;
@@ -82,6 +83,7 @@ export function StudentDashboardMainTabs({
     studentMonsterState,
     negamonMonsterSnapshot,
     questGold,
+    battleResetSignal = 0,
     onActiveTabChange,
     onAssignmentFilterChange,
     onAssignmentSortToggle,
@@ -169,6 +171,7 @@ export function StudentDashboardMainTabs({
                     studentId={student.id}
                     loginCode={student.loginCode}
                     questGold={questGold}
+                    battleResetSignal={battleResetSignal}
                     currentGold={student.gold}
                     inventory={student.inventory}
                     myMonster={studentMonsterState ? {

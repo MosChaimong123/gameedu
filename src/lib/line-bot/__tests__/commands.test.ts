@@ -10,6 +10,8 @@ import {
     formatLineAssignmentCreateFailedMessage,
     formatLineDirectHelpMessage,
     formatLineMyWorkMessage,
+    formatLineMyScoresMessage,
+    formatLineMySubmissionsMessage,
     formatLineStudentAccountLinkFailedMessage,
     formatLineStudentAccountLinkedMessage,
     formatLineStudentBindingRequiredMessage,
@@ -71,6 +73,10 @@ describe("line-bot commands", () => {
         expect(parseLineDebtCommand("งานของฉัน")).toEqual({ type: "classroom_my_work" });
         expect(parseLineDebtCommand("my assignments")).toEqual({ type: "classroom_my_work" });
         expect(parseLineDebtCommand("my work")).toEqual({ type: "classroom_my_work" });
+        expect(parseLineDebtCommand("คะแนนของฉัน")).toEqual({ type: "classroom_my_scores" });
+        expect(parseLineDebtCommand("my scores")).toEqual({ type: "classroom_my_scores" });
+        expect(parseLineDebtCommand("ส่งอะไรแล้ว")).toEqual({ type: "classroom_my_submissions" });
+        expect(parseLineDebtCommand("submitted work")).toEqual({ type: "classroom_my_submissions" });
         expect(parseLineDebtCommand("submit work S123 Homework 1: My answer")).toEqual({
             type: "classroom_submit_text",
             studentCode: "S123",
@@ -133,6 +139,38 @@ describe("line-bot commands", () => {
                 studentName: "Somchai",
                 items: [{ assignmentName: "Homework 1", deadline: null }],
             })
+        ).toContain("Homework 1");
+        expect(
+            formatLineMyScoresMessage([
+                {
+                    classroomName: "M1/1",
+                    studentName: "Somchai",
+                    submitted: [
+                        {
+                            assignmentName: "Homework 1",
+                            score: 8,
+                            maxScore: 10,
+                            submittedAt: new Date("2026-06-03T04:00:00.000Z"),
+                        },
+                    ],
+                },
+            ])
+        ).toContain("8/10");
+        expect(
+            formatLineMySubmissionsMessage([
+                {
+                    classroomName: "M1/1",
+                    studentName: "Somchai",
+                    submitted: [
+                        {
+                            assignmentName: "Homework 1",
+                            score: 8,
+                            maxScore: 10,
+                            submittedAt: new Date("2026-06-03T04:00:00.000Z"),
+                        },
+                    ],
+                },
+            ])
         ).toContain("Homework 1");
         expect(formatLineTextSubmissionFailedMessage()).toContain("ส่งงาน");
         expect(

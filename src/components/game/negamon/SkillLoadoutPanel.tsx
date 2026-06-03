@@ -1,10 +1,14 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { BatteryCharging, Lock, Sparkles, Swords, Target, Zap } from "lucide-react";
+import { BatteryCharging, Check, Lock, Save, Sparkles, Swords, Target, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 import { useLanguage } from "@/components/providers/language-provider";
 import type { NegamonMonsterSnapshot, NegamonSkillDefinition } from "@/lib/game-negamon";
+import { NEGAMON_SKILL_LOADOUT_MAX } from "@/lib/game-negamon";
 import { cn } from "@/lib/utils";
 import {
     formatNegamonElementType,
@@ -19,13 +23,55 @@ import {
 
 export function SkillLoadoutPanel({
     monster,
+    code,
     className,
 }: {
     monster: NegamonMonsterSnapshot;
+    code?: string;
     className?: string;
 }) {
     const { t } = useLanguage();
-    const equipped = new Set(monster.equippedSkillIds);
+    const { toast } = useToast();
+    const [selectedSkillIds, setSelectedSkillIds] = useState(monster.equippedSkillIds);
+    const [isSaving, setIsSaving] = useState(false);
+    const equipped = useMemo(() => new Set(selectedSkillIds), [selectedSkillIds]);
+    const canEdit = Boolean(code);
+    const isDirty = selectedSkillIds.join("|") !== monster.equippedSkillIds.join("|");
+
+    function toggleSkill(skillId: string) {
+        if (!canEdit) return;
+        setSelectedSkillIds((current) => {
+            if (current.includes(skillId)) return current.filter((id) => id !== skillId);
+            if (current.length >= NEGAMON_SKILL_LOADOUT_MAX) return current;
+            return [...current, skillId];
+        });
+    }
+
+    async function saveLoadout() {
+        if (!code || !isDirty) return;
+        setIsSaving(true);
+        try {
+            const res = await fetch(`/api/student/${code}/negamon/skill-loadout`, {
+                method: "PUT",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ skillIds: selectedSkillIds }),
+            });
+            const data = (await res.json()) as { negamonSkillLoadout?: string[]; error?: string };
+            if (!res.ok || !Array.isArray(data.negamonSkillLoadout)) {
+                throw new Error(data.error ?? "Invalid skill loadout");
+            }
+            setSelectedSkillIds(data.negamonSkillLoadout);
+            toast({ title: t("battleLoadoutSaved") });
+        } catch (error) {
+            toast({
+                title: "Skill loadout failed",
+                description: error instanceof Error ? error.message : "Unable to save skill loadout",
+                variant: "destructive",
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    }
 
     return (
         <section className={cn("rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5", className)}>
@@ -44,21 +90,48 @@ export function SkillLoadoutPanel({
                     </p>
                 </div>
                 <Badge className="rounded-lg bg-slate-950 text-white">
-                    {monster.equippedSkillIds.length}/{Math.max(1, monster.skillCatalog.length)}
+                    {selectedSkillIds.length}/{NEGAMON_SKILL_LOADOUT_MAX}
                 </Badge>
             </div>
+            {canEdit ? (
+                <div className="mb-3 flex justify-end">
+                    <Button
+                        type="button"
+                        size="sm"
+                        disabled={!isDirty || isSaving}
+                        onClick={saveLoadout}
+                        className="gap-2"
+                    >
+                        <Save className="h-4 w-4" />
+                        Save
+                    </Button>
+                </div>
+            ) : null}
 
             <div className="grid gap-2">
                 {monster.skillCatalog.map((skill: NegamonSkillDefinition, index: number) => {
                     const isEquipped = equipped.has(skill.id);
+                    const blockedByFullSlots = canEdit && !isEquipped && selectedSkillIds.length >= NEGAMON_SKILL_LOADOUT_MAX;
                     return (
                         <motion.div
                             key={skill.id}
                             initial={{ opacity: 0, x: -8 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: index * 0.035 }}
+                            role={canEdit ? "button" : undefined}
+                            tabIndex={canEdit ? 0 : undefined}
+                            onClick={() => toggleSkill(skill.id)}
+                            onKeyDown={(event) => {
+                                if (!canEdit) return;
+                                if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    toggleSkill(skill.id);
+                                }
+                            }}
                             className={cn(
                                 "rounded-xl border p-3 transition",
+                                canEdit && "cursor-pointer",
+                                blockedByFullSlots && "opacity-60",
                                 isEquipped
                                     ? "border-emerald-200 bg-emerald-50"
                                     : "border-slate-100 bg-slate-50"
@@ -132,7 +205,7 @@ export function SkillLoadoutPanel({
                                     </div>
                                 </div>
                                 {isEquipped ? (
-                                    <Sparkles className="mt-1 h-4 w-4 shrink-0 text-emerald-500" />
+                                    <Check className="mt-1 h-4 w-4 shrink-0 text-emerald-500" />
                                 ) : null}
                             </div>
                         </motion.div>

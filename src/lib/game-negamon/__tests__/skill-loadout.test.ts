@@ -55,7 +55,6 @@ describe("Negamon skill catalog and loadout V2", () => {
 
         expect(unlocked.map((skill) => skill.id)).toEqual([
             "basic-attack",
-            "pyronox-shadow-rend",
             "pyronox-war-cry",
         ]);
     });
@@ -72,7 +71,7 @@ describe("Negamon skill catalog and loadout V2", () => {
 
         expect(result.normalizedSkillIds).toEqual(["pyronox-hell-dive", "pyronox-ember-fang"]);
         expect(result.rejectedSkillIds).toEqual(["missing"]);
-        expect(fallback.normalizedSkillIds).toEqual(["basic-attack", "pyronox-ember-fang"]);
+        expect(fallback.normalizedSkillIds).toEqual(["basic-attack", "pyronox-hell-dive"]);
     });
 
     it("creates a server loadout plan from a monster snapshot", () => {
@@ -94,5 +93,53 @@ describe("Negamon skill catalog and loadout V2", () => {
 
         expect(plan.skillIds).toEqual(["pyronox-hell-dive"]);
         expect(plan.skills[0].sourceMove.id).toBe("pyronox-hell-dive");
+    });
+
+    it("keeps unlocked progression separate from active battle slots", () => {
+        const monster = createNegamonMonsterSnapshot({
+            studentId: "student-1",
+            points: 10000,
+            levelConfig,
+            negamonSettings: {
+                enabled: true,
+                allowStudentChoice: true,
+                expPerPoint: 10,
+                expPerAttendance: 20,
+                species: DEFAULT_NEGAMON_SPECIES,
+                studentMonsters: { "student-1": "terranoir" },
+            },
+            equippedSkillIds: [
+                "basic-attack",
+                "terranoir-grave-slam",
+                "terranoir-catacomb-crush",
+                "terranoir-bastion-hide",
+            ],
+        })!;
+
+        expect(monster.unlockedSkillIds).toEqual([
+            "basic-attack",
+            "terranoir-grave-slam",
+            "terranoir-bastion-hide",
+            "terranoir-catacomb-crush",
+        ]);
+        expect(monster.equippedSkillIds).toEqual([
+            "basic-attack",
+            "terranoir-grave-slam",
+            "terranoir-catacomb-crush",
+            "terranoir-bastion-hide",
+        ]);
+    });
+
+    it("does not fallback when a saved non-empty loadout contains only locked or invalid skills", () => {
+        const pyronox = DEFAULT_NEGAMON_SPECIES.find((species) => species.id === "pyronox")!;
+        const unlocked = getUnlockedNegamonSkillDefinitions({ species: pyronox, rankIndex: 0, level: 1, includeBasic: true });
+        const result = validateNegamonSkillLoadout({
+            requestedSkillIds: ["missing", "pyronox-hell-dive"],
+            unlockedSkills: unlocked,
+            fallbackToFirstSkills: false,
+        });
+
+        expect(result.normalizedSkillIds).toEqual([]);
+        expect(result.rejectedSkillIds).toEqual(["missing", "pyronox-hell-dive"]);
     });
 });

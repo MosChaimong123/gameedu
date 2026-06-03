@@ -1,7 +1,7 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { StudentDashboardSidebar } from "@/components/student/student-dashboard-sidebar";
+import { StudentDashboardSidebar, createStudentBattleRewardNotice } from "@/components/student/student-dashboard-sidebar";
 
 const mockAvatarSectionSpy = vi.fn();
 
@@ -18,7 +18,7 @@ describe("student dashboard sidebar", () => {
     });
 
     it("passes the expected student summary props into the avatar section", () => {
-        renderToStaticMarkup(
+        const html = renderToStaticMarkup(
             React.createElement(StudentDashboardSidebar, {
                 student: {
                     id: "student-1",
@@ -53,6 +53,23 @@ describe("student dashboard sidebar", () => {
                 levelConfigResolved: null,
                 mode: "learn",
                 questGold: 45,
+                onOpenBattleHistory: () => {},
+                onReturnToBattle: () => {},
+                battleRewardNotice: createStudentBattleRewardNotice({
+                    winnerId: "student-1",
+                    requestedGoldReward: 30,
+                    goldReward: 0,
+                    rewardBlockedReason: "pair_cooldown",
+                    reward: {
+                        gold: 0,
+                        exp: 53,
+                        grantedItemIds: [],
+                        levelUps: [],
+                        unlockedSkillIds: [],
+                        blockedReason: "pair_cooldown",
+                    },
+                    progression: null,
+                }),
             })
         );
 
@@ -74,5 +91,8 @@ describe("student dashboard sidebar", () => {
         expect(avatarProps.goldRate).toBe(3);
         expect(avatarProps.externalGold).toBe(45);
         expect(avatarProps.mode).toBe("learn");
+        expect(html).toContain("ทองรอบนี้ยังไม่เข้า");
+        expect(html).toContain("ดูประวัติการต่อสู้");
+        expect(html).toContain("กลับไปหน้าต่อสู้");
     });
 });

@@ -29,59 +29,43 @@ describe("Plan 29 release gate", () => {
         expect(DEFAULT_NEGAMON_SPECIES).toHaveLength(6);
 
         for (const species of DEFAULT_NEGAMON_SPECIES) {
-            const learnLevels = species.moves.map((move) => move.learnLevel);
             const moveIds = species.moves.map((move) => move.id);
 
-            expect(moveIds).toHaveLength(5);
+            expect(moveIds).toHaveLength(3);
             expect(new Set(moveIds).size).toBe(moveIds.length);
-            expect(learnLevels).toEqual([1, 4, 8, 16, 26]);
+            // Opener at Lv1, mid-game move at an intermediate level, finisher at Lv26
             expect(species.moves[0]).toMatchObject({ learnLevel: 1, roleTag: "opener", effectFamily: "STRIKE" });
-            expect(species.moves[4]?.learnLevel).toBe(26);
-            expect(species.moves.slice(0, 4).some((move) => move.power === 0 || move.category === "HEAL")).toBe(true);
-            expect(species.moves.slice(0, 4).some((move) =>
-                move.effectFamily !== "STRIKE" &&
-                move.effectFamily !== "STRIKE_DEBUFF"
+            expect(species.moves[2]?.learnLevel).toBe(26);
+            // Mid-game move unlocks between Lv1 and Lv26
+            expect((species.moves[1]?.learnLevel ?? 0)).toBeGreaterThan(1);
+            expect((species.moves[1]?.learnLevel ?? 0)).toBeLessThan(26);
+            // At least one non-STRIKE move before the finisher
+            expect(species.moves.slice(0, 2).some((move) =>
+                move.effectFamily !== "STRIKE"
             )).toBe(true);
-            expect([1, 4, 8, 16, 26].map((level) => getMoveIdsAtLevel(species.id, level).length)).toEqual([
-                1,
-                2,
-                3,
-                4,
-                5,
-            ]);
+            // At Lv1: 1 move; at full level (≥26): all 3 moves
+            expect(getMoveIdsAtLevel(species.id, 1).length).toBe(1);
+            expect(getMoveIdsAtLevel(species.id, 26).length).toBe(3);
         }
 
         expect(getMoveIdsAtLevel("pyronox", 1)).toEqual(["pyronox-ember-fang"]);
-        expect(getMoveIdsAtLevel("pyronox", 4)).toEqual(["pyronox-ember-fang", "pyronox-shadow-rend"]);
-        expect(getMoveIdsAtLevel("pyronox", 8)).toEqual([
+        expect(getMoveIdsAtLevel("pyronox", 8)).toEqual(["pyronox-ember-fang", "pyronox-war-cry"]);
+        expect(getMoveIdsAtLevel("pyronox", 26)).toEqual([
             "pyronox-ember-fang",
-            "pyronox-shadow-rend",
             "pyronox-war-cry",
-        ]);
-        expect(getMoveIdsAtLevel("pyronox", 16)).toEqual([
-            "pyronox-ember-fang",
-            "pyronox-shadow-rend",
-            "pyronox-war-cry",
-            "pyronox-scorch-rush",
+            "pyronox-hell-dive",
         ]);
     });
 
-    it("keeps every movepool on a distinct five-slot job table before and after the finisher unlock", () => {
+    it("keeps every movepool on a distinct three-slot job table before and after the finisher unlock", () => {
         for (const species of DEFAULT_NEGAMON_SPECIES) {
             const skills = species.moves.map((move) => createNegamonSkillDefinition(move, species.id));
             const earlySkills = skills.filter((skill) => (skill.unlock.level ?? 1) <= 16);
-            const reliableButtons = earlySkills.filter((skill) =>
-                skill.power > 0 &&
-                skill.accuracy >= 95 &&
-                skill.energyCost <= 35 &&
-                skill.effectFamily !== "FINISHER"
-            );
             const jobSignatures = skills.map((skill) => `${skill.roleTag ?? "none"}:${skill.effectFamily}`);
 
-            expect(new Set(skills.map((skill) => skill.effectFamily)).size).toBeGreaterThanOrEqual(4);
+            expect(new Set(skills.map((skill) => skill.effectFamily)).size).toBeGreaterThanOrEqual(2);
             expect(new Set(jobSignatures).size).toBe(skills.length);
-            expect(earlySkills).toHaveLength(4);
-            expect(reliableButtons.length).toBeGreaterThanOrEqual(1);
+            expect(earlySkills).toHaveLength(2);
             expect(skills.at(-1)?.unlock.level).toBe(26);
             expect(skills.at(-1)?.power).toBeGreaterThanOrEqual(36);
             expect(skills.at(-1)?.effectFamily).not.toBe(skills[0]?.effectFamily);
@@ -122,7 +106,7 @@ describe("Plan 29 release gate", () => {
         expect(lumilune.moves.some((move) => move.category === "HEAL")).toBe(true);
         expect(lumilune.moves.some((move) => move.effectFamily === "TEMPO_CONTROL")).toBe(true);
         expect(voltshade.moves.some((move) => move.effect === "PARALYZE")).toBe(true);
-        expect(voltshade.moves.some((move) => move.effectFamily === "ENERGY_SHIFT")).toBe(true);
+        expect(voltshade.moves.some((move) => move.effectFamily === "STRIKE_STATUS")).toBe(true);
         expect(lumilune.moves.at(-1)?.learnLevel).toBe(26);
         expect(voltshade.moves.at(-1)?.learnLevel).toBe(26);
     });

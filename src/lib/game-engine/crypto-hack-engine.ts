@@ -57,6 +57,8 @@ const CRYPTO_PASSWORDS = [
     "Harmony", "Elrond", "Enjin", "Chiliz", "Kusama"
 ];
 
+const CRYPTO_HACK_GUESS_OPTION_COUNT = 4;
+
 export class CryptoHackEngine extends AbstractGameEngine {
     public players: CryptoHackPlayer[] = [];
     public gameMode = "CRYPTO_HACK";
@@ -378,7 +380,7 @@ export class CryptoHackEngine extends AbstractGameEngine {
             hint = target.password.substring(0, Math.min(attempts, target.password.length));
         }
 
-        // Generate Hack Options (Target + 9 Random Distractors)
+        // Generate Hack Options (Target + 3 Random Distractors)
         // Access global constant CRYPTO_PASSWORDS
         const fullList = CRYPTO_PASSWORDS;
         const distractors = fullList.filter(p => p !== target.password);
@@ -389,12 +391,12 @@ export class CryptoHackEngine extends AbstractGameEngine {
             [distractors[i], distractors[j]] = [distractors[j], distractors[i]];
         }
 
-        // Pick top 9
-        const selected = distractors.slice(0, 9);
+        // Pick top 3 distractors
+        const selected = distractors.slice(0, CRYPTO_HACK_GUESS_OPTION_COUNT - 1);
         // Ensure target password is included
         if (target.password) selected.push(target.password);
 
-        // Shuffle final list (Total ~10)
+        // Shuffle final list (Total 4)
         for (let i = selected.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [selected[i], selected[j]] = [selected[j], selected[i]];

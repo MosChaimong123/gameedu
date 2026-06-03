@@ -4,30 +4,13 @@ export type NegamonFormulaTypeChart = Partial<
     Record<NegamonFormulaTypeId, Partial<Record<NegamonFormulaTypeId, number>>>
 >;
 
+// วงจรชนะ/แพ้แบบ rock-paper-scissors:
+// GRASS → ชนะ → WATER → ชนะ → FIRE → ชนะ → ELECTRICITY → ชนะ → GRASS
 export const NEGAMON_FORMULA_TYPE_CHART: NegamonFormulaTypeChart = {
-    WATER: { FIRE: 2, THUNDER: 0.5, LIGHT: 2, DARK: 0.5, WATER: 0.5 },
-    FIRE: { WIND: 2, WATER: 0.5, LIGHT: 2, DARK: 0.5, FIRE: 0.5 },
-    WIND: { EARTH: 2, FIRE: 0.5, LIGHT: 2, DARK: 0.5, WIND: 0.5 },
-    EARTH: { THUNDER: 2, WIND: 0.5, LIGHT: 2, DARK: 0.5, EARTH: 0.5 },
-    THUNDER: { WATER: 2, EARTH: 0.5, LIGHT: 2, DARK: 0.5, THUNDER: 0.5 },
-    DARK: {
-        FIRE: 2,
-        WATER: 2,
-        WIND: 2,
-        EARTH: 2,
-        THUNDER: 2,
-        LIGHT: 0.5,
-        DARK: 0.5,
-    },
-    LIGHT: {
-        DARK: 2,
-        FIRE: 0.5,
-        WATER: 0.5,
-        WIND: 0.5,
-        EARTH: 0.5,
-        THUNDER: 0.5,
-        LIGHT: 0.5,
-    },
+    GRASS:       { WATER: 2, ELECTRICITY: 0.5 },
+    WATER:       { FIRE: 2,  GRASS: 0.5 },
+    FIRE:        { ELECTRICITY: 2, WATER: 0.5 },
+    ELECTRICITY: { GRASS: 2, FIRE: 0.5 },
 };
 
 export function getFormulaTypeMultiplier(

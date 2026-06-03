@@ -11,6 +11,9 @@ import {
     formatLineAssignmentCreateFailedMessage,
     formatLineDirectHelpMessage,
     formatLineMyWorkMessage,
+    formatLineMyWorkListMessage,
+    formatLineMyScoresMessage,
+    formatLineMySubmissionsMessage,
     formatLineStudentAccountLinkFailedMessage,
     formatLineStudentAccountLinkedMessage,
     formatLinePrivateReplySentMessage,
@@ -36,6 +39,8 @@ import {
     createAssignmentForLineGroup,
     createLineGroupDebt,
     getClassroomReminderSummaryForLineGroup,
+    getLineMyProgressSummariesForLinkedAccount,
+    getLineMyWorkSummariesForLinkedAccount,
     listOpenDebtsForLineGroup,
     markLineGroupDebtPaid,
     getLineMyWorkSummary,
@@ -139,6 +144,35 @@ export async function processDirectTextCommand(input: {
                 replyText: formatLineStudentAccountLinkedMessage(result.link),
             };
         }
+        case "classroom_my_work":
+        case "classroom_student_work": {
+            const result = await getLineMyWorkSummariesForLinkedAccount({
+                lineUserId: input.lineUserId,
+            });
+            return {
+                handled: true,
+                replyText: result.ok
+                    ? formatLineMyWorkListMessage(
+                        result.summaries,
+                        command.type === "classroom_student_work" ? command.scope : "missing"
+                    )
+                    : formatLineStudentBindingRequiredMessage(),
+            };
+        }
+        case "classroom_my_scores":
+        case "classroom_my_submissions": {
+            const result = await getLineMyProgressSummariesForLinkedAccount({
+                lineUserId: input.lineUserId,
+            });
+            return {
+                handled: true,
+                replyText: result.ok
+                    ? command.type === "classroom_my_scores"
+                        ? formatLineMyScoresMessage(result.summaries)
+                        : formatLineMySubmissionsMessage(result.summaries)
+                    : formatLineStudentBindingRequiredMessage(),
+            };
+        }
         case "classroom_help":
         case "help":
             return {
@@ -239,6 +273,29 @@ export async function processGroupTextCommand(input: {
                 privateReply: {
                     toLineUserId: input.createdByLineUserId,
                     text: formatLineMyWorkMessage(result.summary),
+                },
+            };
+        }
+        case "classroom_my_scores":
+        case "classroom_my_submissions": {
+            if (!input.createdByLineUserId) {
+                return { handled: true, replyText: formatLineStudentBindingRequiredMessage() };
+            }
+            const result = await getLineMyProgressSummariesForLinkedAccount({
+                lineUserId: input.createdByLineUserId,
+            });
+            if (!result.ok) {
+                return { handled: true, replyText: formatLineStudentBindingRequiredMessage() };
+            }
+            return {
+                handled: true,
+                replyText: formatLinePrivateReplySentMessage(),
+                privateReply: {
+                    toLineUserId: input.createdByLineUserId,
+                    text:
+                        command.type === "classroom_my_scores"
+                            ? formatLineMyScoresMessage(result.summaries)
+                            : formatLineMySubmissionsMessage(result.summaries),
                 },
             };
         }

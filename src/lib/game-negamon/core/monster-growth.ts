@@ -21,14 +21,16 @@ export const NEGAMON_STAT_GROWTH_MULTIPLIERS = {
     atk: [1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.65],
     def: [1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.65],
     spd: [1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.3],
+    // Special attack shares the atk growth curve; per-role offsets shape identity below.
+    spa: [1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.65],
 } as const;
 const NEGAMON_ROLE_GROWTH_OFFSETS: Record<MonsterBattleRole, NegamonStatMultipliers> = {
-    burst: { hp: -0.04, atk: 0.08, def: -0.04, spd: 0.02 },
-    tempo: { hp: -0.05, atk: 0.03, def: -0.03, spd: 0.1 },
-    wall: { hp: 0.12, atk: -0.04, def: 0.14, spd: -0.08 },
-    support: { hp: 0.08, atk: -0.08, def: 0.08, spd: 0.01 },
-    control: { hp: -0.01, atk: 0.01, def: 0.02, spd: 0.07 },
-    bruiser: { hp: 0.08, atk: 0.05, def: 0.06, spd: -0.03 },
+    burst: { hp: -0.04, atk: 0.08, def: -0.04, spd: 0.02, spa: 0.02 },
+    tempo: { hp: -0.05, atk: 0.03, def: -0.03, spd: 0.1, spa: 0.06 },
+    wall: { hp: 0.12, atk: -0.04, def: 0.14, spd: -0.08, spa: -0.04 },
+    support: { hp: 0.08, atk: -0.08, def: 0.08, spd: 0.01, spa: 0.1 },
+    control: { hp: -0.01, atk: 0.01, def: 0.02, spd: 0.07, spa: 0.08 },
+    bruiser: { hp: 0.08, atk: 0.05, def: 0.06, spd: -0.03, spa: -0.02 },
 } as const;
 
 export type NegamonGrowthProgress = {
@@ -45,6 +47,7 @@ export type NegamonStatMultipliers = {
     atk: number;
     def: number;
     spd: number;
+    spa: number;
 };
 
 export function normalizeNegamonRankIndex(rankIndex: number): number {
@@ -158,6 +161,7 @@ function applyRoleGrowthOffset(
         atk: Math.max(1, base.atk + offsets.atk * progress),
         def: Math.max(1, base.def + offsets.def * progress),
         spd: Math.max(1, base.spd + offsets.spd * progress),
+        spa: Math.max(1, base.spa + offsets.spa * progress),
     };
 }
 
@@ -170,6 +174,7 @@ export function getNegamonStatMultipliersForLevel(
         atk: interpolateNegamonGrowthMultiplier(level, NEGAMON_STAT_GROWTH_MULTIPLIERS.atk),
         def: interpolateNegamonGrowthMultiplier(level, NEGAMON_STAT_GROWTH_MULTIPLIERS.def),
         spd: interpolateNegamonGrowthMultiplier(level, NEGAMON_STAT_GROWTH_MULTIPLIERS.spd),
+        spa: interpolateNegamonGrowthMultiplier(level, NEGAMON_STAT_GROWTH_MULTIPLIERS.spa),
     };
     return applyRoleGrowthOffset(base, level, battleRole);
 }
@@ -180,11 +185,14 @@ export function calculateNegamonStatsForLevel(
     battleRole?: MonsterBattleRole
 ): MonsterStats {
     const multipliers = getNegamonStatMultipliersForLevel(level, battleRole);
+    // Fall back to atk when a species predates the special-attack stat.
+    const baseSpa = baseStats.spa ?? baseStats.atk;
     return {
         hp: Math.floor(baseStats.hp * multipliers.hp),
         atk: Math.floor(baseStats.atk * multipliers.atk),
         def: Math.floor(baseStats.def * multipliers.def),
         spd: Math.floor(baseStats.spd * multipliers.spd),
+        spa: Math.floor(baseSpa * multipliers.spa),
     };
 }
 

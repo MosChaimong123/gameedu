@@ -13,6 +13,7 @@ export interface StudentGameTabsProps {
     questGold?: number;
     currentGold: number;
     inventory: string[];
+    battleResetSignal?: number;
     myMonster:
         | {
               formIcon: string;
@@ -33,6 +34,7 @@ export function StudentGameTabs({
     questGold,
     currentGold,
     inventory,
+    battleResetSignal = 0,
     myMonster,
     history,
     onGoldChange,
@@ -53,6 +55,7 @@ export function StudentGameTabs({
                     myMonster={myMonster}
                     currentGold={questGold ?? currentGold}
                     inventory={inventory}
+                    resetSignal={battleResetSignal}
                     onGoldChange={onGoldChange}
                     onBattleConsumablesSpent={onBattleConsumablesSpent}
                     onBattleFinalized={onBattleFinalized}

@@ -162,7 +162,7 @@ export function formatNegamonTraitTiming(appliesAt: string, t: NegamonUiTranslat
 
 type NegamonStatusTimelineEvent = {
     status: string;
-    action: "applied" | "blocked" | "ticked" | "expired" | "skipped" | "shielded";
+    action: "applied" | "blocked" | "ticked" | "expired" | "skipped" | "shielded" | "cleansed";
     message: string;
     damage?: number;
     preventedDamage?: number;
@@ -177,13 +177,30 @@ type NegamonBattleEventWithStatusTimeline = {
     message: string;
 };
 
+function formatBattleStatusLabel(status: string): string {
+    const normalized = status.trim().toUpperCase();
+    const labels: Record<string, string> = {
+        BURN: "ไหม้",
+        PARALYZE: "อัมพาต",
+        POISON: "พิษ",
+        BADLY_POISON: "พิษสะสม",
+        SLEEP: "หลับ",
+        STUN: "มึนงง",
+        SHIELD: "โล่",
+        FOCUS: "โฟกัส",
+    };
+    return labels[normalized] ?? status;
+}
+
 export function formatNegamonStatusTimeline(event: NegamonStatusTimelineEvent): string {
-    if (event.action === "applied") return `${event.status} applied`;
-    if (event.action === "blocked") return `${event.status} blocked`;
-    if (event.action === "ticked") return `${event.status} dealt ${event.damage ?? 0} damage`;
-    if (event.action === "expired") return `${event.status} expired`;
-    if (event.action === "skipped") return `${event.status} stopped the move`;
-    if (event.action === "shielded") return `Shield reduced ${event.preventedDamage ?? 0} damage`;
+    const statusLabel = formatBattleStatusLabel(event.status);
+    if (event.action === "applied") return `${statusLabel} ติดสถานะ`;
+    if (event.action === "blocked") return `${statusLabel} ถูกป้องกัน`;
+    if (event.action === "ticked") return `${statusLabel} สร้างความเสียหาย ${event.damage ?? 0}`;
+    if (event.action === "expired") return `${statusLabel} หมดผล`;
+    if (event.action === "skipped") return `${statusLabel} ทำให้ใช้ท่าไม่ได้`;
+    if (event.action === "shielded") return `โล่ลดความเสียหาย ${event.preventedDamage ?? 0}`;
+    if (event.action === "cleansed") return `${statusLabel} ถูกล้างออก`;
     return event.message;
 }
 
@@ -192,22 +209,45 @@ export function summarizeNegamonBattleEvent(
 ): string {
     const statusLine = "statusTimeline" in event ? event.statusTimeline?.map(formatNegamonStatusTimeline).join(" / ") : null;
     if (statusLine) return statusLine;
-    if ("missed" in event && event.missed) return "Move missed";
-    if ("damage" in event && event.damage) return `Damage ${event.damage}${event.critical ? " / critical" : ""}`;
-    if ("healing" in event && event.healing) return `Healed ${event.healing} HP`;
+
+    if ("missed" in event && event.missed) {
+        const moveName = "moveName" in event ? event.moveName : undefined;
+        return moveName ? `${moveName} — พลาดเป้า` : "ท่าพลาดเป้า";
+    }
+
+    if ("kind" in event && event.kind === "damage_applied" && "damage" in event && event.damage) {
+        const v4 = event as NegamonBattleEventV4;
+        const parts: string[] = [];
+        if (v4.moveName) parts.push(v4.moveName);
+        const dmgText = `${v4.damage} dmg${v4.critical ? " Crit!" : ""}`;
+        parts.push(dmgText);
+        if (v4.effectiveness === "effective") parts.push("(super effective!)");
+        else if (v4.effectiveness === "resisted") parts.push("(not very effective)");
+        else if (v4.effectiveness === "immune") parts.push("(immune)");
+        if (v4.hpAfter !== undefined && v4.targetMaxHp !== undefined) {
+            parts.push(`HP ${v4.hpAfter}/${v4.targetMaxHp}`);
+        }
+        return parts.join(" — ");
+    }
+
+    if ("damage" in event && event.damage) return `ความเสียหาย ${event.damage}${event.critical ? " / คริติคอล" : ""}`;
+    if ("healing" in event && event.healing) {
+        const moveName = "moveName" in event ? event.moveName : undefined;
+        return moveName ? `${moveName} — ฟื้นฟู HP ${event.healing}` : `ฟื้นฟู HP ${event.healing}`;
+    }
     return event.message;
 }
 
 export function summarizeNegamonReward(reward: GameRewardResult): string[] {
     const lines = [];
-    if (reward.gold > 0) lines.push(`Gold +${reward.gold}`);
+    if (reward.gold > 0) lines.push(`ทอง +${reward.gold}`);
     if (reward.exp > 0) lines.push(`EXP +${reward.exp}`);
-    if (reward.grantedItemIds.length > 0) lines.push(`Items ${reward.grantedItemIds.length}`);
+    if (reward.grantedItemIds.length > 0) lines.push(`ไอเท็ม ${reward.grantedItemIds.length}`);
     if (reward.levelUps.length > 0) {
         const lastLevel = reward.levelUps[reward.levelUps.length - 1]?.toLevel;
-        lines.push(lastLevel ? `Level ${lastLevel}` : `Level ups ${reward.levelUps.length}`);
+        lines.push(lastLevel ? `เลเวล ${lastLevel}` : `เลเวลอัป ${reward.levelUps.length}`);
     }
-    if (reward.unlockedSkillIds.length > 0) lines.push(`Skills ${reward.unlockedSkillIds.length}`);
-    if (reward.blockedReason) lines.push(`Blocked: ${reward.blockedReason}`);
+    if (reward.unlockedSkillIds.length > 0) lines.push(`สกิลใหม่ ${reward.unlockedSkillIds.length}`);
+    if (reward.blockedReason) lines.push(`รางวัลถูกพัก: ${reward.blockedReason}`);
     return lines;
 }

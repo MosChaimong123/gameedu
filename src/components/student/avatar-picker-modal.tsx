@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Check, Shuffle } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
@@ -69,7 +69,9 @@ export function AvatarPickerModal({
             <DialogContent className="sm:max-w-[600px] w-[96vw] rounded-2xl border-0 shadow-2xl p-0 overflow-hidden gap-0">
                 <DialogHeader className="px-6 py-5 bg-gradient-to-r from-indigo-500 to-purple-600">
                     <DialogTitle className="text-white text-xl font-bold">{t("avatarPickerTitle")}</DialogTitle>
-                    <p className="text-white/70 text-sm mt-1">{t("avatarPickerSubtitle")}</p>
+                    <DialogDescription className="mt-1 text-sm text-white/70">
+                        {t("avatarPickerSubtitle")}
+                    </DialogDescription>
                 </DialogHeader>
 
                 <div className="p-5 bg-[#F4F6FB]">

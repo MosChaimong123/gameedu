@@ -2,11 +2,8 @@ export type NegamonFormulaTypeId =
     | "NORMAL"
     | "FIRE"
     | "WATER"
-    | "EARTH"
-    | "WIND"
-    | "THUNDER"
-    | "LIGHT"
-    | "DARK";
+    | "GRASS"
+    | "ELECTRICITY";
 
 export type NegamonFormulaCategory = "PHYSICAL" | "SPECIAL" | "STATUS";
 

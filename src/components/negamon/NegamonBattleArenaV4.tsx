@@ -4,10 +4,18 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Activity, Backpack, Bolt, Footprints, ShieldAlert, Sparkles, Swords, Users } from "lucide-react";
 import { RewardResultModal } from "@/components/game/negamon/RewardResultModal";
+import { summarizeNegamonBattleEvent } from "@/components/game/negamon/ui-content";
 import type { BattleFinalRewardPayload } from "@/components/negamon/battle-tab.types";
 import { useLanguage } from "@/components/providers/language-provider";
 import { cn } from "@/lib/utils";
-import type { NegamonBattleChoiceV4, NegamonBattleCombatantV4, NegamonBattleStateV4 } from "@/lib/game-negamon";
+import type {
+    NegamonBattleChoiceDiagnosticsV4,
+    NegamonBattleChoiceV4,
+    NegamonBattleCombatantV4,
+    NegamonBattleEventV4,
+    NegamonBattleSideV4,
+    NegamonBattleStateV4,
+} from "@/lib/game-negamon";
 
 type ArenaChoiceResponseV4 = {
     mode?: "negamon_battle_v4";
@@ -15,12 +23,40 @@ type ArenaChoiceResponseV4 = {
     choiceRequestId?: string;
     state?: NegamonBattleStateV4;
     validChoices?: NegamonBattleChoiceV4[];
+    diagnostics?: NegamonBattleChoiceDiagnosticsV4 | null;
     final?: {
         winnerId?: string;
+        loserId?: string;
+        requestedGoldReward?: number;
         goldReward?: number;
+        rewardBlockedReason?: "daily_cap" | "pair_cooldown" | null;
+        rewardIdempotencyKey?: string;
+        reward?: BattleFinalRewardPayload["reward"];
+        progression?: BattleFinalRewardPayload["progression"];
     } | null;
     error?: string;
     reason?: string;
+};
+
+type ArenaSessionResponseV4 = {
+    mode?: "negamon_battle_v4";
+    engineVersion?: string;
+    sessionId?: string;
+    choiceRequestId?: string;
+    state?: NegamonBattleStateV4;
+    validChoices?: NegamonBattleChoiceV4[];
+    diagnostics?: NegamonBattleChoiceDiagnosticsV4 | null;
+    final?: {
+        winnerId?: string;
+        loserId?: string;
+        requestedGoldReward?: number;
+        goldReward?: number;
+        rewardBlockedReason?: "daily_cap" | "pair_cooldown" | null;
+        rewardIdempotencyKey?: string;
+        reward?: BattleFinalRewardPayload["reward"];
+        progression?: BattleFinalRewardPayload["progression"];
+    } | null;
+    error?: string;
 };
 
 interface NegamonBattleArenaV4Props {
@@ -34,6 +70,18 @@ interface NegamonBattleArenaV4Props {
     initialValidChoices: NegamonBattleChoiceV4[];
     onFinish?: (final: BattleFinalRewardPayload) => void;
     onReset: () => void;
+}
+
+function createFinalRewardPayload(final: NonNullable<ArenaChoiceResponseV4["final"] | ArenaSessionResponseV4["final"]>): BattleFinalRewardPayload {
+    return {
+        winnerId: final.winnerId ?? "",
+        requestedGoldReward: final.requestedGoldReward ?? final.goldReward ?? 0,
+        goldReward: final.goldReward ?? 0,
+        rewardBlockedReason: final.rewardBlockedReason ?? null,
+        rewardIdempotencyKey: final.rewardIdempotencyKey,
+        reward: final.reward,
+        progression: final.progression ?? null,
+    };
 }
 
 function getCombatantMaxHp(fighter: NegamonBattleCombatantV4) {
@@ -70,11 +118,13 @@ function FighterPanel({
     active,
 }: {
     fighter: NegamonBattleCombatantV4;
-    side: "player" | "opponent";
+    side: NegamonBattleSideV4;
     active?: boolean;
 }) {
     const percent = hpPercent(fighter);
     const isPlayer = side === "player";
+    const activeStatuses = fighter.activeStatusIds.length > 0 ? fighter.activeStatusIds : [...new Set(fighter.statusIds.filter(Boolean))];
+    const activeStatChanges = (Object.entries(fighter.statStages) as [string, number][]).filter(([, v]) => v !== 0);
 
     return (
         <motion.section
@@ -133,6 +183,34 @@ function FighterPanel({
                     <Activity className="ml-2 h-3.5 w-3.5 text-cyan-200" />
                     SPD {fighter.speed}
                 </div>
+                {(activeStatuses.length > 0 || activeStatChanges.length > 0) && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                        {activeStatuses.map((status) => (
+                            <span
+                                key={status}
+                                className="rounded-full border border-amber-200/25 bg-amber-300/10 px-2 py-0.5 text-[10px] font-black text-amber-100"
+                            >
+                                {status}
+                            </span>
+                        ))}
+                        {activeStatChanges.map(([stat, stages]) => {
+                            const sign = stages > 0 ? "+" : "";
+                            return (
+                                <span
+                                    key={stat}
+                                    className={cn(
+                                        "rounded-full border px-2 py-0.5 text-[10px] font-black",
+                                        stages > 0
+                                            ? "border-emerald-200/25 bg-emerald-300/10 text-emerald-100"
+                                            : "border-rose-200/25 bg-rose-300/10 text-rose-100"
+                                    )}
+                                >
+                                    {stat} {sign}{stages}
+                                </span>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </motion.section>
     );
@@ -141,15 +219,34 @@ function FighterPanel({
 function lastBattleLine(state: NegamonBattleStateV4) {
     const last = state.events.at(-1);
     if (!last) return "Choose a move to begin the turn.";
-    return last.message;
+    return summarizeNegamonBattleEvent(last);
+}
+
+function effectivenessTextClass(effectiveness: NegamonBattleEventV4["effectiveness"]): string {
+    if (effectiveness === "effective") return "text-yellow-300";
+    if (effectiveness === "resisted") return "text-white/35";
+    if (effectiveness === "immune") return "text-slate-400";
+    return "text-white/60";
 }
 
 function recentBattleLines(state: NegamonBattleStateV4) {
-    return state.events.slice(-4).reverse().map((event) => ({
+    return state.events.slice(-6).reverse().map((event) => ({
         id: event.id,
-        text: event.message,
+        text: summarizeNegamonBattleEvent(event),
         turn: event.turn,
+        effectiveness: event.kind === "damage_applied" ? event.effectiveness : undefined,
     }));
+}
+
+
+function choiceResource(state: NegamonBattleStateV4, choice: NegamonBattleChoiceV4) {
+    const moveId = choice.moveId ?? "";
+    const resources = state.metadata.resources.player;
+    return {
+        pp: resources.ppByMoveId[moveId] ?? 0,
+        maxPp: resources.maxPpByMoveId[moveId] ?? 0,
+        cooldown: resources.cooldownByMoveId[moveId] ?? 0,
+    };
 }
 
 function disabledCopy(reason?: string) {
@@ -162,6 +259,32 @@ function disabledCopy(reason?: string) {
     if (reason === "ON_COOLDOWN") return "ติดคูลดาวน์";
     if (reason === "LOCKED") return "ถูกล็อกท่า";
     return "ใช้ไม่ได้";
+}
+
+function battleErrorCopy(input: {
+    error?: string;
+    reason?: string;
+    diagnostics?: NegamonBattleChoiceDiagnosticsV4 | null;
+}) {
+    if (input.error === "STALE_CHOICE") {
+        return "สถานะการต่อสู้เปลี่ยนแล้ว กำลังซิงก์ข้อมูลล่าสุดให้";
+    }
+    if (input.diagnostics?.requestMissing) {
+        return "ระบบกำลังกู้สถานะการต่อสู้จากข้อมูลล่าสุด";
+    }
+    if (input.diagnostics?.usedFallbackBasicChoice) {
+        return "ท่าบางส่วนใช้ไม่ได้ชั่วคราว ระบบเปิดท่าพื้นฐานให้เดินเทิร์นต่อได้";
+    }
+    if (input.diagnostics?.allChoicesUnavailable) {
+        return "รอบนี้ยังไม่พบท่าที่ใช้ได้ กำลังพยายามกู้สถานะให้";
+    }
+    if (input.reason) {
+        return disabledCopy(input.reason);
+    }
+    if (input.error === "CHOICE_REJECTED") {
+        return "คำสั่งนี้ใช้ไม่ได้กับสถานะการต่อสู้ปัจจุบัน";
+    }
+    return input.error ?? "เลือกท่าไม่สำเร็จ";
 }
 
 export function NegamonBattleArenaV4({
@@ -177,9 +300,10 @@ export function NegamonBattleArenaV4({
     onReset,
 }: NegamonBattleArenaV4Props) {
     const { t } = useLanguage();
+    const normalizedInitialChoices = initialState.choices.player.length > 0 ? initialState.choices.player : initialValidChoices;
     const [state, setState] = useState<NegamonBattleStateV4>(initialState);
     const [choiceRequestId, setChoiceRequestId] = useState(initialChoiceRequestId);
-    const [validChoices, setValidChoices] = useState<NegamonBattleChoiceV4[]>(initialValidChoices);
+    const [validChoices, setValidChoices] = useState<NegamonBattleChoiceV4[]>(normalizedInitialChoices);
     const [busyKey, setBusyKey] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [finalReward, setFinalReward] = useState<BattleFinalRewardPayload | null>(null);
@@ -193,6 +317,50 @@ export function NegamonBattleArenaV4({
         if (state.winner === "opponent") return opponent.name;
         return null;
     }, [opponent.name, player.name, state.winner]);
+
+    function shouldOpenRewardModal(payload: BattleFinalRewardPayload) {
+        return (
+            payload.requestedGoldReward > 0 ||
+            payload.goldReward > 0 ||
+            Boolean(payload.rewardBlockedReason) ||
+            (payload.reward?.exp ?? 0) > 0 ||
+            (payload.reward?.grantedItemIds.length ?? 0) > 0 ||
+            (payload.reward?.levelUps.length ?? 0) > 0 ||
+            (payload.reward?.unlockedSkillIds.length ?? 0) > 0 ||
+            (payload.progression?.expDelta ?? 0) > 0 ||
+            (payload.progression?.behaviorPointDelta ?? 0) > 0
+        );
+    }
+
+    function rewardStatusCopy(payload: BattleFinalRewardPayload) {
+        if (payload.rewardBlockedReason === "pair_cooldown") {
+            return `ชนะแล้ว แต่ทองรอบนี้ยังไม่เข้า เพราะคู่นี้ยังอยู่ในช่วงพักรางวัล (${payload.requestedGoldReward}G -> ${payload.goldReward}G)`;
+        }
+        if (payload.rewardBlockedReason === "daily_cap") {
+            return `ชนะแล้ว แต่ทองรอบนี้ไม่เข้าเพิ่ม เพราะถึงโควตารางวัลประจำวันแล้ว (${payload.requestedGoldReward}G -> ${payload.goldReward}G)`;
+        }
+        return `ได้รับ ${payload.goldReward}G`;
+    }
+
+    async function resyncBattleSession() {
+        const response = await fetch(
+            `/api/classrooms/${classId}/battle/v4/session?sessionId=${encodeURIComponent(sessionId)}&studentCode=${encodeURIComponent(studentCode)}`
+        );
+        const data = (await response.json()) as ArenaSessionResponseV4;
+        if (!response.ok || !data.state || !data.choiceRequestId) {
+            throw new Error(data.error ?? "SESSION_RESYNC_FAILED");
+        }
+        setState(data.state);
+        setChoiceRequestId(data.choiceRequestId);
+        setValidChoices(data.validChoices ?? (data.state.phase === "ended" ? [] : data.state.choices.player));
+        if (data.final?.winnerId) {
+            const payload = createFinalRewardPayload(data.final);
+            setFinalReward(payload);
+            setRewardModalOpen(shouldOpenRewardModal(payload));
+            onFinish?.(payload);
+        }
+        return data;
+    }
 
     async function chooseMove(choice: NegamonBattleChoiceV4) {
         if (busyKey || ended) return;
@@ -213,23 +381,42 @@ export function NegamonBattleArenaV4({
                 }),
             });
             const data = (await response.json()) as ArenaChoiceResponseV4;
+            if (!response.ok && (data.error === "STALE_CHOICE" || data.diagnostics?.requestMissing || data.diagnostics?.allChoicesUnavailable)) {
+                setError(battleErrorCopy({ error: data.error, reason: data.reason, diagnostics: data.diagnostics }));
+                if (data.state && data.choiceRequestId) {
+                    setState(data.state);
+                    setChoiceRequestId(data.choiceRequestId);
+                    setValidChoices(data.validChoices ?? data.state.choices.player);
+                } else {
+                    if (data.choiceRequestId) setChoiceRequestId(data.choiceRequestId);
+                    try {
+                        await resyncBattleSession();
+                    } catch {
+                        setError("ซิงก์สถานะการต่อสู้ล่าสุดไม่สำเร็จ ลองกดอีกครั้ง");
+                    }
+                }
+                return;
+            }
             if (!response.ok || !data.state || !data.choiceRequestId) {
                 setError(data.reason ? disabledCopy(data.reason) : data.error ?? "เลือกท่าไม่สำเร็จ");
-                if (data.validChoices) setValidChoices(data.validChoices);
+                if (data.choiceRequestId) {
+                    setChoiceRequestId(data.choiceRequestId);
+                }
+                if (data.state) {
+                    setState(data.state);
+                    setValidChoices(data.validChoices ?? (data.state.phase === "ended" ? [] : data.state.choices.player));
+                } else if (data.validChoices) {
+                    setValidChoices(data.validChoices);
+                }
                 return;
             }
             setState(data.state);
             setChoiceRequestId(data.choiceRequestId);
-            setValidChoices(data.validChoices ?? []);
+            setValidChoices(data.validChoices ?? (data.state.phase === "ended" ? [] : data.state.choices.player));
             if (data.final?.winnerId) {
-                const payload: BattleFinalRewardPayload = {
-                    winnerId: data.final.winnerId,
-                    requestedGoldReward: data.final.goldReward ?? 0,
-                    goldReward: data.final.goldReward ?? 0,
-                    rewardBlockedReason: null,
-                };
+                const payload = createFinalRewardPayload(data.final);
                 setFinalReward(payload);
-                setRewardModalOpen(payload.goldReward > 0);
+                setRewardModalOpen(shouldOpenRewardModal(payload));
                 onFinish?.(payload);
             }
         } catch {
@@ -244,6 +431,9 @@ export function NegamonBattleArenaV4({
             <RewardResultModal
                 open={rewardModalOpen}
                 reward={finalReward?.reward ?? null}
+                requestedGoldReward={finalReward?.requestedGoldReward ?? 0}
+                goldReward={finalReward?.goldReward ?? 0}
+                rewardBlockedReason={finalReward?.rewardBlockedReason ?? null}
                 onClose={() => setRewardModalOpen(false)}
             />
             <div className="pointer-events-none absolute inset-0 [background-image:linear-gradient(rgba(255,255,255,.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.045)_1px,transparent_1px),radial-gradient(circle_at_50%_45%,rgba(56,189,248,.22),transparent_38%)] [background-size:26px_26px,26px_26px,100%_100%]" />
@@ -252,7 +442,7 @@ export function NegamonBattleArenaV4({
                     <div>
                         <div className="flex items-center gap-2">
                             <p className="text-[10px] font-black uppercase tracking-[0.36em] text-cyan-200/60">
-                                Pokemon Showdown Runtime
+                                Negamon Battle
                             </p>
                             <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-black text-cyan-100">
                                 V4
@@ -292,14 +482,14 @@ export function NegamonBattleArenaV4({
                             </p>
                             {ended && finalReward && (
                                 <p className="mt-2 rounded-xl bg-yellow-300/10 px-2 py-1 text-[11px] font-black text-yellow-100">
-                                    ได้รับ {finalReward.goldReward}G
+                                    {rewardStatusCopy(finalReward)}
                                 </p>
                             )}
                             <div className="mt-3 grid gap-1.5">
                                 {recentBattleLines(state).map((line) => (
                                     <div
                                         key={line.id}
-                                        className="rounded-lg bg-white/6 px-2 py-1 text-[11px] font-bold text-white/60"
+                                        className={`rounded-lg bg-white/6 px-2 py-1 text-[11px] font-bold ${effectivenessTextClass(line.effectiveness)}`}
                                     >
                                         <span className="mr-1 text-white/35">T{line.turn}</span>
                                         {line.text}
@@ -347,7 +537,9 @@ export function NegamonBattleArenaV4({
 
                 <div className="grid gap-2 sm:grid-cols-2">
                     <AnimatePresence>
-                        {validChoices.map((choice, index) => (
+                        {validChoices.map((choice, index) => {
+                            const resource = choiceResource(state, choice);
+                            return (
                             <motion.button
                                 key={choice.actionId}
                                 type="button"
@@ -376,10 +568,15 @@ export function NegamonBattleArenaV4({
                                         EN {choice.cost?.energy ?? 0}
                                     </span>
                                     <span className="rounded-full bg-white/10 px-2 py-0.5 text-white/60">
-                                        PP {choice.cost?.pp ?? 0}
+                                        PP {resource.pp}/{resource.maxPp}
                                     </span>
+                                    {resource.cooldown > 0 && (
+                                        <span className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-cyan-100">
+                                            CD {resource.cooldown}
+                                        </span>
+                                    )}
                                 </div>
-                                <p className="mt-2 text-[11px] font-bold text-white/40">Server-authoritative V4 choice</p>
+                                <p className="mt-2 text-[11px] font-bold text-white/40">Ready when resources allow</p>
                                 {!choice.enabled && (
                                     <p className="mt-2 text-[11px] font-bold text-rose-100/80">
                                         {disabledCopy(choice.reason)}
@@ -389,7 +586,8 @@ export function NegamonBattleArenaV4({
                                     <p className="mt-2 text-[11px] font-black text-cyan-100">กำลังออกท่า...</p>
                                 )}
                             </motion.button>
-                        ))}
+                            );
+                        })}
                     </AnimatePresence>
                 </div>
             </div>

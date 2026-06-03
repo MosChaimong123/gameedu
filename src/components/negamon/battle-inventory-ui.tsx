@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
@@ -80,6 +81,9 @@ export function BattlePrepDialog({
             <DialogContent className="max-w-md rounded-2xl">
                 <DialogHeader className="flex flex-row items-center justify-between space-y-0">
                     <DialogTitle className="text-base font-black">{t("battlePrepTitle")}</DialogTitle>
+                    <DialogDescription className="sr-only">
+                        {t("battlePrepHint")}
+                    </DialogDescription>
                     <button
                         type="button"
                         className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"

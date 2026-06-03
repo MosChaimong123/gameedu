@@ -25,7 +25,7 @@ import type {
 } from "@/lib/services/student-dashboard/student-dashboard.types";
 import { applyConsumeInventory } from "@/lib/battle-loadout";
 import { StudentDashboardHeader } from "./student-dashboard-header";
-import { StudentDashboardSidebar } from "./student-dashboard-sidebar";
+import { StudentDashboardSidebar, createStudentBattleRewardNotice, type StudentBattleRewardNotice } from "./student-dashboard-sidebar";
 import { StudentDashboardMainTabs } from "./student-dashboard-main-tabs";
 import { StudentDashboardUrlParamsHandler } from "./student-dashboard-url-params-handler";
 import { saveStudentIdentity } from "@/lib/player-session";
@@ -65,8 +65,10 @@ export function StudentDashboardClient({
     const [assignmentFilter, setAssignmentFilter] = useState<"all" | "pending" | "completed">("all");
     const [assignmentSort, setAssignmentSort] = useState<"default" | "deadline">("default");
     const [questGold, setQuestGold] = useState<number | undefined>(undefined);
+    const [battleRewardNotice, setBattleRewardNotice] = useState<StudentBattleRewardNotice | null>(null);
+    const [battleResetSignal, setBattleResetSignal] = useState(0);
     const [economyPatch, setEconomyPatch] = useState<
-        Partial<Pick<DashboardStudent, "inventory" | "battleLoadout" | "behaviorPoints" | "negamonSkills">>
+        Partial<Pick<DashboardStudent, "inventory" | "battleLoadout" | "behaviorPoints" | "negamonSkills" | "negamonSkillLoadout">>
     >({});
     const [liveEvents, setLiveEvents] = useState<
         Array<{ active?: boolean; type?: string; multiplier?: number | string }>
@@ -79,11 +81,13 @@ export function StudentDashboardClient({
             battleLoadout: economyPatch.battleLoadout ?? student.battleLoadout,
             behaviorPoints: economyPatch.behaviorPoints ?? student.behaviorPoints,
             negamonSkills: economyPatch.negamonSkills ?? student.negamonSkills,
+            negamonSkillLoadout: economyPatch.negamonSkillLoadout ?? student.negamonSkillLoadout,
         }),
         [student, economyPatch]
     );
 
     function handleBattleFinalized(final: BattleFinalRewardPayload) {
+        setBattleRewardNotice(createStudentBattleRewardNotice(final));
         setEconomyPatch((patch) => {
             const reward = final.reward;
             const currentInventory = patch.inventory ?? student.inventory;
@@ -141,6 +145,19 @@ export function StudentDashboardClient({
         });
     }
 
+    function openBattleHistoryFromNotice() {
+        setBattleRewardNotice(null);
+        setMode("game");
+        setActiveTab("gamehistory");
+    }
+
+    function returnToBattleFromNotice() {
+        setBattleRewardNotice(null);
+        setMode("game");
+        setActiveTab("battle");
+        setBattleResetSignal((value) => value + 1);
+    }
+
     const canAccessBoard = Boolean(
         currentUserId && liveStudent.userId && currentUserId === liveStudent.userId
     );
@@ -196,7 +213,7 @@ export function StudentDashboardClient({
             points: liveStudent.behaviorPoints,
             levelConfig: levelConfigResolved,
             negamonSettings,
-            equippedSkillIds: liveStudent.negamonSkills,
+            equippedSkillIds: liveStudent.negamonSkillLoadout,
             equippedItemIds: liveStudent.battleLoadout,
         });
     }, [
@@ -205,7 +222,7 @@ export function StudentDashboardClient({
         liveStudent.nickname,
         liveStudent.name,
         liveStudent.behaviorPoints,
-        liveStudent.negamonSkills,
+        liveStudent.negamonSkillLoadout,
         liveStudent.battleLoadout,
         levelConfigResolved,
     ]);
@@ -303,6 +320,9 @@ export function StudentDashboardClient({
                         mode={mode}
                         questGold={questGold}
                         onGoldChange={setQuestGold}
+                        battleRewardNotice={battleRewardNotice}
+                        onOpenBattleHistory={openBattleHistoryFromNotice}
+                        onReturnToBattle={returnToBattleFromNotice}
                         gameProfileMonster={
                             mode === "game" && studentMonsterState
                                 ? {
@@ -336,6 +356,7 @@ export function StudentDashboardClient({
                         studentMonsterState={studentMonsterState}
                         negamonMonsterSnapshot={negamonMonsterSnapshot}
                         questGold={questGold}
+                        battleResetSignal={battleResetSignal}
                         onActiveTabChange={setActiveTab}
                         onAssignmentFilterChange={setAssignmentFilter}
                         onAssignmentSortToggle={() =>

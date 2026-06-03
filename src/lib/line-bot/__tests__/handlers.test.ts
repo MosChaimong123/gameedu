@@ -5,6 +5,8 @@ const mockBindLineStudentToStudentCode = vi.fn();
 const mockCreateAssignmentForLineGroup = vi.fn();
 const mockCreateLineGroupDebt = vi.fn();
 const mockGetClassroomReminderSummaryForLineGroup = vi.fn();
+const mockGetLineMyProgressSummariesForLinkedAccount = vi.fn();
+const mockGetLineMyWorkSummariesForLinkedAccount = vi.fn();
 const mockGetLineMyWorkSummary = vi.fn();
 const mockGetLineClassroomBindingSecret = vi.fn();
 const mockListOpenDebtsForLineGroup = vi.fn();
@@ -34,6 +36,8 @@ vi.mock("@/lib/line-bot/repository", () => ({
     createAssignmentForLineGroup: mockCreateAssignmentForLineGroup,
     createLineGroupDebt: mockCreateLineGroupDebt,
     getClassroomReminderSummaryForLineGroup: mockGetClassroomReminderSummaryForLineGroup,
+    getLineMyProgressSummariesForLinkedAccount: mockGetLineMyProgressSummariesForLinkedAccount,
+    getLineMyWorkSummariesForLinkedAccount: mockGetLineMyWorkSummariesForLinkedAccount,
     getLineMyWorkSummary: mockGetLineMyWorkSummary,
     listOpenDebtsForLineGroup: mockListOpenDebtsForLineGroup,
     markLineGroupDebtPaid: mockMarkLineGroupDebtPaid,
@@ -51,6 +55,8 @@ describe("line-bot handlers", () => {
         mockSubmitTextAssignmentForLineGroup.mockResolvedValue({ ok: false, reason: "UNBOUND" });
         mockConsumeStudentLineLinkCode.mockResolvedValue({ ok: false, reason: "NOT_FOUND" });
         mockGetClassroomReminderSummaryForLineGroup.mockResolvedValue(null);
+        mockGetLineMyProgressSummariesForLinkedAccount.mockResolvedValue({ ok: false, reason: "NOT_BOUND" });
+        mockGetLineMyWorkSummariesForLinkedAccount.mockResolvedValue({ ok: false, reason: "NOT_BOUND" });
         mockListOpenDebtsForLineGroup.mockResolvedValue([]);
         mockPushLineText.mockResolvedValue(undefined);
         mockReplyLineText.mockResolvedValue(undefined);
@@ -100,6 +106,104 @@ describe("line-bot handlers", () => {
 
         expect(result.handled).toBe(true);
         expect(result.replyText).toContain("เชื่อม");
+    });
+
+    it("returns personal work from a linked private LINE account", async () => {
+        mockGetLineMyWorkSummariesForLinkedAccount.mockResolvedValue({
+            ok: true,
+            summaries: [
+                {
+                    classroomName: "M1/1",
+                    studentName: "Somchai",
+                    items: [{ assignmentName: "Homework 1", deadline: null }],
+                },
+            ],
+        });
+
+        const { processDirectTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processDirectTextCommand({
+            lineUserId: "line-user-1",
+            text: "my assignments",
+        });
+
+        expect(mockGetLineMyWorkSummariesForLinkedAccount).toHaveBeenCalledWith({
+            lineUserId: "line-user-1",
+        });
+        expect(result.handled).toBe(true);
+        expect(result.replyText).toContain("Homework 1");
+        expect(result.replyText).toContain("M1/1");
+    });
+
+    it("asks a private LINE user to link first before personal work", async () => {
+        const { processDirectTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processDirectTextCommand({
+            lineUserId: "line-user-1",
+            text: "my assignments",
+        });
+
+        expect(result.handled).toBe(true);
+        expect(result.replyText).toContain("LINE");
+    });
+
+    it("returns personal scores from a linked private LINE account", async () => {
+        mockGetLineMyProgressSummariesForLinkedAccount.mockResolvedValue({
+            ok: true,
+            summaries: [
+                {
+                    classroomName: "M1/1",
+                    studentName: "Somchai",
+                    submitted: [
+                        {
+                            assignmentName: "Homework 1",
+                            score: 8,
+                            maxScore: 10,
+                            submittedAt: new Date("2026-06-03T04:00:00.000Z"),
+                        },
+                    ],
+                },
+            ],
+        });
+
+        const { processDirectTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processDirectTextCommand({
+            lineUserId: "line-user-1",
+            text: "my scores",
+        });
+
+        expect(mockGetLineMyProgressSummariesForLinkedAccount).toHaveBeenCalledWith({
+            lineUserId: "line-user-1",
+        });
+        expect(result.replyText).toContain("Homework 1");
+        expect(result.replyText).toContain("8/10");
+    });
+
+    it("returns submitted work from a linked private LINE account", async () => {
+        mockGetLineMyProgressSummariesForLinkedAccount.mockResolvedValue({
+            ok: true,
+            summaries: [
+                {
+                    classroomName: "M1/1",
+                    studentName: "Somchai",
+                    submitted: [
+                        {
+                            assignmentName: "Homework 1",
+                            score: 8,
+                            maxScore: 10,
+                            submittedAt: new Date("2026-06-03T04:00:00.000Z"),
+                        },
+                    ],
+                },
+            ],
+        });
+
+        const { processDirectTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processDirectTextCommand({
+            lineUserId: "line-user-1",
+            text: "submitted work",
+        });
+
+        expect(result.replyText).toContain("Homework 1");
+        expect(result.replyText).toContain("M1/1");
     });
 
     it("requires classroom binding before summary and remind commands", async () => {
@@ -361,6 +465,72 @@ describe("line-bot handlers", () => {
             lineGroupId: "line-group-1",
             lineUserId: "line-user-1",
         });
+        expect(result.replyText).not.toContain("Homework 1");
+        expect(result.privateReply).toEqual({
+            toLineUserId: "line-user-1",
+            text: expect.stringContaining("Homework 1"),
+        });
+    });
+
+    it("returns personal scores as a private reply without leaking to the group", async () => {
+        mockGetLineMyProgressSummariesForLinkedAccount.mockResolvedValue({
+            ok: true,
+            summaries: [
+                {
+                    classroomName: "M1/1",
+                    studentName: "Somchai",
+                    submitted: [
+                        {
+                            assignmentName: "Homework 1",
+                            score: 8,
+                            maxScore: 10,
+                            submittedAt: new Date("2026-06-03T04:00:00.000Z"),
+                        },
+                    ],
+                },
+            ],
+        });
+
+        const { processGroupTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processGroupTextCommand({
+            lineGroupId: "line-group-1",
+            createdByLineUserId: "line-user-1",
+            text: "my scores",
+        });
+
+        expect(result.replyText).not.toContain("Homework 1");
+        expect(result.privateReply).toEqual({
+            toLineUserId: "line-user-1",
+            text: expect.stringContaining("8/10"),
+        });
+    });
+
+    it("returns submitted work as a private reply without leaking to the group", async () => {
+        mockGetLineMyProgressSummariesForLinkedAccount.mockResolvedValue({
+            ok: true,
+            summaries: [
+                {
+                    classroomName: "M1/1",
+                    studentName: "Somchai",
+                    submitted: [
+                        {
+                            assignmentName: "Homework 1",
+                            score: 8,
+                            maxScore: 10,
+                            submittedAt: new Date("2026-06-03T04:00:00.000Z"),
+                        },
+                    ],
+                },
+            ],
+        });
+
+        const { processGroupTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processGroupTextCommand({
+            lineGroupId: "line-group-1",
+            createdByLineUserId: "line-user-1",
+            text: "submitted work",
+        });
+
         expect(result.replyText).not.toContain("Homework 1");
         expect(result.privateReply).toEqual({
             toLineUserId: "line-user-1",

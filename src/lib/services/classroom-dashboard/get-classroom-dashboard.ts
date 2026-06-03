@@ -36,12 +36,13 @@ export async function getClassroomDashboard(
         },
         select: {
             studentId: true,
+            lineUserId: true,
             createdAt: true,
         },
     });
 
     const linkByStudentId = new Map(
-        links.map((link) => [link.studentId, link.createdAt] as const)
+        links.map((link) => [link.studentId, link] as const)
     );
 
     return {
@@ -51,7 +52,8 @@ export async function getClassroomDashboard(
                 ...student,
                 lineLink: {
                     linked: linkByStudentId.has(student.id),
-                    linkedAt: linkByStudentId.get(student.id) ?? null,
+                    linkedAt: linkByStudentId.get(student.id)?.createdAt ?? null,
+                    lineUserId: linkByStudentId.get(student.id)?.lineUserId ?? null,
                 },
             })
         ),

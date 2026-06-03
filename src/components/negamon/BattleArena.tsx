@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Coins, RotateCcw, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -39,11 +39,13 @@ export function BattleTab({
     myMonster,
     currentGold = 0,
     inventory,
+    resetSignal = 0,
     onGoldChange,
     onBattleConsumablesSpent,
     onBattleFinalized,
 }: BattleTabProps) {
     const { t } = useLanguage();
+    const didMountResetSignal = useRef(false);
     const [view, setView] = useState<BattleView>("fight");
     const [opponents, setOpponents] = useState<Opponent[]>([]);
     const [loadingOpponents, setLoadingOpponents] = useState(true);
@@ -135,6 +137,15 @@ export function BattleTab({
         setBattleSession(null);
         setView("fight");
     }
+
+    useEffect(() => {
+        if (!didMountResetSignal.current) {
+            didMountResetSignal.current = true;
+            return;
+        }
+        handleReset();
+        setError(null);
+    }, [resetSignal]);
 
     if (!myMonster) {
         return (

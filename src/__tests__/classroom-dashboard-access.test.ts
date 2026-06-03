@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getClassroomDashboardForTeacher } from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
 
-const { mockClassroomFindUnique } = vi.hoisted(() => ({
+const { mockClassroomFindUnique, mockLineStudentAccountLinkFindMany } = vi.hoisted(() => ({
   mockClassroomFindUnique: vi.fn(),
+  mockLineStudentAccountLinkFindMany: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -10,12 +11,16 @@ vi.mock("@/lib/db", () => ({
     classroom: {
       findUnique: mockClassroomFindUnique,
     },
+    lineStudentAccountLink: {
+      findMany: mockLineStudentAccountLinkFindMany,
+    },
   },
 }));
 
 describe("classroom dashboard access", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLineStudentAccountLinkFindMany.mockResolvedValue([]);
   });
 
   it("returns not_found when the classroom does not exist", async () => {
@@ -83,7 +88,15 @@ describe("classroom dashboard access", () => {
         ],
         skills: [],
         assignments: [],
+        lineBotGroups: [],
       });
+    mockLineStudentAccountLinkFindMany.mockResolvedValueOnce([
+      {
+        studentId: "student-1",
+        lineUserId: "Uline-user-1234",
+        createdAt: new Date("2026-06-03T04:00:00.000Z"),
+      },
+    ]);
 
     const result = await getClassroomDashboardForTeacher("class-1", "teacher-1");
 
@@ -96,6 +109,11 @@ describe("classroom dashboard access", () => {
           expect.objectContaining({
             id: "student-1",
             battleLoadout: ["item_buckler"],
+            lineLink: {
+              linked: true,
+              linkedAt: new Date("2026-06-03T04:00:00.000Z"),
+              lineUserId: "Uline-user-1234",
+            },
           }),
         ],
       },

@@ -4,6 +4,8 @@ const mockClassroomFindFirst = vi.fn();
 const mockClassroomFindMany = vi.fn();
 const mockAssignmentFindMany = vi.fn();
 const mockAssignmentSubmissionGroupBy = vi.fn();
+const mockGetOptionalDbModel = vi.fn();
+const mockLineReminderFindMany = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -18,6 +20,7 @@ vi.mock("@/lib/db", () => ({
       groupBy: mockAssignmentSubmissionGroupBy,
     },
   },
+  getOptionalDbModel: mockGetOptionalDbModel,
 }));
 
 describe("teacher assignment overview service", () => {
@@ -25,6 +28,10 @@ describe("teacher assignment overview service", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-06T00:00:00.000Z"));
+    mockGetOptionalDbModel.mockReturnValue({
+      findMany: mockLineReminderFindMany,
+    });
+    mockLineReminderFindMany.mockResolvedValue([]);
   });
 
   it("parses range query safely", async () => {
@@ -109,6 +116,10 @@ describe("teacher assignment overview service", () => {
       { assignmentId: "a-soon", _count: { _all: 2 } },
       { assignmentId: "a-nodl", _count: { _all: 0 } },
     ]);
+    mockLineReminderFindMany.mockResolvedValue([
+      { assignmentId: "a-overdue", sentAt: new Date("2026-04-05T08:00:00.000Z"), targetCount: 2 },
+      { assignmentId: "a-overdue", sentAt: new Date("2026-04-04T08:00:00.000Z"), targetCount: 3 },
+    ]);
 
     const { getTeacherAssignmentOverview } = await import(
       "@/lib/services/teacher/get-teacher-assignment-overview"
@@ -142,6 +153,22 @@ describe("teacher assignment overview service", () => {
     );
     expect(result?.items.map((i) => i.assignmentId)).toEqual(
       expect.arrayContaining(["a-overdue", "a-soon", "a-nodl"])
+    );
+    expect(result?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          assignmentId: "a-overdue",
+          lineReminderCount: 2,
+          lastLineReminderSentAt: "2026-04-05T08:00:00.000Z",
+          lastLineReminderTargetCount: 2,
+        }),
+        expect.objectContaining({
+          assignmentId: "a-soon",
+          lineReminderCount: 0,
+          lastLineReminderSentAt: null,
+          lastLineReminderTargetCount: null,
+        }),
+      ])
     );
   });
 });

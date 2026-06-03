@@ -7,8 +7,15 @@ import {
 } from "@/lib/battle-loadout";
 import {
     calculateNegamonBattleGoldReward,
+    calculateNegamonBattleExpReward,
+    createNegamonBattleRewardFinalizationPlan,
+    validateNegamonSkillLoadout,
     NEGAMON_BATTLE_GOLD_MULTIPLIER_CAP,
 } from "@/lib/game-negamon";
+import { DEFAULT_NEGAMON_SPECIES, createDefaultNegamonSettings } from "@/lib/negamon-species";
+import { getNegamonSpeciesSkillCatalog } from "@/lib/game-negamon/core/skills";
+import { isNegamonBasicAttackMoveId } from "@/lib/negamon-basic-move";
+import { createNegamonMonsterSnapshot } from "@/lib/game-negamon/core/monster-snapshot";
 
 describe("validateBattleLoadout", () => {
     it("accepts empty loadout", () => {
@@ -71,5 +78,148 @@ describe("calculateNegamonBattleGoldReward", () => {
 
     it("respects multiplier cap constant", () => {
         expect(NEGAMON_BATTLE_GOLD_MULTIPLIER_CAP).toBeGreaterThanOrEqual(1);
+    });
+});
+
+describe("B4 acceptance — gold reward and idempotency", () => {
+    const monsterBefore = { exp: 0, expToNextLevel: 100, level: 1, rankIndex: 0, unlockedSkillIds: [] };
+
+    it("winner reward plan carries gold > 0 and a non-empty idempotencyKey", () => {
+        const goldReward = calculateNegamonBattleGoldReward({});
+        expect(goldReward).toBeGreaterThan(0);
+
+        const plan = createNegamonBattleRewardFinalizationPlan({
+            sessionId: "session-b4-win",
+            studentId: "student-b4-winner",
+            classId: "class-1",
+            outcome: "win",
+            monsterBefore,
+            balanceBefore: 100,
+            goldReward,
+        });
+
+        expect(plan.ok).toBe(true);
+        expect(plan.idempotencyKey).toBeTruthy();
+        if (plan.ok) {
+            expect(plan.reward.gold).toBe(goldReward);
+            expect(plan.economyMutation).not.toBeNull();
+            expect(plan.economyMutation?.idempotencyKey).toBe(plan.idempotencyKey);
+        }
+    });
+
+    it("loser reward plan carries gold = 0 and no economy mutation", () => {
+        const plan = createNegamonBattleRewardFinalizationPlan({
+            sessionId: "session-b4-loss",
+            studentId: "student-b4-loser",
+            classId: "class-1",
+            outcome: "loss",
+            monsterBefore,
+            balanceBefore: 50,
+            goldReward: 0,
+        });
+
+        expect(plan.ok).toBe(true);
+        if (plan.ok) {
+            expect(plan.reward.gold).toBe(0);
+            expect(plan.economyMutation).toBeNull();
+        }
+    });
+
+    it("duplicate finalize (same idempotencyKey) blocks gold and returns ok: false", () => {
+        const goldReward = calculateNegamonBattleGoldReward({});
+        const first = createNegamonBattleRewardFinalizationPlan({
+            sessionId: "session-b4-idempotent",
+            studentId: "student-b4-idempotent",
+            classId: "class-1",
+            outcome: "win",
+            monsterBefore,
+            balanceBefore: 200,
+            goldReward,
+        });
+        expect(first.ok).toBe(true);
+
+        const duplicate = createNegamonBattleRewardFinalizationPlan({
+            sessionId: "session-b4-idempotent",
+            studentId: "student-b4-idempotent",
+            classId: "class-1",
+            outcome: "win",
+            monsterBefore,
+            balanceBefore: 200,
+            goldReward,
+            finalizedRewardKeys: [first.idempotencyKey],
+        });
+
+        expect(duplicate.ok).toBe(false);
+        expect(duplicate.reward.gold).toBe(0);
+        expect(duplicate.economyMutation).toBeNull();
+    });
+
+    it("calculateNegamonBattleExpReward: win > draw > loss, all positive", () => {
+        const win = calculateNegamonBattleExpReward({ outcome: "win" });
+        const draw = calculateNegamonBattleExpReward({ outcome: "draw" });
+        const loss = calculateNegamonBattleExpReward({ outcome: "loss" });
+        expect(win).toBeGreaterThan(draw);
+        expect(draw).toBeGreaterThan(loss);
+        expect(loss).toBeGreaterThan(0);
+    });
+});
+
+describe("B3 acceptance — skill loadout auto-build", () => {
+    it("fallback loadout always includes basic attack and highest-tier non-basic skills", () => {
+        for (const species of DEFAULT_NEGAMON_SPECIES) {
+            const catalog = getNegamonSpeciesSkillCatalog(species, { includeBasic: true });
+            const result = validateNegamonSkillLoadout({
+                requestedSkillIds: [],
+                unlockedSkills: catalog,
+                fallbackToFirstSkills: true,
+            });
+
+            expect(result.normalizedSkillIds[0]).toBe("basic-attack");
+            expect(result.normalizedSkillIds.length).toBeGreaterThan(0);
+            expect(result.normalizedSkillIds.length).toBeLessThanOrEqual(4);
+
+            // Every selected skill must exist in the catalog
+            const catalogIds = new Set(catalog.map((s) => s.id));
+            for (const skillId of result.normalizedSkillIds) {
+                expect(catalogIds.has(skillId)).toBe(true);
+            }
+
+            // Unselected non-basic skills must have unlock level <= lowest selected non-basic
+            const nonBasicSelected = result.normalizedSkillIds.filter((id) => !isNegamonBasicAttackMoveId(id));
+            const nonBasicCatalog = catalog.filter((s) => !isNegamonBasicAttackMoveId(s.id));
+            if (nonBasicCatalog.length > 0 && nonBasicSelected.length > 0) {
+                const minSelectedLevel = Math.min(
+                    ...nonBasicSelected.map((id) => catalog.find((s) => s.id === id)?.unlock.level ?? 0)
+                );
+                const maxUnselectedLevel = Math.max(
+                    0,
+                    ...nonBasicCatalog
+                        .filter((s) => !nonBasicSelected.includes(s.id))
+                        .map((s) => s.unlock.level ?? 0)
+                );
+                expect(maxUnselectedLevel).toBeLessThanOrEqual(minSelectedLevel);
+            }
+        }
+    });
+
+    it("max-level snapshot includes the species ultimate (learnRank 6) skill in auto-built loadout", () => {
+        for (const species of DEFAULT_NEGAMON_SPECIES) {
+            const ultimateMove = species.moves.find((move) => (move.learnRank ?? 0) >= 6);
+            if (!ultimateMove) continue;
+
+            const settings = createDefaultNegamonSettings();
+            settings.enabled = true;
+            settings.studentMonsters = { "student-b3-ult": species.id };
+
+            const snapshot = createNegamonMonsterSnapshot({
+                studentId: "student-b3-ult",
+                points: 10000,
+                levelConfig: [{ name: "Common", minScore: 0 }],
+                negamonSettings: settings,
+            });
+
+            expect(snapshot).not.toBeNull();
+            expect(snapshot?.equippedSkillIds).toContain(ultimateMove.id);
+        }
     });
 });

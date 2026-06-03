@@ -153,6 +153,7 @@ describe("student dashboard client", () => {
             code: string;
             mode: string;
             activeTab: string;
+            battleResetSignal: number;
             classroom: { id: string };
             student: { id: string; inventory: unknown[]; battleLoadout: string[] };
             canAccessBoard: boolean;
@@ -160,6 +161,7 @@ describe("student dashboard client", () => {
         expect(mainTabsProps.code).toBe("ABC123");
         expect(mainTabsProps.mode).toBe("learn");
         expect(mainTabsProps.activeTab).toBe("assignments");
+        expect(mainTabsProps.battleResetSignal).toBe(0);
         expect(mainTabsProps.classroom.id).toBe("class-1");
         expect(mainTabsProps.student.id).toBe("student-1");
         expect(mainTabsProps.student.inventory).toEqual([{ itemId: "item_buckler", quantity: 1 }]);

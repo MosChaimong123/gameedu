@@ -1,7 +1,7 @@
 export type AuditLogEvent = {
   actorUserId?: string | null;
   action: string;
-  category?: "admin" | "classroom" | "socket" | "upload" | "auth" | "other";
+  category?: "admin" | "classroom" | "socket" | "upload" | "auth" | "ai" | "other";
   reason?: string | null;
   status?: "success" | "rejected" | "error";
   targetType: string;
@@ -15,7 +15,7 @@ import { getAuditLogCollection } from "@/lib/ops/mongo-admin";
 export type AuditLogListItem = {
   actorUserId?: string | null;
   action: string;
-  category: "admin" | "classroom" | "socket" | "upload" | "auth" | "other";
+  category: "admin" | "classroom" | "socket" | "upload" | "auth" | "ai" | "other";
   reason?: string | null;
   status: "success" | "rejected" | "error";
   targetType: string;
@@ -29,18 +29,19 @@ export type AuditLogFilters = {
   actorUserId?: string;
   targetId?: string;
   actionPrefix?: string;
-  category?: "admin" | "classroom" | "socket" | "upload" | "auth" | "other";
+  category?: "admin" | "classroom" | "socket" | "upload" | "auth" | "ai" | "other";
   reason?: string;
   status?: "success" | "rejected" | "error";
   since?: Date;
 };
 
-function inferAuditCategory(action: string): "admin" | "classroom" | "socket" | "upload" | "auth" | "other" {
+function inferAuditCategory(action: string): "admin" | "classroom" | "socket" | "upload" | "auth" | "ai" | "other" {
   if (action.startsWith("admin.")) return "admin";
   if (action.startsWith("classroom.")) return "classroom";
   if (action.startsWith("socket.")) return "socket";
   if (action.startsWith("upload.")) return "upload";
   if (action.startsWith("auth.")) return "auth";
+  if (action.startsWith("ai.")) return "ai";
   return "other";
 }
 
@@ -173,7 +174,7 @@ export function buildAuditLogQuery(filters: AuditLogFilters): Record<string, unk
     if (filters.category === "other") {
       clauses.push({
         action: {
-          $not: /^(admin|classroom|socket|upload|auth)\./i,
+          $not: /^(admin|classroom|socket|upload|auth|ai)\./i,
         },
       });
     } else {

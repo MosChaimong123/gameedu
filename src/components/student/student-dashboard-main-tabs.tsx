@@ -10,6 +10,7 @@ import { StudentDashboardBoardTab } from "./student-dashboard-board-tab";
 import { StudentDashboardHistoryTab } from "./student-dashboard-history-tab";
 import { StudentDashboardMonsterTab } from "./student-dashboard-monster-tab";
 import { StudentGameTabs } from "@/components/game/shell/student-game-tabs";
+import { StudentLessonsTab } from "./student-lessons-tab";
 import type {
     ClassroomRecord,
     DashboardStudent,
@@ -114,6 +115,10 @@ export function StudentDashboardMainTabs({
                         onAssignmentFilterChange={onAssignmentFilterChange}
                         onAssignmentSortToggle={onAssignmentSortToggle}
                     />
+                </TabsContent>
+
+                <TabsContent value="lessons" className="mt-0 border-none p-0 outline-hidden">
+                    <StudentLessonsTab code={code} />
                 </TabsContent>
 
                 <StudentDashboardBoardTab

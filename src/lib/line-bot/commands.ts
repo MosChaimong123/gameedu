@@ -263,6 +263,12 @@ export type OpenDebtRow = {
     note: string | null;
 };
 
+export type ReminderMissingStudent = {
+    /** LINE display name when linked and available, otherwise the system name. */
+    name: string;
+    linked: boolean;
+};
+
 export type ClassroomReminderAssignmentRow = {
     assignmentId: string;
     name: string;
@@ -271,6 +277,7 @@ export type ClassroomReminderAssignmentRow = {
     missingSubmissions: number;
     overdue: boolean;
     dueSoon: boolean;
+    missingStudents?: ReminderMissingStudent[];
 };
 
 export type ClassroomReminderSummary = {
@@ -341,6 +348,26 @@ function formatDeadline(deadline: Date | null) {
     });
 }
 
+/**
+ * Renders the list of students who have not submitted. Shows the LINE display name when
+ * linked, otherwise the system name with a "ยังไม่เชื่อม LINE" marker. Capped to keep the
+ * LINE message within limits.
+ */
+export function formatMissingStudentLines(
+    students: ReminderMissingStudent[] | undefined,
+    maxNames = 10
+): string[] {
+    if (!students || students.length === 0) return [];
+    const shown = students.slice(0, maxNames);
+    const lines = shown.map(
+        (student) => `   • ${student.name}${student.linked ? "" : " (ยังไม่เชื่อม LINE)"}`
+    );
+    if (students.length > maxNames) {
+        lines.push(`   • และอีก ${students.length - maxNames} คน`);
+    }
+    return lines;
+}
+
 export function formatClassroomWorkSummary(summary: ClassroomReminderSummary): string {
     if (summary.totals.visibleAssignments === 0) {
         return `ห้อง ${summary.classroomName} ยังไม่มีงานที่เปิดให้นักเรียนเห็น`;
@@ -360,6 +387,7 @@ export function formatClassroomWorkSummary(summary: ClassroomReminderSummary): s
         lines.push("งานที่ควรดูต่อ:");
         for (const item of hot) {
             lines.push(`- ${item.name}: ขาด ${item.missingSubmissions} | ${formatDeadline(item.deadline)}`);
+            lines.push(...formatMissingStudentLines(item.missingStudents));
         }
     }
 
@@ -372,13 +400,13 @@ export function formatClassroomWorkReminder(summary: ClassroomReminderSummary): 
         return `ห้อง ${summary.classroomName} ไม่มีงานค้างที่ต้องทวงตอนนี้`;
     }
 
-    return [
-        "กริ่งเตือนงานค้าง",
-        `ห้อง ${summary.classroomName}`,
-        ...hot.map((item) => `- ${item.name}: ยังขาด ${item.missingSubmissions} คน (${formatDeadline(item.deadline)})`),
-        "",
-        "นักเรียนเปิด GameEdu เพื่อตรวจงานของตัวเองได้เลย",
-    ].join("\n");
+    const lines = ["กริ่งเตือนงานค้าง", `ห้อง ${summary.classroomName}`];
+    for (const item of hot) {
+        lines.push(`- ${item.name}: ยังขาด ${item.missingSubmissions} คน (${formatDeadline(item.deadline)})`);
+        lines.push(...formatMissingStudentLines(item.missingStudents));
+    }
+    lines.push("", "นักเรียนเปิด GameEdu เพื่อตรวจงานของตัวเองได้เลย");
+    return lines.join("\n");
 }
 
 export function formatStudentSelfServiceWork(

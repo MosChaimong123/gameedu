@@ -9,6 +9,8 @@ import type {
     LineTextSubmission,
     OpenDebtRow,
 } from "@/lib/line-bot/commands";
+import { createMissingStudentNameResolver } from "@/lib/line-bot/missing-student-names";
+import { getLineGroupMemberDisplayName } from "@/lib/line-bot/client";
 import { gradeLineTextSubmissionWithAi, type LineAiPreliminaryGradeResult } from "@/lib/line-bot/ai-grading";
 import { sendNotification } from "@/lib/notifications";
 import { awardLineAssignmentSubmissionReward } from "@/lib/services/student-economy/line-assignment-reward";
@@ -76,7 +78,7 @@ export async function getClassroomReminderSummaryForLineGroup(
         select: {
             id: true,
             name: true,
-            students: { select: { id: true } },
+            students: { select: { id: true, name: true } },
             assignments: {
                 where: { visible: true },
                 select: {
@@ -98,7 +100,7 @@ export async function getClassroomReminderSummaryForLineGroup(
     const assignments = classroom.assignments
         .map((assignment) => {
             const submitted = new Set(assignment.submissions.map((submission) => submission.studentId));
-            const missingSubmissions = classroom.students.filter((student) => !submitted.has(student.id)).length;
+            const missing = classroom.students.filter((student) => !submitted.has(student.id));
             const deadline = assignment.deadline ?? null;
             const overdue = Boolean(deadline && deadline < now);
             const dueSoon = Boolean(deadline && deadline >= now && deadline <= soonHorizon);
@@ -107,9 +109,10 @@ export async function getClassroomReminderSummaryForLineGroup(
                 name: assignment.name,
                 type: assignment.type,
                 deadline,
-                missingSubmissions,
+                missingSubmissions: missing.length,
                 overdue,
                 dueSoon,
+                missingStudentList: missing.map((student) => ({ id: student.id, name: student.name })),
             };
         })
         .filter((assignment) => assignment.missingSubmissions > 0 || assignment.overdue || assignment.dueSoon)
@@ -123,10 +126,21 @@ export async function getClassroomReminderSummaryForLineGroup(
             return (a.deadline?.getTime() ?? Number.POSITIVE_INFINITY) - (b.deadline?.getTime() ?? Number.POSITIVE_INFINITY);
         });
 
+    const resolveMissingNames = await createMissingStudentNameResolver({
+        lineGroupId,
+        classroomId: classroom.id,
+    });
+    const assignmentsWithNames = await Promise.all(
+        assignments.map(async ({ missingStudentList, ...assignment }) => ({
+            ...assignment,
+            missingStudents: await resolveMissingNames(missingStudentList),
+        }))
+    );
+
     return {
         classroomName: classroom.name,
         studentCount,
-        assignments,
+        assignments: assignmentsWithNames,
         totals: {
             visibleAssignments: classroom.assignments.length,
             overdueAssignments: assignments.filter((assignment) => assignment.overdue).length,
@@ -169,11 +183,13 @@ type LineStudentBindingModel = {
             classroomId: string;
             studentId: string;
             studentLoginCode: string;
+            lineDisplayName?: string | null;
         };
         update: {
             lineGroupId: string;
             studentId: string;
             studentLoginCode: string;
+            lineDisplayName?: string | null;
         };
     }): Promise<unknown>;
     findUnique(input: {
@@ -478,6 +494,8 @@ export async function bindLineStudentToStudentCode(input: {
         return { ok: false, reason: "NOT_FOUND" };
     }
 
+    const lineDisplayName = await getLineGroupMemberDisplayName(input.lineGroupId, input.lineUserId);
+
     await bindingModel.upsert({
         where: {
             lineUserId_classroomId: {
@@ -491,11 +509,14 @@ export async function bindLineStudentToStudentCode(input: {
             classroomId: group.classroom.id,
             studentId: student.id,
             studentLoginCode: student.loginCode,
+            lineDisplayName,
         },
         update: {
             lineGroupId: input.lineGroupId,
             studentId: student.id,
             studentLoginCode: student.loginCode,
+            // Only overwrite when we successfully fetched a fresh name.
+            ...(lineDisplayName ? { lineDisplayName } : {}),
         },
     });
 

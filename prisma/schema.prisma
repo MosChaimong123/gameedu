@@ -654,6 +654,7 @@ model LineStudentBinding {
   classroomId    String   @db.ObjectId
   studentId      String   @db.ObjectId
   studentLoginCode String
+  lineDisplayName String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

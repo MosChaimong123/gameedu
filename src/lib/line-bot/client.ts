@@ -31,3 +31,33 @@ export async function pushLineText(to: string, text: string): Promise<void> {
         messages: [{ type: "text", text }],
     });
 }
+
+export async function pushLineFlex(
+    to: string,
+    altText: string,
+    contents: messagingApi.FlexContainer
+): Promise<void> {
+    const lineClient = getLineMessagingClient();
+    await lineClient.pushMessage({
+        to,
+        messages: [{ type: "flex", altText, contents }],
+    });
+}
+
+/**
+ * Fetch a member's LINE display name within a group. Returns null on any failure
+ * (token missing, user left the group, API error) so callers can fall back to the
+ * student's system name.
+ */
+export async function getLineGroupMemberDisplayName(
+    groupId: string,
+    userId: string
+): Promise<string | null> {
+    try {
+        const lineClient = getLineMessagingClient();
+        const profile = await lineClient.getGroupMemberProfile(groupId, userId);
+        return profile.displayName?.trim() || null;
+    } catch {
+        return null;
+    }
+}

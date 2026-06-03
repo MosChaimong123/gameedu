@@ -1,6 +1,8 @@
 import { db, getOptionalDbModel } from "@/lib/db";
-import { pushLineText } from "@/lib/line-bot/client";
+import { pushLineFlex } from "@/lib/line-bot/client";
 import { canUseLineFeature, type LinePlanTeacher } from "@/lib/line-bot/plan-access";
+import { createMissingStudentNameResolver } from "@/lib/line-bot/missing-student-names";
+import { buildReminderFlexBubble, type ReminderFlexTone } from "@/lib/line-bot/reminder-flex";
 
 type ReminderDeliveryModel = {
     create(input: {
@@ -27,6 +29,7 @@ type ReminderCandidate = {
     assignmentName: string;
     deadline: Date;
     missingSubmissions: number;
+    missingStudentList: Array<{ id: string; name: string }>;
     reminderType: ReminderType;
     reminderKey: string;
 };
@@ -67,7 +70,7 @@ export async function runLineAutoReminders(input: { now?: Date } = {}): Promise<
                             planExpiry: true,
                         },
                     },
-                    students: { select: { id: true } },
+                    students: { select: { id: true, name: true } },
                     assignments: {
                         where: {
                             visible: true,
@@ -89,6 +92,24 @@ export async function runLineAutoReminders(input: { now?: Date } = {}): Promise<
     let sentCount = 0;
     let skippedDuplicateCount = 0;
     let failedCount = 0;
+
+    // Reuse one name resolver per group+classroom so bindings are loaded once.
+    const resolverCache = new Map<
+        string,
+        Awaited<ReturnType<typeof createMissingStudentNameResolver>>
+    >();
+    async function getResolverFor(candidate: ReminderCandidate) {
+        const key = `${candidate.lineGroupId}:${candidate.classroomId}`;
+        let resolver = resolverCache.get(key);
+        if (!resolver) {
+            resolver = await createMissingStudentNameResolver({
+                lineGroupId: candidate.lineGroupId,
+                classroomId: candidate.classroomId,
+            });
+            resolverCache.set(key, resolver);
+        }
+        return resolver;
+    }
 
     for (const candidate of candidates) {
         try {
@@ -114,7 +135,22 @@ export async function runLineAutoReminders(input: { now?: Date } = {}): Promise<
         }
 
         try {
-            await pushLineText(candidate.lineGroupId, formatAutoReminderMessage(candidate));
+            const resolveMissingNames = await getResolverFor(candidate);
+            const missingStudents = await resolveMissingNames(candidate.missingStudentList);
+            const bubble = buildReminderFlexBubble({
+                tone: TONE_BY_TYPE[candidate.reminderType],
+                classroomName: candidate.classroomName,
+                assignmentName: candidate.assignmentName,
+                deadline: candidate.deadline,
+                missingSubmissions: candidate.missingSubmissions,
+                missingStudents,
+                footerUrl: getAppUrl(),
+            });
+            await pushLineFlex(
+                candidate.lineGroupId,
+                `กริ่งเตือนงานค้าง: ${candidate.assignmentName} (ยังขาด ${candidate.missingSubmissions} คน)`,
+                bubble
+            );
             sentCount += 1;
         } catch (error) {
             failedCount += 1;
@@ -140,7 +176,7 @@ function buildCandidatesForGroup(
             id: string;
             name: string;
             teacher: LinePlanTeacher;
-            students: Array<{ id: string }>;
+            students: Array<{ id: string; name: string }>;
             assignments: Array<{
                 id: string;
                 name: string;
@@ -159,8 +195,8 @@ function buildCandidatesForGroup(
         if (!assignment.deadline) return [];
 
         const submitted = new Set(assignment.submissions.map((submission) => submission.studentId));
-        const missingSubmissions = group.classroom!.students.filter((student) => !submitted.has(student.id)).length;
-        if (missingSubmissions <= 0) return [];
+        const missing = group.classroom!.students.filter((student) => !submitted.has(student.id));
+        if (missing.length <= 0) return [];
 
         const reminderType = getReminderType(now, assignment.deadline);
         if (!reminderType) return [];
@@ -174,7 +210,8 @@ function buildCandidatesForGroup(
                 assignmentId: assignment.id,
                 assignmentName: assignment.name,
                 deadline: assignment.deadline,
-                missingSubmissions,
+                missingSubmissions: missing.length,
+                missingStudentList: missing.map((student) => ({ id: student.id, name: student.name })),
                 reminderType,
                 reminderKey: `${reminderType}:${nowKey}`,
             },
@@ -190,22 +227,18 @@ function getReminderType(now: Date, deadline: Date): ReminderType | null {
     return null;
 }
 
-function formatAutoReminderMessage(candidate: ReminderCandidate): string {
-    const typeLabel: Record<ReminderType, string> = {
-        before_1d: "ใกล้ถึงกำหนดส่ง",
-        due_today: "ถึงกำหนดส่งวันนี้",
-        overdue_1d: "เลยกำหนดส่งแล้ว",
-    };
+const TONE_BY_TYPE: Record<ReminderType, ReminderFlexTone> = {
+    before_1d: "before",
+    due_today: "today",
+    overdue_1d: "overdue",
+};
 
-    return [
-        "กริ่งเตือนงานอัตโนมัติ",
-        `ห้อง ${candidate.classroomName}`,
-        `${typeLabel[candidate.reminderType]}: ${candidate.assignmentName}`,
-        `ยังขาด ${candidate.missingSubmissions} คน`,
-        `กำหนดส่ง: ${formatBangkokDateTime(candidate.deadline)}`,
-        "",
-        "นักเรียนเปิด GameEdu เพื่อตรวจงานของตัวเองได้เลย",
-    ].join("\n");
+function getAppUrl(): string | undefined {
+    return (
+        process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+        process.env.LINE_BOT_CHAT_URL?.trim() ||
+        undefined
+    );
 }
 
 function diffBangkokCalendarDays(target: Date, base: Date): number {
@@ -228,14 +261,6 @@ function getBangkokDateParts(date: Date): { year: number; month: number; day: nu
         month: bangkok.getUTCMonth() + 1,
         day: bangkok.getUTCDate(),
     };
-}
-
-function formatBangkokDateTime(date: Date): string {
-    return date.toLocaleString("th-TH", {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "Asia/Bangkok",
-    });
 }
 
 function isUniqueConstraintError(error: unknown): boolean {

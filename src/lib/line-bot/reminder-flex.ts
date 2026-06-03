@@ -1,0 +1,174 @@
+import type { messagingApi } from "@line/bot-sdk";
+import type { MissingStudentName } from "@/lib/line-bot/missing-student-names";
+
+export type ReminderFlexTone = "before" | "today" | "overdue";
+
+const TONE: Record<ReminderFlexTone, { color: string; label: string }> = {
+    before: { color: "#F59E0B", label: "ใกล้ถึงกำหนดส่ง" },
+    today: { color: "#EF4444", label: "ถึงกำหนดส่งวันนี้" },
+    overdue: { color: "#DC2626", label: "เลยกำหนดส่งแล้ว" },
+};
+
+const MAX_NAMES = 10;
+
+function formatBangkokDateTime(date: Date): string {
+    return date.toLocaleString("th-TH", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Asia/Bangkok",
+    });
+}
+
+function buildMissingNameContents(
+    students: MissingStudentName[]
+): messagingApi.FlexComponent[] {
+    if (students.length === 0) return [];
+    const shown = students.slice(0, MAX_NAMES);
+    const rows: messagingApi.FlexComponent[] = shown.map((student) => ({
+        type: "text",
+        text: `• ${student.name}${student.linked ? "" : " (ยังไม่เชื่อม LINE)"}`,
+        size: "sm",
+        color: student.linked ? "#374151" : "#9CA3AF",
+        wrap: true,
+    }));
+    if (students.length > MAX_NAMES) {
+        rows.push({
+            type: "text",
+            text: `และอีก ${students.length - MAX_NAMES} คน`,
+            size: "sm",
+            color: "#9CA3AF",
+            wrap: true,
+        });
+    }
+    return rows;
+}
+
+export function buildReminderFlexBubble(input: {
+    tone: ReminderFlexTone;
+    classroomName: string;
+    assignmentName: string;
+    deadline: Date | null;
+    missingSubmissions: number;
+    totalStudents?: number;
+    missingStudents: MissingStudentName[];
+    footerUrl?: string;
+}): messagingApi.FlexBubble {
+    const tone = TONE[input.tone];
+    const missingText =
+        typeof input.totalStudents === "number"
+            ? `${input.missingSubmissions} จาก ${input.totalStudents} คน`
+            : `${input.missingSubmissions} คน`;
+
+    const bodyContents: messagingApi.FlexComponent[] = [
+        {
+            type: "text",
+            text: input.assignmentName,
+            weight: "bold",
+            size: "xl",
+            wrap: true,
+            color: "#111827",
+        },
+        {
+            type: "text",
+            text: `ห้อง ${input.classroomName}`,
+            size: "sm",
+            color: "#6B7280",
+            wrap: true,
+        },
+        { type: "separator", margin: "lg" },
+        {
+            type: "box",
+            layout: "vertical",
+            margin: "lg",
+            spacing: "sm",
+            contents: [
+                {
+                    type: "box",
+                    layout: "baseline",
+                    spacing: "sm",
+                    contents: [
+                        { type: "text", text: "กำหนดส่ง", size: "sm", color: "#9CA3AF", flex: 2 },
+                        {
+                            type: "text",
+                            text: input.deadline ? formatBangkokDateTime(input.deadline) : "ไม่มีกำหนดส่ง",
+                            size: "sm",
+                            color: "#374151",
+                            wrap: true,
+                            flex: 5,
+                        },
+                    ],
+                },
+                {
+                    type: "box",
+                    layout: "baseline",
+                    spacing: "sm",
+                    contents: [
+                        { type: "text", text: "ยังไม่ส่ง", size: "sm", color: "#9CA3AF", flex: 2 },
+                        {
+                            type: "text",
+                            text: missingText,
+                            size: "sm",
+                            weight: "bold",
+                            color: tone.color,
+                            wrap: true,
+                            flex: 5,
+                        },
+                    ],
+                },
+            ],
+        },
+    ];
+
+    const nameContents = buildMissingNameContents(input.missingStudents);
+    if (nameContents.length > 0) {
+        bodyContents.push({ type: "separator", margin: "lg" });
+        bodyContents.push({
+            type: "box",
+            layout: "vertical",
+            margin: "lg",
+            spacing: "sm",
+            contents: [
+                { type: "text", text: "รายชื่อที่ยังไม่ส่ง", size: "xs", color: "#9CA3AF" },
+                ...nameContents,
+            ],
+        });
+    }
+
+    const bubble: messagingApi.FlexBubble = {
+        type: "bubble",
+        header: {
+            type: "box",
+            layout: "vertical",
+            backgroundColor: tone.color,
+            paddingAll: "lg",
+            contents: [
+                { type: "text", text: "ขออนุญาตทวงงาน", color: "#FFFFFF", weight: "bold", size: "lg" },
+                { type: "text", text: tone.label, color: "#FFFFFF", size: "sm" },
+            ],
+        },
+        body: {
+            type: "box",
+            layout: "vertical",
+            spacing: "md",
+            contents: bodyContents,
+        },
+    };
+
+    if (input.footerUrl) {
+        bubble.footer = {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+                {
+                    type: "button",
+                    style: "primary",
+                    color: tone.color,
+                    action: { type: "uri", label: "เปิด GameEdu", uri: input.footerUrl },
+                },
+            ],
+        };
+    }
+
+    return bubble;
+}

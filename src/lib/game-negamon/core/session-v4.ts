@@ -1,5 +1,10 @@
-import { createBattleHistorySummary, type GameHistorySummary } from "@/lib/game-core";
-import type { NegamonBattleChoiceV4, NegamonBattleSideV4, NegamonBattleStateV4 } from "../engine-showdown";
+import { createBattleHistorySummary, type GameHistorySummary, type GameRewardResult } from "@/lib/game-core";
+import type {
+    NegamonBattleChoiceDiagnosticsV4,
+    NegamonBattleChoiceV4,
+    NegamonBattleSideV4,
+    NegamonBattleStateV4,
+} from "../engine-showdown";
 
 export type NegamonBattleSessionResultV4 = {
     mode: "negamon_battle_v4";
@@ -8,7 +13,37 @@ export type NegamonBattleSessionResultV4 = {
     choiceRequestId: string;
     state: NegamonBattleStateV4;
     winnerId?: string;
+    loserId?: string;
+    finishReason?: "battle_end" | "early_exit" | "timeout";
+    requestedGoldReward?: number;
     goldReward?: number;
+    rewardBlockedReason?: "daily_cap" | "pair_cooldown" | null;
+    rewardIdempotencyKey?: string;
+    reward?: GameRewardResult;
+    progression?: NegamonBattleProgressionViewV4 | null;
+    participantResults?: {
+        challenger: NegamonBattleParticipantResultV4;
+        defender: NegamonBattleParticipantResultV4;
+    };
+};
+
+export type NegamonBattleProgressionViewV4 = {
+    expDelta: number;
+    behaviorPointDelta: number;
+    nextBehaviorPoints: number;
+    nextNegamonSkills: string[];
+    shouldPersist: boolean;
+};
+
+export type NegamonBattleParticipantResultV4 = {
+    studentId: string;
+    outcome: "win" | "loss" | "draw";
+    requestedGoldReward: number;
+    goldReward: number;
+    rewardBlockedReason: "daily_cap" | "pair_cooldown" | null;
+    rewardIdempotencyKey?: string;
+    reward?: GameRewardResult;
+    progression?: NegamonBattleProgressionViewV4 | null;
 };
 
 export type NegamonBattleSessionRecordV4 = {
@@ -35,9 +70,16 @@ export type NegamonBattleSessionViewV4 = {
     choiceRequestId: string;
     state: NegamonBattleStateV4;
     validChoices: NegamonBattleChoiceV4[];
+    diagnostics: NegamonBattleChoiceDiagnosticsV4 | null;
     final: {
         winnerId: string;
+        loserId?: string;
+        requestedGoldReward: number;
         goldReward: number;
+        rewardBlockedReason: "daily_cap" | "pair_cooldown" | null;
+        rewardIdempotencyKey?: string;
+        reward?: GameRewardResult;
+        progression?: NegamonBattleProgressionViewV4 | null;
     } | null;
     interactivePending: boolean;
     stateVersion: number;
@@ -71,6 +113,12 @@ export function createNegamonBattleSessionViewV4(
 ): NegamonBattleSessionViewV4 | null {
     const result = parseNegamonBattleSessionResultV4(record.result);
     if (!result) return null;
+    const viewerResult =
+        options.viewerSide === "player"
+            ? result.participantResults?.challenger
+            : options.viewerSide === "opponent"
+              ? result.participantResults?.defender
+              : null;
 
     return {
         mode: "negamon_battle_v4",
@@ -89,11 +137,22 @@ export function createNegamonBattleSessionViewV4(
                       cost: choice.cost ? { ...choice.cost } : undefined,
                   }))
                 : [],
+        diagnostics:
+            result.status === "active" && options.viewerSide
+                ? result.state.metadata.showdown.choiceDiagnostics[options.viewerSide]
+                : null,
         final:
             result.winnerId || record.winnerId
                 ? {
                       winnerId: result.winnerId ?? record.winnerId ?? "",
+                      loserId: result.loserId,
+                      requestedGoldReward:
+                          viewerResult?.requestedGoldReward ?? result.requestedGoldReward ?? result.goldReward ?? record.goldReward,
                       goldReward: result.goldReward ?? record.goldReward,
+                      rewardBlockedReason: viewerResult?.rewardBlockedReason ?? result.rewardBlockedReason ?? null,
+                      rewardIdempotencyKey: viewerResult?.rewardIdempotencyKey ?? result.rewardIdempotencyKey,
+                      reward: viewerResult?.reward ?? result.reward,
+                      progression: viewerResult?.progression ?? result.progression ?? null,
                   }
                 : null,
         interactivePending: record.interactivePending,

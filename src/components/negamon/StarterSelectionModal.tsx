@@ -205,7 +205,7 @@ export function StarterSelectionModal({ loginCode, isOpen, onOpenChange, allowed
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t("negamonStarterBaseStatsLabel")}</span>
                                         </div>
                                         {STAT_CONFIG.map(({ key, labelKey, icon: Icon, color, bar }) => {
-                                            const val = selectedSpecies.baseStats[key as keyof typeof selectedSpecies.baseStats];
+                                            const val = selectedSpecies.baseStats[key as keyof typeof selectedSpecies.baseStats] ?? 0;
                                             const pct = Math.round((val / 100) * 100);
                                             return (
                                                 <div key={key} className="flex items-center gap-3">

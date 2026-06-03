@@ -4,6 +4,7 @@ import type {
     ClassroomReminderSummary,
     LineCreatedAssignment,
     LineMyWorkSummary,
+    LineMyProgressSummary,
     LineStudentBindingSuccess,
     LineTextSubmission,
     OpenDebtRow,
@@ -150,6 +151,14 @@ export type BindLineStudentResult =
 export type GetLineMyWorkResult =
     | { ok: true; summary: LineMyWorkSummary }
     | { ok: false; reason: "UNBOUND" | "NOT_BOUND" | "MODEL_UNAVAILABLE" };
+
+export type GetLinkedLineMyWorkResult =
+    | { ok: true; summaries: LineMyWorkSummary[] }
+    | { ok: false; reason: "NOT_BOUND" };
+
+export type GetLinkedLineMyProgressResult =
+    | { ok: true; summaries: LineMyProgressSummary[] }
+    | { ok: false; reason: "NOT_BOUND" };
 
 type LineStudentBindingModel = {
     upsert(input: {
@@ -577,6 +586,174 @@ export async function getLineMyWorkSummary(input: {
             items,
         },
     };
+}
+
+export async function getLineMyWorkSummariesForLinkedAccount(input: {
+    lineUserId: string;
+}): Promise<GetLinkedLineMyWorkResult> {
+    const links = await db.lineStudentAccountLink.findMany({
+        where: { lineUserId: input.lineUserId },
+        select: {
+            classroomId: true,
+            studentId: true,
+        },
+        orderBy: { createdAt: "desc" },
+    });
+
+    if (links.length === 0) {
+        return { ok: false, reason: "NOT_BOUND" };
+    }
+
+    const summaries = (
+        await Promise.all(
+            links.map(async (link) => {
+                const [classroom, student] = await Promise.all([
+                    db.classroom.findUnique({
+                        where: { id: link.classroomId },
+                        select: {
+                            id: true,
+                            name: true,
+                            assignments: {
+                                where: { visible: true },
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    deadline: true,
+                                },
+                            },
+                        },
+                    }),
+                    db.student.findUnique({
+                        where: { id: link.studentId },
+                        select: {
+                            id: true,
+                            name: true,
+                            submissions: {
+                                select: {
+                                    assignmentId: true,
+                                },
+                            },
+                        },
+                    }),
+                ]);
+
+                if (!classroom || !student) return null;
+
+                const submitted = new Set(student.submissions.map((submission) => submission.assignmentId));
+                const items = classroom.assignments
+                    .filter((assignment) => !submitted.has(assignment.id))
+                    .sort(
+                        (a, b) =>
+                            (a.deadline?.getTime() ?? Number.POSITIVE_INFINITY) -
+                            (b.deadline?.getTime() ?? Number.POSITIVE_INFINITY)
+                    )
+                    .slice(0, 8)
+                    .map((assignment) => ({
+                        assignmentName: assignment.name,
+                        deadline: assignment.deadline,
+                    }));
+
+                return {
+                    classroomName: classroom.name,
+                    studentName: student.name,
+                    items,
+                };
+            })
+        )
+    ).filter((summary): summary is LineMyWorkSummary => summary !== null);
+
+    return { ok: true, summaries };
+}
+
+export async function getLineMyProgressSummariesForLinkedAccount(input: {
+    lineUserId: string;
+}): Promise<GetLinkedLineMyProgressResult> {
+    const links = await db.lineStudentAccountLink.findMany({
+        where: { lineUserId: input.lineUserId },
+        select: {
+            classroomId: true,
+            studentId: true,
+        },
+        orderBy: { createdAt: "desc" },
+    });
+
+    if (links.length === 0) {
+        return { ok: false, reason: "NOT_BOUND" };
+    }
+
+    return {
+        ok: true,
+        summaries: await buildProgressSummaries(links),
+    };
+}
+
+async function buildProgressSummaries(
+    links: Array<{ classroomId: string; studentId: string }>
+): Promise<LineMyProgressSummary[]> {
+    return (
+        await Promise.all(
+            links.map(async (link) => {
+                const [classroom, student] = await Promise.all([
+                    db.classroom.findUnique({
+                        where: { id: link.classroomId },
+                        select: {
+                            id: true,
+                            name: true,
+                            assignments: {
+                                where: { visible: true },
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    maxScore: true,
+                                },
+                            },
+                        },
+                    }),
+                    db.student.findUnique({
+                        where: { id: link.studentId },
+                        select: {
+                            id: true,
+                            name: true,
+                            submissions: {
+                                select: {
+                                    assignmentId: true,
+                                    score: true,
+                                    submittedAt: true,
+                                },
+                            },
+                        },
+                    }),
+                ]);
+
+                if (!classroom || !student) return null;
+
+                const assignmentById = new Map(classroom.assignments.map((assignment) => [assignment.id, assignment]));
+                const submitted = student.submissions
+                    .map((submission) => {
+                        const assignment = assignmentById.get(submission.assignmentId);
+                        if (!assignment) return null;
+                        return {
+                            assignmentName: assignment.name,
+                            score: submission.score,
+                            maxScore: assignment.maxScore,
+                            submittedAt: submission.submittedAt,
+                        };
+                    })
+                    .filter((item): item is NonNullable<typeof item> => item !== null)
+                    .sort(
+                        (a, b) =>
+                            (b.submittedAt?.getTime() ?? 0) -
+                            (a.submittedAt?.getTime() ?? 0)
+                    );
+
+                return {
+                    classroomName: classroom.name,
+                    studentName: student.name,
+                    submitted,
+                };
+            })
+        )
+    ).filter((summary): summary is NonNullable<typeof summary> => summary !== null);
 }
 
 function buildLineSubmissionContent(content: string, aiPreliminaryGrade?: LineAiPreliminaryGradeResult): string {

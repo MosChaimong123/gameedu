@@ -28,6 +28,16 @@ Use this folder for system-by-system analysis and development planning across Ga
 20. [Negamon Game System V2 Roadmap](./20-negamon-game-system-v2-roadmap.md)
 21. [Negamon Game System V2 Production Completion](./21-negamon-game-system-v2-production-completion.md)
 22. [Negamon Battle Content and Effect System](./22-negamon-battle-content-effect-system.md)
+23. [Negamon Content Pack Live Balance QA](./23-negamon-content-pack-live-balance-qa.md)
+24. [Negamon Roster Skill Rework](./24-negamon-roster-skill-rework.md)
+25. [Negamon Classroom Data Migration UI QA](./25-negamon-classroom-data-migration-ui-qa.md)
+26. [Negamon Pokemon-Inspired System Rebuild](./26-negamon-pokemon-inspired-system-rebuild.md)
+27. [Negamon Battle Replacement Audit](./27-negamon-battle-replacement-audit.md)
+28. [Negamon Level Form Skill Progression Rework](./28-negamon-level-form-skill-progression-rework.md)
+29. [Negamon Pokemon-Inspired Skill Redesign](./29-negamon-pokemon-inspired-skill-redesign.md)
+30. [Negamon Battle V4 Correctness and QA](./30-negamon-battle-v4-correctness-and-qa.md)
+
+31. [Negamon V4 Pokemon Improvement Plan](./31-negamon-v4-pokemon-improvement-plan.md)
 
 ## How To Use
 

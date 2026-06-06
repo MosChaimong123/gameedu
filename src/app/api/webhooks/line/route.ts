@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createAppErrorResponse } from "@/lib/api-error";
 import { getLineChannelSecret, isLineBotEnabled } from "@/lib/line-bot/config";
 import { handleLineWebhookEvents } from "@/lib/line-bot/handlers";
+import { logAuditEvent } from "@/lib/security/audit-log";
 
 export const runtime = "nodejs";
 
@@ -46,8 +47,27 @@ export async function POST(req: Request) {
     if (events.length > 0) {
         try {
             await handleLineWebhookEvents(events);
+            logAuditEvent({
+                action: "line.webhook.received",
+                category: "line",
+                status: "success",
+                targetType: "LineWebhook",
+                metadata: {
+                    eventCount: events.length,
+                },
+            });
         } catch (error) {
             console.error("[webhooks/line] Handler error", error);
+            logAuditEvent({
+                action: "line.webhook.received",
+                category: "line",
+                status: "error",
+                targetType: "LineWebhook",
+                metadata: {
+                    eventCount: events.length,
+                    reason: error instanceof Error ? error.message : "handler_failed",
+                },
+            });
             return createAppErrorResponse("INTERNAL_ERROR", "Handler failed", 500);
         }
     }

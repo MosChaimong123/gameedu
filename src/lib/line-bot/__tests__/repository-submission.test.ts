@@ -5,6 +5,9 @@ const mockAssignmentSubmissionFindUnique = vi.fn();
 const mockAssignmentSubmissionUpsert = vi.fn();
 const mockGradeLineTextSubmissionWithAi = vi.fn();
 const mockAwardLineAssignmentSubmissionReward = vi.fn();
+const mockLineStudentAccountLinkFindMany = vi.fn();
+const mockClassroomFindUnique = vi.fn();
+const mockStudentFindUnique = vi.fn();
 
 vi.mock("@/lib/db", () => ({
     db: {
@@ -14,6 +17,15 @@ vi.mock("@/lib/db", () => ({
         assignmentSubmission: {
             findUnique: mockAssignmentSubmissionFindUnique,
             upsert: mockAssignmentSubmissionUpsert,
+        },
+        lineStudentAccountLink: {
+            findMany: mockLineStudentAccountLinkFindMany,
+        },
+        classroom: {
+            findUnique: mockClassroomFindUnique,
+        },
+        student: {
+            findUnique: mockStudentFindUnique,
         },
     },
 }));
@@ -45,6 +57,9 @@ describe("line-bot repository text submissions", () => {
             idempotencyKey: "line_assignment:student-1:assignment-1",
             reason: "already_awarded",
         });
+        mockLineStudentAccountLinkFindMany.mockResolvedValue([]);
+        mockClassroomFindUnique.mockResolvedValue(null);
+        mockStudentFindUnique.mockResolvedValue(null);
     });
 
     it("creates a text submission for a bound classroom assignment", async () => {
@@ -174,11 +189,11 @@ describe("line-bot repository text submissions", () => {
         });
         expect(mockAssignmentSubmissionUpsert).toHaveBeenCalledWith(expect.objectContaining({
             create: expect.objectContaining({
-                score: 8,
+                score: 0,
                 content: expect.stringContaining("คำตอบตรงประเด็น"),
             }),
             update: expect.objectContaining({
-                score: 8,
+                score: 0,
                 content: expect.stringContaining("คำตอบตรงประเด็น"),
             }),
         }));
@@ -219,6 +234,51 @@ describe("line-bot repository text submissions", () => {
         expect(mockAssignmentSubmissionUpsert).not.toHaveBeenCalled();
         expect(mockGradeLineTextSubmissionWithAi).not.toHaveBeenCalled();
         expect(mockAwardLineAssignmentSubmissionReward).not.toHaveBeenCalled();
+    });
+
+    it("creates a text submission from a linked LINE account using assignment short code", async () => {
+        mockLineStudentAccountLinkFindMany.mockResolvedValue([
+            { classroomId: "classroom-1", studentId: "student-1" },
+        ]);
+        mockClassroomFindUnique.mockResolvedValue({
+            id: "classroom-1",
+            name: "M1/1",
+            teacher: { role: "TEACHER", plan: "PLUS", planStatus: "ACTIVE", planExpiry: null },
+            assignments: [
+                {
+                    id: "assignment-1",
+                    name: "Homework 1",
+                    description: null,
+                    type: "score",
+                    maxScore: 10,
+                    order: 0,
+                },
+            ],
+        });
+        mockStudentFindUnique.mockResolvedValue({ id: "student-1" });
+
+        const { submitTextAssignmentForLinkedLineAccount } = await import("@/lib/line-bot/repository");
+        const result = await submitTextAssignmentForLinkedLineAccount({
+            lineUserId: "line-user-1",
+            assignmentRef: "A1",
+            content: "My answer",
+        });
+
+        expect(result).toMatchObject({
+            ok: true,
+            submission: {
+                assignmentName: "Homework 1",
+                classroomName: "M1/1",
+            },
+        });
+        expect(mockAssignmentSubmissionUpsert).toHaveBeenCalledWith(expect.objectContaining({
+            where: {
+                studentId_assignmentId: {
+                    studentId: "student-1",
+                    assignmentId: "assignment-1",
+                },
+            },
+        }));
     });
 
     it("blocks LINE text submission for classrooms on the free plan", async () => {

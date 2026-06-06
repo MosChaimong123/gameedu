@@ -15,7 +15,7 @@ type RateLimitDocument = {
 type AuditLogDocument = {
   actorUserId?: string | null;
   action: string;
-  category?: "admin" | "classroom" | "socket" | "upload" | "auth" | "ai" | "line" | "other";
+  category?: "admin" | "classroom" | "socket" | "upload" | "auth" | "ai" | "billing" | "line" | "other";
   reason?: string | null;
   status?: "success" | "rejected" | "error";
   targetType: string;

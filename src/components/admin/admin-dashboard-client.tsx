@@ -4,6 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
+  Activity,
   BookOpen,
   CheckCircle2,
   Gamepad2,
@@ -443,6 +444,18 @@ export function AdminDashboardClient({ userName, displayInitial, counts, recentU
               </div>
             </Link>
           ))}
+          <Link
+            href="/admin/line-health"
+            className="group flex items-center gap-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-5 transition-colors hover:bg-emerald-100"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+              <Activity className="h-6 w-6 text-emerald-600" />
+            </div>
+            <div>
+              <p className="font-bold text-slate-800">LINE Health</p>
+              <p className="text-xs text-slate-500">เช็ก config, webhook, cron และ error ล่าสุด</p>
+            </div>
+          </Link>
         </div>
       </div>
     </div>

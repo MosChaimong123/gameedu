@@ -3,6 +3,12 @@ import { pushLineFlex } from "@/lib/line-bot/client";
 import { canUseLineFeature, type LinePlanTeacher } from "@/lib/line-bot/plan-access";
 import { createMissingStudentNameResolver } from "@/lib/line-bot/missing-student-names";
 import { buildReminderFlexBubble, type ReminderFlexTone } from "@/lib/line-bot/reminder-flex";
+import {
+    isLineReminderTypeEnabled,
+    normalizeClassroomLineReminderSetting,
+    type ClassroomLineReminderSettingSnapshot,
+    type LineReminderType,
+} from "@/lib/line-bot/reminder-settings";
 
 type ReminderDeliveryModel = {
     create(input: {
@@ -14,11 +20,35 @@ type ReminderDeliveryModel = {
             reminderKey: string;
             reminderType: string;
             targetCount: number;
+            status?: string;
+            errorMessage?: string | null;
+        };
+    }): Promise<{ id: string }>;
+    update(input: {
+        where: { id: string };
+        data: {
+            status: string;
+            errorMessage?: string | null;
         };
     }): Promise<unknown>;
 };
 
-type ReminderType = "before_1d" | "due_today" | "overdue_1d";
+type ReminderSettingModel = {
+    findMany(input: {
+        where: { classroomId: { in: string[] } };
+        select: {
+            classroomId: true;
+            enabled: true;
+            beforeDeadline1d: true;
+            dueToday: true;
+            overdue1d: true;
+            weeklySummary: true;
+            timezone: true;
+        };
+    }): Promise<ClassroomLineReminderSettingSnapshot[]>;
+};
+
+type ReminderType = LineReminderType;
 
 type ReminderCandidate = {
     lineBotGroupId: string;
@@ -88,7 +118,30 @@ export async function runLineAutoReminders(input: { now?: Date } = {}): Promise<
         },
     });
 
-    const candidates = groups.flatMap((group) => buildCandidatesForGroup(group, now));
+    const settingModel = getOptionalDbModel<ReminderSettingModel>("classroomLineReminderSetting");
+    const classroomIds = Array.from(new Set(groups.flatMap((group) => group.classroom?.id ?? [])));
+    const settingRows =
+        settingModel && classroomIds.length > 0
+            ? await settingModel.findMany({
+                  where: { classroomId: { in: classroomIds } },
+                  select: {
+                      classroomId: true,
+                      enabled: true,
+                      beforeDeadline1d: true,
+                      dueToday: true,
+                      overdue1d: true,
+                      weeklySummary: true,
+                      timezone: true,
+                  },
+              })
+            : [];
+    const settingsByClassroomId = new Map(
+        settingRows.map((row) => [row.classroomId, normalizeClassroomLineReminderSetting(row.classroomId, row)])
+    );
+
+    const candidates = groups.flatMap((group) =>
+        buildCandidatesForGroup(group, now, settingsByClassroomId.get(group.classroom?.id ?? ""))
+    );
     let sentCount = 0;
     let skippedDuplicateCount = 0;
     let failedCount = 0;
@@ -112,8 +165,9 @@ export async function runLineAutoReminders(input: { now?: Date } = {}): Promise<
     }
 
     for (const candidate of candidates) {
+        let delivery: { id: string };
         try {
-            await deliveryModel.create({
+            delivery = await deliveryModel.create({
                 data: {
                     lineBotGroupId: candidate.lineBotGroupId,
                     lineGroupId: candidate.lineGroupId,
@@ -122,6 +176,8 @@ export async function runLineAutoReminders(input: { now?: Date } = {}): Promise<
                     reminderKey: candidate.reminderKey,
                     reminderType: candidate.reminderType,
                     targetCount: candidate.missingSubmissions,
+                    status: "pending",
+                    errorMessage: null,
                 },
             });
         } catch (error) {
@@ -151,9 +207,21 @@ export async function runLineAutoReminders(input: { now?: Date } = {}): Promise<
                 `กริ่งเตือนงานค้าง: ${candidate.assignmentName} (ยังขาด ${candidate.missingSubmissions} คน)`,
                 bubble
             );
+            await deliveryModel.update({
+                where: { id: delivery.id },
+                data: { status: "sent", errorMessage: null },
+            });
             sentCount += 1;
         } catch (error) {
             failedCount += 1;
+            await deliveryModel
+                .update({
+                    where: { id: delivery.id },
+                    data: { status: "failed", errorMessage: getErrorMessage(error) },
+                })
+                .catch((updateError) => {
+                    console.error("[line-auto-reminders] failed to record push error", updateError);
+                });
             console.error("[line-auto-reminders] failed to push LINE reminder", error);
         }
     }
@@ -185,10 +253,14 @@ function buildCandidatesForGroup(
             }>;
         } | null;
     },
-    now: Date
+    now: Date,
+    setting?: ClassroomLineReminderSettingSnapshot
 ): ReminderCandidate[] {
     if (!group.classroomId || !group.classroom) return [];
     if (!canUseLineFeature(group.classroom.teacher, "lineAutoReminders")) return [];
+
+    const reminderSetting = normalizeClassroomLineReminderSetting(group.classroom.id, setting);
+    if (!reminderSetting.enabled) return [];
 
     const nowKey = bangkokDateKey(now);
     return group.classroom.assignments.flatMap((assignment) => {
@@ -198,8 +270,13 @@ function buildCandidatesForGroup(
         const missing = group.classroom!.students.filter((student) => !submitted.has(student.id));
         if (missing.length <= 0) return [];
 
-        const reminderType = getReminderType(now, assignment.deadline);
+        const reminderType = getReminderType(now, assignment.deadline, reminderSetting);
         if (!reminderType) return [];
+        if (!isLineReminderTypeEnabled(reminderSetting, reminderType)) return [];
+        const reminderKey =
+            reminderType === "weekly_summary"
+                ? `${reminderType}:${bangkokWeekKey(now)}`
+                : `${reminderType}:${nowKey}`;
 
         return [
             {
@@ -213,17 +290,22 @@ function buildCandidatesForGroup(
                 missingSubmissions: missing.length,
                 missingStudentList: missing.map((student) => ({ id: student.id, name: student.name })),
                 reminderType,
-                reminderKey: `${reminderType}:${nowKey}`,
+                reminderKey,
             },
         ];
     });
 }
 
-function getReminderType(now: Date, deadline: Date): ReminderType | null {
+function getReminderType(
+    now: Date,
+    deadline: Date,
+    setting: ClassroomLineReminderSettingSnapshot
+): ReminderType | null {
     const diffDays = diffBangkokCalendarDays(deadline, now);
     if (diffDays === 1) return "before_1d";
     if (diffDays === 0) return "due_today";
     if (diffDays === -1) return "overdue_1d";
+    if (diffDays < -1 && setting.weeklySummary && isBangkokMonday(now)) return "weekly_summary";
     return null;
 }
 
@@ -231,6 +313,7 @@ const TONE_BY_TYPE: Record<ReminderType, ReminderFlexTone> = {
     before_1d: "before",
     due_today: "today",
     overdue_1d: "overdue",
+    weekly_summary: "overdue",
 };
 
 function getAppUrl(): string | undefined {
@@ -254,6 +337,20 @@ function bangkokDateKey(date: Date): string {
     return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
 }
 
+function bangkokWeekKey(date: Date): string {
+    const parts = getBangkokDateParts(date);
+    const utcDay = Date.UTC(parts.year, parts.month - 1, parts.day);
+    const yearStart = Date.UTC(parts.year, 0, 1);
+    const dayOfYear = Math.floor((utcDay - yearStart) / (24 * 60 * 60 * 1000)) + 1;
+    const week = Math.ceil(dayOfYear / 7);
+    return `${parts.year}-W${String(week).padStart(2, "0")}`;
+}
+
+function isBangkokMonday(date: Date) {
+    const parts = getBangkokDateParts(date);
+    return new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay() === 1;
+}
+
 function getBangkokDateParts(date: Date): { year: number; month: number; day: number } {
     const bangkok = new Date(date.getTime() + 7 * 60 * 60 * 1000);
     return {
@@ -270,4 +367,9 @@ function isUniqueConstraintError(error: unknown): boolean {
         "code" in error &&
         (error as { code?: string }).code === "P2002"
     );
+}
+
+function getErrorMessage(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return message.slice(0, 500);
 }

@@ -11,6 +11,7 @@ export type LineDebtCommand =
     | { type: "classroom_my_scores" }
     | { type: "classroom_my_submissions" }
     | { type: "classroom_submit_text"; studentCode: string; assignmentRef: string; content: string }
+    | { type: "classroom_submit_text_linked"; assignmentRef: string; content: string }
     | { type: "classroom_create_assignment"; name: string; deadlineText: string | null }
     | { type: "bind_classroom"; classroomId: string; secret: string }
     | { type: "bind_classroom_token"; token: string }
@@ -26,6 +27,7 @@ const SUMMARY_KEYWORDS = new Set(["สรุป", "list", "รายการ"])
 const REMIND_KEYWORDS = new Set(["ทวง", "remind"]);
 const HELP_KEYWORDS = new Set(["help", "ช่วย", "คำสั่ง"]);
 const PING_KEYWORDS = new Set(["ping", "ทดสอบ"]);
+const NEAR_MISS_HELP_KEYWORDS = new Set(["งาน", "ส่งงาน", "คะแนน", "ส่งแล้ว", "assignment", "assignments", "score", "scores", "submit"]);
 
 const CLASSROOM_HELP_KEYWORDS = new Set(["กริ่งช่วย", "น้องกริ่ง", "gring help"]);
 const CLASSROOM_SUMMARY_KEYWORDS = new Set(["สรุปงาน", "งานค้างห้อง", "gring summary"]);
@@ -87,6 +89,7 @@ export function parseLineDebtCommand(rawText: string): LineDebtCommand | null {
     if (HELP_KEYWORDS.has(lower)) return { type: "help" };
     if (SUMMARY_KEYWORDS.has(lower)) return { type: "summary" };
     if (REMIND_KEYWORDS.has(lower)) return { type: "remind" };
+    if (NEAR_MISS_HELP_KEYWORDS.has(lower)) return { type: "classroom_help" };
 
     const paidMatch = text.match(/^จ่ายแล้ว\s+#?(\d+)\s*$/i);
     if (paidMatch) {
@@ -104,9 +107,16 @@ export function parseLineDebtCommand(rawText: string): LineDebtCommand | null {
 }
 
 function parseSubmitTextCommand(text: string): LineDebtCommand | null {
-    const thaiMatch = text.match(/^ส่งงาน\s+(\S+)\s+(.+?)\s*[:：]\s*(.+)$/i);
-    if (thaiMatch) {
-        return buildSubmitTextCommand(thaiMatch[1], thaiMatch[2], thaiMatch[3]);
+    const linkedThaiMatch = text.match(/^ส่งงาน\s+(.+?)\s*[:：]\s*(.+)$/i);
+    if (linkedThaiMatch) {
+        const legacy = parseLegacyThaiSubmitTextCommand(linkedThaiMatch[1], linkedThaiMatch[2]);
+        if (legacy) return legacy;
+        return buildLinkedSubmitTextCommand(linkedThaiMatch[1], linkedThaiMatch[2]);
+    }
+
+    const linkedEnglishMatch = text.match(/^submit\s+(.+?)\s*[:：]\s*(.+)$/i);
+    if (linkedEnglishMatch && !text.toLowerCase().startsWith("submit work ")) {
+        return buildLinkedSubmitTextCommand(linkedEnglishMatch[1], linkedEnglishMatch[2]);
     }
 
     const englishMatch = text.match(/^submit work\s+(\S+)\s+(.+?)\s*[:：]\s*(.+)$/i);
@@ -115,6 +125,28 @@ function parseSubmitTextCommand(text: string): LineDebtCommand | null {
     }
 
     return null;
+}
+
+function parseLegacyThaiSubmitTextCommand(assignmentPart: string, content: string): LineDebtCommand | null {
+    const [possibleStudentCode, ...assignmentTokens] = assignmentPart.trim().split(/\s+/);
+    if (!possibleStudentCode || assignmentTokens.length === 0) return null;
+    if (!looksLikeStudentLoginCode(possibleStudentCode)) return null;
+    return buildSubmitTextCommand(possibleStudentCode, assignmentTokens.join(" "), content);
+}
+
+function looksLikeStudentLoginCode(value: string): boolean {
+    return /^[A-Z]{0,4}\d{2,}$/i.test(value) || /^[A-Z]{1,4}\d{1,}$/i.test(value);
+}
+
+function buildLinkedSubmitTextCommand(assignmentRef: string, content: string): LineDebtCommand | null {
+    const trimmedAssignmentRef = assignmentRef.trim();
+    const trimmedContent = content.trim();
+    if (!trimmedAssignmentRef || !trimmedContent) return null;
+    return {
+        type: "classroom_submit_text_linked",
+        assignmentRef: trimmedAssignmentRef,
+        content: trimmedContent,
+    };
 }
 
 function buildSubmitTextCommand(
@@ -200,20 +232,23 @@ function parseAddRest(rest: string): LineDebtCommand | null {
 export function formatClassroomReminderHelpMessage(): string {
     return [
         "LINE น้องกริ่งทวง",
-        "คำสั่งที่ใช้ได้:",
-        "- กริ่งช่วย: ดูคำสั่ง",
-        "- ผูกห้อง <classroomId> <secret>: ผูกกลุ่ม LINE กับห้องเรียน",
-        "- สร้างงาน <ชื่องาน> ส่ง <วันส่ง>: สร้างงานในห้องเรียน",
-        "- สร้างงาน <ชื่องาน> ไม่มีกำหนดส่ง: สร้างงานแบบไม่กำหนดส่ง",
-        "- ผูกนักเรียน <studentCode>: ผูกบัญชี LINE ของนักเรียนกับ GameEdu",
-        "- งานของฉัน: ดูงานค้างเฉพาะของนักเรียนที่ผูกไว้",
-        "- ส่งงาน <studentCode> <ชื่องาน>: <คำตอบ>: ส่งคำตอบข้อความเข้า GameEdu",
+        "คำสั่งหลักของครู:",
+        "- กริ่งช่วย: ดูคำสั่งนี้",
+        "- สรุปงาน: ดูภาพรวมงานค้างของห้อง",
+        "- ทวงงาน: ส่งข้อความทวงงานในกลุ่ม",
         "- งานค้าง: ดูงานที่ยังมีคนไม่ได้ส่ง",
         "- งานวันนี้: ดูงานที่กำหนดส่งวันนี้",
         "- งานใกล้ส่ง: ดูงานที่กำหนดส่งใน 3 วัน",
-        "- สรุปงาน: ดูภาพรวมงานค้างของห้อง",
-        "- ทวงงาน: ส่งข้อความทวงงานในกลุ่ม",
+        "- สร้างงาน <ชื่องาน> ส่ง <วันส่ง>: สร้างงานในห้องเรียน",
+        "- สร้างงาน <ชื่องาน> ไม่มีกำหนดส่ง: สร้างงานแบบไม่กำหนดส่ง",
         "",
+        "นักเรียนให้คุยกับบอทในแชตส่วนตัว:",
+        "- เชื่อม <รหัส 6 หลัก>",
+        "- งานของฉัน",
+        "- คะแนนของฉัน",
+        "- ส่งอะไรแล้ว",
+        "",
+        "ผูกกลุ่ม LINE: กดปุ่ม ผูก LINE ห้องนี้ ใน GameEdu แล้วคัดลอกคำสั่งไปวางในกลุ่ม",
         "ตัวอย่างวันส่ง: วันนี้, พรุ่งนี้, 5/6/2026, 2026-06-05",
     ].join("\n");
 }
@@ -221,7 +256,8 @@ export function formatClassroomReminderHelpMessage(): string {
 export function formatClassroomBindingRequiredMessage(): string {
     return [
         "ยังไม่ได้ผูกกลุ่ม LINE นี้กับห้องเรียน GameEdu",
-        "ให้ครูพิมพ์: ผูกห้อง <classroomId> <secret>",
+        "ให้ครูกดปุ่ม ผูก LINE ห้องนี้ ใน GameEdu",
+        "จากนั้นคัดลอกคำสั่ง ผูกห้อง <token> ไปวางในกลุ่ม LINE",
         "",
         "หลังผูกแล้วจะใช้ สร้างงาน, งานค้าง, สรุปงาน และ ทวงงาน ได้",
     ].join("\n");
@@ -322,7 +358,9 @@ export type LineStudentBindingSuccess = {
 export type LineMyWorkSummary = {
     classroomName: string;
     studentName: string;
+    studentUrl?: string | null;
     items: Array<{
+        assignmentCode?: string;
         assignmentName: string;
         deadline: Date | null;
     }>;
@@ -331,6 +369,7 @@ export type LineMyWorkSummary = {
 export type LineMyProgressSummary = {
     classroomName: string;
     studentName: string;
+    studentUrl?: string | null;
     submitted: Array<{
         assignmentName: string;
         score: number;
@@ -533,13 +572,19 @@ export function formatLineStudentBindingRequiredMessage(): string {
 
 export function formatLineDirectHelpMessage(): string {
     return [
-        "เชื่อม LINE กับบัญชีนักเรียน",
+        "LINE นักเรียน GameEdu",
+        "เริ่มต้น:",
         "- ไปที่หน้า GameEdu ของนักเรียน",
         "- กดปุ่ม เชื่อม LINE",
         "- คัดลอกคำสั่ง เชื่อม <code> มาวางในแชตนี้",
         "",
-        "ตัวอย่าง: เชื่อม 483921",
-        "หลังเชื่อมแล้ว LINE จะผูกกับห้องเรียนนี้ให้อัตโนมัติ",
+        "หลังเชื่อมแล้วใช้คำสั่งง่ายๆ ได้เลย:",
+        "- งานของฉัน",
+        "- คะแนนของฉัน",
+        "- ส่งอะไรแล้ว",
+        "- ส่งงาน A1: คำตอบของฉัน",
+        "",
+        "ตัวอย่างเชื่อม: เชื่อม 483921",
     ].join("\n");
 }
 
@@ -587,13 +632,15 @@ export function formatLineMyWorkMessage(summary: LineMyWorkSummary): string {
         ].join("\n");
     }
 
-    return [
+    const lines = [
         `งานของ ${summary.studentName}`,
         `ห้อง: ${summary.classroomName}`,
         ...summary.items.map((item) => `- ${item.assignmentName}: ${formatDeadline(item.deadline)}`),
         "",
         "เปิด GameEdu เพื่อตรวจรายละเอียดและส่งงานได้เลย",
-    ].join("\n");
+    ];
+    appendStudentDashboardUrlLines(lines, summary.studentUrl);
+    return lines.join("\n");
 }
 
 export function formatLineMyWorkListMessage(
@@ -632,6 +679,7 @@ export function formatLineMyWorkListMessage(
             "",
             `${summary.classroomName} - ${summary.studentName}`,
             ...summary.items.map((item) => `- ${item.assignmentName}: ${formatDeadline(item.deadline)}`),
+            ...formatStudentDashboardUrlLines(summary.studentUrl),
         ]),
         "",
         "เปิด GameEdu เพื่อดูรายละเอียดหรือส่งงานได้เลย",
@@ -663,6 +711,7 @@ export function formatLineMyScoresMessage(summaries: LineMyProgressSummary[]): s
                 ...summary.submitted
                     .slice(0, 8)
                     .map((item) => `- ${item.assignmentName}: ${item.score}/${item.maxScore}`),
+                ...formatStudentDashboardUrlLines(summary.studentUrl),
             ];
         }),
         "",
@@ -691,10 +740,19 @@ export function formatLineMySubmissionsMessage(summaries: LineMyProgressSummary[
             ...summary.submitted
                 .slice(0, 8)
                 .map((item) => `- ${item.assignmentName}: ${formatSubmittedAt(item.submittedAt)}`),
+            ...formatStudentDashboardUrlLines(summary.studentUrl),
         ]),
         "",
         "เปิด GameEdu เพื่อดูรายละเอียดหรือแก้งานตามที่ครูกำหนด",
     ].join("\n");
+}
+
+function appendStudentDashboardUrlLines(lines: string[], studentUrl: string | null | undefined) {
+    lines.push(...formatStudentDashboardUrlLines(studentUrl));
+}
+
+function formatStudentDashboardUrlLines(studentUrl: string | null | undefined): string[] {
+    return studentUrl ? ["", `GameEdu: ${studentUrl}`] : [];
 }
 
 function formatSubmittedAt(date: Date | null): string {

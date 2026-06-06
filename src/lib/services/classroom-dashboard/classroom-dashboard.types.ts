@@ -3,6 +3,14 @@ import type { Prisma } from "@prisma/client";
 export const classroomDashboardSelect = {
     id: true,
     teacherId: true,
+    teacher: {
+        select: {
+            role: true,
+            plan: true,
+            planStatus: true,
+            planExpiry: true,
+        },
+    },
     name: true,
     emoji: true,
     image: true,

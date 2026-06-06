@@ -4,7 +4,9 @@ const mockAuth = vi.fn();
 const mockAssignmentFindUnique = vi.fn();
 const mockGetOptionalDbModel = vi.fn();
 const mockDeliveryCreate = vi.fn();
-const mockPushLineText = vi.fn();
+const mockBindingFindMany = vi.fn();
+const mockBindingUpdate = vi.fn();
+const mockPushLineFlex = vi.fn();
 
 vi.mock("@/auth", () => ({
     auth: mockAuth,
@@ -20,18 +22,26 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/line-bot/client", () => ({
-    pushLineText: mockPushLineText,
+    pushLineFlex: mockPushLineFlex,
 }));
 
 describe("POST /api/classrooms/[id]/assignments/[assignmentId]/line-reminders", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockAuth.mockResolvedValue({ user: { id: "teacher-1", role: "TEACHER" } });
-        mockGetOptionalDbModel.mockReturnValue({
-            create: mockDeliveryCreate,
+        mockGetOptionalDbModel.mockImplementation((modelName: string) => {
+            if (modelName === "lineAssignmentReminderDelivery") {
+                return { create: mockDeliveryCreate };
+            }
+            if (modelName === "lineStudentBinding") {
+                return { findMany: mockBindingFindMany, update: mockBindingUpdate };
+            }
+            return null;
         });
         mockDeliveryCreate.mockResolvedValue({ id: "delivery-1" });
-        mockPushLineText.mockResolvedValue(undefined);
+        mockBindingFindMany.mockResolvedValue([]);
+        mockBindingUpdate.mockResolvedValue({});
+        mockPushLineFlex.mockResolvedValue(undefined);
     });
 
     it("rejects unauthenticated requests", async () => {
@@ -84,7 +94,11 @@ describe("POST /api/classrooms/[id]/assignments/[assignmentId]/line-reminders", 
                 targetCount: 1,
             }),
         });
-        expect(mockPushLineText).toHaveBeenCalledWith("line-group-1", expect.stringContaining("Homework 1"));
+        expect(mockPushLineFlex).toHaveBeenCalledWith(
+            "line-group-1",
+            expect.stringContaining("Homework 1"),
+            expect.any(Object)
+        );
     });
 
     it("returns zero sent when the classroom has no bound LINE group", async () => {
@@ -116,7 +130,7 @@ describe("POST /api/classrooms/[id]/assignments/[assignmentId]/line-reminders", 
             sentCount: 0,
             targetCount: 1,
         });
-        expect(mockPushLineText).not.toHaveBeenCalled();
+        expect(mockPushLineFlex).not.toHaveBeenCalled();
     });
 
     it("blocks manual dashboard LINE reminders on the free plan", async () => {
@@ -143,6 +157,6 @@ describe("POST /api/classrooms/[id]/assignments/[assignmentId]/line-reminders", 
 
         expect(res.status).toBe(403);
         expect(body.error.code).toBe("PLAN_LIMIT_AI_FEATURE");
-        expect(mockPushLineText).not.toHaveBeenCalled();
+        expect(mockPushLineFlex).not.toHaveBeenCalled();
     });
 });

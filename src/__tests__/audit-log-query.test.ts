@@ -48,7 +48,7 @@ describe("buildAuditLogQuery", () => {
         },
         {
           action: {
-            $not: /^(admin|classroom|socket|upload|auth)\./i,
+            $not: /^(admin|classroom|socket|upload|auth|ai|billing|line)\./i,
           },
         },
       ],

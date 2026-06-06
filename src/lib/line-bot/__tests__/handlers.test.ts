@@ -14,6 +14,7 @@ const mockMarkLineGroupDebtPaid = vi.fn();
 const mockPushLineText = vi.fn();
 const mockReplyLineText = vi.fn();
 const mockSubmitTextAssignmentForLineGroup = vi.fn();
+const mockSubmitTextAssignmentForLinkedLineAccount = vi.fn();
 const mockUpsertLineBotGroup = vi.fn();
 const mockConsumeStudentLineLinkCode = vi.fn();
 
@@ -42,6 +43,7 @@ vi.mock("@/lib/line-bot/repository", () => ({
     listOpenDebtsForLineGroup: mockListOpenDebtsForLineGroup,
     markLineGroupDebtPaid: mockMarkLineGroupDebtPaid,
     submitTextAssignmentForLineGroup: mockSubmitTextAssignmentForLineGroup,
+    submitTextAssignmentForLinkedLineAccount: mockSubmitTextAssignmentForLinkedLineAccount,
     upsertLineBotGroup: mockUpsertLineBotGroup,
 }));
 
@@ -53,6 +55,7 @@ describe("line-bot handlers", () => {
         mockBindLineStudentToStudentCode.mockResolvedValue({ ok: false, reason: "UNBOUND" });
         mockGetLineMyWorkSummary.mockResolvedValue({ ok: false, reason: "NOT_BOUND" });
         mockSubmitTextAssignmentForLineGroup.mockResolvedValue({ ok: false, reason: "UNBOUND" });
+        mockSubmitTextAssignmentForLinkedLineAccount.mockResolvedValue({ ok: false, reason: "UNBOUND" });
         mockConsumeStudentLineLinkCode.mockResolvedValue({ ok: false, reason: "NOT_FOUND" });
         mockGetClassroomReminderSummaryForLineGroup.mockResolvedValue(null);
         mockGetLineMyProgressSummariesForLinkedAccount.mockResolvedValue({ ok: false, reason: "NOT_BOUND" });
@@ -206,6 +209,31 @@ describe("line-bot handlers", () => {
         expect(result.replyText).toContain("M1/1");
     });
 
+    it("submits text work from a linked private LINE account without student code", async () => {
+        mockSubmitTextAssignmentForLinkedLineAccount.mockResolvedValue({
+            ok: true,
+            submission: {
+                assignmentName: "Homework 1",
+                classroomName: "M1/1",
+                replacedPreviousSubmission: false,
+            },
+        });
+
+        const { processDirectTextCommand } = await import("@/lib/line-bot/handlers");
+        const result = await processDirectTextCommand({
+            lineUserId: "line-user-1",
+            text: "submit A1: My answer",
+        });
+
+        expect(mockSubmitTextAssignmentForLinkedLineAccount).toHaveBeenCalledWith({
+            lineUserId: "line-user-1",
+            assignmentRef: "A1",
+            content: "My answer",
+        });
+        expect(result.replyText).toContain("Homework 1");
+        expect(result.replyText).toContain("M1/1");
+    });
+
     it("requires classroom binding before summary and remind commands", async () => {
         const { processGroupTextCommand } = await import("@/lib/line-bot/handlers");
 
@@ -218,8 +246,8 @@ describe("line-bot handlers", () => {
             text: "gring remind",
         });
 
-        expect(summary.replyText).toContain("<classroomId> <secret>");
-        expect(remind.replyText).toContain("<classroomId> <secret>");
+        expect(summary.replyText).toContain("<token>");
+        expect(remind.replyText).toContain("<token>");
         expect(mockListOpenDebtsForLineGroup).not.toHaveBeenCalled();
     });
 
@@ -329,7 +357,7 @@ describe("line-bot handlers", () => {
             text: "missing work",
         });
 
-        expect(result.replyText).toContain("<classroomId> <secret>");
+        expect(result.replyText).toContain("<token>");
     });
 
     it("creates a classroom assignment through LINE when group is bound", async () => {
@@ -365,7 +393,7 @@ describe("line-bot handlers", () => {
             text: "create assignment Homework 1 due tomorrow",
         });
 
-        expect(result.replyText).toContain("<classroomId> <secret>");
+        expect(result.replyText).toContain("<token>");
     });
 
     it("returns a helpful message when assignment deadline cannot be parsed", async () => {
@@ -413,7 +441,7 @@ describe("line-bot handlers", () => {
             text: "submit work S123 Homework 1: My answer",
         });
 
-        expect(result.replyText).toContain("<classroomId> <secret>");
+        expect(result.replyText).toContain("<token>");
     });
 
     it("returns a private binding confirmation for a LINE user student code", async () => {

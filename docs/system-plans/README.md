@@ -36,8 +36,11 @@ Use this folder for system-by-system analysis and development planning across Ga
 28. [Negamon Level Form Skill Progression Rework](./28-negamon-level-form-skill-progression-rework.md)
 29. [Negamon Pokemon-Inspired Skill Redesign](./29-negamon-pokemon-inspired-skill-redesign.md)
 30. [Negamon Battle V4 Correctness and QA](./30-negamon-battle-v4-correctness-and-qa.md)
-
 31. [Negamon V4 Pokemon Improvement Plan](./31-negamon-v4-pokemon-improvement-plan.md)
+32. [GameEdu Reminder Assistant](./32-gameedu-reminder-assistant.md)
+33. [Nong Gring LINE Assignment Roadmap](./33-nong-gring-line-assignment-roadmap.md)
+34. [Nong Gring LINE Simple UX Mode](./34-nong-gring-line-ux-simple-mode.md)
+35. [Nong Gring LINE Production Growth Plan](./35-nong-gring-line-production-growth-plan.md)
 
 ## How To Use
 

@@ -205,3 +205,32 @@ export async function resetStudentLineLink(input: {
 
     return response.json() as Promise<ResetStudentLineLinkResult>;
 }
+
+export type TrackLineUpgradePromptSource =
+    | "line_panel_blocked_card"
+    | "line_auto_reminder_locked"
+    | "line_export_readiness_locked"
+    | "line_export_submissions_locked"
+    | "line_bulk_reminder_locked"
+    | "line_assignment_send_locked";
+
+export function trackLineUpgradePromptClick(input: {
+    classroomId: string;
+    source: TrackLineUpgradePromptSource;
+}) {
+    const endpoint = `/api/classrooms/${input.classroomId}/line-upgrade-click`;
+    const payload = JSON.stringify({ source: input.source });
+
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+        const body = new Blob([payload], { type: "application/json" });
+        navigator.sendBeacon(endpoint, body);
+        return;
+    }
+
+    void fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+        keepalive: true,
+    }).catch(() => undefined);
+}

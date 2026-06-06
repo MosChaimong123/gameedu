@@ -33,7 +33,7 @@ export const PLAN_LIMITS: Record<SubscriptionPlanId, PlanLimits> = {
         maxQuestionSets: 10,
         maxQuestionsPerSet: 30,
         maxLiveGamePlayers: 40,
-        maxOmrScansPerMonth: 50,
+        maxOmrScansPerMonth: 30,
         maxClassrooms: 5,
         aiQuestionGeneration: false,
         aiFileParse: false,

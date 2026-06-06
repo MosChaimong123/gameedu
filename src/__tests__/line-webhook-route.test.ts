@@ -2,9 +2,14 @@ import { createHmac } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const handleLineWebhookEvents = vi.fn();
+const logAuditEvent = vi.fn();
 
 vi.mock("@/lib/line-bot/handlers", () => ({
     handleLineWebhookEvents,
+}));
+
+vi.mock("@/lib/security/audit-log", () => ({
+    logAuditEvent,
 }));
 
 vi.mock("@/lib/line-bot/config", () => ({
@@ -19,6 +24,7 @@ function signBody(body: string, secret: string): string {
 describe("POST /api/webhooks/line", () => {
     beforeEach(() => {
         handleLineWebhookEvents.mockReset();
+        logAuditEvent.mockReset();
         process.env.LINE_CHANNEL_SECRET = "test-channel-secret";
         process.env.LINE_CHANNEL_ACCESS_TOKEN = "test-access-token";
     });
@@ -57,5 +63,14 @@ describe("POST /api/webhooks/line", () => {
 
         expect(res.status).toBe(200);
         expect(handleLineWebhookEvents).toHaveBeenCalledTimes(1);
+        expect(logAuditEvent).toHaveBeenCalledWith({
+            action: "line.webhook.received",
+            category: "line",
+            status: "success",
+            targetType: "LineWebhook",
+            metadata: {
+                eventCount: 1,
+            },
+        });
     });
 });

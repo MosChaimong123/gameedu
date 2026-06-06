@@ -9,6 +9,7 @@ import {
     formatLineAssignmentCreatedMessage,
     formatLineAssignmentCreateFailedMessage,
     formatLineDirectHelpMessage,
+    formatLineMyWorkListMessage,
     formatLineMyWorkMessage,
     formatLineMyScoresMessage,
     formatLineMySubmissionsMessage,
@@ -73,10 +74,22 @@ describe("line-bot commands", () => {
         expect(parseLineDebtCommand("งานของฉัน")).toEqual({ type: "classroom_my_work" });
         expect(parseLineDebtCommand("my assignments")).toEqual({ type: "classroom_my_work" });
         expect(parseLineDebtCommand("my work")).toEqual({ type: "classroom_my_work" });
+        expect(parseLineDebtCommand("งาน")).toEqual({ type: "classroom_help" });
+        expect(parseLineDebtCommand("scores")).toEqual({ type: "classroom_help" });
         expect(parseLineDebtCommand("คะแนนของฉัน")).toEqual({ type: "classroom_my_scores" });
         expect(parseLineDebtCommand("my scores")).toEqual({ type: "classroom_my_scores" });
         expect(parseLineDebtCommand("ส่งอะไรแล้ว")).toEqual({ type: "classroom_my_submissions" });
         expect(parseLineDebtCommand("submitted work")).toEqual({ type: "classroom_my_submissions" });
+        expect(parseLineDebtCommand("ส่งงาน A1: My answer")).toEqual({
+            type: "classroom_submit_text_linked",
+            assignmentRef: "A1",
+            content: "My answer",
+        });
+        expect(parseLineDebtCommand("submit A2: My answer")).toEqual({
+            type: "classroom_submit_text_linked",
+            assignmentRef: "A2",
+            content: "My answer",
+        });
         expect(parseLineDebtCommand("submit work S123 Homework 1: My answer")).toEqual({
             type: "classroom_submit_text",
             studentCode: "S123",
@@ -114,7 +127,8 @@ describe("line-bot commands", () => {
     it("formats classroom MVP messages", () => {
         expect(formatClassroomReminderHelpMessage()).toContain("LINE");
         expect(formatClassroomReminderHelpMessage()).toContain("สร้างงาน");
-        expect(formatClassroomBindingRequiredMessage()).toContain("<classroomId> <secret>");
+        expect(formatClassroomBindingRequiredMessage()).toContain("<token>");
+        expect(formatClassroomReminderHelpMessage()).not.toContain("<classroomId> <secret>");
         expect(formatClassroomBindingSuccessMessage("M1/1")).toContain("M1/1");
         expect(formatClassroomBindingFailedMessage()).toContain("secret");
         expect(formatLineAssignmentCreateFailedMessage()).toContain("สร้างงาน");
@@ -137,14 +151,26 @@ describe("line-bot commands", () => {
             formatLineMyWorkMessage({
                 classroomName: "M1/1",
                 studentName: "Somchai",
+                studentUrl: "https://www.teachplayedu.com/student/S123",
                 items: [{ assignmentName: "Homework 1", deadline: null }],
             })
         ).toContain("Homework 1");
+        expect(
+            formatLineMyWorkListMessage([
+                {
+                    classroomName: "M1/1",
+                    studentName: "Somchai",
+                    studentUrl: "https://www.teachplayedu.com/student/S123",
+                    items: [{ assignmentName: "A1 · Homework 1", deadline: null }],
+                },
+            ])
+        ).toContain("https://www.teachplayedu.com/student/S123");
         expect(
             formatLineMyScoresMessage([
                 {
                     classroomName: "M1/1",
                     studentName: "Somchai",
+                    studentUrl: "https://www.teachplayedu.com/student/S123",
                     submitted: [
                         {
                             assignmentName: "Homework 1",
@@ -157,10 +183,28 @@ describe("line-bot commands", () => {
             ])
         ).toContain("8/10");
         expect(
+            formatLineMyScoresMessage([
+                {
+                    classroomName: "M1/1",
+                    studentName: "Somchai",
+                    studentUrl: "https://www.teachplayedu.com/student/S123",
+                    submitted: [
+                        {
+                            assignmentName: "Homework 1",
+                            score: 8,
+                            maxScore: 10,
+                            submittedAt: new Date("2026-06-03T04:00:00.000Z"),
+                        },
+                    ],
+                },
+            ])
+        ).toContain("https://www.teachplayedu.com/student/S123");
+        expect(
             formatLineMySubmissionsMessage([
                 {
                     classroomName: "M1/1",
                     studentName: "Somchai",
+                    studentUrl: "https://www.teachplayedu.com/student/S123",
                     submitted: [
                         {
                             assignmentName: "Homework 1",

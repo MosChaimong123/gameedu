@@ -13,7 +13,7 @@ const actionGroupValues = ["", "admin.", "classroom.", "socket.", "upload."] as 
 
 const statusValues = ["", "success", "rejected", "error"] as const;
 
-const categoryValues = ["", "admin", "classroom", "socket", "upload", "auth", "other"] as const;
+const categoryValues = ["", "admin", "classroom", "socket", "upload", "auth", "billing", "line", "ai", "other"] as const;
 
 function readQueryParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {

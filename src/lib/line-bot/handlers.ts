@@ -1,4 +1,5 @@
 import type { WebhookEvent } from "@line/bot-sdk";
+import { logAuditEvent } from "@/lib/security/audit-log";
 import {
     formatClassroomBindingFailedMessage,
     formatClassroomBindingRequiredMessage,
@@ -6,7 +7,6 @@ import {
     formatClassroomWorkReminder,
     formatClassroomWorkSummary,
     formatClassroomReminderHelpMessage,
-    formatDebtHelpMessage,
     formatLineAssignmentCreatedMessage,
     formatLineAssignmentCreateFailedMessage,
     formatLineDirectHelpMessage,
@@ -44,6 +44,7 @@ import {
     listOpenDebtsForLineGroup,
     markLineGroupDebtPaid,
     getLineMyWorkSummary,
+    submitTextAssignmentForLinkedLineAccount,
     submitTextAssignmentForLineGroup,
     upsertLineBotGroup,
 } from "@/lib/line-bot/repository";
@@ -133,12 +134,28 @@ export async function processDirectTextCommand(input: {
                 code: command.code,
             });
             if (!result.ok) {
+                logAuditEvent({
+                    action: "line.student.account_link",
+                    category: "line",
+                    status: "rejected",
+                    targetType: "LineUser",
+                    targetId: input.lineUserId,
+                    metadata: { reason: "invalid_code" },
+                });
                 return {
                     handled: true,
                     replyText: formatLineStudentAccountLinkFailedMessage(),
                 };
             }
 
+            logAuditEvent({
+                action: "line.student.account_link",
+                category: "line",
+                status: "success",
+                targetType: "LineUser",
+                targetId: input.lineUserId,
+                metadata: { classroomName: result.link.classroomName },
+            });
             return {
                 handled: true,
                 replyText: formatLineStudentAccountLinkedMessage(result.link),
@@ -172,6 +189,39 @@ export async function processDirectTextCommand(input: {
                         : formatLineMySubmissionsMessage(result.summaries)
                     : formatLineStudentBindingRequiredMessage(),
             };
+        }
+        case "classroom_submit_text_linked": {
+            const result = await submitTextAssignmentForLinkedLineAccount({
+                lineUserId: input.lineUserId,
+                assignmentRef: command.assignmentRef,
+                content: command.content,
+            });
+            if (!result.ok) {
+                logAuditEvent({
+                    action: "line.submission.create",
+                    category: "line",
+                    status: result.reason === "PLAN_LIMIT" ? "rejected" : "error",
+                    targetType: "LineUser",
+                    targetId: input.lineUserId,
+                    metadata: { reason: result.reason, assignmentRef: command.assignmentRef },
+                });
+                return {
+                    handled: true,
+                    replyText:
+                        result.reason === "PLAN_LIMIT"
+                            ? formatLinePlanLimitMessage()
+                            : formatLineTextSubmissionFailedMessage(),
+                };
+            }
+            logAuditEvent({
+                action: "line.submission.create",
+                category: "line",
+                status: "success",
+                targetType: "LineAssignmentRef",
+                targetId: command.assignmentRef,
+                metadata: { lineUserId: input.lineUserId, assignmentRef: command.assignmentRef },
+            });
+            return { handled: true, replyText: formatLineTextSubmissionSuccessMessage(result.submission) };
         }
         case "classroom_help":
         case "help":
@@ -233,6 +283,14 @@ export async function processGroupTextCommand(input: {
                 studentCode: command.studentCode,
             });
             if (!result.ok) {
+                logAuditEvent({
+                    action: "line.student.bind",
+                    category: "line",
+                    status: "rejected",
+                    targetType: "LineGroup",
+                    targetId: input.lineGroupId,
+                    metadata: { reason: result.reason, lineUserId: input.createdByLineUserId },
+                });
                 return {
                     handled: true,
                     replyText:
@@ -241,6 +299,14 @@ export async function processGroupTextCommand(input: {
                             : formatLineStudentBindingFailedMessage(),
                 };
             }
+            logAuditEvent({
+                action: "line.student.bind",
+                category: "line",
+                status: "success",
+                targetType: "LineGroup",
+                targetId: input.lineGroupId,
+                metadata: { lineUserId: input.createdByLineUserId, studentCode: command.studentCode },
+            });
             return {
                 handled: true,
                 replyText: formatLinePrivateReplySentMessage(),
@@ -306,6 +372,14 @@ export async function processGroupTextCommand(input: {
                 deadlineText: command.deadlineText,
             });
             if (!result.ok) {
+                logAuditEvent({
+                    action: "line.assignment.create",
+                    category: "line",
+                    status: result.reason === "PLAN_LIMIT" ? "rejected" : "error",
+                    targetType: "LineGroup",
+                    targetId: input.lineGroupId,
+                    metadata: { reason: result.reason, name: command.name },
+                });
                 return {
                     handled: true,
                     replyText:
@@ -316,6 +390,14 @@ export async function processGroupTextCommand(input: {
                             : formatLineAssignmentCreateFailedMessage(),
                 };
             }
+            logAuditEvent({
+                action: "line.assignment.create",
+                category: "line",
+                status: "success",
+                targetType: "Assignment",
+                targetId: result.assignment.id,
+                metadata: { lineGroupId: input.lineGroupId, name: command.name },
+            });
             return { handled: true, replyText: formatLineAssignmentCreatedMessage(result.assignment) };
         }
         case "classroom_submit_text": {
@@ -326,6 +408,14 @@ export async function processGroupTextCommand(input: {
                 content: command.content,
             });
             if (!result.ok) {
+                logAuditEvent({
+                    action: "line.submission.create",
+                    category: "line",
+                    status: result.reason === "PLAN_LIMIT" ? "rejected" : "error",
+                    targetType: "LineGroup",
+                    targetId: input.lineGroupId,
+                    metadata: { reason: result.reason, studentCode: command.studentCode, assignmentRef: command.assignmentRef },
+                });
                 return {
                     handled: true,
                     replyText:
@@ -336,11 +426,27 @@ export async function processGroupTextCommand(input: {
                             : formatLineTextSubmissionFailedMessage(),
                 };
             }
+            logAuditEvent({
+                action: "line.submission.create",
+                category: "line",
+                status: "success",
+                targetType: "LineAssignmentRef",
+                targetId: command.assignmentRef,
+                metadata: { lineGroupId: input.lineGroupId, studentCode: command.studentCode, assignmentRef: command.assignmentRef },
+            });
             return { handled: true, replyText: formatLineTextSubmissionSuccessMessage(result.submission) };
         }
         case "bind_classroom": {
             const expectedSecret = getLineClassroomBindingSecret();
             if (!expectedSecret || command.secret !== expectedSecret) {
+                logAuditEvent({
+                    action: "line.classroom.bind",
+                    category: "line",
+                    status: "rejected",
+                    targetType: "LineGroup",
+                    targetId: input.lineGroupId,
+                    metadata: { reason: "invalid_secret", classroomId: command.classroomId },
+                });
                 return { handled: true, replyText: formatClassroomBindingFailedMessage() };
             }
 
@@ -349,9 +455,25 @@ export async function processGroupTextCommand(input: {
                 classroomId: command.classroomId,
             });
             if (!result.ok) {
+                logAuditEvent({
+                    action: "line.classroom.bind",
+                    category: "line",
+                    status: "error",
+                    targetType: "LineGroup",
+                    targetId: input.lineGroupId,
+                    metadata: { reason: "classroom_not_found", classroomId: command.classroomId },
+                });
                 return { handled: true, replyText: formatClassroomBindingFailedMessage() };
             }
 
+            logAuditEvent({
+                action: "line.classroom.bind",
+                category: "line",
+                status: "success",
+                targetType: "LineGroup",
+                targetId: input.lineGroupId,
+                metadata: { classroomId: command.classroomId, classroomName: result.classroomName },
+            });
             return {
                 handled: true,
                 replyText: formatClassroomBindingSuccessMessage(result.classroomName),
@@ -365,6 +487,14 @@ export async function processGroupTextCommand(input: {
 
             const decoded = decodeLineClassroomBindingToken(command.token, expectedSecret);
             if (!decoded) {
+                logAuditEvent({
+                    action: "line.classroom.bind",
+                    category: "line",
+                    status: "rejected",
+                    targetType: "LineGroup",
+                    targetId: input.lineGroupId,
+                    metadata: { reason: "invalid_token" },
+                });
                 return { handled: true, replyText: formatClassroomBindingFailedMessage() };
             }
 
@@ -373,9 +503,25 @@ export async function processGroupTextCommand(input: {
                 classroomId: decoded.classroomId,
             });
             if (!result.ok) {
+                logAuditEvent({
+                    action: "line.classroom.bind",
+                    category: "line",
+                    status: "error",
+                    targetType: "LineGroup",
+                    targetId: input.lineGroupId,
+                    metadata: { reason: "classroom_not_found", classroomId: decoded.classroomId },
+                });
                 return { handled: true, replyText: formatClassroomBindingFailedMessage() };
             }
 
+            logAuditEvent({
+                action: "line.classroom.bind",
+                category: "line",
+                status: "success",
+                targetType: "LineGroup",
+                targetId: input.lineGroupId,
+                metadata: { classroomId: decoded.classroomId, classroomName: result.classroomName },
+            });
             return {
                 handled: true,
                 replyText: formatClassroomBindingSuccessMessage(result.classroomName),
@@ -384,7 +530,7 @@ export async function processGroupTextCommand(input: {
         case "ping":
             return { handled: true, replyText: "pong - LINE bot พร้อมใช้งาน" };
         case "help":
-            return { handled: true, replyText: formatDebtHelpMessage() };
+            return { handled: true, replyText: formatClassroomReminderHelpMessage() };
         case "summary": {
             const rows = await listOpenDebtsForLineGroup(input.lineGroupId);
             return { handled: true, replyText: formatOpenDebtSummary(rows) };

@@ -15,6 +15,11 @@ import { gradeLineTextSubmissionWithAi, type LineAiPreliminaryGradeResult } from
 import { sendNotification } from "@/lib/notifications";
 import { awardLineAssignmentSubmissionReward } from "@/lib/services/student-economy/line-assignment-reward";
 import { canUseLineFeature, getLineCreatedAssignmentMonthlyLimit } from "@/lib/line-bot/plan-access";
+import {
+    buildLineSubmissionContent,
+    getLineAssignmentShortCode,
+    matchesLineAssignmentRef,
+} from "@/lib/line-bot/submission-content";
 
 export const LINE_DEBT_STATUS_OPEN = "OPEN";
 export const LINE_DEBT_STATUS_PAID = "PAID";
@@ -156,7 +161,7 @@ export type CreateLineAssignmentResult =
 
 export type SubmitLineTextAssignmentResult =
     | { ok: true; submission: LineTextSubmission }
-    | { ok: false; reason: "UNBOUND" | "NOT_FOUND" | "UNSUPPORTED_ASSIGNMENT" | "PLAN_LIMIT" };
+    | { ok: false; reason: "UNBOUND" | "NOT_FOUND" | "UNSUPPORTED_ASSIGNMENT" | "PLAN_LIMIT" | "AMBIGUOUS" };
 
 export type BindLineStudentResult =
     | { ok: true; binding: LineStudentBindingSuccess }
@@ -347,6 +352,7 @@ export async function submitTextAssignmentForLineGroup(input: {
                             description: true,
                             type: true,
                             maxScore: true,
+                            order: true,
                         },
                     },
                 },
@@ -369,16 +375,136 @@ export async function submitTextAssignmentForLineGroup(input: {
         return { ok: false, reason: "NOT_FOUND" };
     }
 
-    const assignmentRef = input.assignmentRef.trim();
-    const assignment = group.classroom.assignments.find((item) => item.id === assignmentRef)
-        ?? group.classroom.assignments.find(
-            (item) => item.name.trim().toLowerCase() === assignmentRef.toLowerCase()
-        );
-    if (!assignment) {
+    const assignment = resolveLineAssignmentRef(group.classroom.assignments, input.assignmentRef);
+    if (assignment.status === "not_found") {
         return { ok: false, reason: "NOT_FOUND" };
     }
+    if (assignment.status === "ambiguous") {
+        return { ok: false, reason: "AMBIGUOUS" };
+    }
 
-    const assignmentType = assignment.type.toLowerCase();
+    return submitResolvedLineTextAssignment({
+        classroom: group.classroom,
+        student,
+        assignment: assignment.assignment,
+        content: input.content,
+    });
+}
+
+export async function submitTextAssignmentForLinkedLineAccount(input: {
+    lineUserId: string;
+    assignmentRef: string;
+    content: string;
+}): Promise<SubmitLineTextAssignmentResult> {
+    const links = await db.lineStudentAccountLink.findMany({
+        where: { lineUserId: input.lineUserId },
+        select: {
+            classroomId: true,
+            studentId: true,
+        },
+        orderBy: { createdAt: "desc" },
+    });
+
+    if (links.length === 0) {
+        return { ok: false, reason: "UNBOUND" };
+    }
+
+    const candidates = (
+        await Promise.all(
+            links.map(async (link) => {
+                const [classroom, student] = await Promise.all([
+                    db.classroom.findUnique({
+                        where: { id: link.classroomId },
+                        select: {
+                            id: true,
+                            name: true,
+                            teacher: {
+                                select: {
+                                    role: true,
+                                    plan: true,
+                                    planStatus: true,
+                                    planExpiry: true,
+                                },
+                            },
+                            assignments: {
+                                where: { visible: true },
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    description: true,
+                                    type: true,
+                                    maxScore: true,
+                                    order: true,
+                                },
+                            },
+                        },
+                    }),
+                    db.student.findUnique({
+                        where: { id: link.studentId },
+                        select: { id: true },
+                    }),
+                ]);
+
+                if (!classroom || !student) return null;
+                if (!canUseLineFeature(classroom.teacher, "lineSubmission")) {
+                    return { status: "plan_limit" as const };
+                }
+                const assignment = resolveLineAssignmentRef(classroom.assignments, input.assignmentRef);
+                if (assignment.status !== "ok") return assignment;
+                return {
+                    status: "ok" as const,
+                    classroom,
+                    student,
+                    assignment: assignment.assignment,
+                };
+            })
+        )
+    ).filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null);
+
+    if (candidates.some((candidate) => candidate.status === "plan_limit")) {
+        return { ok: false, reason: "PLAN_LIMIT" };
+    }
+
+    const matched = candidates.filter((candidate) => candidate.status === "ok");
+    if (matched.length === 0) {
+        return candidates.some((candidate) => candidate.status === "ambiguous")
+            ? { ok: false, reason: "AMBIGUOUS" }
+            : { ok: false, reason: "NOT_FOUND" };
+    }
+    if (matched.length > 1) {
+        return { ok: false, reason: "AMBIGUOUS" };
+    }
+
+    return submitResolvedLineTextAssignment({
+        classroom: matched[0].classroom,
+        student: matched[0].student,
+        assignment: matched[0].assignment,
+        content: input.content,
+    });
+}
+
+async function submitResolvedLineTextAssignment(input: {
+    classroom: {
+        id: string;
+        name: string;
+        teacher: {
+            role: string;
+            plan: string | null;
+            planStatus: string | null;
+            planExpiry: Date | null;
+        };
+    };
+    student: { id: string };
+    assignment: {
+        id: string;
+        name: string;
+        description: string | null;
+        type: string;
+        maxScore: number;
+    };
+    content: string;
+}): Promise<SubmitLineTextAssignmentResult> {
+    const assignmentType = input.assignment.type.toLowerCase();
     if (assignmentType === "quiz" || assignmentType === "worksheet") {
         return { ok: false, reason: "UNSUPPORTED_ASSIGNMENT" };
     }
@@ -386,33 +512,34 @@ export async function submitTextAssignmentForLineGroup(input: {
     const existing = await db.assignmentSubmission.findUnique({
         where: {
             studentId_assignmentId: {
-                studentId: student.id,
-                assignmentId: assignment.id,
+                studentId: input.student.id,
+                assignmentId: input.assignment.id,
             },
         },
         select: { id: true },
     });
 
-    const aiPreliminaryGrade = canUseLineFeature(group.classroom.teacher, "lineAiPreliminaryGrading")
+    const aiPreliminaryGrade = canUseLineFeature(input.classroom.teacher, "lineAiPreliminaryGrading")
         ? await gradeLineTextSubmissionWithAi({
-            assignmentName: assignment.name,
-            assignmentDescription: assignment.description,
-            maxScore: assignment.maxScore,
+            assignmentName: input.assignment.name,
+            assignmentDescription: input.assignment.description,
+            maxScore: input.assignment.maxScore,
             studentAnswer: input.content,
         })
         : ({ status: "unavailable", reason: "plan_limit" } as LineAiPreliminaryGradeResult);
-    const score = aiPreliminaryGrade.status === "graded" ? aiPreliminaryGrade.suggestedScore : 0;
+    // AI grading is advisory only. The teacher must confirm the final score in the dashboard.
+    const score = 0;
 
     await db.assignmentSubmission.upsert({
         where: {
             studentId_assignmentId: {
-                studentId: student.id,
-                assignmentId: assignment.id,
+                studentId: input.student.id,
+                assignmentId: input.assignment.id,
             },
         },
         create: {
-            studentId: student.id,
-            assignmentId: assignment.id,
+            studentId: input.student.id,
+            assignmentId: input.assignment.id,
             score,
             content: buildLineSubmissionContent(input.content, aiPreliminaryGrade),
             cheatingLogs: [],
@@ -433,18 +560,18 @@ export async function submitTextAssignmentForLineGroup(input: {
             }
             : null;
     const reward = await awardLineAssignmentSubmissionReward(db, {
-        studentId: student.id,
-        classId: group.classroom.id,
-        assignmentId: assignment.id,
-        assignmentName: assignment.name,
+        studentId: input.student.id,
+        classId: input.classroom.id,
+        assignmentId: input.assignment.id,
+        assignmentName: input.assignment.name,
         aiPreliminaryScore,
     });
 
     return {
         ok: true,
         submission: {
-            assignmentName: assignment.name,
-            classroomName: group.classroom.name,
+            assignmentName: input.assignment.name,
+            classroomName: input.classroom.name,
             replacedPreviousSubmission: Boolean(existing),
             aiPreliminaryScore,
             reward: {
@@ -453,6 +580,16 @@ export async function submitTextAssignmentForLineGroup(input: {
             },
         },
     };
+}
+
+function resolveLineAssignmentRef<T extends { id: string; name: string; order?: number | null }>(
+    assignments: T[],
+    rawRef: string
+): { status: "ok"; assignment: T } | { status: "not_found" } | { status: "ambiguous" } {
+    const matches = assignments.filter((assignment) => matchesLineAssignmentRef(assignment, rawRef));
+    if (matches.length === 0) return { status: "not_found" };
+    if (matches.length > 1) return { status: "ambiguous" };
+    return { status: "ok", assignment: matches[0] };
 }
 
 export async function bindLineStudentToStudentCode(input: {
@@ -550,6 +687,7 @@ export async function getLineMyWorkSummary(input: {
                             id: true,
                             name: true,
                             deadline: true,
+                            order: true,
                         },
                     },
                 },
@@ -578,6 +716,7 @@ export async function getLineMyWorkSummary(input: {
         select: {
             id: true,
             name: true,
+            loginCode: true,
             submissions: {
                 select: {
                     assignmentId: true,
@@ -595,7 +734,8 @@ export async function getLineMyWorkSummary(input: {
         .sort((a, b) => (a.deadline?.getTime() ?? Number.POSITIVE_INFINITY) - (b.deadline?.getTime() ?? Number.POSITIVE_INFINITY))
         .slice(0, 8)
         .map((assignment) => ({
-            assignmentName: assignment.name,
+            assignmentCode: getLineAssignmentShortCode(assignment),
+            assignmentName: `${getLineAssignmentShortCode(assignment)} · ${assignment.name}`,
             deadline: assignment.deadline,
         }));
 
@@ -604,6 +744,7 @@ export async function getLineMyWorkSummary(input: {
         summary: {
             classroomName: group.classroom.name,
             studentName: student.name,
+            studentUrl: getStudentDashboardUrl(student.loginCode),
             items,
         },
     };
@@ -627,7 +768,7 @@ export async function getLineMyWorkSummariesForLinkedAccount(input: {
 
     const summaries = (
         await Promise.all(
-            links.map(async (link) => {
+            links.map(async (link): Promise<LineMyWorkSummary | null> => {
                 const [classroom, student] = await Promise.all([
                     db.classroom.findUnique({
                         where: { id: link.classroomId },
@@ -640,6 +781,7 @@ export async function getLineMyWorkSummariesForLinkedAccount(input: {
                                     id: true,
                                     name: true,
                                     deadline: true,
+                                    order: true,
                                 },
                             },
                         },
@@ -649,6 +791,7 @@ export async function getLineMyWorkSummariesForLinkedAccount(input: {
                         select: {
                             id: true,
                             name: true,
+                            loginCode: true,
                             submissions: {
                                 select: {
                                     assignmentId: true,
@@ -670,13 +813,15 @@ export async function getLineMyWorkSummariesForLinkedAccount(input: {
                     )
                     .slice(0, 8)
                     .map((assignment) => ({
-                        assignmentName: assignment.name,
+                        assignmentCode: getLineAssignmentShortCode(assignment),
+                        assignmentName: `${getLineAssignmentShortCode(assignment)} · ${assignment.name}`,
                         deadline: assignment.deadline,
                     }));
 
                 return {
                     classroomName: classroom.name,
                     studentName: student.name,
+                    studentUrl: getStudentDashboardUrl(student.loginCode),
                     items,
                 };
             })
@@ -735,6 +880,7 @@ async function buildProgressSummaries(
                         select: {
                             id: true,
                             name: true,
+                            loginCode: true,
                             submissions: {
                                 select: {
                                     assignmentId: true,
@@ -770,6 +916,7 @@ async function buildProgressSummaries(
                 return {
                     classroomName: classroom.name,
                     studentName: student.name,
+                    studentUrl: getStudentDashboardUrl(student.loginCode),
                     submitted,
                 };
             })
@@ -777,13 +924,10 @@ async function buildProgressSummaries(
     ).filter((summary): summary is NonNullable<typeof summary> => summary !== null);
 }
 
-function buildLineSubmissionContent(content: string, aiPreliminaryGrade?: LineAiPreliminaryGradeResult): string {
-    return JSON.stringify({
-        mode: "line_text",
-        text: content,
-        submittedVia: "line",
-        aiPreliminaryGrading: aiPreliminaryGrade ?? { status: "unavailable", reason: "not_requested" },
-    });
+function getStudentDashboardUrl(loginCode: string | null | undefined): string | null {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
+    if (!appUrl || !loginCode) return null;
+    return `${appUrl}/student/${encodeURIComponent(loginCode)}`;
 }
 
 function parseLineAssignmentDeadline(

@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Check, Clipboard, Download, ExternalLink, Link2, MessageCircleMore, SendHorizonal } from "lucide-react";
+import { AlertCircle, Check, Clipboard, Download, ExternalLink, Link2, MessageCircleMore, SendHorizonal, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -17,8 +18,10 @@ import {
     resetStudentLineLink,
     sendAssignmentLineReminder,
     sendClassroomLineReminder,
+    trackLineUpgradePromptClick,
     type SendClassroomLineReminderResult,
 } from "@/lib/classroom-dashboard-actions";
+import { canUseLineFeature } from "@/lib/line-bot/plan-access";
 import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 import { buildAssignmentReminderMessage } from "@/components/dashboard/assignment-command-center.helpers";
 
@@ -42,6 +45,26 @@ type AssignmentActionRow = {
     missingSubmissions: number;
     overdue: boolean;
     dueSoon: boolean;
+};
+
+type LineReminderSettingPayload = {
+    classroomId: string;
+    enabled: boolean;
+    beforeDeadline1d: boolean;
+    dueToday: boolean;
+    overdue1d: boolean;
+    weeklySummary: boolean;
+    timezone: string;
+};
+
+type LineReminderDeliveryPayload = {
+    id: string;
+    assignmentName: string | null;
+    reminderType: string;
+    targetCount: number;
+    status?: string;
+    errorMessage?: string | null;
+    sentAt: string;
 };
 
 function summarizeAssignments(classroom: ClassroomDashboardViewModel): AssignmentActionRow[] {
@@ -112,6 +135,11 @@ export function ClassroomLineAssignmentPanel({
     const [bindingPollingActive, setBindingPollingActive] = useState(false);
     const [showAllStudentStatuses, setShowAllStudentStatuses] = useState(false);
     const [resettingStudentId, setResettingStudentId] = useState<string | null>(null);
+    const [reminderSettingsDialogOpen, setReminderSettingsDialogOpen] = useState(false);
+    const [reminderSetting, setReminderSetting] = useState<LineReminderSettingPayload | null>(null);
+    const [reminderDeliveries, setReminderDeliveries] = useState<LineReminderDeliveryPayload[]>([]);
+    const [reminderSettingsLoading, setReminderSettingsLoading] = useState(false);
+    const [reminderSettingsSaving, setReminderSettingsSaving] = useState(false);
     const rows = useMemo(() => summarizeAssignments(classroom), [classroom]);
 
     const connectedGroupCount = classroom.lineBotGroups.length;
@@ -121,6 +149,10 @@ export function ClassroomLineAssignmentPanel({
     const hotRows = rows.filter((row) => row.missingSubmissions > 0 || row.overdue || row.dueSoon).slice(0, 8);
     const linkedStudents = classroom.students.filter((student) => student.lineLink?.linked);
     const pendingLinkedStudents = classroom.students.filter((student) => !student.lineLink?.linked);
+    const lineReminderUnlocked = canUseLineFeature(classroom.teacher, "lineAutoReminders");
+    const lineExportUnlocked = canUseLineFeature(classroom.teacher, "lineExport");
+    const lineSubmissionUnlocked = canUseLineFeature(classroom.teacher, "lineSubmission");
+    const lineAiUnlocked = canUseLineFeature(classroom.teacher, "lineAiPreliminaryGrading");
     const linkedPercent =
         classroom.students.length > 0
             ? Math.round((linkedStudents.length / classroom.students.length) * 100)
@@ -129,6 +161,13 @@ export function ClassroomLineAssignmentPanel({
         showAllStudentStatuses || classroom.students.length <= 8
             ? classroom.students
             : classroom.students.slice(0, 8);
+
+    function handleLineUpgradePromptClick(source: Parameters<typeof trackLineUpgradePromptClick>[0]["source"]) {
+        trackLineUpgradePromptClick({
+            classroomId: classroom.id,
+            source,
+        });
+    }
 
     async function loadBindingCommand() {
         setBindingLoading(true);
@@ -156,6 +195,83 @@ export function ClassroomLineAssignmentPanel({
         } finally {
             setBindingLoading(false);
         }
+    }
+
+    async function loadReminderSettings() {
+        setReminderSettingsLoading(true);
+        try {
+            const [settingResponse, deliveriesResponse] = await Promise.all([
+                fetch(`/api/classrooms/${classroom.id}/line-reminder-settings`),
+                fetch(`/api/classrooms/${classroom.id}/line-reminder-deliveries`),
+            ]);
+
+            if (!settingResponse.ok) {
+                throw new Error("โหลดการตั้งค่าเตือน LINE ไม่สำเร็จ");
+            }
+            const settingPayload = (await settingResponse.json()) as { setting: LineReminderSettingPayload };
+            setReminderSetting(settingPayload.setting);
+
+            if (deliveriesResponse.ok) {
+                const deliveryPayload = (await deliveriesResponse.json()) as {
+                    deliveries: LineReminderDeliveryPayload[];
+                };
+                setReminderDeliveries(deliveryPayload.deliveries);
+            }
+        } catch (error) {
+            toast({
+                title: "โหลด LINE auto reminder ไม่สำเร็จ",
+                description: error instanceof Error ? error.message : "ลองใหม่อีกครั้ง",
+                variant: "destructive",
+            });
+        } finally {
+            setReminderSettingsLoading(false);
+        }
+    }
+
+    async function saveReminderSettings() {
+        if (!reminderSetting) return;
+        setReminderSettingsSaving(true);
+        try {
+            const response = await fetch(`/api/classrooms/${classroom.id}/line-reminder-settings`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(reminderSetting),
+            });
+            if (!response.ok) {
+                throw new Error("บันทึกการตั้งค่าเตือน LINE ไม่สำเร็จ");
+            }
+            const payload = (await response.json()) as { setting: LineReminderSettingPayload };
+            setReminderSetting(payload.setting);
+            toast({
+                title: payload.setting.enabled ? "เปิด auto reminder แล้ว" : "ปิด auto reminder แล้ว",
+                description: "การตั้งค่านี้มีผลเฉพาะห้องเรียนนี้",
+            });
+        } catch (error) {
+            toast({
+                title: "บันทึก LINE auto reminder ไม่สำเร็จ",
+                description: error instanceof Error ? error.message : "ลองใหม่อีกครั้ง",
+                variant: "destructive",
+            });
+        } finally {
+            setReminderSettingsSaving(false);
+        }
+    }
+
+    function updateReminderSetting(patch: Partial<LineReminderSettingPayload>) {
+        setReminderSetting((current) =>
+            current
+                ? { ...current, ...patch }
+                : {
+                      classroomId: classroom.id,
+                      enabled: false,
+                      beforeDeadline1d: true,
+                      dueToday: true,
+                      overdue1d: true,
+                      weeklySummary: false,
+                      timezone: "Asia/Bangkok",
+                      ...patch,
+                  }
+        );
     }
 
     async function handleCopyReminder(row: AssignmentActionRow) {
@@ -449,6 +565,145 @@ export function ClassroomLineAssignmentPanel({
                             </div>
                         </DialogContent>
                     </Dialog>
+                    <Dialog
+                        open={reminderSettingsDialogOpen}
+                        onOpenChange={(open) => {
+                            if (open && !lineReminderUnlocked) return;
+                            setReminderSettingsDialogOpen(open);
+                            if (open) {
+                                void loadReminderSettings();
+                            }
+                        }}
+                    >
+                        <DialogTrigger asChild>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-9 rounded-full"
+                                disabled={!lineReminderUnlocked}
+                                title={
+                                    lineReminderUnlocked
+                                        ? undefined
+                                        : "Auto reminder และ Send LINE ใช้ได้ในแผน Plus หรือ School"
+                                }
+                            >
+                                <Settings className="mr-1.5 h-4 w-4" />
+                                Auto LINE
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[640px]">
+                            <DialogHeader>
+                                <DialogTitle className="text-xl font-black">ตั้งค่า LINE auto reminder</DialogTitle>
+                                <DialogDescription className="text-sm text-slate-600">
+                                    ตั้งค่าเฉพาะห้อง {classroom.name} เพื่อให้ระบบส่งเตือนงานตามกำหนดอัตโนมัติ
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            {reminderSettingsLoading && !reminderSetting ? (
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                                    กำลังโหลดการตั้งค่า...
+                                </div>
+                            ) : reminderSetting ? (
+                                <div className="space-y-4">
+                                    <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                                        <input
+                                            type="checkbox"
+                                            className="mt-1 h-4 w-4"
+                                            checked={reminderSetting.enabled}
+                                            onChange={(event) => updateReminderSetting({ enabled: event.target.checked })}
+                                        />
+                                        <span>
+                                            <span className="block text-sm font-bold text-slate-900">เปิด auto reminder ห้องนี้</span>
+                                            <span className="block text-xs text-slate-500">
+                                                ระบบ cron จะส่งเฉพาะห้องที่เปิดไว้ และต้องผูกกลุ่ม LINE แล้ว
+                                            </span>
+                                        </span>
+                                    </label>
+
+                                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                                        {[
+                                            ["beforeDeadline1d", "ก่อนครบกำหนด 1 วัน"],
+                                            ["dueToday", "วันครบกำหนด"],
+                                            ["overdue1d", "เลยกำหนด 1 วัน"],
+                                            ["weeklySummary", "สรุปรายสัปดาห์"],
+                                        ].map(([key, label]) => (
+                                            <label
+                                                key={key}
+                                                className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-bold text-slate-800"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    className="h-4 w-4"
+                                                    checked={Boolean(reminderSetting[key as keyof LineReminderSettingPayload])}
+                                                    onChange={(event) =>
+                                                        updateReminderSetting({
+                                                            [key]: event.target.checked,
+                                                        } as Partial<LineReminderSettingPayload>)
+                                                    }
+                                                />
+                                                {label}
+                                            </label>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex flex-wrap justify-end gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => void loadReminderSettings()}
+                                            disabled={reminderSettingsLoading}
+                                        >
+                                            รีเฟรช
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            className="bg-[#000000] text-white hover:opacity-85"
+                                            onClick={() => void saveReminderSettings()}
+                                            disabled={reminderSettingsSaving}
+                                        >
+                                            {reminderSettingsSaving ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}
+                                        </Button>
+                                    </div>
+
+                                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-sm font-black text-slate-900">ประวัติส่ง LINE ล่าสุด</p>
+                                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">
+                                                {reminderDeliveries.length} รายการ
+                                            </span>
+                                        </div>
+                                        <div className="mt-3 space-y-2">
+                                            {reminderDeliveries.length > 0 ? (
+                                                reminderDeliveries.slice(0, 8).map((delivery) => (
+                                                    <div
+                                                        key={delivery.id}
+                                                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600"
+                                                    >
+                                                        <span className="font-bold text-slate-900">
+                                                            {delivery.assignmentName ?? delivery.reminderType}
+                                                        </span>
+                                                        <span>
+                                                            {delivery.reminderType} · {delivery.status ?? "sent"} ·{" "}
+                                                            {delivery.targetCount} คน ·{" "}
+                                                            {new Date(delivery.sentAt).toLocaleString("th-TH", {
+                                                                dateStyle: "short",
+                                                                timeStyle: "short",
+                                                                timeZone: "Asia/Bangkok",
+                                                            })}
+                                                            {delivery.errorMessage ? ` · ${delivery.errorMessage}` : ""}
+                                                        </span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-sm text-slate-500">ยังไม่มีประวัติส่ง LINE ของห้องนี้</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : null}
+                        </DialogContent>
+                    </Dialog>
                     <Button
                         type="button"
                         variant="outline"
@@ -459,18 +714,73 @@ export function ClassroomLineAssignmentPanel({
                         <ExternalLink className="mr-1.5 h-4 w-4" />
                         สรุปงาน
                     </Button>
+                    {lineExportUnlocked ? (
+                        <Button asChild variant="outline" size="sm" className="h-9 rounded-full gap-1">
+                            <a href={`/api/classrooms/${classroom.id}/line-readiness/export`}>
+                                <Download className="h-4 w-4" />
+                                Export readiness
+                            </a>
+                        </Button>
+                    ) : (
+                        <Button type="button" variant="outline" size="sm" className="h-9 rounded-full gap-1" disabled title="LINE export ใช้ได้ในแผน Plus หรือ School">
+                            <Download className="h-4 w-4" />
+                            Export readiness
+                        </Button>
+                    )}
+                    {lineExportUnlocked ? (
+                        <Button asChild variant="outline" size="sm" className="h-9 rounded-full gap-1">
+                            <a href={`/api/classrooms/${classroom.id}/line-submissions/export`}>
+                                <Download className="h-4 w-4" />
+                                Export ทั้งห้อง
+                            </a>
+                        </Button>
+                    ) : (
+                        <Button type="button" variant="outline" size="sm" className="h-9 rounded-full gap-1" disabled title="LINE export ใช้ได้ในแผน Plus หรือ School">
+                            <Download className="h-4 w-4" />
+                            Export ทั้งห้อง
+                        </Button>
+                    )}
                     <Button
                         type="button"
                         size="sm"
                         className="h-9 rounded-full bg-[#000000] text-white hover:opacity-85"
                         onClick={() => void handleBulkReminder()}
-                        disabled={bulkSending}
+                        disabled={bulkSending || !lineReminderUnlocked}
+                        title={
+                            lineReminderUnlocked
+                                ? undefined
+                                : "Send LINE และทวงงานค้างทั้งห้อง ใช้ได้ในแผน Plus หรือ School"
+                        }
                     >
                         <MessageCircleMore className="mr-1.5 h-4 w-4" />
                         {bulkSending ? "กำลังส่ง..." : "ทวงงานค้างทั้งห้อง"}
                     </Button>
                 </div>
             </div>
+
+            {(!lineReminderUnlocked || !lineExportUnlocked || !lineSubmissionUnlocked || !lineAiUnlocked) ? (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <p className="font-black">LINE บนแผน Free ใช้ได้บางส่วน</p>
+                            <p className="mt-1 text-amber-900">
+                                Free ยังผูกห้องและสร้างงานจาก LINE ได้แบบจำกัด แต่ฟีเจอร์ที่ช่วยครูทำงานเร็วขึ้นจะถูกล็อกไว้จนกว่าจะอัปเกรด
+                            </p>
+                            <p className="mt-2 text-xs font-semibold text-amber-800">
+                                Plus ปลด: Send LINE, auto reminder, LINE submissions, export, และ AI ตรวจเบื้องต้น
+                            </p>
+                        </div>
+                        <Button asChild size="sm" className="h-9 rounded-full bg-amber-900 text-white hover:bg-amber-950">
+                            <Link
+                                href="/dashboard/upgrade"
+                                onClick={() => handleLineUpgradePromptClick("line_panel_blocked_card")}
+                            >
+                                ดูแผน Plus
+                            </Link>
+                        </Button>
+                    </div>
+                </div>
+            ) : null}
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3">
@@ -671,7 +981,12 @@ export function ClassroomLineAssignmentPanel({
                                         variant="outline"
                                         className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                                         onClick={() => void handleSendLine(row)}
-                                        disabled={sendingAssignmentId === row.assignmentId}
+                                        disabled={sendingAssignmentId === row.assignmentId || !lineReminderUnlocked}
+                                        title={
+                                            lineReminderUnlocked
+                                                ? undefined
+                                                : "Send LINE ใช้ได้ในแผน Plus หรือ School"
+                                        }
                                     >
                                         <SendHorizonal className="mr-1 h-3.5 w-3.5" />
                                         {sendingAssignmentId === row.assignmentId ? "กำลังส่ง..." : "Send LINE"}

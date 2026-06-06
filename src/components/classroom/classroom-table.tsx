@@ -2,7 +2,7 @@
 
 import { Assignment } from "@prisma/client";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -37,6 +37,10 @@ import {
 import { WorksheetSubmissionReviewDialog } from "@/components/classroom/worksheet-submission-review-dialog";
 import { QuizAllowRetakeButton } from "@/components/classroom/quiz-allow-retake-button";
 import { parseWorksheetSubmissionContent } from "@/lib/worksheet-review";
+import {
+    parseLineTextSubmissionContent,
+    type ParsedLineTextSubmissionContent,
+} from "@/lib/line-bot/submission-content";
 import { isQuizSubmissionCompleted } from "@/lib/quiz-attempt";
 
 type ChecklistItem = string | { text?: string; points?: number };
@@ -49,6 +53,55 @@ type StudentScoreMap = Record<string, Record<string, number>>;
 
 type StudentWithSubmissions = ClassroomDashboardViewModel["students"][number];
 type StudentSubmission = StudentWithSubmissions["submissions"][number];
+
+function LineSubmissionReviewHint({
+    content,
+    onApplySuggestedScore,
+    applying = false,
+    compact = false,
+}: {
+    content: ParsedLineTextSubmissionContent;
+    onApplySuggestedScore?: () => void;
+    applying?: boolean;
+    compact?: boolean;
+}) {
+    const graded = content.aiPreliminaryGrading.status === "graded" ? content.aiPreliminaryGrading : null;
+    const review = content.aiPreliminaryReview ?? null;
+    const preview = content.text.length > 64 ? `${content.text.slice(0, 64)}...` : content.text;
+
+    return (
+        <div className={cn(
+            "rounded-lg border border-sky-200 bg-sky-50 px-2 py-1 text-left text-[10px] leading-snug text-sky-900",
+            compact ? "max-w-[7.5rem]" : "max-w-sm"
+        )}>
+            <div className="font-black">
+                LINE {graded ? `AI ${graded.suggestedScore}/${graded.maxScore}` : "รอตรวจ"}
+            </div>
+            {review ? (
+                <div className="font-bold text-emerald-700">
+                    {review.status === "accepted" ? "ครูใช้คะแนน AI แล้ว" : review.status === "edited" ? "ครูแก้คะแนนแล้ว" : "ครูไม่ใช้คะแนน AI"}
+                </div>
+            ) : null}
+            <div className="line-clamp-2 text-sky-700">{preview}</div>
+            {graded && !review && onApplySuggestedScore ? (
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={applying}
+                    className={cn(
+                        "mt-1 h-7 border-sky-300 bg-white px-2 text-[10px] font-black text-sky-800 hover:bg-sky-100",
+                        compact && "h-6 px-1.5"
+                    )}
+                    onClick={onApplySuggestedScore}
+                >
+                    {applying ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />}
+                    ใช้ AI
+                </Button>
+            ) : null}
+        </div>
+    );
+}
 
 function buildSubmissionMap(students: StudentWithSubmissions[]) {
     const map: Record<string, Record<string, StudentSubmission>> = {};
@@ -116,6 +169,7 @@ export function ClassroomTable({
         () => buildSubmissionMap(sortedStudents)
     );
     const [savingChecklist, setSavingChecklist] = useState<string | null>(null);
+    const [savingLineAiReview, setSavingLineAiReview] = useState<string | null>(null);
     const [refreshingSubmissions, setRefreshingSubmissions] = useState(false);
     const { toast } = useToast();
 
@@ -124,8 +178,10 @@ export function ClassroomTable({
         setSubmissionMap(buildSubmissionMap(sortedStudents));
     }, [sortedStudents]);
 
-    const getLiveSubmission = (studentId: string, assignmentId: string) =>
-        submissionMap[studentId]?.[assignmentId] ?? null;
+    const getLiveSubmission = useCallback(
+        (studentId: string, assignmentId: string) => submissionMap[studentId]?.[assignmentId] ?? null,
+        [submissionMap]
+    );
 
     const refreshableAssignments = useMemo(
         () =>
@@ -158,7 +214,7 @@ export function ClassroomTable({
                 ];
             });
         });
-    }, [assignments, sortedStudents, submissionMap]);
+    }, [assignments, getLiveSubmission, sortedStudents]);
 
     const resolveMutationFailureDescription = (
         error: unknown,
@@ -192,6 +248,9 @@ export function ClassroomTable({
         const currentScore = scores[studentId][assignmentId] || 0;
         const originalSubmission = getLiveSubmission(studentId, assignmentId) ?? undefined;
         const originalScore = originalSubmission?.score || 0;
+        const lineSubmission = parseLineTextSubmissionContent(originalSubmission?.content);
+        const shouldMarkLineAiEdited =
+            lineSubmission?.aiPreliminaryGrading.status === "graded" && !lineSubmission.aiPreliminaryReview;
         
         if (currentScore === originalScore) return;
 
@@ -199,7 +258,11 @@ export function ClassroomTable({
             const res = await fetch(`/api/classrooms/${classId}/assignments/${assignmentId}/manual-scores`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ studentId, score: currentScore })
+                body: JSON.stringify({
+                    studentId,
+                    score: currentScore,
+                    ...(shouldMarkLineAiEdited ? { lineAiReviewAction: "edited" } : {}),
+                })
             });
 
             if (!res.ok) {
@@ -212,7 +275,32 @@ export function ClassroomTable({
                     )
                 );
             }
-            await res.json();
+            const data = (await res.json()) as { submissionId: string; score: number; content?: string | null };
+            setSubmissionMap((prev) => ({
+                ...prev,
+                [studentId]: {
+                    ...(prev[studentId] ?? {}),
+                    [assignmentId]: {
+                        ...(prev[studentId]?.[assignmentId] ?? originalSubmission ?? {
+                            id: data.submissionId,
+                            assignmentId,
+                            studentId,
+                            score: data.score,
+                            content: null,
+                            cheatingLogs: [],
+                            attemptStartedAt: null,
+                            quizCompletedAt: null,
+                            submittedAt: new Date(),
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
+                        }),
+                        id: data.submissionId,
+                        assignmentId,
+                        score: data.score,
+                        content: data.content ?? originalSubmission?.content ?? null,
+                    },
+                },
+            }));
             // student.behaviorPoints tracks behavior (skill) points only.
             // Academic scores are stored in submissions, computed separately.
         } catch (error) {
@@ -231,6 +319,90 @@ export function ClassroomTable({
                     [assignmentId]: originalScore
                 }
             }));
+        }
+    };
+
+    const handleApplyLineAiScore = async (
+        studentId: string,
+        assignmentId: string,
+        suggestedScore: number,
+        maxScore: number
+    ) => {
+        const boundedScore = Math.max(0, Math.min(maxScore, suggestedScore));
+        const originalSubmission = getLiveSubmission(studentId, assignmentId) ?? undefined;
+        const key = `${studentId}-${assignmentId}`;
+        setSavingLineAiReview(key);
+        setScores((prev) => ({
+            ...prev,
+            [studentId]: {
+                ...(prev[studentId] ?? {}),
+                [assignmentId]: boundedScore,
+            },
+        }));
+
+        try {
+            const res = await fetch(`/api/classrooms/${classId}/assignments/${assignmentId}/manual-scores`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    studentId,
+                    score: boundedScore,
+                    lineAiReviewAction: "accepted",
+                }),
+            });
+
+            if (!res.ok) {
+                throw new Error(
+                    await getLocalizedErrorMessageFromResponse(
+                        res,
+                        "toastAcademicScoreSaveFailedDesc",
+                        t,
+                        language
+                    )
+                );
+            }
+
+            const data = (await res.json()) as { submissionId: string; score: number; content?: string | null };
+            setSubmissionMap((prev) => ({
+                ...prev,
+                [studentId]: {
+                    ...(prev[studentId] ?? {}),
+                    [assignmentId]: {
+                        ...(prev[studentId]?.[assignmentId] ?? originalSubmission ?? {
+                            id: data.submissionId,
+                            assignmentId,
+                            studentId,
+                            score: data.score,
+                            content: null,
+                            cheatingLogs: [],
+                            attemptStartedAt: null,
+                            quizCompletedAt: null,
+                            submittedAt: new Date(),
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
+                        }),
+                        id: data.submissionId,
+                        assignmentId,
+                        score: data.score,
+                        content: data.content ?? originalSubmission?.content ?? null,
+                    },
+                },
+            }));
+        } catch (error) {
+            toast({
+                title: t("toastAcademicScoreSaveFailedTitle"),
+                description: resolveMutationFailureDescription(error, "toastAcademicScoreSaveFailedDesc"),
+                variant: "destructive",
+            });
+            setScores((prev) => ({
+                ...prev,
+                [studentId]: {
+                    ...(prev[studentId] ?? {}),
+                    [assignmentId]: originalSubmission?.score ?? 0,
+                },
+            }));
+        } finally {
+            setSavingLineAiReview(null);
         }
     };
 
@@ -573,24 +745,53 @@ export function ClassroomTable({
                                                 </p>
                                             ) : null}
                                             {formType === "score" && (
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="text-xs text-slate-500">{t("maxScore", { score: a.maxScore })}</span>
-                                                    <Input
-                                                        type="number"
-                                                        min={0}
-                                                        max={a.maxScore}
-                                                        className={cn(
-                                                            "h-11 min-h-[44px] max-w-[8rem] text-center text-base font-semibold touch-manipulation",
-                                                            (scores[student.id]?.[a.id] ?? 0) > a.maxScore && "border-red-500 ring-red-500"
-                                                        )}
-                                                        value={scores[student.id]?.[a.id] ?? ""}
-                                                        onChange={(e) => handleScoreChange(student.id, a.id, e.target.value, a.maxScore)}
-                                                        onBlur={() => handleBlur(student.id, a.id)}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === "Enter") e.currentTarget.blur();
-                                                        }}
-                                                    />
-                                                </div>
+                                                (() => {
+                                                    const lineSubmission = parseLineTextSubmissionContent(
+                                                        getLiveSubmission(student.id, a.id)?.content
+                                                    );
+                                                    const aiGrade =
+                                                        lineSubmission?.aiPreliminaryGrading.status === "graded"
+                                                            ? lineSubmission.aiPreliminaryGrading
+                                                            : null;
+                                                    return (
+                                                        <div className="space-y-2">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <span className="text-xs text-slate-500">{t("maxScore", { score: a.maxScore })}</span>
+                                                                <Input
+                                                                    type="number"
+                                                                    min={0}
+                                                                    max={a.maxScore}
+                                                                    className={cn(
+                                                                        "h-11 min-h-[44px] max-w-[8rem] text-center text-base font-semibold touch-manipulation",
+                                                                        (scores[student.id]?.[a.id] ?? 0) > a.maxScore && "border-red-500 ring-red-500"
+                                                                    )}
+                                                                    value={scores[student.id]?.[a.id] ?? ""}
+                                                                    onChange={(e) => handleScoreChange(student.id, a.id, e.target.value, a.maxScore)}
+                                                                    onBlur={() => handleBlur(student.id, a.id)}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === "Enter") e.currentTarget.blur();
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            {lineSubmission ? (
+                                                                <LineSubmissionReviewHint
+                                                                    content={lineSubmission}
+                                                                    applying={savingLineAiReview === `${student.id}-${a.id}`}
+                                                                    onApplySuggestedScore={
+                                                                        aiGrade
+                                                                            ? () => handleApplyLineAiScore(
+                                                                                student.id,
+                                                                                a.id,
+                                                                                aiGrade.suggestedScore,
+                                                                                a.maxScore
+                                                                            )
+                                                                            : undefined
+                                                                    }
+                                                                />
+                                                            ) : null}
+                                                        </div>
+                                                    );
+                                                })()
                                             )}
                                             {formType === "checklist" && (
                                                 <div className="space-y-2">
@@ -862,18 +1063,48 @@ export function ClassroomTable({
                                 {assignments.map((a) => (
                                     <TableCell key={a.id} className="text-center p-1 border-r">
                                         {dbAssignmentTypeToFormType(a.type) === "score" && (
-                                            <Input 
-                                                type="number" 
-                                                min={0}
-                                                max={a.maxScore}
-                                                className={`w-16 text-center h-8 mx-auto focus-visible:ring-indigo-500 font-medium ${scores[student.id]?.[a.id] > a.maxScore ? "border-red-500 ring-red-500" : ""}`}
-                                                value={scores[student.id]?.[a.id] ?? ""}
-                                                onChange={(e) => handleScoreChange(student.id, a.id, e.target.value, a.maxScore)}
-                                                onBlur={() => handleBlur(student.id, a.id)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') e.currentTarget.blur();
-                                                }}
-                                            />
+                                            (() => {
+                                                const lineSubmission = parseLineTextSubmissionContent(
+                                                    getLiveSubmission(student.id, a.id)?.content
+                                                );
+                                                const aiGrade =
+                                                    lineSubmission?.aiPreliminaryGrading.status === "graded"
+                                                        ? lineSubmission.aiPreliminaryGrading
+                                                        : null;
+                                                return (
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <Input
+                                                            type="number"
+                                                            min={0}
+                                                            max={a.maxScore}
+                                                            className={`w-16 text-center h-8 mx-auto focus-visible:ring-indigo-500 font-medium ${scores[student.id]?.[a.id] > a.maxScore ? "border-red-500 ring-red-500" : ""}`}
+                                                            value={scores[student.id]?.[a.id] ?? ""}
+                                                            onChange={(e) => handleScoreChange(student.id, a.id, e.target.value, a.maxScore)}
+                                                            onBlur={() => handleBlur(student.id, a.id)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === "Enter") e.currentTarget.blur();
+                                                            }}
+                                                        />
+                                                        {lineSubmission ? (
+                                                            <LineSubmissionReviewHint
+                                                                content={lineSubmission}
+                                                                compact
+                                                                applying={savingLineAiReview === `${student.id}-${a.id}`}
+                                                                onApplySuggestedScore={
+                                                                    aiGrade
+                                                                        ? () => handleApplyLineAiScore(
+                                                                            student.id,
+                                                                            a.id,
+                                                                            aiGrade.suggestedScore,
+                                                                            a.maxScore
+                                                                        )
+                                                                        : undefined
+                                                                }
+                                                            />
+                                                        ) : null}
+                                                    </div>
+                                                );
+                                            })()
                                         )}
                                         {dbAssignmentTypeToFormType(a.type) === "checklist" && (
                                             <div className="flex flex-col items-center gap-1.5 py-1 px-2">
@@ -1041,4 +1272,3 @@ export function ClassroomTable({
         </div>
     );
 }
-

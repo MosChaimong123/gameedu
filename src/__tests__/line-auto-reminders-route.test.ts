@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockGetLineReminderCronSecret = vi.fn();
 const mockIsLineBotEnabled = vi.fn();
 const mockRunLineAutoReminders = vi.fn();
+const mockLogAuditEvent = vi.fn();
 
 vi.mock("@/lib/line-bot/config", () => ({
     getLineReminderCronSecret: mockGetLineReminderCronSecret,
@@ -11,6 +12,10 @@ vi.mock("@/lib/line-bot/config", () => ({
 
 vi.mock("@/lib/line-bot/auto-reminders", () => ({
     runLineAutoReminders: mockRunLineAutoReminders,
+}));
+
+vi.mock("@/lib/security/audit-log", () => ({
+    logAuditEvent: mockLogAuditEvent,
 }));
 
 describe("POST /api/jobs/line-reminders", () => {
@@ -50,5 +55,18 @@ describe("POST /api/jobs/line-reminders", () => {
             sentCount: 1,
         });
         expect(mockRunLineAutoReminders).toHaveBeenCalledOnce();
+        expect(mockLogAuditEvent).toHaveBeenCalledWith({
+            action: "line.reminder_job.run",
+            category: "line",
+            status: "success",
+            targetType: "LineReminderJob",
+            metadata: {
+                scannedGroups: 1,
+                candidateCount: 1,
+                sentCount: 1,
+                skippedDuplicateCount: 0,
+                failedCount: 0,
+            },
+        });
     });
 });

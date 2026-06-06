@@ -8,12 +8,26 @@ import {
     createAppErrorResponse,
 } from "@/lib/api-error";
 import type { messagingApi } from "@line/bot-sdk";
-import { db } from "@/lib/db";
+import { db, getOptionalDbModel } from "@/lib/db";
 import { pushLineFlex } from "@/lib/line-bot/client";
 import { canUseLineFeature } from "@/lib/line-bot/plan-access";
 import { createMissingStudentNameResolver } from "@/lib/line-bot/missing-student-names";
 import { buildReminderFlexBubble, type ReminderFlexTone } from "@/lib/line-bot/reminder-flex";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
+
+type ReminderDeliveryModel = {
+    create(input: {
+        data: {
+            lineBotGroupId: string;
+            lineGroupId: string;
+            classroomId: string;
+            assignmentId: string;
+            reminderKey: string;
+            reminderType: string;
+            targetCount: number;
+        };
+    }): Promise<unknown>;
+};
 
 function getAppUrl(): string | undefined {
     return process.env.NEXT_PUBLIC_APP_URL?.trim() || process.env.LINE_BOT_CHAT_URL?.trim() || undefined;
@@ -118,6 +132,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         );
 
         const groups = classroom.lineBotGroups;
+        const deliveryModel = getOptionalDbModel<ReminderDeliveryModel>("lineAssignmentReminderDelivery");
+        const manualReminderKey = `manual:${now.toISOString()}`;
         if (groups.length === 0) {
             return NextResponse.json({
                 success: true,
@@ -174,6 +190,23 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
                     `กริ่งเตือนงานค้าง ห้อง ${classroom.name} (${carouselAssignments.length} งาน)`,
                     contents
                 );
+                if (deliveryModel) {
+                    await Promise.allSettled(
+                        carouselAssignments.map((assignment) =>
+                            deliveryModel.create({
+                                data: {
+                                    lineBotGroupId: group.id,
+                                    lineGroupId: group.lineGroupId,
+                                    classroomId: classroom.id,
+                                    assignmentId: assignment.assignmentId,
+                                    reminderKey: manualReminderKey,
+                                    reminderType: "manual_classroom",
+                                    targetCount: assignment.missingSubmissions,
+                                },
+                            })
+                        )
+                    );
+                }
                 sentCount += 1;
             } catch (error) {
                 failedCount += 1;

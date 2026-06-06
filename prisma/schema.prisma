@@ -731,12 +731,30 @@ model LineAssignmentReminderDelivery {
   reminderKey    String
   reminderType   String
   targetCount    Int
+  status         String   @default("sent")
+  errorMessage   String?
   sentAt         DateTime @default(now())
   createdAt      DateTime @default(now())
 
   @@unique([lineBotGroupId, assignmentId, reminderKey])
   @@index([lineGroupId, sentAt])
   @@index([classroomId, sentAt])
+}
+
+/// Per-classroom control for scheduled LINE assignment reminders.
+model ClassroomLineReminderSetting {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  classroomId        String   @unique @db.ObjectId
+  enabled            Boolean  @default(false)
+  beforeDeadline1d   Boolean  @default(true)
+  dueToday           Boolean  @default(true)
+  overdue1d          Boolean  @default(true)
+  weeklySummary      Boolean  @default(false)
+  timezone           String   @default("Asia/Bangkok")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([enabled])
 }
 
 // Curriculum Lesson System

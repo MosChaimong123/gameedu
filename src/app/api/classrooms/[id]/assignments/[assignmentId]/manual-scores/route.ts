@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
 import { parseAndValidateManualScore } from "@/lib/validate-manual-assignment-score";
+import { markLineAiPreliminaryReview } from "@/lib/line-bot/submission-content";
+import { logAuditEvent } from "@/lib/security/audit-log";
 import {
     AUTH_REQUIRED_MESSAGE,
     FORBIDDEN_MESSAGE,
@@ -29,8 +31,9 @@ export async function POST(
     }
 
     try {
-        const body = await req.json() as { studentId?: unknown; score?: unknown };
+        const body = await req.json() as { studentId?: unknown; score?: unknown; lineAiReviewAction?: unknown };
         const { studentId, score } = body;
+        const lineAiReviewAction = parseLineAiReviewAction(body.lineAiReviewAction);
 
         if (!studentId || typeof studentId !== "string") {
             return createAppErrorResponse("INVALID_PAYLOAD", "Missing studentId", 400);
@@ -69,6 +72,31 @@ export async function POST(
             return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
         }
 
+        const existingSubmission = await db.assignmentSubmission.findUnique({
+            where: {
+                studentId_assignmentId: {
+                    studentId,
+                    assignmentId
+                }
+            },
+            select: {
+                id: true,
+                content: true,
+            },
+        });
+        const reviewedLineContent = lineAiReviewAction
+            ? markLineAiPreliminaryReview(existingSubmission?.content, {
+                status: lineAiReviewAction,
+                score: validated.scoreInt,
+                reviewedAt: new Date().toISOString(),
+                reviewedBy: session.user.id,
+            })
+            : null;
+
+        if (lineAiReviewAction && !reviewedLineContent) {
+            return createAppErrorResponse("INVALID_PAYLOAD", "LINE AI review is unavailable for this submission", 400);
+        }
+
         const submission = await db.assignmentSubmission.upsert({
             where: {
                 studentId_assignmentId: {
@@ -77,7 +105,8 @@ export async function POST(
                 }
             },
             update: {
-                score: validated.scoreInt
+                score: validated.scoreInt,
+                ...(reviewedLineContent ? { content: reviewedLineContent } : {}),
             },
             create: {
                 studentId,
@@ -87,14 +116,35 @@ export async function POST(
             }
         });
 
+        if (lineAiReviewAction) {
+            logAuditEvent({
+                actorUserId: session.user.id,
+                action: `line.assignment_ai_grade.${lineAiReviewAction}`,
+                category: "line",
+                targetType: "assignmentSubmission",
+                targetId: submission.id,
+                metadata: {
+                    classroomId: id,
+                    assignmentId,
+                    studentId,
+                    score: validated.scoreInt,
+                },
+            });
+        }
+
         return NextResponse.json({
             success: true,
             submissionId: submission.id,
             score: submission.score,
+            content: submission.content,
         });
 
     } catch (error) {
         console.error("[MANUAL_SCORES_POST]", error);
         return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
+}
+
+function parseLineAiReviewAction(value: unknown): "accepted" | "edited" | "rejected" | null {
+    return value === "accepted" || value === "edited" || value === "rejected" ? value : null;
 }

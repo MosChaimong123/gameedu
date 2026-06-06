@@ -105,7 +105,8 @@ describe("line student binding", () => {
             summary: {
                 classroomName: "M1/1",
                 studentName: "Somchai",
-                items: [{ assignmentName: "Homework 1", deadline: null }],
+                studentUrl: null,
+                items: [{ assignmentCode: "A1", assignmentName: "A1 · Homework 1", deadline: null }],
             },
         });
     });

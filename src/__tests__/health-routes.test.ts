@@ -4,6 +4,9 @@ const mockValidateServerEnv = vi.fn();
 const mockPingOperationalDb = vi.fn();
 const mockResolveRateLimitStore = vi.fn();
 const mockResolveAuditLogSink = vi.fn();
+const mockDbConnect = vi.fn();
+const mockIsLineBotConfigured = vi.fn();
+const mockIsR2Configured = vi.fn();
 
 vi.mock("@/lib/env", () => ({
   validateServerEnv: mockValidateServerEnv,
@@ -13,6 +16,18 @@ vi.mock("@/lib/env", () => ({
 
 vi.mock("@/lib/ops/mongo-admin", () => ({
   pingOperationalDb: mockPingOperationalDb,
+}));
+
+vi.mock("@/lib/db", () => ({
+  db: { $connect: mockDbConnect },
+}));
+
+vi.mock("@/lib/line-bot/config", () => ({
+  isLineBotConfigured: mockIsLineBotConfigured,
+}));
+
+vi.mock("@/lib/storage/r2-env", () => ({
+  isR2Configured: mockIsR2Configured,
 }));
 
 describe("health and readiness routes", () => {
@@ -25,8 +40,14 @@ describe("health and readiness routes", () => {
     vi.stubEnv("NODE_ENV", "test");
     mockResolveRateLimitStore.mockReturnValue("memory");
     mockResolveAuditLogSink.mockReturnValue("console");
-    mockValidateServerEnv.mockReturnValue({ HEALTHCHECK_DB_TIMEOUT_MS: 1000 });
+    mockValidateServerEnv.mockReturnValue({
+      HEALTHCHECK_DB_TIMEOUT_MS: 1000,
+      STRIPE_SECRET_KEY: "sk_test",
+    });
     mockPingOperationalDb.mockResolvedValue({ ok: 1 });
+    mockDbConnect.mockResolvedValue(undefined);
+    mockIsLineBotConfigured.mockReturnValue(false);
+    mockIsR2Configured.mockReturnValue(false);
   });
 
   it("returns health metadata", async () => {
@@ -73,31 +94,26 @@ describe("health and readiness routes", () => {
     const { GET } = await import("@/app/api/ready/route");
 
     const response = await GET();
-    const body = await response.json();
+    const body = await response.json() as Record<string, unknown>;
 
     expect(response.status).toBe(200);
-    expect(body).toEqual(
-      expect.objectContaining({
-        ok: true,
-        status: "ready",
-      })
-    );
+    expect(body.ok).toBe(true);
+    expect(body.status).toBe("ready");
+    expect(body.checks).toMatchObject({ mongodb: "ok", prisma: "ok" });
     expect(mockPingOperationalDb).toHaveBeenCalledWith(1000);
   });
 
-  it("returns 503 when readiness fails", async () => {
+  it("returns 503 with structured errors when mongodb ping fails", async () => {
     mockPingOperationalDb.mockRejectedValue(new Error("Database ping timed out"));
     const { GET } = await import("@/app/api/ready/route");
 
     const response = await GET();
-    const body = await response.json();
+    const body = await response.json() as Record<string, unknown>;
 
     expect(response.status).toBe(503);
-    expect(body).toEqual({
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "Database ping timed out",
-      },
-    });
+    expect(body.ok).toBe(false);
+    expect(body.status).toBe("not_ready");
+    expect((body.checks as Record<string, string>).mongodb).toBe("error");
+    expect((body.errors as string[]).join(" ")).toContain("mongodb");
   });
 });

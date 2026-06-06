@@ -3580,7 +3580,7 @@ const englishPack = {
         planFreeDescription: "For teachers getting started",
         planFreeFeat0: "Up to 10 question sets, 30 questions each",
         planFreeFeat1: "Up to 40 live players per game (host on Free)",
-        planFreeFeat2: "Up to 50 OMR scans per month; 5 classrooms; 3 Negamon species",
+        planFreeFeat2: "Up to 30 OMR scans per month; 5 classrooms; 3 Negamon species",
         planFreeFeat3: "Basic reporting (AI generation requires Plus)",
         planLineFeatureSection: "LINE assistant",
         planFreeLineFeat0: "Create up to 5 assignments per month from LINE",

@@ -1,7 +1,18 @@
+export type AuditCategory =
+  | "admin"
+  | "classroom"
+  | "socket"
+  | "upload"
+  | "auth"
+  | "ai"
+  | "billing"
+  | "line"
+  | "other";
+
 export type AuditLogEvent = {
   actorUserId?: string | null;
   action: string;
-  category?: "admin" | "classroom" | "socket" | "upload" | "auth" | "ai" | "line" | "other";
+  category?: AuditCategory;
   reason?: string | null;
   status?: "success" | "rejected" | "error";
   targetType: string;
@@ -15,7 +26,7 @@ import { getAuditLogCollection } from "@/lib/ops/mongo-admin";
 export type AuditLogListItem = {
   actorUserId?: string | null;
   action: string;
-  category: "admin" | "classroom" | "socket" | "upload" | "auth" | "ai" | "line" | "other";
+  category: AuditCategory;
   reason?: string | null;
   status: "success" | "rejected" | "error";
   targetType: string;
@@ -28,20 +39,21 @@ export type AuditLogFilters = {
   action?: string;
   actorUserId?: string;
   targetId?: string;
+  category?: AuditCategory;
   actionPrefix?: string;
-  category?: "admin" | "classroom" | "socket" | "upload" | "auth" | "ai" | "line" | "other";
   reason?: string;
   status?: "success" | "rejected" | "error";
   since?: Date;
 };
 
-function inferAuditCategory(action: string): "admin" | "classroom" | "socket" | "upload" | "auth" | "ai" | "line" | "other" {
+function inferAuditCategory(action: string): AuditCategory {
   if (action.startsWith("admin.")) return "admin";
   if (action.startsWith("classroom.")) return "classroom";
   if (action.startsWith("socket.")) return "socket";
   if (action.startsWith("upload.")) return "upload";
   if (action.startsWith("auth.")) return "auth";
   if (action.startsWith("ai.")) return "ai";
+  if (action.startsWith("billing.")) return "billing";
   if (action.startsWith("line.")) return "line";
   return "other";
 }
@@ -175,7 +187,7 @@ export function buildAuditLogQuery(filters: AuditLogFilters): Record<string, unk
     if (filters.category === "other") {
       clauses.push({
         action: {
-          $not: /^(admin|classroom|socket|upload|auth|ai|line)\./i,
+          $not: /^(admin|classroom|socket|upload|auth|ai|billing|line)\./i,
         },
       });
     } else {

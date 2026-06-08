@@ -1,3 +1,5 @@
+import { normalizeTeachingMediaReferences, type TeachingMediaReference } from "@/lib/teaching-media-reference"
+
 export type LessonContentPayload = {
     objectives: string[]
     sections: Array<{
@@ -9,6 +11,7 @@ export type LessonContentPayload = {
     keyTerms: Array<{ term: string; definition: string }>
     summary: string
     estimatedMinutes: number
+    mediaReferences?: TeachingMediaReference[]
 }
 
 function isNonEmptyText(value: unknown) {
@@ -27,6 +30,7 @@ export function isLessonContentPayload(value: unknown): value is LessonContentPa
     if (!Array.isArray(content.sections) || content.sections.length === 0) return false
     if (!isNonEmptyText(content.summary)) return false
     if (typeof content.estimatedMinutes !== "number" || !Number.isFinite(content.estimatedMinutes)) return false
+    if (content.mediaReferences !== undefined && !Array.isArray(content.mediaReferences)) return false
 
     return content.sections.every((section) => {
         if (!section || typeof section !== "object") return false
@@ -43,5 +47,5 @@ export function isLessonContentPayload(value: unknown): value is LessonContentPa
                 return isNonEmptyText(entry.title) && isNonEmptyText(entry.body)
             })
         )
-    })
+    }) && normalizeTeachingMediaReferences(content.mediaReferences).length === (Array.isArray(content.mediaReferences) ? content.mediaReferences.length : 0)
 }

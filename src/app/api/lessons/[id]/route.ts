@@ -3,6 +3,8 @@ import { auth } from "@/auth"
 import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error"
 import { db } from "@/lib/db"
 import { isLessonContentPayload } from "@/lib/lessons/lesson-content"
+import { syncTeachingMediaUsageForOwner } from "@/lib/actions/teaching-media-actions"
+import { getTeachingMediaUsageReferences, normalizeTeachingMediaReferences } from "@/lib/teaching-media-reference"
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -103,6 +105,14 @@ export async function PATCH(req: Request, { params }: Params) {
             return createAppErrorResponse("INVALID_PAYLOAD", "valid lesson content is required", 400)
         }
 
+        const normalizedContent =
+            content !== undefined
+                ? {
+                      ...(content as Record<string, unknown>),
+                      mediaReferences: normalizeTeachingMediaReferences((content as Record<string, unknown>).mediaReferences),
+                  }
+                : undefined
+
         const updated = await db.lesson.update({
             where: { id },
             data: {
@@ -111,9 +121,16 @@ export async function PATCH(req: Request, { params }: Params) {
                 ...(gradeLevel !== undefined && { gradeLevel: gradeLevel?.trim() || null }),
                 ...(description !== undefined && { description: description?.trim() || null }),
                 ...(status !== undefined && { status }),
-                ...(content !== undefined && { content }),
+                ...(normalizedContent !== undefined && { content: normalizedContent }),
             },
         })
+
+        if (normalizedContent?.mediaReferences) {
+            await syncTeachingMediaUsageForOwner(
+                updated.ownerUserId,
+                getTeachingMediaUsageReferences(normalizedContent.mediaReferences)
+            )
+        }
 
         return NextResponse.json(updated)
     } catch (error) {

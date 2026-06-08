@@ -65,11 +65,19 @@ model TeachingMedia {
   linkUrl     String?
   tags        String[] @default([])
   source      String?
+  isFavorite  Boolean  @default(false)
+  isArchived  Boolean  @default(false)
+  archivedAt  DateTime?
+  usageCount  Int      @default(0)
+  lastUsedAt  DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([ownerUserId, type])
   @@index([ownerUserId, createdAt])
+  @@index([ownerUserId, isArchived, createdAt])
+  @@index([ownerUserId, isFavorite, createdAt])
+  @@index([ownerUserId, usageCount, lastUsedAt])
 }
 
 model BillingProviderEvent {
@@ -341,6 +349,7 @@ model Assignment {
   type        String   @default("standard") // "standard", "checklist", "quiz"
   checklists  Json?    // Array of { id, text, points }
   quizData    Json?    // { questions: [] }
+  mediaReferences Json?
   maxScore    Int      @default(100)
   passScore   Int?
   deadline    DateTime?
@@ -456,6 +465,7 @@ model BoardPost {
   videoUrl        String?    
   videoName       String?    
   youtubeId       String?    
+  mediaReferences Json?
   
   comments    BoardComment[]
   reactions   BoardReaction[]

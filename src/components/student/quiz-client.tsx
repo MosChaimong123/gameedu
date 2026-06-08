@@ -10,6 +10,8 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { getLocalizedMessageFromApiErrorBody } from "@/lib/ui-error-messages";
 import { formatQuizLoadPlainError } from "@/lib/quiz-load-error-messages";
 import { cn } from "@/lib/utils";
+import { TeachingMediaReferenceList } from "@/components/media/teaching-media-reference-list";
+import type { TeachingMediaReference } from "@/lib/teaching-media-reference";
 
 type QuestionSlice = { id: string; question: string; options: string[] };
 
@@ -19,6 +21,7 @@ interface QuizClientProps {
     name: string;
     maxScore: number;
     description?: string | null;
+    mediaReferences?: TeachingMediaReference[];
   };
   classId: string;
   studentCode: string;
@@ -348,6 +351,7 @@ export function QuizClient({
             {assignment.description.trim()}
           </div>
         ) : null}
+        <TeachingMediaReferenceList references={assignment.mediaReferences} className="mb-4" />
 
         {loadError ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">

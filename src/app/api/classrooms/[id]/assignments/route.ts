@@ -14,6 +14,8 @@ import {
 } from "@/lib/api-error";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
 import { normalizeQuizTimeLimitMinutes } from "@/lib/quiz-attempt";
+import { syncTeachingMediaUsageForOwner } from "@/lib/actions/teaching-media-actions";
+import { getTeachingMediaUsageReferences, normalizeTeachingMediaReferences } from "@/lib/teaching-media-reference";
 
 type AssignmentChecklist = {
     text?: string;
@@ -33,6 +35,7 @@ type AssignmentRequestBody = {
     quizReviewMode?: string | null;
     timeLimitMinutes?: number | string | null;
     worksheetData?: unknown;
+    mediaReferences?: unknown;
 };
 
 export async function POST(
@@ -116,6 +119,7 @@ export async function POST(
 
         const timeLimitMinutes =
             effectiveType === "quiz" ? normalizeQuizTimeLimitMinutes(body.timeLimitMinutes) : null;
+        const mediaReferences = normalizeTeachingMediaReferences(body.mediaReferences);
 
         const assignment = await db.assignment.create({
             data: {
@@ -129,6 +133,7 @@ export async function POST(
                 deadline: deadline ? new Date(deadline) : null,
                 quizSetId: quizSetId || null,
                 quizData,
+                mediaReferences,
                 order: classroom.assignments.length,
                 ...(effectiveType === "quiz" && quizReviewMode !== undefined
                     ? { quizReviewMode }
@@ -136,6 +141,13 @@ export async function POST(
                 ...(effectiveType === "quiz" ? { timeLimitMinutes } : {}),
             }
         });
+
+        if (mediaReferences.length > 0) {
+            await syncTeachingMediaUsageForOwner(
+                session.user.id,
+                getTeachingMediaUsageReferences(mediaReferences)
+            );
+        }
 
         const assignmentType = String(assignment.type || type || "score").toLowerCase();
         const notifyLink =

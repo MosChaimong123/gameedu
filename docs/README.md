@@ -61,6 +61,7 @@ Use the sections below to find what you need.
 | [classroom-core-manual-qa-checklist.md](classroom-core-manual-qa-checklist.md) | Classroom management |
 | [assignment-quiz-manual-qa-checklist.md](assignment-quiz-manual-qa-checklist.md) | Assignments & quizzes |
 | [student-dashboard-manual-qa-checklist.md](student-dashboard-manual-qa-checklist.md) | Student portal |
+| [lesson-online-course-manual-qa-checklist.md](lesson-online-course-manual-qa-checklist.md) | Lessons / online course experience |
 | [economy-shop-ledger-manual-qa-checklist.md](economy-shop-ledger-manual-qa-checklist.md) | Economy, shop, ledger |
 | [live-game-host-play-socket-manual-qa-checklist.md](live-game-host-play-socket-manual-qa-checklist.md) | Live game sessions |
 | [negamon-battle-manual-qa-checklist.md](negamon-battle-manual-qa-checklist.md) | Negamon battle |

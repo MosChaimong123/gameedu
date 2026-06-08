@@ -10,6 +10,8 @@ import type {
   WorksheetStudentAnswerValue,
   WorksheetStudentAnswers,
 } from "@/lib/worksheet-schema";
+import { TeachingMediaReferenceList } from "@/components/media/teaching-media-reference-list";
+import type { TeachingMediaReference } from "@/lib/teaching-media-reference";
 
 function asStringRecord(value: WorksheetStudentAnswerValue | undefined): Record<string, string> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -39,6 +41,7 @@ interface WorksheetClientProps {
     name: string;
     maxScore: number;
     description?: string | null;
+    mediaReferences?: TeachingMediaReference[];
   };
   classId: string;
   studentCode: string;
@@ -352,6 +355,8 @@ export function WorksheetClient({
             {assignment.description.trim()}
           </section>
         ) : null}
+
+        <TeachingMediaReferenceList references={assignment.mediaReferences} />
 
         {allowResubmit && hasPreviousSubmission ? (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 shadow-sm">

@@ -36,6 +36,7 @@ import {
 } from "@/lib/datetime-local";
 import { cn } from "@/lib/utils";
 import { WorksheetBuilder } from "@/components/classroom/worksheet-builder";
+import { TeachingMediaPickerPanel } from "@/components/dashboard/teaching-media-picker-panel";
 import { getThemeBgStyle, getThemeHorizontalBgClass } from "@/lib/classroom-utils";
 import {
     getLocalizedErrorMessageFromResponse,
@@ -69,6 +70,10 @@ import {
     parseWorksheetDataFromAssignmentPayload,
     sumWorksheetMaxScore,
 } from "@/lib/worksheet-assignment";
+import {
+    normalizeTeachingMediaReferences,
+    type TeachingMediaReference,
+} from "@/lib/teaching-media-reference";
 
 interface AddAssignmentDialogProps {
     classId: string;
@@ -278,6 +283,7 @@ export function AddAssignmentDialog({
     const [quizTimeLimitMinutes, setQuizTimeLimitMinutes] = useState("");
     const [questionSets, setQuestionSets] = useState<QuestionSetOption[]>([]);
     const [worksheetData, setWorksheetData] = useState<WorksheetData>(buildDefaultWorksheetData());
+    const [mediaReferences, setMediaReferences] = useState<TeachingMediaReference[]>([]);
 
     const resetForm = useCallback(() => {
         setEditId(null);
@@ -292,6 +298,7 @@ export function AddAssignmentDialog({
         setQuizReviewPolicy(QUIZ_REVIEW_INHERIT);
         setQuizTimeLimitMinutes("");
         setWorksheetData(buildDefaultWorksheetData());
+        setMediaReferences([]);
     }, []);
 
     const resolveMutationFailureDescription = (
@@ -333,6 +340,9 @@ export function AddAssignmentDialog({
         }
 
         setDescription(a.description?.trim() ? a.description : "");
+        setMediaReferences(
+            normalizeTeachingMediaReferences((a as unknown as { mediaReferences?: unknown }).mediaReferences)
+        );
         setDeadlineLocal(toDatetimeLocalValue(a.deadline));
         setQuizSetId(a.quizSetId ?? "");
         const parsedWorksheet = parseWorksheetDataFromAssignmentPayload(a.quizData);
@@ -422,6 +432,7 @@ export function AddAssignmentDialog({
                 checklists: type === "checklist" ? validChecklists : [],
                 description: description.trim() ? description.trim() : null,
                 deadline: deadlineIso,
+                mediaReferences,
             };
             if (type === "quiz") {
                 payload.quizSetId = quizSetId;
@@ -794,6 +805,13 @@ export function AddAssignmentDialog({
                                         className="min-h-[4.5rem] resize-y border-slate-200 text-base focus-visible:ring-2 focus-visible:ring-slate-400"
                                     />
                                 </div>
+
+                                <TeachingMediaPickerPanel
+                                    selected={mediaReferences}
+                                    onChange={setMediaReferences}
+                                    title="สื่อประกอบงาน"
+                                    description="เลือกสื่อจากคลังเพื่อแนบกับงานนี้ และให้ระบบนับการใช้งานกลับไปที่คลังสื่อ"
+                                />
 
                                 <div className="space-y-2">
                                     <Label className="text-slate-700 font-bold text-sm">{t("assignmentDeadlineLabel")}</Label>

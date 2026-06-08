@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
     GraduationCap,
@@ -21,7 +21,9 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PageBackLink } from "@/components/ui/page-back-link"
+import { TeachingMediaPickerPanel } from "@/components/dashboard/teaching-media-picker-panel"
 import { cn } from "@/lib/utils"
+import type { TeachingMediaReference } from "@/lib/teaching-media-reference"
 
 type LessonExample = { title: string; body: string }
 type LessonSection = { id: string; heading: string; content: string; examples: LessonExample[] }
@@ -31,6 +33,7 @@ type LessonContent = {
     keyTerms: Array<{ term: string; definition: string }>
     summary: string
     estimatedMinutes: number
+    mediaReferences?: TeachingMediaReference[]
 }
 type GeneratedLesson = { title: string; content: LessonContent }
 
@@ -70,10 +73,18 @@ export default function CreateLessonPage() {
     // Preview / edit state
     const [lessonTitle, setLessonTitle] = useState("")
     const [lessonContent, setLessonContent] = useState<LessonContent | null>(null)
+    const [lessonMediaReferences, setLessonMediaReferences] = useState<TeachingMediaReference[]>([])
 
     // Save state
     const [saving, setSaving] = useState(false)
     const [saveError, setSaveError] = useState("")
+
+    useEffect(() => {
+        const source = new URLSearchParams(window.location.search).get("source")
+        if (source === "pdf" || source === "text") {
+            setSourceMode(source)
+        }
+    }, [])
 
     const handleFileSelect = useCallback((selected: File) => {
         if (selected.type === "application/pdf" || selected.name.toLowerCase().endsWith(".pdf")) {
@@ -182,7 +193,7 @@ export default function CreateLessonPage() {
                     subject: subject || undefined,
                     gradeLevel: gradeLevel || undefined,
                     sourceFileName: sourceMode === "pdf" ? file?.name : undefined,
-                    content: lessonContent,
+                    content: { ...lessonContent, mediaReferences: lessonMediaReferences },
                 }),
             })
             if (!res.ok) {
@@ -457,6 +468,13 @@ export default function CreateLessonPage() {
                             className="rounded-xl text-lg font-black"
                         />
                     </div>
+
+                    <TeachingMediaPickerPanel
+                        selected={lessonMediaReferences}
+                        onChange={setLessonMediaReferences}
+                        title="สื่อประกอบบทเรียน"
+                        description="เลือกไฟล์ รูปภาพ วิดีโอ YouTube หรือลิงก์จากคลังสื่อเพื่อแนบไว้กับบทเรียนนี้"
+                    />
 
                     {/* Objectives */}
                     <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">

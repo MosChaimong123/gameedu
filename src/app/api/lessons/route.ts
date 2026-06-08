@@ -3,6 +3,8 @@ import { auth } from "@/auth"
 import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error"
 import { db } from "@/lib/db"
 import { isLessonContentPayload } from "@/lib/lessons/lesson-content"
+import { getTeachingMediaUsageReferences, normalizeTeachingMediaReferences } from "@/lib/teaching-media-reference"
+import { syncTeachingMediaUsageForOwner } from "@/lib/actions/teaching-media-actions"
 
 // GET /api/lessons — ดึงรายการ lessons ของครูที่ login
 export async function GET() {
@@ -26,6 +28,7 @@ export async function GET() {
                 description: true,
                 status: true,
                 sourceFileName: true,
+                content: true,
                 createdAt: true,
                 updatedAt: true,
                 classroomAssignments: {
@@ -72,6 +75,11 @@ export async function POST(req: Request) {
             return createAppErrorResponse("INVALID_PAYLOAD", "valid lesson content is required", 400)
         }
 
+        const normalizedContent = {
+            ...(content as Record<string, unknown>),
+            mediaReferences: normalizeTeachingMediaReferences((content as Record<string, unknown>).mediaReferences),
+        }
+
         const lesson = await db.lesson.create({
             data: {
                 title: title.trim(),
@@ -79,11 +87,16 @@ export async function POST(req: Request) {
                 gradeLevel: gradeLevel?.trim() || null,
                 description: description?.trim() || null,
                 sourceFileName: sourceFileName?.trim() || null,
-                content,
+                content: normalizedContent,
                 status: "DRAFT",
                 ownerUserId: session.user.id,
             },
         })
+
+        await syncTeachingMediaUsageForOwner(
+            session.user.id,
+            getTeachingMediaUsageReferences(normalizedContent.mediaReferences)
+        )
 
         return NextResponse.json(lesson, { status: 201 })
     } catch (error) {

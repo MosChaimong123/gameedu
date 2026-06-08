@@ -48,6 +48,8 @@ export default async function WorksheetPage(props: {
         id: assignmentId,
         name: ctx.assignmentName,
         maxScore: ctx.maxScore,
+        description: ctx.assignmentDescription,
+        mediaReferences: ctx.mediaReferences,
       }}
       classId={student.classroom.id}
       studentCode={student.loginCode}

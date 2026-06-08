@@ -12,10 +12,7 @@ import {
     Upload,
     Youtube,
 } from "lucide-react";
-import { createTeachingMedia } from "@/lib/actions/teaching-media-actions";
-import { uploadBoardFileWithProgress } from "@/lib/board-upload-client";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import {
     Dialog,
     DialogContent,
@@ -25,7 +22,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
+import { createTeachingMedia } from "@/lib/actions/teaching-media-actions";
+import { uploadBoardFileWithProgress } from "@/lib/board-upload-client";
 import { cn } from "@/lib/utils";
 
 type MediaType = "file" | "image" | "video" | "youtube" | "link";
@@ -101,13 +101,14 @@ export function AddTeachingMediaDialog({
             toast({
                 variant: "destructive",
                 title: "กรุณากรอกชื่อสื่อ",
-                description: "ใส่ชื่อที่จำง่ายเพื่อค้นหาในคลัง",
+                description: "ใส่ชื่อที่จำง่ายเพื่อค้นหาในคลังได้สะดวก",
             });
             return;
         }
 
         setIsSubmitting(true);
         setUploadProgress(null);
+
         try {
             if (mediaType === "link") {
                 if (!linkUrl.trim()) {
@@ -141,6 +142,7 @@ export function AddTeachingMediaDialog({
                     toast({ variant: "destructive", title: "กรุณาเลือกไฟล์" });
                     return;
                 }
+
                 setUploadProgress({ percent: 0, label: "กำลังอัปโหลดไฟล์..." });
                 const uploadRes = await uploadBoardFileWithProgress(selectedFile, {
                     onByteProgress: ({ percent }) => {
@@ -150,6 +152,7 @@ export function AddTeachingMediaDialog({
                         });
                     },
                 });
+
                 setUploadProgress({ percent: 100, label: "กำลังบันทึกในคลัง..." });
                 const mime = uploadRes.type ?? selectedFile.type;
                 const resolvedType: MediaType =
@@ -208,7 +211,7 @@ export function AddTeachingMediaDialog({
                 className={cn(
                     variant === "header"
                         ? "inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-indigo-700 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl"
-                        : "rounded-2xl font-black gap-2",
+                        : "gap-2 rounded-2xl font-black",
                     className
                 )}
                 variant={variant === "outline" ? "outline" : undefined}
@@ -222,7 +225,7 @@ export function AddTeachingMediaDialog({
                     <DialogHeader>
                         <DialogTitle className="text-lg font-black">เพิ่มสื่อในคลัง</DialogTitle>
                         <p className="text-sm text-slate-500">
-                            อัปโหลดหรือบันทึกลิงก์เพื่อใช้ซ้ำบนกระดานชั้นเรียนได้ทันที
+                            อัปโหลดหรือบันทึกลิงก์ เพื่อให้หยิบกลับไปใช้ซ้ำในกระดานชั้นเรียนได้ทันที
                         </p>
                     </DialogHeader>
 
@@ -311,7 +314,7 @@ export function AddTeachingMediaDialog({
                                             ? "รองรับรูปภาพ"
                                             : mediaType === "video"
                                               ? "รองรับวิดีโอ"
-                                              : "รองรับไฟล์เอกสารและรูปภาพ"}
+                                              : "รองรับไฟล์เอกสารและไฟล์ประกอบการสอน"}
                                     </span>
                                 </button>
                             </div>

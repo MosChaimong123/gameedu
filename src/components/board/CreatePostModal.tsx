@@ -15,6 +15,7 @@ import {
     listTeachingMedia,
     type TeachingMediaItem,
 } from "@/lib/actions/teaching-media-actions";
+import { createTeachingMediaReference, type TeachingMediaReference } from "@/lib/teaching-media-reference";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { getLocalizedErrorMessageFromResponse } from "@/lib/ui-error-messages";
@@ -45,6 +46,7 @@ type BoardPostInput = {
     videoUrl?: string;
     videoName?: string;
     youtubeId?: string;
+    mediaReferences?: TeachingMediaReference[];
     pollQuestion?: string;
     pollOptions?: Array<{ text: string; id: string }>;
     albumImages?: string[];
@@ -120,6 +122,7 @@ export function CreatePostModal({
     const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
     const [albumUrls, setAlbumUrls] = useState<string[]>([""]);
     const [selectedLibraryFiles, setSelectedLibraryFiles] = useState<Array<{ url: string; name: string }>>([]);
+    const [mediaReferences, setMediaReferences] = useState<TeachingMediaReference[]>([]);
     
     // Local file states
     const [selectedBoardFiles, setSelectedBoardFiles] = useState<File[]>([]);
@@ -253,6 +256,11 @@ export function CreatePostModal({
     };
 
     const applyLibraryItem = (item: TeachingMediaItem) => {
+        const reference = createTeachingMediaReference(item);
+        setMediaReferences((prev) =>
+            prev.some((entry) => entry.mediaId === reference.mediaId) ? prev : [...prev, reference]
+        );
+
         if (item.type === "file" && item.url) {
             setSelectedLibraryFiles((prev) => [
                 ...prev,
@@ -304,7 +312,8 @@ export function CreatePostModal({
                 type,
                 title: title.trim(),
                 content: content.trim(),
-                color: selectedColor
+                color: selectedColor,
+                mediaReferences,
             };
 
             if (type === "link") data.linkUrl = linkUrl.trim();
@@ -430,6 +439,7 @@ export function CreatePostModal({
             setSelectedBoardFiles([]);
             setSelectedFiles([]);
             setSelectedLibraryFiles([]);
+            setMediaReferences([]);
             setSelectedColor("default");
             onOpenChange(false);
             

@@ -82,6 +82,7 @@ export const classroomDashboardSelect = {
             type: true,
             checklists: true,
             quizData: true,
+            mediaReferences: true,
             maxScore: true,
             passScore: true,
             deadline: true,

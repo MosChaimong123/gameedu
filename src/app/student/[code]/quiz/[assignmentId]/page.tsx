@@ -5,6 +5,7 @@ import { getThemeBgStyle } from "@/lib/classroom-utils";
 import { resolveQuizReviewMode } from "@/lib/quiz-review-policy";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
 import { isQuizSubmissionCompleted } from "@/lib/quiz-attempt";
+import { normalizeTeachingMediaReferences } from "@/lib/teaching-media-reference";
 
 export default async function QuizPage(props: {
     params: Promise<{ code: string; assignmentId: string }>
@@ -33,6 +34,7 @@ export default async function QuizPage(props: {
                             deadline: true,
                             timeLimitMinutes: true,
                             description: true,
+                            mediaReferences: true,
                             quizReviewMode: true,
                         }
                     }
@@ -82,6 +84,7 @@ export default async function QuizPage(props: {
                 name: assignment.name,
                 maxScore: assignment.maxScore,
                 description: assignment.description?.trim() || undefined,
+                mediaReferences: normalizeTeachingMediaReferences(assignment.mediaReferences),
             }}
             classId={student.classroom.id}
             studentCode={student.loginCode}

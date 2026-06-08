@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { RankEntry } from "@/lib/classroom-utils";
 import type { NegamonSettings } from "@/lib/types/negamon";
+import type { TeachingMediaReference } from "@/lib/teaching-media-reference";
 
 export type ChecklistItem = string | { text: string; points?: number };
 
@@ -15,6 +16,7 @@ export interface AssignmentRecord {
     passScore?: number;
     deadline?: string | Date | null;
     timeLimitMinutes?: number | null;
+    mediaReferences?: TeachingMediaReference[];
 }
 
 export interface SubmissionRecord {

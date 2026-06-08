@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { TeachingMediaReferenceList } from "@/components/media/teaching-media-reference-list";
+import type { TeachingMediaReference } from "@/lib/teaching-media-reference";
 
 type LessonExample = { title: string; body: string };
 type LessonSection = { id: string; heading: string; content: string; examples: LessonExample[] };
@@ -29,6 +31,7 @@ type LessonContent = {
     keyTerms: Array<{ term: string; definition: string }>;
     summary: string;
     estimatedMinutes?: number;
+    mediaReferences?: TeachingMediaReference[];
 };
 
 type QuizQuestion = {
@@ -65,6 +68,7 @@ export default function StudentLessonPage() {
     const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [expandedSection, setExpandedSection] = useState<string | null>(null);
+    const [readSectionIds, setReadSectionIds] = useState<Set<string>>(new Set());
     const [allRead, setAllRead] = useState(false);
     const [completing, setCompleting] = useState(false);
     const [completed, setCompleted] = useState(false);
@@ -84,7 +88,9 @@ export default function StudentLessonPage() {
                 if (data.completions.length > 0) setCompleted(true);
                 if (data.lesson.content.sections?.[0]) {
                     setExpandedSection(data.lesson.content.sections[0].id);
+                    setReadSectionIds(new Set([data.lesson.content.sections[0].id]));
                 }
+                window.localStorage.setItem(`lesson-progress:${code}:${lessonId}`, new Date().toISOString());
             })
             .catch((e: Error) => setFetchError(e.message))
             .finally(() => setLoading(false));
@@ -177,6 +183,11 @@ export default function StudentLessonPage() {
 
     const { lesson } = assignment;
     const { content } = lesson;
+    const totalSections = content.sections.length;
+    const readPercent = totalSections > 0 ? Math.round((readSectionIds.size / totalSections) * 100) : 0;
+    const lessonProgressPercent = completed ? 100 : Math.min(95, readPercent);
+    const completion = assignment.completions[0] ?? null;
+    const lessonStatus = completed ? "เรียนจบ" : readSectionIds.size > 1 || allRead ? "กำลังเรียน" : "ยังไม่เริ่ม";
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/30 to-teal-50/20">
@@ -221,6 +232,32 @@ export default function StudentLessonPage() {
                     </div>
                 </div>
 
+                <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+                    <div className="mb-2 flex items-center justify-between text-xs font-black text-slate-600">
+                        <span>{lessonStatus}</span>
+                        <span>{lessonProgressPercent}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                            className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                            style={{ width: `${lessonProgressPercent}%` }}
+                        />
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500">
+                        <span className="rounded-full bg-slate-50 px-2.5 py-1">
+                            อ่านแล้ว {readSectionIds.size}/{totalSections || 1} หัวข้อ
+                        </span>
+                        {completion?.quizScore !== null && completion?.quizScore !== undefined ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">
+                                <Star className="h-3 w-3 fill-current" />
+                                Quiz {completion.quizScore}%
+                            </span>
+                        ) : null}
+                    </div>
+                </div>
+
+                <TeachingMediaReferenceList references={content.mediaReferences} />
+
                 {/* Objectives */}
                 {content.objectives.length > 0 && (
                     <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
@@ -248,6 +285,7 @@ export default function StudentLessonPage() {
                             type="button"
                             onClick={() => {
                                 setExpandedSection((prev) => prev === section.id ? null : section.id);
+                                setReadSectionIds((prev) => new Set(prev).add(section.id));
                                 if (!allRead && si === content.sections.length - 1) setAllRead(true);
                             }}
                             className="flex w-full items-center gap-3 px-5 py-4 text-left hover:bg-slate-50"

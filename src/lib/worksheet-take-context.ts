@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
 import { parseWorksheetDataFromAssignmentPayload } from "@/lib/worksheet-assignment";
 import type { WorksheetData } from "@/lib/worksheet-schema";
+import { normalizeTeachingMediaReferences, type TeachingMediaReference } from "@/lib/teaching-media-reference";
 
 export const WORKSHEET_ERR_BAD_REQUEST = "Bad Request";
 export const WORKSHEET_ERR_STUDENT_NOT_FOUND = "Student not found";
@@ -15,6 +16,8 @@ export type WorksheetTakeContextResult =
       studentId: string;
       studentCode: string;
       assignmentName: string;
+      assignmentDescription: string | null;
+      mediaReferences: TeachingMediaReference[];
       maxScore: number;
       worksheet: WorksheetData;
       showScoreToStudent: boolean;
@@ -50,6 +53,8 @@ export async function loadWorksheetTakeContext(
     select: {
       type: true,
       name: true,
+      description: true,
+      mediaReferences: true,
       visible: true,
       deadline: true,
       maxScore: true,
@@ -84,6 +89,8 @@ export async function loadWorksheetTakeContext(
     studentId: student.id,
     studentCode: student.loginCode,
     assignmentName: assignment.name,
+    assignmentDescription: assignment.description,
+    mediaReferences: normalizeTeachingMediaReferences(assignment.mediaReferences),
     maxScore: assignment.maxScore,
     worksheet,
     showScoreToStudent: worksheet.settings.showScoreToStudent,

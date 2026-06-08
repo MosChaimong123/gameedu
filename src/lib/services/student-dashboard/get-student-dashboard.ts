@@ -32,6 +32,7 @@ type ClassroomAssignment = {
     passScore?: number | null;
     deadline?: Date | null;
     checklists?: unknown;
+    mediaReferences?: unknown;
 };
 
 type StudentHistory = {
@@ -124,6 +125,7 @@ export async function getStudentDashboard(
                             deadline: true,
                             timeLimitMinutes: true,
                             checklists: true,
+                            mediaReferences: true,
                             visible: true,
                         },
                     },

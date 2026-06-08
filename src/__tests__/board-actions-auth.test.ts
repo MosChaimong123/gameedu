@@ -17,6 +17,7 @@ const mockBoardCommentCreate = vi.fn();
 const mockBoardPollVoteFindFirst = vi.fn();
 const mockBoardPollVoteCreate = vi.fn();
 const mockBoardPollVoteUpdate = vi.fn();
+const mockSyncTeachingMediaUsageForOwner = vi.fn();
 
 vi.mock("@/auth", () => ({
   auth: mockAuth,
@@ -27,6 +28,10 @@ const mockDeleteBoardAssetsFromR2 = vi.fn();
 vi.mock("@/lib/storage", () => ({
   collectBoardPostMediaUrls: () => [],
   deleteBoardAssetsFromR2: mockDeleteBoardAssetsFromR2,
+}));
+
+vi.mock("@/lib/actions/teaching-media-actions", () => ({
+  syncTeachingMediaUsageForOwner: mockSyncTeachingMediaUsageForOwner,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -112,6 +117,7 @@ describe("board actions authorization", () => {
       },
       poll: null,
     });
+    mockSyncTeachingMediaUsageForOwner.mockResolvedValue(undefined);
   });
 
   it("creates board posts using the session-linked student instead of trusting client author ids", async () => {
@@ -134,6 +140,12 @@ describe("board actions authorization", () => {
           authorStudentId: "student-1",
           authorUserId: undefined,
         }),
+      })
+    );
+    expect(mockSyncTeachingMediaUsageForOwner).toHaveBeenCalledWith(
+      "teacher-1",
+      expect.objectContaining({
+        linkUrls: ["https://example.com/hello"],
       })
     );
   });
@@ -297,6 +309,14 @@ describe("board actions authorization", () => {
 
     await expect(deleteBoardPost("post-1")).resolves.toEqual({ success: true });
     expect(mockBoardPostDelete).toHaveBeenCalledWith({ where: { id: "post-1" } });
+    expect(mockSyncTeachingMediaUsageForOwner).toHaveBeenCalledWith(
+      "teacher-1",
+      expect.objectContaining({
+        urls: [],
+        linkUrls: [],
+        youtubeIds: [],
+      })
+    );
   });
 
   it("updates an existing poll vote instead of creating a duplicate vote", async () => {

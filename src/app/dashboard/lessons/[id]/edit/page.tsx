@@ -33,6 +33,11 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog"
 import { PageBackLink } from "@/components/ui/page-back-link"
+import { TeachingMediaPickerPanel } from "@/components/dashboard/teaching-media-picker-panel"
+import {
+    normalizeTeachingMediaReferences,
+    type TeachingMediaReference,
+} from "@/lib/teaching-media-reference"
 
 type LessonExample = { title: string; body: string }
 type LessonSection = { id: string; heading: string; content: string; examples: LessonExample[] }
@@ -42,6 +47,7 @@ type LessonContent = {
     keyTerms: Array<{ term: string; definition: string }>
     summary: string
     estimatedMinutes: number
+    mediaReferences?: TeachingMediaReference[]
     quizDraft?: LessonQuizDraft
 }
 type LessonQuizQuestion = {
@@ -110,7 +116,10 @@ export default function EditLessonPage() {
                 setTitle(data.title)
                 setSubject(data.subject ?? "")
                 setGradeLevel(data.gradeLevel ?? "")
-                setContent(data.content)
+                setContent({
+                    ...data.content,
+                    mediaReferences: normalizeTeachingMediaReferences(data.content.mediaReferences),
+                })
             })
             .finally(() => setLoading(false))
     }, [id])
@@ -120,6 +129,15 @@ export default function EditLessonPage() {
             .then((r) => r.json())
             .then((data) => Array.isArray(data) && setClassrooms(data))
     }, [])
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        if (window.location.hash === "#assign") {
+            setAssignError("")
+            fetchClassrooms()
+            setAssignOpen(true)
+        }
+    }, [fetchClassrooms])
 
     async function handleSave() {
         if (!content) return
@@ -383,6 +401,13 @@ export default function EditLessonPage() {
                 </div>
             </div>
 
+            <TeachingMediaPickerPanel
+                selected={normalizeTeachingMediaReferences(content.mediaReferences)}
+                onChange={(next) => setContent({ ...content, mediaReferences: next })}
+                title="สื่อประกอบบทเรียน"
+                description="แนบสื่อจากคลังไว้กับบทเรียน เพื่อใช้งานซ้ำและติดตามแหล่งใช้งานได้"
+            />
+
             {/* Objectives */}
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="mb-3 flex items-center justify-between">
@@ -459,7 +484,7 @@ export default function EditLessonPage() {
 
             {/* Key Terms */}
             {content.keyTerms.length > 0 && (
-                <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <div id="progress" className="scroll-mt-24 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
                     <div className="mb-3 flex items-center gap-2">
                         <Key className="h-5 w-5 text-violet-500" />
                         <h3 className="font-black text-slate-800">คำศัพท์สำคัญ</h3>

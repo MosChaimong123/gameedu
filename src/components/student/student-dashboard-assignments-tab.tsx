@@ -30,6 +30,7 @@ import {
 } from "@/lib/academic-score";
 import { cn } from "@/lib/utils";
 import { isQuizSubmissionCompleted } from "@/lib/quiz-attempt";
+import { TeachingMediaReferenceList } from "@/components/media/teaching-media-reference-list";
 import type {
     ClassroomRecord,
     StudentDashboardTranslateFn,
@@ -425,6 +426,11 @@ export function StudentDashboardAssignmentsTab({
                                                     {assignment.description.trim()}
                                                 </p>
                                             ) : null}
+                                            <TeachingMediaReferenceList
+                                                references={assignment.mediaReferences}
+                                                compact
+                                                className="mt-3 border-slate-100 bg-slate-50/80 shadow-none"
+                                            />
                                         </div>
                                         <div className="space-y-2">
                                             <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider">

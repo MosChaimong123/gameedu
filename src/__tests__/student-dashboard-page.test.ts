@@ -59,6 +59,7 @@ describe("student dashboard page", () => {
       battleLoadout: [],
       equippedFrame: null,
       negamonSkills: [],
+      negamonSkillLoadout: [],
       classroom: {
         id: "class-1",
         name: "Class 1",
@@ -107,6 +108,7 @@ describe("student dashboard page", () => {
         battleLoadout: true,
         equippedFrame: true,
         negamonSkills: true,
+        negamonSkillLoadout: true,
         classroom: {
           select: {
             id: true,
@@ -129,6 +131,7 @@ describe("student dashboard page", () => {
                 timeLimitMinutes: true,
                 deadline: true,
                 checklists: true,
+                mediaReferences: true,
                 visible: true,
               },
             },

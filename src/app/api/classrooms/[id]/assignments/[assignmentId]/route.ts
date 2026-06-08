@@ -13,6 +13,8 @@ import {
 } from "@/lib/api-error";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
 import { normalizeQuizTimeLimitMinutes } from "@/lib/quiz-attempt";
+import { syncTeachingMediaUsageForOwner } from "@/lib/actions/teaching-media-actions";
+import { getTeachingMediaUsageReferences, normalizeTeachingMediaReferences } from "@/lib/teaching-media-reference";
 
 export async function PATCH(
     req: Request,
@@ -83,6 +85,9 @@ export async function PATCH(
                     ? null
                     : String(body.description);
         }
+        if (body.mediaReferences !== undefined) {
+            data.mediaReferences = normalizeTeachingMediaReferences(body.mediaReferences);
+        }
         if (body.deadline !== undefined) {
             data.deadline =
                 body.deadline === null || body.deadline === ""
@@ -148,6 +153,14 @@ export async function PATCH(
             where: { id: resolvedParams.assignmentId },
             data,
         });
+
+        if (body.mediaReferences !== undefined) {
+            const mediaReferences = normalizeTeachingMediaReferences(body.mediaReferences);
+            await syncTeachingMediaUsageForOwner(
+                session.user.id,
+                getTeachingMediaUsageReferences(mediaReferences)
+            );
+        }
 
         return NextResponse.json(assignment);
     } catch (error) {

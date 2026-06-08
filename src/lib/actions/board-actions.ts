@@ -15,6 +15,12 @@ import {
     BOARD_ERR_INVALID_MEDIA,
 } from "@/lib/safe-media-url";
 import { collectBoardPostMediaUrls, deleteBoardAssetsFromR2 } from "@/lib/storage";
+import { syncTeachingMediaUsageForOwner } from "@/lib/actions/teaching-media-actions";
+import {
+    getTeachingMediaUsageReferences,
+    normalizeTeachingMediaReferences,
+    type TeachingMediaReference,
+} from "@/lib/teaching-media-reference";
 
 const BOARD_ERR_CLASSROOM_NOT_FOUND = "boardErrClassroomNotFound";
 const MAX_BOARD_ALBUM_IMAGES = 20;
@@ -50,6 +56,7 @@ type CreateBoardPostInput = {
     videoUrl?: string;
     videoName?: string;
     youtubeId?: string;
+    mediaReferences?: TeachingMediaReference[];
     pollQuestion?: string;
     pollOptions?: BoardPollOptionInput[];
     albumImages?: string[];
@@ -65,6 +72,25 @@ type BoardActor = {
 
 type BoardRecord = NonNullable<Awaited<ReturnType<typeof fetchBoardById>>>;
 type BoardPostRecord = BoardRecord["posts"][number];
+
+function collectBoardPostMediaReferences(post: {
+    linkUrl?: string | null;
+    fileUrl?: string | null;
+    videoUrl?: string | null;
+    image?: string | null;
+    images?: string[] | null;
+    youtubeId?: string | null;
+    mediaReferences?: unknown;
+}) {
+    const normalizedReferences = normalizeTeachingMediaReferences(post.mediaReferences);
+    const referenceUsage = getTeachingMediaUsageReferences(normalizedReferences);
+
+    return {
+        urls: [...new Set([post.fileUrl, post.videoUrl, post.image, ...(post.images ?? []), ...referenceUsage.urls].filter(Boolean) as string[])],
+        linkUrls: [...new Set([post.linkUrl, ...referenceUsage.linkUrls].filter(Boolean) as string[])],
+        youtubeIds: [...new Set([post.youtubeId, ...referenceUsage.youtubeIds].filter(Boolean) as string[])],
+    };
+}
 
 async function requireSessionUserId() {
     const session = await auth();
@@ -367,7 +393,7 @@ export async function getBoardWithPosts(boardId: string) {
 export async function createBoardPost(data: CreateBoardPostInput) {
     const userId = await requireSessionUserId();
     const normalized = normalizeBoardPostInput(data);
-    const { actor } = await resolveBoardActor(normalized.boardId, userId);
+    const { actor, board } = await resolveBoardActor(normalized.boardId, userId);
 
     const post = await db.boardPost.create({
         data: {
@@ -384,6 +410,7 @@ export async function createBoardPost(data: CreateBoardPostInput) {
             videoUrl: normalized.videoUrl,
             videoName: normalized.videoName,
             youtubeId: normalized.youtubeId,
+            mediaReferences: normalizeTeachingMediaReferences(normalized.mediaReferences),
             images: normalized.albumImages ?? [],
             authorStudentId: actor.authorStudentId,
             authorUserId: actor.authorUserId,
@@ -412,6 +439,14 @@ export async function createBoardPost(data: CreateBoardPostInput) {
         },
     });
 
+    const classroom = await db.classroom.findUnique({
+        where: { id: board.classId },
+        select: { teacherId: true },
+    });
+    if (classroom?.teacherId) {
+        await syncTeachingMediaUsageForOwner(classroom.teacherId, collectBoardPostMediaReferences(normalized));
+    }
+
     return mapBoardPost(post);
 }
 
@@ -433,6 +468,7 @@ export async function deleteBoardPost(postId: string) {
     }
 
     const mediaUrls = collectBoardPostMediaUrls(post);
+    const mediaReferences = collectBoardPostMediaReferences(post);
     await db.boardPost.delete({ where: { id: postId } });
     const reusableMedia = mediaUrls.length
         ? await db.teachingMedia.findMany({
@@ -442,6 +478,7 @@ export async function deleteBoardPost(postId: string) {
         : [];
     const reusableUrls = new Set(reusableMedia.map((media) => media.url).filter(Boolean));
     await deleteBoardAssetsFromR2(mediaUrls.filter((url) => !reusableUrls.has(url)));
+    await syncTeachingMediaUsageForOwner(post.board.classroom.teacherId, mediaReferences);
     return { success: true };
 }
 

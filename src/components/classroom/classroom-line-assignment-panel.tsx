@@ -1046,13 +1046,13 @@ export function ClassroomLineAssignmentPanel({
                           ? payload.error
                           : typeof payload?.error === "object" && typeof payload.error?.message === "string"
                             ? payload.error.message
-                            : "เนเธซเธฅเธ”เธเธณเธชเธฑเนเธเธเธนเธ LINE เนเธกเนเธชเธณเน€เธฃเนเธ";
+                            : "โหลดคำสั่งผูก LINE ไม่สำเร็จ";
                 throw new Error(message);
             }
             const payload = (await response.json()) as LineBindingCommandPayload;
             setBindingCommand(payload);
         } catch (error) {
-            setBindingError(error instanceof Error ? error.message : "เนเธซเธฅเธ”เธเธณเธชเธฑเนเธเธเธนเธ LINE เนเธกเนเธชเธณเน€เธฃเนเธ");
+            setBindingError(error instanceof Error ? error.message : "โหลดคำสั่งผูก LINE ไม่สำเร็จ");
         } finally {
             setBindingLoading(false);
         }
@@ -1067,7 +1067,7 @@ export function ClassroomLineAssignmentPanel({
             ]);
 
             if (!settingResponse.ok) {
-                throw new Error("เนเธซเธฅเธ”เธเธฒเธฃเธ•เธฑเนเธเธเนเธฒเน€เธ•เธทเธญเธ LINE เนเธกเนเธชเธณเน€เธฃเนเธ");
+                throw new Error("โหลดการตั้งค่าเตือน LINE ไม่สำเร็จ");
             }
             const settingPayload = (await settingResponse.json()) as { setting: LineReminderSettingPayload };
             setReminderSetting(settingPayload.setting);
@@ -1080,8 +1080,8 @@ export function ClassroomLineAssignmentPanel({
             }
         } catch (error) {
             toast({
-                title: "เนเธซเธฅเธ” LINE auto reminder เนเธกเนเธชเธณเน€เธฃเนเธ",
-                description: error instanceof Error ? error.message : "เธฅเธญเธเนเธซเธกเนเธญเธตเธเธเธฃเธฑเนเธ",
+                title: "โหลด LINE auto reminder ไม่สำเร็จ",
+                description: error instanceof Error ? error.message : "ลองใหม่อีกครั้ง",
                 variant: "destructive",
             });
         } finally {
@@ -1134,18 +1134,18 @@ export function ClassroomLineAssignmentPanel({
                 body: JSON.stringify(reminderSetting),
             });
             if (!response.ok) {
-                throw new Error("เธเธฑเธเธ—เธถเธเธเธฒเธฃเธ•เธฑเนเธเธเนเธฒเน€เธ•เธทเธญเธ LINE เนเธกเนเธชเธณเน€เธฃเนเธ");
+                throw new Error("บันทึกการตั้งค่าเตือน LINE ไม่สำเร็จ");
             }
             const payload = (await response.json()) as { setting: LineReminderSettingPayload };
             setReminderSetting(payload.setting);
             toast({
-                title: payload.setting.enabled ? "เน€เธเธดเธ” auto reminder เนเธฅเนเธง" : "เธเธดเธ” auto reminder เนเธฅเนเธง",
-                description: "เธเธฒเธฃเธ•เธฑเนเธเธเนเธฒเธเธตเนเธกเธตเธเธฅเน€เธเธเธฒเธฐเธซเนเธญเธเน€เธฃเธตเธขเธเธเธตเน",
+                title: payload.setting.enabled ? "เปิด auto reminder แล้ว" : "ปิด auto reminder แล้ว",
+                description: "การตั้งค่านี้มีผลเฉพาะห้องเรียนนี้",
             });
         } catch (error) {
             toast({
-                title: "เธเธฑเธเธ—เธถเธ LINE auto reminder เนเธกเนเธชเธณเน€เธฃเนเธ",
-                description: error instanceof Error ? error.message : "เธฅเธญเธเนเธซเธกเนเธญเธตเธเธเธฃเธฑเนเธ",
+                title: "บันทึก LINE auto reminder ไม่สำเร็จ",
+                description: error instanceof Error ? error.message : "ลองใหม่อีกครั้ง",
                 variant: "destructive",
             });
         } finally {
@@ -1180,8 +1180,8 @@ export function ClassroomLineAssignmentPanel({
         if (!bindingCommand) return;
         await navigator.clipboard.writeText(bindingCommand.command);
         toast({
-            title: "เธเธฑเธ”เธฅเธญเธเธเธณเธชเธฑเนเธเธเธนเธ LINE เนเธฅเนเธง",
-            description: "เธเธณเนเธเธงเธฒเธเนเธเธเธฅเธธเนเธก LINE เธ—เธตเนเน€เธเธดเธเธเธญเธ—เน€เธเนเธฒเนเธงเนเนเธ”เนเน€เธฅเธข",
+            title: "คัดลอกคำสั่งผูก LINE แล้ว",
+            description: "นำไปวางในกลุ่ม LINE ที่เชิญบอทเข้าไว้ได้เลย",
         });
     }
 
@@ -1191,11 +1191,11 @@ export function ClassroomLineAssignmentPanel({
         try {
             await onRefreshBindingStatus();
             toast({
-                title: "เธฃเธตเน€เธเธฃเธเธชเธ–เธฒเธเธฐ LINE เนเธฅเนเธง",
-                description: "เธ–เนเธฒเธเธนเธเธซเนเธญเธเนเธ LINE เธชเธณเน€เธฃเนเธเนเธฅเนเธง badge เนเธฅเธฐเธฃเธฒเธขเธเธทเนเธญเธเธฅเธธเนเธกเธ”เนเธฒเธเธเธเธเธฐเธญเธฑเธเน€เธ”เธ•เธ—เธฑเธเธ—เธต",
+                title: "รีเฟรชสถานะ LINE แล้ว",
+                description: "ถ้าผูกห้องใน LINE สำเร็จแล้ว badge และรายชื่อกลุ่มด้านบนจะอัปเดตทันที",
             });
         } catch (error) {
-            setBindingError(error instanceof Error ? error.message : "เธฃเธตเน€เธเธฃเธเธชเธ–เธฒเธเธฐ LINE เนเธกเนเธชเธณเน€เธฃเนเธ");
+            setBindingError(error instanceof Error ? error.message : "รีเฟรชสถานะ LINE ไม่สำเร็จ");
         } finally {
             setBindingStatusRefreshing(false);
         }
@@ -1234,22 +1234,22 @@ export function ClassroomLineAssignmentPanel({
             toast({
                 title:
                     result.sentCount > 0
-                        ? "เธชเนเธ LINE เนเธฅเนเธง"
+                        ? "ส่ง LINE แล้ว"
                         : connectedGroupCount === 0
-                          ? "เธซเนเธญเธเธเธตเนเธขเธฑเธเนเธกเนเนเธ”เนเธเธนเธ LINE"
-                          : "เธขเธฑเธเนเธกเนเธกเธตเธเนเธญเธเธงเธฒเธกเธ–เธนเธเธชเนเธ",
+                          ? "ห้องนี้ยังไม่ได้ผูก LINE"
+                          : "ยังไม่มีข้อความถูกส่ง",
                 description:
                     result.sentCount > 0
-                        ? `เธชเนเธเนเธ ${result.lineGroupCount} เธเธฅเธธเนเธก เธ•เธดเธ”เธ•เธฒเธกเธเธฑเธเน€เธฃเธตเธขเธเธเนเธฒเธเธชเนเธ ${result.targetCount} เธเธ`
+                        ? `ส่งไป ${result.lineGroupCount} กลุ่ม ติดตามนักเรียนค้างส่ง ${result.targetCount} คน`
                         : connectedGroupCount === 0
-                          ? "เธเธนเธเธเธฅเธธเนเธก LINE เธเธฑเธเธซเนเธญเธเธเธตเนเธเนเธญเธ เนเธฅเนเธงเธเนเธญเธขเธชเนเธเน€เธ•เธทเธญเธเธเธฒเธเธซเธเนเธฒเน€เธ”เธตเธขเธงเธเธฑเธ"
-                          : "เธ•เธฃเธงเธเธชเธญเธเธเธฒเธฃเน€เธเธทเนเธญเธกเธ•เนเธญ LINE เธเธญเธเธซเนเธญเธเธเธตเนเธญเธตเธเธเธฃเธฑเนเธ",
+                          ? "ผูกกลุ่ม LINE กับห้องนี้ก่อน แล้วค่อยส่งเตือนจากหน้าเดียวกัน"
+                          : "ตรวจสอบการเชื่อมต่อ LINE ของห้องนี้อีกครั้ง",
                 variant: result.sentCount > 0 ? "default" : "destructive",
             });
         } catch (error) {
             toast({
-                title: "เธชเนเธ LINE เนเธกเนเธชเธณเน€เธฃเนเธ",
-                description: error instanceof Error ? error.message : "เธฅเธญเธเนเธซเธกเนเธญเธตเธเธเธฃเธฑเนเธ",
+                title: "ส่ง LINE ไม่สำเร็จ",
+                description: error instanceof Error ? error.message : "ลองใหม่อีกครั้ง",
                 variant: "destructive",
             });
         } finally {
@@ -1265,22 +1265,22 @@ export function ClassroomLineAssignmentPanel({
             toast({
                 title:
                     result.sentCount > 0
-                        ? "เธชเนเธเธชเธฃเธธเธเธเธฒเธเธเนเธฒเธเธ—เธฑเนเธเธซเนเธญเธเนเธฅเนเธง"
+                        ? "ส่งสรุปงานค้างทั้งห้องแล้ว"
                         : connectedGroupCount === 0
-                          ? "เธซเนเธญเธเธเธตเนเธขเธฑเธเนเธกเนเนเธ”เนเธเธนเธ LINE"
-                          : "เธขเธฑเธเนเธกเนเธกเธตเธเนเธญเธเธงเธฒเธกเธ–เธนเธเธชเนเธ",
+                          ? "ห้องนี้ยังไม่ได้ผูก LINE"
+                          : "ยังไม่มีข้อความถูกส่ง",
                 description:
                     result.sentCount > 0
-                        ? `เธชเนเธเนเธ ${result.lineGroupCount} เธเธฅเธธเนเธก เธเธฃเธญเธเธเธฅเธธเธก ${result.assignmentCount} เธเธฒเธ`
+                        ? `ส่งไป ${result.lineGroupCount} กลุ่ม ครอบคลุม ${result.assignmentCount} งาน`
                         : connectedGroupCount === 0
-                          ? "เธเธนเธเธเธฅเธธเนเธก LINE เธเนเธญเธ เธเธถเธเธเธฐเธชเนเธเธ—เธงเธเธเธฒเธเธ—เธฑเนเธเธซเนเธญเธเนเธ”เน"
-                          : "เธ•เธฃเธงเธเธชเธญเธเธเธฒเธฃเน€เธเธทเนเธญเธกเธ•เนเธญ LINE เธเธญเธเธซเนเธญเธเธเธตเนเธญเธตเธเธเธฃเธฑเนเธ",
+                          ? "ผูกกลุ่ม LINE ก่อน จึงจะส่งทวงงานทั้งห้องได้"
+                          : "ตรวจสอบการเชื่อมต่อ LINE ของห้องนี้อีกครั้ง",
                 variant: result.sentCount > 0 ? "default" : "destructive",
             });
         } catch (error) {
             toast({
-                title: "เธชเนเธเธชเธฃเธธเธเธเธฒเธเธเนเธฒเธเนเธกเนเธชเธณเน€เธฃเนเธ",
-                description: error instanceof Error ? error.message : "เธฅเธญเธเนเธซเธกเนเธญเธตเธเธเธฃเธฑเนเธ",
+                title: "ส่งสรุปงานค้างไม่สำเร็จ",
+                description: error instanceof Error ? error.message : "ลองใหม่อีกครั้ง",
                 variant: "destructive",
             });
         } finally {
@@ -1291,7 +1291,7 @@ export function ClassroomLineAssignmentPanel({
     async function handleResetStudentLineLink(student: ClassroomDashboardViewModel["students"][number]) {
         if (!student.lineLink?.linked) return;
         const confirmed = window.confirm(
-            `เธฃเธตเน€เธเนเธ•เธเธฒเธฃเน€เธเธทเนเธญเธก LINE เธเธญเธ ${student.name} เนเธเนเนเธซเธก?\nเธเธฑเธเน€เธฃเธตเธขเธเธเธฐเธ•เนเธญเธเธเธ” เน€เธเธทเนเธญเธก LINE เนเธฅเธฐเธชเนเธเธฃเธซเธฑเธชเนเธซเธกเนเธญเธตเธเธเธฃเธฑเนเธ`
+            `รีเซ็ตการเชื่อม LINE ของ ${student.name} ใช่ไหม?\nนักเรียนจะต้องกด เชื่อม LINE และส่งรหัสใหม่อีกครั้ง`
         );
         if (!confirmed) return;
 
@@ -1303,16 +1303,16 @@ export function ClassroomLineAssignmentPanel({
             });
             await onRefreshBindingStatus();
             toast({
-                title: "เธฃเธตเน€เธเนเธ• LINE เนเธฅเนเธง",
+                title: "รีเซ็ต LINE แล้ว",
                 description:
                     result.accountLinksDeleted + result.groupBindingsDeleted > 0
-                        ? `${student.name} เธชเธฒเธกเธฒเธฃเธ–เน€เธเธทเนเธญเธก LINE เนเธซเธกเนเนเธ”เนเนเธฅเนเธง`
-                        : `${student.name} เธขเธฑเธเนเธกเนเธกเธต LINE link เธ—เธตเนเธ•เนเธญเธเธฃเธตเน€เธเนเธ•`,
+                        ? `${student.name} สามารถเชื่อม LINE ใหม่ได้แล้ว`
+                        : `${student.name} ยังไม่มี LINE link ที่ต้องรีเซ็ต`,
             });
         } catch (error) {
             toast({
-                title: "เธฃเธตเน€เธเนเธ• LINE เนเธกเนเธชเธณเน€เธฃเนเธ",
-                description: error instanceof Error ? error.message : "เธฅเธญเธเนเธซเธกเนเธญเธตเธเธเธฃเธฑเนเธ",
+                title: "รีเซ็ต LINE ไม่สำเร็จ",
+                description: error instanceof Error ? error.message : "ลองใหม่อีกครั้ง",
                 variant: "destructive",
             });
         } finally {
@@ -1325,11 +1325,11 @@ export function ClassroomLineAssignmentPanel({
             <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.28px] text-[#93939f]">
-                        LINE / เธเธฒเธเธกเธญเธเธซเธกเธฒเธข
+                        LINE / งานมอบหมาย
                     </p>
-                    <h2 className="mt-1 text-xl font-black text-[#212121]">เธเธธเธ”เธชเธฑเนเธเธเธฒเธเนเธฅเธฐเธ—เธงเธเธเธฒเธเธเธญเธเธซเนเธญเธเธเธตเน</h2>
+                    <h2 className="mt-1 text-xl font-black text-[#212121]">จุดสั่งงานและทวงงานของห้องนี้</h2>
                     <p className="mt-1 text-sm text-[#6b7280]">
-                        เธชเนเธ LINE เนเธฅเธฐเธ”เธนเธงเนเธฒเธเธฒเธเนเธซเธเธขเธฑเธเธเนเธฒเธเธเธฒเธเธซเธเนเธฒเธเธตเนเนเธ”เนเน€เธฅเธข
+                        ส่ง LINE และดูว่างานไหนยังค้างจากหน้านี้ได้เลย
                     </p>
                 </div>
 
@@ -1343,8 +1343,8 @@ export function ClassroomLineAssignmentPanel({
                     >
                         <Link2 className="h-3.5 w-3.5" />
                         {connectedGroupCount > 0
-                            ? `LINE connected ${connectedGroupCount} เธเธฅเธธเนเธก`
-                            : "LINE เธขเธฑเธเนเธกเนเธเธนเธเธเธฑเธเธซเนเธญเธเธเธตเน"}
+                            ? `LINE connected ${connectedGroupCount} กลุ่ม`
+                            : "LINE ยังไม่ผูกกับห้องนี้"}
                     </span>
                     <Dialog
                         open={bindingDialogOpen}
@@ -1358,30 +1358,30 @@ export function ClassroomLineAssignmentPanel({
                         <DialogTrigger asChild>
                             <Button type="button" variant="outline" size="sm" className="h-9 rounded-full">
                                 <Link2 className="mr-1.5 h-4 w-4" />
-                                {connectedGroupCount > 0 ? "เธเธฑเธ”เธเธฒเธฃ LINE เธซเนเธญเธเธเธตเน" : "เธเธนเธ LINE เธซเนเธญเธเธเธตเน"}
+                                {connectedGroupCount > 0 ? "จัดการ LINE ห้องนี้" : "ผูก LINE ห้องนี้"}
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="max-h-[85vh] w-[calc(100vw-1.5rem)] max-w-2xl overflow-y-auto rounded-[28px] border border-slate-200 p-0 shadow-2xl">
                             <DialogHeader className="border-b border-slate-100 px-6 pb-4 pt-6 text-left">
-                                <DialogTitle className="text-xl font-black">เธเธนเธ LINE เธเธฑเธเธซเนเธญเธเน€เธฃเธตเธขเธเธเธตเน</DialogTitle>
+                                <DialogTitle className="text-xl font-black">ผูก LINE กับห้องเรียนนี้</DialogTitle>
                                 <DialogDescription className="text-sm text-slate-600">
-                                    เนเธเนเธเธณเธชเธฑเนเธเนเธเธเธซเธกเธ”เธญเธฒเธขเธธเธชเธณเธซเธฃเธฑเธเธซเนเธญเธเธเธตเนเนเธ”เธขเน€เธเธเธฒเธฐ เน€เธเธทเนเธญเธฅเธ”เธเธฒเธฃเน€เธเธดเธ”เน€เธเธข secret เธ•เธฃเธ เน
+                                    ใช้คำสั่งแบบหมดอายุสำหรับห้องนี้โดยเฉพาะ เพื่อลดการเปิดเผย secret ตรง ๆ
                                 </DialogDescription>
                             </DialogHeader>
 
                             <div className="space-y-4">
                                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                                    <p className="font-bold text-slate-900">เธเธฑเนเธเธ•เธญเธ</p>
+                                    <p className="font-bold text-slate-900">ขั้นตอน</p>
                                     <ol className="mt-2 list-decimal space-y-1 pl-5">
-                                        <li>เน€เธเธดเนเธกเธเธญเธ— LINE เน€เธเนเธเน€เธเธทเนเธญเธ เนเธฅเธฐเน€เธเธดเธเธเธญเธ—เน€เธเนเธฒเธเธฅเธธเนเธกเธซเนเธญเธเธเธตเน</li>
-                                        <li>เน€เธเธดเธ”เธเธฅเธธเนเธกเธเธฑเนเธ เนเธฅเนเธงเธงเธฒเธเธเธณเธชเธฑเนเธเธเธนเธเธซเนเธญเธเธเธฒเธเธ”เนเธฒเธเธฅเนเธฒเธ</li>
-                                        <li>เน€เธกเธทเนเธญเธเธนเธเธชเธณเน€เธฃเนเธ เธเธฅเธธเนเธกเธเธตเนเธเธฐเนเธเน `Send LINE` เนเธฅเธฐ `เธ—เธงเธเธเธฒเธเธเนเธฒเธเธ—เธฑเนเธเธซเนเธญเธ` เนเธ”เนเธ—เธฑเธเธ—เธต</li>
+                                        <li>เพิ่มบอท LINE เป็นเพื่อน และเชิญบอทเข้ากลุ่มห้องนี้</li>
+                                        <li>เปิดกลุ่มนั้น แล้ววางคำสั่งผูกห้องจากด้านล่าง</li>
+                                        <li>เมื่อผูกสำเร็จ กลุ่มนี้จะใช้ `Send LINE` และ `ทวงงานค้างทั้งห้อง` ได้ทันที</li>
                                     </ol>
                                 </div>
 
                                 {classroom.lineBotGroups.length > 0 ? (
                                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                                        <p className="font-bold">เน€เธเธทเนเธญเธกเธญเธขเธนเนเนเธฅเนเธง {classroom.lineBotGroups.length} เธเธฅเธธเนเธก</p>
+                                        <p className="font-bold">เชื่อมอยู่แล้ว {classroom.lineBotGroups.length} กลุ่ม</p>
                                         <ul className="mt-2 space-y-1">
                                             {classroom.lineBotGroups.map((group) => (
                                                 <li key={group.id}>
@@ -1394,7 +1394,7 @@ export function ClassroomLineAssignmentPanel({
 
                                 {bindingLoading ? (
                                     <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
-                                        เธเธณเธฅเธฑเธเนเธซเธฅเธ”เธเธณเธชเธฑเนเธเธเธนเธ LINE...
+                                        กำลังโหลดคำสั่งผูก LINE...
                                     </div>
                                 ) : bindingError ? (
                                     <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
@@ -1404,14 +1404,14 @@ export function ClassroomLineAssignmentPanel({
                                     <div className="space-y-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 min-w-0">
                                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                             <div>
-                                                <p className="text-sm font-bold text-slate-900">เธเธณเธชเธฑเนเธเธเธนเธเธซเนเธญเธเธชเธณเธซเธฃเธฑเธ {bindingCommand.classroomName}</p>
+                                                <p className="text-sm font-bold text-slate-900">คำสั่งผูกห้องสำหรับ {bindingCommand.classroomName}</p>
                                                 <p className="text-xs text-slate-500">
-                                                    เนเธเนเนเธ”เนเธ–เธถเธ {new Date(bindingCommand.expiresAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}
+                                                    ใช้ได้ถึง {new Date(bindingCommand.expiresAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}
                                                 </p>
                                             </div>
                                             <Button type="button" size="sm" className="h-9 w-full sm:w-auto" onClick={() => void handleCopyBindingCommand()}>
                                                 <Clipboard className="mr-1.5 h-3.5 w-3.5" />
-                                                เธเธฑเธ”เธฅเธญเธเธเธณเธชเธฑเนเธ
+                                                คัดลอกคำสั่ง
                                             </Button>
                                         </div>
                                         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-sm text-slate-800 break-all whitespace-pre-wrap">
@@ -1426,15 +1426,15 @@ export function ClassroomLineAssignmentPanel({
                                                 onClick={() => void handleRefreshBindingStatus()}
                                                 disabled={bindingStatusRefreshing}
                                             >
-                                                {bindingStatusRefreshing ? "เธเธณเธฅเธฑเธเธฃเธตเน€เธเธฃเธ..." : "เธฃเธตเน€เธเธฃเธเธชเธ–เธฒเธเธฐ LINE"}
+                                                {bindingStatusRefreshing ? "กำลังรีเฟรช..." : "รีเฟรชสถานะ LINE"}
                                             </Button>
                                             <p className="text-xs leading-5 text-slate-500 sm:self-center">
-                                                เธซเธฅเธฑเธเธงเธฒเธเธเธณเธชเธฑเนเธเนเธเธเธฅเธธเนเธก LINE เนเธฅเนเธง เธเธ”เธเธธเนเธกเธเธตเนเน€เธเธทเนเธญเธญเธฑเธเน€เธ”เธ•เธชเธ–เธฒเธเธฐเธเธเธซเธเนเธฒเธเธตเนเธ—เธฑเธเธ—เธต
+                                                หลังวางคำสั่งในกลุ่ม LINE แล้ว กดปุ่มนี้เพื่ออัปเดตสถานะบนหน้านี้ทันที
                                             </p>
                                         </div>
                                         {bindingPollingActive ? (
                                             <p className="text-xs text-emerald-700">
-                                                เธฃเธฐเธเธเธเธณเธฅเธฑเธเธ•เธฃเธงเธเธชเธญเธเธชเธ–เธฒเธเธฐ LINE เธญเธฑเธ•เนเธเธกเธฑเธ•เธดเธ—เธธเธ 8 เธงเธดเธเธฒเธ—เธตเธฃเธฐเธซเธงเนเธฒเธเธ—เธตเนเธซเธเนเธฒเธ•เนเธฒเธเธเธตเนเน€เธเธดเธ”เธญเธขเธนเน
+                                                ระบบกำลังตรวจสอบสถานะ LINE อัตโนมัติทุก 8 วินาทีระหว่างที่หน้าต่างนี้เปิดอยู่
                                             </p>
                                         ) : null}
                                     </div>
@@ -1465,7 +1465,7 @@ export function ClassroomLineAssignmentPanel({
                                 title={
                                     lineReminderUnlocked
                                         ? undefined
-                                        : "Auto reminder เนเธฅเธฐ Send LINE เนเธเนเนเธ”เนเนเธเนเธเธ Plus เธซเธฃเธทเธญ School"
+                                        : "Auto reminder และ Send LINE ใช้ได้ในแผน Plus หรือ School"
                                 }
                             >
                                 <Settings className="mr-1.5 h-4 w-4" />
@@ -1762,7 +1762,7 @@ export function ClassroomLineAssignmentPanel({
                         onClick={() => onOpenAssignment(null)}
                     >
                         <ExternalLink className="mr-1.5 h-4 w-4" />
-                        เธชเธฃเธธเธเธเธฒเธ
+                        สรุปงาน
                     </Button>
                     <Button
                         type="button"
@@ -1773,11 +1773,11 @@ export function ClassroomLineAssignmentPanel({
                         title={
                             lineReminderUnlocked
                                 ? undefined
-                                : "Send LINE เนเธฅเธฐเธ—เธงเธเธเธฒเธเธเนเธฒเธเธ—เธฑเนเธเธซเนเธญเธ เนเธเนเนเธ”เนเนเธเนเธเธ Plus เธซเธฃเธทเธญ School"
+                                : "Send LINE และทวงงานค้างทั้งห้อง ใช้ได้ในแผน Plus หรือ School"
                         }
                     >
                         <MessageCircleMore className="mr-1.5 h-4 w-4" />
-                        {bulkSending ? "เธเธณเธฅเธฑเธเธชเนเธ..." : "เธ—เธงเธเธเธฒเธเธเนเธฒเธเธ—เธฑเนเธเธซเนเธญเธ"}
+                        {bulkSending ? "กำลังส่ง..." : "ทวงงานค้างทั้งห้อง"}
                     </Button>
                 </div>
             </div>
@@ -1805,12 +1805,12 @@ export function ClassroomLineAssignmentPanel({
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <p className="font-black">LINE เธเธเนเธเธ Free เนเธเนเนเธ”เนเธเธฒเธเธชเนเธงเธ</p>
+                            <p className="font-black">LINE บนแผน Free ใช้ได้บางส่วน</p>
                             <p className="mt-1 text-amber-900">
-                                Free เธขเธฑเธเธเธนเธเธซเนเธญเธเนเธฅเธฐเธชเธฃเนเธฒเธเธเธฒเธเธเธฒเธ LINE เนเธ”เนเนเธเธเธเธณเธเธฑเธ” เนเธ•เนเธเธตเน€เธเธญเธฃเนเธ—เธตเนเธเนเธงเธขเธเธฃเธนเธ—เธณเธเธฒเธเน€เธฃเนเธงเธเธถเนเธเธเธฐเธ–เธนเธเธฅเนเธญเธเนเธงเนเธเธเธเธงเนเธฒเธเธฐเธญเธฑเธเน€เธเธฃเธ”
+                                Free ยังผูกห้องและสร้างงานจาก LINE ได้แบบจำกัด แต่ฟีเจอร์ที่ช่วยครูทำงานเร็วขึ้นจะถูกล็อกไว้จนกว่าจะอัปเกรด
                             </p>
                             <p className="mt-2 text-xs font-semibold text-amber-800">
-                                Plus เธเธฅเธ”: Send LINE, auto reminder, LINE submissions เนเธฅเธฐ AI เธ•เธฃเธงเธเน€เธเธทเนเธญเธเธ•เนเธ
+                                Plus ปลด: Send LINE, auto reminder, LINE submissions และ AI ตรวจเบื้องต้น
                             </p>
                         </div>
                         <Button asChild size="sm" className="h-9 rounded-full bg-amber-900 text-white hover:bg-amber-950">
@@ -1818,7 +1818,7 @@ export function ClassroomLineAssignmentPanel({
                                 href="/dashboard/upgrade"
                                 onClick={() => handleLineUpgradePromptClick("line_panel_blocked_card")}
                             >
-                                เธ”เธนเนเธเธ Plus
+                                ดูแผน Plus
                             </Link>
                         </Button>
                     </div>
@@ -1827,15 +1827,15 @@ export function ClassroomLineAssignmentPanel({
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-rose-500">เน€เธฅเธขเธเธณเธซเธเธ”</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-rose-500">เลยกำหนด</p>
                     <p className="mt-1 text-2xl font-black text-rose-900">{overdueCount}</p>
                 </div>
                 <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-amber-600">เนเธเธฅเนเธ–เธถเธเธเธณเธซเธเธ”</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-amber-600">ใกล้ถึงกำหนด</p>
                     <p className="mt-1 text-2xl font-black text-amber-900">{dueSoonCount}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">เธเนเธญเธเธชเนเธเธเธฒเธเธ—เธตเนเธขเธฑเธเธเธฒเธ”</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">ช่องส่งงานที่ยังขาด</p>
                     <p className="mt-1 text-2xl font-black text-slate-900">{missingSubmissionSlots}</p>
                 </div>
             </div>
@@ -1843,9 +1843,9 @@ export function ClassroomLineAssignmentPanel({
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <p className="text-sm font-black text-slate-900">เธชเธ–เธฒเธเธฐเธเธฒเธฃเน€เธเธทเนเธญเธก LINE เธเธญเธเธเธฑเธเน€เธฃเธตเธขเธ</p>
+                        <p className="text-sm font-black text-slate-900">สถานะการเชื่อม LINE ของนักเรียน</p>
                         <p className="mt-1 text-xs text-slate-500">
-                            เธ”เธนเนเธ”เนเธ—เธฑเธเธ—เธตเธงเนเธฒเนเธเธฃเธเธฃเนเธญเธกเนเธเนเธเธฒเธ LINE เธชเนเธงเธเธ•เธฑเธงเนเธฅเนเธง เนเธฅเธฐเนเธเธฃเธขเธฑเธเธ•เนเธญเธเนเธซเนเธเธ”เธเธธเนเธกเน€เธเธทเนเธญเธกเธเธฒเธเธซเธเนเธฒเน€เธงเนเธเธเธฑเธเน€เธฃเธตเธขเธ
+                            ดูได้ทันทีว่าใครพร้อมใช้งาน LINE ส่วนตัวแล้ว และใครยังต้องให้กดปุ่มเชื่อมจากหน้าเว็บนักเรียน
                         </p>
                         {lineReminderUnlocked && (
                             <button
@@ -1863,13 +1863,13 @@ export function ClassroomLineAssignmentPanel({
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
-                            เน€เธเธทเนเธญเธกเนเธฅเนเธง {linkedStudents.length} เธเธ
+                            เชื่อมแล้ว {linkedStudents.length} คน
                         </span>
                         <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
-                            เธขเธฑเธเนเธกเนเน€เธเธทเนเธญเธก {pendingLinkedStudents.length} เธเธ
+                            ยังไม่เชื่อม {pendingLinkedStudents.length} คน
                         </span>
                         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-                            เธเธฃเนเธญเธกเนเธเน {linkedPercent}%
+                            พร้อมใช้ {linkedPercent}%
                         </span>
                     </div>
                 </div>
@@ -1895,7 +1895,7 @@ export function ClassroomLineAssignmentPanel({
                                     <div className="min-w-0">
                                         <p className="truncate text-sm font-bold text-slate-900">{student.name}</p>
                                         <p className="mt-0.5 truncate text-xs text-slate-500">
-                                            เธฃเธซเธฑเธชเน€เธเนเธฒ {student.loginCode ?? "-"}
+                                            รหัสเข้า {student.loginCode ?? "-"}
                                             {student.nickname ? ` โ€ข ${student.nickname}` : ""}
                                         </p>
                                     </div>
@@ -1906,13 +1906,13 @@ export function ClassroomLineAssignmentPanel({
                                                 : "bg-amber-100 text-amber-800"
                                         }`}
                                     >
-                                        {student.lineLink?.linked ? "เน€เธเธทเนเธญเธกเนเธฅเนเธง" : "เธฃเธญเน€เธเธทเนเธญเธก"}
+                                        {student.lineLink?.linked ? "เชื่อมแล้ว" : "รอเชื่อม"}
                                     </span>
                                 </div>
                                 <p className="mt-2 text-xs text-slate-500">
                                     {student.lineLink?.linked && linkedAtLabel
-                                        ? `เน€เธเธทเนเธญเธกเน€เธกเธทเนเธญ ${linkedAtLabel}${maskedLineUserId ? ` โ€ข LINE ${maskedLineUserId}` : ""}`
-                                        : "เนเธซเนเธเธฑเธเน€เธฃเธตเธขเธเธฅเนเธญเธเธญเธดเธเนเธฅเนเธงเธเธ” เน€เธเธทเนเธญเธก LINE เธเธฒเธเธซเธเนเธฒเน€เธงเนเธเธเธญเธเธ•เธ"}
+                                        ? `เชื่อมเมื่อ ${linkedAtLabel}${maskedLineUserId ? ` โ€ข LINE ${maskedLineUserId}` : ""}`
+                                        : "ให้นักเรียนล็อกอินแล้วกด เชื่อม LINE จากหน้าเว็บของตน"}
                                 </p>
                                 {student.lineLink?.linked ? (
                                     <div className="mt-3 flex justify-end">
@@ -1924,7 +1924,7 @@ export function ClassroomLineAssignmentPanel({
                                             disabled={isResetting}
                                             onClick={() => void handleResetStudentLineLink(student)}
                                         >
-                                            {isResetting ? "เธเธณเธฅเธฑเธเธฃเธตเน€เธเนเธ•..." : "เธฃเธตเน€เธเนเธ• LINE"}
+                                            {isResetting ? "กำลังรีเซ็ต..." : "รีเซ็ต LINE"}
                                         </Button>
                                     </div>
                                 ) : null}
@@ -1943,8 +1943,8 @@ export function ClassroomLineAssignmentPanel({
                             onClick={() => setShowAllStudentStatuses((current) => !current)}
                         >
                             {showAllStudentStatuses
-                                ? "เธเนเธญเธเธฃเธฒเธขเธเธทเนเธญเธเธฑเธเน€เธฃเธตเธขเธ"
-                                : `เธ”เธนเธเธฑเธเน€เธฃเธตเธขเธเธ—เธฑเนเธเธซเธกเธ” ${classroom.students.length} เธเธ`}
+                                ? "ซ่อนรายชื่อนักเรียน"
+                                : `ดูนักเรียนทั้งหมด ${classroom.students.length} คน`}
                         </Button>
                     </div>
                 ) : null}
@@ -1955,8 +1955,8 @@ export function ClassroomLineAssignmentPanel({
                     <div className="flex items-start gap-2">
                         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                         <div>
-                            เธซเนเธญเธเธเธตเนเธขเธฑเธเนเธกเนเธเธนเธเธเธฑเธ LINE group เธเธถเธเธขเธฑเธเธชเนเธ `Send LINE` เธซเธฃเธทเธญ `เธ—เธงเธเธเธฒเธเธเนเธฒเธเธ—เธฑเนเธเธซเนเธญเธ` เนเธกเนเนเธ”เน
-                            เธ•เธญเธเธเธตเนเธขเธฑเธเธเธนเธเธเนเธฒเธเธเธณเธชเธฑเนเธ LINE เน€เธ”เธดเธกเธเนเธญเธ: `เธเธนเธเธซเนเธญเธ classroomId secret`
+                            ห้องนี้ยังไม่ผูกกับ LINE group จึงยังส่ง `Send LINE` หรือ `ทวงงานค้างทั้งห้อง` ไม่ได้
+                            ตอนนี้ยังผูกผ่านคำสั่ง LINE เดิมก่อน: `ผูกห้อง classroomId secret`
                         </div>
                     </div>
                 </div>
@@ -1964,7 +1964,7 @@ export function ClassroomLineAssignmentPanel({
 
             {lastBulkResult?.sentCount ? (
                 <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                    เธชเนเธเธชเธฃเธธเธเธเธฒเธเธเนเธฒเธเนเธฅเนเธง {lastBulkResult.sentCount} เธเธฅเธธเนเธก เธเธฃเธญเธเธเธฅเธธเธก {lastBulkResult.assignmentCount} เธเธฒเธ
+                    ส่งสรุปงานค้างแล้ว {lastBulkResult.sentCount} กลุ่ม ครอบคลุม {lastBulkResult.assignmentCount} งาน
                 </div>
             ) : null}
 
@@ -1973,7 +1973,7 @@ export function ClassroomLineAssignmentPanel({
                     hotRows.map((row) => {
                         const deadlineLabel = row.deadline
                             ? formatDeadlineDisplayTh(row.deadline)
-                            : "เนเธกเนเธกเธตเธเธณเธซเธเธ”เธชเนเธ";
+                            : "ไม่มีกำหนดส่ง";
                         const lastSentCount = lastLineSendByAssignment[row.assignmentId];
                         // Assignments within ±1 Bangkok calendar day are in the auto-reminder window
                         const isInAutoWindow = (() => {
@@ -1993,20 +1993,20 @@ export function ClassroomLineAssignmentPanel({
                                         <p className="truncate text-sm font-black text-slate-900">{row.name}</p>
                                         {row.overdue ? (
                                             <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">
-                                                เน€เธฅเธขเธเธณเธซเธเธ”
+                                                เลยกำหนด
                                             </span>
                                         ) : row.dueSoon ? (
                                             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">
-                                                เนเธเธฅเนเธชเนเธ
+                                                ใกล้ส่ง
                                             </span>
                                         ) : null}
                                         {row.missingSubmissions > 0 ? (
                                             <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                                                เธเนเธฒเธ {row.missingSubmissions} เธเธ
+                                                ค้าง {row.missingSubmissions} คน
                                             </span>
                                         ) : (
                                             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                                                เธชเนเธเธเธฃเธเนเธฅเนเธง
+                                                ส่งครบแล้ว
                                             </span>
                                         )}
                                         {isInAutoWindow && readiness && readiness.readiness !== 'auto_reminder_disabled' ? (
@@ -2016,14 +2016,14 @@ export function ClassroomLineAssignmentPanel({
                                         ) : null}
                                     </div>
                                     <p className="mt-1 text-xs text-slate-500">
-                                        เธเธณเธซเธเธ”เธชเนเธ {deadlineLabel}
+                                        กำหนดส่ง {deadlineLabel}
                                         {row.deadline && isAssignmentDeadlinePast(row.deadline)
-                                            ? " ยท เธ•เนเธญเธเธ•เธดเธ”เธ•เธฒเธกเธเนเธญเธ"
+                                            ? " ยท ต้องติดตามก่อน"
                                             : ""}
                                     </p>
                                     {typeof lastSentCount === "number" ? (
                                         <p className="mt-1 text-[11px] font-semibold text-emerald-700">
-                                            เธชเนเธ LINE เธฅเนเธฒเธชเธธเธ”เธชเธณเธซเธฃเธฑเธเธเธฑเธเน€เธฃเธตเธขเธเธเนเธฒเธ {lastSentCount} เธเธ
+                                            ส่ง LINE ล่าสุดสำหรับนักเรียนค้าง {lastSentCount} คน
                                         </p>
                                     ) : null}
                                 </div>
@@ -2039,11 +2039,11 @@ export function ClassroomLineAssignmentPanel({
                                         title={
                                             lineReminderUnlocked
                                                 ? undefined
-                                                : "Send LINE เนเธเนเนเธ”เนเนเธเนเธเธ Plus เธซเธฃเธทเธญ School"
+                                                : "Send LINE ใช้ได้ในแผน Plus หรือ School"
                                         }
                                     >
                                         <SendHorizonal className="mr-1 h-3.5 w-3.5" />
-                                        {sendingAssignmentId === row.assignmentId ? "เธเธณเธฅเธฑเธเธชเนเธ..." : "Send LINE"}
+                                        {sendingAssignmentId === row.assignmentId ? "กำลังส่ง..." : "Send LINE"}
                                     </Button>
                                 </div>
                             </div>
@@ -2051,7 +2051,7 @@ export function ClassroomLineAssignmentPanel({
                     })
                 ) : (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 py-8 text-center text-sm text-slate-600">
-                        เธ•เธญเธเธเธตเนเธขเธฑเธเนเธกเนเธกเธตเธเธฒเธเธเนเธฒเธเธซเธฃเธทเธญเธเธณเธซเธเธ”เธชเนเธเน€เธฃเนเธเธ”เนเธงเธเนเธเธซเนเธญเธเธเธตเน
+                        ตอนนี้ยังไม่มีงานค้างหรือกำหนดส่งเร่งด่วนในห้องนี้
                     </div>
                 )}
             </div>

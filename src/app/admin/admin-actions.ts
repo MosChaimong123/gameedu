@@ -6,6 +6,11 @@ import { revalidatePath } from "next/cache";
 import { logAuditEvent } from "@/lib/security/audit-log";
 import type { Session } from "next-auth";
 import { z } from "zod";
+import {
+    generateStudentLoginCode,
+    LEGACY_STUDENT_LOGIN_CODE_LENGTH,
+    MAX_STUDENT_LOGIN_CODE_LENGTH,
+} from "@/lib/student-login-code";
 
 type UserRole = "ADMIN" | "TEACHER" | "STUDENT";
 type AdminActionResult = { success: true } | { success: false; errorKey: string };
@@ -424,6 +429,94 @@ export async function deleteTeacherMission(id: string) {
     } catch (error) {
         console.error("[deleteTeacherMission]", error);
         return { success: false as const, errorKey: "adminTeacherMissionDeleteFailDesc" };
+    }
+}
+
+type ResetUserPasswordResult =
+    | { success: true }
+    | { success: false; errorKey: string };
+
+export async function resetUserPassword(
+    userId: string,
+    newPassword: string
+): Promise<ResetUserPasswordResult> {
+    const session = await ensureAdmin();
+
+    try {
+        if (!newPassword || newPassword.length < 6) {
+            return { success: false, errorKey: "adminPasswordTooShort" };
+        }
+
+        const bcrypt = await import("bcryptjs");
+        const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+        await db.user.update({
+            where: { id: userId },
+            data: { password: hashedPassword },
+        });
+        logAuditEvent({
+            actorUserId: session.user.id,
+            action: "admin.user.password_reset",
+            targetType: "user",
+            targetId: userId,
+        });
+        revalidatePath("/admin/users");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to reset user password:", error);
+        return { success: false, errorKey: "adminPasswordResetFail" };
+    }
+}
+
+type UpdateStudentLoginCodeResult =
+    | { success: true; loginCode: string }
+    | { success: false; errorKey: string };
+
+export async function updateStudentLoginCode(
+    studentId: string,
+    newCode?: string
+): Promise<UpdateStudentLoginCodeResult> {
+    const session = await ensureAdmin();
+
+    try {
+        let loginCode: string;
+
+        if (newCode) {
+            const trimmed = newCode.trim().toUpperCase();
+            if (
+                trimmed.length < LEGACY_STUDENT_LOGIN_CODE_LENGTH ||
+                trimmed.length > MAX_STUDENT_LOGIN_CODE_LENGTH
+            ) {
+                return { success: false, errorKey: "adminStudentCodeInvalidLength" };
+            }
+            const conflict = await db.student.findUnique({ where: { loginCode: trimmed } });
+            if (conflict && conflict.id !== studentId) {
+                return { success: false, errorKey: "adminStudentCodeAlreadyExists" };
+            }
+            loginCode = trimmed;
+        } else {
+            loginCode = generateStudentLoginCode();
+            // eslint-disable-next-line no-constant-condition
+            while (true) {
+                const conflict = await db.student.findUnique({ where: { loginCode } });
+                if (!conflict || conflict.id === studentId) break;
+                loginCode = generateStudentLoginCode();
+            }
+        }
+
+        await db.student.update({ where: { id: studentId }, data: { loginCode } });
+        logAuditEvent({
+            actorUserId: session.user.id,
+            action: "admin.student.login_code_updated",
+            targetType: "student",
+            targetId: studentId,
+            metadata: { mode: newCode ? "custom" : "reset" },
+        });
+        revalidatePath("/admin/users");
+        return { success: true, loginCode };
+    } catch (error) {
+        console.error("Failed to update student login code:", error);
+        return { success: false, errorKey: "adminStudentCodeUpdateFail" };
     }
 }
 

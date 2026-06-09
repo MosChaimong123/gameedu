@@ -55,6 +55,7 @@ export default async function UserManagementPage({ searchParams }: UserManagemen
                 planStatus: true,
                 planExpiry: true,
                 emailVerified: true,
+                password: true,
                 _count: {
                     select: {
                         classrooms: true,
@@ -65,9 +66,10 @@ export default async function UserManagementPage({ searchParams }: UserManagemen
         }),
     ]);
 
-    const normalizedUsers = users.map((user) => ({
+    const normalizedUsers = users.map(({ password, ...user }) => ({
         ...user,
         role: isAppRole(user.role) ? user.role : ("USER" satisfies AppRole),
+        hasPassword: !!password,
     }));
 
     return (

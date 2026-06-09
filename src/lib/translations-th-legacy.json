@@ -1108,7 +1108,7 @@
   "loginResendVerificationFailed": "ส่งอีเมลไม่สำเร็จ ลองใหม่ในอีกสักครู่",
   "loginResendNeedEmail": "กรุณากรอกอีเมลด้านบนก่อน",
   "authEntryTitle": "คุณต้องการเข้าสู่ระบบแบบไหน?",
-  "authEntrySubtitle": "เลือกครู นักเรียน หรือมีแค่รหัสห้องจากครู",
+  "authEntrySubtitle": "เลือกครู หรือนักเรียน",
   "authEntryTeacher": "ครู / โรงเรียน",
   "authEntryTeacherDesc": "จัดห้องเรียน ชุดคำถาม และเกมสด",
   "authEntryStudent": "บัญชีนักเรียน",

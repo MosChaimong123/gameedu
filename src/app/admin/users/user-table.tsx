@@ -7,8 +7,11 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Eye,
+  EyeOff,
   GraduationCap,
   Loader2,
+  Lock,
   MailX,
   MoreHorizontal,
   Search,
@@ -29,7 +32,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -54,7 +56,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { deleteUser, updateUserRole, updateUserSubscription } from "../admin-actions";
+import { deleteUser, updateUserSubscription, resetUserPassword } from "../admin-actions";
 import { useLanguage } from "@/components/providers/language-provider";
 import type { AppRole } from "@/lib/roles";
 
@@ -68,13 +70,12 @@ interface User {
   planStatus: string | null;
   planExpiry: Date | null;
   emailVerified: Date | null;
+  hasPassword: boolean;
   _count: {
     classrooms: number;
     studentProfiles: number;
   };
 }
-
-type UserRole = "ADMIN" | "TEACHER" | "STUDENT";
 
 type UserTableProps = {
   users: User[];
@@ -116,6 +117,10 @@ export function UserTable({
   const [isPending, setIsPending] = React.useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<User | null>(null);
   const [subscriptionTarget, setSubscriptionTarget] = React.useState<User | null>(null);
+  const [passwordTarget, setPasswordTarget] = React.useState<User | null>(null);
+  const [newPassword, setNewPassword] = React.useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = React.useState(false);
+  const [showNewPassword, setShowNewPassword] = React.useState(false);
   const [subPlan, setSubPlan] = React.useState<"FREE" | "PLUS" | "PRO">("FREE");
   const [subStatus, setSubStatus] = React.useState<"ACTIVE" | "EXPIRED" | "INACTIVE">("INACTIVE");
   const [subExpiry, setSubExpiry] = React.useState<string>("");
@@ -175,27 +180,6 @@ export function UserTable({
       ? buildAdminUsersListHref(LIST_PATH, { q: query, page: page + 1, pageSize, role: roleFilter, verification: verificationFilter })
       : null;
 
-  const handleRoleUpdate = async (userId: string, newRole: UserRole) => {
-    setIsPending(userId);
-    const result = await updateUserRole(userId, newRole);
-    setIsPending(null);
-
-    if (result.success) {
-      setUsers((prev) => prev.map((user) => (user.id === userId ? { ...user, role: newRole } : user)));
-      toast({
-        title: t("adminRoleUpdateSuccessTitle"),
-        description: t("adminRoleUpdateSuccessDesc", { role: newRole }),
-      });
-      return;
-    }
-
-    toast({
-      title: t("adminRoleUpdateFailTitle"),
-      description: t(result.errorKey),
-      variant: "destructive",
-    });
-  };
-
   const handleSaveSubscription = async () => {
     if (!subscriptionTarget) return;
     setIsPending(subscriptionTarget.id);
@@ -228,6 +212,22 @@ export function UserTable({
       description: "errorKey" in result ? t(result.errorKey) : undefined,
       variant: "destructive",
     });
+  };
+
+  const handleResetPassword = async () => {
+    if (!passwordTarget) return;
+    setIsPending(passwordTarget.id);
+    const result = await resetUserPassword(passwordTarget.id, newPassword);
+    setIsPending(null);
+    if (result.success) {
+      toast({ title: "รีเซ็ตรหัสผ่านสำเร็จ" });
+      setPasswordTarget(null);
+      setNewPassword("");
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+    } else {
+      toast({ title: "เกิดข้อผิดพลาด", description: result.errorKey, variant: "destructive" });
+    }
   };
 
   const handleDelete = async () => {
@@ -459,20 +459,17 @@ export function UserTable({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-200 p-2 shadow-xl">
-                          <DropdownMenuLabel className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            {t("adminRoleChangeLabel")}
-                          </DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleRoleUpdate(user.id, "ADMIN")} className="cursor-pointer gap-2 rounded-lg py-2 font-bold">
-                            <ShieldCheck className="h-4 w-4 text-red-600" />
-                            {t("adminSetAsAdmin")}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleRoleUpdate(user.id, "TEACHER")} className="cursor-pointer gap-2 rounded-lg py-2 font-bold">
-                            <UserIcon className="h-4 w-4 text-purple-600" />
-                            {t("adminSetAsTeacher")}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleRoleUpdate(user.id, "STUDENT")} className="cursor-pointer gap-2 rounded-lg py-2 font-bold">
-                            <GraduationCap className="h-4 w-4 text-blue-600" />
-                            {t("adminSetAsStudent")}
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setPasswordTarget(user);
+                              setNewPassword("");
+                              setShowCurrentPassword(false);
+                              setShowNewPassword(false);
+                            }}
+                            className="cursor-pointer gap-2 rounded-lg py-2 font-bold"
+                          >
+                            <Lock className="h-4 w-4 text-orange-500" />
+                            ตั้งรหัสผ่านใหม่
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -618,6 +615,97 @@ export function UserTable({
               className="font-bold"
             >
               {isPending === subscriptionTarget?.id ? <Loader2 className="h-4 w-4 animate-spin" /> : t("adminSaveButton")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!passwordTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPasswordTarget(null);
+            setNewPassword("");
+            setShowCurrentPassword(false);
+            setShowNewPassword(false);
+          }
+        }}
+      >
+        <DialogContent className="rounded-2xl sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-orange-500" />
+              รหัสผ่าน
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="mb-1 text-xs font-bold uppercase text-slate-500">ผู้ใช้</p>
+              <p className="font-bold text-slate-800">
+                {passwordTarget?.name || passwordTarget?.email || "—"}
+              </p>
+              <p className="text-xs text-slate-500">{passwordTarget?.email}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="mb-1 text-xs font-bold uppercase text-slate-500">รหัสผ่านปัจจุบัน</p>
+              {passwordTarget?.hasPassword ? (
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-mono text-base font-bold tracking-widest text-slate-700">
+                    {showCurrentPassword
+                      ? <span className="text-xs font-normal text-slate-400 tracking-normal">รหัสผ่านถูกเข้ารหัส (bcrypt) ไม่สามารถดูค่าจริงได้</span>
+                      : "●●●●●●●●"}
+                  </p>
+                  <button
+                    type="button"
+                    className="text-slate-400 hover:text-slate-600 flex-shrink-0"
+                    onClick={() => setShowCurrentPassword((v) => !v)}
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-sm font-medium text-amber-600">ยังไม่มีรหัสผ่าน (ใช้ OAuth เท่านั้น)</p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-bold uppercase text-slate-500">
+                ตั้งรหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)
+              </Label>
+              <div className="relative">
+                <Input
+                  type={showNewPassword ? "text" : "password"}
+                  className="rounded-xl pr-10"
+                  placeholder="กรอกรหัสผ่านใหม่"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  tabIndex={-1}
+                >
+                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={() => setPasswordTarget(null)}>
+              {t("cancel")}
+            </Button>
+            <Button
+              type="button"
+              disabled={newPassword.length < 6 || isPending === passwordTarget?.id}
+              onClick={() => void handleResetPassword()}
+              className="font-bold"
+            >
+              {isPending === passwordTarget?.id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "บันทึกรหัสผ่าน"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -13,7 +13,6 @@ import { logAuditEvent } from "@/lib/security/audit-log";
 const ALLOWED_SOURCES = [
     "line_panel_blocked_card",
     "line_auto_reminder_locked",
-    "line_export_readiness_locked",
     "line_export_submissions_locked",
     "line_bulk_reminder_locked",
     "line_assignment_send_locked",

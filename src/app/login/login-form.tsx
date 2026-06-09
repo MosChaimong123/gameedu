@@ -36,6 +36,7 @@ export default function LoginForm({ audience }: LoginFormProps) {
     const [needsVerify, setNeedsVerify] = React.useState(false);
 
     const verified = searchParams.get("verified") === "1";
+    const passwordReset = searchParams.get("passwordReset") === "1";
     const pendingVerify = searchParams.get("pendingVerify") === "1";
     const callbackUrl = searchParams.get("callbackUrl");
     const urlAuthError = searchParams.get("error");
@@ -170,6 +171,12 @@ export default function LoginForm({ audience }: LoginFormProps) {
                     <span>{t("loginVerifyBannerSuccess")}</span>
                 </div>
             ) : null}
+            {passwordReset ? (
+                <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span>ตั้งรหัสผ่านใหม่สำเร็จ กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่ของคุณ</span>
+                </div>
+            ) : null}
             {pendingVerify ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     {t("loginVerifyBannerPending")}
@@ -252,6 +259,11 @@ export default function LoginForm({ audience }: LoginFormProps) {
                                     </div>
                                 </FormControl>
                                 <FormMessage />
+                                <div className="flex justify-end">
+                                    <Link href="/forgot-password" className="text-xs text-slate-500 hover:underline">
+                                        ลืมรหัสผ่าน?
+                                    </Link>
+                                </div>
                             </FormItem>
                         )}
                     />

@@ -427,7 +427,6 @@ Implementation notes:
   - `Auto LINE`
   - `Send LINE`
   - `ทวงงานค้างทั้งห้อง`
-  - `Export readiness`
   - `Export ทั้งห้อง`
 - The blocked-state card explains the real Plus unlocks in the teacher workflow:
   - Send LINE

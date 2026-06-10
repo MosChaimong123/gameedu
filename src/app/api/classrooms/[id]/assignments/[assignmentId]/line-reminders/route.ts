@@ -11,7 +11,7 @@ import { db, getOptionalDbModel } from "@/lib/db";
 import { pushLineFlex } from "@/lib/line-bot/client";
 import { canUseLineFeature } from "@/lib/line-bot/plan-access";
 import { createMissingStudentNameResolver } from "@/lib/line-bot/missing-student-names";
-import { buildReminderFlexBubble } from "@/lib/line-bot/reminder-flex";
+import { buildReminderFlexBubble, type ChecklistItemSummary } from "@/lib/line-bot/reminder-flex";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
 
 function getAppUrl(): string | undefined {
@@ -53,6 +53,8 @@ export async function POST(
             select: {
                 id: true,
                 name: true,
+                type: true,
+                checklists: true,
                 deadline: true,
                 classroom: {
                     select: {
@@ -74,7 +76,7 @@ export async function POST(
                         },
                     },
                 },
-                submissions: { select: { studentId: true } },
+                submissions: { select: { studentId: true, score: true } },
             },
         });
 
@@ -138,6 +140,29 @@ export async function POST(
                 const missingStudents = await resolveMissingNames(
                     missing.map((student) => ({ id: student.id, name: student.name }))
                 );
+
+                let checklistItems: ChecklistItemSummary[] | undefined;
+                if (assignment.type === "checklist" && Array.isArray(assignment.checklists) && assignment.checklists.length > 0) {
+                    const rawItems = assignment.checklists as Array<string | { text: string; points?: number }>;
+                    const submissionMap = new Map(assignment.submissions.map((s) => [s.studentId, s.score]));
+                    checklistItems = await Promise.all(
+                        rawItems.map(async (item, i) => {
+                            const text = typeof item === "string" ? item : item.text;
+                            const missingList = assignment.classroom.students.filter((student) => {
+                                const score = submissionMap.get(student.id);
+                                if (score === undefined) return true;
+                                return Math.floor(score / Math.pow(2, i)) % 2 === 0;
+                            });
+                            return {
+                                text,
+                                submittedCount: assignment.classroom.students.length - missingList.length,
+                                totalStudents: assignment.classroom.students.length,
+                                missingStudents: await resolveMissingNames(missingList),
+                            };
+                        })
+                    );
+                }
+
                 const bubble = buildReminderFlexBubble({
                     tone,
                     classroomName: assignment.classroom.name,
@@ -147,6 +172,7 @@ export async function POST(
                     totalStudents: assignment.classroom.students.length,
                     missingStudents,
                     footerUrl: getAppUrl(),
+                    checklistItems,
                 });
                 await pushLineFlex(
                     group.lineGroupId,

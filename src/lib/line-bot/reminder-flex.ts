@@ -3,6 +3,13 @@ import type { MissingStudentName } from "@/lib/line-bot/missing-student-names";
 
 export type ReminderFlexTone = "before" | "today" | "overdue";
 
+export type ChecklistItemSummary = {
+    text: string;
+    submittedCount: number;
+    totalStudents: number;
+    missingStudents: MissingStudentName[];
+};
+
 const TONE: Record<ReminderFlexTone, { color: string; label: string }> = {
     before: { color: "#F59E0B", label: "ใกล้ถึงกำหนดส่ง" },
     today: { color: "#EF4444", label: "ถึงกำหนดส่งวันนี้" },
@@ -19,6 +26,48 @@ function formatBangkokDateTime(date: Date): string {
         timeStyle: "short",
         timeZone: "Asia/Bangkok",
     });
+}
+
+function buildChecklistItemsContents(
+    items: ChecklistItemSummary[]
+): messagingApi.FlexComponent[] {
+    const rows: messagingApi.FlexComponent[] = [];
+    items.forEach((item, i) => {
+        const allDone = item.submittedCount === item.totalStudents;
+        const emoji = allDone ? "✅" : "⬜";
+        const countLabel = allDone
+            ? "ครบทุกคน"
+            : item.submittedCount === 0
+              ? `ยังไม่มีใครส่ง (0/${item.totalStudents})`
+              : `ส่งแล้ว ${item.submittedCount}/${item.totalStudents} คน`;
+
+        rows.push({
+            type: "box",
+            layout: "vertical",
+            spacing: "xs",
+            margin: i === 0 ? "none" : "md",
+            contents: [
+                {
+                    type: "text",
+                    text: `${emoji} ข้อ ${i + 1}: ${item.text} — ${countLabel}`,
+                    size: "sm",
+                    weight: "bold",
+                    color: allDone ? "#10B981" : "#374151",
+                    wrap: true,
+                },
+                ...item.missingStudents.slice(0, MAX_NAMES).map(
+                    (student): messagingApi.FlexComponent => ({
+                        type: "text",
+                        text: `  • ${student.name}${student.linked ? "" : " (ยังไม่เชื่อม LINE)"}`,
+                        size: "sm",
+                        color: student.linked ? "#6B7280" : "#9CA3AF",
+                        wrap: true,
+                    })
+                ),
+            ],
+        });
+    });
+    return rows;
 }
 
 function buildMissingNameContents(
@@ -54,6 +103,7 @@ export function buildReminderFlexBubble(input: {
     totalStudents?: number;
     missingStudents: MissingStudentName[];
     footerUrl?: string;
+    checklistItems?: ChecklistItemSummary[];
 }): messagingApi.FlexBubble {
     const tone = TONE[input.tone];
     const missingText =
@@ -121,19 +171,34 @@ export function buildReminderFlexBubble(input: {
         },
     ];
 
-    const nameContents = buildMissingNameContents(input.missingStudents);
-    if (nameContents.length > 0) {
+    if (input.checklistItems && input.checklistItems.length > 0) {
+        const checklistContents = buildChecklistItemsContents(input.checklistItems);
         bodyContents.push({ type: "separator", margin: "lg" });
         bodyContents.push({
             type: "box",
             layout: "vertical",
             margin: "lg",
-            spacing: "sm",
+            spacing: "none",
             contents: [
-                { type: "text", text: "รายชื่อที่ยังไม่ส่ง", size: "xs", color: "#9CA3AF" },
-                ...nameContents,
+                { type: "text", text: "รายการย่อย", size: "xs", color: "#9CA3AF", margin: "none" },
+                ...checklistContents,
             ],
         });
+    } else {
+        const nameContents = buildMissingNameContents(input.missingStudents);
+        if (nameContents.length > 0) {
+            bodyContents.push({ type: "separator", margin: "lg" });
+            bodyContents.push({
+                type: "box",
+                layout: "vertical",
+                margin: "lg",
+                spacing: "sm",
+                contents: [
+                    { type: "text", text: "รายชื่อที่ยังไม่ส่ง", size: "xs", color: "#9CA3AF" },
+                    ...nameContents,
+                ],
+            });
+        }
     }
 
     const bubble: messagingApi.FlexBubble = {

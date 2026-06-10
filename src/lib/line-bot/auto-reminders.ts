@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { pushLineFlex } from "@/lib/line-bot/client";
 import { canUseLineFeature, type LinePlanTeacher } from "@/lib/line-bot/plan-access";
 import { createMissingStudentNameResolver } from "@/lib/line-bot/missing-student-names";
-import { buildReminderFlexBubble, type ReminderFlexTone } from "@/lib/line-bot/reminder-flex";
+import { buildReminderFlexBubble, type ReminderFlexTone, type ChecklistItemSummary } from "@/lib/line-bot/reminder-flex";
 import {
     isLineReminderTypeEnabled,
     normalizeClassroomLineReminderSetting,
@@ -54,6 +54,11 @@ type ReminderCandidate = {
     missingStudentList: Array<{ id: string; name: string }>;
     reminderType: ReminderType;
     reminderKey: string;
+    checklistRawItems?: Array<{
+        text: string;
+        totalStudents: number;
+        missingStudentList: Array<{ id: string; name: string }>;
+    }>;
 };
 
 /** @deprecated Use LineDispatchRunResult for richer per-item data */
@@ -95,8 +100,10 @@ export async function runLineAutoReminders(
                         select: {
                             id: true,
                             name: true,
+                            type: true,
+                            checklists: true,
                             deadline: true,
-                            submissions: { select: { studentId: true } },
+                            submissions: { select: { studentId: true, score: true } },
                         },
                     },
                 },
@@ -188,6 +195,19 @@ export async function runLineAutoReminders(
         try {
             const resolveMissingNames = await getResolverFor(candidate);
             const missingStudents = await resolveMissingNames(candidate.missingStudentList);
+
+            let checklistItems: ChecklistItemSummary[] | undefined;
+            if (candidate.checklistRawItems && candidate.checklistRawItems.length > 0) {
+                checklistItems = await Promise.all(
+                    candidate.checklistRawItems.map(async (item) => ({
+                        text: item.text,
+                        submittedCount: item.totalStudents - item.missingStudentList.length,
+                        totalStudents: item.totalStudents,
+                        missingStudents: await resolveMissingNames(item.missingStudentList),
+                    }))
+                );
+            }
+
             const bubble = buildReminderFlexBubble({
                 tone: TONE_BY_TYPE[candidate.reminderType],
                 classroomName: candidate.classroomName,
@@ -196,6 +216,7 @@ export async function runLineAutoReminders(
                 missingSubmissions: candidate.missingSubmissions,
                 missingStudents,
                 footerUrl: getAppUrl(),
+                checklistItems,
             });
             await pushLineFlex(
                 candidate.lineGroupId,
@@ -241,8 +262,10 @@ function buildCandidatesForGroup(
             assignments: Array<{
                 id: string;
                 name: string;
+                type: string;
+                checklists: unknown;
                 deadline: Date | null;
-                submissions: Array<{ studentId: string }>;
+                submissions: Array<{ studentId: string; score: number }>;
             }>;
         } | null;
     },
@@ -272,6 +295,26 @@ function buildCandidatesForGroup(
                 ? `${reminderType}:${bangkokWeekKey(now)}`
                 : `${reminderType}:${nowKey}`;
 
+        let checklistRawItems: ReminderCandidate["checklistRawItems"];
+        if (assignment.type === "checklist" && Array.isArray(assignment.checklists) && assignment.checklists.length > 0) {
+            const rawItems = assignment.checklists as Array<string | { text: string; points?: number }>;
+            const submissionMap = new Map(assignment.submissions.map((s) => [s.studentId, s.score]));
+            const students = group.classroom!.students;
+            checklistRawItems = rawItems.map((item, i) => {
+                const text = typeof item === "string" ? item : item.text;
+                const missingList = students.filter((student) => {
+                    const score = submissionMap.get(student.id);
+                    if (score === undefined) return true;
+                    return Math.floor(score / Math.pow(2, i)) % 2 === 0;
+                });
+                return {
+                    text,
+                    totalStudents: students.length,
+                    missingStudentList: missingList.map((s) => ({ id: s.id, name: s.name })),
+                };
+            });
+        }
+
         return [
             {
                 lineBotGroupId: group.id,
@@ -285,6 +328,7 @@ function buildCandidatesForGroup(
                 missingStudentList: missing.map((s) => ({ id: s.id, name: s.name })),
                 reminderType,
                 reminderKey,
+                checklistRawItems,
             },
         ];
     });

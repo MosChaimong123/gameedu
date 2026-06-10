@@ -394,7 +394,6 @@ export function ClassroomDashboard({
                     setViewMode("table");
                     setActiveHighlightAssignmentId(assignmentId ?? null);
                 }}
-                onCreateAssignment={() => setShowAddAssignment(true)}
                 onRefreshBindingStatus={async () => {
                     const refreshed = await fetchClassroomDashboard(classroom.id);
                     replaceClassroomSnapshot(refreshed);

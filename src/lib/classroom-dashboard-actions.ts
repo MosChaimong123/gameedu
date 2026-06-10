@@ -176,6 +176,37 @@ export async function sendAssignmentLineReminder(input: {
     return response.json() as Promise<SendAssignmentLineReminderResult>;
 }
 
+export type AnnounceAssignmentLineKind = "assignment" | "result";
+
+export type AnnounceAssignmentLineResult = {
+    success: boolean;
+    kind: AnnounceAssignmentLineKind;
+    lineGroupCount: number;
+    sentCount: number;
+    failedCount?: number;
+};
+
+export async function announceAssignmentToLine(input: {
+    classroomId: string;
+    assignmentId: string;
+    kind: AnnounceAssignmentLineKind;
+}): Promise<AnnounceAssignmentLineResult> {
+    const response = await fetch(
+        `/api/classrooms/${input.classroomId}/assignments/${input.assignmentId}/line-announce`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kind: input.kind }),
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(await extractDashboardActionError(response, "assignmentReminderSendFailed"));
+    }
+
+    return response.json() as Promise<AnnounceAssignmentLineResult>;
+}
+
 export async function sendClassroomLineReminder(
     classroomId: string
 ): Promise<SendClassroomLineReminderResult> {

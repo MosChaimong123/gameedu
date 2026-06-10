@@ -9,7 +9,9 @@ const TONE: Record<ReminderFlexTone, { color: string; label: string }> = {
     overdue: { color: "#DC2626", label: "เลยกำหนดส่งแล้ว" },
 };
 
-const MAX_NAMES = 10;
+// Show the full missing-student list. A LINE Flex bubble caps at ~50KB JSON, so
+// keep a high safety ceiling to avoid hitting that limit on very large classes.
+const MAX_NAMES = 100;
 
 function formatBangkokDateTime(date: Date): string {
     return date.toLocaleString("th-TH", {
@@ -165,6 +167,178 @@ export function buildReminderFlexBubble(input: {
                     style: "primary",
                     color: tone.color,
                     action: { type: "uri", label: "เปิด GameEdu", uri: input.footerUrl },
+                },
+            ],
+        };
+    }
+
+    return bubble;
+}
+
+/**
+ * Flex card announcing a NEW assignment to the classroom LINE group.
+ * Shows the assignment name, deadline, and a "ส่งงาน" button linking students
+ * to the student portal (where they enter their own access code).
+ */
+export function buildAssignmentAnnounceFlexBubble(input: {
+    classroomName: string;
+    assignmentName: string;
+    deadline: Date | null;
+    totalStudents?: number;
+    actionUrl?: string;
+}): messagingApi.FlexBubble {
+    const headerColor = "#10B981";
+    const bodyContents: messagingApi.FlexComponent[] = [
+        {
+            type: "text",
+            text: input.assignmentName,
+            weight: "bold",
+            size: "xl",
+            wrap: true,
+            color: "#111827",
+        },
+        {
+            type: "text",
+            text: `ห้อง ${input.classroomName}`,
+            size: "sm",
+            color: "#6B7280",
+            wrap: true,
+        },
+        { type: "separator", margin: "lg" },
+        {
+            type: "box",
+            layout: "baseline",
+            margin: "lg",
+            spacing: "sm",
+            contents: [
+                { type: "text", text: "กำหนดส่ง", size: "sm", color: "#9CA3AF", flex: 2 },
+                {
+                    type: "text",
+                    text: input.deadline ? formatBangkokDateTime(input.deadline) : "ไม่มีกำหนดส่ง",
+                    size: "sm",
+                    color: "#374151",
+                    weight: "bold",
+                    wrap: true,
+                    flex: 5,
+                },
+            ],
+        },
+        {
+            type: "text",
+            text: "กดปุ่มด้านล่างเพื่อเข้าส่งงานของคุณ",
+            size: "sm",
+            color: "#6B7280",
+            wrap: true,
+            margin: "lg",
+        },
+    ];
+
+    const bubble: messagingApi.FlexBubble = {
+        type: "bubble",
+        header: {
+            type: "box",
+            layout: "vertical",
+            backgroundColor: headerColor,
+            paddingAll: "lg",
+            contents: [
+                { type: "text", text: "📣 ประกาศงานใหม่", color: "#FFFFFF", weight: "bold", size: "lg" },
+                {
+                    type: "text",
+                    text:
+                        typeof input.totalStudents === "number"
+                            ? `ถึงนักเรียนทั้ง ${input.totalStudents} คน`
+                            : "ถึงนักเรียนทุกคน",
+                    color: "#FFFFFF",
+                    size: "sm",
+                },
+            ],
+        },
+        body: {
+            type: "box",
+            layout: "vertical",
+            spacing: "md",
+            contents: bodyContents,
+        },
+    };
+
+    if (input.actionUrl) {
+        bubble.footer = {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+                {
+                    type: "button",
+                    style: "primary",
+                    color: headerColor,
+                    action: { type: "uri", label: "ส่งงาน", uri: input.actionUrl },
+                },
+            ],
+        };
+    }
+
+    return bubble;
+}
+
+/**
+ * Flex card announcing that results/scores for an assignment have been published.
+ * Mirrors the familiar "ประกาศผล" card — students tap "ดูผลลัพธ์ของฉัน" to log in
+ * and view their own score.
+ */
+export function buildResultAnnounceFlexBubble(input: {
+    classroomName: string;
+    assignmentName: string;
+    actionUrl?: string;
+}): messagingApi.FlexBubble {
+    const headerColor = "#3B82F6";
+    const bubble: messagingApi.FlexBubble = {
+        type: "bubble",
+        header: {
+            type: "box",
+            layout: "vertical",
+            backgroundColor: headerColor,
+            paddingAll: "lg",
+            contents: [
+                { type: "text", text: "🎉 ประกาศผล", color: "#FFFFFF", weight: "bold", size: "lg" },
+                { type: "text", text: `ห้อง ${input.classroomName}`, color: "#FFFFFF", size: "sm" },
+            ],
+        },
+        body: {
+            type: "box",
+            layout: "vertical",
+            spacing: "md",
+            contents: [
+                {
+                    type: "text",
+                    text: input.assignmentName,
+                    weight: "bold",
+                    size: "xl",
+                    wrap: true,
+                    color: "#111827",
+                },
+                {
+                    type: "text",
+                    text: "ครูได้ประกาศผลให้ทุกคนแล้ว\nกดปุ่มด้านล่างเพื่อดูผลลัพธ์ของคุณ",
+                    size: "sm",
+                    color: "#6B7280",
+                    wrap: true,
+                    margin: "md",
+                },
+            ],
+        },
+    };
+
+    if (input.actionUrl) {
+        bubble.footer = {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+                {
+                    type: "button",
+                    style: "primary",
+                    color: headerColor,
+                    action: { type: "uri", label: "ดูผลลัพธ์ของฉัน", uri: input.actionUrl },
                 },
             ],
         };

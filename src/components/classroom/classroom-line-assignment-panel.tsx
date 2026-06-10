@@ -3,7 +3,7 @@
 import Link from "next/link";
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, Clipboard, ExternalLink, Link2, MessageCircleMore, Plus, SendHorizonal, Settings, Users, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clipboard, ExternalLink, Link2, MessageCircleMore, SendHorizonal, Settings, Users, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -18,8 +18,10 @@ import { formatDeadlineDisplayTh, isAssignmentDeadlinePast } from "@/lib/datetim
 import { cn } from "@/lib/utils";
 import {
     resetStudentLineLink,
+    announceAssignmentToLine,
     sendAssignmentLineReminder,
     sendClassroomLineReminder,
+    type AnnounceAssignmentLineKind,
     trackLineUpgradePromptClick,
     type SendClassroomLineReminderResult,
 } from "@/lib/classroom-dashboard-actions";
@@ -29,7 +31,6 @@ import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashb
 type ClassroomLineAssignmentPanelProps = {
     classroom: ClassroomDashboardViewModel;
     onOpenAssignment: (assignmentId?: string | null) => void;
-    onCreateAssignment: () => void;
     onRefreshBindingStatus: () => Promise<void>;
 };
 
@@ -884,11 +885,11 @@ function StepHeader({
 export function ClassroomLineAssignmentPanel({
     classroom,
     onOpenAssignment,
-    onCreateAssignment,
     onRefreshBindingStatus,
 }: ClassroomLineAssignmentPanelProps) {
     const { toast } = useToast();
     const [sendingAssignmentId, setSendingAssignmentId] = useState<string | null>(null);
+    const [announcingRow, setAnnouncingRow] = useState<{ assignmentId: string; kind: AnnounceAssignmentLineKind } | null>(null);
     const [bulkSending, setBulkSending] = useState(false);
     const [lastLineSendByAssignment, setLastLineSendByAssignment] = useState<Record<string, number>>({});
     const [lastBulkResult, setLastBulkResult] = useState<SendClassroomLineReminderResult | null>(null);
@@ -1276,6 +1277,41 @@ export function ClassroomLineAssignmentPanel({
             });
         } finally {
             setSendingAssignmentId(null);
+        }
+    }
+
+    async function handleAnnounce(row: AssignmentActionRow, kind: AnnounceAssignmentLineKind) {
+        setAnnouncingRow({ assignmentId: row.assignmentId, kind });
+        try {
+            const result = await announceAssignmentToLine({
+                classroomId: classroom.id,
+                assignmentId: row.assignmentId,
+                kind,
+            });
+            const what = kind === "result" ? "ผลคะแนน" : "งาน";
+            toast({
+                title:
+                    result.sentCount > 0
+                        ? `ประกาศ${what}เข้า LINE แล้ว`
+                        : connectedGroupCount === 0
+                          ? "ห้องนี้ยังไม่ได้ผูก LINE"
+                          : "ยังไม่มีข้อความถูกส่ง",
+                description:
+                    result.sentCount > 0
+                        ? `ส่งการ์ดประกาศ${what}ไป ${result.lineGroupCount} กลุ่ม`
+                        : connectedGroupCount === 0
+                          ? "ผูกกลุ่ม LINE กับห้องนี้ก่อน แล้วค่อยประกาศจากหน้าเดียวกัน"
+                          : "ตรวจสอบการเชื่อมต่อ LINE ของห้องนี้อีกครั้ง",
+                variant: result.sentCount > 0 ? "default" : "destructive",
+            });
+        } catch (error) {
+            toast({
+                title: "ประกาศเข้า LINE ไม่สำเร็จ",
+                description: error instanceof Error ? error.message : "ลองใหม่อีกครั้ง",
+                variant: "destructive",
+            });
+        } finally {
+            setAnnouncingRow(null);
         }
     }
 
@@ -1755,15 +1791,6 @@ export function ClassroomLineAssignmentPanel({
                     <Button
                         type="button"
                         size="sm"
-                        className="h-9 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
-                        onClick={() => onCreateAssignment()}
-                    >
-                        <Plus className="mr-1.5 h-4 w-4" />
-                        งานใหม่
-                    </Button>
-                    <Button
-                        type="button"
-                        size="sm"
                         className="h-9 rounded-full bg-[#000000] text-white hover:opacity-85"
                         onClick={() => void handleBulkReminder()}
                         disabled={bulkSending || !lineReminderUnlocked}
@@ -2029,6 +2056,28 @@ export function ClassroomLineAssignmentPanel({
                                     <Button
                                         type="button"
                                         size="sm"
+                                        className="h-8 rounded-full bg-emerald-600 px-3 text-white hover:bg-emerald-700"
+                                        onClick={() => void handleAnnounce(row, "assignment")}
+                                        disabled={
+                                            (announcingRow?.assignmentId === row.assignmentId &&
+                                                announcingRow.kind === "assignment") ||
+                                            !lineReminderUnlocked
+                                        }
+                                        title={
+                                            lineReminderUnlocked
+                                                ? undefined
+                                                : "ประกาศงานผ่าน LINE ใช้ได้ในแผน Plus หรือ School"
+                                        }
+                                    >
+                                        <MessageCircleMore className="mr-1 h-3.5 w-3.5" />
+                                        {announcingRow?.assignmentId === row.assignmentId &&
+                                        announcingRow.kind === "assignment"
+                                            ? "กำลังส่ง..."
+                                            : "ประกาศงาน"}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
                                         variant="outline"
                                         className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                                         onClick={() => void handleSendLine(row)}
@@ -2046,9 +2095,22 @@ export function ClassroomLineAssignmentPanel({
                                         type="button"
                                         size="sm"
                                         className="h-8 rounded-full bg-sky-500 px-3 text-white hover:bg-sky-600"
-                                        onClick={() => onOpenAssignment(row.assignmentId)}
+                                        onClick={() => void handleAnnounce(row, "result")}
+                                        disabled={
+                                            (announcingRow?.assignmentId === row.assignmentId &&
+                                                announcingRow.kind === "result") ||
+                                            !lineReminderUnlocked
+                                        }
+                                        title={
+                                            lineReminderUnlocked
+                                                ? undefined
+                                                : "ประกาศคะแนนผ่าน LINE ใช้ได้ในแผน Plus หรือ School"
+                                        }
                                     >
-                                        ประกาศคะแนน
+                                        {announcingRow?.assignmentId === row.assignmentId &&
+                                        announcingRow.kind === "result"
+                                            ? "กำลังส่ง..."
+                                            : "ประกาศคะแนน"}
                                     </Button>
                                 </div>
                             </div>

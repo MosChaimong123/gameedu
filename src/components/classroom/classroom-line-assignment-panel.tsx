@@ -3,7 +3,7 @@
 import Link from "next/link";
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, Clipboard, ExternalLink, Link2, MessageCircleMore, SendHorizonal, Settings, Users, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clipboard, ExternalLink, Link2, MessageCircleMore, Plus, SendHorizonal, Settings, Users, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -29,6 +29,7 @@ import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashb
 type ClassroomLineAssignmentPanelProps = {
     classroom: ClassroomDashboardViewModel;
     onOpenAssignment: (assignmentId?: string | null) => void;
+    onCreateAssignment: () => void;
     onRefreshBindingStatus: () => Promise<void>;
 };
 
@@ -883,6 +884,7 @@ function StepHeader({
 export function ClassroomLineAssignmentPanel({
     classroom,
     onOpenAssignment,
+    onCreateAssignment,
     onRefreshBindingStatus,
 }: ClassroomLineAssignmentPanelProps) {
     const { toast } = useToast();
@@ -1749,6 +1751,15 @@ export function ClassroomLineAssignmentPanel({
                     >
                         <ExternalLink className="mr-1.5 h-4 w-4" />
                         สรุปงาน
+                    </Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        className="h-9 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
+                        onClick={() => onCreateAssignment()}
+                    >
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        งานใหม่
                     </Button>
                     <Button
                         type="button"

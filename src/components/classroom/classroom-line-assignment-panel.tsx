@@ -857,6 +857,29 @@ function StatChip({
     );
 }
 
+/** Numbered section header used in the auto-reminder settings flow. */
+function StepHeader({
+    step,
+    title,
+    subtitle,
+}: {
+    step: number;
+    title: string;
+    subtitle?: string;
+}) {
+    return (
+        <div className="flex items-start gap-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-black text-white">
+                {step}
+            </span>
+            <div className="min-w-0">
+                <p className="text-base font-black text-slate-900">{title}</p>
+                {subtitle ? <p className="mt-0.5 text-sm leading-6 text-slate-500">{subtitle}</p> : null}
+            </div>
+        </div>
+    );
+}
+
 export function ClassroomLineAssignmentPanel({
     classroom,
     onOpenAssignment,
@@ -1015,9 +1038,6 @@ export function ClassroomLineAssignmentPanel({
         reminderPreview.items.length > 0
             ? `ถ้าบันทึกตอนนี้ ระบบมีคิวส่ง ${reminderPreview.items.length} รายการ`
             : "ตอนนี้ยังไม่มีรายการที่จะถูกส่ง";
-    const previewMessageExample = reminderPreview.items[0]
-        ? `เตือนงาน: ${reminderPreview.items[0].assignmentName}\n${reminderPreview.items[0].reminderLabel} • ค้างส่ง ${reminderPreview.items[0].targetCount} คน\nกำหนดส่ง ${formatDeadlineDisplayTh(reminderPreview.items[0].deadline)}`
-        : "ยังไม่มีตัวอย่างข้อความ เพราะตอนนี้ไม่มีงานที่เข้าเงื่อนไขส่งเตือน";
     const visibleStudentStatuses =
         showAllStudentStatuses || classroom.students.length <= 8
             ? classroom.students
@@ -1472,11 +1492,11 @@ export function ClassroomLineAssignmentPanel({
                                 Auto LINE
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-h-[85vh] w-[calc(100vw-1.5rem)] max-w-3xl overflow-y-auto rounded-[28px] border border-slate-200 p-0 shadow-2xl">
+                        <DialogContent className="h-[90vh] w-[min(94vw,760px)] max-w-none overflow-hidden rounded-[28px] border border-slate-200 p-0 shadow-2xl">
                             <DialogHeader className="border-b border-slate-100 px-6 pb-4 pt-6 text-left">
                                 <DialogTitle className="text-xl font-black">ตั้งค่า LINE auto reminder</DialogTitle>
                                 <DialogDescription className="text-sm text-slate-600">
-                                    ตั้งค่าสำหรับห้อง {classroom.name} เพื่อให้ระบบส่งเตือนงานตามกำหนดอัตโนมัติ
+                                    ทำตามขั้นตอน 1–3 ด้านล่างสำหรับห้อง {classroom.name}
                                 </DialogDescription>
                             </DialogHeader>
 
@@ -1485,273 +1505,239 @@ export function ClassroomLineAssignmentPanel({
                                     กำลังโหลดการตั้งค่า...
                                 </div>
                             ) : reminderSetting ? (
-                                <div className="space-y-5 px-6 py-5">
-                                    {/* ─── Readiness Card ─── */}
-                                    <ReadinessCard readiness={readiness} loading={readinessLoading} />
-
-                                    <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                                        <input
-                                            type="checkbox"
-                                            className="mt-1 h-4 w-4"
-                                            checked={reminderSetting.enabled}
-                                            onChange={(event) => updateReminderSetting({ enabled: event.target.checked })}
-                                        />
-                                        <span>
-                                            <span className="block text-sm font-bold text-slate-900">เปิด auto reminder ห้องนี้</span>
-                                            <span className="block text-xs text-slate-500">
-                                                ระบบ cron จะส่งเฉพาะห้องที่เปิดไว้และผูกกลุ่ม LINE เรียบร้อยแล้ว
-                                            </span>
-                                        </span>
-                                    </label>
-
-                                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                                        <div className="flex flex-wrap items-start justify-between gap-2">
-                                            <div>
-                                                <p className="text-sm font-black text-slate-900">เลือกรูปแบบสำเร็จรูป</p>
-                                                <p className="mt-1 text-xs leading-5 text-slate-500">
-                                                    เริ่มจากแบบที่แนะนำก่อน แล้วค่อยปรับเองเมื่อจำเป็น
-                                                </p>
-                                            </div>
-                                            <span className="rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-bold text-indigo-700">
-                                                ใช้งานอยู่: {REMINDER_PRESETS.find((preset) => preset.key === activeReminderPreset)?.title ?? "กำหนดเอง"}
-                                            </span>
-                                        </div>
-
-                                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                                            {REMINDER_PRESETS.map((preset) => {
-                                                const isActive = activeReminderPreset === preset.key;
-                                                return (
-                                                    <button
-                                                        key={preset.key}
-                                                        type="button"
-                                                        className={cn(
-                                                            "flex min-h-[116px] flex-col rounded-2xl border p-4 text-left transition",
-                                                            isActive
-                                                                ? "border-indigo-400 bg-indigo-50 shadow-sm"
-                                                                : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white"
-                                                        )}
-                                                        onClick={() => applyReminderPreset(preset.key)}
-                                                    >
-                                                        <div className="flex items-center justify-between gap-3">
-                                                            <span className="text-sm font-black text-slate-900">{preset.title}</span>
-                                                            <span
-                                                                className={cn(
-                                                                    "rounded-full px-2.5 py-1 text-[11px] font-bold",
-                                                                    isActive ? "bg-indigo-600 text-white" : "bg-white text-slate-500"
-                                                                )}
-                                                            >
-                                                                {isActive ? "ใช้งานอยู่" : "เลือก"}
-                                                            </span>
-                                                        </div>
-                                                        <p className="mt-2 text-xs leading-5 text-slate-500">{preset.description}</p>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
-
-                                    {activeReminderPreset === "custom" ? (
-                                        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 p-4">
-                                            <div>
-                                                <p className="text-sm font-black text-slate-900">ปรับ trigger เอง</p>
-                                                <p className="mt-1 text-xs leading-5 text-slate-500">
-                                                    ใช้เฉพาะกรณีที่ต้องการควบคุมแต่ละช่วงเวลาเอง
-                                                </p>
-                                            </div>
-                                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                                                {REMINDER_TRIGGER_OPTIONS.map((option) => (
-                                                    <label
-                                                        key={option.key}
-                                                        className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3"
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            className="mt-1 h-4 w-4"
-                                                            checked={Boolean(reminderSetting[option.key])}
-                                                            onChange={(event) =>
-                                                                updateReminderSetting({
-                                                                    [option.key]: event.target.checked,
-                                                                } as Partial<LineReminderSettingPayload>)
-                                                            }
-                                                        />
-                                                        <span>
-                                                            <span className="block text-sm font-bold text-slate-900">{option.label}</span>
-                                                            <span className="block text-xs leading-5 text-slate-500">{option.hint}</span>
-                                                        </span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ) : null}
-
-                                    <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-                                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                                            <p className="text-sm font-black text-emerald-950">สรุปการทำงาน</p>
-                                            <ul className="mt-3 space-y-2 text-sm text-emerald-950">
-                                                <li>- สถานะ: {reminderSetting.enabled ? "เปิดใช้งาน" : "ยังไม่เปิดใช้งาน"}</li>
-                                                <li>- นักเรียนที่พร้อมรับ LINE: {linkedStudents.length} คน</li>
-                                                <li>- งานที่กำลังเสี่ยงหรือค้าง: {hotRows.length} งาน</li>
-                                                <li>- ระบบอ้างอิงเวลา: {reminderSetting.timezone}</li>
-                                            </ul>
-                                        </div>
-
-                                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                                            <p className="text-sm font-black text-slate-900">ระบบจะเตือนเมื่อ</p>
-                                            <div className="mt-3 flex flex-wrap gap-2">
-                                                {activeReminderLabels.length > 0 ? (
-                                                    activeReminderLabels.map((label) => (
-                                                        <span
-                                                            key={label}
-                                                            className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700"
-                                                        >
-                                                            {label}
-                                                        </span>
-                                                    ))
-                                                ) : (
-                                                    <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700">
-                                                        ยังไม่ได้เลือกช่วงเตือน
+                                <div className="h-[calc(90vh-92px)] overflow-y-auto px-6 py-6">
+                                    <div className="mx-auto max-w-[640px] space-y-7">
+                                        {/* ── STEP 1 — เปิด/ปิด ───────────────────────────── */}
+                                        <section className="space-y-3">
+                                            <StepHeader
+                                                step={1}
+                                                title="เปิดใช้งาน auto reminder"
+                                                subtitle="ระบบจะส่งเตือนงานค้างเข้ากลุ่ม LINE ให้อัตโนมัติทุกวัน"
+                                            />
+                                            <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4">
+                                                <span className="min-w-0">
+                                                    <span className="block text-sm font-bold text-slate-900">
+                                                        {reminderSetting.enabled ? "เปิดอยู่ — ระบบจะส่งเตือนให้" : "ปิดอยู่ — ยังไม่ส่งเตือน"}
                                                     </span>
-                                                )}
-                                            </div>
-                                            <p className="mt-3 text-xs leading-5 text-slate-500">
-                                                ถ้าห้องยังไม่ผูก LINE หรือยังไม่มีนักเรียนเชื่อม LINE ระบบจะยังไม่ส่งแม้จะเปิดใช้งานไว้แล้ว
-                                            </p>
-                                        </div>
-                                    </div>
+                                                    <span className="mt-0.5 block text-xs leading-5 text-slate-500">
+                                                        เปิดไว้ก่อนได้ ระบบจะส่งเฉพาะเมื่อพร้อมครบ (ดูขั้นตอนที่ 2)
+                                                    </span>
+                                                </span>
+                                                <span
+                                                    className={cn(
+                                                        "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition",
+                                                        reminderSetting.enabled ? "bg-emerald-500" : "bg-slate-300"
+                                                    )}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        className="peer sr-only"
+                                                        checked={reminderSetting.enabled}
+                                                        onChange={(event) => updateReminderSetting({ enabled: event.target.checked })}
+                                                    />
+                                                    <span
+                                                        className={cn(
+                                                            "absolute left-1 h-5 w-5 rounded-full bg-white shadow transition",
+                                                            reminderSetting.enabled ? "translate-x-5" : "translate-x-0"
+                                                        )}
+                                                    />
+                                                </span>
+                                            </label>
+                                        </section>
 
-                                    <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-                                        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
-                                            <div className="flex flex-wrap items-start justify-between gap-3">
-                                                <div>
-                                                    <p className="text-sm font-black text-sky-950">พรีวิวสิ่งที่จะส่งตอนนี้</p>
-                                                    <p className="mt-1 text-xs leading-5 text-sky-900/80">
-                                                        {previewHeadline}
-                                                    </p>
+                                        {/* ── STEP 2 — ความพร้อม ──────────────────────────── */}
+                                        <section className="space-y-3">
+                                            <StepHeader
+                                                step={2}
+                                                title="ตรวจสอบความพร้อม"
+                                                subtitle="ระบบจะส่งได้ต่อเมื่อผ่านครบทุกข้อด้านล่าง"
+                                            />
+                                            <ReadinessCard readiness={readiness} loading={readinessLoading} />
+                                        </section>
+
+                                        {/* ── STEP 3 — ความถี่ ────────────────────────────── */}
+                                        <section className="space-y-3">
+                                            <StepHeader
+                                                step={3}
+                                                title="เลือกความถี่การเตือน"
+                                                subtitle={`เริ่มจากแบบ “แนะนำ” ก่อน แล้วค่อยปรับเองได้ — ใช้งานอยู่: ${
+                                                    REMINDER_PRESETS.find((preset) => preset.key === activeReminderPreset)?.title ?? "กำหนดเอง"
+                                                }`}
+                                            />
+                                            <div className="grid gap-3 sm:grid-cols-2">
+                                                {REMINDER_PRESETS.map((preset) => {
+                                                    const isActive = activeReminderPreset === preset.key;
+                                                    return (
+                                                        <button
+                                                            key={preset.key}
+                                                            type="button"
+                                                            className={cn(
+                                                                "flex flex-col rounded-2xl border p-4 text-left transition",
+                                                                isActive
+                                                                    ? "border-indigo-400 bg-indigo-50 shadow-sm"
+                                                                    : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white"
+                                                            )}
+                                                            onClick={() => applyReminderPreset(preset.key)}
+                                                        >
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="text-sm font-black text-slate-900">{preset.title}</span>
+                                                                {isActive ? <CheckCircle2 className="h-4 w-4 shrink-0 text-indigo-600" /> : null}
+                                                            </div>
+                                                            <p className="mt-1.5 text-xs leading-5 text-slate-500">{preset.description}</p>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {activeReminderPreset === "custom" ? (
+                                                <div className="grid gap-2.5 rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 p-4 sm:grid-cols-2">
+                                                    {REMINDER_TRIGGER_OPTIONS.map((option) => (
+                                                        <label
+                                                            key={option.key}
+                                                            className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-3"
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                className="mt-0.5 h-5 w-5"
+                                                                checked={Boolean(reminderSetting[option.key])}
+                                                                onChange={(event) =>
+                                                                    updateReminderSetting({
+                                                                        [option.key]: event.target.checked,
+                                                                    } as Partial<LineReminderSettingPayload>)
+                                                                }
+                                                            />
+                                                            <span>
+                                                                <span className="block text-sm font-bold text-slate-900">{option.label}</span>
+                                                                <span className="mt-0.5 block text-xs leading-5 text-slate-500">{option.hint}</span>
+                                                            </span>
+                                                        </label>
+                                                    ))}
                                                 </div>
-                                                <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-sky-700">
+                                            ) : (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {activeReminderLabels.length > 0 ? (
+                                                        activeReminderLabels.map((label) => (
+                                                            <span
+                                                                key={label}
+                                                                className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700"
+                                                            >
+                                                                {label}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700">
+                                                            ยังไม่ได้เลือกช่วงเตือน
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </section>
+
+                                        {/* ── พรีวิว ───────────────────────────────────────── */}
+                                        <section className="space-y-3 border-t border-slate-100 pt-6">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <p className="text-base font-black text-slate-900">พรีวิว: ถ้าบันทึกตอนนี้จะส่งอะไร</p>
+                                                <span className="shrink-0 rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-700">
                                                     {reminderPreview.items.reduce((sum, item) => sum + item.targetCount, 0)} คน
                                                 </span>
                                             </div>
+                                            <p className="text-sm text-slate-500">{previewHeadline}</p>
 
                                             {reminderPreview.items.length > 0 ? (
-                                                <div className="mt-4 space-y-3">
+                                                <div className="space-y-2.5">
                                                     {reminderPreview.items.slice(0, 4).map((item) => (
                                                         <div
-                                                            key={`${item.assignmentId}-${item.reminderType}`}
-                                                            className="rounded-2xl border border-sky-100 bg-white/90 px-4 py-3"
+                                                            key={item.assignmentId + "-" + item.reminderType}
+                                                            className="rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3"
                                                         >
                                                             <div className="flex flex-wrap items-center gap-2">
-                                                                <span className="rounded-full bg-sky-100 px-2.5 py-1 text-[11px] font-bold text-sky-800">
+                                                                <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-bold text-sky-800">
                                                                     {item.reminderLabel}
                                                                 </span>
-                                                                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">
+                                                                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-700">
                                                                     {item.targetCount} คน
                                                                 </span>
                                                             </div>
-                                                            <p className="mt-2 text-sm font-bold text-slate-900">
-                                                                {item.assignmentName}
-                                                            </p>
-                                                            <p className="mt-1 text-xs text-slate-600">
+                                                            <p className="mt-1.5 text-sm font-bold text-slate-900">{item.assignmentName}</p>
+                                                            <p className="mt-0.5 text-xs text-slate-500">
                                                                 กำหนดส่ง {formatDeadlineDisplayTh(item.deadline)}
-                                                            </p>
-                                                            <p className="mt-2 text-xs leading-5 text-slate-500">
-                                                                ตัวอย่างรายชื่อ:{" "}
-                                                                {item.studentNames.slice(0, 3).join(", ")}
-                                                                {item.studentNames.length > 3
-                                                                    ? ` และอีก ${item.studentNames.length - 3} คน`
-                                                                    : ""}
                                                             </p>
                                                         </div>
                                                     ))}
                                                 </div>
                                             ) : (
-                                                <div className="mt-4 rounded-2xl border border-dashed border-sky-200 bg-white/80 px-4 py-4">
-                                                    <p className="text-sm font-bold text-sky-950">ยังไม่มีคิวส่งในตอนนี้</p>
-                                                    <ul className="mt-2 space-y-2 text-xs leading-5 text-slate-600">
+                                                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-4">
+                                                    <p className="text-sm font-bold text-slate-700">ยังไม่มีคิวส่งในตอนนี้</p>
+                                                    <ul className="mt-2 space-y-1.5 text-xs leading-5 text-slate-500">
                                                         {reminderPreview.blockers.map((reason) => (
-                                                            <li key={reason}>- {reason}</li>
+                                                            <li key={reason}>• {reason}</li>
                                                         ))}
                                                         {reminderPreview.reasons.map((reason) => (
-                                                            <li key={reason}>- {reason}</li>
+                                                            <li key={reason}>• {reason}</li>
                                                         ))}
                                                     </ul>
                                                 </div>
                                             )}
-                                        </div>
+                                        </section>
 
-                                        <div className="space-y-4">
-                                            <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
-                                                <p className="text-sm font-black text-violet-950">ตัวอย่างข้อความเตือน</p>
-                                                <p className="mt-1 text-xs leading-5 text-violet-900/75">
-                                                    ใช้เป็นตัวอย่างให้ครูเห็นโทนข้อความก่อนเปิดใช้งาน
-                                                </p>
-                                                <pre className="mt-3 whitespace-pre-wrap rounded-2xl bg-white px-4 py-3 text-xs leading-6 text-slate-700">
-                                                    {previewMessageExample}
-                                                </pre>
+                                        {/* ── ทดสอบ & ประวัติ ─────────────────────────────── */}
+                                        <section className="space-y-3 border-t border-slate-100 pt-6">
+                                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                                <div>
+                                                    <p className="text-base font-black text-slate-900">ทดสอบ &amp; ประวัติการส่ง</p>
+                                                    <p className="mt-0.5 text-sm text-slate-500">ลองรันดูว่าจะส่งอะไร โดยยังไม่ส่งจริง</p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    disabled={testRunLoading}
+                                                    onClick={() => void runTestRun()}
+                                                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
+                                                >
+                                                    {testRunLoading ? (
+                                                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+                                                    ) : (
+                                                        <SendHorizonal className="h-4 w-4 text-indigo-600" />
+                                                    )}
+                                                    {testRunLoading ? "กำลังตรวจสอบ..." : "ทดสอบตอนนี้"}
+                                                </button>
                                             </div>
+                                            {testRunResult ? <TestRunResultPanel result={testRunResult} /> : null}
+                                            <DeliveryHistorySection deliveries={reminderDeliveries} />
+                                        </section>
+                                    </div>
 
-                                            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                                                <p className="text-sm font-black text-amber-950">เช็กก่อนบันทึก</p>
-                                                <ul className="mt-3 space-y-2 text-xs leading-5 text-amber-950">
-                                                    <li>- ต้องผูก LINE group กับห้องนี้ก่อน ระบบถึงจะส่งได้</li>
-                                                    <li>- ระบบจะส่งเฉพาะงานที่มีคนค้างส่งจริง</li>
-                                                    <li>- ถ้าเปิดสรุปรายสัปดาห์ ระบบจะทำงานวันจันทร์ตามเวลาไทย</li>
-                                                </ul>
+                                    <div className="sticky bottom-0 z-10 -mx-6 mt-6 border-t border-slate-200 bg-white/95 px-6 py-4 backdrop-blur">
+                                        <div className="mx-auto flex max-w-[640px] flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                                            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    className="h-11 rounded-2xl px-5"
+                                                    onClick={() => {
+                                                        void loadReminderSettings();
+                                                        void loadReadiness();
+                                                    }}
+                                                    disabled={reminderSettingsLoading}
+                                                >
+                                                    รีเฟรช
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    className="h-11 rounded-2xl bg-[#000000] px-5 text-white hover:opacity-85"
+                                                    onClick={() => void saveReminderSettings()}
+                                                    disabled={reminderSettingsSaving}
+                                                >
+                                                    {reminderSettingsSaving
+                                                        ? "กำลังบันทึก..."
+                                                        : reminderSetting.enabled
+                                                          ? "บันทึกและเปิดใช้งาน"
+                                                          : "บันทึกการตั้งค่า"}
+                                                </Button>
                                             </div>
                                         </div>
                                     </div>
-
-                                    <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => { void loadReminderSettings(); void loadReadiness(); }}
-                                            disabled={reminderSettingsLoading}
-                                        >
-                                            รีเฟรช
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            className="bg-[#000000] text-white hover:opacity-85"
-                                            onClick={() => void saveReminderSettings()}
-                                            disabled={reminderSettingsSaving}
-                                        >
-                                            {reminderSettingsSaving ? "กำลังบันทึก..." : reminderSetting.enabled ? "บันทึกและเปิดใช้งาน" : "บันทึกการตั้งค่า"}
-                                        </Button>
-                                    </div>
-
-                                    {/* ─── Test Run ─── */}
-                                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-                                        <div className="flex flex-wrap items-center justify-between gap-3">
-                                            <div>
-                                                <p className="text-sm font-black text-slate-900">ทดสอบระบบ</p>
-                                                <p className="mt-0.5 text-xs text-slate-500">
-                                                    ดูว่าถ้ารัน auto reminder ตอนนี้จะส่งอะไร — ไม่ส่งจริง
-                                                </p>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                disabled={testRunLoading}
-                                                onClick={() => void runTestRun()}
-                                                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
-                                            >
-                                                {testRunLoading ? (
-                                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
-                                                ) : (
-                                                    <SendHorizonal className="h-4 w-4 text-indigo-600" />
-                                                )}
-                                                {testRunLoading ? "กำลังตรวจสอบ..." : "ทดสอบตอนนี้"}
-                                            </button>
-                                        </div>
-                                        {testRunResult ? (
-                                            <TestRunResultPanel result={testRunResult} />
-                                        ) : null}
-                                    </div>
-
-                                    <DeliveryHistorySection deliveries={reminderDeliveries} />
                                 </div>
-                            ) : null}
+                                ) : null}
                         </DialogContent>
                     </Dialog>
                     <Button
@@ -2039,11 +2025,19 @@ export function ClassroomLineAssignmentPanel({
                                         title={
                                             lineReminderUnlocked
                                                 ? undefined
-                                                : "Send LINE ใช้ได้ในแผน Plus หรือ School"
+                                                : "ทวงงาน ใช้ได้ในแผน Plus หรือ School"
                                         }
                                     >
                                         <SendHorizonal className="mr-1 h-3.5 w-3.5" />
-                                        {sendingAssignmentId === row.assignmentId ? "กำลังส่ง..." : "Send LINE"}
+                                        {sendingAssignmentId === row.assignmentId ? "กำลังส่ง..." : "ทวงงาน"}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        className="h-8 rounded-full bg-sky-500 px-3 text-white hover:bg-sky-600"
+                                        onClick={() => onOpenAssignment(row.assignmentId)}
+                                    >
+                                        ประกาศคะแนน
                                     </Button>
                                 </div>
                             </div>

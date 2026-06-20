@@ -58,14 +58,13 @@ type ReminderSettingModel = {
             dueToday: true;
             overdue1d: true;
             weeklySummary: true;
-            timezone: true;
         };
     }): Promise<ClassroomLineReminderSettingSnapshot | null>;
 };
 
 type DeliveryKeyModel = {
     findMany(input: {
-        where: { classroomId: string };
+        where: { classroomId: string; lineBotGroupId?: string };
         select: { reminderKey: true };
     }): Promise<Array<{ reminderKey: string }>>;
 };
@@ -98,8 +97,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
     const now = new Date();
 
-    // Load all needed data in parallel
-    const [classroom, lineBotGroups, existingKeys, rawSetting] = await Promise.all([
+    // Load classroom, active LINE group, and reminder setting in parallel
+    const [classroom, lineBotGroups, rawSetting] = await Promise.all([
         db.classroom.findUnique({
             where: { id },
             select: {
@@ -125,16 +124,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
             select: { id: true },
             take: 1,
         }),
-        // Existing delivery keys so we can flag already-sent
-        (async () => {
-            const model = getOptionalDbModel<DeliveryKeyModel>("lineAssignmentReminderDelivery");
-            if (!model) return new Set<string>();
-            const rows = await model.findMany({
-                where: { classroomId: id },
-                select: { reminderKey: true },
-            });
-            return new Set(rows.map((r) => r.reminderKey));
-        })(),
         (async () => {
             const model = getOptionalDbModel<ReminderSettingModel>("classroomLineReminderSetting");
             return model
@@ -147,18 +136,30 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
                           dueToday: true,
                           overdue1d: true,
                           weeklySummary: true,
-                          timezone: true,
                       },
                   })
                 : null;
         })(),
     ]);
 
+    // Load existing delivery keys filtered by the active group so dry-run
+    // matches the actual dedup constraint: [lineBotGroupId, assignmentId, reminderKey].
+    const activeBotGroupId = lineBotGroups[0]?.id ?? null;
+    const existingKeys = await (async () => {
+        const model = getOptionalDbModel<DeliveryKeyModel>("lineAssignmentReminderDelivery");
+        if (!model || !activeBotGroupId) return new Set<string>();
+        const rows = await model.findMany({
+            where: { classroomId: id, lineBotGroupId: activeBotGroupId },
+            select: { reminderKey: true },
+        });
+        return new Set(rows.map((r) => r.reminderKey));
+    })();
+
     if (!classroom) {
         return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
     }
 
-    const lineGroupLinked = lineBotGroups.length > 0;
+    const lineGroupLinked = activeBotGroupId !== null;
     const setting = normalizeClassroomLineReminderSetting(id, rawSetting);
 
     const dryRun = buildDryRunCandidates(classroom, setting, existingKeys, now);

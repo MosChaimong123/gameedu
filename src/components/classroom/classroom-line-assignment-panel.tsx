@@ -57,7 +57,6 @@ type LineReminderSettingPayload = {
     dueToday: boolean;
     overdue1d: boolean;
     weeklySummary: boolean;
-    timezone: string;
 };
 
 type LineReminderDeliveryPayload = {
@@ -172,7 +171,7 @@ const REMINDER_PRESETS: Array<{
     {
         key: "custom",
         title: "กำหนดเอง",
-        description: "เลือก trigger แต่ละช่วงเวลาเองทั้งหมด",
+        description: "เลือกช่วงเวลาส่งเตือนเองทั้งหมด",
         values: {
             beforeDeadline1d: true,
             dueToday: true,
@@ -248,7 +247,7 @@ function summarizeAssignments(classroom: ClassroomDashboardViewModel): Assignmen
             return {
                 assignmentId: assignment.id,
                 name: assignment.name,
-                deadline: assignment.deadline ? assignment.deadline.toISOString() : null,
+                deadline: assignment.deadline ? new Date(assignment.deadline).toISOString() : null,
                 missingSubmissions,
                 overdue,
                 dueSoon,
@@ -305,7 +304,7 @@ function getReminderPreviewLabel(reminderType: ReminderPreviewType) {
 // ─── Test Run Result Panel ───────────────────────────────────────────────────
 
 const BLOCKED_REASON_LABEL: Record<string, string> = {
-    auto_reminder_disabled: "auto reminder ยังไม่เปิดใช้งาน",
+    auto_reminder_disabled: "ยังไม่เปิดการเตือนอัตโนมัติ",
     line_group_missing: "ยังไม่ผูกกลุ่ม LINE",
     no_linked_students: "ไม่มีนักเรียนเชื่อม LINE",
     no_assignments_with_deadline: "ไม่มีงานที่มีกำหนดส่ง",
@@ -397,7 +396,7 @@ function TestRunResultPanel({ result }: { result: TestRunResult }) {
             </div>
 
             <p className="text-[11px] text-slate-400">
-                * ผลนี้ไม่ได้ส่งจริง — กด &quot;บันทึกและเปิดใช้งาน&quot; แล้วรอ cron หรือใช้ manual send
+                * ผลนี้ไม่ได้ส่งจริง — กด &quot;บันทึกและเปิดใช้งาน&quot; แล้วรอระบบ หรือส่งด้วยตนเอง
             </p>
         </div>
     );
@@ -634,12 +633,12 @@ function AutoReminderStatusStrip({
                     )}
                 />
                 {isReady
-                    ? "Auto ON — พร้อมส่ง"
+                    ? "เปิดอยู่ — พร้อมส่ง"
                     : isWorkerBlocked
-                      ? "Auto — ต้องอัปเกรด"
+                      ? "ปิดอยู่ — ต้องอัปเกรด"
                       : isEnabled
-                        ? "Auto ON — ยังมี blocker"
-                        : "Auto OFF"}
+                        ? "เปิดอยู่ — ยังตั้งค่าไม่ครบ"
+                        : "ปิดอยู่"}
             </span>
 
             {/* Last run */}
@@ -1187,7 +1186,6 @@ export function ClassroomLineAssignmentPanel({
                       dueToday: true,
                       overdue1d: true,
                       weeklySummary: false,
-                      timezone: "Asia/Bangkok",
                       ...patch,
                   }
         );

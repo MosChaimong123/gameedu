@@ -24,7 +24,6 @@ type ReminderSettingModel = {
             dueToday: true;
             overdue1d: true;
             weeklySummary: true;
-            timezone: true;
         };
     }): Promise<ClassroomLineReminderSettingSnapshot | null>;
     upsert(input: {
@@ -38,7 +37,6 @@ type ReminderSettingModel = {
             dueToday: true;
             overdue1d: true;
             weeklySummary: true;
-            timezone: true;
         };
     }): Promise<ClassroomLineReminderSettingSnapshot>;
 };
@@ -84,7 +82,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             dueToday: true,
             overdue1d: true,
             weeklySummary: true,
-            timezone: true,
         },
     });
 
@@ -118,7 +115,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             dueToday: setting.dueToday,
             overdue1d: setting.overdue1d,
             weeklySummary: setting.weeklySummary,
-            timezone: setting.timezone,
         },
         select: {
             classroomId: true,
@@ -127,7 +123,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             dueToday: true,
             overdue1d: true,
             weeklySummary: true,
-            timezone: true,
         },
     });
 

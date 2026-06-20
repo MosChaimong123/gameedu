@@ -24,6 +24,7 @@ import {
     type LineDispatchRunResult,
     type LineDispatchItemResult,
 } from "@/lib/line-bot/delivery-contract";
+import { logAuditEvent } from "@/lib/security/audit-log";
 
 type ReminderSettingModel = {
     findMany(input: {
@@ -35,7 +36,6 @@ type ReminderSettingModel = {
             dueToday: true;
             overdue1d: true;
             weeklySummary: true;
-            timezone: true;
         };
     }): Promise<ClassroomLineReminderSettingSnapshot[]>;
 };
@@ -126,7 +126,6 @@ export async function runLineAutoReminders(
                       dueToday: true,
                       overdue1d: true,
                       weeklySummary: true,
-                      timezone: true,
                   },
               })
             : [];
@@ -187,6 +186,19 @@ export async function runLineAutoReminders(
             failedCount += 1;
             items.push({ ...baseItem, status: "record_error", errorMessage: recorded.message });
             console.error("[line-auto-reminders] failed to record delivery", recorded.message);
+            logAuditEvent({
+                action: "line.reminder.record_error",
+                category: "line",
+                status: "error",
+                targetType: "LineAssignmentReminderDelivery",
+                targetId: candidate.assignmentId,
+                metadata: {
+                    classroomId: candidate.classroomId,
+                    reminderType: candidate.reminderType,
+                    reminderKey: candidate.reminderKey,
+                    reason: recorded.message,
+                },
+            });
             continue;
         }
 
@@ -232,6 +244,21 @@ export async function runLineAutoReminders(
             await markDeliveryFailed(deliveryModel, deliveryId, errorCode, error);
             items.push({ ...baseItem, status: "failed", errorCode });
             console.error("[line-auto-reminders] failed to push LINE reminder", error);
+            logAuditEvent({
+                action: "line.reminder.push_failed",
+                category: "line",
+                status: "error",
+                targetType: "LineAssignmentReminderDelivery",
+                targetId: candidate.assignmentId,
+                metadata: {
+                    classroomId: candidate.classroomId,
+                    lineGroupId: candidate.lineGroupId,
+                    reminderType: candidate.reminderType,
+                    reminderKey: candidate.reminderKey,
+                    errorCode,
+                    reason: error instanceof Error ? error.message : String(error),
+                },
+            });
         }
     }
 
@@ -305,7 +332,10 @@ function buildCandidatesForGroup(
                 const missingList = students.filter((student) => {
                     const score = submissionMap.get(student.id);
                     if (score === undefined) return true;
-                    return Math.floor(score / Math.pow(2, i)) % 2 === 0;
+                    // Use unsigned right-shift for exact integer bit-check (safe up to 31 items).
+                    // For larger indices fall back to float division which is exact up to bit 52.
+                    const bit = i < 31 ? (Math.floor(score) >>> i) & 1 : Math.floor(score / Math.pow(2, i)) % 2;
+                    return bit === 0;
                 });
                 return {
                     text,
@@ -355,5 +385,10 @@ const TONE_BY_TYPE: Record<ReminderType, ReminderFlexTone> = {
 };
 
 function getAppUrl(): string | undefined {
-    return process.env.NEXT_PUBLIC_APP_URL?.trim() || process.env.LINE_BOT_CHAT_URL?.trim() || undefined;
+    return (
+        process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+        process.env.APP_BASE_URL?.trim() ||
+        process.env.LINE_BOT_CHAT_URL?.trim() ||
+        undefined
+    );
 }

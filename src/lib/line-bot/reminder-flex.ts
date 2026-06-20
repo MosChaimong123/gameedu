@@ -290,7 +290,7 @@ export function buildAssignmentAnnounceFlexBubble(input: {
         },
         {
             type: "text",
-            text: "กดปุ่มด้านล่างเพื่อเข้าส่งงานของคุณ",
+            text: "กดปุ่มด้านล่างเพื่อส่งงาน",
             size: "sm",
             color: "#6B7280",
             wrap: true,
@@ -383,7 +383,7 @@ export function buildResultAnnounceFlexBubble(input: {
                 },
                 {
                     type: "text",
-                    text: "ครูได้ประกาศผลให้ทุกคนแล้ว\nกดปุ่มด้านล่างเพื่อดูผลลัพธ์ของคุณ",
+                    text: "ครูประกาศผลคะแนนแล้ว\nกดปุ่มด้านล่างเพื่อดูคะแนนของคุณ",
                     size: "sm",
                     color: "#6B7280",
                     wrap: true,
@@ -403,7 +403,7 @@ export function buildResultAnnounceFlexBubble(input: {
                     type: "button",
                     style: "primary",
                     color: headerColor,
-                    action: { type: "uri", label: "ดูผลลัพธ์ของฉัน", uri: input.actionUrl },
+                    action: { type: "uri", label: "ดูผลคะแนนของฉัน", uri: input.actionUrl },
                 },
             ],
         };

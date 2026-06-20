@@ -48,7 +48,6 @@ describe("line auto reminders", () => {
                 dueToday: true,
                 overdue1d: true,
                 weeklySummary: true,
-                timezone: "Asia/Bangkok",
             },
         ]);
         mockDeliveryCreate.mockResolvedValue({ id: "delivery-1" });
@@ -96,12 +95,12 @@ describe("line auto reminders", () => {
                 reminderType: "due_today",
                 targetCount: 1,
                 status: "pending",
-                errorMessage: null,
+                triggeredBy: "cron",
             }),
         });
         expect(mockDeliveryUpdate).toHaveBeenCalledWith({
             where: { id: "delivery-1" },
-            data: { status: "sent", errorMessage: null },
+            data: { status: "sent", errorCode: null, errorMessage: null },
         });
         expect(mockPushLineFlex).toHaveBeenCalledWith(
             "line-group-1",
@@ -182,7 +181,6 @@ describe("line auto reminders", () => {
                 dueToday: true,
                 overdue1d: true,
                 weeklySummary: true,
-                timezone: "Asia/Bangkok",
             },
         ]);
         mockFindManyLineBotGroup.mockResolvedValue([
@@ -278,7 +276,7 @@ describe("line auto reminders", () => {
         });
         expect(mockDeliveryCreate).toHaveBeenCalledWith({
             data: expect.objectContaining({
-                reminderKey: "weekly_summary:2026-W23",
+                reminderKey: "weekly_summary:2026-W24",
                 reminderType: "weekly_summary",
                 status: "pending",
             }),
@@ -316,7 +314,7 @@ describe("line auto reminders", () => {
         expect(result.sentCount).toBe(0);
         expect(mockDeliveryUpdate).toHaveBeenCalledWith({
             where: { id: "delivery-1" },
-            data: { status: "failed", errorMessage: "LINE API failed" },
+            data: { status: "failed", errorCode: "UNKNOWN_ERROR", errorMessage: "LINE API failed" },
         });
     });
 });

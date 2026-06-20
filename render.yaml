@@ -114,3 +114,50 @@ services:
         value: auto
       - key: HEALTHCHECK_DB_TIMEOUT_MS
         value: "3000"
+      # ── LINE Bot ──────────────────────────────────────────────────────────
+      # Required for LINE bot to work (webhook + push messages)
+      - key: LINE_BOT_ENABLED
+        value: "true"
+      - key: LINE_CHANNEL_SECRET
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_CLASSROOM_BINDING_SECRET
+        sync: false
+      # Used as footer URL in LINE Flex reminder cards; falls back to APP_BASE_URL
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      # Secret for POST /api/jobs/line-reminders (external cron trigger)
+      # Falls back to ADMIN_SECRET if not set
+      - key: LINE_REMINDER_CRON_SECRET
+        sync: false
+
+  # ── LINE Auto-Reminder Cron Job ──────────────────────────────────────────
+  # Fires POST /api/jobs/line-reminders every 30 min as a reliable external
+  # trigger — works alongside the in-process scheduler (delivery dedup via
+  # unique reminderKey prevents double-sends).
+  #
+  # Requires Render paid plan. Remove or comment out if using free plan
+  # (in-process scheduler in server.ts handles reminders automatically).
+  - type: cron
+    name: gamedu-line-reminder-cron
+    runtime: node
+    region: singapore
+    schedule: "*/30 * * * *"
+    buildCommand: "true"
+    startCommand: >
+      node -e "
+        const secret = process.env.LINE_REMINDER_CRON_SECRET || process.env.ADMIN_SECRET;
+        const url = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_BASE_URL) + '/api/jobs/line-reminders';
+        fetch(url, { method: 'POST', headers: { 'x-cron-secret': secret } })
+          .then(r => r.json()).then(console.log).catch(console.error);
+      "
+    envVars:
+      - key: LINE_REMINDER_CRON_SECRET
+        sync: false
+      - key: ADMIN_SECRET
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: APP_BASE_URL
+        sync: false

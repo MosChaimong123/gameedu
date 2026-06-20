@@ -38,6 +38,7 @@ import {
     bindLineStudentToStudentCode,
     createAssignmentForLineGroup,
     createLineGroupDebt,
+    deactivateLineBotGroup,
     getClassroomReminderSummaryForLineGroup,
     getLineMyProgressSummariesForLinkedAccount,
     getLineMyWorkSummariesForLinkedAccount,
@@ -67,6 +68,11 @@ export async function handleLineWebhookEvents(events: WebhookEvent[]): Promise<v
 async function handleLineWebhookEvent(event: WebhookEvent): Promise<void> {
     if (event.type === "join" && event.source.type === "group" && event.source.groupId) {
         await upsertLineBotGroup(event.source.groupId);
+        return;
+    }
+
+    if (event.type === "leave" && event.source.type === "group" && event.source.groupId) {
+        await deactivateLineBotGroup(event.source.groupId);
         return;
     }
 
@@ -124,7 +130,7 @@ export async function processDirectTextCommand(input: {
 }): Promise<LineHandlerResult> {
     const command = parseLineDebtCommand(input.text);
     if (!command) {
-        return { handled: false };
+        return { handled: true, replyText: formatLineDirectHelpMessage() };
     }
 
     switch (command.type) {

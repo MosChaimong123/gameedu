@@ -7,7 +7,6 @@ export type ClassroomLineReminderSettingSnapshot = {
     dueToday: boolean;
     overdue1d: boolean;
     weeklySummary: boolean;
-    timezone: string;
 };
 
 export const DEFAULT_CLASSROOM_LINE_REMINDER_SETTING: ClassroomLineReminderSettingSnapshot = {
@@ -17,7 +16,6 @@ export const DEFAULT_CLASSROOM_LINE_REMINDER_SETTING: ClassroomLineReminderSetti
     dueToday: true,
     overdue1d: true,
     weeklySummary: false,
-    timezone: "Asia/Bangkok",
 };
 
 export function normalizeClassroomLineReminderSetting(
@@ -33,7 +31,6 @@ export function normalizeClassroomLineReminderSetting(
         dueToday: Boolean(row?.dueToday ?? DEFAULT_CLASSROOM_LINE_REMINDER_SETTING.dueToday),
         overdue1d: Boolean(row?.overdue1d ?? DEFAULT_CLASSROOM_LINE_REMINDER_SETTING.overdue1d),
         weeklySummary: Boolean(row?.weeklySummary ?? DEFAULT_CLASSROOM_LINE_REMINDER_SETTING.weeklySummary),
-        timezone: row?.timezone?.trim() || DEFAULT_CLASSROOM_LINE_REMINDER_SETTING.timezone,
     };
 }
 

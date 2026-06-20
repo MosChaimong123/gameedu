@@ -36,6 +36,7 @@ model User {
   omrQuizzes    OMRQuiz[]   @relation("TeacherOMRQuizzes")
   teachingMedia TeachingMedia[]
   lessons       Lesson[]
+  courses       Course[]
 
   // User Preferences & Settings
   settings      Json?     @default("{\"theme\":\"light\",\"sfxEnabled\":true,\"bgmEnabled\":true,\"language\":\"th\"}")
@@ -201,6 +202,12 @@ model Classroom {
   battleSessions BattleSession[]
   lineBotGroups LineBotGroup[]
   lessonAssignments LessonAssignment[]
+  courseAssignments CourseAssignment[]
+  courseProgresses CourseProgress[]
+  courseAssessmentAttempts CourseAssessmentAttempt[]
+  lessonAssessmentAttempts LessonAssessmentAttempt[]
+  courseCertificates CourseCertificate[]
+  lessonCertificates LessonCertificate[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -279,6 +286,12 @@ model Student {
   achievements  StudentAchievement[]
   economyTransactions EconomyTransaction[]
   lessonCompletions LessonCompletion[]
+  topicVideoWatches TopicVideoWatch[]
+  courseProgresses CourseProgress[]
+  courseAssessmentAttempts CourseAssessmentAttempt[]
+  lessonAssessmentAttempts LessonAssessmentAttempt[]
+  courseCertificates CourseCertificate[]
+  lessonCertificates LessonCertificate[]
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
 }
@@ -550,12 +563,15 @@ model QuestionSet {
   description String?
   isPublic    Boolean  @default(false)
   coverImage  String?
+  sourceMetadata Json?
   creatorId   String   @db.ObjectId
   creator     User     @relation(fields: [creatorId], references: [id])
   folderId    String?  @db.ObjectId
   folder      Folder?  @relation(fields: [folderId], references: [id])
   questions   Json     // Array of questions
   assignments Assignment[]
+  courseAssessmentAttempts CourseAssessmentAttempt[]
+  lessonAssessmentAttempts LessonAssessmentAttempt[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -742,6 +758,8 @@ model LineAssignmentReminderDelivery {
   reminderType   String
   targetCount    Int
   status         String   @default("sent")
+  triggeredBy    String?
+  errorCode      String?
   errorMessage   String?
   sentAt         DateTime @default(now())
   createdAt      DateTime @default(now())
@@ -785,6 +803,9 @@ model Lesson {
   ownerUser      User     @relation(fields: [ownerUserId], references: [id])
 
   classroomAssignments LessonAssignment[]
+  assessmentAttempts   LessonAssessmentAttempt[]
+  certificates         LessonCertificate[]
+  topicVideoWatches    TopicVideoWatch[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -818,4 +839,197 @@ model LessonCompletion {
 
   @@unique([lessonAssignmentId, studentId])
   @@index([studentId])
+}
+
+/// ติดตามการดูวิดีโอต่อ topic ต่อนักเรียน — ใช้ interval ranges กัน seek โกง
+model LessonAssessmentAttempt {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  lessonId      String      @db.ObjectId
+  lesson        Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  questionSetId String      @db.ObjectId
+  questionSet   QuestionSet @relation(fields: [questionSetId], references: [id], onDelete: Cascade)
+  assessmentSourceType String?
+  topicId       String?
+  topicAssessmentId String?
+  studentId     String      @db.ObjectId
+  student       Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId       String      @db.ObjectId
+  classroom     Classroom   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  score         Int         @default(0)
+  maxScore      Int         @default(0)
+  passed        Boolean     @default(false)
+  attemptNumber Int         @default(1)
+  answers       Int[]
+  rewardGrantedAt DateTime?
+  rewardSnapshot  Json?
+  certificateIssuedAt DateTime?
+  completedAt   DateTime    @default(now())
+
+  @@index([lessonId, studentId, completedAt])
+  @@index([classId, lessonId])
+  @@index([questionSetId])
+  @@index([lessonId, studentId, topicId, completedAt])
+  @@index([lessonId, studentId, topicAssessmentId, completedAt])
+}
+
+model LessonCertificate {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  lessonId        String    @db.ObjectId
+  lesson          Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  studentId       String    @db.ObjectId
+  student         Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId         String    @db.ObjectId
+  classroom       Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  certificateCode String    @unique
+  criteriaSnapshot Json
+  rewardSnapshot   Json?
+  issuedAt        DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([lessonId, studentId])
+  @@index([classId, lessonId])
+  @@index([studentId, issuedAt])
+}
+
+model TopicVideoWatch {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  studentId      String    @db.ObjectId
+  student        Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lessonId       String    @db.ObjectId
+  lesson         Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  /// topic.id ใน LessonContentV2 (plain string ไม่ใช่ ObjectId)
+  topicId        String
+  /// LessonMediaBlock.id หรือ mediaId ของวิดีโอหลักของ topic
+  mediaId        String
+  /// [[start, end], ...] — ช่วงเวลา (วินาที) ที่ดูจริง ก่อน merge
+  watchedRanges  Json      @default("[]")
+  /// วินาทีรวมที่ดูจริง (หลัง merge ranges ไม่นับซ้ำ)
+  watchedSeconds Float     @default(0)
+  /// ความยาววิดีโอทั้งหมด (วินาที) — set จาก client ตอน flush ครั้งแรก
+  totalSeconds   Float     @default(0)
+  /// null = ยังดูไม่ครบ, มีค่า = ดูครบ 90% แล้ว
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([studentId, lessonId, topicId])
+  @@index([studentId, lessonId])
+  @@index([lessonId])
+}
+
+model Course {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  title          String
+  subject        String?
+  gradeLevel     String?
+  description    String?
+  coverImageUrl  String?
+  status         String   @default("DRAFT") // "DRAFT" | "PUBLISHED" | "ARCHIVED"
+
+  /// Structured course content: course_content_v1 with modules and Lesson V2 references
+  content        Json
+
+  ownerUserId    String   @db.ObjectId
+  ownerUser      User     @relation(fields: [ownerUserId], references: [id])
+
+  classroomAssignments CourseAssignment[]
+  progresses      CourseProgress[]
+  assessmentAttempts CourseAssessmentAttempt[]
+  certificates CourseCertificate[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([ownerUserId, status])
+  @@index([ownerUserId, createdAt])
+}
+
+model CourseAssignment {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  courseId   String    @db.ObjectId
+  course     Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  classId    String    @db.ObjectId
+  classroom  Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  assignedAt DateTime  @default(now())
+  startAt    DateTime?
+  dueAt      DateTime?
+  status     String    @default("ACTIVE") // "ACTIVE" | "ARCHIVED"
+
+  @@unique([courseId, classId])
+  @@index([classId])
+  @@index([courseId])
+}
+
+model CourseProgress {
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+  courseId           String    @db.ObjectId
+  course             Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentId          String    @db.ObjectId
+  student            Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId            String    @db.ObjectId
+  classroom          Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  completedLessonIds String[]  @db.ObjectId
+  currentLessonId    String?   @db.ObjectId
+  percent            Int       @default(0)
+  startedAt          DateTime  @default(now())
+  lastOpenedAt       DateTime  @default(now())
+  completedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([courseId, studentId])
+  @@index([classId, percent])
+  @@index([studentId, lastOpenedAt])
+}
+
+model CourseAssessmentAttempt {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  courseId      String      @db.ObjectId
+  course        Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  assessmentId  String
+  questionSetId String      @db.ObjectId
+  questionSet   QuestionSet @relation(fields: [questionSetId], references: [id], onDelete: Cascade)
+  studentId     String      @db.ObjectId
+  student       Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId       String      @db.ObjectId
+  classroom     Classroom   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  score         Int         @default(0)
+  maxScore      Int         @default(0)
+  passed        Boolean     @default(false)
+  status        String      @default("COMPLETED")
+  attemptNumber Int         @default(1)
+  answers       Json?
+  startedAt     DateTime    @default(now())
+  completedAt   DateTime    @default(now())
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([courseId, assessmentId, studentId])
+  @@index([classId, courseId])
+  @@index([studentId, courseId])
+}
+
+model CourseCertificate {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  courseId       String    @db.ObjectId
+  course         Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentId      String    @db.ObjectId
+  student        Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId        String    @db.ObjectId
+  classroom      Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  certificateCode String   @unique
+  criteriaSnapshot Json
+  rewardSnapshot   Json?
+  issuedAt       DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([courseId, studentId])
+  @@index([classId, courseId])
+  @@index([studentId, issuedAt])
 }

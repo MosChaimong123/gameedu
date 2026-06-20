@@ -281,7 +281,7 @@ export function formatClassroomBindingFailedMessage(): string {
 
 export function formatDebtHelpMessage(): string {
     return [
-        "คำสั่งทวงงาน/รายการค้าง (legacy MVP)",
+        "คำสั่งทวงงาน/รายการค้าง",
         "- ค้าง <ชื่อ> <จำนวนบาท>: บันทึกยอดค้าง",
         "- สรุป: ดูรายการค้าง",
         "- ทวง: ส่งข้อความทวงในกลุ่ม",
@@ -521,9 +521,10 @@ export function formatLineTextSubmissionSuccessMessage(submission: LineTextSubmi
     ];
 
     if (submission.aiPreliminaryScore) {
+        const confidenceLabel: Record<string, string> = { low: "ต่ำ", medium: "ปานกลาง", high: "สูง" };
         lines.push(
             `AI ตรวจเบื้องต้น: ${submission.aiPreliminaryScore.suggestedScore}/${submission.aiPreliminaryScore.maxScore}`,
-            `ความมั่นใจ: ${submission.aiPreliminaryScore.confidence}`
+            `ความมั่นใจ: ${confidenceLabel[submission.aiPreliminaryScore.confidence] ?? submission.aiPreliminaryScore.confidence}`
         );
     }
 
@@ -539,7 +540,7 @@ export function formatLineTextSubmissionSuccessMessage(submission: LineTextSubmi
 export function formatLineTextSubmissionFailedMessage(): string {
     return [
         "ส่งงานไม่สำเร็จ",
-        "ตรวจสอบ studentCode, ชื่องาน/assignmentId และรูปแบบคำสั่ง",
+        "ตรวจสอบรหัสนักเรียน, ชื่องาน หรือรหัสงาน และรูปแบบคำสั่ง",
         "ตัวอย่าง: ส่งงาน S123 แบบฝึกหัดบทที่ 3: คำตอบของฉัน",
     ].join("\n");
 }
@@ -557,7 +558,7 @@ export function formatLineStudentBindingSuccessMessage(binding: LineStudentBindi
 export function formatLineStudentBindingFailedMessage(): string {
     return [
         "ผูกนักเรียนไม่สำเร็จ",
-        "ตรวจสอบ studentCode หรือให้ครูเช็คว่ารหัสนี้อยู่ในห้องที่ผูกกับกลุ่ม LINE แล้ว",
+        "ตรวจสอบรหัสนักเรียน หรือให้ครูเช็คว่ารหัสนี้อยู่ในห้องที่ผูกกับกลุ่ม LINE แล้ว",
     ].join("\n");
 }
 
@@ -611,7 +612,7 @@ export function formatLineStudentAccountLinkFailedMessage(): string {
 
 export function formatLinePrivateReplySentMessage(): string {
     return [
-        "ส่งรายละเอียดให้ในแชทส่วนตัวแล้ว",
+        "ส่งรายละเอียดให้ในแชตส่วนตัวแล้ว",
         "ถ้าไม่เห็นข้อความ ให้เพิ่มบอทเป็นเพื่อนก่อน แล้วลองสั่งอีกครั้ง",
     ].join("\n");
 }

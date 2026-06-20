@@ -19,11 +19,12 @@ export function bangkokDateKey(date: Date): string {
 
 export function bangkokWeekKey(date: Date): string {
     const p = getBangkokDateParts(date);
-    const utcDay = Date.UTC(p.year, p.month - 1, p.day);
-    const yearStart = Date.UTC(p.year, 0, 1);
-    const dayOfYear = Math.floor((utcDay - yearStart) / (24 * 60 * 60 * 1000)) + 1;
-    const week = Math.ceil(dayOfYear / 7);
-    return `${p.year}-W${String(week).padStart(2, "0")}`;
+    const d = new Date(Date.UTC(p.year, p.month - 1, p.day));
+    // Shift to nearest Thursday so the week belongs to the correct ISO year
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+    return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
 export function isBangkokMonday(date: Date): boolean {

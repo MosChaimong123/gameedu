@@ -47,7 +47,6 @@ type ReminderSettingModel = {
             dueToday: true;
             overdue1d: true;
             weeklySummary: true;
-            timezone: true;
         };
     }): Promise<ClassroomLineReminderSettingSnapshot | null>;
 };
@@ -142,7 +141,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
                   dueToday: true,
                   overdue1d: true,
                   weeklySummary: true,
-                  timezone: true,
               },
           })
         : null;

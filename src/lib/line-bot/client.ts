@@ -2,6 +2,7 @@ import { messagingApi } from "@line/bot-sdk";
 import { getLineChannelAccessToken } from "@/lib/line-bot/config";
 
 let client: messagingApi.MessagingApiClient | null = null;
+let cachedToken: string | null = null;
 
 export function getLineMessagingClient(): messagingApi.MessagingApiClient {
     const token = getLineChannelAccessToken();
@@ -9,8 +10,9 @@ export function getLineMessagingClient(): messagingApi.MessagingApiClient {
         throw new Error("LINE_CHANNEL_ACCESS_TOKEN is not configured");
     }
 
-    if (!client) {
+    if (!client || token !== cachedToken) {
         client = new messagingApi.MessagingApiClient({ channelAccessToken: token });
+        cachedToken = token;
     }
 
     return client;

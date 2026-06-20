@@ -57,7 +57,6 @@ describe("classroom LINE reminder settings route", () => {
                     dueToday: true,
                     overdue1d: true,
                     weeklySummary: true,
-                    timezone: "Asia/Bangkok",
                 }),
             }),
             {

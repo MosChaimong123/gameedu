@@ -1,10 +1,12 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import type { BingoPlayer } from "@/lib/types/game"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/components/providers/language-provider"
+import { Eye, EyeOff } from "lucide-react"
 
 type Props = {
     players: BingoPlayer[]
@@ -37,6 +39,13 @@ export function BingoHostView({
     const sortedPlayers = [...players].sort(
         (a, b) => b.completedLines - a.completedLines || b.correctAnswers - a.correctAnswers
     )
+
+    // เฉลยซ่อนไว้ก่อน — ครูกดโชว์เอง และรีเซ็ตเป็นซ่อนทุกครั้งที่ขึ้นข้อใหม่
+    const [answerShown, setAnswerShown] = useState(false)
+    const questionIndex = currentQuestion?.index ?? null
+    useEffect(() => {
+        setAnswerShown(false)
+    }, [questionIndex])
 
     return (
         <div className="h-screen w-full bg-slate-950 relative overflow-hidden font-sans">
@@ -75,8 +84,33 @@ export function BingoHostView({
                                     {currentQuestion.question}
                                 </div>
                                 {currentAnswer && (
-                                    <div className="mt-4 inline-flex w-fit items-center gap-2 rounded-xl bg-emerald-500/90 px-4 py-2 text-lg font-bold text-emerald-950">
-                                        {t("hostBingoAnswerLabel")}: {currentAnswer}
+                                    <div className="mt-4">
+                                        <Button
+                                            onClick={() => setAnswerShown((s) => !s)}
+                                            className={cn(
+                                                "inline-flex w-fit items-center gap-2 rounded-xl border-2 px-4 py-2 text-base font-bold transition-all",
+                                                answerShown
+                                                    ? "border-emerald-300 bg-emerald-500/90 text-emerald-950 hover:bg-emerald-500"
+                                                    : "border-emerald-400/50 bg-black/30 text-emerald-200 hover:bg-emerald-500/20"
+                                            )}
+                                        >
+                                            {answerShown ? (
+                                                <>
+                                                    <EyeOff className="h-4 w-4" />
+                                                    {t("hostBingoHideAnswer")}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Eye className="h-4 w-4" />
+                                                    {t("hostBingoShowAnswer")}
+                                                </>
+                                            )}
+                                        </Button>
+                                        {answerShown && (
+                                            <div className="mt-3 inline-flex w-fit items-center gap-2 rounded-xl bg-emerald-500/90 px-4 py-2 text-lg font-bold text-emerald-950">
+                                                {t("hostBingoAnswerLabel")}: {currentAnswer}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>

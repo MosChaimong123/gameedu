@@ -142,6 +142,33 @@ export class BingoEngine extends AbstractGameEngine {
     });
   }
 
+  /** Refresh กลางเกม: ผูก socket ใหม่แล้วส่งการ์ด + โจทย์ปัจจุบันกลับไปให้ */
+  public override handleReconnection(player: BingoPlayer, socket: Socket): void {
+    super.handleReconnection(player, socket);
+
+    if (player.card.length > 0) {
+      socket.emit("bingo-card", {
+        card: player.card,
+        marked: player.marked,
+        size: this.size,
+      });
+    }
+
+    if (this.currentIndex >= 0) {
+      const questionId = this.questionOrder[this.currentIndex];
+      const question = this.questions.find((q) => q.id === questionId);
+      if (question) {
+        socket.emit("bingo-question", {
+          id: question.id,
+          question: question.question,
+          image: question.image ?? null,
+          index: this.currentIndex,
+          total: this.questionOrder.length,
+        });
+      }
+    }
+  }
+
   public handleEvent(eventName: string, payload: unknown, socket: Socket): void {
     switch (eventName) {
       case "mark-cell":

@@ -259,8 +259,31 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
                 const bingoRank = bingoMe ? getPlayerLiveRank(data.players, bingoMe, "BINGO") : 0
                 if (bingoMe && isBingoPlayer(bingoMe)) {
                     const lines = bingoMe.completedLines
-                    setBingoState((prev) => (prev ? { ...prev, completedLines: lines } : prev))
+                    setBingoState((prev) => {
+                        if (prev) {
+                            return {
+                                ...prev,
+                                card: bingoMe.card.length > 0 ? bingoMe.card : prev.card,
+                                marked: bingoMe.marked.length > 0 ? bingoMe.marked : prev.marked,
+                                completedLines: lines,
+                            }
+                        }
+                        // Refresh กลางเกม: ยังไม่มี state เลย → สร้างใหม่จาก snapshot ผู้เล่น
+                        if (bingoMe.card.length === 0) return prev
+                        const cardSize = Math.round(Math.sqrt(bingoMe.card.length)) as BingoCardSize
+                        return {
+                            size: cardSize,
+                            card: bingoMe.card,
+                            marked: bingoMe.marked,
+                            completedLines: lines,
+                            question: null,
+                            lastMark: null,
+                        }
+                    })
                     setPlayer((prev) => ({ ...prev, score: bingoRank }))
+                    if (bingoMe.card.length > 0) {
+                        setView((v) => (v === "GAME_OVER" ? v : "BINGO_CARD"))
+                    }
                 }
                 return
             }

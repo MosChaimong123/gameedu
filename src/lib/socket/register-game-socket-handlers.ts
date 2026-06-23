@@ -37,7 +37,7 @@ import {
   unregisterClassroomPresence,
 } from "@/lib/socket/classroom-presence";
 
-type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE";
+type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE" | "BINGO";
 
 type SocketPlayerPayload = {
   id?: string;
@@ -78,6 +78,8 @@ type GameLike = {
   removePlayer: (socketId: string) => void;
   handleDisconnect: (socketId: string) => void;
   handleEvent: (eventName: string, payload: unknown, socket: Socket) => void;
+  /** Bingo only — ครูสั่งถามข้อต่อไป (host-gated) */
+  revealNextQuestion?: () => void;
   serialize: () => unknown;
 };
 
@@ -271,7 +273,9 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
               ? "CRYPTO_HACK"
               : rawMode === "NEGAMON_BATTLE"
                 ? "NEGAMON_BATTLE"
-                : "GOLD_QUEST";
+                : rawMode === "BINGO"
+                  ? "BINGO"
+                  : "GOLD_QUEST";
 
           if (normalizedMode === "NEGAMON_BATTLE" && !isNegamonBattleHostEnabled()) {
             socket.emit("error", { message: SOCKET_ERROR_NEGAMON_BATTLE_HOST_DISABLED });
@@ -648,6 +652,17 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
       })();
     });
     socket.on("use-interaction", (payload) => forwardPlayerGameEvent("use-interaction", payload));
+    socket.on("mark-cell", (payload) => forwardPlayerGameEvent("mark-cell", payload));
+
+    socket.on("bingo-next", ({ pin }) => {
+      const game = gameManager.getGame(pin);
+      if (!game) return;
+      if (!game.isHostSocket(socket.id)) {
+        socket.emit("error", { message: SOCKET_ERROR_ONLY_HOST_CAN_START });
+        return;
+      }
+      game.revealNextQuestion?.();
+    });
 
     socket.on("join-classroom", async (payload: JoinClassroomPayload, ack?: (result: { ok: boolean }) => void) => {
       const { classId, studentId: claimedStudentId, studentCode } = parseJoinClassroomPayload(payload);

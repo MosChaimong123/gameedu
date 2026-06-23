@@ -23,7 +23,7 @@ vi.mock("@/lib/actions/teaching-media-actions", () => ({
 }));
 
 describe("MediaLibraryGrid", () => {
-    it("renders the Thai baseline controls and usage metadata", () => {
+    it("renders baseline filter controls and media metadata", () => {
         const html = renderToStaticMarkup(
             <MediaLibraryGrid
                 initialItems={[
@@ -70,8 +70,29 @@ describe("MediaLibraryGrid", () => {
         expect(html).toContain("ไฟล์");
         expect(html).toContain("1 รายการ");
         expect(html).toContain("ใช้งานแล้ว 1 ครั้ง");
-        expect(html).toContain("ล่าสุด");
         expect(html).toContain("#คณิตศาสตร์");
         expect(html).toContain("#แบบฝึกหัด");
+    });
+
+    it("keeps filters visible when no results match the current filter", () => {
+        const html = renderToStaticMarkup(
+            <MediaLibraryGrid
+                initialItems={[]}
+                total={0}
+                page={1}
+                pageSize={24}
+                currentQuery=""
+                currentType=""
+                currentArchived="active"
+                currentSort="newest"
+                favoriteOnly={true}
+                tagSuggestions={[]}
+            />
+        );
+
+        expect(html).toContain("ค้นหาชื่อสื่อหรือแท็ก");
+        expect(html).toContain("รายการโปรด");
+        expect(html).toContain("ใช้งานอยู่");
+        expect(html).toContain("ทั้งหมด");
     });
 });

@@ -8,6 +8,7 @@ import { TranslatedTabsTriggers } from "@/components/classroom/translated-tabs-t
 import { ClassBoard } from "@/components/board/ClassBoard";
 import { ClassroomEconomyLedgerTab } from "@/components/classroom/classroom-economy-ledger-tab";
 import { ClassroomLessonsProgressTab } from "@/components/classroom/classroom-lessons-progress-tab";
+import { ClassroomCoursesProgressTab } from "@/components/classroom/classroom-courses-progress-tab";
 import { ClassroomPageBackLink } from "./classroom-page-back-link";
 import { getClassroomDashboardForTeacher } from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
 import { normalizeClassroomPageQuery } from "./classroom-page-query";
@@ -105,6 +106,10 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
 
                 <TabsContent value="lessons" className="mt-0 flex-1 overflow-y-auto">
                     <ClassroomLessonsProgressTab classId={classroom.id} studentCount={classroom.students.length} />
+                </TabsContent>
+
+                <TabsContent value="courses" className="mt-0 flex-1 overflow-y-auto">
+                    <ClassroomCoursesProgressTab classId={classroom.id} studentCount={classroom.students.length} />
                 </TabsContent>
 
             </Tabs>

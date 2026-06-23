@@ -873,26 +873,32 @@ model LessonAssessmentAttempt {
 }
 
 model LessonCertificate {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  lessonId        String    @db.ObjectId
-  lesson          Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  studentId       String    @db.ObjectId
-  student         Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  classId         String    @db.ObjectId
-  classroom       Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
-  title           String
-  description     String?
-  certificateCode String    @unique
-  criteriaSnapshot Json
-  rewardSnapshot   Json?
-  issuedAt        DateTime  @default(now())
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  @@unique([lessonId, studentId])
-  @@index([classId, lessonId])
-  @@index([studentId, issuedAt])
-}
+    id              String    @id @default(auto()) @map("_id") @db.ObjectId
+    lessonId        String    @db.ObjectId
+    lesson          Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+    studentId       String    @db.ObjectId
+    student         Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+    classId         String    @db.ObjectId
+    classroom       Classroom @relation(fields: [classId], references: [id], onDelete: Cascade)
+    certificateScope String?
+    topicId         String?
+    topicAssessmentId String?
+    title           String
+    description     String?
+    certificateCode String    @unique
+    criteriaSnapshot Json
+    rewardSnapshot   Json?
+    issuedAt        DateTime  @default(now())
+    createdAt       DateTime  @default(now())
+    updatedAt       DateTime  @updatedAt
+  
+    @@index([classId, lessonId])
+    @@index([studentId, issuedAt])
+    @@index([lessonId, studentId])
+    @@index([lessonId, studentId, certificateScope])
+    @@index([lessonId, studentId, topicId])
+    @@index([lessonId, studentId, topicAssessmentId])
+  }
 
 model TopicVideoWatch {
   id             String    @id @default(auto()) @map("_id") @db.ObjectId

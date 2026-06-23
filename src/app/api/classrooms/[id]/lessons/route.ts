@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error"
 import { db } from "@/lib/db"
+import { isLessonContentV2 } from "@/lib/lessons/lesson-content"
 import { isTeacherOrAdmin } from "@/lib/role-guards"
 
 type Params = { params: Promise<{ id: string }> }
@@ -56,7 +57,7 @@ export async function GET(_req: Request, { params }: Params) {
                 orderBy: { assignedAt: "asc" },
             })
 
-            return NextResponse.json(assignments)
+            return NextResponse.json(assignments.filter((assignment) => isLessonContentV2(assignment.lesson.content)))
         }
 
         // ครู: ต้องเป็นเจ้าของ classroom
@@ -78,6 +79,7 @@ export async function GET(_req: Request, { params }: Params) {
                         gradeLevel: true,
                         status: true,
                         description: true,
+                        content: true,
                     },
                 },
                 completions: {
@@ -87,7 +89,7 @@ export async function GET(_req: Request, { params }: Params) {
             orderBy: { assignedAt: "asc" },
         })
 
-        return NextResponse.json(assignments)
+        return NextResponse.json(assignments.filter((assignment) => isLessonContentV2(assignment.lesson.content)))
     } catch (error) {
         console.error("[CLASSROOM_LESSONS_GET]", error)
         return createAppErrorResponse("INTERNAL_ERROR", "Failed to fetch classroom lessons", 500)
@@ -125,7 +127,7 @@ export async function POST(req: Request, { params }: Params) {
 
         const lesson = await db.lesson.findUnique({
             where: { id: lessonId },
-            select: { ownerUserId: true, status: true },
+            select: { ownerUserId: true, status: true, content: true },
         })
         if (!lesson) {
             return createAppErrorResponse("NOT_FOUND", "Lesson not found", 404)
@@ -135,6 +137,9 @@ export async function POST(req: Request, { params }: Params) {
         }
         if (lesson.status !== "PUBLISHED") {
             return createAppErrorResponse("INVALID_PAYLOAD", "Lesson must be published before assignment", 400)
+        }
+        if (!isLessonContentV2(lesson.content)) {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Lesson must use lesson_content_v2 before assignment", 400)
         }
 
         const assignment = await db.lessonAssignment.upsert({

@@ -15,6 +15,7 @@ import {
     validateQuestionSetQuestions,
     type QuestionSetQuestion,
 } from "@/lib/question-set-schema";
+import { validateQuestionSetSourceMetadata } from "@/lib/courses/assessment-source";
 
 type UpdateSetRequest = {
     title?: string
@@ -23,6 +24,7 @@ type UpdateSetRequest = {
     isPublic?: boolean
     coverImage?: string | null
     folderId?: string | null
+    sourceMetadata?: unknown | null
 }
 
 export async function GET(
@@ -78,7 +80,7 @@ export async function PATCH(
 
         const { id } = await params
         const body = await req.json() as UpdateSetRequest
-        const { title, description, questions, isPublic, coverImage, folderId } = body
+        const { title, description, questions, isPublic, coverImage, folderId, sourceMetadata } = body
 
         // Check ownership
         const existingSet = await db.questionSet.findUnique({
@@ -99,12 +101,24 @@ export async function PATCH(
             session.user.planExpiry
         )
         let validatedQuestionsPayload: QuestionSetQuestion[] | undefined
+        let validatedSourceMetadataPayload: Prisma.InputJsonValue | null | undefined
         if (questions !== undefined) {
             const validatedQuestions = validateQuestionSetQuestions(questions)
             if (!validatedQuestions.ok) {
                 return createAppErrorResponse("INVALID_PAYLOAD", "Invalid question data", 400)
             }
             validatedQuestionsPayload = validatedQuestions.questions
+        }
+        if (sourceMetadata !== undefined) {
+            if (sourceMetadata === null) {
+                validatedSourceMetadataPayload = null
+            } else {
+                const validatedSourceMetadata = validateQuestionSetSourceMetadata(sourceMetadata)
+                if (!validatedSourceMetadata.ok) {
+                    return createAppErrorResponse("INVALID_PAYLOAD", "Invalid assessment source metadata", 400)
+                }
+                validatedSourceMetadataPayload = validatedSourceMetadata.sourceMetadata as unknown as Prisma.InputJsonValue
+            }
         }
         const nextQuestionCount =
             validatedQuestionsPayload !== undefined
@@ -134,20 +148,23 @@ export async function PATCH(
             }
         }
 
+        const updateData: Prisma.QuestionSetUncheckedUpdateInput = {
+            title,
+            description,
+            ...(validatedQuestionsPayload !== undefined
+                ? { questions: validatedQuestionsPayload as unknown as Prisma.InputJsonValue }
+                : {}),
+            isPublic,
+            coverImage,
+            folderId,
+            ...(validatedSourceMetadataPayload !== undefined ? { sourceMetadata: validatedSourceMetadataPayload } : {}),
+        }
+
         const updatedSet = await db.questionSet.update({
             where: {
                 id: id,
             },
-            data: {
-                title,
-                description,
-                ...(validatedQuestionsPayload !== undefined
-                    ? { questions: validatedQuestionsPayload as unknown as Prisma.InputJsonValue }
-                    : {}),
-                isPublic,
-                coverImage,
-                folderId,
-            },
+            data: updateData,
         })
 
         return NextResponse.json(updatedSet)

@@ -9,6 +9,7 @@ import {
 } from "@/lib/api-error";
 import { getLimitsForUser } from "@/lib/plan/plan-access";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
+import { validateQuestionSetSourceMetadata } from "@/lib/courses/assessment-source";
 
 export async function GET() {
     try {
@@ -44,6 +45,7 @@ type CreateSetRequest = {
     description?: string
     isPublic?: boolean
     coverImage?: string | null
+    sourceMetadata?: unknown
 }
 
 export async function POST(req: Request) {
@@ -59,10 +61,16 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json() as CreateSetRequest
-        const { title, description, isPublic, coverImage } = body
+        const { title, description, isPublic, coverImage, sourceMetadata } = body
 
         if (!title) {
             return createAppErrorResponse("INVALID_PAYLOAD", "Title is required", 400)
+        }
+
+        const validatedSourceMetadata =
+            sourceMetadata === undefined ? null : validateQuestionSetSourceMetadata(sourceMetadata)
+        if (validatedSourceMetadata && !validatedSourceMetadata.ok) {
+            return createAppErrorResponse("INVALID_PAYLOAD", "Invalid assessment source metadata", 400)
         }
 
         const limits = getLimitsForUser(
@@ -90,6 +98,7 @@ export async function POST(req: Request) {
                 description,
                 isPublic: isPublic || false,
                 coverImage,
+                sourceMetadata: validatedSourceMetadata?.ok ? validatedSourceMetadata.sourceMetadata : null,
                 creatorId: session.user.id as string,
                 questions: [], // Start empty
             },

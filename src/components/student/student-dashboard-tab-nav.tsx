@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { LayoutDashboard, MessageSquare, Trophy, GraduationCap } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Trophy, GraduationCap, Layers3 } from "lucide-react";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { brandPurpleTabActiveCn } from "@/components/classroom/gamification-toolbar-styles";
@@ -20,6 +20,11 @@ const learnTabs = [
         value: "lessons",
         icon: GraduationCap,
         labelKey: "tabStudentLessons" as const,
+    },
+    {
+        value: "courses",
+        icon: Layers3,
+        labelKey: "tabStudentCourses" as const,
     },
     {
         value: "board",
@@ -61,7 +66,7 @@ export function StudentDashboardTabNav({
             >
                 <TabsList
                     className={cn(
-                        "grid h-auto w-full grid-cols-4 gap-1 rounded-[22px] border border-[#e5e7eb] bg-white/95 p-1.5",
+                        "grid h-auto w-full grid-cols-5 gap-1 rounded-[22px] border border-[#e5e7eb] bg-white/95 p-1.5",
                         "shadow-[0_1px_3px_rgba(15,23,42,0.06)] backdrop-blur-sm",
                         "sm:gap-1.5"
                     )}

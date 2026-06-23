@@ -82,6 +82,17 @@ const MODE_DEFS: GameModeBase[] = [
         active: isNegamonBattleHostEnabled(),
     },
     {
+        id: "bingo",
+        titleKey: "hostModeBingoTitle",
+        descKey: "hostModeBingoDesc",
+        imageSrc: "/assets/bingo.svg",
+        playersKey: "hostModePlayers2to60",
+        durationKey: "hostModeDurationBingo",
+        color: "bg-emerald-700 border-emerald-400/70",
+        previewAccent: "bg-slate-950/55",
+        active: true,
+    },
+    {
         id: "fishing-frenzy",
         titleKey: "hostModeFishingTitle",
         descKey: "hostModeFishingDesc",

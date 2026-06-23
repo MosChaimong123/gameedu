@@ -1,4 +1,4 @@
-import type { CryptoHackPlayer, GoldQuestPlayer, NegamonBattlePlayer, GameSettings } from "@/lib/types/game"
+import type { BingoPlayer, CryptoHackPlayer, GoldQuestPlayer, NegamonBattlePlayer, GameSettings } from "@/lib/types/game"
 import { DEFAULT_NEGAMON_BATTLE_TUNING } from "@/lib/types/game"
 
 export { formatSocketErrorMessage } from "@/lib/socket-error-messages"
@@ -15,6 +15,7 @@ export type GameView =
     | "HACK_GUESS"
     | "BOX_SELECTION"
     | "NEGAMON_BETWEEN"
+    | "BINGO_CARD"
 
 export type QuestionPayload = {
     id: string
@@ -24,8 +25,27 @@ export type QuestionPayload = {
     image?: string
 }
 
-export type PlayerMode = "GOLD_QUEST" | "CRYPTO_HACK" | "NEGAMON_BATTLE"
-export type PlayerState = GoldQuestPlayer | CryptoHackPlayer | NegamonBattlePlayer
+export type PlayerMode = "GOLD_QUEST" | "CRYPTO_HACK" | "NEGAMON_BATTLE" | "BINGO"
+export type PlayerState = GoldQuestPlayer | CryptoHackPlayer | NegamonBattlePlayer | BingoPlayer
+
+export type BingoQuestionPayload = {
+    id: string
+    question: string
+    image?: string | null
+    index: number
+    total: number
+}
+
+/** สถานะฝั่งนักเรียนของโหมด Bingo (การ์ด + โจทย์ปัจจุบัน + ผลแตะล่าสุด) */
+export type BingoClientState = {
+    size: number
+    card: string[]
+    marked: boolean[]
+    completedLines: number
+    question: BingoQuestionPayload | null
+    /** ผลแตะล่าสุด — ใช้แสดงเอฟเฟกต์ถูก/ผิด */
+    lastMark: { cellIndex: number; correct: boolean; newBingo: boolean } | null
+}
 
 export type GameStartedPayload = {
     startTime: number
@@ -71,6 +91,25 @@ export function isCryptoHackPlayer(player: PlayerState): player is CryptoHackPla
 
 export function isNegamonBattlePlayer(player: PlayerState): player is NegamonBattlePlayer {
     return "battleHp" in player && typeof (player as NegamonBattlePlayer).battleHp === "number"
+}
+
+export function isBingoPlayer(player: PlayerState): player is BingoPlayer {
+    return "card" in player && Array.isArray((player as BingoPlayer).card)
+}
+
+export function createBingoPlayer(name: string): BingoPlayer {
+    return {
+        id: "me",
+        name,
+        isConnected: true,
+        score: 0,
+        correctAnswers: 0,
+        incorrectAnswers: 0,
+        card: [],
+        marked: [],
+        completedLines: 0,
+        answeredCurrentIndex: -1,
+    }
 }
 
 export function createNegamonPlayer(
@@ -121,12 +160,28 @@ export function toGoldQuestPlayer(player: PlayerState): GoldQuestPlayer {
             streak: 0,
         }
     }
+    if (isBingoPlayer(player)) {
+        return {
+            gold: player.completedLines,
+            id: player.id,
+            name: player.name,
+            avatar: player.avatar,
+            isConnected: player.isConnected,
+            score: player.score,
+            correctAnswers: player.correctAnswers,
+            incorrectAnswers: player.incorrectAnswers,
+            responses: player.responses,
+            multiplier: 1,
+            streak: 0,
+        }
+    }
 
     return player
 }
 
 export function getPlayerScoreValue(player: PlayerState, mode: PlayerMode): number {
     if (mode === "NEGAMON_BATTLE" && isNegamonBattlePlayer(player)) return player.battleHp
+    if (mode === "BINGO" && isBingoPlayer(player)) return player.completedLines
     return mode === "CRYPTO_HACK" && isCryptoHackPlayer(player) ? player.crypto : toGoldQuestPlayer(player).gold
 }
 

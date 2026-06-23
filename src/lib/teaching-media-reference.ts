@@ -73,3 +73,18 @@ export function getTeachingMediaUsageReferences(references: TeachingMediaReferen
         youtubeIds: [...new Set(references.flatMap((reference) => (reference.youtubeId ? [reference.youtubeId] : [])))],
     };
 }
+
+export function getLessonMediaBlockUsageReferences(
+    blocks: Array<{ mediaId?: string; url?: string; title?: string; type?: string }>
+) {
+    return getTeachingMediaUsageReferences(
+        blocks
+            .filter((block) => Boolean(block.mediaId || block.url))
+            .map((block) => ({
+                mediaId: block.mediaId,
+                type: block.type === "image" || block.type === "video" ? block.type : "image",
+                title: block.title?.trim() || "Lesson media",
+                url: block.url,
+            }))
+    )
+}

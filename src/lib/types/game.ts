@@ -65,6 +65,18 @@ export interface NegamonBattlePlayer extends BasePlayer {
     eliminatedAt?: number;
 }
 
+/** Bingo ("Quiz Bingo") — การ์ดของผู้เล่นแต่ละคน (host-paced) */
+export interface BingoPlayer extends BasePlayer {
+    /** ข้อความคำตอบต่อช่อง (สลับตำแหน่งเฉพาะคน); ช่องฟรีกลาง = BINGO_FREE_LABEL */
+    card: string[];
+    /** ช่องไหนถูกมาร์คแล้ว (ช่องฟรีกลาง = true ตั้งแต่ต้น) */
+    marked: boolean[];
+    /** จำนวนแถวที่ทำได้ (นอน/ตั้ง/ทแยง) = score */
+    completedLines: number;
+    /** index ของข้อล่าสุดที่ผู้เล่นกดตอบไปแล้ว — กัน 1 แตะ/ข้อ */
+    answeredCurrentIndex: number;
+}
+
 /** ค่าสมดุล Negamon Battle — รวมใน GameSettings เมื่อสร้างห้องโหมดนี้ */
 export type NegamonBattleTuning = {
     startHp: number;
@@ -108,9 +120,13 @@ export type NegamonRoundResultPayload = {
 };
 
 export type GameSettings = {
-    winCondition: "TIME" | "GOLD";
+    winCondition: "TIME" | "GOLD" | "LINES";
     timeLimitMinutes: number;
     goldGoal: number;
+    /** Bingo — ขนาดการ์ด: 3x3 / 4x4 / 5x5(+ช่องฟรีกลาง) */
+    cardSize?: 3 | 4 | 5;
+    /** Bingo — ชนะเมื่อสะสมแถวถึงจำนวนนี้ (คู่กับ winCondition: "LINES") */
+    bingoLinesToWin?: number;
     allowLateJoin: boolean;
     showInstructions: boolean;
     useRandomNames: boolean;

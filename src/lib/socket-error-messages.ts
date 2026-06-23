@@ -35,6 +35,14 @@ export const SOCKET_ERROR_GOLD_QUEST_CHEST_PENDING = "playSocketGoldQuestChestPe
 export const SOCKET_ERROR_GOLD_QUEST_CHEST_NOT_READY = "playSocketGoldQuestChestNotReady";
 /** Gold Quest: interaction target invalid or stale */
 export const SOCKET_ERROR_GOLD_QUEST_INTERACTION_INVALID = "playSocketGoldQuestInteractionInvalid";
+/** Bingo: ชุดคำถามมีเฉลยไม่ซ้ำไม่พอสำหรับขนาดการ์ดที่เลือก */
+export const SOCKET_ERROR_BINGO_NOT_ENOUGH_ANSWERS = "playBingoNotEnoughAnswers";
+/** Bingo: ยังไม่มีข้อที่กำลังถามอยู่ (ครูยังไม่กดถาม) */
+export const SOCKET_ERROR_BINGO_NO_ACTIVE_QUESTION = "playBingoNoActiveQuestion";
+/** Bingo: ตอบข้อปัจจุบันไปแล้ว (1 แตะ/ข้อ) */
+export const SOCKET_ERROR_BINGO_ALREADY_ANSWERED = "playBingoAlreadyAnswered";
+/** Bingo: ช่องที่แตะไม่ถูกต้อง */
+export const SOCKET_ERROR_BINGO_INVALID_CELL = "playBingoInvalidCell";
 
 const LEGACY_SOCKET_ERROR_KEYS: Record<string, string> = {
   "Invalid question set": SOCKET_ERROR_INVALID_QUESTION_SET,
@@ -67,6 +75,7 @@ function resolveSocketErrorTranslationKey(raw: string): string {
   if (
     raw.startsWith("playSocket") ||
     raw.startsWith("playNegamonSocket") ||
+    raw.startsWith("playBingo") ||
     raw.startsWith("playCrypto") ||
     raw.startsWith("apiError_") ||
     raw.startsWith("hostNegamon")

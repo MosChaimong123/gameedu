@@ -8,7 +8,12 @@ import {
     Check,
     Copy,
     Download,
+    FileArchive,
+    FileAudio,
+    FileImage,
+    FileSpreadsheet,
     FileText,
+    FileVideo,
     ImageIcon,
     LinkIcon,
     Loader2,
@@ -22,6 +27,7 @@ import {
     Trash2,
     Youtube,
     X,
+    Globe2,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -69,6 +75,39 @@ const TYPE_LABEL: Record<string, string> = {
     link: "ลิงก์",
 };
 
+function getTypeLabel(type: string) {
+    return TYPE_LABEL[type] ?? "ทั้งหมด";
+}
+
+function getArchiveLabel(filter: ArchiveFilter) {
+    if (filter === "archived") return "เก็บถาวร";
+    if (filter === "all") return "ทั้งหมด";
+    return "ใช้งานอยู่";
+}
+
+function buildEmptyStateTitle(input: { typeFilter: string; archiveFilter: ArchiveFilter; onlyFavorites: boolean }) {
+    const typeLabel = getTypeLabel(input.typeFilter || "all");
+    const archiveLabel = getArchiveLabel(input.archiveFilter);
+
+    if (input.onlyFavorites) {
+        return `ไม่พบ${typeLabel}ในรายการโปรด`;
+    }
+
+    return `ไม่พบ${typeLabel}ในสถานะ${archiveLabel}`;
+}
+
+function buildEmptyStateDescription(input: { typeFilter: string; archiveFilter: ArchiveFilter; onlyFavorites: boolean; query: string }) {
+    if (input.query) {
+        return "ลองเปลี่ยนคำค้นหา หรือปรับประเภทและสถานะของสื่อที่กำลังดูอยู่";
+    }
+
+    if (input.onlyFavorites) {
+        return "ลองปิดตัวกรองรายการโปรด หรือเลือกประเภทสื่ออื่นเพื่อดูรายการที่มีอยู่";
+    }
+
+    return "ลองสลับระหว่าง ใช้งานอยู่, เก็บถาวร, และทั้งหมด หรือเปลี่ยนประเภทสื่อที่ต้องการดู";
+}
+
 function MediaIcon({ type, className }: { type: string; className?: string }) {
     const cls = cn("h-5 w-5", className);
     if (type === "image") return <ImageIcon className={cls} />;
@@ -76,6 +115,197 @@ function MediaIcon({ type, className }: { type: string; className?: string }) {
     if (type === "youtube") return <Youtube className={cls} />;
     if (type === "link") return <LinkIcon className={cls} />;
     return <FileText className={cls} />;
+}
+
+type MediaVisualConfig = {
+    tileClassName: string;
+    chipClassName: string;
+    iconClassName: string;
+    badgeText?: string;
+    badgeClassName?: string;
+    label: string;
+    Icon: typeof FileText;
+};
+
+function getFileExtension(item: Pick<TeachingMediaItem, "name" | "url" | "mimeType">) {
+    const source = item.name || item.url || "";
+    const cleanSource = source.split("?")[0]?.split("#")[0] ?? "";
+    const rawExt = cleanSource.includes(".") ? cleanSource.split(".").pop() : "";
+    const ext = rawExt?.trim().toLowerCase();
+
+    if (ext) return ext;
+
+    const mime = item.mimeType?.toLowerCase() ?? "";
+    if (mime.includes("pdf")) return "pdf";
+    if (mime.includes("word") || mime.includes("document")) return "doc";
+    if (mime.includes("sheet") || mime.includes("excel") || mime.includes("csv")) return "xls";
+    if (mime.includes("presentation") || mime.includes("powerpoint")) return "ppt";
+    if (mime.includes("zip") || mime.includes("compressed")) return "zip";
+    if (mime.includes("audio")) return "audio";
+    if (mime.includes("video")) return "video";
+    if (mime.includes("image")) return "image";
+    return "";
+}
+
+function getMediaVisualConfig(item: Pick<TeachingMediaItem, "type" | "name" | "url" | "mimeType">): MediaVisualConfig {
+    if (item.type === "image") {
+        return {
+            tileClassName: "bg-sky-50 text-sky-600 ring-1 ring-sky-100",
+            chipClassName: "bg-sky-100 text-sky-700",
+            iconClassName: "text-sky-600",
+            label: "รูปภาพ",
+            Icon: FileImage,
+        };
+    }
+
+    if (item.type === "video") {
+        return {
+            tileClassName: "bg-violet-50 text-violet-600 ring-1 ring-violet-100",
+            chipClassName: "bg-violet-100 text-violet-700",
+            iconClassName: "text-violet-600",
+            label: "วิดีโอ",
+            Icon: FileVideo,
+        };
+    }
+
+    if (item.type === "youtube") {
+        return {
+            tileClassName: "bg-rose-50 text-rose-600 ring-1 ring-rose-100",
+            chipClassName: "bg-rose-100 text-rose-700",
+            iconClassName: "text-rose-600",
+            label: "YouTube",
+            Icon: Youtube,
+        };
+    }
+
+    if (item.type === "link") {
+        return {
+            tileClassName: "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100",
+            chipClassName: "bg-cyan-100 text-cyan-700",
+            iconClassName: "text-cyan-700",
+            label: "ลิงก์",
+            Icon: Globe2,
+        };
+    }
+
+    const ext = getFileExtension(item);
+
+    if (ext === "pdf") {
+        return {
+            tileClassName: "bg-red-50 text-red-600 ring-1 ring-red-100",
+            chipClassName: "bg-red-100 text-red-700",
+            iconClassName: "text-red-600",
+            badgeText: "PDF",
+            badgeClassName: "bg-red-600 text-white",
+            label: "ไฟล์ PDF",
+            Icon: FileText,
+        };
+    }
+
+    if (["doc", "docx", "rtf"].includes(ext)) {
+        return {
+            tileClassName: "bg-blue-50 text-blue-600 ring-1 ring-blue-100",
+            chipClassName: "bg-blue-100 text-blue-700",
+            iconClassName: "text-blue-600",
+            badgeText: ext === "rtf" ? "RTF" : "DOC",
+            badgeClassName: "bg-blue-600 text-white",
+            label: "เอกสาร Word",
+            Icon: FileText,
+        };
+    }
+
+    if (["xls", "xlsx", "csv"].includes(ext)) {
+        return {
+            tileClassName: "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100",
+            chipClassName: "bg-emerald-100 text-emerald-700",
+            iconClassName: "text-emerald-600",
+            badgeText: ext === "csv" ? "CSV" : "XLS",
+            badgeClassName: "bg-emerald-600 text-white",
+            label: "ตาราง Excel",
+            Icon: FileSpreadsheet,
+        };
+    }
+
+    if (["ppt", "pptx", "key"].includes(ext)) {
+        return {
+            tileClassName: "bg-orange-50 text-orange-600 ring-1 ring-orange-100",
+            chipClassName: "bg-orange-100 text-orange-700",
+            iconClassName: "text-orange-600",
+            badgeText: "PPT",
+            badgeClassName: "bg-orange-500 text-white",
+            label: "สไลด์นำเสนอ",
+            Icon: FileText,
+        };
+    }
+
+    if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) {
+        return {
+            tileClassName: "bg-amber-50 text-amber-700 ring-1 ring-amber-100",
+            chipClassName: "bg-amber-100 text-amber-700",
+            iconClassName: "text-amber-700",
+            badgeText: "ZIP",
+            badgeClassName: "bg-amber-500 text-white",
+            label: "ไฟล์บีบอัด",
+            Icon: FileArchive,
+        };
+    }
+
+    if (["mp3", "wav", "ogg", "m4a", "aac"].includes(ext)) {
+        return {
+            tileClassName: "bg-pink-50 text-pink-600 ring-1 ring-pink-100",
+            chipClassName: "bg-pink-100 text-pink-700",
+            iconClassName: "text-pink-600",
+            badgeText: "AUDIO",
+            badgeClassName: "bg-pink-500 text-white",
+            label: "ไฟล์เสียง",
+            Icon: FileAudio,
+        };
+    }
+
+    return {
+        tileClassName: "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
+        chipClassName: "bg-slate-200 text-slate-700",
+        iconClassName: "text-slate-600",
+        badgeText: ext ? ext.slice(0, 4).toUpperCase() : "FILE",
+        badgeClassName: "bg-slate-700 text-white",
+        label: "ไฟล์เอกสาร",
+        Icon: FileText,
+    };
+}
+
+function MediaThumb({ item }: { item: TeachingMediaItem }) {
+    const visual = getMediaVisualConfig(item);
+
+    if (item.type === "image" && item.url) {
+        return (
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-2xl ring-1 ring-slate-200">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={item.url} alt={item.title} className="h-full w-full object-cover" />
+                <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-slate-950/40 to-transparent" />
+            </div>
+        );
+    }
+
+    return (
+        <div
+            className={cn(
+                "relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl",
+                visual.tileClassName
+            )}
+        >
+            <visual.Icon className={cn("h-5 w-5", visual.iconClassName)} />
+            {visual.badgeText ? (
+                <span
+                    className={cn(
+                        "absolute bottom-0.5 rounded-full px-1.5 py-0.5 text-[8px] font-black tracking-wide",
+                        visual.badgeClassName
+                    )}
+                >
+                    {visual.badgeText}
+                </span>
+            ) : null}
+        </div>
+    );
 }
 
 function getMediaUrl(item: TeachingMediaItem): string | null {
@@ -857,8 +1087,6 @@ export function MediaLibraryGrid({
         });
     }, [router, selectedItems]);
 
-    if (items.length === 0 && total === 0) return null;
-
     return (
         <>
             <div className="space-y-3">
@@ -1066,6 +1294,7 @@ export function MediaLibraryGrid({
                     {filtered.map((item) => {
                         const meta = formatFileSize(item.size);
                         const isSelected = selectedIds.includes(item.id);
+                        const visual = getMediaVisualConfig(item);
                         return (
                             <div
                                 key={item.id}
@@ -1103,14 +1332,19 @@ export function MediaLibraryGrid({
                                     ) : null}
                                 </div>
                                 <div className="mb-3 flex items-start gap-3">
-                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-                                        <MediaIcon type={item.type} />
-                                    </div>
+                                    <MediaThumb item={item} />
                                     <div className="min-w-0 flex-1">
                                         <h3 className="truncate text-sm font-black text-slate-900">{item.title}</h3>
-                                        <p className="mt-0.5 text-[11px] font-bold text-slate-400">
-                                            {TYPE_LABEL[item.type] ?? item.type}
-                                            {meta ? ` · ${meta}` : ""}
+                                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-black", visual.chipClassName)}>
+                                                {visual.label}
+                                            </span>
+                                            <span className="text-[11px] font-bold text-slate-400">
+                                                {meta ? meta : TYPE_LABEL[item.type] ?? item.type}
+                                            </span>
+                                        </div>
+                                        <p className="mt-1 truncate text-xs text-slate-500">
+                                            {item.name || item.linkUrl || item.url || (item.youtubeId ? `youtube.com/watch?v=${item.youtubeId}` : "media in library")}
                                         </p>
                                     </div>
                                     <button
@@ -1135,12 +1369,6 @@ export function MediaLibraryGrid({
                                     />
                                 </div>
 
-                                <p className="truncate text-xs text-slate-500">
-                                    {item.name ||
-                                        item.linkUrl ||
-                                        item.url ||
-                                        (item.youtubeId ? `youtube.com/watch?v=${item.youtubeId}` : "สื่อในคลัง")}
-                                </p>
 
                                 {item.tags.length > 0 ? (
                                     <div className="mt-3 flex flex-wrap gap-1">
@@ -1173,11 +1401,6 @@ export function MediaLibraryGrid({
                                     >
                                         {item.isArchived ? "เก็บถาวร" : "ใช้งานอยู่"}
                                     </span>
-                                    {item.isFavorite ? (
-                                        <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">
-                                            รายการโปรด
-                                        </span>
-                                    ) : null}
                                     <div className="ml-auto flex flex-col items-end gap-0.5 text-right">
                                         {item.usageCount > 0 ? (
                                             <span className="text-[10px] font-bold text-slate-400">

@@ -1,6 +1,6 @@
 import type { StudentDashboardMode } from "@/lib/services/student-dashboard/student-dashboard.types";
 
-export const STUDENT_DASHBOARD_LEARN_TABS = ["assignments", "board", "history"] as const;
+export const STUDENT_DASHBOARD_LEARN_TABS = ["assignments", "lessons", "courses", "board", "history"] as const;
 export const STUDENT_DASHBOARD_GAME_TABS = [
     "quests",
     "monster",

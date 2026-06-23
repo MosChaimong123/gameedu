@@ -17,6 +17,7 @@ import {
     Sparkles,
     Library,
     GraduationCap,
+    BookMarked,
 } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { isOmrDashboardEnabled } from "@/lib/omr-dashboard-enabled"
@@ -28,6 +29,7 @@ const navItems = [
     { icon: Library, labelKey: "mediaLibrary", href: "/dashboard/media-library" },
     { icon: Users, labelKey: "activeClasses", href: "/dashboard/classrooms" },
     { icon: GraduationCap, labelKey: "lessons", href: "/dashboard/lessons" },
+    { icon: BookMarked, labelKey: "courses", href: "/dashboard/courses" },
     { icon: BarChart3, labelKey: "viewReports", href: "/dashboard/reports" },
     { icon: Camera, labelKey: "omrScanner", href: "/dashboard/omr" },
     { icon: History, labelKey: "history", href: "/dashboard/history" },

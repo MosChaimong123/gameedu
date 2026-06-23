@@ -50,6 +50,7 @@ import {
 } from "./src/lib/authorization/resource-access";
 import { getLimitsForUser } from "./src/lib/plan/plan-access";
 import { isAppRole } from "./src/lib/roles";
+import { startLineReminderScheduler } from "./src/lib/line-bot/reminder-scheduler";
 
 type RegisterHandlersDeps = Parameters<typeof registerGameSocketHandlers>[1];
 
@@ -190,5 +191,9 @@ app.prepare().then(async () => {
             console.log(
                 `[startup] socketIoCors=${Array.isArray(socketCorsOrigin) ? socketCorsOrigin.join(",") : String(socketCorsOrigin)} readyPath=/api/ready healthPath=/api/health`
             );
+            // Start the in-app LINE auto-reminder scheduler. No-op when the LINE
+            // bot is disabled or when relying on an external cron (see
+            // reminder-scheduler.ts for env gating).
+            startLineReminderScheduler();
         });
 });

@@ -1,7 +1,7 @@
 const OBJECT_ID_RE = /^[a-f0-9]{24}$/i;
 
 export type ClassroomPageQuery = {
-    defaultTab: "classroom" | "attendance" | "analytics" | "board" | "economy" | "lessons";
+    defaultTab: "classroom" | "attendance" | "analytics" | "board" | "economy" | "lessons" | "courses";
     classFocus: "assignments" | null;
     highlightAssignmentId: string | null;
     studentLookup: string | null;
@@ -20,7 +20,7 @@ export function normalizeClassroomPageQuery(searchParams?: {
     rewardGamePin?: string;
 }): ClassroomPageQuery {
     const tabParam = searchParams?.tab;
-    const allowedTabs = new Set(["classroom", "attendance", "analytics", "board", "economy", "lessons"]);
+    const allowedTabs = new Set(["classroom", "attendance", "analytics", "board", "economy", "lessons", "courses"]);
     const defaultTab = (
         tabParam && allowedTabs.has(tabParam) ? tabParam : "classroom"
     ) as ClassroomPageQuery["defaultTab"];

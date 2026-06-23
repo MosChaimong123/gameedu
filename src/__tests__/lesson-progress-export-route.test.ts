@@ -23,6 +23,83 @@ describe("GET /api/lessons/[id]/progress/export", () => {
             id: "lesson-1",
             title: "Physics Lesson",
             ownerUserId: "teacher-1",
+            content: {
+                schemaVersion: "lesson_content_v2",
+                outline: {
+                    title: "Physics",
+                    topics: [
+                        { id: "topic-1", title: "Force", order: 0 },
+                        { id: "topic-2", title: "Motion", order: 1 },
+                    ],
+                },
+                topics: [
+                    {
+                        id: "topic-1",
+                        title: "Force",
+                        order: 0,
+                        contentStatus: "generated",
+                        objectives: ["Explain force"],
+                        sections: [{ id: "section-1", heading: "Intro", content: "Force content" }],
+                        assessment: {
+                            id: "topic-assessment-1",
+                            title: "Force quiz",
+                            questionSetId: "set-topic-1",
+                            passScore: 1,
+                            source: { sourceType: "topic", lessonId: "lesson-1", topicId: "topic-1" },
+                        },
+                    },
+                    {
+                        id: "topic-2",
+                        title: "Motion",
+                        order: 1,
+                        contentStatus: "generated",
+                        objectives: ["Explain motion"],
+                        sections: [{ id: "section-2", heading: "Motion", content: "Motion content" }],
+                        assessment: {
+                            id: "topic-assessment-2",
+                            title: "Motion quiz",
+                            questionSetId: "set-topic-2",
+                            passScore: 1,
+                            source: { sourceType: "topic", lessonId: "lesson-1", topicId: "topic-2" },
+                        },
+                    },
+                ],
+                estimatedMinutes: 20,
+            },
+            assessmentAttempts: [
+                {
+                    id: "attempt-1",
+                    classId: "class-1",
+                    studentId: "student-1",
+                    questionSetId: "set-topic-1",
+                    assessmentSourceType: "topic",
+                    topicId: "topic-1",
+                    topicAssessmentId: "topic-assessment-1",
+                    score: 1,
+                    maxScore: 1,
+                    passed: true,
+                    attemptNumber: 1,
+                    rewardGrantedAt: new Date("2026-06-03T02:10:00.000Z"),
+                    certificateIssuedAt: new Date("2026-06-03T02:12:00.000Z"),
+                    completedAt: new Date("2026-06-03T02:00:00.000Z"),
+                },
+            ],
+            certificates: [
+                {
+                    id: "certificate-1",
+                    classId: "class-1",
+                    studentId: "student-1",
+                    certificateScope: "topic",
+                    topicId: "topic-1",
+                    topicAssessmentId: "topic-assessment-1",
+                    title: "Force Certificate",
+                    certificateCode: "TPT-SON-1-IC-1-STU-1",
+                    issuedAt: new Date("2026-06-03T02:12:00.000Z"),
+                    criteriaSnapshot: {
+                        source: { sourceType: "topic", topicId: "topic-1", topicAssessmentId: "topic-assessment-1" },
+                    },
+                },
+            ],
             classroomAssignments: [
                 {
                     id: "lesson-assignment-1",
@@ -56,7 +133,8 @@ describe("GET /api/lessons/[id]/progress/export", () => {
 
         expect(response.status).toBe(200);
         expect(response.headers.get("Content-Disposition")).toContain("Physics Lesson-lesson-progress.csv");
-        expect(csv).toContain('"student-1","0","Alice","A","true"');
+        expect(csv).toContain('"topic-1","Force","topic-assessment-1","passed","1","1","1","true","true","TPT-SON-1-IC-1-STU-1"');
+        expect(csv).toContain('"topic-2","Motion","topic-assessment-2","not_started","0","","","false","false",""');
         expect(csv).toContain('"student-2","1","\'=Bob","","false"');
     });
 
@@ -65,6 +143,14 @@ describe("GET /api/lessons/[id]/progress/export", () => {
             id: "lesson-1",
             title: "Physics Lesson",
             ownerUserId: "teacher-2",
+            content: {
+                schemaVersion: "lesson_content_v2",
+                outline: { title: "Physics", topics: [] },
+                topics: [],
+                estimatedMinutes: 20,
+            },
+            assessmentAttempts: [],
+            certificates: [],
             classroomAssignments: [],
         });
 

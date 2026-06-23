@@ -16,7 +16,10 @@ import type {
 } from "@/lib/types/game"
 import { getPlayerReconnectToken, getPlayerSession, savePlayerSession } from "@/lib/player-session"
 import { resolveCryptoPasswordOptions } from "./play-game-crypto-passwords"
+import { countCompletedLines, type BingoCardSize } from "@/lib/game-engine/bingo-card"
 import type {
+    BingoClientState,
+    BingoQuestionPayload,
     GameStartedPayload,
     GameStateUpdatePayload,
     GameView,
@@ -29,10 +32,10 @@ import type { NegamonBetweenRoundPlayback } from "./negamon-play-ui"
 import {
     createNegamonPlayer,
     formatSocketErrorMessage,
-    getPlayerScoreValue,
     getPlayerLiveRank,
     findCurrentPlayer,
     sortPlayersForStandings,
+    isBingoPlayer,
     isCryptoHackPlayer,
     isNegamonBattlePlayer,
     looksLikeNegamonPlayerRow,
@@ -66,6 +69,7 @@ export type UsePlayGameSocketParams = {
     setLockedNegamonChoice: Dispatch<SetStateAction<number | null>>
     setNegamonBetweenPlayback: Dispatch<SetStateAction<NegamonBetweenRoundPlayback | null>>
     setFinalStandings: Dispatch<SetStateAction<PlayerState[]>>
+    setBingoState: Dispatch<SetStateAction<BingoClientState | null>>
 }
 
 export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
@@ -95,12 +99,14 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
         setLockedNegamonChoice,
         setNegamonBetweenPlayback,
         setFinalStandings,
+        setBingoState,
     } = params
 
     const { t, language } = useLanguage()
 
     useEffect(() => {
-        const skipLegacySocketHandlers = (): boolean => gameModeRef.current === "NEGAMON_BATTLE"
+        const skipLegacySocketHandlers = (): boolean =>
+            gameModeRef.current === "NEGAMON_BATTLE" || gameModeRef.current === "BINGO"
 
         const playerSession = getPlayerSession()
 
@@ -164,6 +170,11 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
                 }).startHp
                 setPlayer(createNegamonPlayer(playerSession.name, hp))
                 setLockedNegamonChoice(null)
+                hasRequestedFirstQuestion.current = true
+            }
+
+            if (data.gameMode === "BINGO") {
+                setView("BINGO_CARD")
                 hasRequestedFirstQuestion.current = true
             }
 
@@ -233,6 +244,23 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
 
                 if (me && isNegamonBattlePlayer(me)) {
                     setPlayer((prev) => ({ ...prev, ...me, score: rank }))
+                }
+                return
+            }
+
+            if (gameModeRef.current === "BINGO" || data.players.some(isBingoPlayer)) {
+                setGameMode("BINGO")
+                gameModeRef.current = "BINGO"
+                hasRequestedFirstQuestion.current = true
+
+                const bingoMe = findCurrentPlayer(data.players, socket.id, playerSession.name)
+                setOtherPlayers(data.players.filter((p) => p.id !== bingoMe?.id))
+
+                const bingoRank = bingoMe ? getPlayerLiveRank(data.players, bingoMe, "BINGO") : 0
+                if (bingoMe && isBingoPlayer(bingoMe)) {
+                    const lines = bingoMe.completedLines
+                    setBingoState((prev) => (prev ? { ...prev, completedLines: lines } : prev))
+                    setPlayer((prev) => ({ ...prev, score: bingoRank }))
                 }
                 return
             }
@@ -398,6 +426,55 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
             }
         })
 
+        socket.on("bingo-card", (data: { card: string[]; marked: boolean[]; size: number }) => {
+            setGameMode("BINGO")
+            gameModeRef.current = "BINGO"
+            const lines = countCompletedLines(data.marked, data.size as BingoCardSize)
+            setBingoState((prev) => ({
+                size: data.size,
+                card: data.card,
+                marked: data.marked,
+                completedLines: lines,
+                question: prev?.question ?? null,
+                lastMark: null,
+            }))
+            setView((v) => (v === "GAME_OVER" ? v : "BINGO_CARD"))
+        })
+
+        socket.on("bingo-question", (data: BingoQuestionPayload) => {
+            setGameMode("BINGO")
+            gameModeRef.current = "BINGO"
+            setBingoState((prev) =>
+                prev
+                    ? { ...prev, question: data, lastMark: null }
+                    : { size: 0, card: [], marked: [], completedLines: 0, question: data, lastMark: null }
+            )
+            setView("BINGO_CARD")
+        })
+
+        socket.on(
+            "mark-result",
+            (data: { cellIndex: number; correct: boolean; completedLines: number; newBingo: boolean }) => {
+                play(data.correct ? "correct" : "wrong")
+                if (data.newBingo) play("chest-open")
+                setBingoState((prev) => {
+                    if (!prev) return prev
+                    const marked = prev.marked.slice()
+                    if (data.correct) marked[data.cellIndex] = true
+                    return {
+                        ...prev,
+                        marked,
+                        completedLines: data.completedLines,
+                        lastMark: {
+                            cellIndex: data.cellIndex,
+                            correct: data.correct,
+                            newBingo: data.newBingo,
+                        },
+                    }
+                })
+            }
+        )
+
         socket.on("interaction-effect", (data: { source: string; target: string; type: "SWAP" | "STEAL" }) => {
             if (skipLegacySocketHandlers()) return
             if (data.target === playerSession.name) {
@@ -507,7 +584,11 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
             const me = findCurrentPlayer(sorted, socket.id, playerSession.name)
             if (me) {
                 const rank = getPlayerLiveRank(sorted, me, mode)
-                if (isNegamonBattlePlayer(me)) {
+                if (isBingoPlayer(me)) {
+                    const lines = me.completedLines
+                    setBingoState((prev) => (prev ? { ...prev, completedLines: lines } : prev))
+                    setPlayer((prev) => ({ ...prev, score: rank }))
+                } else if (isNegamonBattlePlayer(me)) {
                     setPlayer((prev) => ({ ...prev, ...me, score: rank }))
                 } else if (isCryptoHackPlayer(me)) {
                     setPlayer((prev) => ({ ...prev, ...me, score: rank }))
@@ -589,6 +670,9 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
             socket.off("game-state-update")
             socket.off("negamon-battle-state")
             socket.off("negamon-round-result")
+            socket.off("bingo-card")
+            socket.off("bingo-question")
+            socket.off("mark-result")
             socket.off("interaction-effect")
             socket.off("game-over")
             socket.off("player-hacked")

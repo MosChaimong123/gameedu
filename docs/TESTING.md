@@ -207,6 +207,8 @@ Before releasing, use the relevant manual checklist for your domain:
 | Assignments & quizzes | [assignment-quiz-manual-qa-checklist.md](assignment-quiz-manual-qa-checklist.md) |
 | Student dashboard | [student-dashboard-manual-qa-checklist.md](student-dashboard-manual-qa-checklist.md) |
 | Lessons / online course | [lesson-online-course-manual-qa-checklist.md](lesson-online-course-manual-qa-checklist.md) |
+| Lesson assessment / pass-fail | [lesson-assessment-pass-fail-manual-qa-checklist.md](lesson-assessment-pass-fail-manual-qa-checklist.md) |
+| Physics lesson templates | [physics-template-pack-manual-qa-checklist.md](physics-template-pack-manual-qa-checklist.md) |
 | Economy / shop | [economy-shop-ledger-manual-qa-checklist.md](economy-shop-ledger-manual-qa-checklist.md) |
 | Live games | [live-game-host-play-socket-manual-qa-checklist.md](live-game-host-play-socket-manual-qa-checklist.md) |
 | Negamon battle | [negamon-battle-manual-qa-checklist.md](negamon-battle-manual-qa-checklist.md) |

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
     ArrowRight,
     ClipboardCheck,
@@ -32,6 +32,16 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getSubjectCurriculumMapPack } from "@/lib/curriculum/map-packs"
+import { getCanonicalSubjectById, type CanonicalCoreSubjectId } from "@/lib/curriculum/subject-catalog"
+import {
+    buildLessonCurriculumHref,
+    CORE_SUBJECT_OPTIONS,
+    parseLessonCurriculumContext,
+    resolveCurriculumUnitTitle,
+    resolveLessonCurriculumContext,
+} from "@/lib/lessons/lesson-curriculum-context"
 import { cn } from "@/lib/utils"
 
 type ClassroomAssignment = {
@@ -47,13 +57,19 @@ type Lesson = {
     description: string | null
     status: "DRAFT" | "PUBLISHED"
     sourceFileName: string | null
-    content?: { estimatedMinutes?: number }
+    content?: unknown
     createdAt: string
     updatedAt: string
     classroomAssignments: ClassroomAssignment[]
 }
 
 type LessonFilter = "all" | "draft" | "published" | "assigned"
+type LessonListItem = Lesson & {
+    curriculumSubjectId: CanonicalCoreSubjectId | null
+    curriculumUnitId: string | null
+    curriculumUnitTitle: string | null
+    estimatedMinutes: number | null
+}
 
 const FILTERS: Array<{ value: LessonFilter; label: string }> = [
     { value: "all", label: "ทั้งหมด" },
@@ -70,11 +86,17 @@ function formatDate(value: string) {
     })
 }
 
-function getFilteredLessons(lessons: Lesson[], filter: LessonFilter) {
-    if (filter === "draft") return lessons.filter((lesson) => lesson.status === "DRAFT")
-    if (filter === "published") return lessons.filter((lesson) => lesson.status === "PUBLISHED")
-    if (filter === "assigned") return lessons.filter((lesson) => lesson.classroomAssignments.length > 0)
-    return lessons
+function getFilteredLessons(lessons: LessonListItem[], filter: LessonFilter, subjectId: CanonicalCoreSubjectId | "ALL", unitId: string | "ALL") {
+    return getFilteredLessonsByContext(lessons, filter, subjectId, unitId)
+}
+
+function getFilteredLessonsByContext(lessons: LessonListItem[], filter: LessonFilter, subjectId: CanonicalCoreSubjectId | "ALL", unitId: string | "ALL") {
+    const byContext = subjectId === "ALL" ? lessons : lessons.filter((lesson) => lesson.curriculumSubjectId === subjectId)
+    const byUnit = unitId === "ALL" ? byContext : byContext.filter((lesson) => lesson.curriculumUnitId === unitId)
+    if (filter === "draft") return byUnit.filter((lesson) => lesson.status === "DRAFT")
+    if (filter === "published") return byUnit.filter((lesson) => lesson.status === "PUBLISHED")
+    if (filter === "assigned") return byUnit.filter((lesson) => lesson.classroomAssignments.length > 0)
+    return byUnit
 }
 
 function getLessonStep(lesson: Lesson) {
@@ -101,8 +123,12 @@ function getLessonStep(lesson: Lesson) {
 
 export default function LessonsPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const initialCurriculumContext = useMemo(() => parseLessonCurriculumContext(searchParams), [searchParams])
     const [lessons, setLessons] = useState<Lesson[]>([])
-    const [filter, setFilter] = useState<LessonFilter>("all")
+    const [filter, setFilter] = useState<LessonFilter>((searchParams.get("filter") as LessonFilter) || "all")
+    const [subjectId, setSubjectId] = useState<CanonicalCoreSubjectId | "ALL">(initialCurriculumContext.subjectId ?? "ALL")
+    const [unitId, setUnitId] = useState<string | "ALL">(initialCurriculumContext.unitId ?? "ALL")
     const [loading, setLoading] = useState(true)
     const [deleteId, setDeleteId] = useState<string | null>(null)
     const [deleting, setDeleting] = useState(false)
@@ -117,14 +143,88 @@ export default function LessonsPage() {
             .finally(() => setLoading(false))
     }, [])
 
-    const publishedCount = lessons.filter((lesson) => lesson.status === "PUBLISHED").length
-    const draftCount = lessons.filter((lesson) => lesson.status === "DRAFT").length
-    const unassignedPublishedCount = lessons.filter(
+    useEffect(() => {
+        const nextFilter = (searchParams.get("filter") as LessonFilter) || "all"
+        setFilter(nextFilter)
+        setSubjectId(initialCurriculumContext.subjectId ?? "ALL")
+        setUnitId(initialCurriculumContext.unitId ?? "ALL")
+    }, [initialCurriculumContext.subjectId, initialCurriculumContext.unitId, searchParams])
+
+    const lessonItems = useMemo<LessonListItem[]>(
+        () =>
+            lessons.map((lesson) => {
+                const context = resolveLessonCurriculumContext(lesson.content, lesson.subject)
+                return {
+                    ...lesson,
+                    curriculumSubjectId: context.subjectId,
+                    curriculumUnitId: context.unitId,
+                    curriculumUnitTitle: resolveCurriculumUnitTitle(context.subjectId, context.unitId),
+                    estimatedMinutes:
+                        typeof (lesson.content as { estimatedMinutes?: unknown } | null)?.estimatedMinutes === "number"
+                            ? ((lesson.content as { estimatedMinutes?: number }).estimatedMinutes ?? null)
+                            : null,
+                }
+            }),
+        [lessons]
+    )
+    const selectedSubjectPack = useMemo(
+        () => (subjectId === "ALL" ? null : getSubjectCurriculumMapPack(subjectId)),
+        [subjectId]
+    )
+    const availableUnits = selectedSubjectPack?.unitOutlines ?? []
+
+    useEffect(() => {
+        if (unitId === "ALL") return
+        if (!availableUnits.some((unit) => unit.id === unitId)) {
+            setUnitId("ALL")
+        }
+    }, [availableUnits, unitId])
+
+    useEffect(() => {
+        const href = buildLessonCurriculumHref(
+            "/dashboard/lessons",
+            {
+                subjectId: subjectId === "ALL" ? null : subjectId,
+                unitId: unitId === "ALL" ? null : unitId,
+            },
+            { filter }
+        )
+        const currentHref = `/dashboard/lessons${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+        if (href !== currentHref) {
+            router.replace(href)
+        }
+    }, [filter, router, searchParams, subjectId, unitId])
+
+    const publishedCount = lessonItems.filter((lesson) => lesson.status === "PUBLISHED").length
+    const draftCount = lessonItems.filter((lesson) => lesson.status === "DRAFT").length
+    const unassignedPublishedCount = lessonItems.filter(
         (lesson) => lesson.status === "PUBLISHED" && lesson.classroomAssignments.length === 0
     ).length
-    const assignedLessonCount = lessons.filter((lesson) => lesson.classroomAssignments.length > 0).length
-    const assignedClassCount = new Set(lessons.flatMap((lesson) => lesson.classroomAssignments.map((item) => item.classId))).size
-    const filteredLessons = useMemo(() => getFilteredLessons(lessons, filter), [lessons, filter])
+    const assignedLessonCount = lessonItems.filter((lesson) => lesson.classroomAssignments.length > 0).length
+    const assignedClassCount = new Set(lessonItems.flatMap((lesson) => lesson.classroomAssignments.map((item) => item.classId))).size
+    const filteredLessons = useMemo(
+        () => getFilteredLessonsByContext(lessonItems, filter, subjectId, unitId),
+        [filter, lessonItems, subjectId, unitId]
+    )
+    const activeCurriculumContext = useMemo(
+        () => ({
+            subjectId: subjectId === "ALL" ? null : subjectId,
+            unitId: unitId === "ALL" ? null : unitId,
+        }),
+        [subjectId, unitId]
+    )
+    const createPdfHref = useMemo(
+        () => buildLessonCurriculumHref("/dashboard/lessons/create", activeCurriculumContext, { source: "pdf" }),
+        [activeCurriculumContext]
+    )
+    const createTextHref = useMemo(
+        () => buildLessonCurriculumHref("/dashboard/lessons/create", activeCurriculumContext, { source: "text" }),
+        [activeCurriculumContext]
+    )
+    const templateLibraryHref = useMemo(
+        () => buildLessonCurriculumHref("/dashboard/lessons/create", activeCurriculumContext),
+        [activeCurriculumContext]
+    )
     const qaChecks = [
         {
             label: "มีบทเรียนพร้อมให้ครูตรวจ",
@@ -171,7 +271,7 @@ export default function LessonsPage() {
             const response = await fetch(`/api/lessons/${lesson.id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: "PUBLISHED" }),
+                body: JSON.stringify({ status: "PUBLISHED", confirmPublishReady: true }),
             })
             if (!response.ok) return
             const updated = (await response.json()) as Lesson
@@ -197,7 +297,7 @@ export default function LessonsPage() {
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row">
                         <Button asChild className="rounded-2xl bg-white font-black text-emerald-700 shadow-lg hover:bg-white/90">
-                            <Link href="/dashboard/lessons/create?source=pdf">
+                            <Link href={createPdfHref}>
                                 <Upload className="mr-2 h-4 w-4" />
                                 สร้างจาก PDF
                             </Link>
@@ -207,9 +307,19 @@ export default function LessonsPage() {
                             variant="outline"
                             className="rounded-2xl border-white/40 bg-white/10 font-black text-white hover:bg-white/20 hover:text-white"
                         >
-                            <Link href="/dashboard/lessons/create?source=text">
+                            <Link href={createTextHref}>
                                 <FileText className="mr-2 h-4 w-4" />
                                 สร้างจากข้อความ
+                            </Link>
+                        </Button>
+                        <Button
+                            asChild
+                            variant="outline"
+                            className="rounded-2xl border-white/40 bg-white/10 font-black text-white hover:bg-white/20 hover:text-white"
+                        >
+                            <Link href={templateLibraryHref}>
+                                <GraduationCap className="mr-2 h-4 w-4" />
+                                เทมเพลตบทเรียน
                             </Link>
                         </Button>
                     </div>
@@ -336,22 +446,52 @@ export default function LessonsPage() {
                             เลือกบทเรียนแล้วทำงานต่อได้ทันที: publish, assign หรือดู progress
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        {FILTERS.map((item) => (
-                            <button
-                                key={item.value}
-                                type="button"
-                                onClick={() => setFilter(item.value)}
-                                className={cn(
-                                    "rounded-full border px-3 py-1.5 text-xs font-black transition",
-                                    filter === item.value
-                                        ? "border-emerald-200 bg-emerald-600 text-white shadow-sm"
-                                        : "border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:text-emerald-700"
-                                )}
-                            >
-                                {item.label}
-                            </button>
-                        ))}
+                    <div className="flex flex-col gap-3 lg:items-end">
+                        <div className="grid gap-2 sm:grid-cols-2">
+                            <Select value={subjectId} onValueChange={(value) => setSubjectId(value as CanonicalCoreSubjectId | "ALL")}>
+                                <SelectTrigger className="min-w-[220px] rounded-xl bg-white">
+                                    <SelectValue placeholder="ทุกวิชา" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">ทุกวิชา</SelectItem>
+                                    {CORE_SUBJECT_OPTIONS.map((optionId) => (
+                                        <SelectItem key={optionId} value={optionId}>
+                                            {getCanonicalSubjectById(optionId)?.displayNameTh ?? optionId}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Select value={unitId} onValueChange={setUnitId} disabled={subjectId === "ALL"}>
+                                <SelectTrigger className="min-w-[260px] rounded-xl bg-white">
+                                    <SelectValue placeholder="ทุกหน่วย" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">ทุกหน่วย</SelectItem>
+                                    {availableUnits.map((unit) => (
+                                        <SelectItem key={unit.id} value={unit.id}>
+                                            {unit.title}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {FILTERS.map((item) => (
+                                <button
+                                    key={item.value}
+                                    type="button"
+                                    onClick={() => setFilter(item.value)}
+                                    className={cn(
+                                        "rounded-full border px-3 py-1.5 text-xs font-black transition",
+                                        filter === item.value
+                                            ? "border-emerald-200 bg-emerald-600 text-white shadow-sm"
+                                            : "border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:text-emerald-700"
+                                    )}
+                                >
+                                    {item.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
@@ -383,13 +523,13 @@ export default function LessonsPage() {
                             </div>
                             <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
                                 <Button asChild className="rounded-xl bg-emerald-600 font-bold text-white hover:bg-emerald-700">
-                                    <Link href="/dashboard/lessons/create?source=pdf">
+                                    <Link href={createPdfHref}>
                                         <Upload className="mr-2 h-4 w-4" />
                                         สร้างจาก PDF
                                     </Link>
                                 </Button>
                                 <Button asChild variant="outline" className="rounded-xl font-bold">
-                                    <Link href="/dashboard/lessons/create?source=text">
+                                    <Link href={createTextHref}>
                                         <FileText className="mr-2 h-4 w-4" />
                                         สร้างจากข้อความ
                                     </Link>
@@ -439,6 +579,7 @@ export default function LessonsPage() {
                                             </p>
                                             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-medium text-slate-400">
                                                 {lesson.subject ? <span>{lesson.subject}</span> : null}
+                                                {lesson.curriculumUnitTitle ? <span>{lesson.curriculumUnitTitle}</span> : null}
                                                 {lesson.gradeLevel ? <span>{lesson.gradeLevel}</span> : null}
                                                 {lesson.sourceFileName ? (
                                                     <span className="flex items-center gap-1">
@@ -450,10 +591,10 @@ export default function LessonsPage() {
                                                     <Users className="h-3 w-3" />
                                                     {lesson.classroomAssignments.length} ห้อง
                                                 </span>
-                                                {lesson.content?.estimatedMinutes ? (
+                                                {lesson.estimatedMinutes ? (
                                                     <span className="flex items-center gap-1">
                                                         <Clock className="h-3 w-3" />
-                                                        {lesson.content.estimatedMinutes} นาที
+                                                        {lesson.estimatedMinutes} นาที
                                                     </span>
                                                 ) : null}
                                                 <span className="flex items-center gap-1">

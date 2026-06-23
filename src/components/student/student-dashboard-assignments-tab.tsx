@@ -235,11 +235,13 @@ export function StudentDashboardAssignmentsTab({
                                 : item.isDueToday
                                   ? t("studentDashDueWorkToday")
                                   : t("studentDashDueWorkSoon");
-                            const href = item.isWorksheet
-                                ? `/student/${code}/worksheet/${item.id}`
-                                : item.isQuiz
-                                  ? `/student/${code}/quiz/${item.id}`
-                                  : null;
+                            const href = item.isOverdue
+                                ? null
+                                : item.isWorksheet
+                                  ? `/student/${code}/worksheet/${item.id}`
+                                  : item.isQuiz
+                                    ? `/student/${code}/quiz/${item.id}`
+                                    : null;
 
                             return (
                                 <div

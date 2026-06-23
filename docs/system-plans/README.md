@@ -41,6 +41,22 @@ Use this folder for system-by-system analysis and development planning across Ga
 33. [Nong Gring LINE Assignment Roadmap](./33-nong-gring-line-assignment-roadmap.md)
 34. [Nong Gring LINE Simple UX Mode](./34-nong-gring-line-ux-simple-mode.md)
 35. [Nong Gring LINE Production Growth Plan](./35-nong-gring-line-production-growth-plan.md)
+36. [Nong Gring LINE Auto Reminder Simplification](./36-nong-gring-line-auto-reminder-simplification.md)
+37. [Online Learning Platform Roadmap](./37-online-learning-platform-roadmap.md)
+38. [AI Lesson Outline-First Generation Plan](./38-ai-lesson-outline-first-generation.md)
+39. [Skilllane Style Online Course LMS](./39-skilllane-style-online-course-lms.md)
+40. [Student Lesson Player UI Redesign](./40-student-lesson-player-ui-redesign.md)
+41. [Lesson Assessment And Pass/Fail](./41-lesson-assessment-pass-fail.md)
+42. [Basic Education Curriculum Master Plan](./basic-education-curriculum-master-plan.md)
+43. [Core Curriculum Source Registry](./core-curriculum-source-registry.md)
+44. [Canonical Subject Catalog](./canonical-subject-catalog.md)
+45. [Grade Band And Semester Model](./grade-band-and-semester-model.md)
+46. [Subject Curriculum Map Packs](./subject-curriculum-map-packs.md)
+47. [Unit-Level Learning Outcomes](./unit-level-learning-outcomes.md)
+48. [Subject Template Master Pack](./subject-template-master-pack.md)
+49. [AI Curriculum-to-Lesson Rules](./ai-curriculum-to-lesson-rules.md)
+50. [Assessment Blueprint Per Subject](./assessment-blueprint-per-subject.md)
+51. [Bingo Game Mode Plan](./43-bingo-game-mode-plan.md)
 
 ## How To Use
 

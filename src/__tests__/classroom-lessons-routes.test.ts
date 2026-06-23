@@ -29,13 +29,31 @@ vi.mock("@/lib/db", () => ({
     },
 }));
 
+const lessonContentV2 = {
+    schemaVersion: "lesson_content_v2",
+    outline: {
+        title: "Physics",
+        topics: [{ id: "topic-1", title: "Force", order: 0 }],
+    },
+    topics: [
+        {
+            id: "topic-1",
+            title: "Force",
+            order: 0,
+            contentStatus: "generated",
+            objectives: ["Understand force"],
+            sections: [{ id: "section-1", heading: "Intro", content: "Force content" }],
+        },
+    ],
+};
+
 describe("classroom lesson assignment routes", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockAuth.mockResolvedValue({ user: { id: "teacher-1", role: "TEACHER" } });
         mockClassroomFindUnique.mockResolvedValue({ id: "class-1", teacherId: "teacher-1" });
         mockStudentFindFirst.mockResolvedValue({ id: "student-1" });
-        mockLessonFindUnique.mockResolvedValue({ ownerUserId: "teacher-1", status: "PUBLISHED" });
+        mockLessonFindUnique.mockResolvedValue({ ownerUserId: "teacher-1", status: "PUBLISHED", content: lessonContentV2 });
         mockLessonAssignmentFindMany.mockResolvedValue([]);
         mockLessonAssignmentUpsert.mockResolvedValue({
             id: "assignment-1",
@@ -96,7 +114,7 @@ describe("classroom lesson assignment routes", () => {
     });
 
     it("rejects draft lessons before classroom assignment", async () => {
-        mockLessonFindUnique.mockResolvedValue({ ownerUserId: "teacher-1", status: "DRAFT" });
+        mockLessonFindUnique.mockResolvedValue({ ownerUserId: "teacher-1", status: "DRAFT", content: lessonContentV2 });
 
         const { POST } = await import("@/app/api/classrooms/[id]/lessons/route");
         const res = await POST(

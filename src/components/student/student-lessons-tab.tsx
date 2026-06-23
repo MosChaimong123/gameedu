@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
     BookOpen,
@@ -28,12 +28,38 @@ type AssignedLesson = {
         subject: string | null;
         gradeLevel: string | null;
         description: string | null;
-        content: { estimatedMinutes?: number };
+        content: {
+            estimatedMinutes?: number;
+            topics?: Array<{
+                id: string;
+                title: string;
+            }>;
+        };
     };
     completions: LessonCompletion[];
+    progressSummary?: {
+        percent: number;
+        isCompleted?: boolean;
+        resumeTopicId?: string | null;
+        resumeMode?: "CONTENT" | "ASSESSMENT" | "REVIEW" | "DONE";
+    };
+    assessmentStatus?: {
+        available: boolean;
+        title: string | null;
+        passScore: number | null;
+        attempted: boolean;
+        hasPassed: boolean;
+        attemptCount: number;
+        totalAssessments?: number;
+        passedAssessments?: number;
+        latestScore: number | null;
+        latestMaxScore: number | null;
+        latestCompletedAt: string | null;
+    };
 };
 
 type LessonLearningStatus = "not_started" | "in_progress" | "completed";
+type ResumeMode = "CONTENT" | "ASSESSMENT" | "REVIEW" | "DONE";
 
 interface StudentLessonsTabProps {
     code: string;
@@ -70,21 +96,45 @@ function getStatusMeta(status: LessonLearningStatus) {
     };
 }
 
+function getResumeHref(code: string, lesson: AssignedLesson) {
+    const params = new URLSearchParams();
+    const resumeTopicId = lesson.progressSummary?.resumeTopicId?.trim();
+    const resumeMode = lesson.progressSummary?.resumeMode;
+    if (resumeTopicId) params.set("topicId", resumeTopicId);
+    if (resumeMode && resumeMode !== "DONE") params.set("resumeMode", resumeMode);
+    const query = params.toString();
+    return `/student/${code}/lessons/${lesson.lesson.id}${query ? `?${query}` : ""}`;
+}
+
+function getResumeAction(status: LessonLearningStatus, resumeMode?: ResumeMode) {
+    if (status === "completed") return "ทบทวนอีกครั้ง";
+    if (resumeMode === "ASSESSMENT") return "เรียนต่อ";
+    if (resumeMode === "CONTENT" || resumeMode === "REVIEW") return "เรียนต่อ";
+    return "เริ่มเรียน";
+}
+
+function getResumeHint(resumeMode?: ResumeMode) {
+    if (resumeMode === "ASSESSMENT") return "ไปทำแบบทดสอบหัวข้อถัดไป";
+    if (resumeMode === "CONTENT") return "กลับไปเรียนในหัวข้อที่ยังไม่จบ";
+    if (resumeMode === "REVIEW") return "กลับไปทบทวนบทเรียน";
+    if (resumeMode === "DONE") return "เรียนครบแล้ว เปิดทบทวนได้";
+    return "พร้อมเริ่มเรียน";
+}
+
+function getLessonStatus(lesson: AssignedLesson): LessonLearningStatus {
+    const completed = lesson.completions.length > 0 || Boolean(lesson.progressSummary?.isCompleted);
+    if (completed) return "completed";
+
+    const progressPercent = lesson.progressSummary?.percent ?? 0;
+    const resumeMode = lesson.progressSummary?.resumeMode;
+    const hasResumePoint = Boolean(lesson.progressSummary?.resumeTopicId) || (resumeMode && resumeMode !== "DONE");
+    return progressPercent > 0 || hasResumePoint ? "in_progress" : "not_started";
+}
+
 export function StudentLessonsTab({ code }: StudentLessonsTabProps) {
     const [lessons, setLessons] = useState<AssignedLesson[]>([]);
-    const [openedLessonIds, setOpenedLessonIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    const loadOpenedLessons = useCallback(() => {
-        setOpenedLessonIds(
-            new Set(
-                Object.keys(window.localStorage)
-                    .filter((key) => key.startsWith(`lesson-progress:${code}:`))
-                    .map((key) => key.replace(`lesson-progress:${code}:`, ""))
-            )
-        );
-    }, [code]);
 
     const loadLessons = useCallback(() => {
         setLoading(true);
@@ -126,12 +176,6 @@ export function StudentLessonsTab({ code }: StudentLessonsTabProps) {
         };
     }, [code]);
 
-    useEffect(() => {
-        window.setTimeout(loadOpenedLessons, 0);
-        window.addEventListener("focus", loadOpenedLessons);
-        return () => window.removeEventListener("focus", loadOpenedLessons);
-    }, [loadOpenedLessons]);
-
     if (loading) {
         return (
             <div className="flex items-center justify-center py-16">
@@ -167,10 +211,12 @@ export function StudentLessonsTab({ code }: StudentLessonsTabProps) {
         );
     }
 
-    const completedCount = lessons.filter((lesson) => lesson.completions.length > 0).length;
-    const inProgressCount = lessons.filter(
-        (lesson) => lesson.completions.length === 0 && openedLessonIds.has(lesson.lesson.id)
-    ).length;
+    const lessonStatuses = useMemo(
+        () => new Map(lessons.map((lesson) => [lesson.id, getLessonStatus(lesson)] as const)),
+        [lessons]
+    );
+    const completedCount = lessons.filter((lesson) => lessonStatuses.get(lesson.id) === "completed").length;
+    const inProgressCount = lessons.filter((lesson) => lessonStatuses.get(lesson.id) === "in_progress").length;
     const totalMinutes = lessons.reduce((sum, item) => sum + (item.lesson.content?.estimatedMinutes ?? 0), 0);
     const courseProgress = Math.round((completedCount / lessons.length) * 100);
 
@@ -204,20 +250,20 @@ export function StudentLessonsTab({ code }: StudentLessonsTabProps) {
             <div className="space-y-3">
                 {lessons.map((item, index) => {
                     const completion = item.completions[0] ?? null;
-                    const status: LessonLearningStatus = completion
-                        ? "completed"
-                        : openedLessonIds.has(item.lesson.id)
-                          ? "in_progress"
-                          : "not_started";
-                    const progressPercent = status === "completed" ? 100 : status === "in_progress" ? 50 : 0;
+                    const status = lessonStatuses.get(item.id) ?? "not_started";
+                    const progressPercent = item.progressSummary?.percent ?? (status === "completed" ? 100 : 0);
                     const minutes = item.lesson.content?.estimatedMinutes;
                     const statusMeta = getStatusMeta(status);
                     const StatusIcon = statusMeta.icon;
+                    const resumeMode = item.progressSummary?.resumeMode;
+                    const actionLabel = getResumeAction(status, resumeMode);
+                    const actionHint = getResumeHint(resumeMode);
+                    const resumeHref = getResumeHref(code, item);
 
                     return (
                         <Link
                             key={item.id}
-                            href={`/student/${code}/lessons/${item.lesson.id}`}
+                            href={resumeHref}
                             className={cn(
                                 "block rounded-2xl border bg-white p-4 shadow-sm transition-all hover:shadow-md",
                                 status === "completed"
@@ -250,6 +296,25 @@ export function StudentLessonsTab({ code }: StudentLessonsTabProps) {
                                                 Quiz {completion.quizScore}%
                                             </span>
                                         ) : null}
+                                        {item.assessmentStatus?.available ? (
+                                            <span
+                                                className={cn(
+                                                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-black",
+                                                    item.assessmentStatus.hasPassed
+                                                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                                        : item.assessmentStatus.attempted
+                                                          ? "border-rose-200 bg-rose-50 text-rose-700"
+                                                          : "border-slate-200 bg-slate-50 text-slate-500"
+                                                )}
+                                            >
+                                                <BookOpen className="h-3 w-3" />
+                                                {item.assessmentStatus.hasPassed
+                                                    ? "สอบผ่านแล้ว"
+                                                    : item.assessmentStatus.attempted
+                                                      ? "ค้างแบบทดสอบ"
+                                                      : "ยังไม่ได้ทำแบบทดสอบ"}
+                                            </span>
+                                        ) : null}
                                     </div>
                                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                                         {item.lesson.subject ? <span>{item.lesson.subject}</span> : null}
@@ -261,11 +326,17 @@ export function StudentLessonsTab({ code }: StudentLessonsTabProps) {
                                             </span>
                                         ) : null}
                                     </div>
-                                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                                        <div
-                                            className={cn("h-full rounded-full transition-all duration-500", statusMeta.progressClass)}
-                                            style={{ width: `${progressPercent}%` }}
-                                        />
+                                    <p className="mt-2 text-[11px] font-bold text-slate-500">{actionHint}</p>
+                                    <div className="mt-3 flex items-center gap-2">
+                                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                                            <div
+                                                className={cn("h-full rounded-full transition-all duration-500", statusMeta.progressClass)}
+                                                style={{ width: `${progressPercent}%` }}
+                                            />
+                                        </div>
+                                        <span className={cn("shrink-0 text-[11px] font-black tabular-nums", status === "completed" ? "text-emerald-600" : "text-slate-400")}>
+                                            {progressPercent}%
+                                        </span>
                                     </div>
                                 </div>
 
@@ -281,7 +352,7 @@ export function StudentLessonsTab({ code }: StudentLessonsTabProps) {
                                         )}
                                     >
                                         {status === "completed" ? <BookOpen className="h-3.5 w-3.5" /> : null}
-                                        {statusMeta.action}
+                                        {actionLabel}
                                         {status !== "completed" ? <ChevronRight className="h-3.5 w-3.5" /> : null}
                                     </span>
                                 </div>

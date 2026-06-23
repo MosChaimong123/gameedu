@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createAppErrorResponse } from "@/lib/api-error"
 import { db } from "@/lib/db"
+import { isLessonContentV2 } from "@/lib/lessons/lesson-content"
+import { summarizeStudentLessonProgress } from "@/lib/lessons/lesson-progress"
 import { sendNotification } from "@/lib/notifications"
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code"
 
@@ -10,7 +12,7 @@ const LESSON_COMPLETE_GOLD = 20
 type Params = { params: Promise<{ code: string; lessonId: string }> }
 
 // POST /api/student/[code]/lessons/[lessonId]/complete
-export async function POST(req: Request, { params }: Params) {
+export async function POST(_req: Request, { params }: Params) {
     try {
         const { code, lessonId } = await params
 
@@ -35,21 +37,47 @@ export async function POST(req: Request, { params }: Params) {
             where: { lessonId_classId: { lessonId, classId: student.classId } },
             select: {
                 id: true,
-                lesson: { select: { status: true, title: true } },
+                lesson: { select: { status: true, title: true, content: true } },
             },
         })
-        if (!assignment || assignment.lesson.status !== "PUBLISHED") {
+        if (!assignment || assignment.lesson.status !== "PUBLISHED" || !isLessonContentV2(assignment.lesson.content)) {
             return createAppErrorResponse("NOT_FOUND", "Lesson not found or not published", 404)
         }
+        const content = assignment.lesson.content
 
-        const body = await req.json().catch(() => ({})) as { quizScore?: number }
-        const quizScore =
-            typeof body.quizScore === "number" &&
-            Number.isInteger(body.quizScore) &&
-            body.quizScore >= 0 &&
-            body.quizScore <= 100
-                ? body.quizScore
-                : null
+        const assessmentAttempts =
+            content.topics.some((topic) => Boolean(topic.assessment?.questionSetId))
+                ? await db.lessonAssessmentAttempt.findMany({
+                      where: {
+                          lessonId,
+                          studentId: student.id,
+                      },
+                      select: {
+                          questionSetId: true,
+                          assessmentSourceType: true,
+                          topicId: true,
+                          topicAssessmentId: true,
+                          score: true,
+                          maxScore: true,
+                          passed: true,
+                          attemptNumber: true,
+                          rewardGrantedAt: true,
+                          certificateIssuedAt: true,
+                          completedAt: true,
+                      },
+                      orderBy: { completedAt: "desc" },
+                  })
+                : []
+        const topicVideoWatches = await db.topicVideoWatch.findMany({
+            where: {
+                lessonId,
+                studentId: student.id,
+            },
+            select: {
+                topicId: true,
+                completedAt: true,
+            },
+        })
 
         // Check if already completed
         const existing = await db.lessonCompletion.findUnique({
@@ -61,6 +89,22 @@ export async function POST(req: Request, { params }: Params) {
             },
             select: { id: true },
         })
+        const progressSummary = summarizeStudentLessonProgress({
+            content,
+            attempts: assessmentAttempts,
+            topicVideoWatches,
+            completedAt: existing ? new Date() : null,
+        })
+
+        if (!existing && !progressSummary.completionEligible) {
+            return createAppErrorResponse(
+                "FORBIDDEN",
+                progressSummary.nextRequiredAction === "ASSESSMENT"
+                    ? "Pass all required topic assessments before completing this lesson"
+                    : "Finish the required lesson content before completing this lesson",
+                403
+            )
+        }
 
         const isFirstCompletion = !existing
 
@@ -74,11 +118,10 @@ export async function POST(req: Request, { params }: Params) {
             create: {
                 lessonAssignmentId: assignment.id,
                 studentId: student.id,
-                quizScore,
+                quizScore: null,
             },
             update: {
                 completedAt: new Date(),
-                ...(quizScore !== null && { quizScore }),
             },
         })
 

@@ -64,17 +64,20 @@ describe("sets route auth contract", () => {
       id: "set-1",
       title: "Quiz 1",
       creatorId: "teacher-1",
+      sourceMetadata: null,
     });
     mockQuestionSetFindUnique.mockResolvedValue({
       id: "set-1",
       title: "Quiz 1",
       creatorId: "teacher-1",
       questions: [],
+      sourceMetadata: null,
     });
     mockQuestionSetUpdate.mockResolvedValue({
       id: "set-1",
       title: "Updated Quiz",
       creatorId: "teacher-1",
+      sourceMetadata: null,
     });
     mockQuestionSetDelete.mockResolvedValue({ id: "set-1" });
     mockFolderFindFirst.mockResolvedValue({ id: "folder-1" });
@@ -166,6 +169,80 @@ describe("sets route auth contract", () => {
       status: 400,
       code: "INVALID_PAYLOAD",
       message: "Invalid question data",
+    });
+    expect(mockQuestionSetUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid assessment source metadata on create", async () => {
+    const { POST } = await import("@/app/api/sets/route");
+
+    const response = await POST(
+      makeJsonRequest({
+        title: "Quiz 1",
+        sourceMetadata: {
+          source: {
+            sourceType: "topic",
+            lessonId: "lesson-1",
+          },
+          generatedFrom: "ai_lesson_assessment",
+        },
+      })
+    );
+
+    await expectAppErrorResponse(response, {
+      status: 400,
+      code: "INVALID_PAYLOAD",
+      message: "Invalid assessment source metadata",
+    });
+    expect(mockQuestionSetCreate).not.toHaveBeenCalled();
+  });
+
+  it("stores valid assessment source metadata on create", async () => {
+    const { POST } = await import("@/app/api/sets/route");
+
+    const payload = {
+      title: "Quiz 1",
+      sourceMetadata: {
+        source: {
+          sourceType: "module",
+          courseId: "course-1",
+          moduleId: "module-1",
+        },
+        generatedFrom: "teacher_manual",
+        curriculumCode: "basic_education_2551_revised_2560",
+      },
+    };
+
+    const response = await POST(makeJsonRequest(payload));
+
+    expect(response.status).toBe(200);
+    expect(mockQuestionSetCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        title: "Quiz 1",
+        sourceMetadata: payload.sourceMetadata,
+      }),
+    });
+  });
+
+  it("rejects invalid assessment source metadata on update", async () => {
+    const { PATCH } = await import("@/app/api/sets/[id]/route");
+
+    const response = await PATCH(
+      makeJsonRequest({
+        sourceMetadata: {
+          source: {
+            sourceType: "course",
+          },
+          generatedFrom: "teacher_manual",
+        },
+      }),
+      makeRouteParams({ id: "set-1" })
+    );
+
+    await expectAppErrorResponse(response, {
+      status: 400,
+      code: "INVALID_PAYLOAD",
+      message: "Invalid assessment source metadata",
     });
     expect(mockQuestionSetUpdate).not.toHaveBeenCalled();
   });

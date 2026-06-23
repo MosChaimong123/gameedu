@@ -9,6 +9,7 @@ import { InteractionNotification } from "@/components/game/gold-quest/interactio
 import type { CryptoHackPlayer, CryptoReward, GameSettings, GoldQuestPlayer, HackTask } from "@/lib/types/game"
 import { GoldQuestClient } from "@/components/game/gold-quest/gold-quest-client"
 import { CryptoHackClient } from "@/components/game/crypto-hack/crypto-hack-client"
+import { BingoClient } from "@/components/game/bingo/bingo-client"
 import { TaskOverlay } from "@/components/game/crypto-hack/task-overlay"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
@@ -18,9 +19,11 @@ import { SoundController } from "@/components/game/sound-controller"
 import { motion } from "framer-motion"
 import {
     createInitialPlayer,
+    isBingoPlayer,
     isCryptoHackPlayer,
     isNegamonBattlePlayer,
     toGoldQuestPlayer,
+    type BingoClientState,
     type GameView,
     type PlayerMode,
     type PlayerState,
@@ -68,6 +71,7 @@ export default function PlayerGamePage() {
     const [lockedNegamonChoice, setLockedNegamonChoice] = useState<number | null>(null)
     const [negamonBetweenPlayback, setNegamonBetweenPlayback] = useState<NegamonBetweenRoundPlayback | null>(null)
     const [finalStandings, setFinalStandings] = useState<PlayerState[]>([])
+    const [bingoState, setBingoState] = useState<BingoClientState | null>(null)
 
     const navigationTimer = useRef<NodeJS.Timeout | null>(null)
     const hasRequestedFirstQuestion = useRef(false)
@@ -98,6 +102,7 @@ export default function PlayerGamePage() {
         setLockedNegamonChoice,
         setNegamonBetweenPlayback,
         setFinalStandings,
+        setBingoState,
     })
 
     useEffect(() => {
@@ -135,6 +140,13 @@ export default function PlayerGamePage() {
             questionId: currentQuestion.id,
             answerIndex: index,
         })
+    }
+
+    const handleMarkCell = (cellIndex: number) => {
+        if (!socket) return
+        const pin = getPlayerSession()?.pin
+        if (!pin) return
+        socket.emit("mark-cell", { pin, cellIndex })
     }
 
     return (
@@ -235,7 +247,9 @@ export default function PlayerGamePage() {
                             <div className="text-lg font-bold uppercase text-slate-400 sm:text-xl">{t("playGameOverFinalRank")}</div>
                             <div className="mb-4 text-6xl font-black text-slate-800 sm:mb-6 sm:text-8xl">#{player.score}</div>
                             <div className="mb-6 text-3xl font-black text-amber-600 sm:text-4xl">
-                                {gameMode === "NEGAMON_BATTLE" && isNegamonBattlePlayer(player)
+                                {gameMode === "BINGO"
+                                    ? t("playBingoLinesLabel", { count: bingoState?.completedLines ?? 0 })
+                                    : gameMode === "NEGAMON_BATTLE" && isNegamonBattlePlayer(player)
                                     ? `${player.battleHp} HP`
                                     : gameMode === "CRYPTO_HACK"
                                       ? `₿ ${(player as CryptoHackPlayer).crypto?.toLocaleString()}`
@@ -250,7 +264,9 @@ export default function PlayerGamePage() {
                                         {finalStandings.map((standing, index) => {
                                             const isMe = standing.name === player.name
                                             const scoreLabel =
-                                                gameMode === "NEGAMON_BATTLE" && isNegamonBattlePlayer(standing)
+                                                gameMode === "BINGO" && isBingoPlayer(standing)
+                                                    ? t("playBingoLinesLabel", { count: standing.completedLines })
+                                                    : gameMode === "NEGAMON_BATTLE" && isNegamonBattlePlayer(standing)
                                                     ? `${standing.battleHp} HP`
                                                     : gameMode === "CRYPTO_HACK" && isCryptoHackPlayer(standing)
                                                       ? `₿ ${standing.crypto.toLocaleString()}`
@@ -332,6 +348,15 @@ export default function PlayerGamePage() {
                             boxReveal={boxReveal}
                         />
                     )}
+
+                {gameMode === "BINGO" && view === "BINGO_CARD" && bingoState && (
+                    <BingoClient
+                        state={bingoState}
+                        rank={player.score}
+                        onMark={handleMarkCell}
+                        t={t}
+                    />
+                )}
 
                 <div className="absolute inset-0 -z-10 bg-[url('https://media.blooket.com/image/upload/v1613002626/Backgrounds/goldQuest.jpg')] bg-cover bg-center opacity-20 pointer-events-none" />
             </div>

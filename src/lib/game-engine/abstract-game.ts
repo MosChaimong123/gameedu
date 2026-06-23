@@ -174,6 +174,13 @@ export abstract class AbstractGameEngine {
     // Abstract methods to be implemented by specific derived classes
     public abstract handleEvent(eventName: string, payload: unknown, _socket: Socket): void;
 
+    // Helper to emit only to the host socket (e.g. answer reveal that players must not see)
+    protected emitToHost(event: string, payload: unknown): void {
+        if (this.hostSocketId) {
+            this.io.to(this.hostSocketId).emit(event, payload);
+        }
+    }
+
     // Helper to broadcast updates
     protected statusUpdate(): void {
         this.io.to(this.pin).emit("player-joined", { players: this.players });

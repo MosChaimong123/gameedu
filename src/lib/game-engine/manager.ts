@@ -5,12 +5,13 @@ import { AbstractGameEngine, type GameQuestion } from "./abstract-game";
 import { GoldQuestEngine } from "./gold-quest-engine";
 import { CryptoHackEngine } from "./crypto-hack-engine";
 import { NegamonBattleEngine } from "./negamon-battle-engine";
+import { BingoEngine } from "./bingo-engine";
 import { db } from "../db";
 import type { GameSettings } from "../types/game";
 import { toPrismaJson } from "../prisma-json";
 import { triggerNegamonClassroomRewardSync } from "./negamon-reward-sync-runner";
 
-type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE";
+type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE" | "BINGO";
 
 type PersistedGameRecord = {
     pin: string;
@@ -85,6 +86,8 @@ class GameManager {
             game = new CryptoHackEngine(pin, hostId, setId, settings, questions, io);
         } else if (mode === "NEGAMON_BATTLE") {
             game = new NegamonBattleEngine(pin, hostId, setId, settings, questions, io);
+        } else if (mode === "BINGO") {
+            game = new BingoEngine(pin, hostId, setId, settings, questions, io);
         } else {
             // CLASSIC or unknown → Gold Quest
             game = new GoldQuestEngine(pin, hostId, setId, settings, questions, io);
@@ -227,6 +230,15 @@ class GameManager {
                     );
                 } else if (record.gameMode === "NEGAMON_BATTLE") {
                     game = new NegamonBattleEngine(
+                        record.pin,
+                        record.hostId,
+                        "",
+                        parseSettings(record.settings),
+                        parseQuestions(record.questions),
+                        null as unknown as Server
+                    );
+                } else if (record.gameMode === "BINGO") {
+                    game = new BingoEngine(
                         record.pin,
                         record.hostId,
                         "",

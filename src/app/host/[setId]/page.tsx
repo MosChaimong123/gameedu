@@ -11,13 +11,16 @@ import { Users, Copy, Loader2, Play, ShieldCheck, AlertTriangle, User } from "lu
 import { GameModeSelector } from "@/components/host/game-mode-selector"
 import { GoldQuestSettings } from "@/components/host/settings/gold-quest-settings"
 import { CryptoHackSettings } from "@/components/host/settings/crypto-hack-settings"
+import { BingoSettings } from "@/components/host/settings/bingo-settings"
 import { GoldQuestHostView } from "@/components/game/gold-quest/host-view"
 import { CryptoHackHostView } from "@/components/game/crypto-hack/host-view"
 import { NegamonBattleHostView } from "@/components/game/negamon/negamon-battle-host-view"
+import { BingoHostView } from "@/components/game/bingo/bingo-host-view"
 import {
     GoldQuestPlayer,
     CryptoHackPlayer,
     NegamonBattlePlayer,
+    BingoPlayer,
     GameSettings,
     NegamonRoundResultPayload,
 } from "@/lib/types/game"
@@ -39,12 +42,12 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { formatSocketErrorMessage } from "@/app/play/game/play-game-types"
-import { isSocketSessionResetError } from "@/lib/socket-error-messages"
+import { isSocketSessionResetError, SOCKET_ERROR_BINGO_NOT_ENOUGH_ANSWERS } from "@/lib/socket-error-messages"
 import { isNegamonBattleHostEnabled } from "@/lib/negamon-battle-host-enabled"
 
 type HostView = "SELECT_MODE" | "SETTINGS" | "LOBBY" | "PLAYING" | "ENDED"
-type GameMode = "GOLD_QUEST" | "CRYPTO_HACK" | "NEGAMON_BATTLE"
-type HostPlayer = GoldQuestPlayer | CryptoHackPlayer | NegamonBattlePlayer
+type GameMode = "GOLD_QUEST" | "CRYPTO_HACK" | "NEGAMON_BATTLE" | "BINGO"
+type HostPlayer = GoldQuestPlayer | CryptoHackPlayer | NegamonBattlePlayer | BingoPlayer
 
 type HostEvent = {
     source: string
@@ -65,8 +68,18 @@ function isCryptoHackPlayer(player: HostPlayer): player is CryptoHackPlayer {
     return "crypto" in player
 }
 
+function isBingoPlayer(player: HostPlayer): player is BingoPlayer {
+    return "card" in player && Array.isArray((player as BingoPlayer).card)
+}
+
 function sortHostPlayersForStandings(players: HostPlayer[], mode: GameMode): HostPlayer[] {
     return [...players].sort((a, b) => {
+        if (mode === "BINGO") {
+            const al = isBingoPlayer(a) ? a.completedLines : 0
+            const bl = isBingoPlayer(b) ? b.completedLines : 0
+            if (bl !== al) return bl - al
+            return (b.correctAnswers ?? 0) - (a.correctAnswers ?? 0)
+        }
         if (mode === "NEGAMON_BATTLE") {
             const ah = isNegamonBattlePlayer(a) ? a.battleHp : 0
             const bh = isNegamonBattlePlayer(b) ? b.battleHp : 0
@@ -159,6 +172,10 @@ export default function HostLobbyPage() {
         preview: string | null
     } | null>(null)
     const [negamonBattleLogs, setNegamonBattleLogs] = useState<string[]>([])
+    const [bingoQuestion, setBingoQuestion] = useState<{ question: string; index: number; total: number } | null>(null)
+    const [bingoAnswer, setBingoAnswer] = useState<string | null>(null)
+    /** รวมจำนวนแถวของทุกคนครั้งล่าสุด — ใช้เล่นเสียงเมื่อมีคนได้แถวใหม่ */
+    const bingoTotalLinesRef = useRef(0)
 
     const isClient = useIsClient()
     const uniqueLobbyPlayers = Array.from(new Map(players.map((player) => [player.id, player])).values())
@@ -216,6 +233,7 @@ export default function HostLobbyPage() {
                 if (data.players) setPlayers(data.players)
                 if (data.gameMode === "NEGAMON_BATTLE") setSelectedMode("NEGAMON_BATTLE")
                 else if (data.gameMode === "CRYPTO_HACK") setSelectedMode("CRYPTO_HACK")
+                else if (data.gameMode === "BINGO") setSelectedMode("BINGO")
                 else if (data.gameMode === "GOLD_QUEST") setSelectedMode("GOLD_QUEST")
             }
         )
@@ -236,6 +254,12 @@ export default function HostLobbyPage() {
                 setNegamonBattleLogs([])
                 setNegamonHostMeta(null)
             } else if (incomingMode === "CRYPTO_HACK") setSelectedMode("CRYPTO_HACK")
+            else if (incomingMode === "BINGO") {
+                setSelectedMode("BINGO")
+                setBingoQuestion(null)
+                setBingoAnswer(null)
+                bingoTotalLinesRef.current = 0
+            }
             else setSelectedMode("GOLD_QUEST")
 
             if (data.settings) setGameSettings(data.settings);
@@ -265,6 +289,15 @@ export default function HostLobbyPage() {
 
         socket.on("game-state-update", (data: { players: HostPlayer[] }) => {
             setPlayers(data.players)
+
+            if (data.players.some(isBingoPlayer)) {
+                const totalLines = data.players.reduce(
+                    (acc, p) => acc + (isBingoPlayer(p) ? p.completedLines : 0),
+                    0
+                )
+                if (totalLines > bingoTotalLinesRef.current) play("chest-open")
+                bingoTotalLinesRef.current = totalLines
+            }
         })
 
         if (savedPin && savedHostToken) {
@@ -310,6 +343,18 @@ export default function HostLobbyPage() {
             setNegamonBattleLogs((prev) => [...prev, ...combined].slice(-40))
         })
 
+        socket.on(
+            "bingo-question",
+            (data: { id: string; question: string; index: number; total: number }) => {
+                setBingoQuestion({ question: data.question, index: data.index, total: data.total })
+                setBingoAnswer(null)
+            }
+        )
+
+        socket.on("bingo-answer-reveal", (data: { id: string; answer: string }) => {
+            setBingoAnswer(data.answer)
+        })
+
         socket.on("interaction-effect", (event: HostEvent) => {
             setGameEvents(prev => [...prev, event])
             if (event.type === "SWAP") play("swap")
@@ -336,6 +381,10 @@ export default function HostLobbyPage() {
                 window.location.reload();
                 return
             }
+            if (raw === SOCKET_ERROR_BINGO_NOT_ENOUGH_ANSWERS) {
+                // เริ่มเกมไม่สำเร็จ (เฉลยไม่พอ) — เกมยังอยู่สถานะ LOBBY ฝั่งเซิร์ฟเวอร์ ดึง host กลับล็อบบี้
+                setView("LOBBY")
+            }
             if (raw) {
                 const tr = tRef.current
                 toastRef.current({
@@ -355,6 +404,8 @@ export default function HostLobbyPage() {
             socket.off("game-state-update")
             socket.off("negamon-battle-state")
             socket.off("negamon-round-result")
+            socket.off("bingo-question")
+            socket.off("bingo-answer-reveal")
             socket.off("interaction-effect")
             socket.off("game-over")
             socket.off("error")
@@ -418,6 +469,9 @@ export default function HostLobbyPage() {
         } else if (modeId === "negamon-battle") {
             if (!isNegamonBattleHostEnabled()) return
             setSelectedMode("NEGAMON_BATTLE");
+            setView("SETTINGS");
+        } else if (modeId === "bingo") {
+            setSelectedMode("BINGO");
             setView("SETTINGS");
         }
     }
@@ -513,6 +567,14 @@ export default function HostLobbyPage() {
                 </>
             )
         }
+        if (selectedMode === "BINGO") {
+            return (
+                <>
+                    <SoundController className="fixed top-4 right-4" />
+                    <BingoSettings onHost={handleHostGame} onBack={() => setView("SELECT_MODE")} />
+                </>
+            )
+        }
         return (
             <>
                 <SoundController className="fixed top-4 right-4" />
@@ -530,6 +592,12 @@ export default function HostLobbyPage() {
     const handleEndGame = () => {
         if (socket && pin) {
             socket.emit("end-game", { pin });
+        }
+    }
+
+    const handleBingoNextQuestion = () => {
+        if (socket && pin) {
+            socket.emit("bingo-next", { pin });
         }
     }
 
@@ -562,6 +630,21 @@ export default function HostLobbyPage() {
                     />
                 </>
             )
+        }
+        if (selectedMode === "BINGO") {
+            return <>
+                <SoundController className="fixed bottom-6 left-6 z-[60]" />
+                <BingoHostView
+                    players={players.filter(isBingoPlayer)}
+                    timeLeft={timeLeft}
+                    linesToWin={gameSettings?.winCondition === "LINES" ? gameSettings.bingoLinesToWin : undefined}
+                    currentQuestion={bingoQuestion}
+                    currentAnswer={bingoAnswer}
+                    onNextQuestion={handleBingoNextQuestion}
+                    onEndGame={handleEndGame}
+                    pin={pin || ""}
+                />
+            </>
         }
         if (selectedMode === "CRYPTO_HACK") {
             return <>
@@ -615,7 +698,9 @@ export default function HostLobbyPage() {
                                 )}>#{index + 1}</div>
                                 <div className={cn("flex-1 font-bold truncate", index < 3 ? "text-xl" : "text-base")}>{player.name}</div>
                                 <div className={cn("font-black shrink-0", index < 3 ? "text-2xl" : "text-lg")}>
-                                    {isNegamonBattlePlayer(player)
+                                    {isBingoPlayer(player)
+                                        ? t("playBingoLinesLabel", { count: player.completedLines })
+                                        : isNegamonBattlePlayer(player)
                                         ? `${player.battleHp} HP`
                                         : ("crypto" in player) ?
                                         `₿ ${(player as CryptoHackPlayer).crypto.toLocaleString()}` :

@@ -44,6 +44,7 @@ class FakeGame {
   private playerReconnectTokens = new Map<string, string>();
   public startGameCalls = 0;
   public endGameCalls = 0;
+  public revealNextQuestionCalls = 0;
   public handleEventCalls: Array<{ event: string; payload: unknown; socketId: string }> = [];
 
   constructor(pin: string, hostId: string, settings: Partial<GameSettings>) {
@@ -133,6 +134,10 @@ class FakeGame {
 
   handleEvent(eventName: string, payload: unknown, socket: { id: string }): void {
     this.handleEventCalls.push({ event: eventName, payload, socketId: socket.id });
+  }
+
+  revealNextQuestion(): void {
+    this.revealNextQuestionCalls += 1;
   }
 
   serialize(): Record<string, unknown> {
@@ -1214,6 +1219,54 @@ describe("registerGameSocketHandlers integration", () => {
     const err = await new Promise<{ message: string }>((resolve) => stray.once("error", resolve));
     expect(err.message).toBe(SOCKET_ERROR_PLAY_NOT_IN_GAME);
     stray.disconnect();
+  });
+
+  it("forwards mark-cell to the Bingo game engine", async () => {
+    const host = await connectClient("teacher-1");
+    host.emit("create-game", { setId: "set-1", settings: { allowLateJoin: true }, mode: "BINGO" });
+    const gameCreated = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+
+    const player = await connectClient();
+    player.emit("join-game", { pin: gameCreated.pin, nickname: "BingoP" });
+    await new Promise<void>((resolve) => player.once("joined-success", () => resolve()));
+
+    player.emit("mark-cell", { pin: gameCreated.pin, cellIndex: 3 });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const game = games.get(gameCreated.pin);
+    expect(game?.gameMode).toBe("BINGO");
+    expect(game?.handleEventCalls).toEqual([
+      expect.objectContaining({
+        event: "mark-cell",
+        payload: expect.objectContaining({ pin: gameCreated.pin, cellIndex: 3 }),
+        socketId: player.id,
+      }),
+    ]);
+
+    host.disconnect();
+    player.disconnect();
+  });
+
+  it("lets only the host advance the Bingo question via bingo-next", async () => {
+    const host = await connectClient("teacher-1");
+    host.emit("create-game", { setId: "set-1", settings: { allowLateJoin: true }, mode: "BINGO" });
+    const gameCreated = await new Promise<{ pin: string }>((resolve) => host.once("game-created", resolve));
+
+    const player = await connectClient();
+    player.emit("join-game", { pin: gameCreated.pin, nickname: "BingoP2" });
+    await new Promise<void>((resolve) => player.once("joined-success", () => resolve()));
+
+    player.emit("bingo-next", { pin: gameCreated.pin });
+    const denied = await new Promise<{ message: string }>((resolve) => player.once("error", resolve));
+    expect(denied.message).toBe(SOCKET_ERROR_ONLY_HOST_CAN_START);
+    expect(games.get(gameCreated.pin)?.revealNextQuestionCalls).toBe(0);
+
+    host.emit("bingo-next", { pin: gameCreated.pin });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(games.get(gameCreated.pin)?.revealNextQuestionCalls).toBe(1);
+
+    host.disconnect();
+    player.disconnect();
   });
 
   it("allows player rejoin after simulated DB recover (cleared socket id and reconnect tokens)", async () => {

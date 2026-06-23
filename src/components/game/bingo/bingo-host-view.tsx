@@ -6,7 +6,7 @@ import type { BingoPlayer } from "@/lib/types/game"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/components/providers/language-provider"
-import { Eye, EyeOff, ArrowRight, Target, Users } from "lucide-react"
+import { Eye, EyeOff, ArrowRight, Target, Users, Maximize2, Minimize2, Check } from "lucide-react"
 
 type Props = {
     players: BingoPlayer[]
@@ -14,6 +14,7 @@ type Props = {
     linesToWin?: number
     currentQuestion: { question: string; index: number; total: number } | null
     currentAnswer: string | null
+    currentOptions?: string[] | null
     onNextQuestion: () => void
     onEndGame?: () => void
     pin: string
@@ -59,6 +60,7 @@ export function BingoHostView({
     linesToWin,
     currentQuestion,
     currentAnswer,
+    currentOptions,
     onNextQuestion,
     onEndGame,
     pin,
@@ -72,11 +74,15 @@ export function BingoHostView({
     // ใช้แพตเทิร์น adjust-state-during-render แทน effect (กัน cascading render)
     const questionIndex = currentQuestion?.index ?? null
     const [answerShown, setAnswerShown] = useState(false)
+    const [expanded, setExpanded] = useState(false)
     const [shownIndex, setShownIndex] = useState(questionIndex)
     if (questionIndex !== shownIndex) {
         setShownIndex(questionIndex)
         setAnswerShown(false)
     }
+
+    const options = currentOptions ?? []
+    const normalizedAnswer = (currentAnswer ?? "").trim()
 
     return (
         <div className="relative h-screen w-full overflow-hidden bg-[#0a0418] font-sans">
@@ -111,14 +117,27 @@ export function BingoHostView({
                     </div>
 
                     <div className="flex flex-1 flex-col rounded-3xl border-2 border-violet-400/25 bg-violet-950/40 p-6 shadow-[0_10px_40px_-12px_rgba(168,85,247,0.45)] backdrop-blur-xl">
-                        <h2 className="mb-3 border-b border-white/10 pb-2 text-xs font-extrabold uppercase tracking-widest text-fuchsia-300">
-                            {t("hostBingoCurrentQuestionLabel")}
-                            {currentQuestion && currentQuestion.total > 0 && (
-                                <span className="ml-2 text-white/40">
-                                    {currentQuestion.index + 1}/{currentQuestion.total}
-                                </span>
+                        <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-2">
+                            <h2 className="text-xs font-extrabold uppercase tracking-widest text-fuchsia-300">
+                                {t("hostBingoCurrentQuestionLabel")}
+                                {currentQuestion && currentQuestion.total > 0 && (
+                                    <span className="ml-2 text-white/40">
+                                        {currentQuestion.index + 1}/{currentQuestion.total}
+                                    </span>
+                                )}
+                            </h2>
+                            {currentQuestion && (
+                                <button
+                                    type="button"
+                                    onClick={() => setExpanded(true)}
+                                    aria-label={t("hostBingoExpand")}
+                                    className="flex items-center gap-1.5 rounded-lg border border-violet-400/40 bg-violet-500/15 px-2.5 py-1 text-xs font-bold text-violet-200 transition-all hover:bg-violet-500/30"
+                                >
+                                    <Maximize2 className="h-3.5 w-3.5" />
+                                    {t("hostBingoExpand")}
+                                </button>
                             )}
-                        </h2>
+                        </div>
                         {currentQuestion ? (
                             <motion.div
                                 key={questionIndex ?? "q"}
@@ -274,6 +293,134 @@ export function BingoHostView({
                     </Button>
                 </div>
             </div>
+
+            {/* โหมดเต็มจอ — โชว์คำถาม + ตัวเลือก + เฉลย ตัวใหญ่ */}
+            <AnimatePresence>
+                {expanded && currentQuestion && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] flex flex-col bg-[#0a0418]"
+                    >
+                        <div
+                            className="absolute inset-0"
+                            style={{
+                                background:
+                                    "radial-gradient(60% 50% at 15% 0%, rgba(168,85,247,0.3), transparent 60%)," +
+                                    "radial-gradient(60% 50% at 90% 5%, rgba(217,70,239,0.24), transparent 58%)," +
+                                    "radial-gradient(80% 60% at 50% 115%, rgba(124,58,237,0.2), transparent 60%)",
+                            }}
+                        />
+
+                        {/* แถบบน: ลำดับข้อ + ปุ่มย่อ */}
+                        <div className="relative z-10 flex shrink-0 items-center justify-between px-8 py-6">
+                            <div className="text-xl font-extrabold uppercase tracking-widest text-fuchsia-300">
+                                {t("hostBingoCurrentQuestionLabel")}
+                                {currentQuestion.total > 0 && (
+                                    <span className="ml-3 text-white/40">
+                                        {currentQuestion.index + 1}/{currentQuestion.total}
+                                    </span>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setExpanded(false)}
+                                aria-label={t("hostBingoCollapse")}
+                                className="flex items-center gap-2 rounded-xl border-2 border-violet-400/50 bg-violet-500/20 px-4 py-2.5 text-base font-bold text-violet-100 transition-all hover:bg-violet-500/35"
+                            >
+                                <Minimize2 className="h-5 w-5" />
+                                {t("hostBingoCollapse")}
+                            </button>
+                        </div>
+
+                        {/* กลาง: คำถาม + ตัวเลือก */}
+                        <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center gap-8 px-[6vw] pb-6">
+                            <motion.div
+                                key={questionIndex ?? "q"}
+                                initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                transition={{ type: "spring", stiffness: 280, damping: 24 }}
+                                className="text-center text-[clamp(2rem,5vw,4.5rem)] font-black leading-tight text-white drop-shadow-[0_4px_20px_rgba(168,85,247,0.5)]"
+                            >
+                                {currentQuestion.question}
+                            </motion.div>
+
+                            {options.length > 0 && (
+                                <div className="grid w-full max-w-[80rem] gap-4 sm:grid-cols-2">
+                                    {options.map((opt, i) => {
+                                        const isAnswer =
+                                            answerShown && opt.trim() === normalizedAnswer
+                                        return (
+                                            <div
+                                                key={i}
+                                                className={cn(
+                                                    "flex items-center gap-4 rounded-2xl border-2 px-6 py-5 text-[clamp(1.25rem,2.5vw,2rem)] font-bold transition-all",
+                                                    isAnswer
+                                                        ? "border-fuchsia-300 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-[0_0_40px_rgba(217,70,239,0.7)]"
+                                                        : "border-violet-400/25 bg-violet-950/50 text-violet-100"
+                                                )}
+                                            >
+                                                <span
+                                                    className={cn(
+                                                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl font-black",
+                                                        isAnswer
+                                                            ? "bg-white/25 text-white"
+                                                            : "bg-violet-800/60 text-violet-200"
+                                                    )}
+                                                >
+                                                    {isAnswer ? <Check className="h-6 w-6" /> : String.fromCharCode(65 + i)}
+                                                </span>
+                                                <span className="min-w-0 flex-1">{opt}</span>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ล่าง: โชว์/ซ่อนเฉลย + ถามข้อต่อไป */}
+                        <div className="relative z-10 flex shrink-0 items-center justify-center gap-4 px-8 pb-8">
+                            {currentAnswer && (
+                                <Button
+                                    onClick={() => setAnswerShown((s) => !s)}
+                                    className={cn(
+                                        "flex items-center gap-2 rounded-2xl border-2 px-6 py-6 text-xl font-black transition-all",
+                                        answerShown
+                                            ? "border-fuchsia-300 bg-fuchsia-500/90 text-white hover:bg-fuchsia-500"
+                                            : "border-violet-400/50 bg-violet-500/20 text-violet-100 hover:bg-violet-500/35"
+                                    )}
+                                >
+                                    {answerShown ? <EyeOff className="h-6 w-6" /> : <Eye className="h-6 w-6" />}
+                                    {answerShown ? t("hostBingoHideAnswer") : t("hostBingoShowAnswer")}
+                                </Button>
+                            )}
+                            {/* เฉลยข้อความ (เผื่อไม่มี options) */}
+                            {currentAnswer && options.length === 0 && (
+                                <AnimatePresence>
+                                    {answerShown && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.9 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            className="rounded-2xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-6 py-6 text-2xl font-black text-white shadow-[0_8px_30px_-8px_rgba(217,70,239,0.8)]"
+                                        >
+                                            {t("hostBingoAnswerLabel")}: {currentAnswer}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            )}
+                            <Button
+                                onClick={onNextQuestion}
+                                className="flex items-center gap-2 rounded-2xl border-2 border-fuchsia-300 bg-gradient-to-r from-violet-500 to-fuchsia-500 px-10 py-6 text-2xl font-black text-white shadow-[0_6px_0_rgb(124,58,237)] transition-all hover:brightness-110 active:translate-y-1 active:shadow-none"
+                            >
+                                <ArrowRight className="h-7 w-7" />
+                                {t("hostBingoNextQuestion")}
+                            </Button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     )
 }

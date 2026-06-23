@@ -135,10 +135,11 @@ export class BingoEngine extends AbstractGameEngine {
       index: this.currentIndex,
       total: this.questionOrder.length,
     });
-    // เฉลยส่งให้เฉพาะหน้าจอครูไว้อ้างอิง
+    // เฉลย + ตัวเลือก ส่งให้เฉพาะหน้าจอครูไว้อ้างอิง (ไม่ broadcast ถึงนักเรียน)
     this.emitToHost("bingo-answer-reveal", {
       id: question.id,
       answer: answerTextOf(question),
+      options: question.options,
     });
   }
 

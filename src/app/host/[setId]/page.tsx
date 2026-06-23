@@ -174,6 +174,7 @@ export default function HostLobbyPage() {
     const [negamonBattleLogs, setNegamonBattleLogs] = useState<string[]>([])
     const [bingoQuestion, setBingoQuestion] = useState<{ question: string; index: number; total: number } | null>(null)
     const [bingoAnswer, setBingoAnswer] = useState<string | null>(null)
+    const [bingoOptions, setBingoOptions] = useState<string[] | null>(null)
     /** รวมจำนวนแถวของทุกคนครั้งล่าสุด — ใช้เล่นเสียงเมื่อมีคนได้แถวใหม่ */
     const bingoTotalLinesRef = useRef(0)
 
@@ -258,6 +259,7 @@ export default function HostLobbyPage() {
                 setSelectedMode("BINGO")
                 setBingoQuestion(null)
                 setBingoAnswer(null)
+                setBingoOptions(null)
                 bingoTotalLinesRef.current = 0
             }
             else setSelectedMode("GOLD_QUEST")
@@ -348,11 +350,13 @@ export default function HostLobbyPage() {
             (data: { id: string; question: string; index: number; total: number }) => {
                 setBingoQuestion({ question: data.question, index: data.index, total: data.total })
                 setBingoAnswer(null)
+                setBingoOptions(null)
             }
         )
 
-        socket.on("bingo-answer-reveal", (data: { id: string; answer: string }) => {
+        socket.on("bingo-answer-reveal", (data: { id: string; answer: string; options?: string[] }) => {
             setBingoAnswer(data.answer)
+            setBingoOptions(Array.isArray(data.options) ? data.options : null)
         })
 
         socket.on("interaction-effect", (event: HostEvent) => {
@@ -640,6 +644,7 @@ export default function HostLobbyPage() {
                     linesToWin={gameSettings?.winCondition === "LINES" ? gameSettings.bingoLinesToWin : undefined}
                     currentQuestion={bingoQuestion}
                     currentAnswer={bingoAnswer}
+                    currentOptions={bingoOptions}
                     onNextQuestion={handleBingoNextQuestion}
                     onEndGame={handleEndGame}
                     pin={pin || ""}

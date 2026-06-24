@@ -63,6 +63,7 @@ export type UsePlayGameSocketParams = {
     setGameSettings: Dispatch<SetStateAction<GameSettings | null>>
     setCurrentTask: Dispatch<SetStateAction<HackTask | null>>
     setPasswordOptions: Dispatch<SetStateAction<string[]>>
+    setHackGuessOptions: Dispatch<SetStateAction<string[]>>
     setHackHint: Dispatch<SetStateAction<string | null>>
     setBoxReveal: Dispatch<SetStateAction<{ index: number; reward: CryptoReward } | null>>
     setHackResult: Dispatch<SetStateAction<{ success: boolean; amount?: number; targetName: string } | null>>
@@ -93,6 +94,7 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
         setGameSettings,
         setCurrentTask,
         setPasswordOptions,
+        setHackGuessOptions,
         setHackHint,
         setBoxReveal,
         setHackResult,
@@ -498,8 +500,11 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
             }
         )
 
-        socket.on("interaction-effect", (data: { source: string; target: string; type: "SWAP" | "STEAL" }) => {
+        socket.on("interaction-effect", (data: { source: string; target: string; type: "SWAP" | "STEAL" | "HACK" }) => {
             if (skipLegacySocketHandlers()) return
+            // Crypto Hack ส่ง notification/เสียงผ่าน event `player-hacked` อยู่แล้ว
+            // ที่นี่จึงข้าม type "HACK" เพื่อไม่ให้เป้าหมายโดนแจ้งเตือน + เสียงซ้ำ
+            if (data.type === "HACK") return
             if (data.target === playerSession.name) {
                 play(data.type === "SWAP" ? "swap" : "steal")
 
@@ -535,7 +540,7 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
             if (skipLegacySocketHandlers()) return
             sessionStorage.setItem("hack_target_id", data.targetId)
 
-            setPasswordOptions(data.options)
+            setHackGuessOptions(data.options)
             setHackHint(data.hint || null)
             setView("HACK_GUESS")
         })
@@ -650,6 +655,14 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
             console.log("Task Completed! Clearing glitch.")
             setCurrentTask(null)
             play("correct")
+
+            // หลังแก้ glitch เสร็จ กลับไปหน้าคำถามและขอคำถามใหม่
+            // มิฉะนั้นผู้เล่นที่โดน hack ตอนไม่ได้อยู่หน้า QUESTION จะค้างหน้าเปล่า
+            if (gameModeRef.current === "CRYPTO_HACK") {
+                setView("QUESTION")
+                const pin = playerSession.pin
+                if (pin) socket.emit("request-question", { pin })
+            }
         })
 
         socket.on("joined-success", (data: JoinedSuccessPayload) => {

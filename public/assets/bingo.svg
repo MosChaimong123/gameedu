@@ -1,24 +1,125 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
-  <rect width="512" height="512" rx="96" fill="#065F46"/>
-  <rect x="86" y="86" width="340" height="340" rx="36" fill="#ECFDF5"/>
-  <g fill="#10B981">
-    <rect x="118" y="118" width="84" height="84" rx="16"/>
-    <rect x="310" y="118" width="84" height="84" rx="16"/>
-    <rect x="214" y="214" width="84" height="84" rx="16"/>
-    <rect x="118" y="310" width="84" height="84" rx="16"/>
-    <rect x="310" y="310" width="84" height="84" rx="16"/>
+  <defs>
+    <!-- Background gradient: deep violet -->
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1e0a3c"/>
+      <stop offset="100%" stop-color="#0a0418"/>
+    </linearGradient>
+    <!-- Card gradient -->
+    <linearGradient id="cardGrad" x1="86" y1="86" x2="426" y2="426" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2d1b69"/>
+      <stop offset="100%" stop-color="#1a0a3e"/>
+    </linearGradient>
+    <!-- Active cell gradient -->
+    <linearGradient id="activeCell" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#d946ef"/>
+    </linearGradient>
+    <!-- Dim cell gradient -->
+    <linearGradient id="dimCell" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b1f6e" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#2a1254" stop-opacity="0.9"/>
+    </linearGradient>
+    <!-- Outer glow filter -->
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- Soft glow for stars -->
+    <filter id="starGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- Border glow -->
+    <filter id="borderGlow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="url(#bgGrad)"/>
+
+  <!-- Outer glowing ring -->
+  <rect x="6" y="6" width="500" height="500" rx="96" fill="none"
+        stroke="#a855f7" stroke-width="3" stroke-opacity="0.5" filter="url(#borderGlow)"/>
+
+  <!-- Card background -->
+  <rect x="72" y="72" width="368" height="368" rx="40" fill="url(#cardGrad)"/>
+  <!-- Card border glow -->
+  <rect x="72" y="72" width="368" height="368" rx="40" fill="none"
+        stroke="#7c3aed" stroke-width="2.5" stroke-opacity="0.6" filter="url(#borderGlow)"/>
+
+  <!-- ===== BINGO CELLS 3×3 ===== -->
+  <!-- Row 1 -->
+  <!-- [0,0] active -->
+  <rect x="100" y="100" width="96" height="96" rx="18" fill="url(#activeCell)"/>
+  <rect x="100" y="100" width="96" height="96" rx="18" fill="none" stroke="#e879f9" stroke-width="1.5" stroke-opacity="0.6"/>
+  <!-- [0,1] dim -->
+  <rect x="208" y="100" width="96" height="96" rx="18" fill="url(#dimCell)"/>
+  <rect x="208" y="100" width="96" height="96" rx="18" fill="none" stroke="#6d28d9" stroke-width="1" stroke-opacity="0.5"/>
+  <!-- [0,2] active -->
+  <rect x="316" y="100" width="96" height="96" rx="18" fill="url(#activeCell)"/>
+  <rect x="316" y="100" width="96" height="96" rx="18" fill="none" stroke="#e879f9" stroke-width="1.5" stroke-opacity="0.6"/>
+
+  <!-- Row 2 -->
+  <!-- [1,0] dim -->
+  <rect x="100" y="208" width="96" height="96" rx="18" fill="url(#dimCell)"/>
+  <rect x="100" y="208" width="96" height="96" rx="18" fill="none" stroke="#6d28d9" stroke-width="1" stroke-opacity="0.5"/>
+  <!-- [1,1] active (center star) -->
+  <rect x="208" y="208" width="96" height="96" rx="18" fill="url(#activeCell)"/>
+  <rect x="208" y="208" width="96" height="96" rx="18" fill="none" stroke="#e879f9" stroke-width="1.5" stroke-opacity="0.6"/>
+  <!-- [1,2] dim -->
+  <rect x="316" y="208" width="96" height="96" rx="18" fill="url(#dimCell)"/>
+  <rect x="316" y="208" width="96" height="96" rx="18" fill="none" stroke="#6d28d9" stroke-width="1" stroke-opacity="0.5"/>
+
+  <!-- Row 3 -->
+  <!-- [2,0] active -->
+  <rect x="100" y="316" width="96" height="96" rx="18" fill="url(#activeCell)"/>
+  <rect x="100" y="316" width="96" height="96" rx="18" fill="none" stroke="#e879f9" stroke-width="1.5" stroke-opacity="0.6"/>
+  <!-- [2,1] dim -->
+  <rect x="208" y="316" width="96" height="96" rx="18" fill="url(#dimCell)"/>
+  <rect x="208" y="316" width="96" height="96" rx="18" fill="none" stroke="#6d28d9" stroke-width="1" stroke-opacity="0.5"/>
+  <!-- [2,2] active -->
+  <rect x="316" y="316" width="96" height="96" rx="18" fill="url(#activeCell)"/>
+  <rect x="316" y="316" width="96" height="96" rx="18" fill="none" stroke="#e879f9" stroke-width="1.5" stroke-opacity="0.6"/>
+
+  <!-- ===== CHECKMARKS on active cells ===== -->
+  <g stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+    <!-- [0,0] -->
+    <path d="M122 150 L142 172 L178 122"/>
+    <!-- [0,2] -->
+    <path d="M338 150 L358 172 L394 122"/>
+    <!-- [1,1] center -->
+    <path d="M230 258 L250 280 L286 230"/>
+    <!-- [2,0] -->
+    <path d="M122 358 L142 380 L178 330"/>
+    <!-- [2,2] -->
+    <path d="M338 358 L358 380 L394 330"/>
   </g>
-  <g fill="#A7F3D0">
-    <rect x="214" y="118" width="84" height="84" rx="16"/>
-    <rect x="118" y="214" width="84" height="84" rx="16"/>
-    <rect x="310" y="214" width="84" height="84" rx="16"/>
-    <rect x="214" y="310" width="84" height="84" rx="16"/>
+
+  <!-- ===== DIAGONAL WIN LINE ===== -->
+  <line x1="148" y1="148" x2="364" y2="364"
+        stroke="#e879f9" stroke-width="6" stroke-linecap="round" stroke-opacity="0.35"
+        filter="url(#borderGlow)"/>
+
+  <!-- ===== SPARKLE STARS ===== -->
+  <!-- Top-right sparkle -->
+  <g filter="url(#starGlow)" fill="#f0abfc">
+    <polygon points="430,62 436,78 452,62 436,46" opacity="0.9"/>
+    <polygon points="430,62 426,56 420,62 426,68" opacity="0.5"/>
   </g>
-  <g stroke="#ECFDF5" stroke-width="20" stroke-linecap="round">
-    <path d="M150 160 L170 180 L196 140"/>
-    <path d="M342 160 L362 180 L388 140"/>
-    <path d="M246 256 L266 276 L292 236"/>
-    <path d="M150 352 L170 372 L196 332"/>
-    <path d="M342 352 L362 372 L388 332"/>
+  <!-- Bottom-left sparkle -->
+  <g filter="url(#starGlow)" fill="#c084fc">
+    <polygon points="82,450 87,462 98,450 87,438" opacity="0.8"/>
+    <polygon points="82,450 79,445 74,450 79,455" opacity="0.4"/>
+  </g>
+  <!-- Top-left tiny star -->
+  <g filter="url(#starGlow)" fill="#e879f9">
+    <polygon points="68,90 71,98 80,90 71,82" opacity="0.7"/>
+  </g>
+  <!-- Bottom-right tiny star -->
+  <g filter="url(#starGlow)" fill="#a855f7">
+    <polygon points="444,422 447,430 456,422 447,414" opacity="0.6"/>
   </g>
 </svg>

@@ -57,7 +57,7 @@ const CRYPTO_PASSWORDS = [
     "Harmony", "Elrond", "Enjin", "Chiliz", "Kusama"
 ];
 
-const CRYPTO_HACK_GUESS_OPTION_COUNT = 4;
+const CRYPTO_HACK_GUESS_OPTION_COUNT = 3;
 
 export class CryptoHackEngine extends AbstractGameEngine {
     public players: CryptoHackPlayer[] = [];
@@ -222,31 +222,6 @@ export class CryptoHackEngine extends AbstractGameEngine {
         console.log(`[${this.pin}] Hacking Phase Started!`);
     }
 
-    private handleAnswer(player: CryptoHackPlayer, answerIndex: number) {
-        void player;
-        void answerIndex;
-        // Find current question (randomness should be handled per player ideally, but for MVP assuming synced or managed)
-        // Actually Base Engine handles random question serving but we need to validate.
-        // For MVP let's assume client sends Question ID and we validate.
-        // But AbstractGameEngine doesn't store "current question per player" easily yet.
-        // We'll rely on client honesty or simple validation if possible.
-        // Actually, let's just assume correct for now to unblock, or improved:
-        // Client sends { questionId, answerIndex }
-
-        // Simulating correctness for MVP without full question tracking per player
-        // In real app, we must track which question was sent to player.
-        // For now, let's trust the client payload has Question ID and we check against the SET.
-
-        // Wait, handleAnswer signature in this file only has answerIndex.
-        // We should update it to accept payload or questionId.
-        // Let's change the method signature in the switch call first.
-
-        // To keep it simple: Just assume correct if we can, or fetch question.
-        // Let's fetch a random question for "next-question" but validation needs ID.
-    }
-
-
-
     public handleReconnection(player: CryptoHackPlayer, socket: Socket) {
         super.handleReconnection(player, socket);
         // Player object state (including pendingRewards) is preserved by reference or restore
@@ -265,6 +240,14 @@ export class CryptoHackEngine extends AbstractGameEngine {
         const question = this.questions.find(q => q.id === questionId);
 
         if (!question) return;
+
+        // กันโกง/กันตอบซ้ำ: รับเฉพาะคำตอบของคำถามที่เพิ่งเสิร์ฟให้ผู้เล่นคนนี้
+        if (player.servedQuestionId !== questionId) {
+            console.warn(`[Crypto] Rejected answer from ${player.name}: question ${questionId} was not served (expected ${player.servedQuestionId}).`);
+            return;
+        }
+        // ใช้คำถามนี้ไปแล้ว ตอบซ้ำไม่ได้จนกว่าจะได้คำถามใหม่
+        player.servedQuestionId = null;
 
         const isCorrect = question.correctAnswer === answerIndex;
         
@@ -350,8 +333,10 @@ export class CryptoHackEngine extends AbstractGameEngine {
                 console.log(`[Crypto] Updating crypto for ${player.name}: ${player.crypto} + ${reward.amount}`);
                 player.crypto = (player.crypto || 0) + reward.amount;
             } else if (reward.type === "MULTIPLIER") {
-                console.log(`[Crypto] Updating crypto for ${player.name}: ${player.crypto} * ${reward.value}`);
-                player.crypto = (player.crypto || 0) * reward.value;
+                const current = player.crypto || 0;
+                // ถ้ายังไม่มี crypto การคูณจะได้ 0 (ไร้ผล) → ให้โบนัสก้อนเล็กแทน
+                player.crypto = current > 0 ? current * reward.value : 30;
+                console.log(`[Crypto] Multiplier for ${player.name}: ${current} -> ${player.crypto}`);
             }
 
             const newTotal = player.crypto;
@@ -376,8 +361,10 @@ export class CryptoHackEngine extends AbstractGameEngine {
 
         if (target.id === player.id) {
             hint = "You";
-        } else if (attempts > 0) {
-            hint = target.password.substring(0, Math.min(attempts, target.password.length));
+        } else {
+            // Always show at least 2 chars; each failed attempt reveals one more
+            const revealCount = Math.min(2 + attempts, target.password.length);
+            hint = target.password.substring(0, revealCount);
         }
 
         // Generate Hack Options (Target + 3 Random Distractors)
@@ -501,10 +488,18 @@ export class CryptoHackEngine extends AbstractGameEngine {
         }
 
         if (!this.questions || this.questions.length === 0) return;
-        const q = this.questions[Math.floor(Math.random() * this.questions.length)];
 
-        // Randomize options order for security/gameplay?
-        // For MVP, sending raw.
+        // เลี่ยงสุ่มได้คำถามเดิมซ้ำติดกัน (ถ้ามีมากกว่า 1 ข้อ)
+        let pool = this.questions;
+        if (pool.length > 1 && player.lastQuestionId) {
+            const filtered = pool.filter((q) => q.id !== player.lastQuestionId);
+            if (filtered.length > 0) pool = filtered;
+        }
+        const q = pool[Math.floor(Math.random() * pool.length)];
+
+        // บันทึกคำถามที่เสิร์ฟ เพื่อตรวจสอบตอนรับคำตอบ (กันโกง)
+        player.servedQuestionId = q.id;
+        player.lastQuestionId = q.id;
 
         socket.emit("next-question", {
             id: q.id,

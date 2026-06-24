@@ -53,5 +53,7 @@ export const FALLBACK_CRYPTO_PASSWORD_OPTIONS: string[] = [
 ]
 
 export function resolveCryptoPasswordOptions(serverOptions: string[]): string[] {
-    return serverOptions.length < 10 ? [...FALLBACK_CRYPTO_PASSWORD_OPTIONS] : serverOptions
+    // ใช้ fallback เฉพาะตอน server ส่งลิสต์ว่างจริงๆ (broken state)
+    // เดิมใช้ < 10 ทำให้ช่วงท้ายการเลือกดึงลิสต์เต็มกลับมา รวมรหัสที่คนอื่นจองไปแล้ว
+    return serverOptions.length === 0 ? [...FALLBACK_CRYPTO_PASSWORD_OPTIONS] : serverOptions
 }

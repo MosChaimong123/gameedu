@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="chBg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#000d01"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+    <linearGradient id="chBody" x1="0" y1="258" x2="0" y2="440" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#052e0a"/>
+      <stop offset="100%" stop-color="#011204"/>
+    </linearGradient>
+    <filter id="chGlow">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="chLG">
+      <feGaussianBlur stdDeviation="20" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="chSG">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="url(#chBg)"/>
+
+  <!-- Outer border glow -->
+  <rect x="5" y="5" width="502" height="502" rx="96" fill="none" stroke="#22c55e" stroke-width="2" stroke-opacity="0.2" filter="url(#chSG)"/>
+
+  <!-- Matrix dot grid (very subtle) -->
+  <g fill="#22c55e" fill-opacity="0.055">
+    <circle cx="80" cy="80" r="2.5"/><circle cx="136" cy="80" r="2.5"/><circle cx="192" cy="80" r="2.5"/>
+    <circle cx="248" cy="80" r="2.5"/><circle cx="304" cy="80" r="2.5"/><circle cx="360" cy="80" r="2.5"/>
+    <circle cx="416" cy="80" r="2.5"/><circle cx="80" cy="136" r="2.5"/><circle cx="136" cy="136" r="2.5"/>
+    <circle cx="192" cy="136" r="2.5"/><circle cx="248" cy="136" r="2.5"/><circle cx="304" cy="136" r="2.5"/>
+    <circle cx="360" cy="136" r="2.5"/><circle cx="416" cy="136" r="2.5"/><circle cx="80" cy="192" r="2.5"/>
+    <circle cx="136" cy="192" r="2.5"/><circle cx="416" cy="192" r="2.5"/><circle cx="80" cy="376" r="2.5"/>
+    <circle cx="136" cy="432" r="2.5"/><circle cx="192" cy="432" r="2.5"/><circle cx="248" cy="432" r="2.5"/>
+    <circle cx="304" cy="432" r="2.5"/><circle cx="360" cy="432" r="2.5"/><circle cx="416" cy="432" r="2.5"/>
+    <circle cx="80" cy="432" r="2.5"/><circle cx="416" cy="376" r="2.5"/><circle cx="360" cy="192" r="2.5"/>
+  </g>
+
+  <!-- Ambient green glow -->
+  <ellipse cx="256" cy="340" rx="155" ry="110" fill="#22c55e" fill-opacity="0.06" filter="url(#chLG)"/>
+
+  <!-- === CIRCUIT TRACES === -->
+  <!-- Left side -->
+  <polyline points="72,310 148,310 148,268 170,268" stroke="#22c55e" stroke-width="2.5" stroke-opacity="0.55" fill="none"/>
+  <circle cx="148" cy="310" r="5" fill="#22c55e" fill-opacity="0.65"/>
+  <circle cx="148" cy="268" r="5" fill="#22c55e" fill-opacity="0.65"/>
+  <circle cx="72" cy="310" r="4" fill="#22c55e" fill-opacity="0.35"/>
+
+  <polyline points="72,370 148,370 148,360 170,360" stroke="#22c55e" stroke-width="2" stroke-opacity="0.38" fill="none"/>
+  <circle cx="72" cy="370" r="4" fill="#22c55e" fill-opacity="0.3"/>
+
+  <polyline points="88,415 155,415 155,400 170,400" stroke="#22c55e" stroke-width="1.5" stroke-opacity="0.28" fill="none"/>
+
+  <!-- Right side -->
+  <polyline points="440,310 364,310 364,268 342,268" stroke="#22c55e" stroke-width="2.5" stroke-opacity="0.55" fill="none"/>
+  <circle cx="364" cy="310" r="5" fill="#22c55e" fill-opacity="0.65"/>
+  <circle cx="364" cy="268" r="5" fill="#22c55e" fill-opacity="0.65"/>
+  <circle cx="440" cy="310" r="4" fill="#22c55e" fill-opacity="0.35"/>
+
+  <polyline points="440,370 364,370 364,360 342,360" stroke="#22c55e" stroke-width="2" stroke-opacity="0.38" fill="none"/>
+  <circle cx="440" cy="370" r="4" fill="#22c55e" fill-opacity="0.3"/>
+
+  <polyline points="424,415 356,415 356,400 342,400" stroke="#22c55e" stroke-width="1.5" stroke-opacity="0.28" fill="none"/>
+
+  <!-- Top traces -->
+  <polyline points="256,175 256,120 196,120 196,88" stroke="#22c55e" stroke-width="1.8" stroke-opacity="0.3" fill="none"/>
+  <polyline points="256,175 256,120 316,120 316,88" stroke="#22c55e" stroke-width="1.8" stroke-opacity="0.3" fill="none"/>
+  <circle cx="256" cy="120" r="4" fill="#22c55e" fill-opacity="0.4"/>
+
+  <!-- === PADLOCK SHACKLE === -->
+  <!-- Glow layer -->
+  <path d="M196,275 L196,208 A60,60 0 0 1 316,208 L316,275"
+        stroke="#22c55e" stroke-width="28" stroke-linecap="round" fill="none"
+        stroke-opacity="0.18" filter="url(#chGlow)"/>
+  <!-- Main shackle -->
+  <path d="M196,275 L196,208 A60,60 0 0 1 316,208 L316,275"
+        stroke="#22c55e" stroke-width="22" stroke-linecap="round" fill="none"
+        filter="url(#chGlow)"/>
+  <!-- Shackle inner dark -->
+  <path d="M196,275 L196,208 A60,60 0 0 1 316,208 L316,275"
+        stroke="#011204" stroke-width="11" stroke-linecap="round" fill="none"/>
+
+  <!-- === LOCK BODY === -->
+  <rect x="158" y="258" width="196" height="190" rx="18" fill="url(#chBody)"/>
+  <!-- Body border glow -->
+  <rect x="158" y="258" width="196" height="190" rx="18" fill="none" stroke="#22c55e" stroke-width="2.5" filter="url(#chSG)"/>
+  <!-- Inner border -->
+  <rect x="168" y="268" width="176" height="170" rx="12" fill="none" stroke="#22c55e" stroke-width="0.8" stroke-opacity="0.28"/>
+
+  <!-- Scan lines across body -->
+  <line x1="168" y1="330" x2="344" y2="330" stroke="#22c55e" stroke-width="1" stroke-opacity="0.1"/>
+  <line x1="168" y1="362" x2="344" y2="362" stroke="#22c55e" stroke-width="1" stroke-opacity="0.08"/>
+  <line x1="168" y1="394" x2="344" y2="394" stroke="#22c55e" stroke-width="1" stroke-opacity="0.06"/>
+
+  <!-- === KEYHOLE === -->
+  <!-- Glow ring -->
+  <circle cx="256" cy="330" r="32" fill="#22c55e" fill-opacity="0.1" filter="url(#chSG)"/>
+  <!-- Keyhole outer ring -->
+  <circle cx="256" cy="322" r="22" fill="none" stroke="#22c55e" stroke-width="2.5"/>
+  <!-- Keyhole filled circle -->
+  <circle cx="256" cy="322" r="13" fill="#22c55e" fill-opacity="0.5"/>
+  <!-- Keyhole slot -->
+  <rect x="249" y="338" width="14" height="32" rx="6" fill="#22c55e"/>
+
+  <!-- Corner bracket decorations -->
+  <path d="M106,96 L106,76 L126,76" stroke="#22c55e" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.45"/>
+  <path d="M406,96 L406,76 L386,76" stroke="#22c55e" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.45"/>
+  <path d="M106,416 L106,436 L126,436" stroke="#22c55e" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.45"/>
+  <path d="M406,416 L406,436 L386,436" stroke="#22c55e" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.45"/>
+
+  <!-- Tiny binary text hints (very faint) -->
+  <text x="92" y="238" font-size="11" fill="#22c55e" fill-opacity="0.18" font-family="monospace">01</text>
+  <text x="392" y="238" font-size="11" fill="#22c55e" fill-opacity="0.18" font-family="monospace">10</text>
+  <text x="92" y="460" font-size="11" fill="#22c55e" fill-opacity="0.15" font-family="monospace">11</text>
+  <text x="388" y="460" font-size="11" fill="#22c55e" fill-opacity="0.15" font-family="monospace">00</text>
+</svg>

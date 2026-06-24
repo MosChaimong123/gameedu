@@ -52,22 +52,22 @@ const MODE_DEFS: GameModeBase[] = [
         id: "gold-quest",
         titleKey: "hostModeGoldQuestTitle",
         descKey: "hostModeGoldQuestDesc",
-        imageSrc: "/assets/gold-quest-v2.png",
+        imageSrc: "/assets/gold-quest.svg",
         playersKey: "hostModePlayers2to60",
         durationKey: "hostModeDurationGoldQuest",
-        color: "bg-brand-pink border-brand-yellow/80",
-        previewAccent: "bg-brand-navy/55",
+        color: "bg-amber-950 border-amber-500/70",
+        previewAccent: "bg-amber-950/60",
         active: true,
     },
     {
         id: "crypto-hack",
         titleKey: "hostModeCryptoTitle",
         descKey: "hostModeCryptoDesc",
-        imageSrc: "/assets/crypto-hack-v2.png",
+        imageSrc: "/assets/crypto-hack.svg",
         playersKey: "hostModePlayers2to60",
         durationKey: "hostModeDurationCrypto",
-        color: "bg-emerald-900 border-emerald-400/70",
-        previewAccent: "bg-slate-950/60",
+        color: "bg-black border-green-500/60",
+        previewAccent: "bg-black/70",
         active: true,
     },
     {
@@ -88,42 +88,9 @@ const MODE_DEFS: GameModeBase[] = [
         imageSrc: "/assets/bingo.svg",
         playersKey: "hostModePlayers2to60",
         durationKey: "hostModeDurationBingo",
-        color: "bg-emerald-700 border-emerald-400/70",
-        previewAccent: "bg-slate-950/55",
+        color: "bg-violet-900 border-fuchsia-400/70",
+        previewAccent: "bg-violet-950/60",
         active: true,
-    },
-    {
-        id: "fishing-frenzy",
-        titleKey: "hostModeFishingTitle",
-        descKey: "hostModeFishingDesc",
-        imageSrc: "/assets/fishing-frenzy-v2.png",
-        playersKey: "hostModePlayers2to60",
-        durationKey: "hostModeDurationFishing",
-        color: "bg-brand-sky border-brand-sky/55",
-        previewAccent: "bg-brand-navy/55",
-        active: false,
-    },
-    {
-        id: "tower-defense",
-        titleKey: "hostModeTowerTitle",
-        descKey: "hostModeTowerDesc",
-        imageSrc: "/assets/tower-defense.png",
-        playersKey: "hostModePlayers1to60",
-        durationKey: "hostModeDurationTower",
-        color: "bg-brand-pink border-brand-pink/45",
-        previewAccent: "bg-brand-navy/55",
-        active: false,
-    },
-    {
-        id: "cafe",
-        titleKey: "hostModeCafeTitle",
-        descKey: "hostModeCafeDesc",
-        imageSrc: "/assets/cafe.png",
-        playersKey: "hostModePlayers2to60",
-        durationKey: "hostModeDurationCafe",
-        color: "bg-rose-700 border-rose-300/50",
-        previewAccent: "bg-slate-950/60",
-        active: false,
     },
     {
         id: "factory",
@@ -159,7 +126,10 @@ export function GameModeSelector({ onSelect, onBack }: GameModeSelectorProps) {
     const { t, language } = useLanguage()
     const modes: GameMode[] = useMemo(
         () =>
-            MODE_DEFS.map((def) => {
+            // เกมที่เปิดแล้วขึ้นก่อน เกม "เร็วๆ นี้" ไปอยู่ด้านล่าง (เรียงแบบ stable คงลำดับเดิมภายในกลุ่ม)
+            [...MODE_DEFS]
+                .sort((a, b) => Number(b.active) - Number(a.active))
+                .map((def) => {
                 const title = t(def.titleKey)
                 return {
                     id: def.id,
@@ -176,6 +146,7 @@ export function GameModeSelector({ onSelect, onBack }: GameModeSelectorProps) {
                             alt={title}
                             width={512}
                             height={512}
+                            unoptimized={def.imageSrc.endsWith(".svg")}
                             className="h-full w-full object-contain drop-shadow-lg rounded-2xl"
                         />
                     ),

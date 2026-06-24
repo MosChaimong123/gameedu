@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="gqBg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1c0a02"/>
+      <stop offset="100%" stop-color="#0a0300"/>
+    </linearGradient>
+    <linearGradient id="gqLid" x1="0" y1="186" x2="0" y2="295" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#92400e"/>
+    </linearGradient>
+    <linearGradient id="gqBody" x1="0" y1="292" x2="0" y2="432" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7c2d12"/>
+      <stop offset="100%" stop-color="#3d1208"/>
+    </linearGradient>
+    <linearGradient id="gqGold" x1="0" y1="0" x2="512" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="50%" stop-color="#fef08a"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <filter id="gqGlow">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="gqLG">
+      <feGaussianBlur stdDeviation="20" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="gqSG">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="url(#gqBg)"/>
+
+  <!-- Ambient gold glow -->
+  <ellipse cx="256" cy="340" rx="190" ry="120" fill="#f59e0b" fill-opacity="0.07" filter="url(#gqLG)"/>
+
+  <!-- Outer border glow -->
+  <rect x="5" y="5" width="502" height="502" rx="96" fill="none" stroke="#f59e0b" stroke-width="2" stroke-opacity="0.25" filter="url(#gqSG)"/>
+
+  <!-- === COIN STACKS BEHIND CHEST === -->
+  <!-- Right stack -->
+  <ellipse cx="374" cy="428" rx="44" ry="18" fill="#92400e"/>
+  <rect x="330" y="400" width="88" height="28" fill="#78350f"/>
+  <ellipse cx="374" cy="400" rx="44" ry="18" fill="#f59e0b" filter="url(#gqSG)"/>
+
+  <!-- Left stack -->
+  <ellipse cx="148" cy="432" rx="36" ry="15" fill="#92400e"/>
+  <rect x="112" y="408" width="72" height="24" fill="#78350f"/>
+  <ellipse cx="148" cy="408" rx="36" ry="15" fill="#fbbf24" filter="url(#gqSG)"/>
+
+  <!-- === CHEST BODY === -->
+  <rect x="132" y="292" width="248" height="148" rx="12" fill="url(#gqBody)"/>
+  <!-- Wood grain lines -->
+  <line x1="132" y1="334" x2="380" y2="334" stroke="#78350f" stroke-width="1.5" stroke-opacity="0.45"/>
+  <line x1="132" y1="376" x2="380" y2="376" stroke="#78350f" stroke-width="1.5" stroke-opacity="0.45"/>
+  <!-- Bottom gold band -->
+  <rect x="132" y="414" width="248" height="26" fill="url(#gqGold)" fill-opacity="0.9"/>
+
+  <!-- === CHEST LID === -->
+  <path d="M132,295 L132,224 Q132,186 166,186 L346,186 Q380,186 380,224 L380,295 Z" fill="url(#gqLid)"/>
+  <!-- Lid highlight -->
+  <path d="M150,196 Q150,194 154,194 L358,194 Q362,194 362,196 L362,214 Q256,226 150,214 Z" fill="#fef3c7" fill-opacity="0.22"/>
+  <!-- Wood grain on lid -->
+  <line x1="148" y1="240" x2="364" y2="240" stroke="#92400e" stroke-width="1" stroke-opacity="0.4"/>
+  <line x1="148" y1="265" x2="364" y2="265" stroke="#92400e" stroke-width="1" stroke-opacity="0.3"/>
+
+  <!-- Gold band at lid/body join -->
+  <rect x="132" y="278" width="248" height="30" fill="url(#gqGold)"/>
+
+  <!-- === LOCK CLASP === -->
+  <rect x="222" y="260" width="68" height="62" rx="11" fill="url(#gqGold)" filter="url(#gqGlow)"/>
+  <!-- Lock shine -->
+  <rect x="228" y="265" width="28" height="10" rx="5" fill="#fef9c3" fill-opacity="0.55"/>
+  <!-- Keyhole circle -->
+  <circle cx="256" cy="282" r="12" fill="#451a03"/>
+  <!-- Keyhole slot -->
+  <rect x="250" y="289" width="12" height="20" rx="5" fill="#451a03"/>
+
+  <!-- === FLOATING COINS above lid === -->
+  <!-- Big center coin -->
+  <circle cx="256" cy="155" r="36" fill="#f59e0b" filter="url(#gqGlow)"/>
+  <circle cx="256" cy="155" r="27" fill="#fde68a"/>
+  <circle cx="256" cy="155" r="21" fill="#f59e0b"/>
+  <text x="256" y="162" text-anchor="middle" font-size="22" font-weight="900" fill="#fef9c3" font-family="Georgia,serif">$</text>
+
+  <!-- Left coin -->
+  <circle cx="184" cy="143" r="26" fill="#fbbf24" filter="url(#gqSG)"/>
+  <circle cx="184" cy="143" r="18" fill="#fde68a"/>
+  <circle cx="184" cy="143" r="13" fill="#f59e0b"/>
+
+  <!-- Right coin -->
+  <circle cx="326" cy="138" r="21" fill="#f59e0b" filter="url(#gqSG)"/>
+  <circle cx="326" cy="138" r="14" fill="#fde68a"/>
+
+  <!-- Small top coin -->
+  <circle cx="240" cy="102" r="14" fill="#fbbf24" filter="url(#gqSG)" fill-opacity="0.8"/>
+  <circle cx="240" cy="102" r="9" fill="#fde68a"/>
+
+  <!-- === SPARKLES === -->
+  <g filter="url(#gqSG)" fill="#fef08a">
+    <polygon points="418,86 424,102 440,86 424,70" opacity="0.95"/>
+    <polygon points="418,86 413,80 406,86 413,92" opacity="0.45"/>
+  </g>
+  <g filter="url(#gqSG)" fill="#fbbf24">
+    <polygon points="88,168 93,180 104,168 93,156" opacity="0.75"/>
+    <polygon points="88,168 84,163 78,168 84,173" opacity="0.35"/>
+  </g>
+  <g filter="url(#gqSG)" fill="#f59e0b">
+    <polygon points="444,308 448,318 456,308 448,298" opacity="0.55"/>
+    <polygon points="76,380 79,388 86,380 79,372" opacity="0.4"/>
+  </g>
+</svg>

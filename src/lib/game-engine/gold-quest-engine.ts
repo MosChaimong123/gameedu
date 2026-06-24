@@ -124,6 +124,8 @@ export class GoldQuestEngine extends AbstractGameEngine {
       newTotal = player.gold;
     } else if (reward.type === "STEAL") {
       player.pendingStealPercent = reward.value;
+    } else if (reward.type === "SWAP") {
+      player.pendingSwap = true;
     }
 
     player.pendingChest = false;
@@ -146,12 +148,23 @@ export class GoldQuestEngine extends AbstractGameEngine {
     }
 
     if (type === "SWAP") {
+      // ต้องได้รางวัล SWAP จากหีบมาก่อน (กันโกงฝั่ง client)
+      if (!actor.pendingSwap) {
+        socket.emit("error", { message: SOCKET_ERROR_GOLD_QUEST_INTERACTION_INVALID });
+        return;
+      }
+      actor.pendingSwap = false;
       const temp = actor.gold;
       actor.gold = victim.gold;
       victim.gold = temp;
       this.io.to(victim.id).emit("player-gold-update", { gold: victim.gold });
     } else if (type === "STEAL") {
-      const stealPercent = actor.pendingStealPercent ?? 25;
+      // ต้องได้รางวัล STEAL จากหีบมาก่อน (เดิม default 25% ทำให้ขโมยได้ไม่จำกัด)
+      if (actor.pendingStealPercent == null) {
+        socket.emit("error", { message: SOCKET_ERROR_GOLD_QUEST_INTERACTION_INVALID });
+        return;
+      }
+      const stealPercent = actor.pendingStealPercent;
       actor.pendingStealPercent = undefined;
       const stealAmount = Math.floor(victim.gold * (stealPercent / 100));
       victim.gold -= stealAmount;
@@ -187,11 +200,21 @@ export class GoldQuestEngine extends AbstractGameEngine {
       return;
     }
 
+    // กันโกง/กันตอบซ้ำ: รับเฉพาะคำตอบของคำถามที่เพิ่งเสิร์ฟให้ผู้เล่นคนนี้
+    if (player.servedQuestionId !== questionId) {
+      console.warn(`[Quest] Rejected answer from ${player.name}: question ${questionId} was not served (expected ${player.servedQuestionId}).`);
+      return;
+    }
+    // ใช้คำถามนี้ไปแล้ว ตอบซ้ำไม่ได้จนกว่าจะได้คำถามใหม่
+    player.servedQuestionId = null;
+
     const isCorrect = question.correctAnswer === answerIndex;
 
     // Initialize responses if not exists
     if (!player.responses) player.responses = {};
-    player.responses[Number(questionId)] = isCorrect;
+    // ใช้ questionId (UUID string) เป็น key ให้ตรงกับที่รายงานวิเคราะห์อ่าน (responses[q.id])
+    // เดิมใช้ Number(questionId) → NaN ทุกข้อ ทำให้ heatmap ว่างเปล่า
+    player.responses[questionId] = isCorrect;
 
     if (isCorrect) {
       player.correctAnswers = (player.correctAnswers || 0) + 1;
@@ -249,6 +272,9 @@ export class GoldQuestEngine extends AbstractGameEngine {
     // Mark as seen
     seen.add(q.id);
 
+    // บันทึกคำถามที่เสิร์ฟ เพื่อตรวจสอบตอนรับคำตอบ (กันโกง/กันตอบซ้ำ)
+    player.servedQuestionId = q.id;
+
     socket.emit("next-question", {
       id: q.id,
       question: q.question,
@@ -266,6 +292,10 @@ export class GoldQuestEngine extends AbstractGameEngine {
 
     // Sort players before sending
     this.players.sort((a, b) => b.gold - a.gold);
+
+    // ล้าง tracking ที่ไม่ใช้แล้ว กัน memory leak ใน process ที่รันยาว
+    this.seenQuestions.clear();
+
     super.endGame();
   }
 

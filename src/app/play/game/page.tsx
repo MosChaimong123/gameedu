@@ -61,6 +61,7 @@ export default function PlayerGamePage() {
     const [gameSettings, setGameSettings] = useState<GameSettings | null>(null)
     const [currentTask, setCurrentTask] = useState<HackTask | null>(null)
     const [passwordOptions, setPasswordOptions] = useState<string[]>([])
+    const [hackGuessOptions, setHackGuessOptions] = useState<string[]>([])
     const [hackHint, setHackHint] = useState<string | null>(null)
     const [boxReveal, setBoxReveal] = useState<{ index: number; reward: CryptoReward } | null>(null)
     const [hackResult, setHackResult] = useState<{
@@ -96,6 +97,7 @@ export default function PlayerGamePage() {
         setGameSettings,
         setCurrentTask,
         setPasswordOptions,
+        setHackGuessOptions,
         setHackHint,
         setBoxReveal,
         setHackResult,
@@ -342,7 +344,7 @@ export default function PlayerGamePage() {
                             setView={(nextView) => setView(nextView as GameView)}
                             endTime={endTime}
                             cryptoGoal={gameSettings?.winCondition === "GOLD" ? gameSettings.goldGoal : undefined}
-                            passwordOptions={passwordOptions}
+                            passwordOptions={view === "HACK_GUESS" ? hackGuessOptions : passwordOptions}
                             hackHint={hackHint}
                             hackResult={hackResult}
                             boxReveal={boxReveal}

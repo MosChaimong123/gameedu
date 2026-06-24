@@ -54,6 +54,10 @@ export interface GoldQuestPlayer extends BasePlayer {
     pendingChest?: boolean;
     /** Server: STEAL chest percent (10 or 25) until interaction is used */
     pendingStealPercent?: number;
+    /** Server: true after a SWAP chest until the swap interaction is used */
+    pendingSwap?: boolean;
+    /** Server: คำถามที่กำลังรอคำตอบ (กันโกง/กันตอบซ้ำ) */
+    servedQuestionId?: string | null;
 }
 
 /** Negamon Battle — HP แบบเรียลไทม์ (โหมดห้องสด) */
@@ -178,6 +182,8 @@ export interface CryptoHackPlayer extends BasePlayer {
     pendingRewards?: CryptoReward[]; // Store rewards here for persistence
     hackingHistory: Record<string, number>; // targetId -> failedAttempts
     completedTaskTypes: string[]; // Track completed tasks to avoid repeats
+    servedQuestionId?: string | null; // คำถามที่กำลังรอคำตอบ (กันโกง/กันตอบซ้ำ)
+    lastQuestionId?: string | null; // คำถามล่าสุดที่เสิร์ฟ (กันสุ่มซ้ำติดกัน)
 }
 
 export interface CryptoHackSession extends GameSession {

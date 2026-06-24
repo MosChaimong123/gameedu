@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { Check, Clock, Grid3x3 } from "lucide-react"
 import { PageBackLink } from "@/components/ui/page-back-link"
 import { useLanguage } from "@/components/providers/language-provider"
+import { linesToWinForSize } from "@/lib/game-engine/bingo-card"
 
 interface BingoSettingsProps {
     onHost: (settings: GameSettings) => void
@@ -21,7 +22,8 @@ export function BingoSettings({ onHost, onBack }: BingoSettingsProps) {
     const [cardSize, setCardSize] = useState<3 | 4 | 5>(4)
     const [winCondition, setWinCondition] = useState<"TIME" | "LINES">("LINES")
     const [timeMinutes, setTimeMinutes] = useState(10)
-    const [linesToWin, setLinesToWin] = useState(3)
+    // เป้าแถวคำนวณอัตโนมัติจากขนาดการ์ด (3x3=1, 4x4=2, 5x5=2)
+    const linesToWin = linesToWinForSize(cardSize)
 
     const [showInstructions, setShowInstructions] = useState(true)
     const [allowLateJoin, setAllowLateJoin] = useState(true)
@@ -137,13 +139,9 @@ export function BingoSettings({ onHost, onBack }: BingoSettingsProps) {
                         {winCondition === "LINES" ? (
                             <div className="flex items-center justify-between">
                                 <label className="font-bold text-slate-600">{t("hostBingoLinesToWinLabel")}</label>
-                                <Input
-                                    type="number"
-                                    value={linesToWin}
-                                    onChange={(e) => setLinesToWin(Math.max(1, Number(e.target.value)))}
-                                    className="w-24 text-center font-bold text-lg h-12 border-slate-300"
-                                    min={1}
-                                />
+                                <div className="flex h-12 w-24 items-center justify-center rounded-md border-2 border-emerald-200 bg-emerald-50 text-lg font-black text-emerald-700">
+                                    {t("playBingoLinesLabel", { count: linesToWin })}
+                                </div>
                             </div>
                         ) : (
                             <div className="flex items-center justify-between">

@@ -58,16 +58,18 @@ function ConfettiBurst() {
 export function BingoClient({ state, rank, onMark, t }: BingoClientProps) {
     const { size, card, marked, completedLines, question, lastMark } = state
 
-    // ล็อกหลังแตะไปแล้ว 1 ครั้งต่อข้อ — ปลดล็อกเมื่อ index ของโจทย์เปลี่ยน
-    const [answeredIndex, setAnsweredIndex] = useState<number | null>(null)
+    // ล็อกเฉพาะข้อที่ตอบ "ถูก" แล้ว — ตอบผิดยังแตะใหม่ได้จนกว่าจะถูก
+    // (server เป็นผู้ตัดสิน; ฝั่ง client ล็อกเมื่อ mark-result บอกว่าถูกของข้อปัจจุบัน)
+    const [solvedIndex, setSolvedIndex] = useState<number | null>(null)
     const questionIndex = question?.index ?? null
 
-    // แจ้งบิงโกใหม่ — ตั้ง flash ตอน lastMark เปลี่ยน (set state during render ตามแพตเทิร์น React)
+    // แจ้งบิงโกใหม่ + ล็อกข้อเมื่อตอบถูก — ตั้งตอน lastMark เปลี่ยน (adjust-state-during-render)
     const [shownMark, setShownMark] = useState(lastMark)
     const [bingoFlash, setBingoFlash] = useState(false)
     if (lastMark !== shownMark) {
         setShownMark(lastMark)
         setBingoFlash(Boolean(lastMark?.newBingo))
+        if (lastMark?.correct) setSolvedIndex(questionIndex)
     }
     useEffect(() => {
         if (!bingoFlash) return
@@ -75,7 +77,7 @@ export function BingoClient({ state, rank, onMark, t }: BingoClientProps) {
         return () => clearTimeout(timer)
     }, [bingoFlash])
 
-    const locked = answeredIndex !== null && answeredIndex === questionIndex
+    const locked = solvedIndex !== null && solvedIndex === questionIndex
     const hasQuestion = question !== null
     const markedCount = marked.filter(Boolean).length
 
@@ -83,7 +85,7 @@ export function BingoClient({ state, rank, onMark, t }: BingoClientProps) {
         if (!hasQuestion || locked) return
         if (marked[cellIndex]) return
         if (card[cellIndex] === BINGO_FREE_LABEL) return
-        setAnsweredIndex(questionIndex)
+        // ไม่ล็อกทันที — รอผลจาก server; ถ้าผิดยังแตะช่องอื่นได้ต่อ
         onMark(cellIndex)
     }
 
@@ -156,8 +158,7 @@ export function BingoClient({ state, rank, onMark, t }: BingoClientProps) {
                         const isWrongTap =
                             lastMark !== null &&
                             !lastMark.correct &&
-                            lastMark.cellIndex === i &&
-                            answeredIndex === questionIndex
+                            lastMark.cellIndex === i
                         return (
                             <motion.button
                                 key={i}

@@ -20,6 +20,14 @@ export function requiredDistinctAnswers(size: BingoCardSize): number {
     return size * size - (hasFreeCenter(size) ? 1 : 0);
 }
 
+/**
+ * จำนวนแถวที่ต้องสะสมเพื่อชนะ — ปรับอัตโนมัติตามขนาดการ์ดให้เล่นจบได้จริง
+ * 3x3 = 1 แถว, 4x4 = 2 แถว, 5x5 = 2 แถว
+ */
+export function linesToWinForSize(size: BingoCardSize): number {
+    return size === 3 ? 1 : 2;
+}
+
 /** ข้อความเฉลยของคำถาม (trim แล้ว) */
 export function answerTextOf(question: GameQuestion): string {
     return (question.options[question.correctAnswer] ?? "").trim();

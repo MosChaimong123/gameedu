@@ -174,6 +174,37 @@ describe("BingoEngine", () => {
     expect(player.correctAnswers).toBe(0);
   });
 
+  it("lets a player retry after a wrong tap until they answer correctly", () => {
+    const engine = makeEngine(io);
+    const sock = mockSocket("s1");
+    engine.addPlayer(makePlayer("s1", "P1"), sock);
+    engine.startGame();
+    engine.revealNextQuestion();
+
+    const question = lastEmit(io, "bingo-question")!.payload as { id: string };
+    const q = nineQuestions.find((x) => x.id === question.id)!;
+    const answer = q.options[q.correctAnswer];
+    const player = engine.getPlayer("s1")!;
+    const wrongCell = player.card.findIndex((c) => c !== answer);
+    const rightCell = player.card.findIndex((c) => c === answer);
+
+    // แตะผิดก่อน — ต้องไม่ล็อก (ยังแตะต่อได้)
+    engine.handleEvent("mark-cell", { cellIndex: wrongCell }, sock);
+    expect(player.marked[wrongCell]).toBe(false);
+    expect(player.incorrectAnswers).toBe(1);
+
+    // แตะใหม่ให้ถูก — มาร์คได้ ไม่โดน ALREADY_ANSWERED
+    engine.handleEvent("mark-cell", { cellIndex: rightCell }, sock);
+    expect(player.marked[rightCell]).toBe(true);
+    expect(player.correctAnswers).toBe(1);
+
+    // หลังตอบถูกแล้ว แตะอีก — คราวนี้ต้องโดนล็อก
+    engine.handleEvent("mark-cell", { cellIndex: rightCell }, sock);
+    expect(sock.emit).toHaveBeenCalledWith("error", {
+      message: SOCKET_ERROR_BINGO_ALREADY_ANSWERED,
+    });
+  });
+
   it("rejects mark-cell before any question is revealed", () => {
     const engine = makeEngine(io);
     const sock = mockSocket("s1");

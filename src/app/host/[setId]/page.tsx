@@ -16,6 +16,7 @@ import { GoldQuestHostView } from "@/components/game/gold-quest/host-view"
 import { CryptoHackHostView } from "@/components/game/crypto-hack/host-view"
 import { NegamonBattleHostView } from "@/components/game/negamon/negamon-battle-host-view"
 import { BingoHostView } from "@/components/game/bingo/bingo-host-view"
+import { linesToWinForSize, normalizeCardSize } from "@/lib/game-engine/bingo-card"
 import {
     GoldQuestPlayer,
     CryptoHackPlayer,
@@ -641,7 +642,7 @@ export default function HostLobbyPage() {
                 <BingoHostView
                     players={players.filter(isBingoPlayer)}
                     timeLeft={timeLeft}
-                    linesToWin={gameSettings?.winCondition === "LINES" ? gameSettings.bingoLinesToWin : undefined}
+                    linesToWin={gameSettings?.winCondition === "LINES" ? linesToWinForSize(normalizeCardSize(gameSettings.cardSize)) : undefined}
                     currentQuestion={bingoQuestion}
                     currentAnswer={bingoAnswer}
                     currentOptions={bingoOptions}

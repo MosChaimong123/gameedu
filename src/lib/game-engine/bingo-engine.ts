@@ -8,6 +8,7 @@ import {
   collectAnswerPool,
   countCompletedLines,
   generateCard,
+  linesToWinForSize,
   normalizeCardSize,
   shuffle,
 } from "./bingo-card";
@@ -90,6 +91,9 @@ export class BingoEngine extends AbstractGameEngine {
       this.emitToHost("error", { message: SOCKET_ERROR_BINGO_NOT_ENOUGH_ANSWERS });
       return;
     }
+
+    // ตั้งเป้าแถวอัตโนมัติตามขนาดการ์ด (ให้ค่าตรงกับที่ใช้ตัดสินใน tick)
+    this.settings.bingoLinesToWin = linesToWinForSize(this.size);
 
     this.workingAnswers = working;
     const workingSet = new Set(working);
@@ -210,10 +214,10 @@ export class BingoEngine extends AbstractGameEngine {
     const alreadyMarked = player.marked[cellIndex] === true;
     const isCorrect = !alreadyMarked && tappedText === correctText;
 
-    player.answeredCurrentIndex = this.currentIndex;
-
     let newBingo = false;
     if (isCorrect) {
+      // ล็อกข้อนี้เฉพาะตอนตอบถูก — ตอบผิดยังแตะใหม่ได้จนกว่าจะถูก
+      player.answeredCurrentIndex = this.currentIndex;
       player.marked[cellIndex] = true;
       player.correctAnswers = (player.correctAnswers || 0) + 1;
       const before = player.completedLines;
@@ -236,7 +240,8 @@ export class BingoEngine extends AbstractGameEngine {
     super.tick(); // Time limit
 
     if (this.status === "PLAYING" && this.settings.winCondition === "LINES") {
-      const target = this.settings.bingoLinesToWin ?? Infinity;
+      // เป้าปรับอัตโนมัติตามขนาดการ์ดให้เล่นจบได้จริง (ไม่อิงค่าที่กรอกเอง)
+      const target = linesToWinForSize(this.size);
       if (this.players.some((p) => p.completedLines >= target)) {
         this.endGame();
       }

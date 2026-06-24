@@ -7,6 +7,7 @@ import {
   countCompletedLines,
   generateCard,
   hasFreeCenter,
+  linesToWinForSize,
   normalizeCardSize,
   requiredDistinctAnswers,
 } from "../bingo-card";
@@ -33,6 +34,12 @@ describe("bingo-card helpers", () => {
     expect(requiredDistinctAnswers(3)).toBe(9);
     expect(requiredDistinctAnswers(4)).toBe(16);
     expect(requiredDistinctAnswers(5)).toBe(24);
+  });
+
+  it("linesToWinForSize scales the target down for bigger cards", () => {
+    expect(linesToWinForSize(3)).toBe(1);
+    expect(linesToWinForSize(4)).toBe(2);
+    expect(linesToWinForSize(5)).toBe(2);
   });
 
   it("collectAnswerPool dedupes and trims, ignores blanks", () => {

@@ -28,9 +28,9 @@ export function linesToWinForSize(size: BingoCardSize): number {
     return size === 3 ? 1 : 2;
 }
 
-/** ข้อความเฉลยของคำถาม (trim แล้ว) */
+/** ข้อความเฉลยของคำถาม (trim + normalize whitespace แล้ว) */
 export function answerTextOf(question: GameQuestion): string {
-    return (question.options[question.correctAnswer] ?? "").trim();
+    return (question.options[question.correctAnswer] ?? "").trim().replace(/\s+/g, " ");
 }
 
 /** รวมเฉลยที่ไม่ซ้ำกันจากชุดคำถาม เรียงตามลำดับที่พบ */

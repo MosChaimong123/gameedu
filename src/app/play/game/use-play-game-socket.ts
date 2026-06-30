@@ -454,9 +454,10 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
         socket.on("bingo-card", (data: { card: string[]; marked: boolean[]; size: number }) => {
             setGameMode("BINGO")
             gameModeRef.current = "BINGO"
-            const lines = countCompletedLines(data.marked, data.size as BingoCardSize)
+            const safeSize = normalizeCardSize(data.size)
+            const lines = countCompletedLines(data.marked, safeSize)
             setBingoState((prev) => ({
-                size: data.size,
+                size: safeSize,
                 card: data.card,
                 marked: data.marked,
                 completedLines: lines,

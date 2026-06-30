@@ -16,6 +16,7 @@ import {
   SOCKET_ERROR_NEGAMON_MID_MATCH,
   SOCKET_ERROR_LOBBY_FULL,
   SOCKET_ERROR_NICKNAME_IN_USE,
+  SOCKET_ERROR_BINGO_ONLY_HOST_CAN_ADVANCE,
   SOCKET_ERROR_ONLY_HOST_CAN_END,
   SOCKET_ERROR_ONLY_HOST_CAN_START,
   SOCKET_ERROR_TOO_MANY_SUBMISSIONS,
@@ -1258,7 +1259,7 @@ describe("registerGameSocketHandlers integration", () => {
 
     player.emit("bingo-next", { pin: gameCreated.pin });
     const denied = await new Promise<{ message: string }>((resolve) => player.once("error", resolve));
-    expect(denied.message).toBe(SOCKET_ERROR_ONLY_HOST_CAN_START);
+    expect(denied.message).toBe(SOCKET_ERROR_BINGO_ONLY_HOST_CAN_ADVANCE);
     expect(games.get(gameCreated.pin)?.revealNextQuestionCalls).toBe(0);
 
     host.emit("bingo-next", { pin: gameCreated.pin });

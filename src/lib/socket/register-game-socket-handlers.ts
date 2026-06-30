@@ -18,6 +18,7 @@ import {
   SOCKET_ERROR_NEGAMON_MID_MATCH,
   SOCKET_ERROR_NEGAMON_BATTLE_HOST_DISABLED,
   SOCKET_ERROR_NICKNAME_IN_USE,
+  SOCKET_ERROR_BINGO_ONLY_HOST_CAN_ADVANCE,
   SOCKET_ERROR_ONLY_HOST_CAN_END,
   SOCKET_ERROR_ONLY_HOST_CAN_START,
   SOCKET_ERROR_PLAY_NOT_IN_GAME,
@@ -658,7 +659,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
       const game = gameManager.getGame(pin);
       if (!game) return;
       if (!game.isHostSocket(socket.id)) {
-        socket.emit("error", { message: SOCKET_ERROR_ONLY_HOST_CAN_START });
+        socket.emit("error", { message: SOCKET_ERROR_BINGO_ONLY_HOST_CAN_ADVANCE });
         return;
       }
       game.revealNextQuestion?.();

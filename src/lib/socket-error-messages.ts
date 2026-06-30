@@ -43,6 +43,8 @@ export const SOCKET_ERROR_BINGO_NO_ACTIVE_QUESTION = "playBingoNoActiveQuestion"
 export const SOCKET_ERROR_BINGO_ALREADY_ANSWERED = "playBingoAlreadyAnswered";
 /** Bingo: ช่องที่แตะไม่ถูกต้อง */
 export const SOCKET_ERROR_BINGO_INVALID_CELL = "playBingoInvalidCell";
+/** Bingo: เฉพาะโฮสต์เท่านั้นที่กด Next ได้ */
+export const SOCKET_ERROR_BINGO_ONLY_HOST_CAN_ADVANCE = "playBingoOnlyHostCanAdvance";
 
 const LEGACY_SOCKET_ERROR_KEYS: Record<string, string> = {
   "Invalid question set": SOCKET_ERROR_INVALID_QUESTION_SET,

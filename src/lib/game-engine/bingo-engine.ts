@@ -10,6 +10,7 @@ import {
   generateCard,
   linesToWinForSize,
   normalizeCardSize,
+  requiredDistinctAnswers,
   shuffle,
 } from "./bingo-card";
 import {
@@ -66,8 +67,8 @@ export class BingoEngine extends AbstractGameEngine {
     player.completedLines = 0;
     player.answeredCurrentIndex = -1;
 
-    if (this.workingAnswers.length > 0) {
-      // เข้าเกมสาย: แจกการ์ดทันที
+    if (this.workingAnswers.length > 0 && this.workingAnswers.length === requiredDistinctAnswers(this.size)) {
+      // เข้าเกมสาย: แจกการ์ดทันที (ตรวจว่า workingAnswers มีจำนวนถูกต้องก่อนสร้างการ์ด)
       const { card, marked } = generateCard(this.workingAnswers, this.size);
       player.card = card;
       player.marked = marked;
@@ -122,8 +123,13 @@ export class BingoEngine extends AbstractGameEngine {
 
     this.currentIndex++;
     if (this.currentIndex >= this.questionOrder.length) {
-      // ถามครบแล้ว → สลับลำดับใหม่แล้ววนต่อ
-      this.questionOrder = shuffle(this.questionOrder);
+      // ถามครบแล้ว → สลับลำดับใหม่แล้ววนต่อ โดยไม่ให้ข้อแรกซ้ำกับข้อสุดท้ายที่เพิ่งถาม
+      const lastId = this.questionOrder[this.questionOrder.length - 1];
+      let reshuffled = shuffle(this.questionOrder);
+      if (reshuffled.length > 1 && reshuffled[0] === lastId) {
+        reshuffled = shuffle(reshuffled);
+      }
+      this.questionOrder = reshuffled;
       this.currentIndex = 0;
     }
 
@@ -255,6 +261,9 @@ export class BingoEngine extends AbstractGameEngine {
     this.players.sort(
       (a, b) => b.completedLines - a.completedLines || b.correctAnswers - a.correctAnswers
     );
+    // ล้าง state ที่ไม่ใช้แล้ว กัน memory leak ในเซิร์ฟเวอร์ที่รันยาว
+    this.workingAnswers = [];
+    this.questionOrder = [];
     super.endGame();
   }
 

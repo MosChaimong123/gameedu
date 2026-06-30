@@ -63,19 +63,18 @@ export function BingoClient({ state, rank, onMark, t }: BingoClientProps) {
     const [solvedIndex, setSolvedIndex] = useState<number | null>(null)
     const questionIndex = question?.index ?? null
 
-    // แจ้งบิงโกใหม่ + ล็อกข้อเมื่อตอบถูก — ตั้งตอน lastMark เปลี่ยน (adjust-state-during-render)
-    const [shownMark, setShownMark] = useState(lastMark)
     const [bingoFlash, setBingoFlash] = useState(false)
-    if (lastMark !== shownMark) {
-        setShownMark(lastMark)
-        setBingoFlash(Boolean(lastMark?.newBingo))
-        if (lastMark?.correct) setSolvedIndex(questionIndex)
-    }
+    // แจ้งบิงโกใหม่ + ล็อกข้อเมื่อตอบถูก — ใช้ useEffect แทน adjust-state-during-render
     useEffect(() => {
-        if (!bingoFlash) return
-        const timer = setTimeout(() => setBingoFlash(false), 1800)
-        return () => clearTimeout(timer)
-    }, [bingoFlash])
+        if (lastMark === null) return
+        if (lastMark.correct) setSolvedIndex(questionIndex)
+        if (lastMark.newBingo) {
+            setBingoFlash(true)
+            const t = setTimeout(() => setBingoFlash(false), 1800)
+            return () => clearTimeout(t)
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lastMark])
 
     const locked = solvedIndex !== null && solvedIndex === questionIndex
     const hasQuestion = question !== null

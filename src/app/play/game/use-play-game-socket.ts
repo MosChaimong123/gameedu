@@ -16,7 +16,7 @@ import type {
 } from "@/lib/types/game"
 import { getPlayerReconnectToken, getPlayerSession, savePlayerSession } from "@/lib/player-session"
 import { resolveCryptoPasswordOptions } from "./play-game-crypto-passwords"
-import { countCompletedLines, type BingoCardSize } from "@/lib/game-engine/bingo-card"
+import { countCompletedLines, normalizeCardSize, type BingoCardSize } from "@/lib/game-engine/bingo-card"
 import type {
     BingoClientState,
     BingoQuestionPayload,
@@ -272,7 +272,7 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
                         }
                         // Refresh กลางเกม: ยังไม่มี state เลย → สร้างใหม่จาก snapshot ผู้เล่น
                         if (bingoMe.card.length === 0) return prev
-                        const cardSize = Math.round(Math.sqrt(bingoMe.card.length)) as BingoCardSize
+                        const cardSize = normalizeCardSize(Math.round(Math.sqrt(bingoMe.card.length)))
                         return {
                             size: cardSize,
                             card: bingoMe.card,

@@ -178,6 +178,8 @@ export default function HostLobbyPage() {
     const [bingoOptions, setBingoOptions] = useState<string[] | null>(null)
     /** รวมจำนวนแถวของทุกคนครั้งล่าสุด — ใช้เล่นเสียงเมื่อมีคนได้แถวใหม่ */
     const bingoTotalLinesRef = useRef(0)
+    /** false = อัปเดตแรกหลัง start/reconnect ใช้แค่ตั้ง baseline ไม่เล่นเสียง */
+    const bingoLinesInitRef = useRef(false)
 
     const isClient = useIsClient()
     const uniqueLobbyPlayers = Array.from(new Map(players.map((player) => [player.id, player])).values())
@@ -262,6 +264,7 @@ export default function HostLobbyPage() {
                 setBingoAnswer(null)
                 setBingoOptions(null)
                 bingoTotalLinesRef.current = 0
+                bingoLinesInitRef.current = false
             }
             else setSelectedMode("GOLD_QUEST")
 
@@ -298,8 +301,10 @@ export default function HostLobbyPage() {
                     (acc, p) => acc + (isBingoPlayer(p) ? p.completedLines : 0),
                     0
                 )
-                if (totalLines > bingoTotalLinesRef.current) play("chest-open")
+                // ข้ามอัปเดตแรกหลัง start/reconnect เพื่อตั้ง baseline โดยไม่เล่นเสียง
+                if (bingoLinesInitRef.current && totalLines > bingoTotalLinesRef.current) play("chest-open")
                 bingoTotalLinesRef.current = totalLines
+                bingoLinesInitRef.current = true
             }
         })
 

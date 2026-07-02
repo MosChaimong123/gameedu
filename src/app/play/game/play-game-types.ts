@@ -109,6 +109,7 @@ export function createBingoPlayer(name: string): BingoPlayer {
         marked: [],
         completedLines: 0,
         answeredCurrentIndex: -1,
+        answeredQuestionId: null,
     }
 }
 

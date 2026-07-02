@@ -16,13 +16,14 @@ import { GoldQuestHostView } from "@/components/game/gold-quest/host-view"
 import { CryptoHackHostView } from "@/components/game/crypto-hack/host-view"
 import { NegamonBattleHostView } from "@/components/game/negamon/negamon-battle-host-view"
 import { BingoHostView } from "@/components/game/bingo/bingo-host-view"
-import { linesToWinForSize, normalizeCardSize } from "@/lib/game-engine/bingo-card"
+import { collectAnswerPool, linesToWinForSize, normalizeCardSize } from "@/lib/game-engine/bingo-card"
 import {
     GoldQuestPlayer,
     CryptoHackPlayer,
     NegamonBattlePlayer,
     BingoPlayer,
     GameSettings,
+    GameQuestion,
     NegamonRoundResultPayload,
 } from "@/lib/types/game"
 import { cn } from "@/lib/utils"
@@ -103,6 +104,17 @@ function getHostLobbyAvatarUrl(player: HostPlayer) {
     return `https://api.dicebear.com/7.x/fun-emoji/svg?seed=${encodeURIComponent(`${player.name}-${player.id}`)}`
 }
 
+function isHostGameQuestion(value: unknown): value is GameQuestion {
+    if (!value || typeof value !== "object") return false
+    const candidate = value as Partial<GameQuestion>
+    return (
+        typeof candidate.id === "string" &&
+        typeof candidate.question === "string" &&
+        Array.isArray(candidate.options) &&
+        typeof candidate.correctAnswer === "number"
+    )
+}
+
 /** True only in the browser after hydration — matches SSR snapshot (false) to avoid hydration mismatches. */
 function useIsClient() {
     return useSyncExternalStore(
@@ -136,6 +148,7 @@ export default function HostLobbyPage() {
     const [gameEvents, setGameEvents] = useState<HostEvent[]>([])
     const [gameSettings, setGameSettings] = useState<GameSettings | null>(null)
     const [selectedMode, setSelectedMode] = useState<GameMode>("GOLD_QUEST")
+    const [bingoUniqueAnswerCount, setBingoUniqueAnswerCount] = useState<number | null>(null)
 
     // Timer State
     const [timeLeft, setTimeLeft] = useState(0)
@@ -196,6 +209,31 @@ export default function HostLobbyPage() {
             router.replace("/dashboard")
         }
     }, [router, session?.user?.role, sessionStatus])
+
+    useEffect(() => {
+        if (sessionStatus !== "authenticated" || !isTeacherOrAdmin(session?.user?.role)) return
+
+        let cancelled = false
+        async function fetchQuestionSetForBingo() {
+            try {
+                const res = await fetch(`/api/sets/${setId}`)
+                if (!res.ok) return
+                const data = await res.json()
+                const questions = Array.isArray(data?.questions)
+                    ? data.questions.filter(isHostGameQuestion)
+                    : []
+                if (!cancelled) {
+                    setBingoUniqueAnswerCount(collectAnswerPool(questions).length)
+                }
+            } catch (error) {
+                console.error("Failed to fetch set for Bingo readiness", error)
+            }
+        }
+        void fetchQuestionSetForBingo()
+        return () => {
+            cancelled = true
+        }
+    }, [session?.user?.role, sessionStatus, setId])
 
     // BGM Management
     useEffect(() => {
@@ -581,7 +619,11 @@ export default function HostLobbyPage() {
             return (
                 <>
                     <SoundController className="fixed top-4 right-4" />
-                    <BingoSettings onHost={handleHostGame} onBack={() => setView("SELECT_MODE")} />
+                    <BingoSettings
+                        onHost={handleHostGame}
+                        onBack={() => setView("SELECT_MODE")}
+                        uniqueAnswerCount={bingoUniqueAnswerCount}
+                    />
                 </>
             )
         }
@@ -647,7 +689,7 @@ export default function HostLobbyPage() {
                 <BingoHostView
                     players={players.filter(isBingoPlayer)}
                     timeLeft={timeLeft}
-                    linesToWin={gameSettings?.winCondition === "LINES" ? linesToWinForSize(normalizeCardSize(gameSettings.cardSize)) : undefined}
+                    linesToWin={gameSettings?.winCondition === "LINES" ? gameSettings.bingoLinesToWin ?? linesToWinForSize(normalizeCardSize(gameSettings.cardSize)) : undefined}
                     currentQuestion={bingoQuestion}
                     currentAnswer={bingoAnswer}
                     currentOptions={bingoOptions}

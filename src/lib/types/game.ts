@@ -79,6 +79,8 @@ export interface BingoPlayer extends BasePlayer {
     completedLines: number;
     /** index ของข้อล่าสุดที่ผู้เล่นกดตอบไปแล้ว — กัน 1 แตะ/ข้อ */
     answeredCurrentIndex: number;
+    /** Question id of the latest correctly solved Bingo prompt; avoids locking recycled TIME indexes. */
+    answeredQuestionId?: string | null;
 }
 
 /** ค่าสมดุล Negamon Battle — รวมใน GameSettings เมื่อสร้างห้องโหมดนี้ */

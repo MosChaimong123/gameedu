@@ -8,6 +8,7 @@ import {
   SOCKET_ERROR_BINGO_INVALID_CELL,
   SOCKET_ERROR_BINGO_NO_ACTIVE_QUESTION,
   SOCKET_ERROR_BINGO_NOT_ENOUGH_ANSWERS,
+  SOCKET_ERROR_TOO_MANY_SUBMISSIONS,
 } from "@/lib/socket-error-messages";
 
 type Emit = { target: string; event: string; payload: unknown };
@@ -49,6 +50,7 @@ function makePlayer(id: string, name: string): BingoPlayer {
     marked: [],
     completedLines: 0,
     answeredCurrentIndex: -1,
+    answeredQuestionId: null,
   };
 }
 
@@ -63,6 +65,23 @@ function makeEngine(io: ReturnType<typeof createMockIo>, settings = {}) {
     "set-1",
     { winCondition: "TIME", timeLimitMinutes: 10, goldGoal: 0, cardSize: 3, ...settings },
     nineQuestions,
+    io as unknown as Server
+  );
+  engine.registerHostConnection("host-sock", "tok");
+  return engine;
+}
+
+function makeEngineWithQuestions(
+  io: ReturnType<typeof createMockIo>,
+  questions: GameQuestion[],
+  settings = {}
+) {
+  const engine = new BingoEngine(
+    "PIN1",
+    "host-1",
+    "set-1",
+    { winCondition: "TIME", timeLimitMinutes: 10, goldGoal: 0, cardSize: 3, ...settings },
+    questions,
     io as unknown as Server
   );
   engine.registerHostConnection("host-sock", "tok");
@@ -136,6 +155,61 @@ describe("BingoEngine", () => {
     expect(reveal.payload).toHaveProperty("answer");
   });
 
+  it("asks only one question per answer when duplicate correct answers exist", () => {
+    const duplicateAnswerQuestions: GameQuestion[] = [
+      ...nineQuestions,
+      {
+        id: "q-duplicate-a0",
+        question: "Duplicate A0",
+        options: ["A0", "wrong"],
+        correctAnswer: 0,
+      },
+    ];
+    const engine = makeEngineWithQuestions(io, duplicateAnswerQuestions);
+    engine.addPlayer(makePlayer("s1", "P1"), mockSocket("s1"));
+    engine.startGame();
+
+    const seenIds = new Set<string>();
+    for (let i = 0; i < 9; i++) {
+      engine.revealNextQuestion();
+      const payload = lastEmit(io, "bingo-question")!.payload as { id: string; total: number };
+      expect(payload.total).toBe(9);
+      seenIds.add(payload.id);
+    }
+
+    expect(seenIds.size).toBe(9);
+    expect(seenIds.has("q0") || seenIds.has("q-duplicate-a0")).toBe(true);
+    expect(seenIds.has("q0") && seenIds.has("q-duplicate-a0")).toBe(false);
+  });
+
+  it("resends the current question and answer to the host after reconnect", () => {
+    const engine = makeEngine(io);
+    engine.addPlayer(makePlayer("s1", "P1"), mockSocket("s1"));
+    engine.startGame();
+    engine.revealNextQuestion();
+
+    const originalQuestion = lastEmit(io, "bingo-question")!.payload as {
+      id: string;
+      question: string;
+      index: number;
+      total: number;
+    };
+
+    engine.registerHostConnection("host-reconnected", "tok");
+    io.emits.length = 0;
+    engine.syncHostState();
+
+    expect(io.emits).toContainEqual({
+      target: "host-reconnected",
+      event: "bingo-question",
+      payload: originalQuestion,
+    });
+    expect(lastEmit(io, "bingo-answer-reveal")).toMatchObject({
+      target: "host-reconnected",
+      payload: { id: originalQuestion.id },
+    });
+  });
+
   it("marks the correct cell and rejects a second tap on the same question", () => {
     const engine = makeEngine(io);
     const sock = mockSocket("s1");
@@ -174,6 +248,35 @@ describe("BingoEngine", () => {
     expect(player.correctAnswers).toBe(0);
   });
 
+  it("rate limits rapid Bingo mark-cell attempts without adding incorrect answers", () => {
+    const engine = makeEngine(io);
+    const sock = mockSocket("s1");
+    engine.addPlayer(makePlayer("s1", "P1"), sock);
+    engine.startGame();
+    engine.revealNextQuestion();
+
+    const question = lastEmit(io, "bingo-question")!.payload as { id: string };
+    const q = nineQuestions.find((x) => x.id === question.id)!;
+    const player = engine.getPlayer("s1")!;
+    const wrongCells = player.card
+      .map((label, index) => ({ label, index }))
+      .filter((cell) => cell.label !== q.options[q.correctAnswer]);
+    expect(wrongCells.length).toBeGreaterThan(1);
+
+    const now = vi.spyOn(Date, "now").mockReturnValue(1000);
+    engine.handleEvent("mark-cell", { cellIndex: wrongCells[0].index }, sock);
+    expect(player.incorrectAnswers).toBe(1);
+
+    now.mockReturnValue(1100);
+    engine.handleEvent("mark-cell", { cellIndex: wrongCells[1].index }, sock);
+
+    expect(player.incorrectAnswers).toBe(1);
+    expect(sock.emit).toHaveBeenCalledWith("error", {
+      message: SOCKET_ERROR_TOO_MANY_SUBMISSIONS,
+    });
+    now.mockRestore();
+  });
+
   it("lets a player retry after a wrong tap until they answer correctly", () => {
     const engine = makeEngine(io);
     const sock = mockSocket("s1");
@@ -187,6 +290,7 @@ describe("BingoEngine", () => {
     const player = engine.getPlayer("s1")!;
     const wrongCell = player.card.findIndex((c) => c !== answer);
     const rightCell = player.card.findIndex((c) => c === answer);
+    const now = vi.spyOn(Date, "now").mockReturnValue(1000);
 
     // แตะผิดก่อน — ต้องไม่ล็อก (ยังแตะต่อได้)
     engine.handleEvent("mark-cell", { cellIndex: wrongCell }, sock);
@@ -194,6 +298,7 @@ describe("BingoEngine", () => {
     expect(player.incorrectAnswers).toBe(1);
 
     // แตะใหม่ให้ถูก — มาร์คได้ ไม่โดน ALREADY_ANSWERED
+    now.mockReturnValue(1500);
     engine.handleEvent("mark-cell", { cellIndex: rightCell }, sock);
     expect(player.marked[rightCell]).toBe(true);
     expect(player.correctAnswers).toBe(1);
@@ -201,6 +306,37 @@ describe("BingoEngine", () => {
     // หลังตอบถูกแล้ว แตะอีก — คราวนี้ต้องโดนล็อก
     engine.handleEvent("mark-cell", { cellIndex: rightCell }, sock);
     expect(sock.emit).toHaveBeenCalledWith("error", {
+      message: SOCKET_ERROR_BINGO_ALREADY_ANSWERED,
+    });
+    now.mockRestore();
+  });
+
+  it("does not lock a player when TIME mode recycles index 0 for a different question", () => {
+    const engine = makeEngine(io, { winCondition: "TIME" });
+    const sock = mockSocket("s1");
+    engine.addPlayer(makePlayer("s1", "P1"), sock);
+    engine.startGame();
+
+    (engine as unknown as { questionOrder: string[]; currentIndex: number }).questionOrder = ["q0"];
+    (engine as unknown as { questionOrder: string[]; currentIndex: number }).currentIndex = -1;
+    engine.revealNextQuestion();
+    markCurrentQuestion(engine, io, sock);
+
+    const player = engine.getPlayer("s1")!;
+    expect(player.answeredCurrentIndex).toBe(0);
+    expect(player.answeredQuestionId).toBe("q0");
+
+    (engine as unknown as { questionOrder: string[]; currentIndex: number }).questionOrder = ["q1"];
+    (engine as unknown as { questionOrder: string[]; currentIndex: number }).currentIndex = -1;
+    engine.revealNextQuestion();
+    const q1Cell = player.card.findIndex((c) => c === "A1");
+    expect(q1Cell).toBeGreaterThanOrEqual(0);
+
+    engine.handleEvent("mark-cell", { cellIndex: q1Cell }, sock);
+
+    expect(player.marked[q1Cell]).toBe(true);
+    expect(player.answeredQuestionId).toBe("q1");
+    expect(sock.emit).not.toHaveBeenCalledWith("error", {
       message: SOCKET_ERROR_BINGO_ALREADY_ANSWERED,
     });
   });
@@ -244,6 +380,34 @@ describe("BingoEngine", () => {
     engine.tick();
     expect(engine.status).toBe("ENDED");
     expect(player.score).toBe(8);
+  });
+
+  it("respects the configured Bingo line target instead of hardcoding by card size", () => {
+    const engine = makeEngine(io, { winCondition: "LINES", bingoLinesToWin: 2 });
+    const sock = mockSocket("s1");
+    engine.addPlayer(makePlayer("s1", "P1"), sock);
+    engine.startGame();
+
+    const player = engine.getPlayer("s1")!;
+    player.marked = [
+      true, true, true,
+      false, false, false,
+      false, false, false,
+    ];
+    player.completedLines = 1;
+
+    engine.tick();
+    expect(engine.status).toBe("PLAYING");
+
+    player.marked = [
+      true, true, true,
+      true, false, false,
+      true, false, false,
+    ];
+    player.completedLines = 2;
+
+    engine.tick();
+    expect(engine.status).toBe("ENDED");
   });
 
   it("serialize/restore round-trips bingo state", () => {

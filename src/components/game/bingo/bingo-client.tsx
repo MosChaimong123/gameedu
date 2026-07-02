@@ -60,14 +60,27 @@ export function BingoClient({ state, rank, onMark, t }: BingoClientProps) {
 
     // ล็อกเฉพาะข้อที่ตอบ "ถูก" แล้ว — ตอบผิดยังแตะใหม่ได้จนกว่าจะถูก
     // (server เป็นผู้ตัดสิน; ฝั่ง client ล็อกเมื่อ mark-result บอกว่าถูกของข้อปัจจุบัน)
-    const [solvedIndex, setSolvedIndex] = useState<number | null>(null)
+    const [solvedQuestionId, setSolvedQuestionId] = useState<string | null>(null)
+    const [pendingCellIndex, setPendingCellIndex] = useState<number | null>(null)
     const questionIndex = question?.index ?? null
+    const questionId = question?.id ?? null
 
     const [bingoFlash, setBingoFlash] = useState(false)
+    useEffect(() => {
+        setPendingCellIndex(null)
+    }, [questionId])
+
+    useEffect(() => {
+        if (pendingCellIndex === null) return
+        const timeoutId = window.setTimeout(() => setPendingCellIndex(null), 1200)
+        return () => window.clearTimeout(timeoutId)
+    }, [pendingCellIndex])
+
     // แจ้งบิงโกใหม่ + ล็อกข้อเมื่อตอบถูก — ใช้ useEffect แทน adjust-state-during-render
     useEffect(() => {
         if (lastMark === null) return
-        if (lastMark.correct) setSolvedIndex(questionIndex)
+        setPendingCellIndex(null)
+        if (lastMark.correct) setSolvedQuestionId(questionId)
         if (lastMark.newBingo) {
             setBingoFlash(true)
             const t = setTimeout(() => setBingoFlash(false), 1800)
@@ -76,15 +89,16 @@ export function BingoClient({ state, rank, onMark, t }: BingoClientProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lastMark])
 
-    const locked = solvedIndex !== null && solvedIndex === questionIndex
+    const locked = solvedQuestionId !== null && solvedQuestionId === questionId
     const hasQuestion = question !== null
     const markedCount = marked.filter(Boolean).length
 
     const handleTap = (cellIndex: number) => {
-        if (!hasQuestion || locked) return
+        if (!hasQuestion || locked || pendingCellIndex !== null) return
         if (marked[cellIndex]) return
         if (card[cellIndex] === BINGO_FREE_LABEL) return
         // ไม่ล็อกทันที — รอผลจาก server; ถ้าผิดยังแตะช่องอื่นได้ต่อ
+        setPendingCellIndex(cellIndex)
         onMark(cellIndex)
     }
 
@@ -100,7 +114,7 @@ export function BingoClient({ state, rank, onMark, t }: BingoClientProps) {
         >
             {/* แถบโจทย์ */}
             <motion.div
-                key={questionIndex ?? "wait"}
+                key={questionId ?? "wait"}
                 initial={{ opacity: 0, y: -12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 320, damping: 26 }}
@@ -158,13 +172,14 @@ export function BingoClient({ state, rank, onMark, t }: BingoClientProps) {
                             lastMark !== null &&
                             !lastMark.correct &&
                             lastMark.cellIndex === i
+                        const isPending = pendingCellIndex === i
                         return (
                             <motion.button
                                 key={i}
                                 type="button"
                                 onClick={() => handleTap(i)}
-                                disabled={!hasQuestion || locked || isMarked || isFree}
-                                whileTap={!isMarked && !isFree && hasQuestion && !locked ? { scale: 0.9 } : undefined}
+                                disabled={!hasQuestion || locked || pendingCellIndex !== null || isMarked || isFree}
+                                whileTap={!isMarked && !isFree && hasQuestion && !locked && pendingCellIndex === null ? { scale: 0.9 } : undefined}
                                 animate={
                                     isWrongTap
                                         ? { x: [0, -7, 7, -5, 5, 0] }
@@ -181,6 +196,8 @@ export function BingoClient({ state, rank, onMark, t }: BingoClientProps) {
                                     "relative flex aspect-square items-center justify-center rounded-xl p-1 text-center text-[11px] font-bold leading-tight sm:text-xs md:text-sm",
                                     isFree
                                         ? "bg-gradient-to-br from-amber-300 to-amber-500 text-amber-900 shadow-[0_6px_18px_-6px_rgba(251,191,36,0.8)] ring-1 ring-inset ring-amber-200/60"
+                                        : isPending
+                                          ? "bg-violet-200 text-violet-900 ring-2 ring-inset ring-fuchsia-300"
                                         : isMarked
                                           ? "bg-gradient-to-br from-violet-400 to-fuchsia-500 text-white shadow-[0_6px_20px_-6px_rgba(217,70,239,0.85)] ring-1 ring-inset ring-fuchsia-200/50"
                                           : isWrongTap

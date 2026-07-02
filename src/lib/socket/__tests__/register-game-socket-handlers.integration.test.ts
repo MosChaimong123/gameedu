@@ -46,6 +46,7 @@ class FakeGame {
   public startGameCalls = 0;
   public endGameCalls = 0;
   public revealNextQuestionCalls = 0;
+  public syncHostStateCalls = 0;
   public handleEventCalls: Array<{ event: string; payload: unknown; socketId: string }> = [];
 
   constructor(pin: string, hostId: string, settings: Partial<GameSettings>) {
@@ -139,6 +140,10 @@ class FakeGame {
 
   revealNextQuestion(): void {
     this.revealNextQuestionCalls += 1;
+  }
+
+  syncHostState(): void {
+    this.syncHostStateCalls += 1;
   }
 
   serialize(): Record<string, unknown> {
@@ -1268,6 +1273,36 @@ describe("registerGameSocketHandlers integration", () => {
 
     host.disconnect();
     player.disconnect();
+  });
+
+  it("syncs current Bingo host state after host reconnect", async () => {
+    const host = await connectClient("teacher-1");
+    host.emit("create-game", { setId: "set-1", settings: { allowLateJoin: true }, mode: "BINGO" });
+    const gameCreated = await new Promise<{ pin: string; hostReconnectToken: string }>((resolve) =>
+      host.once("game-created", resolve)
+    );
+
+    host.emit("start-game", { pin: gameCreated.pin });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const reconnectedHost = await connectClient("teacher-1");
+    const hostReconnected = new Promise<void>((resolve) =>
+      reconnectedHost.once("host-reconnected", () => resolve())
+    );
+    const gameStateUpdated = new Promise<void>((resolve) =>
+      reconnectedHost.once("game-state-update", () => resolve())
+    );
+    reconnectedHost.emit("reconnect-host", {
+      pin: gameCreated.pin,
+      reconnectToken: gameCreated.hostReconnectToken,
+    });
+    await hostReconnected;
+    await gameStateUpdated;
+
+    expect(games.get(gameCreated.pin)?.syncHostStateCalls).toBe(1);
+
+    host.disconnect();
+    reconnectedHost.disconnect();
   });
 
   it("allows player rejoin after simulated DB recover (cleared socket id and reconnect tokens)", async () => {

@@ -19,6 +19,7 @@ import {
   SOCKET_ERROR_BINGO_NO_ACTIVE_QUESTION,
   SOCKET_ERROR_BINGO_NOT_ENOUGH_ANSWERS,
   SOCKET_ERROR_PLAY_NOT_IN_GAME,
+  SOCKET_ERROR_TOO_MANY_SUBMISSIONS,
 } from "../socket-error-messages";
 
 type MarkCellPayload = {
@@ -31,12 +32,15 @@ type BingoPersistedState = {
   currentIndex: number;
 };
 
+const MARK_CELL_MIN_INTERVAL_MS = 350;
+
 export class BingoEngine extends AbstractGameEngine {
   public gameMode = "BINGO";
   public declare players: BingoPlayer[];
 
   /** คลังคำตอบกลางของทั้งห้อง (ทุกการ์ดสลับจากชุดนี้) */
   private workingAnswers: string[] = [];
+  private markCellAttemptByPlayerId = new Map<string, { questionId: string; at: number }>();
   /** ลำดับ question id ที่ครูจะถาม (เฉพาะข้อที่เฉลยอยู่ในคลังคำตอบ) */
   private questionOrder: string[] = [];
   /** index ใน 'questionOrder' ของข้อที่กำลังถาม; -1 = ยังไม่เริ่มถาม */
@@ -57,6 +61,14 @@ export class BingoEngine extends AbstractGameEngine {
     return normalizeCardSize(this.settings.cardSize);
   }
 
+  private get linesTarget(): number {
+    const fallback = linesToWinForSize(this.size);
+    const maxLines = this.size * 2 + 2;
+    const configured = this.settings.bingoLinesToWin;
+    if (typeof configured !== "number" || !Number.isFinite(configured)) return fallback;
+    return Math.max(1, Math.min(maxLines, Math.floor(configured)));
+  }
+
   public getPlayer(socketId: string): BingoPlayer | undefined {
     return super.getPlayer(socketId) as BingoPlayer | undefined;
   }
@@ -66,6 +78,7 @@ export class BingoEngine extends AbstractGameEngine {
     player.incorrectAnswers = player.incorrectAnswers ?? 0;
     player.completedLines = 0;
     player.answeredCurrentIndex = -1;
+    player.answeredQuestionId = null;
 
     if (this.workingAnswers.length > 0 && this.workingAnswers.length === requiredDistinctAnswers(this.size)) {
       // เข้าเกมสาย: แจกการ์ดทันที (ตรวจว่า workingAnswers มีจำนวนถูกต้องก่อนสร้างการ์ด)
@@ -94,13 +107,19 @@ export class BingoEngine extends AbstractGameEngine {
     }
 
     // ตั้งเป้าแถวอัตโนมัติตามขนาดการ์ด (ให้ค่าตรงกับที่ใช้ตัดสินใน tick)
-    this.settings.bingoLinesToWin = linesToWinForSize(this.size);
+    this.settings.bingoLinesToWin = this.linesTarget;
 
     this.workingAnswers = working;
     const workingSet = new Set(working);
+    const seenAnswers = new Set<string>();
     this.questionOrder = shuffle(
       this.questions
-        .filter((q) => workingSet.has(answerTextOf(q)))
+        .filter((q) => {
+          const answer = answerTextOf(q);
+          if (!workingSet.has(answer) || seenAnswers.has(answer)) return false;
+          seenAnswers.add(answer);
+          return true;
+        })
         .map((q) => q.id)
     );
     this.currentIndex = -1;
@@ -111,6 +130,7 @@ export class BingoEngine extends AbstractGameEngine {
       player.marked = marked;
       player.completedLines = countCompletedLines(marked, this.size);
       player.answeredCurrentIndex = -1;
+      player.answeredQuestionId = null;
       this.io.to(player.id).emit("bingo-card", { card, marked, size: this.size });
     }
 
@@ -154,6 +174,32 @@ export class BingoEngine extends AbstractGameEngine {
   }
 
   /** Refresh กลางเกม: ผูก socket ใหม่แล้วส่งการ์ด + โจทย์ปัจจุบันกลับไปให้ */
+  public syncHostState(): void {
+    if (this.status !== "PLAYING") return;
+    this.emitCurrentHostQuestion();
+  }
+
+  private emitCurrentHostQuestion(): void {
+    if (this.currentIndex < 0) return;
+
+    const questionId = this.questionOrder[this.currentIndex];
+    const question = this.questions.find((q) => q.id === questionId);
+    if (!question) return;
+
+    this.emitToHost("bingo-question", {
+      id: question.id,
+      question: question.question,
+      image: question.image ?? null,
+      index: this.currentIndex,
+      total: this.questionOrder.length,
+    });
+    this.emitToHost("bingo-answer-reveal", {
+      id: question.id,
+      answer: answerTextOf(question),
+      options: question.options,
+    });
+  }
+
   public override handleReconnection(player: BingoPlayer, socket: Socket): void {
     super.handleReconnection(player, socket);
 
@@ -200,11 +246,6 @@ export class BingoEngine extends AbstractGameEngine {
       socket.emit("error", { message: SOCKET_ERROR_BINGO_NO_ACTIVE_QUESTION });
       return;
     }
-    if (player.answeredCurrentIndex === this.currentIndex) {
-      socket.emit("error", { message: SOCKET_ERROR_BINGO_ALREADY_ANSWERED });
-      return;
-    }
-
     const cellIndex = Number(payload?.cellIndex);
     if (!Number.isInteger(cellIndex) || cellIndex < 0 || cellIndex >= player.card.length) {
       socket.emit("error", { message: SOCKET_ERROR_BINGO_INVALID_CELL });
@@ -214,6 +255,22 @@ export class BingoEngine extends AbstractGameEngine {
     const questionId = this.questionOrder[this.currentIndex];
     const question = this.questions.find((q) => q.id === questionId);
     if (!question) return;
+    const answeredQuestionId = player.answeredQuestionId ?? null;
+    const answeredLegacyIndex = answeredQuestionId === null && player.answeredCurrentIndex === this.currentIndex;
+    if (answeredQuestionId === questionId || answeredLegacyIndex) {
+      socket.emit("error", { message: SOCKET_ERROR_BINGO_ALREADY_ANSWERED });
+      return;
+    }
+    const now = Date.now();
+    const lastAttempt = this.markCellAttemptByPlayerId.get(player.id);
+    if (
+      lastAttempt?.questionId === questionId &&
+      now - lastAttempt.at < MARK_CELL_MIN_INTERVAL_MS
+    ) {
+      socket.emit("error", { message: SOCKET_ERROR_TOO_MANY_SUBMISSIONS });
+      return;
+    }
+    this.markCellAttemptByPlayerId.set(player.id, { questionId, at: now });
 
     const correctText = answerTextOf(question);
     const tappedText = (player.card[cellIndex] ?? "").trim();
@@ -224,6 +281,7 @@ export class BingoEngine extends AbstractGameEngine {
     if (isCorrect) {
       // ล็อกข้อนี้เฉพาะตอนตอบถูก — ตอบผิดยังแตะใหม่ได้จนกว่าจะถูก
       player.answeredCurrentIndex = this.currentIndex;
+      player.answeredQuestionId = questionId;
       player.marked[cellIndex] = true;
       player.correctAnswers = (player.correctAnswers || 0) + 1;
       const before = player.completedLines;
@@ -247,7 +305,7 @@ export class BingoEngine extends AbstractGameEngine {
 
     if (this.status === "PLAYING" && this.settings.winCondition === "LINES") {
       // เป้าปรับอัตโนมัติตามขนาดการ์ดให้เล่นจบได้จริง (ไม่อิงค่าที่กรอกเอง)
-      const target = linesToWinForSize(this.size);
+      const target = this.linesTarget;
       if (this.players.some((p) => p.completedLines >= target)) {
         this.endGame();
       }

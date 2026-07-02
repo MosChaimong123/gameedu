@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { GameSettings } from "@/lib/types/game"
@@ -8,29 +8,43 @@ import { cn } from "@/lib/utils"
 import { Check, Clock, Grid3x3 } from "lucide-react"
 import { PageBackLink } from "@/components/ui/page-back-link"
 import { useLanguage } from "@/components/providers/language-provider"
-import { linesToWinForSize } from "@/lib/game-engine/bingo-card"
+import { linesToWinForSize, requiredDistinctAnswers } from "@/lib/game-engine/bingo-card"
 
 interface BingoSettingsProps {
     onHost: (settings: GameSettings) => void
     onBack: () => void
+    uniqueAnswerCount?: number | null
 }
 
 const CARD_SIZES: Array<3 | 4 | 5> = [3, 4, 5]
 
-export function BingoSettings({ onHost, onBack }: BingoSettingsProps) {
+export function BingoSettings({ onHost, onBack, uniqueAnswerCount = null }: BingoSettingsProps) {
     const { t } = useLanguage()
     const [cardSize, setCardSize] = useState<3 | 4 | 5>(4)
     const [winCondition, setWinCondition] = useState<"TIME" | "LINES">("LINES")
     const [timeMinutes, setTimeMinutes] = useState(10)
     // เป้าแถวคำนวณอัตโนมัติจากขนาดการ์ด (3x3=1, 4x4=2, 5x5=2)
-    const linesToWin = linesToWinForSize(cardSize)
+    const [linesToWin, setLinesToWin] = useState(linesToWinForSize(4))
+    const maxLinesToWin = cardSize * 2 + 2
 
     const [showInstructions, setShowInstructions] = useState(true)
     const [allowLateJoin, setAllowLateJoin] = useState(true)
     const [useRandomNames, setUseRandomNames] = useState(false)
     const [allowStudentAccounts, setAllowStudentAccounts] = useState(true)
+    const selectedSizeAvailable =
+        uniqueAnswerCount === null || uniqueAnswerCount >= requiredDistinctAnswers(cardSize)
+
+    useEffect(() => {
+        if (uniqueAnswerCount === null || selectedSizeAvailable) return
+        const nextSize = CARD_SIZES.find((size) => uniqueAnswerCount >= requiredDistinctAnswers(size))
+        if (nextSize) {
+            setCardSize(nextSize)
+            setLinesToWin((current) => Math.min(current, nextSize * 2 + 2))
+        }
+    }, [selectedSizeAvailable, uniqueAnswerCount])
 
     const handleHost = () => {
+        if (!selectedSizeAvailable) return
         onHost({
             winCondition,
             timeLimitMinutes: timeMinutes,
@@ -67,6 +81,7 @@ export function BingoSettings({ onHost, onBack }: BingoSettingsProps) {
                         </div>
                         <Button
                             onClick={handleHost}
+                            disabled={!selectedSizeAvailable}
                             className="w-full py-8 text-2xl font-black bg-emerald-500 hover:bg-emerald-600 text-white shadow-[0_4px_0_rgb(5,150,105)] active:translate-y-1 active:shadow-none rounded-xl transition-all"
                         >
                             {t("hostHostNow")}
@@ -82,16 +97,25 @@ export function BingoSettings({ onHost, onBack }: BingoSettingsProps) {
                             <span className="font-bold">{t("hostBingoCardSizeLabel")}</span>
                         </div>
                         <div className="flex gap-3">
-                            {CARD_SIZES.map((size) => (
+                            {CARD_SIZES.map((size) => {
+                                const sizeAvailable =
+                                    uniqueAnswerCount === null || uniqueAnswerCount >= requiredDistinctAnswers(size)
+                                return (
                                 <button
                                     key={size}
                                     type="button"
-                                    onClick={() => setCardSize(size)}
+                                    disabled={!sizeAvailable}
+                                    onClick={() => {
+                                        if (!sizeAvailable) return
+                                        setCardSize(size)
+                                        setLinesToWin((current) => Math.min(current, size * 2 + 2))
+                                    }}
                                     className={cn(
                                         "flex-1 cursor-pointer rounded-xl p-4 flex flex-col items-center gap-1 border-4 transition-all",
                                         cardSize === size
                                             ? "bg-emerald-500 border-emerald-600 text-white shadow-md scale-105"
-                                            : "bg-slate-100 border-transparent text-slate-400 hover:bg-slate-200"
+                                            : "bg-slate-100 border-transparent text-slate-400 hover:bg-slate-200",
+                                        !sizeAvailable && "cursor-not-allowed opacity-45 hover:bg-slate-100"
                                     )}
                                 >
                                     <span className="font-black text-xl">{`${size}×${size}`}</span>
@@ -101,9 +125,13 @@ export function BingoSettings({ onHost, onBack }: BingoSettingsProps) {
                                         </span>
                                     )}
                                 </button>
-                            ))}
+                                )
+                            })}
                         </div>
                         <p className="text-xs text-slate-400">{t("hostBingoCardSizeHint")}</p>
+                        {!selectedSizeAvailable && (
+                            <p className="text-xs font-bold text-red-500">{t("playBingoNotEnoughAnswers")}</p>
+                        )}
                     </div>
 
                     {/* Win Condition */}
@@ -139,9 +167,17 @@ export function BingoSettings({ onHost, onBack }: BingoSettingsProps) {
                         {winCondition === "LINES" ? (
                             <div className="flex items-center justify-between">
                                 <label className="font-bold text-slate-600">{t("hostBingoLinesToWinLabel")}</label>
-                                <div className="flex h-12 w-24 items-center justify-center rounded-md border-2 border-emerald-200 bg-emerald-50 text-lg font-black text-emerald-700">
-                                    {t("playBingoLinesLabel", { count: linesToWin })}
-                                </div>
+                                <Input
+                                    type="number"
+                                    value={linesToWin}
+                                    onChange={(e) => {
+                                        const next = Math.floor(Number(e.target.value))
+                                        setLinesToWin(Math.max(1, Math.min(maxLinesToWin, Number.isFinite(next) ? next : 1)))
+                                    }}
+                                    className="h-12 w-24 border-emerald-200 bg-emerald-50 text-center text-lg font-black text-emerald-700"
+                                    min={1}
+                                    max={maxLinesToWin}
+                                />
                             </div>
                         ) : (
                             <div className="flex items-center justify-between">

@@ -81,6 +81,7 @@ type GameLike = {
   handleEvent: (eventName: string, payload: unknown, socket: Socket) => void;
   /** Bingo only — ครูสั่งถามข้อต่อไป (host-gated) */
   revealNextQuestion?: () => void;
+  syncHostState?: () => void;
   serialize: () => unknown;
 };
 
@@ -373,6 +374,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           gameMode: game.gameMode,
         });
         socket.emit("game-state-update", game.serialize());
+        game.syncHostState?.();
       } else if (game.status === "ENDED") {
         socket.emit("game-over", { players: game.players });
       }
@@ -527,6 +529,9 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           gameMode: game.gameMode,
         });
         socket.emit("game-state-update", game.serialize());
+        if (game.isHostSocket(socket.id)) {
+          game.syncHostState?.();
+        }
       } else if (game.status === "LOBBY") {
         socket.emit("player-joined", { players: game.players });
       } else if (game.status === "ENDED") {

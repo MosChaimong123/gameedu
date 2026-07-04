@@ -1,4 +1,6 @@
 import { z } from "zod"
+import { PRIMARY_CORE_DOCX_SOURCE_ENTRY } from "@/lib/curriculum/import/primary-core-docx-source"
+import { SECONDARY_CORE_DOCX_SOURCE_ENTRY } from "@/lib/curriculum/import/secondary-core-docx-source"
 
 export const curriculumSourceProviderSchema = z.enum([
     "core_curriculum",
@@ -26,6 +28,13 @@ export const curriculumSourceRefSchema = z.object({
     usage: curriculumSourceUsageSchema,
 })
 
+export const curriculumSourceFileCaptureSchema = z.object({
+    format: z.enum(["pdf", "docx", "text", "spreadsheet"]),
+    originalFileName: z.string().trim().min(1),
+    checksumSha256: z.string().trim().regex(/^[A-Fa-f0-9]{64}$/),
+    capturedAt: z.string().trim().min(1),
+})
+
 export const curriculumSourceRegistryEntrySchema = z.object({
     id: z.string().trim().min(1),
     provider: curriculumSourceProviderSchema,
@@ -36,14 +45,16 @@ export const curriculumSourceRegistryEntrySchema = z.object({
         "official_subject_page",
         "publisher_catalog",
         "platform_internal",
+        "teacher_uploaded_curriculum_reference",
     ]),
-    verificationStatus: z.enum(["verified_live", "verified_catalog", "pending_capture"]),
+    verificationStatus: z.enum(["verified_live", "verified_catalog", "pending_capture", "verified_file_capture"]),
     subjectIds: z.array(z.string().trim().min(1)).min(1),
     gradeSpans: z.array(z.string().trim().min(1)).min(1),
     priority: z.number().int().min(1).max(9),
     usages: z.array(curriculumSourceUsageSchema).min(1),
     copyrightPolicy: z.array(z.string().trim().min(1)).min(1),
     notes: z.array(z.string().trim().min(1)).optional(),
+    fileCapture: curriculumSourceFileCaptureSchema.optional(),
 })
 
 export const curriculumSourceRegistrySchema = z.array(curriculumSourceRegistryEntrySchema).min(1)
@@ -51,6 +62,7 @@ export const curriculumSourceRegistrySchema = z.array(curriculumSourceRegistryEn
 export type CurriculumSourceProvider = z.infer<typeof curriculumSourceProviderSchema>
 export type CurriculumSourceUsage = z.infer<typeof curriculumSourceUsageSchema>
 export type CurriculumSourceRef = z.infer<typeof curriculumSourceRefSchema>
+export type CurriculumSourceFileCapture = z.infer<typeof curriculumSourceFileCaptureSchema>
 export type CurriculumSourceRegistryEntry = z.infer<typeof curriculumSourceRegistryEntrySchema>
 export type CurriculumSourceRegistry = z.infer<typeof curriculumSourceRegistrySchema>
 
@@ -164,6 +176,8 @@ export const BASIC_EDUCATION_CURRICULUM_SOURCE_REGISTRY: CurriculumSourceRegistr
         copyrightPolicy: [...COPYRIGHT_BASELINES.catalog],
         notes: ["Use as a secondary publisher catalog reference."],
     },
+    PRIMARY_CORE_DOCX_SOURCE_ENTRY,
+    SECONDARY_CORE_DOCX_SOURCE_ENTRY,
     {
         id: "official-subject-pages-pending-capture",
         provider: "core_curriculum",

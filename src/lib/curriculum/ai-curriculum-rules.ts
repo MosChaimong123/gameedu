@@ -19,6 +19,7 @@ import {
     type CanonicalSubjectId,
     type CanonicalSubjectCatalogEntry,
 } from "@/lib/curriculum/subject-catalog"
+import { getCurriculumStandardById, getCurriculumStrandById } from "@/lib/curriculum/strands-and-standards"
 import type { LessonOutlineBatchDraft, LessonOutlineDraft, LessonTopicContentDraft } from "@/lib/lessons/lesson-content"
 
 export const aiLessonCurriculumSelectionSchema = z.object({
@@ -42,6 +43,15 @@ export type AILessonPromptFamily =
 export type ResolvedCurriculumTopic = SubjectUnitTopic & {
     outcomeIds: string[]
     outcomeTexts: string[]
+    concepts: string[]
+    skills: string[]
+    assessmentHints: string[]
+}
+
+export type ResolvedCurriculumStandard = {
+    id: string
+    code: string
+    labelTh: string
 }
 
 export type ResolvedAILessonCurriculumSelection = {
@@ -49,7 +59,13 @@ export type ResolvedAILessonCurriculumSelection = {
     unit: SubjectCurriculumUnitOutline
     outcomePack: SubjectUnitLearningOutcomePack
     template: SubjectLessonTemplate | null
+    strand: {
+        id: string
+        labelTh: string
+    }
+    standards: ResolvedCurriculumStandard[]
     promptFamily: AILessonPromptFamily
+    indicatorIds: string[]
     selectedOutcomeIds: string[]
     selectedOutcomes: SubjectUnitLearningOutcome[]
     selectedTopics: ResolvedCurriculumTopic[]
@@ -64,6 +80,8 @@ export type CurriculumAlignmentIssue = {
         | "TEMPLATE_SUBJECT_MISMATCH"
         | "TEMPLATE_UNIT_MISMATCH"
         | "OUTCOME_PACK_NOT_FOUND"
+        | "STRAND_NOT_FOUND"
+        | "STANDARD_NOT_FOUND"
         | "TOPIC_NOT_FOUND"
         | "TOPIC_OUTSIDE_TEMPLATE"
         | "OUTCOME_NOT_FOUND"
@@ -144,6 +162,24 @@ export function resolveAILessonCurriculumSelection(
         return { ok: false, issues: [{ code: "OUTCOME_PACK_NOT_FOUND", message: "No unit outcome pack exists for this subject/unit." }] }
     }
 
+    const strand = getCurriculumStrandById(unit.strandId)
+    if (!strand) {
+        return { ok: false, issues: [{ code: "STRAND_NOT_FOUND", message: "Unit strandId does not exist in curriculum strand catalog." }] }
+    }
+
+    const standards = unit.standardIds
+        .map((standardId) => getCurriculumStandardById(standardId))
+        .filter((standard): standard is NonNullable<typeof standard> => Boolean(standard))
+        .map((standard) => ({
+            id: standard.id,
+            code: standard.code,
+            labelTh: standard.labelTh,
+        }))
+
+    if (standards.length !== unit.standardIds.length) {
+        return { ok: false, issues: [{ code: "STANDARD_NOT_FOUND", message: "One or more unit standardIds do not exist in curriculum standard catalog." }] }
+    }
+
     let template: SubjectLessonTemplate | null = null
     if (selection.templateId) {
         const found = findSubjectLessonTemplate(selection.templateId)
@@ -179,6 +215,21 @@ export function resolveAILessonCurriculumSelection(
             ...topic,
             outcomeIds: filteredOutcomeIds,
             outcomeTexts: mappedOutcomes.filter((outcome) => filteredOutcomeIds.includes(outcome.id)).map((outcome) => outcome.text),
+            concepts: unique(
+                mappedOutcomes
+                    .filter((outcome) => filteredOutcomeIds.includes(outcome.id))
+                    .flatMap((outcome) => outcome.concepts)
+            ),
+            skills: unique(
+                mappedOutcomes
+                    .filter((outcome) => filteredOutcomeIds.includes(outcome.id))
+                    .flatMap((outcome) => outcome.skills)
+            ),
+            assessmentHints: unique(
+                mappedOutcomes
+                    .filter((outcome) => filteredOutcomeIds.includes(outcome.id))
+                    .flatMap((outcome) => outcome.assessmentHints ?? [])
+            ),
         })
     }
 
@@ -234,7 +285,13 @@ export function resolveAILessonCurriculumSelection(
             unit,
             outcomePack,
             template,
+            strand: {
+                id: strand.id,
+                labelTh: strand.labelTh,
+            },
+            standards,
             promptFamily: mapPromptFamily(selection.subjectId),
+            indicatorIds: unique(unit.indicatorIds),
             selectedOutcomeIds,
             selectedOutcomes,
             selectedTopics: selectedTopics.filter((topic) => selectedTopicIds.includes(topic.id)),
@@ -251,19 +308,39 @@ Template pedagogy: ${selection.template.pedagogy}
 Required blocks: ${selection.template.requiredBlocks.join(", ")}`
         : ""
 
+    const standards = selection.standards
+        .map((standard) => `- ${standard.id}: ${standard.code} ${standard.labelTh}`)
+        .join("\n")
+
+    const indicators = selection.indicatorIds.length > 0
+        ? selection.indicatorIds.map((indicatorId) => `- ${indicatorId}`).join("\n")
+        : "- none_declared_in_unit_map_pack"
+
     const allowedTopics = selection.selectedTopics
         .map(
             (topic) => `- ${topic.id}: ${topic.title}
   Outcomes:
-  ${topic.outcomeIds.map((outcomeId, index) => `* ${outcomeId}: ${topic.outcomeTexts[index] ?? ""}`).join("\n  ")}`
+  ${topic.outcomeIds.map((outcomeId, index) => `* ${outcomeId}: ${topic.outcomeTexts[index] ?? ""}`).join("\n  ")}
+  Concepts: ${topic.concepts.join(", ") || "none"}
+  Skills: ${topic.skills.join(", ") || "none"}`
         )
         .join("\n")
 
     return `Canonical curriculum context:
 Subject id: ${selection.subject.id}
 Subject name: ${selection.subject.displayNameTh}
+Subject group id: ${selection.subject.groupType}
+Course type: ${selection.subject.courseType}
+Grade levels: ${selection.unit.gradeLevels.join(", ")}
+Strand id: ${selection.strand.id}
+Strand title: ${selection.strand.labelTh}
+Standard ids:
+${standards}
+Indicator ids:
+${indicators}
 Unit id: ${selection.unit.id}
 Unit title: ${selection.unit.title}
+Unit key concept: ${selection.unit.keyConceptTh}
 Prompt family: ${selection.promptFamily}
 Policy: ${getPromptPolicyText(selection.subject.id)}
 ${templateContext}
@@ -272,6 +349,8 @@ Allowed unit topics (use only these topic ids and titles):
 ${allowedTopics}
 
 Important curriculum rules:
+- The teacher source material below is supporting material, not permission to leave the selected curriculum scope.
+- If the teacher source text contains content outside the selected strand, standards, indicators, or unit key concept, ignore the off-scope parts.
 - You must stay inside the selected unit only.
 - You must use only allowed topic ids.
 - You must not invent a new topic outside the allowed list.
@@ -287,19 +366,45 @@ export function buildTopicContentCurriculumPromptContext(
         return null
     }
 
+    const standards = selection.standards
+        .map((standard) => `- ${standard.id}: ${standard.code} ${standard.labelTh}`)
+        .join("\n")
+
+    const indicators = selection.indicatorIds.length > 0
+        ? selection.indicatorIds.map((indicatorId) => `- ${indicatorId}`).join("\n")
+        : "- none_declared_in_unit_map_pack"
+
     return `Canonical curriculum context:
 Subject id: ${selection.subject.id}
 Subject name: ${selection.subject.displayNameTh}
+Subject group id: ${selection.subject.groupType}
+Course type: ${selection.subject.courseType}
+Grade levels: ${selection.unit.gradeLevels.join(", ")}
+Strand id: ${selection.strand.id}
+Strand title: ${selection.strand.labelTh}
+Standard ids:
+${standards}
+Indicator ids:
+${indicators}
 Unit id: ${selection.unit.id}
 Unit title: ${selection.unit.title}
+Unit key concept: ${selection.unit.keyConceptTh}
 Topic id: ${topic.id}
 Topic title: ${topic.title}
 Prompt family: ${selection.promptFamily}
 Policy: ${getPromptPolicyText(selection.subject.id)}
 Allowed learning outcomes for this topic:
 ${topic.outcomeIds.map((outcomeId, index) => `- ${outcomeId}: ${topic.outcomeTexts[index] ?? ""}`).join("\n")}
+Topic concept anchors:
+${topic.concepts.map((concept) => `- ${concept}`).join("\n") || "- none"}
+Topic skill anchors:
+${topic.skills.map((skill) => `- ${skill}`).join("\n") || "- none"}
+Assessment hints:
+${topic.assessmentHints.map((hint) => `- ${hint}`).join("\n") || "- none"}
 
 Important curriculum rules:
+- The teacher source material below is supporting material, not permission to leave the selected curriculum scope.
+- Use the selected unit key concept, standards, indicators, and topic outcomes as hard guardrails.
 - Create content for the selected topic only.
 - Do not reference outcomes outside this topic.
 - Keep the lesson classroom-ready, editable, and aligned to the allowed outcomes only.`

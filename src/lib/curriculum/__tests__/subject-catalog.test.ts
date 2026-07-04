@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest"
 import {
     CANONICAL_SUBJECT_CATALOG,
     findCanonicalSubjectByLabel,
+    getCanonicalAdditionalSubjects,
     getCanonicalChildSubjects,
     getCanonicalSubjectById,
+    getCanonicalSubjectsByCourseType,
+    getCanonicalCoreSubjects,
     getCanonicalSubjectDisplayName,
     getCanonicalSubjectSourceEntries,
+    getLessonBuilderSubjectOptions,
     isCanonicalSubjectCatalog,
     isCanonicalSubjectId,
     validateCanonicalSubjectCatalog,
@@ -21,10 +25,39 @@ describe("canonical subject catalog", () => {
         const physics = getCanonicalSubjectById("physics")
 
         expect(physics).not.toBeNull()
+        expect(physics?.courseType).toBe("additional")
         expect(physics?.groupType).toBe("additional_subject")
         expect(physics?.parentSubjectId).toBe("science_technology")
         expect(physics?.gradeLevels).toEqual(["m4", "m5", "m6"])
         expect(physics?.semesterMode).toBe("required")
+        expect(physics?.lessonBuilderAvailability).toBe("coming_soon")
+    })
+
+    it("keeps exactly 8 canonical core subjects available for the lesson builder", () => {
+        const coreSubjects = getCanonicalCoreSubjects()
+        const activeLessonBuilderSubjects = getLessonBuilderSubjectOptions("core")
+
+        expect(coreSubjects).toHaveLength(8)
+        expect(activeLessonBuilderSubjects).toHaveLength(8)
+        expect(coreSubjects.map((entry) => entry.id)).toEqual([
+            "thai",
+            "mathematics",
+            "science_technology",
+            "social_religion_culture",
+            "health_physical_education",
+            "arts",
+            "career",
+            "foreign_languages",
+        ])
+    })
+
+    it("marks additional subjects as cataloged but not yet active in the lesson builder", () => {
+        const additionalSubjects = getCanonicalAdditionalSubjects()
+        const activeAdditionalLessonBuilderSubjects = getLessonBuilderSubjectOptions("additional")
+
+        expect(additionalSubjects).toHaveLength(4)
+        expect(additionalSubjects.every((entry) => entry.lessonBuilderAvailability === "coming_soon")).toBe(true)
+        expect(activeAdditionalLessonBuilderSubjects).toEqual([])
     })
 
     it("resolves core subject display names in Thai and English", () => {
@@ -57,8 +90,20 @@ describe("canonical subject catalog", () => {
         expect(getCanonicalSubjectById("thai")?.semesterMode).toBe("optional")
     })
 
+    it("separates core and additional subjects by course type", () => {
+        expect(getCanonicalSubjectsByCourseType("core").every((entry) => entry.courseType === "core")).toBe(true)
+        expect(getCanonicalSubjectsByCourseType("additional").every((entry) => entry.courseType === "additional")).toBe(
+            true
+        )
+    })
+
     it("accepts only canonical subject ids", () => {
         expect(isCanonicalSubjectId("physics")).toBe(true)
         expect(isCanonicalSubjectId("history")).toBe(false)
+    })
+
+    it("does not silently fallback unknown labels to physics", () => {
+        expect(findCanonicalSubjectByLabel("physics core")).toBeNull()
+        expect(findCanonicalSubjectByLabel("วิชาพื้นฐานที่ยังไม่แมป")).toBeNull()
     })
 })

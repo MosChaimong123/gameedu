@@ -62,6 +62,7 @@ export const subjectLessonTemplateSchema = z.object({
     id: z.string().trim().min(1),
     subjectId: canonicalCoreSubjectIdSchema,
     unitId: z.string().trim().min(1),
+    indicatorIds: z.array(z.string().trim().min(1)).default([]),
     title: z.string().trim().min(1),
     description: z.string().trim().min(1),
     pedagogy: subjectTemplatePedagogySchema,
@@ -292,39 +293,26 @@ function unique(values: string[]) {
     return new Set(values).size === values.length
 }
 
+function buildTemplateId(subjectId: CanonicalCoreSubjectId, unitId: string, index: number) {
+    return index === 0 ? `${subjectId}-master-template-01` : `${subjectId}-${unitId}-template-01`
+}
+
+function buildTemplateTitle(config: SubjectTemplateConfig, unitTitle: string, index: number) {
+    return index === 0 ? config.title : `${unitTitle} · ${config.title}`
+}
+
+function buildTemplateDescription(config: SubjectTemplateConfig, unitTitle: string) {
+    return `${config.description} หน่วยอ้างอิง: ${unitTitle}`
+}
+
 function buildStarterTemplatePack(subjectId: CanonicalCoreSubjectId): SubjectLessonTemplatePack {
     const subject = getCanonicalSubjectById(subjectId)
     const mapPack = getSubjectCurriculumMapPack(subjectId)
-    const unit = mapPack?.unitOutlines[0]
     const config = SUBJECT_TEMPLATE_CONFIGS[subjectId]
 
-    if (!subject || !mapPack || !unit || !config) {
+    if (!subject || !mapPack || !config) {
         throw new Error(`Missing starter template dependencies for ${subjectId}`)
     }
-
-    const outcomePack = getSubjectUnitLearningOutcomePack(subjectId, unit.id)
-    if (!outcomePack) {
-        throw new Error(`Missing starter outcome pack for ${subjectId}:${unit.id}`)
-    }
-
-    const selectedTopics = outcomePack.topics.slice(0, Math.min(2, outcomePack.topics.length))
-    const topicStructure = selectedTopics.map((topic, index) => {
-        const outcomeIds = outcomePack.learningOutcomes.filter((outcome) => outcome.topicIds.includes(topic.id)).map((outcome) => outcome.id)
-        if (outcomeIds.length === 0) {
-            throw new Error(`Missing topic outcome mapping for ${subjectId}:${unit.id}:${topic.id}`)
-        }
-
-        return {
-            id: `${subjectId}-tpl-topic-${index + 1}`,
-            title: topic.title,
-            topicIds: [topic.id],
-            outcomeIds,
-            blockOrder: [...config.topicBlockOrder],
-            mediaFocus: config.mediaRequirements.map((requirement) => requirement.kind),
-        }
-    })
-
-    const suggestedOutcomeIds = Array.from(new Set(topicStructure.flatMap((topic) => topic.outcomeIds)))
 
     return {
         schemaVersion: SUBJECT_TEMPLATE_MASTER_PACK_SCHEMA_VERSION,
@@ -333,13 +321,40 @@ function buildStarterTemplatePack(subjectId: CanonicalCoreSubjectId): SubjectLes
         displayNameEn: subject.displayNameEn,
         packStatus: "starter_master_pack",
         sourceRefs: [...mapPack.sourceRefs, PLATFORM_TEMPLATE_REF],
-        templates: [
-            {
-                id: `${subjectId}-master-template-01`,
+        templates: mapPack.unitOutlines.map((unit, unitIndex) => {
+            const outcomePack = getSubjectUnitLearningOutcomePack(subjectId, unit.id)
+            if (!outcomePack) {
+                throw new Error(`Missing starter outcome pack for ${subjectId}:${unit.id}`)
+            }
+
+            const selectedTopics = outcomePack.topics.slice(0, Math.min(2, outcomePack.topics.length))
+            const topicStructure = selectedTopics.map((topic, topicIndex) => {
+                const outcomeIds = outcomePack.learningOutcomes
+                    .filter((outcome) => outcome.topicIds.includes(topic.id))
+                    .map((outcome) => outcome.id)
+                if (outcomeIds.length === 0) {
+                    throw new Error(`Missing topic outcome mapping for ${subjectId}:${unit.id}:${topic.id}`)
+                }
+
+                return {
+                    id: `${subjectId}-${unit.id}-tpl-topic-${topicIndex + 1}`,
+                    title: topic.title,
+                    topicIds: [topic.id],
+                    outcomeIds,
+                    blockOrder: [...config.topicBlockOrder],
+                    mediaFocus: config.mediaRequirements.map((requirement) => requirement.kind),
+                }
+            })
+
+            const suggestedOutcomeIds = Array.from(new Set(topicStructure.flatMap((topic) => topic.outcomeIds)))
+
+            return {
+                id: buildTemplateId(subjectId, unit.id, unitIndex),
                 subjectId,
                 unitId: unit.id,
-                title: config.title,
-                description: config.description,
+                indicatorIds: [...unit.indicatorIds],
+                title: buildTemplateTitle(config, unit.title, unitIndex),
+                description: buildTemplateDescription(config, unit.title),
                 pedagogy: config.pedagogy,
                 estimatedMinutes: config.estimatedMinutes,
                 requiredBlocks: [...config.requiredBlocks],
@@ -349,8 +364,8 @@ function buildStarterTemplatePack(subjectId: CanonicalCoreSubjectId): SubjectLes
                 documentRequirements: config.documentRequirements,
                 teacherOverrides: config.teacherOverrides,
                 sourceRefs: [...unit.sourceRefs, PLATFORM_TEMPLATE_REF],
-            },
-        ],
+            }
+        }),
     }
 }
 
@@ -427,6 +442,7 @@ export function validateSubjectLessonTemplateCatalog(value: unknown) {
             }
 
             const outcomePack = getSubjectUnitLearningOutcomePack(template.subjectId, template.unitId)
+            const unitOutline = getSubjectCurriculumMapPack(template.subjectId)?.unitOutlines.find((unit) => unit.id === template.unitId)
             if (!outcomePack) {
                 issues.push({
                     code: z.ZodIssueCode.custom,
@@ -436,8 +452,28 @@ export function validateSubjectLessonTemplateCatalog(value: unknown) {
                 return
             }
 
+            if (!unitOutline) {
+                issues.push({
+                    code: z.ZodIssueCode.custom,
+                    message: "Template unitId must resolve to a known curriculum unit.",
+                    path: [packIndex, "templates", templateIndex, "unitId"],
+                })
+                return
+            }
+
             const validTopicIds = new Set(outcomePack.topics.map((topic) => topic.id))
             const validOutcomeIds = new Set(outcomePack.learningOutcomes.map((outcome) => outcome.id))
+            const validIndicatorIds = new Set(unitOutline.indicatorIds)
+
+            template.indicatorIds.forEach((indicatorId, indicatorIndex) => {
+                if (!validIndicatorIds.has(indicatorId)) {
+                    issues.push({
+                        code: z.ZodIssueCode.custom,
+                        message: "indicatorIds must belong to the template unit.",
+                        path: [packIndex, "templates", templateIndex, "indicatorIds", indicatorIndex],
+                    })
+                }
+            })
 
             template.topicStructure.forEach((topic, topicIndex) => {
                 topic.topicIds.forEach((topicId, topicIdIndex) => {

@@ -1,0 +1,4500 @@
+{
+  "sourceFileName": "โครงสร้างระดับมัธยม พื้นฐาน.docx",
+  "rows": [
+    {
+      "tableIndex": 3,
+      "rowIndex": 2,
+      "standardCode": "ท 1.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/3",
+        "ม.1/5",
+        "ม.1/6",
+        "ม.1/7",
+        "ม.1/9"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/2",
+        "ม.1/4",
+        "ม.1/8"
+      ]
+    },
+    {
+      "tableIndex": 3,
+      "rowIndex": 3,
+      "standardCode": "ท 2.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/3",
+        "ม.1/4",
+        "ม.1/5",
+        "ม.1/6",
+        "ม.1/7",
+        "ม.1/8",
+        "ม.1/9"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/2"
+      ]
+    },
+    {
+      "tableIndex": 3,
+      "rowIndex": 4,
+      "standardCode": "ท 3.1",
+      "duringIndicatorCodes": [
+        "ม.1/2",
+        "ม.1/3",
+        "ม.1/6"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/4",
+        "ม.1/5"
+      ]
+    },
+    {
+      "tableIndex": 3,
+      "rowIndex": 5,
+      "standardCode": "ท 4.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/3",
+        "ม.1/4",
+        "ม.1/6"
+      ]
+    },
+    {
+      "tableIndex": 5,
+      "rowIndex": 2,
+      "standardCode": "ท 1.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/3",
+        "ม.2/4",
+        "ม.2/6",
+        "ม.2/8"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/5",
+        "ม.2/7"
+      ]
+    },
+    {
+      "tableIndex": 5,
+      "rowIndex": 3,
+      "standardCode": "ท 2.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/3",
+        "ม.2/4",
+        "ม.2/5",
+        "ม.2/6",
+        "ม.2/7",
+        "ม.2/8"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/2"
+      ]
+    },
+    {
+      "tableIndex": 5,
+      "rowIndex": 4,
+      "standardCode": "ท 3.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/5",
+        "ม.2/6"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/3",
+        "ม.2/4"
+      ]
+    },
+    {
+      "tableIndex": 5,
+      "rowIndex": 5,
+      "standardCode": "ท 4.1",
+      "duringIndicatorCodes": [
+        "ม.2/3",
+        "ม.2/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/4"
+      ]
+    },
+    {
+      "tableIndex": 7,
+      "rowIndex": 2,
+      "standardCode": "ท 1.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/4",
+        "ม.3/6",
+        "ม.3/7",
+        "ม.3/8",
+        "ม.3/9",
+        "ม.3/10"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/3",
+        "ม.3/5"
+      ]
+    },
+    {
+      "tableIndex": 7,
+      "rowIndex": 3,
+      "standardCode": "ท 2.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/3",
+        "ม.3/4",
+        "ม.3/5",
+        "ม.3/6",
+        "ม.3/7",
+        "ม.3/8",
+        "ม.3/9",
+        "ม.3/10"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2"
+      ]
+    },
+    {
+      "tableIndex": 7,
+      "rowIndex": 4,
+      "standardCode": "ท 3.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/3",
+        "ม.3/5",
+        "ม.3/6"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/4"
+      ]
+    },
+    {
+      "tableIndex": 7,
+      "rowIndex": 5,
+      "standardCode": "ท 4.1",
+      "duringIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/4",
+        "ม.3/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/3",
+        "ม.3/6"
+      ]
+    },
+    {
+      "tableIndex": 14,
+      "rowIndex": 2,
+      "standardCode": "ท 5.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/3",
+        "ม.1/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/8"
+      ]
+    },
+    {
+      "tableIndex": 14,
+      "rowIndex": 3,
+      "standardCode": "ท 5.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.1/5"
+      ]
+    },
+    {
+      "tableIndex": 16,
+      "rowIndex": 2,
+      "standardCode": "ท 5.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/4"
+      ]
+    },
+    {
+      "tableIndex": 16,
+      "rowIndex": 3,
+      "standardCode": "ท 5.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.2/5"
+      ]
+    },
+    {
+      "tableIndex": 18,
+      "rowIndex": 2,
+      "standardCode": "ท 1.1",
+      "duringIndicatorCodes": [
+        "ม.3/4",
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/3",
+        "ม.3/5"
+      ]
+    },
+    {
+      "tableIndex": 18,
+      "rowIndex": 3,
+      "standardCode": "ท 5.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.3/4"
+      ]
+    },
+    {
+      "tableIndex": 20,
+      "rowIndex": 2,
+      "standardCode": "ค 1.1",
+      "duringIndicatorCodes": [
+        "ม.1/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/3"
+      ]
+    },
+    {
+      "tableIndex": 20,
+      "rowIndex": 3,
+      "standardCode": "ค 1.3",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/3"
+      ]
+    },
+    {
+      "tableIndex": 20,
+      "rowIndex": 4,
+      "standardCode": "ค 2.2",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2"
+      ]
+    },
+    {
+      "tableIndex": 20,
+      "rowIndex": 5,
+      "standardCode": "ค 3.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.1/1"
+      ]
+    },
+    {
+      "tableIndex": 23,
+      "rowIndex": 2,
+      "standardCode": "ค 1.1",
+      "duringIndicatorCodes": [
+        "ม.2/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/2"
+      ]
+    },
+    {
+      "tableIndex": 23,
+      "rowIndex": 3,
+      "standardCode": "ค 1.2",
+      "duringIndicatorCodes": [
+        "ม.2/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/2"
+      ]
+    },
+    {
+      "tableIndex": 23,
+      "rowIndex": 4,
+      "standardCode": "ค 2.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2"
+      ]
+    },
+    {
+      "tableIndex": 23,
+      "rowIndex": 5,
+      "standardCode": "ค 2.2",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/3",
+        "ม.2/4",
+        "ม.2/5"
+      ]
+    },
+    {
+      "tableIndex": 23,
+      "rowIndex": 6,
+      "standardCode": "ค 3.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.2/1"
+      ]
+    },
+    {
+      "tableIndex": 26,
+      "rowIndex": 2,
+      "standardCode": "ค 1.2",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2"
+      ]
+    },
+    {
+      "tableIndex": 26,
+      "rowIndex": 3,
+      "standardCode": "ค 1.3",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/3"
+      ]
+    },
+    {
+      "tableIndex": 26,
+      "rowIndex": 4,
+      "standardCode": "ค 2.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2"
+      ]
+    },
+    {
+      "tableIndex": 26,
+      "rowIndex": 5,
+      "standardCode": "ค 2.2",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/3"
+      ]
+    },
+    {
+      "tableIndex": 26,
+      "rowIndex": 6,
+      "standardCode": "ค 3.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.3/1"
+      ]
+    },
+    {
+      "tableIndex": 26,
+      "rowIndex": 7,
+      "standardCode": "ค 3.2",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.3/1"
+      ]
+    },
+    {
+      "tableIndex": 29,
+      "rowIndex": 2,
+      "standardCode": "ว 1.2",
+      "duringIndicatorCodes": [
+        "ม.1/2",
+        "ม.1/4",
+        "ม.1/6",
+        "ม.1/7",
+        "ม.1/10",
+        "ม.1/11",
+        "ม.1/12",
+        "ม.1/13",
+        "ม.1/14",
+        "ม.1/16",
+        "ม.1/17"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/3",
+        "ม.1/5",
+        "ม.1/8",
+        "ม.1/9",
+        "ม.1/15",
+        "ม.1/18"
+      ]
+    },
+    {
+      "tableIndex": 29,
+      "rowIndex": 3,
+      "standardCode": "ว 2.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/6",
+        "ม.1/8",
+        "ม.1/9"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/3",
+        "ม.1/4",
+        "ม.1/5",
+        "ม.1/7",
+        "ม.1/10"
+      ]
+    },
+    {
+      "tableIndex": 29,
+      "rowIndex": 4,
+      "standardCode": "ว 2.2",
+      "duringIndicatorCodes": [
+        "ม.1/1"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 29,
+      "rowIndex": 5,
+      "standardCode": "ว 2.3",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/3",
+        "ม.1/5",
+        "ม.1/6"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/4",
+        "ม.1/7"
+      ]
+    },
+    {
+      "tableIndex": 29,
+      "rowIndex": 6,
+      "standardCode": "ว 3.2",
+      "duringIndicatorCodes": [
+        "ม.1/2",
+        "ม.1/4",
+        "ม.1/6"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/3",
+        "ม.1/5",
+        "ม.1/7"
+      ]
+    },
+    {
+      "tableIndex": 31,
+      "rowIndex": 2,
+      "standardCode": "ว 1.2",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/4",
+        "ม.2/6",
+        "ม.2/7",
+        "ม.2/8",
+        "ม.2/10",
+        "ม.2/12",
+        "ม.2/14",
+        "ม.2/16",
+        "ม.2/17"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/3",
+        "ม.2/5",
+        "ม.2/9",
+        "ม.2/11",
+        "ม.2/13",
+        "ม.2/15"
+      ]
+    },
+    {
+      "tableIndex": 31,
+      "rowIndex": 3,
+      "standardCode": "ว 2.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/3",
+        "ม.2/4",
+        "ม.2/6"
+      ]
+    },
+    {
+      "tableIndex": 31,
+      "rowIndex": 4,
+      "standardCode": "ว 2.2",
+      "duringIndicatorCodes": [
+        "ม.2/2",
+        "ม.2/3",
+        "ม.2/5",
+        "ม.2/6",
+        "ม.2/7",
+        "ม.2/8",
+        "ม.2/11",
+        "ม.2/12",
+        "ม.2/15"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/4",
+        "ม.2/9",
+        "ม.2/10",
+        "ม.2/13",
+        "ม.2/14"
+      ]
+    },
+    {
+      "tableIndex": 31,
+      "rowIndex": 5,
+      "standardCode": "ว 2.3",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/4",
+        "ม.2/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/3",
+        "ม.2/6"
+      ]
+    },
+    {
+      "tableIndex": 31,
+      "rowIndex": 6,
+      "standardCode": "ว 3.2",
+      "duringIndicatorCodes": [
+        "ม.2/2",
+        "ม.2/4",
+        "ม.2/6",
+        "ม.2/8"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/3",
+        "ม.2/5",
+        "ม.2/7",
+        "ม.2/9",
+        "ม.2/10"
+      ]
+    },
+    {
+      "tableIndex": 33,
+      "rowIndex": 2,
+      "standardCode": "ว 1.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/3",
+        "ม.3/4",
+        "ม.3/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/6"
+      ]
+    },
+    {
+      "tableIndex": 33,
+      "rowIndex": 3,
+      "standardCode": "ว 1.3",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/3",
+        "ม.3/4",
+        "ม.3/5",
+        "ม.3/7",
+        "ม.3/9",
+        "ม.3/10"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/6",
+        "ม.3/8",
+        "ม.3/11"
+      ]
+    },
+    {
+      "tableIndex": 33,
+      "rowIndex": 4,
+      "standardCode": "ว 2.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/3",
+        "ม.3/4",
+        "ม.3/5",
+        "ม.3/6",
+        "ม.3/7"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/8"
+      ]
+    },
+    {
+      "tableIndex": 33,
+      "rowIndex": 5,
+      "standardCode": "ว 2.3",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/3",
+        "ม.3/5",
+        "ม.3/7",
+        "ม.3/8",
+        "ม.3/10",
+        "ม.3/11",
+        "ม.3/13",
+        "ม.3/14",
+        "ม.3/15",
+        "ม.3/16",
+        "ม.3/18",
+        "ม.3/19",
+        "ม.3/20"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/4",
+        "ม.3/6",
+        "ม.3/9",
+        "ม.3/12",
+        "ม.3/17",
+        "ม.3/21"
+      ]
+    },
+    {
+      "tableIndex": 33,
+      "rowIndex": 6,
+      "standardCode": "ว 3.1",
+      "duringIndicatorCodes": [
+        "ม.3/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/3",
+        "ม.3/4"
+      ]
+    },
+    {
+      "tableIndex": 35,
+      "rowIndex": 2,
+      "standardCode": "ว 4.2",
+      "duringIndicatorCodes": [
+        "ม.1/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/3",
+        "ม.1/4"
+      ]
+    },
+    {
+      "tableIndex": 37,
+      "rowIndex": 2,
+      "standardCode": "ว 4.2",
+      "duringIndicatorCodes": [
+        "ม.2/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/3",
+        "ม.2/4"
+      ]
+    },
+    {
+      "tableIndex": 39,
+      "rowIndex": 2,
+      "standardCode": "ว 4.2",
+      "duringIndicatorCodes": [
+        "ม.3/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/4"
+      ]
+    },
+    {
+      "tableIndex": 41,
+      "rowIndex": 2,
+      "standardCode": "ว 4.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/3",
+        "ม.1/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/5"
+      ]
+    },
+    {
+      "tableIndex": 43,
+      "rowIndex": 2,
+      "standardCode": "ว 4.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/3",
+        "ม.2/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/5"
+      ]
+    },
+    {
+      "tableIndex": 45,
+      "rowIndex": 2,
+      "standardCode": "ว 4.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/3",
+        "ม.3/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/5"
+      ]
+    },
+    {
+      "tableIndex": 47,
+      "rowIndex": 2,
+      "standardCode": "ส 2.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/3",
+        "ม.1/4"
+      ]
+    },
+    {
+      "tableIndex": 47,
+      "rowIndex": 3,
+      "standardCode": "ส 2.2",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/3"
+      ]
+    },
+    {
+      "tableIndex": 47,
+      "rowIndex": 4,
+      "standardCode": "ส 3.1",
+      "duringIndicatorCodes": [
+        "ม.1/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/2",
+        "ม.1/3"
+      ]
+    },
+    {
+      "tableIndex": 47,
+      "rowIndex": 5,
+      "standardCode": "ส 3.2",
+      "duringIndicatorCodes": [
+        "ม.1/2",
+        "ม.1/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/4"
+      ]
+    },
+    {
+      "tableIndex": 47,
+      "rowIndex": 6,
+      "standardCode": "ส 5.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/3"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 47,
+      "rowIndex": 7,
+      "standardCode": "ส 5.2",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/2",
+        "ม.1/4"
+      ]
+    },
+    {
+      "tableIndex": 49,
+      "rowIndex": 2,
+      "standardCode": "ส 2.1",
+      "duringIndicatorCodes": [
+        "ม.2/2",
+        "ม.2/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/4"
+      ]
+    },
+    {
+      "tableIndex": 49,
+      "rowIndex": 3,
+      "standardCode": "ส 2.2",
+      "duringIndicatorCodes": [
+        "ม.2/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/2"
+      ]
+    },
+    {
+      "tableIndex": 49,
+      "rowIndex": 4,
+      "standardCode": "ส 3.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/3"
+      ]
+    },
+    {
+      "tableIndex": 49,
+      "rowIndex": 5,
+      "standardCode": "ส 3.2",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/4"
+      ]
+    },
+    {
+      "tableIndex": 49,
+      "rowIndex": 6,
+      "standardCode": "ส 5.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/3"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 49,
+      "rowIndex": 7,
+      "standardCode": "ส 5.2",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/2",
+        "ม.2/4"
+      ]
+    },
+    {
+      "tableIndex": 51,
+      "rowIndex": 2,
+      "standardCode": "ส 2.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/3",
+        "ม.3/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/5"
+      ]
+    },
+    {
+      "tableIndex": 51,
+      "rowIndex": 3,
+      "standardCode": "ส 2.2",
+      "duringIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/4"
+      ]
+    },
+    {
+      "tableIndex": 51,
+      "rowIndex": 4,
+      "standardCode": "ส 3.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2"
+      ]
+    },
+    {
+      "tableIndex": 51,
+      "rowIndex": 5,
+      "standardCode": "ส 3.2",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/4",
+        "ม.3/5",
+        "ม.3/6"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/3"
+      ]
+    },
+    {
+      "tableIndex": 51,
+      "rowIndex": 6,
+      "standardCode": "ส 5.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 51,
+      "rowIndex": 7,
+      "standardCode": "ส 5.2",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/3",
+        "ม.3/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/4"
+      ]
+    },
+    {
+      "tableIndex": 53,
+      "rowIndex": 2,
+      "standardCode": "ส 1.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/3",
+        "ม.1/4",
+        "ม.1/6",
+        "ม.1/7",
+        "ม.1/9",
+        "ม.1/11"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/5",
+        "ม.1/8",
+        "ม.1/10"
+      ]
+    },
+    {
+      "tableIndex": 53,
+      "rowIndex": 3,
+      "standardCode": "ส 1.2",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/3",
+        "ม.1/4"
+      ]
+    },
+    {
+      "tableIndex": 55,
+      "rowIndex": 2,
+      "standardCode": "ส 1.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/3",
+        "ม.2/4",
+        "ม.2/5",
+        "ม.2/6",
+        "ม.2/7",
+        "ม.2/9",
+        "ม.2/10"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/8",
+        "ม.2/11"
+      ]
+    },
+    {
+      "tableIndex": 55,
+      "rowIndex": 3,
+      "standardCode": "ส 1.2",
+      "duringIndicatorCodes": [
+        "ม.2/2",
+        "ม.2/3",
+        "ม.2/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/5"
+      ]
+    },
+    {
+      "tableIndex": 57,
+      "rowIndex": 2,
+      "standardCode": "ส 1.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/4",
+        "ม.3/5",
+        "ม.3/6",
+        "ม.3/8",
+        "ม.3/9"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/3",
+        "ม.3/7",
+        "ม.3/10"
+      ]
+    },
+    {
+      "tableIndex": 57,
+      "rowIndex": 3,
+      "standardCode": "ส 1.2",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/4",
+        "ม.3/5",
+        "ม.3/6"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/3",
+        "ม.3/7"
+      ]
+    },
+    {
+      "tableIndex": 59,
+      "rowIndex": 2,
+      "standardCode": "ส 2.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/3",
+        "ม.1/4"
+      ]
+    },
+    {
+      "tableIndex": 59,
+      "rowIndex": 3,
+      "standardCode": "ส 2.2",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/3"
+      ]
+    },
+    {
+      "tableIndex": 61,
+      "rowIndex": 2,
+      "standardCode": "ส 2.1",
+      "duringIndicatorCodes": [
+        "ม.2/2",
+        "ม.2/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/4"
+      ]
+    },
+    {
+      "tableIndex": 61,
+      "rowIndex": 3,
+      "standardCode": "ส 2.2",
+      "duringIndicatorCodes": [
+        "ม.2/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/2"
+      ]
+    },
+    {
+      "tableIndex": 63,
+      "rowIndex": 2,
+      "standardCode": "ส 2.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/3",
+        "ม.3/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/5"
+      ]
+    },
+    {
+      "tableIndex": 63,
+      "rowIndex": 3,
+      "standardCode": "ส 2.2",
+      "duringIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/4"
+      ]
+    },
+    {
+      "tableIndex": 65,
+      "rowIndex": 2,
+      "standardCode": "ส 3.1",
+      "duringIndicatorCodes": [
+        "ม.1/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/2",
+        "ม.1/3"
+      ]
+    },
+    {
+      "tableIndex": 65,
+      "rowIndex": 3,
+      "standardCode": "ส 3.2",
+      "duringIndicatorCodes": [
+        "ม.1/2",
+        "ม.1/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/4"
+      ]
+    },
+    {
+      "tableIndex": 67,
+      "rowIndex": 2,
+      "standardCode": "ส 3.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/3"
+      ]
+    },
+    {
+      "tableIndex": 67,
+      "rowIndex": 3,
+      "standardCode": "ส 3.2",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/4"
+      ]
+    },
+    {
+      "tableIndex": 69,
+      "rowIndex": 2,
+      "standardCode": "ส 3.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2"
+      ]
+    },
+    {
+      "tableIndex": 69,
+      "rowIndex": 3,
+      "standardCode": "ส 3.2",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/4",
+        "ม.3/5",
+        "ม.3/6"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/3"
+      ]
+    },
+    {
+      "tableIndex": 71,
+      "rowIndex": 2,
+      "standardCode": "ส 4.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/3"
+      ]
+    },
+    {
+      "tableIndex": 71,
+      "rowIndex": 3,
+      "standardCode": "ส 4.2",
+      "duringIndicatorCodes": [
+        "ม.1/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/1"
+      ]
+    },
+    {
+      "tableIndex": 71,
+      "rowIndex": 4,
+      "standardCode": "ส 4.3",
+      "duringIndicatorCodes": [
+        "ม.1/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2"
+      ]
+    },
+    {
+      "tableIndex": 73,
+      "rowIndex": 2,
+      "standardCode": "ส 4.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/3"
+      ]
+    },
+    {
+      "tableIndex": 73,
+      "rowIndex": 3,
+      "standardCode": "ส 4.2",
+      "duringIndicatorCodes": [
+        "ม.2/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/1"
+      ]
+    },
+    {
+      "tableIndex": 73,
+      "rowIndex": 4,
+      "standardCode": "ส 4.3",
+      "duringIndicatorCodes": [
+        "ม.2/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2"
+      ]
+    },
+    {
+      "tableIndex": 75,
+      "rowIndex": 2,
+      "standardCode": "ส 4.1",
+      "duringIndicatorCodes": [
+        "ม.3/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2"
+      ]
+    },
+    {
+      "tableIndex": 75,
+      "rowIndex": 3,
+      "standardCode": "ส 4.2",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2"
+      ]
+    },
+    {
+      "tableIndex": 75,
+      "rowIndex": 4,
+      "standardCode": "ส 4.3",
+      "duringIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/3",
+        "ม.3/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/1"
+      ]
+    },
+    {
+      "tableIndex": 77,
+      "rowIndex": 2,
+      "standardCode": "ส 5.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/3"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 77,
+      "rowIndex": 3,
+      "standardCode": "ส 5.2",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/2",
+        "ม.1/4"
+      ]
+    },
+    {
+      "tableIndex": 79,
+      "rowIndex": 2,
+      "standardCode": "ส 5.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/3"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 79,
+      "rowIndex": 3,
+      "standardCode": "ส 5.2",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/2",
+        "ม.2/4"
+      ]
+    },
+    {
+      "tableIndex": 81,
+      "rowIndex": 2,
+      "standardCode": "ส 5.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 81,
+      "rowIndex": 3,
+      "standardCode": "ส 5.2",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/3",
+        "ม.3/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/4"
+      ]
+    },
+    {
+      "tableIndex": 83,
+      "rowIndex": 2,
+      "standardCode": "พ 1.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/4"
+      ]
+    },
+    {
+      "tableIndex": 83,
+      "rowIndex": 3,
+      "standardCode": "พ 2.1",
+      "duringIndicatorCodes": [
+        "ม.1/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/2"
+      ]
+    },
+    {
+      "tableIndex": 83,
+      "rowIndex": 4,
+      "standardCode": "พ 4.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/3"
+      ]
+    },
+    {
+      "tableIndex": 83,
+      "rowIndex": 5,
+      "standardCode": "พ 5.2",
+      "duringIndicatorCodes": [
+        "ม.1/2",
+        "ม.1/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/4"
+      ]
+    },
+    {
+      "tableIndex": 85,
+      "rowIndex": 2,
+      "standardCode": "พ 1.1",
+      "duringIndicatorCodes": [
+        "ม.2/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/2"
+      ]
+    },
+    {
+      "tableIndex": 85,
+      "rowIndex": 3,
+      "standardCode": "พ 2.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/3"
+      ]
+    },
+    {
+      "tableIndex": 85,
+      "rowIndex": 4,
+      "standardCode": "พ 4.1",
+      "duringIndicatorCodes": [
+        "ม.2/2",
+        "ม.2/3",
+        "ม.2/4",
+        "ม.2/5",
+        "ม.2/7"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/6"
+      ]
+    },
+    {
+      "tableIndex": 85,
+      "rowIndex": 5,
+      "standardCode": "พ 5.2",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/3"
+      ]
+    },
+    {
+      "tableIndex": 87,
+      "rowIndex": 2,
+      "standardCode": "พ 1.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/3"
+      ]
+    },
+    {
+      "tableIndex": 87,
+      "rowIndex": 3,
+      "standardCode": "พ 2.1",
+      "duringIndicatorCodes": [
+        "ม.3/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/3"
+      ]
+    },
+    {
+      "tableIndex": 87,
+      "rowIndex": 4,
+      "standardCode": "พ 4.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/3",
+        "ม.3/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/5"
+      ]
+    },
+    {
+      "tableIndex": 87,
+      "rowIndex": 5,
+      "standardCode": "พ 5.2",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/3",
+        "ม.3/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/5"
+      ]
+    },
+    {
+      "tableIndex": 89,
+      "rowIndex": 2,
+      "standardCode": "ศ 1.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/5",
+        "ม.1/6"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/3",
+        "ม.1/4"
+      ]
+    },
+    {
+      "tableIndex": 89,
+      "rowIndex": 3,
+      "standardCode": "ศ 1.2",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/3"
+      ]
+    },
+    {
+      "tableIndex": 91,
+      "rowIndex": 2,
+      "standardCode": "ศ 1.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/3",
+        "ม.2/4",
+        "ม.2/6"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/2",
+        "ม.2/5",
+        "ม.2/7"
+      ]
+    },
+    {
+      "tableIndex": 91,
+      "rowIndex": 3,
+      "standardCode": "ศ 1.2",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/3"
+      ]
+    },
+    {
+      "tableIndex": 93,
+      "rowIndex": 2,
+      "standardCode": "ศ 1.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/3",
+        "ม.3/4",
+        "ม.3/5",
+        "ม.3/9",
+        "ม.3/8",
+        "ม.3/10"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/6",
+        "ม.3/7",
+        "ม.3/11"
+      ]
+    },
+    {
+      "tableIndex": 93,
+      "rowIndex": 3,
+      "standardCode": "ศ 1.2",
+      "duringIndicatorCodes": [
+        "ม.3/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2"
+      ]
+    },
+    {
+      "tableIndex": 95,
+      "rowIndex": 2,
+      "standardCode": "ศ 2.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/4",
+        "ม.1/5",
+        "ม.1/7",
+        "ม.1/8",
+        "ม.1/9"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/3",
+        "ม.1/6"
+      ]
+    },
+    {
+      "tableIndex": 95,
+      "rowIndex": 3,
+      "standardCode": "ศ 2.2",
+      "duringIndicatorCodes": [
+        "ม.1/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/1"
+      ]
+    },
+    {
+      "tableIndex": 95,
+      "rowIndex": 4,
+      "standardCode": "ศ 3.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/3",
+        "ม.1/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/4"
+      ]
+    },
+    {
+      "tableIndex": 95,
+      "rowIndex": 5,
+      "standardCode": "ศ 3.2",
+      "duringIndicatorCodes": [
+        "ม.1/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/1"
+      ]
+    },
+    {
+      "tableIndex": 97,
+      "rowIndex": 2,
+      "standardCode": "ศ 2.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/5",
+        "ม.2/6"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/3",
+        "ม.2/4",
+        "ม.2/7"
+      ]
+    },
+    {
+      "tableIndex": 97,
+      "rowIndex": 3,
+      "standardCode": "ศ 2.2",
+      "duringIndicatorCodes": [
+        "ม.2/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/2"
+      ]
+    },
+    {
+      "tableIndex": 97,
+      "rowIndex": 4,
+      "standardCode": "ศ 3.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/3",
+        "ม.2/4",
+        "ม.2/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/2"
+      ]
+    },
+    {
+      "tableIndex": 97,
+      "rowIndex": 5,
+      "standardCode": "ศ 3.2",
+      "duringIndicatorCodes": [
+        "ม.2/2",
+        "ม.2/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/1"
+      ]
+    },
+    {
+      "tableIndex": 99,
+      "rowIndex": 2,
+      "standardCode": "ศ 2.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/4",
+        "ม.3/5",
+        "ม.3/6",
+        "ม.3/7"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2",
+        "ม.3/3"
+      ]
+    },
+    {
+      "tableIndex": 99,
+      "rowIndex": 3,
+      "standardCode": "ศ 2.2",
+      "duringIndicatorCodes": [
+        "ม.3/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/1"
+      ]
+    },
+    {
+      "tableIndex": 99,
+      "rowIndex": 4,
+      "standardCode": "ศ 3.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/3",
+        "ม.3/6",
+        "ม.3/7"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/4",
+        "ม.3/5"
+      ]
+    },
+    {
+      "tableIndex": 99,
+      "rowIndex": 5,
+      "standardCode": "ศ 3.2",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2"
+      ]
+    },
+    {
+      "tableIndex": 103,
+      "rowIndex": 2,
+      "standardCode": "ง 1.1",
+      "duringIndicatorCodes": [
+        "ม.1/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/2",
+        "ม.1/3"
+      ]
+    },
+    {
+      "tableIndex": 103,
+      "rowIndex": 3,
+      "standardCode": "ง 2.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/3"
+      ]
+    },
+    {
+      "tableIndex": 105,
+      "rowIndex": 2,
+      "standardCode": "ง 1.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/3"
+      ]
+    },
+    {
+      "tableIndex": 105,
+      "rowIndex": 3,
+      "standardCode": "ง 2.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/3"
+      ]
+    },
+    {
+      "tableIndex": 107,
+      "rowIndex": 2,
+      "standardCode": "ง 1.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/3"
+      ]
+    },
+    {
+      "tableIndex": 107,
+      "rowIndex": 3,
+      "standardCode": "ง 2.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/3"
+      ]
+    },
+    {
+      "tableIndex": 109,
+      "rowIndex": 2,
+      "standardCode": "ต 1.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/3",
+        "ม.1/4"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 109,
+      "rowIndex": 3,
+      "standardCode": "ต 1.2",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/3",
+        "ม.1/5"
+      ]
+    },
+    {
+      "tableIndex": 109,
+      "rowIndex": 4,
+      "standardCode": "ต 1.3",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.1/2"
+      ]
+    },
+    {
+      "tableIndex": 109,
+      "rowIndex": 5,
+      "standardCode": "ต 2.1",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2",
+        "ม.1/3"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 109,
+      "rowIndex": 6,
+      "standardCode": "ต 2.2",
+      "duringIndicatorCodes": [
+        "ม.1/1",
+        "ม.1/2"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 109,
+      "rowIndex": 7,
+      "standardCode": "ต 3.1",
+      "duringIndicatorCodes": [
+        "ม.1/1"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 109,
+      "rowIndex": 8,
+      "standardCode": "ต 4.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.1/1"
+      ]
+    },
+    {
+      "tableIndex": 109,
+      "rowIndex": 9,
+      "standardCode": "ต 4.2",
+      "duringIndicatorCodes": [
+        "ม.1/1"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 111,
+      "rowIndex": 2,
+      "standardCode": "ต 1.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/3",
+        "ม.2/4"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 111,
+      "rowIndex": 3,
+      "standardCode": "ต 1.2",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/3",
+        "ม.2/5"
+      ]
+    },
+    {
+      "tableIndex": 111,
+      "rowIndex": 4,
+      "standardCode": "ต 1.3",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.2/2"
+      ]
+    },
+    {
+      "tableIndex": 111,
+      "rowIndex": 5,
+      "standardCode": "ต 2.1",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2",
+        "ม.2/3"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 111,
+      "rowIndex": 6,
+      "standardCode": "ต 2.2",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 111,
+      "rowIndex": 7,
+      "standardCode": "ต 3.1",
+      "duringIndicatorCodes": [
+        "ม.2/1"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 111,
+      "rowIndex": 8,
+      "standardCode": "ต 4.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.2/1"
+      ]
+    },
+    {
+      "tableIndex": 111,
+      "rowIndex": 9,
+      "standardCode": "ต 4.2",
+      "duringIndicatorCodes": [
+        "ม.2/1",
+        "ม.2/2"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 113,
+      "rowIndex": 2,
+      "standardCode": "ต 1.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/3",
+        "ม.3/4"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 113,
+      "rowIndex": 3,
+      "standardCode": "ต 1.2",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/3",
+        "ม.3/5"
+      ]
+    },
+    {
+      "tableIndex": 113,
+      "rowIndex": 4,
+      "standardCode": "ต 1.3",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.3/2"
+      ]
+    },
+    {
+      "tableIndex": 113,
+      "rowIndex": 5,
+      "standardCode": "ต 2.1",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2",
+        "ม.3/3"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 113,
+      "rowIndex": 6,
+      "standardCode": "ต 2.2",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 113,
+      "rowIndex": 7,
+      "standardCode": "ต 3.1",
+      "duringIndicatorCodes": [
+        "ม.3/1"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 113,
+      "rowIndex": 8,
+      "standardCode": "ต 4.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.3/1"
+      ]
+    },
+    {
+      "tableIndex": 113,
+      "rowIndex": 9,
+      "standardCode": "ต 4.2",
+      "duringIndicatorCodes": [
+        "ม.3/1",
+        "ม.3/2"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 115,
+      "rowIndex": 2,
+      "standardCode": "ท 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6",
+        "ม.4/9",
+        "ม.5/9",
+        "ม.6/9"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7",
+        "ม.4/8",
+        "ม.5/8",
+        "ม.6/8"
+      ]
+    },
+    {
+      "tableIndex": 115,
+      "rowIndex": 3,
+      "standardCode": "ท 2.1",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7",
+        "ม.4/8",
+        "ม.5/8",
+        "ม.6/8"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 115,
+      "rowIndex": 4,
+      "standardCode": "ท 3.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 115,
+      "rowIndex": 5,
+      "standardCode": "ท 4.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ]
+    },
+    {
+      "tableIndex": 117,
+      "rowIndex": 2,
+      "standardCode": "ท 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 117,
+      "rowIndex": 3,
+      "standardCode": "ท 2.1",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7",
+        "ม.4/8",
+        "ม.5/8",
+        "ม.6/8"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 117,
+      "rowIndex": 4,
+      "standardCode": "ท 3.1",
+      "duringIndicatorCodes": [
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 117,
+      "rowIndex": 5,
+      "standardCode": "ท 4.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6"
+      ]
+    },
+    {
+      "tableIndex": 119,
+      "rowIndex": 2,
+      "standardCode": "ท 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6",
+        "ม.4/9",
+        "ม.5/9",
+        "ม.6/9"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7",
+        "ม.4/8",
+        "ม.5/8",
+        "ม.6/8"
+      ]
+    },
+    {
+      "tableIndex": 119,
+      "rowIndex": 3,
+      "standardCode": "ท 2.1",
+      "duringIndicatorCodes": [
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 119,
+      "rowIndex": 4,
+      "standardCode": "ท 3.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 119,
+      "rowIndex": 5,
+      "standardCode": "ท 4.1",
+      "duringIndicatorCodes": [
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ]
+    },
+    {
+      "tableIndex": 121,
+      "rowIndex": 2,
+      "standardCode": "ท 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 121,
+      "rowIndex": 3,
+      "standardCode": "ท 5.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6"
+      ]
+    },
+    {
+      "tableIndex": 123,
+      "rowIndex": 2,
+      "standardCode": "ท 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 123,
+      "rowIndex": 3,
+      "standardCode": "ท 5.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6"
+      ]
+    },
+    {
+      "tableIndex": 125,
+      "rowIndex": 2,
+      "standardCode": "ท 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 125,
+      "rowIndex": 3,
+      "standardCode": "ท 5.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6"
+      ]
+    },
+    {
+      "tableIndex": 127,
+      "rowIndex": 2,
+      "standardCode": "ค 1.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.4/1"
+      ]
+    },
+    {
+      "tableIndex": 127,
+      "rowIndex": 3,
+      "standardCode": "ค 3.2",
+      "duringIndicatorCodes": [
+        "ม.4/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/2"
+      ]
+    },
+    {
+      "tableIndex": 129,
+      "rowIndex": 2,
+      "standardCode": "ค 1.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.5/1"
+      ]
+    },
+    {
+      "tableIndex": 129,
+      "rowIndex": 3,
+      "standardCode": "ค 1.2",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.5/1"
+      ]
+    },
+    {
+      "tableIndex": 129,
+      "rowIndex": 4,
+      "standardCode": "ค 1.3",
+      "duringIndicatorCodes": [
+        "ม.5/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.5/2"
+      ]
+    },
+    {
+      "tableIndex": 131,
+      "rowIndex": 2,
+      "standardCode": "ค 3.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 133,
+      "rowIndex": 2,
+      "standardCode": "ว 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.4/2",
+        "ม.4/3"
+      ]
+    },
+    {
+      "tableIndex": 133,
+      "rowIndex": 3,
+      "standardCode": "ว 1.2",
+      "duringIndicatorCodes": [
+        "ม.4/6",
+        "ม.4/7",
+        "ม.4/8",
+        "ม.4/10"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.4/2",
+        "ม.4/3",
+        "ม.4/4",
+        "ม.4/5",
+        "ม.4/9",
+        "ม.4/11",
+        "ม.4/12"
+      ]
+    },
+    {
+      "tableIndex": 133,
+      "rowIndex": 4,
+      "standardCode": "ว 1.3",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.4/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/2",
+        "ม.4/4",
+        "ม.4/5",
+        "ม.4/6"
+      ]
+    },
+    {
+      "tableIndex": 135,
+      "rowIndex": 2,
+      "standardCode": "ว 2.1",
+      "duringIndicatorCodes": [
+        "ม.5/1",
+        "ม.5/2",
+        "ม.5/3",
+        "ม.5/4",
+        "ม.5/5",
+        "ม.5/6",
+        "ม.5/8",
+        "ม.5/9",
+        "ม.5/10",
+        "ม.5/12",
+        "ม.5/14",
+        "ม.5/15",
+        "ม.5/16",
+        "ม.5/17",
+        "ม.5/18",
+        "ม.5/20",
+        "ม.5/21",
+        "ม.5/23",
+        "ม.5/24",
+        "ม.5/25"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.5/7",
+        "ม.5/11",
+        "ม.5/13",
+        "ม.5/19",
+        "ม.5/22"
+      ]
+    },
+    {
+      "tableIndex": 137,
+      "rowIndex": 2,
+      "standardCode": "ว 2.2",
+      "duringIndicatorCodes": [
+        "ม.5/1",
+        "ม.5/2",
+        "ม.5/3",
+        "ม.5/4",
+        "ม.5/6",
+        "ม.5/7"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.5/5",
+        "ม.5/8",
+        "ม.5/9"
+      ]
+    },
+    {
+      "tableIndex": 137,
+      "rowIndex": 3,
+      "standardCode": "ว 2.3",
+      "duringIndicatorCodes": [
+        "ม.5/1",
+        "ม.5/3",
+        "ม.5/4",
+        "ม.5/5",
+        "ม.5/6",
+        "ม.5/7",
+        "ม.5/9",
+        "ม.5/12"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.5/2",
+        "ม.5/8",
+        "ม.5/10",
+        "ม.5/11"
+      ]
+    },
+    {
+      "tableIndex": 139,
+      "rowIndex": 2,
+      "standardCode": "ว 3.1",
+      "duringIndicatorCodes": [
+        "ม.6/2",
+        "ม.6/3",
+        "ม.6/4",
+        "ม.6/5",
+        "ม.6/6",
+        "ม.6/8"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.6/1",
+        "ม.6/7",
+        "ม.6/9",
+        "ม.6/10"
+      ]
+    },
+    {
+      "tableIndex": 139,
+      "rowIndex": 3,
+      "standardCode": "ว 3.2",
+      "duringIndicatorCodes": [
+        "ม.6/1",
+        "ม.6/2",
+        "ม.6/3",
+        "ม.6/7",
+        "ม.6/8",
+        "ม.6/9",
+        "ม.6/10",
+        "ม.6/11"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.6/4",
+        "ม.6/5",
+        "ม.6/6",
+        "ม.6/12",
+        "ม.6/13",
+        "ม.6/14"
+      ]
+    },
+    {
+      "tableIndex": 141,
+      "rowIndex": 2,
+      "standardCode": "ว 4.2",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.4/1"
+      ]
+    },
+    {
+      "tableIndex": 143,
+      "rowIndex": 2,
+      "standardCode": "ว 4.2",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.5/1"
+      ]
+    },
+    {
+      "tableIndex": 145,
+      "rowIndex": 2,
+      "standardCode": "ว 4.2",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 147,
+      "rowIndex": 2,
+      "standardCode": "ว 4.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.4/2",
+        "ม.4/3",
+        "ม.4/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/5"
+      ]
+    },
+    {
+      "tableIndex": 149,
+      "rowIndex": 2,
+      "standardCode": "ว 4.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.5/1"
+      ]
+    },
+    {
+      "tableIndex": 151,
+      "rowIndex": 2,
+      "standardCode": "ส 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5",
+        "ม.4/12",
+        "ม.5/12",
+        "ม.6/12",
+        "ม.4/14",
+        "ม.5/14",
+        "ม.6/14",
+        "ม.4/15",
+        "ม.5/15",
+        "ม.6/15",
+        "ม.4/17",
+        "ม.5/17",
+        "ม.6/17",
+        "ม.4/19",
+        "ม.5/19",
+        "ม.6/19",
+        "ม.4/20",
+        "ม.5/20",
+        "ม.6/20"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/13",
+        "ม.5/13",
+        "ม.6/13"
+      ]
+    },
+    {
+      "tableIndex": 151,
+      "rowIndex": 3,
+      "standardCode": "ส 1.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 153,
+      "rowIndex": 2,
+      "standardCode": "ส 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7",
+        "ม.4/8",
+        "ม.5/8",
+        "ม.6/8",
+        "ม.4/14",
+        "ม.5/14",
+        "ม.6/14",
+        "ม.4/15",
+        "ม.5/15",
+        "ม.6/15",
+        "ม.4/17",
+        "ม.5/17",
+        "ม.6/17",
+        "ม.4/19",
+        "ม.5/19",
+        "ม.6/19",
+        "ม.4/20",
+        "ม.5/20",
+        "ม.6/20",
+        "ม.4/22",
+        "ม.5/22",
+        "ม.6/22"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/13",
+        "ม.5/13",
+        "ม.6/13",
+        "ม.4/21",
+        "ม.5/21",
+        "ม.6/21"
+      ]
+    },
+    {
+      "tableIndex": 153,
+      "rowIndex": 3,
+      "standardCode": "ส 1.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 155,
+      "rowIndex": 2,
+      "standardCode": "ส 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/9",
+        "ม.5/9",
+        "ม.6/9",
+        "ม.4/10",
+        "ม.5/10",
+        "ม.6/10",
+        "ม.4/11",
+        "ม.5/11",
+        "ม.6/11",
+        "ม.4/12",
+        "ม.5/12",
+        "ม.6/12",
+        "ม.4/14",
+        "ม.5/14",
+        "ม.6/14",
+        "ม.4/18",
+        "ม.5/18",
+        "ม.6/18",
+        "ม.4/19",
+        "ม.5/19",
+        "ม.6/19",
+        "ม.4/20",
+        "ม.5/20",
+        "ม.6/20",
+        "ม.4/22",
+        "ม.5/22",
+        "ม.6/22"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/13",
+        "ม.5/13",
+        "ม.6/13",
+        "ม.4/16",
+        "ม.5/16",
+        "ม.6/16"
+      ]
+    },
+    {
+      "tableIndex": 155,
+      "rowIndex": 3,
+      "standardCode": "ส 1.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 157,
+      "rowIndex": 2,
+      "standardCode": "ส 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7",
+        "ม.4/8",
+        "ม.5/8",
+        "ม.6/8",
+        "ม.4/9",
+        "ม.5/9",
+        "ม.6/9",
+        "ม.4/10",
+        "ม.5/10",
+        "ม.6/10",
+        "ม.4/11",
+        "ม.5/11",
+        "ม.6/11",
+        "ม.4/12",
+        "ม.5/12",
+        "ม.6/12",
+        "ม.4/14",
+        "ม.5/14",
+        "ม.6/14",
+        "ม.4/15",
+        "ม.5/15",
+        "ม.6/15",
+        "ม.4/17",
+        "ม.5/17",
+        "ม.6/17",
+        "ม.4/18",
+        "ม.5/18",
+        "ม.6/18",
+        "ม.4/19",
+        "ม.5/19",
+        "ม.6/19",
+        "ม.4/20",
+        "ม.5/20",
+        "ม.6/20",
+        "ม.4/22",
+        "ม.5/22",
+        "ม.6/22"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/13",
+        "ม.5/13",
+        "ม.6/13",
+        "ม.4/16",
+        "ม.5/16",
+        "ม.6/16",
+        "ม.4/21",
+        "ม.5/21",
+        "ม.6/21"
+      ]
+    },
+    {
+      "tableIndex": 157,
+      "rowIndex": 3,
+      "standardCode": "ส 1.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 159,
+      "rowIndex": 2,
+      "standardCode": "ส 2.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 159,
+      "rowIndex": 3,
+      "standardCode": "ส 2.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ]
+    },
+    {
+      "tableIndex": 161,
+      "rowIndex": 2,
+      "standardCode": "ส 3.1",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ]
+    },
+    {
+      "tableIndex": 161,
+      "rowIndex": 3,
+      "standardCode": "ส 3.2",
+      "duringIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ]
+    },
+    {
+      "tableIndex": 163,
+      "rowIndex": 2,
+      "standardCode": "ส 4.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ]
+    },
+    {
+      "tableIndex": 163,
+      "rowIndex": 3,
+      "standardCode": "ส 4.3",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 165,
+      "rowIndex": 2,
+      "standardCode": "ส 4.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ]
+    },
+    {
+      "tableIndex": 165,
+      "rowIndex": 3,
+      "standardCode": "ส 4.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ]
+    },
+    {
+      "tableIndex": 167,
+      "rowIndex": 2,
+      "standardCode": "ส 5.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 167,
+      "rowIndex": 3,
+      "standardCode": "ส 5.2",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ]
+    },
+    {
+      "tableIndex": 169,
+      "rowIndex": 2,
+      "standardCode": "พ 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 169,
+      "rowIndex": 3,
+      "standardCode": "พ 2.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 169,
+      "rowIndex": 4,
+      "standardCode": "พ 4.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 169,
+      "rowIndex": 5,
+      "standardCode": "พ 5.2",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7"
+      ]
+    },
+    {
+      "tableIndex": 171,
+      "rowIndex": 2,
+      "standardCode": "พ 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 171,
+      "rowIndex": 3,
+      "standardCode": "พ 2.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ]
+    },
+    {
+      "tableIndex": 171,
+      "rowIndex": 4,
+      "standardCode": "พ 4.1",
+      "duringIndicatorCodes": [
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ]
+    },
+    {
+      "tableIndex": 171,
+      "rowIndex": 5,
+      "standardCode": "พ 5.2",
+      "duringIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 173,
+      "rowIndex": 2,
+      "standardCode": "พ 1.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 173,
+      "rowIndex": 3,
+      "standardCode": "พ 2.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 173,
+      "rowIndex": 4,
+      "standardCode": "พ 4.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ]
+    },
+    {
+      "tableIndex": 173,
+      "rowIndex": 5,
+      "standardCode": "พ 5.2",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 175,
+      "rowIndex": 2,
+      "standardCode": "ศ 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7",
+        "ม.4/11",
+        "ม.5/11",
+        "ม.6/11"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/8",
+        "ม.5/8",
+        "ม.6/8",
+        "ม.4/10",
+        "ม.5/10",
+        "ม.6/10"
+      ]
+    },
+    {
+      "tableIndex": 175,
+      "rowIndex": 3,
+      "standardCode": "ศ 1.2",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 177,
+      "rowIndex": 2,
+      "standardCode": "ศ 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7",
+        "ม.4/9",
+        "ม.5/9",
+        "ม.6/9"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5",
+        "ม.4/10",
+        "ม.5/10",
+        "ม.6/10"
+      ]
+    },
+    {
+      "tableIndex": 177,
+      "rowIndex": 3,
+      "standardCode": "ศ 1.2",
+      "duringIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 179,
+      "rowIndex": 2,
+      "standardCode": "ศ 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 179,
+      "rowIndex": 3,
+      "standardCode": "ศ 1.2",
+      "duringIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 181,
+      "rowIndex": 2,
+      "standardCode": "ศ 2.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 181,
+      "rowIndex": 3,
+      "standardCode": "ศ 2.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 183,
+      "rowIndex": 2,
+      "standardCode": "ศ 2.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7",
+        "ม.4/8",
+        "ม.5/8",
+        "ม.6/8"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 183,
+      "rowIndex": 3,
+      "standardCode": "ศ 2.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 185,
+      "rowIndex": 2,
+      "standardCode": "ศ 2.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 185,
+      "rowIndex": 3,
+      "standardCode": "ศ 2.2",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 187,
+      "rowIndex": 2,
+      "standardCode": "ศ 3.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7",
+        "ม.4/8",
+        "ม.5/8",
+        "ม.6/8"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ]
+    },
+    {
+      "tableIndex": 187,
+      "rowIndex": 3,
+      "standardCode": "ศ 3.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ]
+    },
+    {
+      "tableIndex": 189,
+      "rowIndex": 2,
+      "standardCode": "ศ 3.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6"
+      ]
+    },
+    {
+      "tableIndex": 189,
+      "rowIndex": 3,
+      "standardCode": "ศ 3.2",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ]
+    },
+    {
+      "tableIndex": 191,
+      "rowIndex": 2,
+      "standardCode": "ศ 3.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7",
+        "ม.4/8",
+        "ม.5/8",
+        "ม.6/8"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6"
+      ]
+    },
+    {
+      "tableIndex": 191,
+      "rowIndex": 3,
+      "standardCode": "ศ 3.2",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ]
+    },
+    {
+      "tableIndex": 193,
+      "rowIndex": 2,
+      "standardCode": "ง 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ]
+    },
+    {
+      "tableIndex": 195,
+      "rowIndex": 2,
+      "standardCode": "ง 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ]
+    },
+    {
+      "tableIndex": 195,
+      "rowIndex": 3,
+      "standardCode": "ง 2.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ]
+    },
+    {
+      "tableIndex": 197,
+      "rowIndex": 2,
+      "standardCode": "ง 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ]
+    },
+    {
+      "tableIndex": 197,
+      "rowIndex": 3,
+      "standardCode": "ง 2.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ]
+    },
+    {
+      "tableIndex": 199,
+      "rowIndex": 2,
+      "standardCode": "ง 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5",
+        "ม.4/6",
+        "ม.5/6",
+        "ม.6/6",
+        "ม.4/7",
+        "ม.5/7",
+        "ม.6/7"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ]
+    },
+    {
+      "tableIndex": 199,
+      "rowIndex": 3,
+      "standardCode": "ง 2.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ]
+    },
+    {
+      "tableIndex": 201,
+      "rowIndex": 2,
+      "standardCode": "ต 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ]
+    },
+    {
+      "tableIndex": 201,
+      "rowIndex": 3,
+      "standardCode": "ต 1.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ]
+    },
+    {
+      "tableIndex": 201,
+      "rowIndex": 4,
+      "standardCode": "ต 1.3",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 201,
+      "rowIndex": 5,
+      "standardCode": "ต 2.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 201,
+      "rowIndex": 6,
+      "standardCode": "ต 2.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 201,
+      "rowIndex": 7,
+      "standardCode": "ต 3.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 201,
+      "rowIndex": 8,
+      "standardCode": "ต 4.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 201,
+      "rowIndex": 9,
+      "standardCode": "ต 4.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 203,
+      "rowIndex": 2,
+      "standardCode": "ต 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ]
+    },
+    {
+      "tableIndex": 203,
+      "rowIndex": 3,
+      "standardCode": "ต 1.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ]
+    },
+    {
+      "tableIndex": 203,
+      "rowIndex": 4,
+      "standardCode": "ต 1.3",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 203,
+      "rowIndex": 5,
+      "standardCode": "ต 2.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 203,
+      "rowIndex": 6,
+      "standardCode": "ต 2.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 203,
+      "rowIndex": 7,
+      "standardCode": "ต 3.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 203,
+      "rowIndex": 8,
+      "standardCode": "ต 4.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 203,
+      "rowIndex": 9,
+      "standardCode": "ต 4.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 205,
+      "rowIndex": 2,
+      "standardCode": "ต 1.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ]
+    },
+    {
+      "tableIndex": 205,
+      "rowIndex": 3,
+      "standardCode": "ต 1.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/5",
+        "ม.5/5",
+        "ม.6/5"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3",
+        "ม.4/4",
+        "ม.5/4",
+        "ม.6/4"
+      ]
+    },
+    {
+      "tableIndex": 205,
+      "rowIndex": 4,
+      "standardCode": "ต 1.3",
+      "duringIndicatorCodes": [
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 205,
+      "rowIndex": 5,
+      "standardCode": "ต 2.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2",
+        "ม.4/3",
+        "ม.5/3",
+        "ม.6/3"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 205,
+      "rowIndex": 6,
+      "standardCode": "ต 2.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 205,
+      "rowIndex": 7,
+      "standardCode": "ต 3.1",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ],
+      "terminalIndicatorCodes": []
+    },
+    {
+      "tableIndex": 205,
+      "rowIndex": 8,
+      "standardCode": "ต 4.1",
+      "duringIndicatorCodes": [],
+      "terminalIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1"
+      ]
+    },
+    {
+      "tableIndex": 205,
+      "rowIndex": 9,
+      "standardCode": "ต 4.2",
+      "duringIndicatorCodes": [
+        "ม.4/1",
+        "ม.5/1",
+        "ม.6/1",
+        "ม.4/2",
+        "ม.5/2",
+        "ม.6/2"
+      ],
+      "terminalIndicatorCodes": []
+    }
+  ]
+}

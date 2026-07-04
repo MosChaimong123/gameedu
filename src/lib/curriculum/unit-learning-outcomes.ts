@@ -381,6 +381,48 @@ export const SUBJECT_UNIT_LEARNING_OUTCOME_CATALOG: SubjectUnitLearningOutcomeCa
             ["phenomenon explanation", "evidence-based answer"]
         ),
     ]),
+    buildOutcomePack("science_technology", "sci-tech-u02-chemistry", [
+        buildTopic("sci-tech-u02-chem-t01", "สสารและองค์ประกอบ"),
+        buildTopic("sci-tech-u02-chem-t02", "การเปลี่ยนแปลงทางเคมี"),
+    ], [
+        buildOutcome(
+            "sci-tech-lo-u02-chem-01",
+            "อธิบายสมบัติและองค์ประกอบของสสาร รวมถึงโครงสร้างอะตอมและพันธะเคมีได้",
+            ["สสาร", "อะตอม", "พันธะเคมี"],
+            ["อธิบาย", "เปรียบเทียบ"],
+            ["sci-tech-u02-chem-t01"],
+            ["matter properties", "atomic structure"]
+        ),
+        buildOutcome(
+            "sci-tech-lo-u02-chem-02",
+            "อธิบายปฏิกิริยาเคมีและการเปลี่ยนแปลงของสารได้",
+            ["ปฏิกิริยาเคมี", "การเปลี่ยนแปลง"],
+            ["อธิบาย", "วิเคราะห์"],
+            ["sci-tech-u02-chem-t02"],
+            ["chemical reaction", "change analysis"]
+        ),
+    ]),
+    buildOutcomePack("science_technology", "sci-tech-u02-physics", [
+        buildTopic("sci-tech-u02-phys-t01", "แรงและการเคลื่อนที่"),
+        buildTopic("sci-tech-u02-phys-t02", "พลังงานและคลื่น"),
+    ], [
+        buildOutcome(
+            "sci-tech-lo-u02-phys-01",
+            "อธิบายและวิเคราะห์แรง การเคลื่อนที่ และกฎของนิวตันในสถานการณ์ต่าง ๆ ได้",
+            ["แรง", "การเคลื่อนที่", "กฎนิวตัน"],
+            ["อธิบาย", "วิเคราะห์"],
+            ["sci-tech-u02-phys-t01"],
+            ["force analysis", "Newton's laws application"]
+        ),
+        buildOutcome(
+            "sci-tech-lo-u02-phys-02",
+            "อธิบายพลังงาน คลื่น แสง เสียง และสนามต่าง ๆ พร้อมยกตัวอย่างการประยุกต์ใช้ได้",
+            ["พลังงาน", "คลื่น", "สนาม"],
+            ["อธิบาย", "ยกตัวอย่าง"],
+            ["sci-tech-u02-phys-t02"],
+            ["energy and wave explanation", "field application"]
+        ),
+    ]),
     buildOutcomePack("science_technology", "sci-tech-u03", [
         buildTopic("sci-tech-u03-t01", "โลกและการเปลี่ยนแปลง"),
         buildTopic("sci-tech-u03-t02", "ดาราศาสตร์และอวกาศ"),

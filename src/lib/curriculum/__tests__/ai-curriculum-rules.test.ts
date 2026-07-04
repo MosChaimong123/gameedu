@@ -20,8 +20,12 @@ describe("ai curriculum rules", () => {
         expect(resolved.ok).toBe(true)
         if (resolved.ok) {
             expect(resolved.data.template?.subjectId).toBe("science_technology")
+            expect(resolved.data.subject.courseType).toBe("core")
+            expect(resolved.data.strand.id).toBe(resolved.data.unit.strandId)
+            expect(resolved.data.standards.length).toBeGreaterThan(0)
             expect(resolved.data.selectedTopics.length).toBeGreaterThan(0)
             expect(resolved.data.selectedOutcomeIds.length).toBeGreaterThan(0)
+            expect(resolved.data.selectedTopics[0]?.concepts.length).toBeGreaterThan(0)
         }
     })
 
@@ -38,8 +42,19 @@ describe("ai curriculum rules", () => {
             const topicContext = buildTopicContentCurriculumPromptContext(resolved.data, resolved.data.selectedTopics[0]!.id)
 
             expect(outlineContext).toContain("Allowed unit topics")
+            expect(outlineContext).toContain("Subject group id")
+            expect(outlineContext).toContain("Course type")
+            expect(outlineContext).toContain("Strand id")
+            expect(outlineContext).toContain("Standard ids")
+            expect(outlineContext).toContain("Indicator ids")
+            expect(outlineContext).toContain("Unit key concept")
             expect(outlineContext).toContain("You must use only allowed topic ids")
+            expect(outlineContext).toContain("teacher source material below is supporting material")
             expect(topicContext).toContain("Allowed learning outcomes for this topic")
+            expect(topicContext).toContain("Topic concept anchors")
+            expect(topicContext).toContain("Topic skill anchors")
+            expect(topicContext).toContain("Assessment hints")
+            expect(topicContext).toContain("hard guardrails")
         }
     })
 
@@ -125,6 +140,8 @@ describe("ai curriculum rules", () => {
     })
 
     it("lists template ids by subject", () => {
-        expect(getAvailableTemplateIdsForSubject("mathematics")).toEqual(["mathematics-master-template-01"])
+        expect(getAvailableTemplateIdsForSubject("mathematics")).toEqual(
+            expect.arrayContaining(["mathematics-master-template-01", "mathematics-math-u02-template-01"])
+        )
     })
 })

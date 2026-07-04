@@ -5,8 +5,6 @@ import {
     canonicalGradeBandSchema,
     canonicalGradeLevelSchema,
     canonicalSemesterModeSchema,
-    type CanonicalGradeBand,
-    type CanonicalGradeLevel,
     type CanonicalSemesterMode,
     UPPER_SECONDARY_GRADE_LEVELS,
 } from "@/lib/curriculum/grade-model"
@@ -34,8 +32,10 @@ export const canonicalAdditionalSubjectIdSchema = z.enum([
 ])
 
 export const canonicalSubjectIdSchema = z.union([canonicalCoreSubjectIdSchema, canonicalAdditionalSubjectIdSchema])
+export const canonicalSubjectCourseTypeSchema = z.enum(["core", "additional"])
 
 export const canonicalSubjectGroupTypeSchema = z.enum(["core_learning_area", "additional_subject"])
+export const canonicalLessonBuilderAvailabilitySchema = z.enum(["active", "coming_soon"])
 
 export const canonicalSubjectUiMetaSchema = z.object({
     icon: z.string().trim().min(1),
@@ -45,6 +45,7 @@ export const canonicalSubjectUiMetaSchema = z.object({
 
 export const canonicalSubjectCatalogEntrySchema = z.object({
     id: canonicalSubjectIdSchema,
+    courseType: canonicalSubjectCourseTypeSchema,
     displayNameTh: z.string().trim().min(1),
     displayNameEn: z.string().trim().min(1),
     shortCode: z.string().trim().min(1),
@@ -56,6 +57,7 @@ export const canonicalSubjectCatalogEntrySchema = z.object({
     sourceRegistryIds: z.array(z.string().trim().min(1)).min(1),
     keywords: z.array(z.string().trim().min(1)).min(1),
     aliases: z.array(z.string().trim().min(1)).default([]),
+    lessonBuilderAvailability: canonicalLessonBuilderAvailabilitySchema,
     ui: canonicalSubjectUiMetaSchema,
 })
 
@@ -64,10 +66,25 @@ export const canonicalSubjectCatalogSchema = z.array(canonicalSubjectCatalogEntr
 export type CanonicalCoreSubjectId = z.infer<typeof canonicalCoreSubjectIdSchema>
 export type CanonicalAdditionalSubjectId = z.infer<typeof canonicalAdditionalSubjectIdSchema>
 export type CanonicalSubjectId = z.infer<typeof canonicalSubjectIdSchema>
+export type CanonicalSubjectCourseType = z.infer<typeof canonicalSubjectCourseTypeSchema>
 export type CanonicalSubjectGroupType = z.infer<typeof canonicalSubjectGroupTypeSchema>
+export type CanonicalLessonBuilderAvailability = z.infer<typeof canonicalLessonBuilderAvailabilitySchema>
 export type CanonicalSubjectUiMeta = z.infer<typeof canonicalSubjectUiMetaSchema>
 export type CanonicalSubjectCatalogEntry = z.infer<typeof canonicalSubjectCatalogEntrySchema>
 export type CanonicalSubjectCatalog = z.infer<typeof canonicalSubjectCatalogSchema>
+export type CanonicalCoreSubjectCatalogEntry = CanonicalSubjectCatalogEntry & {
+    id: CanonicalCoreSubjectId
+    courseType: "core"
+    groupType: "core_learning_area"
+    lessonBuilderAvailability: "active"
+}
+export type CanonicalAdditionalSubjectCatalogEntry = CanonicalSubjectCatalogEntry & {
+    id: CanonicalAdditionalSubjectId
+    courseType: "additional"
+    groupType: "additional_subject"
+    parentSubjectId: "science_technology"
+    lessonBuilderAvailability: "coming_soon"
+}
 
 function normalizeSubjectLabel(value: string) {
     return value
@@ -90,6 +107,7 @@ function buildCoreSubject(
 ): CanonicalSubjectCatalogEntry {
     return {
         id,
+        courseType: "core",
         displayNameTh,
         displayNameEn,
         shortCode,
@@ -100,6 +118,7 @@ function buildCoreSubject(
         sourceRegistryIds,
         keywords,
         aliases,
+        lessonBuilderAvailability: "active",
         ui,
     }
 }
@@ -117,6 +136,7 @@ function buildAdditionalSubject(
 ): CanonicalSubjectCatalogEntry {
     return {
         id,
+        courseType: "additional",
         displayNameTh,
         displayNameEn,
         shortCode,
@@ -128,6 +148,7 @@ function buildAdditionalSubject(
         sourceRegistryIds,
         keywords,
         aliases,
+        lessonBuilderAvailability: "coming_soon",
         ui,
     }
 }
@@ -377,6 +398,24 @@ export function getCanonicalSubjectDisplayName(subjectId: CanonicalSubjectId, lo
 
 export function getCanonicalSubjectsByGroupType(groupType: CanonicalSubjectGroupType) {
     return CANONICAL_SUBJECT_CATALOG.filter((entry) => entry.groupType === groupType)
+}
+
+export function getCanonicalSubjectsByCourseType(courseType: CanonicalSubjectCourseType) {
+    return CANONICAL_SUBJECT_CATALOG.filter((entry) => entry.courseType === courseType)
+}
+
+export function getCanonicalCoreSubjects(): CanonicalCoreSubjectCatalogEntry[] {
+    return getCanonicalSubjectsByCourseType("core") as CanonicalCoreSubjectCatalogEntry[]
+}
+
+export function getCanonicalAdditionalSubjects(): CanonicalAdditionalSubjectCatalogEntry[] {
+    return getCanonicalSubjectsByCourseType("additional") as CanonicalAdditionalSubjectCatalogEntry[]
+}
+
+export function getLessonBuilderSubjectOptions(courseType: "core"): CanonicalCoreSubjectCatalogEntry[]
+export function getLessonBuilderSubjectOptions(courseType: "additional"): CanonicalAdditionalSubjectCatalogEntry[]
+export function getLessonBuilderSubjectOptions(courseType: CanonicalSubjectCourseType = "core") {
+    return getCanonicalSubjectsByCourseType(courseType).filter((entry) => entry.lessonBuilderAvailability === "active")
 }
 
 export function getCanonicalChildSubjects(parentSubjectId: CanonicalCoreSubjectId) {

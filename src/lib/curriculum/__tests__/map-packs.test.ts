@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest"
 import {
     getSubjectCurriculumMapPack,
+    getSubjectCurriculumUnitById,
     isSubjectCurriculumMapPackCatalog,
+    listSubjectCurriculumUnitsByCurriculumSelection,
     listSubjectCurriculumUnitsForGradeBand,
+    listSubjectCurriculumUnitsForGradeLevel,
     SUBJECT_CURRICULUM_MAP_PACKS,
     validateSubjectCurriculumMapPackCatalog,
 } from "../map-packs"
@@ -50,5 +53,45 @@ describe("subject curriculum map packs", () => {
 
         expect(pack?.semesterMode).toBe("optional")
         expect(pack?.unitOutlines.every((unit) => unit.semesterMode === "optional")).toBe(true)
+    })
+
+    it("stores canonical strand, standard, competency, and key concept metadata on units", () => {
+        const unit = getSubjectCurriculumUnitById("science_technology", "sci-tech-u02")
+
+        expect(unit).not.toBeNull()
+        expect(unit?.courseType).toBe("core")
+        expect(unit?.strandId).toBe("sci-physical-science")
+        expect(unit?.standardIds).toEqual(["sci-w2_1", "sci-w2_2", "sci-w2_3"])
+        expect(unit?.keyConceptTh.length).toBeGreaterThan(0)
+        expect(unit?.competencies.length).toBeGreaterThan(0)
+        expect(unit?.estimatedHours).toBeGreaterThan(0)
+    })
+
+    it("lists grade-level units in stable order", () => {
+        const units = listSubjectCurriculumUnitsForGradeLevel("foreign_languages", "m5")
+
+        expect(units.length).toBeGreaterThan(0)
+        expect(units[0]?.order).toBe(0)
+        expect(units[0]?.gradeLevels).toContain("m5")
+    })
+
+    it("filters units by subject, grade, strand, and standard without crossing subjects", () => {
+        const matched = listSubjectCurriculumUnitsByCurriculumSelection({
+            subjectId: "thai",
+            gradeLevel: "m4",
+            strandId: "thai-reading",
+            standardId: "thai-th1_1",
+        })
+
+        expect(matched.map((unit) => unit.id)).toEqual(["thai-u02"])
+
+        const none = listSubjectCurriculumUnitsByCurriculumSelection({
+            subjectId: "thai",
+            gradeLevel: "m4",
+            strandId: "thai-reading",
+            standardId: "math-k1_1",
+        })
+
+        expect(none).toEqual([])
     })
 })

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { getSubjectCurriculumMapPack } from "../map-packs"
 import {
     findSubjectLessonTemplate,
     getSubjectLessonTemplatePack,
@@ -32,9 +33,10 @@ describe("subject template master pack", () => {
 
     it("resolves a starter template pack and keeps topic-based structure", () => {
         const pack = getSubjectLessonTemplatePack("science_technology")
+        const unitPack = getSubjectCurriculumMapPack("science_technology")
 
         expect(pack).not.toBeNull()
-        expect(pack?.templates).toHaveLength(1)
+        expect(pack?.templates.length).toBe(unitPack?.unitOutlines.length)
         expect(pack?.templates[0]?.topicStructure.length).toBeGreaterThan(0)
         expect(pack?.templates[0]?.requiredBlocks).toContain("topics")
     })
@@ -50,7 +52,9 @@ describe("subject template master pack", () => {
         const template = templates[0]
 
         expect(template).toBeDefined()
+        expect(templates.length).toBeGreaterThan(1)
         expect(template?.suggestedOutcomeIds.length).toBeGreaterThan(0)
+        expect(template?.indicatorIds).toBeDefined()
         expect(template?.topicStructure.every((topic) => topic.outcomeIds.length > 0)).toBe(true)
     })
 

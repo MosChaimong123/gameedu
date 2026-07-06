@@ -38,7 +38,7 @@ import {
   unregisterClassroomPresence,
 } from "@/lib/socket/classroom-presence";
 
-type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE" | "BINGO";
+type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE" | "BINGO" | "AR_QUEST";
 
 type SocketPlayerPayload = {
   id?: string;
@@ -210,6 +210,17 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
   io.on("connection", (socket) => {
     const joinedClassrooms = new Set<string>();
 
+    // A socket's identity is fixed at handshake time (getToken reads immutable
+    // handshake headers), so verify the JWT at most once per connection instead
+    // of on every host/classroom event. `undefined` = not yet resolved.
+    let cachedUserId: string | null | undefined;
+    const resolveUserId = async (): Promise<string | null> => {
+      if (cachedUserId === undefined) {
+        cachedUserId = await resolveSocketUserId(socket);
+      }
+      return cachedUserId;
+    };
+
     socket.on(
       "create-game",
       async ({
@@ -229,7 +240,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           return;
         }
 
-        const hostId = await resolveSocketUserId(socket);
+        const hostId = await resolveUserId();
         if (!hostId) {
           auditLog({
             action: "socket.game.create.denied",
@@ -277,7 +288,9 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
                 ? "NEGAMON_BATTLE"
                 : rawMode === "BINGO"
                   ? "BINGO"
-                  : "GOLD_QUEST";
+                  : rawMode === "AR_QUEST"
+                    ? "AR_QUEST"
+                    : "GOLD_QUEST";
 
           if (normalizedMode === "NEGAMON_BATTLE" && !isNegamonBattleHostEnabled()) {
             socket.emit("error", { message: SOCKET_ERROR_NEGAMON_BATTLE_HOST_DISABLED });
@@ -287,6 +300,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           const sanitized: Partial<GameSettings> =
             settings && typeof settings === "object" ? { ...settings } : {};
           delete (sanitized as Record<string, unknown>).negamonRewardClassroomId;
+          delete (sanitized as Record<string, unknown>).arQuestRewardClassroomId;
 
           let gameSettings: GameSettings = { ...defaultSettings, ...sanitized };
 
@@ -301,7 +315,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
           gameSettings = { ...gameSettings, planMaxLivePlayers };
 
           if (
-            normalizedMode === "NEGAMON_BATTLE" &&
+            (normalizedMode === "NEGAMON_BATTLE" || normalizedMode === "AR_QUEST") &&
             typeof rewardClassroomId === "string" &&
             rewardClassroomId.trim().length > 0
           ) {
@@ -310,7 +324,10 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
               select: { id: true },
             });
             if (classroom) {
-              gameSettings = { ...gameSettings, negamonRewardClassroomId: classroom.id };
+              gameSettings =
+                normalizedMode === "AR_QUEST"
+                  ? { ...gameSettings, arQuestRewardClassroomId: classroom.id }
+                  : { ...gameSettings, negamonRewardClassroomId: classroom.id };
             }
           }
 
@@ -335,6 +352,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
               gameMode: normalizedMode,
               socketId: socket.id,
               negamonRewardClassroomId: gameSettings.negamonRewardClassroomId ?? null,
+              arQuestRewardClassroomId: gameSettings.arQuestRewardClassroomId ?? null,
             },
           });
 
@@ -394,15 +412,20 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         | null = null;
 
       if (
-        game.gameMode === "NEGAMON_BATTLE" &&
-        game.settings.negamonRewardClassroomId &&
+        (game.gameMode === "NEGAMON_BATTLE" || game.gameMode === "AR_QUEST") &&
+        (game.settings.negamonRewardClassroomId || game.settings.arQuestRewardClassroomId) &&
         cleanStudentCode &&
         deps.db.student?.findFirst
       ) {
+        const rewardClassroomId = game.settings.arQuestRewardClassroomId ?? game.settings.negamonRewardClassroomId;
+        if (!rewardClassroomId) {
+          socket.emit("error", { message: SOCKET_ERROR_INVALID_STUDENT_CODE });
+          return;
+        }
         verifiedStudent = await deps.db.student.findFirst({
           where: {
             ...(cleanStudentId ? { id: cleanStudentId } : {}),
-            classId: game.settings.negamonRewardClassroomId,
+            classId: rewardClassroomId,
             OR: getStudentLoginCodeVariants(cleanStudentCode).map((candidate) => ({
               loginCode: candidate,
             })),
@@ -599,6 +622,8 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
     socket.on("open-chest", (payload) => forwardPlayerGameEvent("open-chest", payload));
     socket.on("request-question", (payload) => forwardPlayerGameEvent("request-question", payload));
     socket.on("submit-answer", (payload) => forwardPlayerGameEvent("submit-answer", payload));
+    socket.on("submit-ar-answer", (payload) => forwardPlayerGameEvent("submit-ar-answer", payload));
+    socket.on("ar-tracking-ready", (payload) => forwardPlayerGameEvent("ar-tracking-ready", payload));
     socket.on("select-password", (payload) => forwardPlayerGameEvent("select-password", payload));
     socket.on("request-hack-options", (payload) => forwardPlayerGameEvent("request-hack-options", payload));
     socket.on("attempt-hack", (payload) => forwardPlayerGameEvent("attempt-hack", payload));
@@ -677,7 +702,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         return;
       }
 
-      const userId = await resolveSocketUserId(socket);
+      const userId = await resolveUserId();
       let studentId: string | null = null;
       const hasUserAccess = Boolean(userId && (await canAccessClassroom(userId, classId)));
 
@@ -750,7 +775,7 @@ export function registerGameSocketHandlers(io: Server, deps: RegisterHandlersDep
         return;
       }
 
-      const userId = await resolveSocketUserId(socket);
+      const userId = await resolveUserId();
       if (!userId || !(await canAccessClassroom(userId, classId))) {
         auditLog({
           actorUserId: userId,

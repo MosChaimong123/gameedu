@@ -79,6 +79,14 @@ app.prepare().then(async () => {
         path: "/socket.io",
         addTrailingSlash: false,
         cors: { origin: resolveSocketIoCorsOrigin() },
+        // Single-CPU tuning: per-message compression burns CPU on every emit —
+        // with a full classroom broadcasting rosters/scores that dominates the
+        // event loop. Disable it (Render already gzips at its proxy for polling).
+        perMessageDeflate: false,
+        httpCompression: false,
+        // Fewer heartbeats across many sockets = less periodic event-loop work.
+        pingInterval: 25000,
+        pingTimeout: 60000,
     });
 
     // Inject IO into Game Manager (Critical for recovered games)
@@ -128,12 +136,21 @@ app.prepare().then(async () => {
                 select: { plan: true, role: true, planStatus: true, planExpiry: true },
             });
             const role = user?.role && isAppRole(user.role) ? user.role : "USER";
-            return getLimitsForUser(
+            const planCap = getLimitsForUser(
                 role,
                 user?.plan,
                 user?.planStatus,
                 user?.planExpiry
             ).maxLiveGamePlayers;
+            // Instance-level safety cap: protect the current 1-CPU Standard box
+            // from being overwhelmed regardless of the host's plan. Set
+            // LIVE_GAME_MAX_PLAYERS=50 on Render; unset = plan cap only.
+            const instanceCapRaw = Number(process.env.LIVE_GAME_MAX_PLAYERS);
+            const instanceCap =
+                Number.isFinite(instanceCapRaw) && instanceCapRaw > 0
+                    ? instanceCapRaw
+                    : Number.POSITIVE_INFINITY;
+            return Math.min(planCap, instanceCap);
         },
     });
 

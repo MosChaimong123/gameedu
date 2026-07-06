@@ -120,6 +120,13 @@ const runMs = (PLAY ? DURATION_S * 1000 : 8000) + RAMP_MS;
 setTimeout(() => {
     clearInterval(interval);
     report(true);
-    sockets.forEach((s) => s.close());
-    process.exit(0);
+    // Leave cleanly so the server removes bots from the roster — otherwise
+    // reused PINs accumulate stale players and skew later runs.
+    sockets.forEach((s) => {
+        try { s.emit("leave-game"); } catch { /* ignore */ }
+    });
+    setTimeout(() => {
+        sockets.forEach((s) => s.close());
+        process.exit(0);
+    }, 800);
 }, runMs);

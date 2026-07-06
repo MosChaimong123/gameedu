@@ -83,6 +83,12 @@ export interface BingoPlayer extends BasePlayer {
     answeredQuestionId?: string | null;
 }
 
+export interface ArQuestPlayer extends BasePlayer {
+    arScore: number;
+    streak: number;
+    servedQuestionId?: string | null;
+}
+
 /** ค่าสมดุล Negamon Battle — รวมใน GameSettings เมื่อสร้างห้องโหมดนี้ */
 export type NegamonBattleTuning = {
     startHp: number;
@@ -137,6 +143,12 @@ export type GameSettings = {
     showInstructions: boolean;
     useRandomNames: boolean;
     allowStudentAccounts: boolean;
+    arQuest?: {
+        playSurface?: "teacher" | "student";
+        inputMode?: "local-camera";
+        trackingMode?: "hand";
+    };
+    arQuestRewardClassroomId?: string;
     negamonBattle?: Partial<NegamonBattleTuning>;
     /**
      * ตั้งโดยเซิร์ฟเวอร์เท่านั้น — เมื่อจบ Negamon Battle จะให้ EXP กับนักเรียนที่จับคู่ชื่อในเกมกับ name/nickname ในห้อง

@@ -10,6 +10,7 @@ import {
     Gamepad2,
     LayoutGrid,
     Lock,
+    MessageCircleMore,
     Plus,
     Settings,
     Shuffle,
@@ -51,6 +52,7 @@ interface ClassroomDashboardToolbarProps {
     onOpenNegamonSettings: () => void;
     onEnterAttendanceMode: () => void;
     onToggleSelectMultiple: () => void;
+    onOpenLineManager: () => void;
     onOpenSettings: () => void;
 }
 
@@ -76,6 +78,7 @@ export function ClassroomDashboardToolbar({
     onOpenNegamonSettings,
     onEnterAttendanceMode,
     onToggleSelectMultiple,
+    onOpenLineManager,
     onOpenSettings,
 }: ClassroomDashboardToolbarProps) {
     const gamificationLive = gamificationToolbarMode === "live";
@@ -348,6 +351,15 @@ export function ClassroomDashboardToolbar({
                             <CheckSquare className="mr-1.5 h-4 w-4" />
                             {t("selectMultipleStudents")}
                             {isSelectMultiple ? ` (${selectedStudentIds.length})` : ""}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 min-h-[44px] rounded-full border-[#d9d9dd] bg-white px-3 text-sm font-medium leading-snug text-[#212121] shadow-none hover:border-[color:var(--toolbar-accent)] hover:text-[color:var(--toolbar-accent)] touch-manipulation lg:h-8 lg:min-h-0"
+                            onClick={onOpenLineManager}
+                        >
+                            <MessageCircleMore className="mr-1.5 h-4 w-4" />
+                            จัดการ LINE
                         </Button>
                         <Button
                             variant="outline"

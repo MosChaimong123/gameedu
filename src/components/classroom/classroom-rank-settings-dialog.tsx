@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { Classroom } from "@prisma/client";
 import {
@@ -22,6 +23,7 @@ import {
     DEFAULT_RANK_ENTRIES,
     getThemeBgStyle,
     getThemeHorizontalBgClass,
+    resolveRankIcon,
 } from "@/lib/classroom-utils";
 import { cn } from "@/lib/utils";
 import { gamificationToolbarButtonClassName } from "./gamification-toolbar-styles";
@@ -53,12 +55,16 @@ export function ClassroomRankSettingsDialog({
         const current = parseLevelConfigToEntries(classroom.levelConfig as LevelConfigInput);
         return DEFAULT_RANK_ENTRIES.map((def, idx) => {
             const existing = current.find(r => r.name === def.name);
-            if (existing) return { ...def, ...existing };
+            if (existing) {
+                const rank = { ...def, ...existing };
+                return { ...rank, icon: resolveRankIcon(rank) };
+            }
 
             if (current[idx]) {
-                return { ...def, minScore: current[idx].minScore, goldRate: current[idx].goldRate || def.goldRate };
+                const rank = { ...def, minScore: current[idx].minScore, goldRate: current[idx].goldRate || def.goldRate };
+                return { ...rank, icon: resolveRankIcon(rank) };
             }
-            return def;
+            return { ...def, icon: resolveRankIcon(def) };
         });
     });
 
@@ -135,7 +141,17 @@ export function ClassroomRankSettingsDialog({
                         {ranks.map((rank, i) => (
                             <div key={i} className="relative">
                                 <div className="grid grid-cols-[48px_1fr_90px_90px] items-center gap-3 bg-white rounded-xl px-3 py-2.5 shadow-sm border border-slate-200">
-                                    <div className="w-10 h-10 flex items-center justify-center bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                                    <div className="relative w-10 h-10 flex items-center justify-center bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                                        {(resolveRankIcon(rank).startsWith("/") || resolveRankIcon(rank).startsWith("data:image") || resolveRankIcon(rank).startsWith("http")) && (
+                                            <Image
+                                                src={resolveRankIcon(rank)}
+                                                alt={rank.name}
+                                                width={40}
+                                                height={40}
+                                                className="absolute inset-0 z-10 h-full w-full object-contain"
+                                                unoptimized
+                                            />
+                                        )}
                                         <span className="text-2xl">{rank.icon ?? "⭐"}</span>
                                     </div>
 

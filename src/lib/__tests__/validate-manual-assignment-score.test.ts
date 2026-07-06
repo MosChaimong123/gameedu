@@ -6,14 +6,23 @@ describe("parseAndValidateManualScore", () => {
   it("accepts score assignments in 0..maxScore", () => {
     expect(parseAndValidateManualScore("score", 10, [], 0)).toEqual({
       ok: true,
-      scoreInt: 0,
+      score: 0,
     });
     expect(parseAndValidateManualScore("standard", 10, [], 10)).toEqual({
       ok: true,
-      scoreInt: 10,
+      score: 10,
+    });
+    expect(parseAndValidateManualScore("score", 10, [], 7.25)).toEqual({
+      ok: true,
+      score: 7.25,
+    });
+    expect(parseAndValidateManualScore("score", 10, [], "8.5")).toEqual({
+      ok: true,
+      score: 8.5,
     });
     expect(parseAndValidateManualScore("score", 10, [], 11).ok).toBe(false);
     expect(parseAndValidateManualScore("score", 10, [], -1).ok).toBe(false);
+    expect(parseAndValidateManualScore("score", 10, [], 5.125).ok).toBe(false);
   });
 
   it("accepts quiz like numeric score", () => {
@@ -27,7 +36,7 @@ describe("parseAndValidateManualScore", () => {
     expect(parseAndValidateManualScore("checklist", 2, checklists, 4).ok).toBe(false);
   });
 
-  it("rejects non-integer score", () => {
-    expect(parseAndValidateManualScore("score", 10, [], 5.5).ok).toBe(false);
+  it("keeps checklist scores as integer bitmasks", () => {
+    expect(parseAndValidateManualScore("checklist", 10, [{ text: "a" }], 0.5).ok).toBe(false);
   });
 });

@@ -87,7 +87,7 @@ export async function POST(
         const reviewedLineContent = lineAiReviewAction
             ? markLineAiPreliminaryReview(existingSubmission?.content, {
                 status: lineAiReviewAction,
-                score: validated.scoreInt,
+                score: validated.score,
                 reviewedAt: new Date().toISOString(),
                 reviewedBy: session.user.id,
             })
@@ -105,13 +105,13 @@ export async function POST(
                 }
             },
             update: {
-                score: validated.scoreInt,
+                score: validated.score,
                 ...(reviewedLineContent ? { content: reviewedLineContent } : {}),
             },
             create: {
                 studentId,
                 assignmentId,
-                score: validated.scoreInt,
+                score: validated.score,
                 cheatingLogs: []
             }
         });
@@ -127,7 +127,7 @@ export async function POST(
                     classroomId: id,
                     assignmentId,
                     studentId,
-                    score: validated.scoreInt,
+                    score: validated.score,
                 },
             });
         }

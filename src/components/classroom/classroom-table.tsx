@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { getRankEntry, type LevelConfigInput } from "@/lib/classroom-utils";
+import { getRankEntry, resolveRankIcon, type LevelConfigInput } from "@/lib/classroom-utils";
 import { useLanguage } from "@/components/providers/language-provider";
 import { AlertTriangle, Check, Loader2, RotateCcw } from "lucide-react";
 import {
@@ -53,6 +53,16 @@ type StudentScoreMap = Record<string, Record<string, number>>;
 
 type StudentWithSubmissions = ClassroomDashboardViewModel["students"][number];
 type StudentSubmission = StudentWithSubmissions["submissions"][number];
+
+const TWO_DECIMAL_SCORE_PATTERN = /^\d*(?:\.\d{0,2})?$/;
+
+function roundScore(value: number) {
+    return Math.round(value * 100) / 100;
+}
+
+function formatScore(value: number) {
+    return roundScore(value).toFixed(2);
+}
 
 function LineSubmissionReviewHint({
     content,
@@ -229,11 +239,14 @@ export function ClassroomTable({
     };
 
     const handleScoreChange = (studentId: string, assignmentId: string, value: string, maxScore: number) => {
-        let numValue = value === "" ? 0 : parseInt(value, 10);
+        if (value !== "" && !TWO_DECIMAL_SCORE_PATTERN.test(value)) return;
+
+        let numValue = value === "" ? 0 : Number(value);
         if (isNaN(numValue)) return;
         
         if (numValue < 0) numValue = 0;
         if (numValue > maxScore) numValue = maxScore;
+        numValue = Math.round(numValue * 100) / 100;
         
         setScores(prev => ({
             ...prev,
@@ -551,24 +564,25 @@ export function ClassroomTable({
 
     // Helper: calculate total academic points for a student from the reactive scores state
     const calculateTotalAcademicPoints = (studentId: string) => {
-        return assignments.reduce((sum, a) => {
+        return roundScore(assignments.reduce((sum, a) => {
             const score = scores[studentId]?.[a.id] ?? 0;
             if (dbAssignmentTypeToFormType(a.type) === "checklist") {
                 return sum + checklistCheckedScore(score, a.checklists ?? []);
             }
             return sum + score;
-        }, 0);
+        }, 0));
     };
 
     const renderRankBlock = (studentId: string) => {
         const rank = getRankEntry(calculateTotalAcademicPoints(studentId), levelConfig as LevelConfigInput);
+        const rankIcon = resolveRankIcon(rank);
         return (
             <div className="flex flex-col items-center gap-1">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center">
-                    {(rank.icon?.startsWith('data:image') || rank.icon?.startsWith('http')) ? (
-                        <Image src={rank.icon} alt={rank.name} width={32} height={32} className="h-full w-full object-contain" unoptimized />
+                    {rankIcon.startsWith("/") || rankIcon.startsWith("data:image") || rankIcon.startsWith("http") ? (
+                        <Image src={rankIcon} alt={rank.name} width={32} height={32} className="h-full w-full object-contain" unoptimized />
                     ) : (
-                        <span className="text-xl">{rank.icon ?? "⭐"}</span>
+                        <span className="text-xl">{rankIcon}</span>
                     )}
                 </div>
                 <span className="whitespace-nowrap rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold uppercase text-orange-600">
@@ -701,7 +715,7 @@ export function ClassroomTable({
                                 </div>
                                 <div className="rounded-lg bg-blue-50 px-3 py-2 text-center">
                                     <p className="text-[10px] font-bold uppercase tracking-wide text-blue-700">{t("academicPointsColumnLabel")}</p>
-                                    <p className="text-xl font-black text-blue-600">{calculateTotalAcademicPoints(student.id)}</p>
+                                    <p className="text-xl font-black text-blue-600">{formatScore(calculateTotalAcademicPoints(student.id))}</p>
                                 </div>
                             </div>
 
@@ -761,6 +775,8 @@ export function ClassroomTable({
                                                                     type="number"
                                                                     min={0}
                                                                     max={a.maxScore}
+                                                                    step={0.01}
+                                                                    inputMode="decimal"
                                                                     className={cn(
                                                                         "h-11 min-h-[44px] max-w-[8rem] text-center text-base font-semibold touch-manipulation",
                                                                         (scores[student.id]?.[a.id] ?? 0) > a.maxScore && "border-red-500 ring-red-500"
@@ -948,15 +964,15 @@ export function ClassroomTable({
 
             {/* Desktop: wide table + horizontal scroll */}
             <div className="hidden min-h-0 flex-1 flex-col md:flex">
-                <div className="h-full min-h-0 flex-1 overflow-x-auto">
+                <div className="h-full min-h-0 flex-1 overflow-auto">
                 <Table>
-                    <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+                    <TableHeader className="bg-slate-50 shadow-sm">
                         <TableRow>
-                            <TableHead className="w-[60px] text-center border-r">#</TableHead>
-                            <TableHead className="w-[180px] border-r">{t("studentName")}</TableHead>
-                            <TableHead className="text-center w-[100px] border-r">{t("totalRank")}</TableHead>
-                            <TableHead className="text-center w-[100px] border-r bg-emerald-50 text-emerald-700">{t("classroomTableBehaviorShort")}</TableHead>
-                            <TableHead className="text-center w-[100px] border-r bg-blue-50 text-blue-700">{t("academicPointsColumnLabel")}</TableHead>
+                            <TableHead className="sticky left-0 top-0 z-40 w-[60px] min-w-[60px] border-r bg-slate-50 text-center">#</TableHead>
+                            <TableHead className="sticky left-[60px] top-0 z-40 w-[180px] min-w-[180px] border-r bg-slate-50 shadow-[8px_0_12px_-12px_rgba(15,23,42,0.45)]">{t("studentName")}</TableHead>
+                            <TableHead className="sticky top-0 z-30 w-[100px] border-r bg-slate-50 text-center">{t("totalRank")}</TableHead>
+                            <TableHead className="sticky top-0 z-30 w-[100px] border-r bg-emerald-50 text-center text-emerald-700">{t("classroomTableBehaviorShort")}</TableHead>
+                            <TableHead className="sticky top-0 z-30 w-[100px] border-r bg-blue-50 text-center text-blue-700">{t("academicPointsColumnLabel")}</TableHead>
                             {assignments.map((a) => {
                                 const formType = dbAssignmentTypeToFormType(a.type);
                                 const dl = formatDeadlineDisplayTh(a.deadline);
@@ -965,7 +981,7 @@ export function ClassroomTable({
                                 <TableHead
                                     key={a.id}
                                     id={`assignment-col-${a.id}`}
-                                    className={`text-center border-r ${formType === "checklist" ? "min-w-[160px]" : "min-w-[100px]"}`}
+                                    className={`sticky top-0 z-30 border-r bg-slate-50 text-center ${formType === "checklist" ? "min-w-[160px]" : "min-w-[100px]"}`}
                                 >
                                     <div className="flex flex-col items-center gap-0.5 px-0.5">
                                         <span className="font-bold text-slate-800 leading-tight">{a.name}</span>
@@ -1001,18 +1017,18 @@ export function ClassroomTable({
                                 </TableHead>
                                 );
                             })}
-                            <TableHead className="min-w-[50px]"></TableHead>
+                            <TableHead className="sticky top-0 z-30 min-w-[50px] bg-slate-50"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {sortedStudents.map((student, index) => (
-                            <TableRow key={student.id} className="hover:bg-slate-50/50">
-                                <TableCell className="font-bold text-indigo-600 text-center border-r bg-indigo-50/30">
+                            <TableRow key={student.id} className="group hover:bg-slate-50/50">
+                                <TableCell className="sticky left-0 z-20 w-[60px] min-w-[60px] border-r bg-indigo-50 font-bold text-indigo-600 text-center group-hover:bg-indigo-50">
                                     {(student.order ?? index) + 1}
                                 </TableCell>
                                 <TableCell 
                                     className={cn(
-                                        "border-r transition-colors",
+                                        "sticky left-[60px] z-20 w-[180px] min-w-[180px] border-r bg-white transition-colors shadow-[8px_0_12px_-12px_rgba(15,23,42,0.45)] group-hover:bg-slate-50",
                                         isAttendanceMode && "cursor-pointer hover:bg-indigo-50 active:bg-indigo-100"
                                     )}
                                     onClick={() => isAttendanceMode && onStudentClick?.(student)}
@@ -1058,7 +1074,7 @@ export function ClassroomTable({
                                     {student.behaviorPoints}
                                 </TableCell>
                                 <TableCell className="text-center font-bold text-blue-600 border-r bg-blue-50/30">
-                                    {calculateTotalAcademicPoints(student.id)}
+                                    {formatScore(calculateTotalAcademicPoints(student.id))}
                                 </TableCell>
                                 {assignments.map((a) => (
                                     <TableCell key={a.id} className="text-center p-1 border-r">
@@ -1077,6 +1093,8 @@ export function ClassroomTable({
                                                             type="number"
                                                             min={0}
                                                             max={a.maxScore}
+                                                            step={0.01}
+                                                            inputMode="decimal"
                                                             className={`w-16 text-center h-8 mx-auto focus-visible:ring-indigo-500 font-medium ${scores[student.id]?.[a.id] > a.maxScore ? "border-red-500 ring-red-500" : ""}`}
                                                             value={scores[student.id]?.[a.id] ?? ""}
                                                             onChange={(e) => handleScoreChange(student.id, a.id, e.target.value, a.maxScore)}

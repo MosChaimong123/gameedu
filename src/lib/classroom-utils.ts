@@ -19,10 +19,30 @@ export type LevelConfigInput = LevelConfig | RankEntry[] | null | undefined;
 export type RankEntry = {
     name: string;
     minScore: number;
-    icon?: string;    // emoji
+    icon?: string;    // image path or legacy emoji
     color?: string;   // hex or tailwind color token
     goldRate?: number; // Gold per hour
 };
+
+export const RANK_ICON_ASSETS: Record<string, string> = {
+    Common: "/assets/ranks/common.png",
+    Uncommon: "/assets/ranks/uncommon.png",
+    Rare: "/assets/ranks/rare.png",
+    Epic: "/assets/ranks/epic.png",
+    Legendary: "/assets/ranks/legendary.png",
+    Mythic: "/assets/ranks/mythic.png",
+};
+
+const DEFAULT_RANK_ICON_ASSET = "/assets/ranks/common.png";
+
+function isImageIcon(icon?: string | null): icon is string {
+    return Boolean(icon && (icon.startsWith("/") || icon.startsWith("data:image") || icon.startsWith("http")));
+}
+
+export function resolveRankIcon(rank: Pick<RankEntry, "name" | "icon">): string {
+    if (isImageIcon(rank.icon)) return rank.icon;
+    return RANK_ICON_ASSETS[rank.name] ?? rank.icon ?? RANK_ICON_ASSETS.Common ?? DEFAULT_RANK_ICON_ASSET;
+}
 
 /** Helpers for custom classroom themes */
 export function getThemeBgClass(theme?: string | null): string {
@@ -155,10 +175,12 @@ export const DEFAULT_LEVEL_CONFIG: LevelConfig = {
 
 /** Parse levelConfig from DB — supports both old object format and new array format */
 export function parseLevelConfigToEntries(raw: LevelConfigInput): RankEntry[] {
-    if (!raw) return DEFAULT_RANK_ENTRIES;
+    if (!raw) return DEFAULT_RANK_ENTRIES.map((entry) => ({ ...entry, icon: resolveRankIcon(entry) }));
     // New array format
     if (Array.isArray(raw)) {
-        return (raw as RankEntry[]).sort((a, b) => a.minScore - b.minScore);
+        return (raw as RankEntry[])
+            .map((entry) => ({ ...entry, icon: resolveRankIcon(entry) }))
+            .sort((a, b) => a.minScore - b.minScore);
     }
     // Old object format: { [name]: minScore }
     return Object.entries(raw)
@@ -168,6 +190,7 @@ export function parseLevelConfigToEntries(raw: LevelConfigInput): RankEntry[] {
                 ...def,
                 name,
                 minScore: minScore as number,
+                icon: resolveRankIcon({ name, icon: def?.icon }),
                 goldRate: (def?.goldRate ?? 0)
             } as RankEntry;
         })
@@ -177,7 +200,7 @@ export function parseLevelConfigToEntries(raw: LevelConfigInput): RankEntry[] {
 /** Get rank name from a score, supporting both old and new levelConfig formats */
 export function getRankEntry(totalPoints: number, levelConfig?: LevelConfigInput): RankEntry {
     const entries = parseLevelConfigToEntries(levelConfig);
-    let current = entries[0] || DEFAULT_RANK_ENTRIES[0];
+    let current = entries[0] || { ...DEFAULT_RANK_ENTRIES[0], icon: resolveRankIcon(DEFAULT_RANK_ENTRIES[0]) };
     for (const entry of entries) {
         if (totalPoints >= entry.minScore) current = entry;
         else break;

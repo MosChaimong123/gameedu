@@ -77,6 +77,7 @@ export function ClassroomDashboard({
     const { t } = useLanguage();
     const { data: session, status: sessionStatus } = useSession();
     const [selectedStudent, setSelectedStudent] = useState<ClassroomDashboardViewModel["students"][number] | null>(null);
+    const [lineManagerOpen, setLineManagerOpen] = useState(false);
     const [activeHighlightAssignmentId, setActiveHighlightAssignmentId] = useState<string | null>(
         highlightAssignmentId
     );
@@ -309,6 +310,7 @@ export function ClassroomDashboard({
                         setViewMode("grid");
                     }}
                     onToggleSelectMultiple={() => setIsSelectMultiple((value) => !value)}
+                    onOpenLineManager={() => setLineManagerOpen(true)}
                     onOpenSettings={() => setShowSettings(true)}
                 />
             )}
@@ -388,17 +390,31 @@ export function ClassroomDashboard({
                 </div>
             ) : null}
 
-            <ClassroomLineAssignmentPanel
-                classroom={classroom}
-                onOpenAssignment={(assignmentId) => {
-                    setViewMode("table");
-                    setActiveHighlightAssignmentId(assignmentId ?? null);
-                }}
-                onRefreshBindingStatus={async () => {
-                    const refreshed = await fetchClassroomDashboard(classroom.id);
-                    replaceClassroomSnapshot(refreshed);
-                }}
-            />
+            <Dialog open={lineManagerOpen} onOpenChange={setLineManagerOpen}>
+                <DialogContent className="flex h-[100dvh] !w-screen !max-w-none flex-col overflow-hidden rounded-none border-0 border-slate-200 p-0 shadow-2xl sm:h-[min(92dvh,900px)] sm:!w-[min(96vw,1500px)] sm:!max-w-[min(96vw,1500px)] sm:rounded-[28px] sm:border">
+                    <DialogHeader className="shrink-0 border-b border-slate-100 px-4 pb-3 pt-4 pr-12 text-left sm:px-6 sm:pb-4 sm:pt-5">
+                        <DialogTitle className="text-xl font-black text-slate-950">จัดการ LINE และงานมอบหมาย</DialogTitle>
+                        <DialogDescription className="text-sm text-slate-600">
+                            ส่งประกาศ ทวงงาน และตรวจสถานะการเชื่อม LINE ของห้องนี้
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 p-2 sm:p-4 lg:p-5">
+                        <ClassroomLineAssignmentPanel
+                            classroom={classroom}
+                            className="mx-auto w-full max-w-none"
+                            onOpenAssignment={(assignmentId) => {
+                                setViewMode("table");
+                                setActiveHighlightAssignmentId(assignmentId ?? null);
+                                setLineManagerOpen(false);
+                            }}
+                            onRefreshBindingStatus={async () => {
+                                const refreshed = await fetchClassroomDashboard(classroom.id);
+                                replaceClassroomSnapshot(refreshed);
+                            }}
+                        />
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Grid Area */}
             {viewMode === "grid" ? (

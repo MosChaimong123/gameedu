@@ -32,6 +32,7 @@ type ClassroomLineAssignmentPanelProps = {
     classroom: ClassroomDashboardViewModel;
     onOpenAssignment: (assignmentId?: string | null) => void;
     onRefreshBindingStatus: () => Promise<void>;
+    className?: string;
 };
 
 type LineBindingCommandPayload = {
@@ -885,6 +886,7 @@ export function ClassroomLineAssignmentPanel({
     classroom,
     onOpenAssignment,
     onRefreshBindingStatus,
+    className,
 }: ClassroomLineAssignmentPanelProps) {
     const { toast } = useToast();
     const [sendingAssignmentId, setSendingAssignmentId] = useState<string | null>(null);
@@ -1377,7 +1379,7 @@ export function ClassroomLineAssignmentPanel({
     }
 
     return (
-        <section className="rounded-[22px] border border-[#d9d9dd] bg-white p-5 shadow-sm sm:p-6">
+        <section className={cn("rounded-[22px] border border-[#d9d9dd] bg-white p-4 shadow-sm sm:p-6", className)}>
             <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.28px] text-[#93939f]">

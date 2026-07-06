@@ -100,6 +100,24 @@ describe("POST /api/classrooms/[id]/assignments/[assignmentId]/manual-scores LIN
         }));
     });
 
+    it("persists manual score decimals up to two places", async () => {
+        const { POST } = await import("@/app/api/classrooms/[id]/assignments/[assignmentId]/manual-scores/route");
+
+        const res = await POST(jsonRequest({
+            studentId: "student-1",
+            score: 7.25,
+        }), {
+            params: Promise.resolve({ id: "class-1", assignmentId: "assignment-1" }),
+        });
+        const body = await res.json();
+        const upsertArgs = mockAssignmentSubmissionUpsert.mock.calls[0][0];
+
+        expect(res.status).toBe(200);
+        expect(upsertArgs.update.score).toBe(7.25);
+        expect(upsertArgs.create.score).toBe(7.25);
+        expect(body.score).toBe(7.25);
+    });
+
     it("rejects AI review actions when the submission has no LINE AI metadata", async () => {
         mockAssignmentSubmissionFindUnique.mockResolvedValue({
             id: "submission-1",

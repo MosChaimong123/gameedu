@@ -388,7 +388,7 @@ model AssignmentSubmission {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
   assignmentId String     @db.ObjectId
   studentId    String     @db.ObjectId
-  score        Int        @default(0)
+  score        Float      @default(0)
   content      String?    // Optional text/link submission
   cheatingLogs Json?      // Log of browser tab switches etc
   /// Quiz: set when student opens first question; null for legacy / non-quiz rows

@@ -141,7 +141,7 @@ export class CryptoHackEngine extends AbstractGameEngine {
             }
         }
 
-        this.io.to(this.pin).emit("player-joined", { players: this.players });
+        this.broadcastPlayerJoined();
     }
 
     startGame() {

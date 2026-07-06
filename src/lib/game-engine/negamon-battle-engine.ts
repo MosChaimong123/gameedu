@@ -285,7 +285,7 @@ export class NegamonBattleEngine extends AbstractGameEngine {
     }
 
     protected statusUpdate(): void {
-        this.io.to(this.pin).emit("player-joined", { players: this.players });
+        this.broadcastPlayerJoined();
         if (this.status === "PLAYING") {
             this.io.to(this.pin).emit("game-state-update", {
                 players: this.players,

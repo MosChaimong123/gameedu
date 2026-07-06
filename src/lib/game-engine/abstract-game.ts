@@ -25,6 +25,13 @@ export abstract class AbstractGameEngine {
     private hostSocketId?: string;
     private hostReconnectToken?: string;
     private playerReconnectTokens: Map<string, string>;
+    // Coalesces "player-joined" room broadcasts. A join storm (dozens of players
+    // connecting at once) otherwise emits the full roster once per join — O(n²)
+    // work on a single-threaded event loop. Leading-edge throttle: first join
+    // broadcasts immediately, the rest within the window collapse into one trailing emit.
+    private playerJoinedTimer: NodeJS.Timeout | null = null;
+    private playerJoinedPending = false;
+    private static readonly PLAYER_JOINED_THROTTLE_MS = 150;
 
     constructor(
         pin: string,
@@ -155,6 +162,10 @@ export abstract class AbstractGameEngine {
     public negamonClassroomRewardsLastError: string | null = null;
     /** Last reward sync attempt time. Used to avoid retrying every tick after transient failures. */
     public negamonClassroomRewardsLastAttemptAt: number = 0;
+    public arQuestClassroomRewardsSynced: boolean = false;
+    public arQuestClassroomRewardsSyncInProgress: boolean = false;
+    public arQuestClassroomRewardsLastError: string | null = null;
+    public arQuestClassroomRewardsLastAttemptAt: number = 0;
 
 
     // Called every second by the Manager
@@ -181,9 +192,26 @@ export abstract class AbstractGameEngine {
         }
     }
 
+    // Coalesced "player-joined" room broadcast. Safe to call on every join;
+    // bursts are collapsed so the event loop isn't flooded during a join storm.
+    protected broadcastPlayerJoined(): void {
+        if (this.playerJoinedTimer) {
+            this.playerJoinedPending = true;
+            return;
+        }
+        this.io.to(this.pin).emit("player-joined", { players: this.players });
+        this.playerJoinedTimer = setTimeout(() => {
+            this.playerJoinedTimer = null;
+            if (this.playerJoinedPending) {
+                this.playerJoinedPending = false;
+                this.broadcastPlayerJoined();
+            }
+        }, AbstractGameEngine.PLAYER_JOINED_THROTTLE_MS);
+    }
+
     // Helper to broadcast updates
     protected statusUpdate(): void {
-        this.io.to(this.pin).emit("player-joined", { players: this.players });
+        this.broadcastPlayerJoined();
         if (this.status === "PLAYING") {
             this.io.to(this.pin).emit("game-state-update", { players: this.players });
         }

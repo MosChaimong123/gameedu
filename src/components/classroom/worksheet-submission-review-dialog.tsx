@@ -15,13 +15,12 @@ import {
 import { useLanguage } from "@/components/providers/language-provider";
 import type { WorksheetItem } from "@/lib/worksheet-schema";
 import { parseWorksheetDataFromAssignmentPayload } from "@/lib/worksheet-assignment";
+import { parseWordSearchSelectedCells } from "@/lib/grade-worksheet-submission";
 import {
   parseWorksheetSubmissionContent,
   type WorksheetSubmissionContent,
   type WorksheetSubmissionItemResult,
 } from "@/lib/worksheet-review";
-
-type UploadedAssetKind = "image" | "audio" | "video" | "document";
 
 type WorksheetStructuredAnswerEntry = {
   label: string;
@@ -66,13 +65,7 @@ function renderAnswerValue(
   rawAnswer: unknown,
   t: (key: string, params?: Record<string, string | number>) => string
 ) {
-  if (item.type === "short_text" || item.type === "media_prompt") {
-    return typeof rawAnswer === "string" && rawAnswer.trim().length > 0
-      ? rawAnswer
-      : t("worksheetReviewEmptyAnswer");
-  }
-
-  if (item.type === "file_upload" || item.type === "speaking") {
+  if (item.type === "short_text") {
     return typeof rawAnswer === "string" && rawAnswer.trim().length > 0
       ? rawAnswer
       : t("worksheetReviewEmptyAnswer");
@@ -84,17 +77,6 @@ function renderAnswerValue(
         ? item.options[rawAnswer]
         : null;
     return choice ?? t("worksheetReviewEmptyAnswer");
-  }
-
-  if (item.type === "fill_blank") {
-    const answers = Array.isArray(rawAnswer) ? rawAnswer : [];
-    return item.blanks.map((blank, index) => ({
-      label: blank.label,
-      value:
-        typeof answers[index] === "string" && answers[index].trim().length > 0
-          ? answers[index]
-          : t("worksheetReviewEmptyAnswer"),
-    }));
   }
 
   if (item.type === "drag_drop") {
@@ -111,6 +93,17 @@ function renderAnswerValue(
     });
   }
 
+  if (item.type === "drag_select") {
+    const choiceId = typeof rawAnswer === "string" ? rawAnswer : "";
+    const selected = item.choices.find((choice) => choice.id === choiceId)?.label;
+    const expected = item.choices.find((choice) => choice.id === item.correctChoiceId)?.label;
+    return [{
+      label: item.prompt,
+      value: selected ?? t("worksheetReviewEmptyAnswer"),
+      expected: expected ?? "",
+    }];
+  }
+
   if (item.type === "matching_pairs") {
     const pairings = readStringRecord(rawAnswer);
     return item.prompts.map((prompt) => {
@@ -125,29 +118,25 @@ function renderAnswerValue(
     });
   }
 
-  if (item.type === "checklist") {
-    const flags = Array.isArray(rawAnswer) ? rawAnswer : [];
-    const selected = item.options
-      .filter((_, index) => Boolean(flags[index]))
-      .map((option) => option.label);
-    return selected.length > 0 ? selected : [t("worksheetReviewEmptyAnswer")];
+  if (item.type === "word_search") {
+    const selectedCells = parseWordSearchSelectedCells(rawAnswer);
+    const answerSet = new Set(item.answerCells);
+    const correctCount = selectedCells.filter((cellIndex) => answerSet.has(cellIndex)).length;
+    const wrongCount = selectedCells.length - correctCount;
+    return [
+      {
+        label: t("assignmentWorksheetTypeWordSearch"),
+        value: t("worksheetWordSearchCellSummary", {
+          correct: correctCount,
+          total: item.answerCells.length,
+          wrong: wrongCount,
+        }),
+        expected: t("worksheetWordSearchCellExpected", { total: item.answerCells.length }),
+      },
+    ];
   }
 
   return t("worksheetReviewEmptyAnswer");
-}
-
-function inferUploadedAssetKind(url: string): UploadedAssetKind {
-  const normalized = url.toLowerCase().split("?")[0]?.split("#")[0] ?? "";
-  if (/\.(png|jpe?g|gif|webp|bmp|svg)$/.test(normalized)) {
-    return "image";
-  }
-  if (/\.(mp3|wav|ogg|m4a|aac)$/.test(normalized)) {
-    return "audio";
-  }
-  if (/\.(mp4|mov|webm|mkv|avi)$/.test(normalized)) {
-    return "video";
-  }
-  return "document";
 }
 
 function getWorksheetItemTypeLabel(
@@ -159,22 +148,12 @@ function getWorksheetItemTypeLabel(
       return t("assignmentWorksheetTypeShortText");
     case "multiple_choice":
       return t("assignmentWorksheetTypeMultipleChoice");
-    case "fill_blank":
-      return t("assignmentWorksheetTypeFillBlank");
     case "drag_drop":
       return t("assignmentWorksheetTypeDragDrop");
     case "matching_pairs":
       return t("assignmentWorksheetTypeMatchingPairs");
-    case "media_prompt":
-      return item.mediaType === "audio"
-        ? t("assignmentWorksheetTypeAudioPrompt")
-        : t("assignmentWorksheetTypeVideoPrompt");
-    case "checklist":
-      return t("assignmentWorksheetTypeChecklist");
-    case "file_upload":
-      return t("assignmentWorksheetTypeFileUpload");
-    case "speaking":
-      return t("assignmentWorksheetTypeSpeaking");
+    case "word_search":
+      return t("assignmentWorksheetTypeWordSearch");
     default:
       return "";
   }
@@ -447,54 +426,11 @@ export function WorksheetSubmissionReviewDialog({
                           <p className="mb-2 text-sm font-semibold text-slate-700">{item.prompt}</p>
                         ) : null}
 
-                        {item.type === "media_prompt" ? (
-                          <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
-                            {item.mediaType === "audio" ? (
-                              <audio controls className="w-full" src={item.mediaUrl} />
-                            ) : (
-                              <video controls className="max-h-56 w-full rounded-xl" src={item.mediaUrl} />
-                            )}
-                          </div>
-                        ) : item.type === "file_upload" && typeof answer === "string" && answer !== t("worksheetReviewEmptyAnswer") ? (
-                          <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
-                            {inferUploadedAssetKind(answer) === "image" ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={answer}
-                                alt={t("worksheetReviewUploadedImageAlt")}
-                                className="max-h-64 w-full rounded-xl object-contain"
-                              />
-                            ) : inferUploadedAssetKind(answer) === "audio" ? (
-                              <audio controls className="w-full" src={answer} />
-                            ) : inferUploadedAssetKind(answer) === "video" ? (
-                              <video controls className="max-h-64 w-full rounded-xl" src={answer} />
-                            ) : null}
-                          </div>
-                        ) : item.type === "speaking" && typeof answer === "string" && answer !== t("worksheetReviewEmptyAnswer") ? (
-                          <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
-                            <audio controls className="w-full" src={answer} />
-                          </div>
-                        ) : null}
-
                         <div className="space-y-2">
                           {typeof answer === "string" ? (
-                            (item.type === "file_upload" || item.type === "speaking") &&
-                            answer !== t("worksheetReviewEmptyAnswer") ? (
-                              <a
-                                href={answer}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="block rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-sky-700 underline-offset-2 hover:underline"
-                              >
-                                {item.type === "file_upload"
-                                  ? t("worksheetReviewOpenUploadedFile")
-                                  : t("worksheetReviewOpenUploadedAudio")}
-                              </a>
-                            ) : (
-                              <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
-                                {answer}
-                              </div>
-                            )
+                            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
+                              {answer}
+                            </div>
                           ) : Array.isArray(answer) && answer.every((entry) => typeof entry === "string") ? (
                             <div className="flex flex-wrap gap-2">
                               {answer.map((entry, index) => (

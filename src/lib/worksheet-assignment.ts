@@ -14,26 +14,17 @@ export function sumWorksheetMaxScore(worksheet: WorksheetData) {
         if (item.type === "short_text") {
           return itemSum + item.answer.points;
         }
-        if (item.type === "fill_blank") {
-          return itemSum + item.blanks.length * item.pointsPerBlank;
-        }
         if (item.type === "drag_drop") {
           return itemSum + item.targets.length * item.pointsPerTarget;
+        }
+        if (item.type === "drag_select") {
+          return itemSum + item.points;
         }
         if (item.type === "matching_pairs") {
           return itemSum + item.prompts.length * item.pointsPerPair;
         }
-        if (item.type === "media_prompt") {
-          return itemSum + item.answer.points;
-        }
-        if (item.type === "checklist") {
-          return (
-            itemSum +
-            item.options.filter((option) => option.correct).length * item.pointsPerCorrect
-          );
-        }
-        if (item.type === "file_upload" || item.type === "speaking") {
-          return itemSum + item.points;
+        if (item.type === "word_search") {
+          return itemSum + item.answerCells.length * item.pointsPerCell;
         }
         return itemSum + item.points;
       }, 0)

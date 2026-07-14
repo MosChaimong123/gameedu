@@ -1,9 +1,23 @@
 import {
-  scoreWorksheetBlankAnswer,
   scoreWorksheetShortText,
   type WorksheetData,
   type WorksheetStudentAnswers,
 } from "@/lib/worksheet-schema";
+
+/** Parse a word_search answer string like "3,7,12" into unique cell indexes. */
+export function parseWordSearchSelectedCells(raw: unknown): number[] {
+  if (typeof raw !== "string" || raw.trim().length === 0) {
+    return [];
+  }
+  return Array.from(
+    new Set(
+      raw
+        .split(",")
+        .map((part) => Number(part.trim()))
+        .filter((value) => Number.isInteger(value) && value >= 0)
+    )
+  );
+}
 
 export type WorksheetGradeResult = {
   score: number;
@@ -55,33 +69,6 @@ export function gradeWorksheetSubmission(
         continue;
       }
 
-      if (item.type === "fill_blank") {
-        const rawAnswer = studentAnswers[item.id];
-        const answers = Array.isArray(rawAnswer)
-          ? rawAnswer.map((entry) => (typeof entry === "string" ? entry : ""))
-          : [];
-        let itemScore = 0;
-
-        for (const [blankIndex, blank] of item.blanks.entries()) {
-          const correct = scoreWorksheetBlankAnswer(answers[blankIndex] ?? "", blank.answer);
-          if (correct) {
-            itemScore += item.pointsPerBlank;
-          }
-        }
-
-        const itemMaxScore = item.blanks.length * item.pointsPerBlank;
-        score += itemScore;
-        maxScore += itemMaxScore;
-        itemResults.push({
-          itemId: item.id,
-          correct: itemScore === itemMaxScore,
-          score: itemScore,
-          maxScore: itemMaxScore,
-          needsReview: false,
-        });
-        continue;
-      }
-
       if (item.type === "drag_drop") {
         const rawAnswer = studentAnswers[item.id];
         const placements =
@@ -91,8 +78,23 @@ export function gradeWorksheetSubmission(
         let itemScore = 0;
 
         for (const target of item.targets) {
-          const assignedChoiceId = typeof placements[target.id] === "string" ? placements[target.id] : "";
-          if (assignedChoiceId === target.correctChoiceId) {
+          const rawPlacement = placements[target.id];
+          const assignedChoiceIds = Array.isArray(rawPlacement)
+            ? rawPlacement.filter((entry): entry is string => typeof entry === "string")
+            : typeof rawPlacement === "string"
+              ? [rawPlacement]
+              : [];
+          const acceptedChoiceIds =
+            target.acceptedChoiceIds && target.acceptedChoiceIds.length > 0
+              ? target.acceptedChoiceIds
+              : [target.correctChoiceId];
+          const hasEveryAcceptedChoice = acceptedChoiceIds.every((choiceId) =>
+            assignedChoiceIds.includes(choiceId)
+          );
+          const hasOnlyAcceptedChoices = assignedChoiceIds.every((choiceId) =>
+            acceptedChoiceIds.includes(choiceId)
+          );
+          if (hasEveryAcceptedChoice && hasOnlyAcceptedChoices) {
             itemScore += item.pointsPerTarget;
           }
         }
@@ -105,6 +107,23 @@ export function gradeWorksheetSubmission(
           correct: itemScore === itemMaxScore,
           score: itemScore,
           maxScore: itemMaxScore,
+          needsReview: false,
+        });
+        continue;
+      }
+
+      if (item.type === "drag_select") {
+        const rawAnswer = studentAnswers[item.id];
+        const choiceId = typeof rawAnswer === "string" ? rawAnswer : "";
+        const correct = choiceId === item.correctChoiceId;
+        const itemScore = correct ? item.points : 0;
+        score += itemScore;
+        maxScore += item.points;
+        itemResults.push({
+          itemId: item.id,
+          correct,
+          score: itemScore,
+          maxScore: item.points,
           needsReview: false,
         });
         continue;
@@ -138,70 +157,24 @@ export function gradeWorksheetSubmission(
         continue;
       }
 
-      if (item.type === "media_prompt") {
-        const rawAnswer = studentAnswers[item.id];
-        const answer = typeof rawAnswer === "string" ? rawAnswer : "";
-        if (item.answer.reviewMode === "manual") {
-          maxScore += item.answer.points;
-          itemResults.push({
-            itemId: item.id,
-            correct: null,
-            score: 0,
-            maxScore: item.answer.points,
-            needsReview: true,
-          });
-          continue;
-        }
-        const correct = scoreWorksheetBlankAnswer(answer, item.answer);
-        const itemScore = correct ? item.answer.points : 0;
-        score += itemScore;
-        maxScore += item.answer.points;
-        itemResults.push({
-          itemId: item.id,
-          correct,
-          score: itemScore,
-          maxScore: item.answer.points,
-          needsReview: false,
-        });
-        continue;
-      }
+      if (item.type === "word_search") {
+        const selectedCells = parseWordSearchSelectedCells(studentAnswers[item.id]);
+        const answerSet = new Set(item.answerCells);
+        const correctCount = selectedCells.filter((cellIndex) => answerSet.has(cellIndex)).length;
+        const wrongCount = selectedCells.length - correctCount;
+        // Wrong picks cancel correct ones so select-everything scores zero.
+        const earnedCells = Math.max(0, correctCount - wrongCount);
 
-      if (item.type === "checklist") {
-        const rawAnswer = studentAnswers[item.id];
-        const answers = Array.isArray(rawAnswer)
-          ? rawAnswer.map((entry) => Boolean(entry))
-          : [];
-        let itemScore = 0;
-
-        for (const [optionIndex, option] of item.options.entries()) {
-          const selected = Boolean(answers[optionIndex]);
-          if (selected && option.correct) {
-            itemScore += item.pointsPerCorrect;
-          }
-        }
-
-        const itemMaxScore =
-          item.options.filter((option) => option.correct).length * item.pointsPerCorrect;
+        const itemScore = earnedCells * item.pointsPerCell;
+        const itemMaxScore = item.answerCells.length * item.pointsPerCell;
         score += itemScore;
         maxScore += itemMaxScore;
         itemResults.push({
           itemId: item.id,
-          correct: itemScore === itemMaxScore,
+          correct: correctCount === item.answerCells.length && wrongCount === 0,
           score: itemScore,
           maxScore: itemMaxScore,
           needsReview: false,
-        });
-        continue;
-      }
-
-      if (item.type === "file_upload" || item.type === "speaking") {
-        maxScore += item.points;
-        itemResults.push({
-          itemId: item.id,
-          correct: null,
-          score: 0,
-          maxScore: item.points,
-          needsReview: true,
         });
         continue;
       }

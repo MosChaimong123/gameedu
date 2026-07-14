@@ -60,25 +60,36 @@ describe("worksheet submission review patch route", () => {
             height: 1600,
             items: [
               {
-                id: "file-1",
-                type: "file_upload",
-                prompt: "Upload image evidence",
-                allowedType: "image",
+                id: "manual-1",
+                type: "short_text",
+                label: "Explain your reasoning",
+                placeholder: "",
                 x: 10,
                 y: 10,
                 width: 20,
                 height: 10,
-                points: 4,
+                answer: {
+                  mode: "normalized",
+                  reviewMode: "manual",
+                  accepted: ["sample"],
+                  points: 4,
+                },
               },
               {
-                id: "speaking-1",
-                type: "speaking",
-                prompt: "Record your answer",
+                id: "manual-2",
+                type: "short_text",
+                label: "Describe your evidence",
+                placeholder: "",
                 x: 20,
                 y: 20,
                 width: 20,
                 height: 10,
-                points: 3,
+                answer: {
+                  mode: "normalized",
+                  reviewMode: "manual",
+                  accepted: ["sample"],
+                  points: 3,
+                },
               },
             ],
           },
@@ -97,19 +108,19 @@ describe("worksheet submission review patch route", () => {
       content: JSON.stringify({
         mode: "worksheet",
         answers: {
-          "file-1": "/uploads/worksheet-submissions/work-1.png",
-          "speaking-1": "/uploads/worksheet-submissions/work-1.webm",
+          "manual-1": "My reasoning is that water expands when frozen.",
+          "manual-2": "See the attached diagram in my notebook.",
         },
         itemResults: [
           {
-            itemId: "file-1",
+            itemId: "manual-1",
             correct: null,
             score: 0,
             maxScore: 4,
             needsReview: true,
           },
           {
-            itemId: "speaking-1",
+            itemId: "manual-2",
             correct: null,
             score: 0,
             maxScore: 3,
@@ -126,7 +137,7 @@ describe("worksheet submission review patch route", () => {
     }));
   });
 
-  it("allows teachers to score file upload and speaking review items", async () => {
+  it("allows teachers to score manual-review short text items", async () => {
     const { PATCH } = await import(
       "@/app/api/classrooms/[id]/assignments/[assignmentId]/worksheet/submissions/[submissionId]/route"
     );
@@ -139,8 +150,8 @@ describe("worksheet submission review patch route", () => {
         },
         body: JSON.stringify({
           itemScores: {
-            "file-1": 4,
-            "speaking-1": 2,
+            "manual-1": 4,
+            "manual-2": 2,
           },
         }),
       }),
@@ -177,13 +188,13 @@ describe("worksheet submission review patch route", () => {
 
     expect(updatedContent.itemResults).toEqual([
       expect.objectContaining({
-        itemId: "file-1",
+        itemId: "manual-1",
         score: 4,
         correct: true,
         needsReview: false,
       }),
       expect.objectContaining({
-        itemId: "speaking-1",
+        itemId: "manual-2",
         score: 2,
         correct: null,
         needsReview: false,

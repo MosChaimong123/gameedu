@@ -28,53 +28,59 @@ const worksheetMultipleChoiceItemSchema = worksheetItemBaseSchema.extend({
   points: z.number().int().min(1).max(100),
 });
 
-const worksheetBlankAnswerSchema = z.object({
-  mode: z.enum(["exact", "normalized"]).default("normalized"),
-  accepted: z.array(z.string().trim().min(1)).min(1),
-});
-
-const worksheetFillBlankBlankSchema = z.object({
-  id: z.string().trim().min(1),
-  label: z.string().trim().min(1),
-  placeholder: z.string().trim().max(120).default(""),
-  answer: worksheetBlankAnswerSchema,
-});
-
-const worksheetFillBlankItemSchema = worksheetItemBaseSchema.extend({
-  type: z.literal("fill_blank"),
-  prompt: z.string().trim().min(1),
-  blanks: z.array(worksheetFillBlankBlankSchema).min(2).max(6),
-  pointsPerBlank: z.number().int().min(1).max(100),
+const worksheetDragDropAreaSchema = z.object({
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(100),
+  width: z.number().min(1).max(100),
+  height: z.number().min(1).max(100),
 });
 
 const worksheetDragDropChoiceSchema = z.object({
   id: z.string().trim().min(1),
   label: z.string().trim().min(1),
+  sourceArea: worksheetDragDropAreaSchema,
 });
 
 const worksheetDragDropTargetSchema = z.object({
   id: z.string().trim().min(1),
   label: z.string().trim().min(1),
   correctChoiceId: z.string().trim().min(1),
+  acceptedChoiceIds: z.array(z.string().trim().min(1)).optional(),
+  dropArea: worksheetDragDropAreaSchema,
 });
 
 const worksheetDragDropItemSchema = worksheetItemBaseSchema.extend({
   type: z.literal("drag_drop"),
   prompt: z.string().trim().min(1),
-  choices: z.array(worksheetDragDropChoiceSchema).min(2).max(6),
-  targets: z.array(worksheetDragDropTargetSchema).min(2).max(6),
+  choices: z.array(worksheetDragDropChoiceSchema).min(1).max(6),
+  targets: z.array(worksheetDragDropTargetSchema).min(1).max(6),
   pointsPerTarget: z.number().int().min(1).max(100),
 });
 
 const worksheetMatchingChoiceSchema = z.object({
   id: z.string().trim().min(1),
   label: z.string().trim().min(1),
+  sourceArea: worksheetDragDropAreaSchema,
 });
 
 const worksheetMatchingPromptSchema = z.object({
   id: z.string().trim().min(1),
   label: z.string().trim().min(1),
   correctChoiceId: z.string().trim().min(1),
+  sourceArea: worksheetDragDropAreaSchema,
+});
+
+const worksheetDragSelectItemSchema = worksheetItemBaseSchema.extend({
+  type: z.literal("drag_select"),
+  prompt: z.string().trim().min(1),
+  choices: z.array(z.object({
+    id: z.string().trim().min(1),
+    label: z.string().trim().min(1),
+    sourceArea: worksheetDragDropAreaSchema,
+  })).min(2).max(6),
+  dropArea: worksheetDragDropAreaSchema,
+  correctChoiceId: z.string().trim().min(1),
+  points: z.number().int().min(1).max(100),
 });
 
 const worksheetMatchingItemSchema = worksheetItemBaseSchema.extend({
@@ -85,56 +91,26 @@ const worksheetMatchingItemSchema = worksheetItemBaseSchema.extend({
   pointsPerPair: z.number().int().min(1).max(100),
 });
 
-const worksheetMediaPromptItemSchema = worksheetItemBaseSchema.extend({
-  type: z.literal("media_prompt"),
+const worksheetWordSearchItemSchema = worksheetItemBaseSchema.extend({
+  type: z.literal("word_search"),
   prompt: z.string().trim().min(1),
-  mediaType: z.enum(["audio", "video"]),
-  mediaUrl: z.string().trim().min(1),
-  placeholder: z.string().trim().max(120).default(""),
-  answer: z.object({
-    mode: z.enum(["exact", "normalized"]).default("normalized"),
-    reviewMode: z.enum(["auto", "manual"]).default("auto"),
-    accepted: z.array(z.string().trim().min(1)).min(1),
-    points: z.number().int().min(1).max(100),
-  }),
-});
-
-const worksheetChecklistOptionSchema = z.object({
-  id: z.string().trim().min(1),
-  label: z.string().trim().min(1),
-  correct: z.boolean().default(false),
-});
-
-const worksheetChecklistItemSchema = worksheetItemBaseSchema.extend({
-  type: z.literal("checklist"),
-  prompt: z.string().trim().min(1),
-  options: z.array(worksheetChecklistOptionSchema).min(2).max(6),
-  pointsPerCorrect: z.number().int().min(1).max(100),
-});
-
-const worksheetFileUploadItemSchema = worksheetItemBaseSchema.extend({
-  type: z.literal("file_upload"),
-  prompt: z.string().trim().min(1),
-  allowedType: z.enum(["any", "document", "image", "audio", "video"]).default("any"),
-  points: z.number().int().min(1).max(100),
-});
-
-const worksheetSpeakingItemSchema = worksheetItemBaseSchema.extend({
-  type: z.literal("speaking"),
-  prompt: z.string().trim().min(1),
-  points: z.number().int().min(1).max(100),
+  // The letters themselves live in the page's background image; this item is
+  // just a transparent rows x cols grid overlaid on top of it (positioned via
+  // the base x/y/width/height) so the teacher can mark which cells are correct.
+  rows: z.number().int().min(4).max(15),
+  cols: z.number().int().min(4).max(15),
+  // Row-major indexes of the cells the teacher marked as the answer.
+  answerCells: z.array(z.number().int().min(0)).min(1),
+  pointsPerCell: z.number().int().min(1).max(100),
 });
 
 export const worksheetItemSchema = z.discriminatedUnion("type", [
   worksheetShortTextItemSchema,
   worksheetMultipleChoiceItemSchema,
-  worksheetFillBlankItemSchema,
   worksheetDragDropItemSchema,
+  worksheetDragSelectItemSchema,
   worksheetMatchingItemSchema,
-  worksheetMediaPromptItemSchema,
-  worksheetChecklistItemSchema,
-  worksheetFileUploadItemSchema,
-  worksheetSpeakingItemSchema,
+  worksheetWordSearchItemSchema,
 ]);
 
 export const worksheetPageSchema = z.object({
@@ -167,15 +143,12 @@ export type WorksheetPage = z.infer<typeof worksheetPageSchema>;
 export type WorksheetItem = z.infer<typeof worksheetItemSchema>;
 export type WorksheetShortTextItem = z.infer<typeof worksheetShortTextItemSchema>;
 export type WorksheetMultipleChoiceItem = z.infer<typeof worksheetMultipleChoiceItemSchema>;
-export type WorksheetFillBlankItem = z.infer<typeof worksheetFillBlankItemSchema>;
 export type WorksheetDragDropItem = z.infer<typeof worksheetDragDropItemSchema>;
+export type WorksheetDragSelectItem = z.infer<typeof worksheetDragSelectItemSchema>;
 export type WorksheetMatchingItem = z.infer<typeof worksheetMatchingItemSchema>;
-export type WorksheetMediaPromptItem = z.infer<typeof worksheetMediaPromptItemSchema>;
-export type WorksheetChecklistItem = z.infer<typeof worksheetChecklistItemSchema>;
-export type WorksheetFileUploadItem = z.infer<typeof worksheetFileUploadItemSchema>;
-export type WorksheetSpeakingItem = z.infer<typeof worksheetSpeakingItemSchema>;
+export type WorksheetWordSearchItem = z.infer<typeof worksheetWordSearchItemSchema>;
 
-export type WorksheetStudentAnswerValue = string | number | string[] | Record<string, string> | boolean[];
+export type WorksheetStudentAnswerValue = string | number | Record<string, string | string[]>;
 export type WorksheetStudentAnswers = Record<string, WorksheetStudentAnswerValue>;
 
 function normalizeWorksheetText(value: string) {
@@ -207,8 +180,23 @@ export function validateWorksheetData(
         if (targetIds.size !== item.targets.length) {
           return { ok: false, code: "INVALID_WORKSHEET_DATA" };
         }
-        const allTargetsResolvable = item.targets.every((target) => choiceIds.has(target.correctChoiceId));
+        const allTargetsResolvable = item.targets.every((target) => {
+          const acceptedChoiceIds =
+            target.acceptedChoiceIds && target.acceptedChoiceIds.length > 0
+              ? target.acceptedChoiceIds
+              : [target.correctChoiceId];
+          return acceptedChoiceIds.every((choiceId) => choiceIds.has(choiceId));
+        });
         if (!allTargetsResolvable) {
+          return { ok: false, code: "INVALID_WORKSHEET_DATA" };
+        }
+      }
+      if (item.type === "drag_select") {
+        const choiceIds = new Set(item.choices.map((choice) => choice.id));
+        if (choiceIds.size !== item.choices.length) {
+          return { ok: false, code: "INVALID_WORKSHEET_DATA" };
+        }
+        if (!choiceIds.has(item.correctChoiceId)) {
           return { ok: false, code: "INVALID_WORKSHEET_DATA" };
         }
       }
@@ -229,12 +217,15 @@ export function validateWorksheetData(
           return { ok: false, code: "INVALID_WORKSHEET_DATA" };
         }
       }
-      if (item.type === "checklist") {
-        if (!item.options.some((option) => option.correct)) {
+      if (item.type === "word_search") {
+        const uniqueAnswerCells = new Set(item.answerCells);
+        if (uniqueAnswerCells.size !== item.answerCells.length) {
           return { ok: false, code: "INVALID_WORKSHEET_DATA" };
         }
-        const optionIds = new Set(item.options.map((option) => option.id));
-        if (optionIds.size !== item.options.length) {
+        const everyCellInBounds = item.answerCells.every(
+          (cellIndex) => cellIndex < item.rows * item.cols
+        );
+        if (!everyCellInBounds) {
           return { ok: false, code: "INVALID_WORKSHEET_DATA" };
         }
       }
@@ -281,23 +272,6 @@ export function sanitizeWorksheetForStudent(data: WorksheetData) {
           };
         }
 
-        if (item.type === "fill_blank") {
-          return {
-            id: item.id,
-            type: item.type,
-            x: item.x,
-            y: item.y,
-            width: item.width,
-            height: item.height,
-            prompt: item.prompt,
-            blanks: item.blanks.map((blank) => ({
-              id: blank.id,
-              label: blank.label,
-              placeholder: blank.placeholder,
-            })),
-          };
-        }
-
         if (item.type === "drag_drop") {
           return {
             id: item.id,
@@ -307,15 +281,21 @@ export function sanitizeWorksheetForStudent(data: WorksheetData) {
             width: item.width,
             height: item.height,
             prompt: item.prompt,
-            choices: item.choices,
+            choices: item.choices.map((choice) => ({
+              id: choice.id,
+              label: choice.label,
+              sourceArea: choice.sourceArea,
+            })),
             targets: item.targets.map((target) => ({
               id: target.id,
               label: target.label,
+              acceptedChoiceIds: target.acceptedChoiceIds,
+              dropArea: target.dropArea,
             })),
           };
         }
 
-        if (item.type === "matching_pairs") {
+        if (item.type === "drag_select") {
           return {
             id: item.id,
             type: item.type,
@@ -324,15 +304,18 @@ export function sanitizeWorksheetForStudent(data: WorksheetData) {
             width: item.width,
             height: item.height,
             prompt: item.prompt,
-            choices: item.choices,
-            prompts: item.prompts.map((prompt) => ({
-              id: prompt.id,
-              label: prompt.label,
+            choices: item.choices.map((choice) => ({
+              id: choice.id,
+              label: choice.label,
+              sourceArea: choice.sourceArea,
             })),
+            dropArea: item.dropArea,
           };
         }
 
-        if (item.type === "media_prompt") {
+        if (item.type === "word_search") {
+          // answerCells stay server-side; students just see the (background-image)
+          // grid overlay and tap cells.
           return {
             id: item.id,
             type: item.type,
@@ -341,34 +324,8 @@ export function sanitizeWorksheetForStudent(data: WorksheetData) {
             width: item.width,
             height: item.height,
             prompt: item.prompt,
-            mediaType: item.mediaType,
-            mediaUrl: item.mediaUrl,
-            placeholder: item.placeholder,
-          };
-        }
-
-        if (item.type === "file_upload") {
-          return {
-            id: item.id,
-            type: item.type,
-            x: item.x,
-            y: item.y,
-            width: item.width,
-            height: item.height,
-            prompt: item.prompt,
-            allowedType: item.allowedType,
-          };
-        }
-
-        if (item.type === "speaking") {
-          return {
-            id: item.id,
-            type: item.type,
-            x: item.x,
-            y: item.y,
-            width: item.width,
-            height: item.height,
-            prompt: item.prompt,
+            rows: item.rows,
+            cols: item.cols,
           };
         }
 
@@ -380,9 +337,15 @@ export function sanitizeWorksheetForStudent(data: WorksheetData) {
           width: item.width,
           height: item.height,
           prompt: item.prompt,
-          options: item.options.map((option) => ({
-            id: option.id,
-            label: option.label,
+          choices: item.choices.map((choice) => ({
+            id: choice.id,
+            label: choice.label,
+            sourceArea: choice.sourceArea,
+          })),
+          prompts: item.prompts.map((prompt) => ({
+            id: prompt.id,
+            label: prompt.label,
+            sourceArea: prompt.sourceArea,
           })),
         };
       }),
@@ -437,20 +400,6 @@ export function scoreWorksheetShortText(
 
   const normalizedAnswer = normalizeWorksheetText(answer);
   return item.answer.accepted.some(
-    (candidate) => normalizeWorksheetText(candidate) === normalizedAnswer
-  );
-}
-
-export function scoreWorksheetBlankAnswer(
-  answer: string,
-  answerKey: { mode: "exact" | "normalized"; accepted: string[] }
-): boolean {
-  if (answerKey.mode === "exact") {
-    return answerKey.accepted.some((candidate) => candidate.trim() === answer.trim());
-  }
-
-  const normalizedAnswer = normalizeWorksheetText(answer);
-  return answerKey.accepted.some(
     (candidate) => normalizeWorksheetText(candidate) === normalizedAnswer
   );
 }

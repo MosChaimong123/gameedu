@@ -1,5 +1,5 @@
 import { isCurriculumSourceRef, type CurriculumSourceRef } from "@/lib/curriculum/source-registry"
-import { isCourseAssessmentSource, type CourseAssessmentSource } from "@/lib/courses/assessment-source"
+import { isCourseAssessmentSource } from "@/lib/courses/assessment-source"
 import { normalizeTeachingMediaReferences, type TeachingMediaReference } from "@/lib/teaching-media-reference"
 import type { TopicAssessmentV2 } from "@/lib/lessons/lesson-assessment"
 
@@ -50,7 +50,12 @@ export type LessonContentMetadata = {
         curriculumCode: string
         gradeLevel?: string
         semester?: number
+        courseId?: string
+        courseTitle?: string
         unitId?: string
+        standardIds?: string[]
+        duringIndicatorIds?: string[]
+        terminalIndicatorIds?: string[]
         learningOutcomeIds?: string[]
         sourceRefs?: CurriculumSourceRef[]
     }
@@ -112,13 +117,6 @@ export type LessonPublishReadinessIssue = {
     message: string
     topicId?: string
 }
-
-const LESSON_PLACEHOLDER_PATTERNS = [
-    "ไม่แน่ใจ",
-    "ควรตรวจสอบ",
-    "ใส่เนื้อหาที่นี่",
-    "ครูสามารถเติมเนื้อหาสำหรับหัวข้อ",
-] as const
 
 function isNonEmptyText(value: unknown) {
     return typeof value === "string" && value.trim().length > 0
@@ -182,11 +180,25 @@ function isLessonContentMetadata(value: unknown): value is LessonContentMetadata
         const curriculum = metadata.curriculum as Record<string, unknown>
         if (!isNonEmptyText(curriculum.subject) || !isNonEmptyText(curriculum.curriculumCode)) return false
         if (!isOptionalText(curriculum.gradeLevel)) return false
+        if (!isOptionalText(curriculum.courseId)) return false
+        if (!isOptionalText(curriculum.courseTitle)) return false
         if (
             curriculum.semester !== undefined &&
             (!Number.isInteger(curriculum.semester) || ![1, 2].includes(curriculum.semester as number))
         ) return false
         if (!isOptionalText(curriculum.unitId)) return false
+        if (
+            curriculum.standardIds !== undefined &&
+            (!Array.isArray(curriculum.standardIds) || !curriculum.standardIds.every(isNonEmptyText))
+        ) return false
+        if (
+            curriculum.duringIndicatorIds !== undefined &&
+            (!Array.isArray(curriculum.duringIndicatorIds) || !curriculum.duringIndicatorIds.every(isNonEmptyText))
+        ) return false
+        if (
+            curriculum.terminalIndicatorIds !== undefined &&
+            (!Array.isArray(curriculum.terminalIndicatorIds) || !curriculum.terminalIndicatorIds.every(isNonEmptyText))
+        ) return false
         if (
             curriculum.learningOutcomeIds !== undefined &&
             (!Array.isArray(curriculum.learningOutcomeIds) ||
@@ -297,7 +309,7 @@ export function isLessonOutlineDraft(value: unknown): value is LessonOutlineDraf
     if (!isOptionalText(outline.description)) return false
     if (!isOptionalText(outline.subject)) return false
     if (!isOptionalText(outline.gradeLevel)) return false
-    if (!Array.isArray(outline.topics) || outline.topics.length === 0 || outline.topics.length > 10) return false
+    if (!Array.isArray(outline.topics) || outline.topics.length === 0 || outline.topics.length > 20) return false
 
     const topics = outline.topics as Array<Record<string, unknown>>
     if (!hasUniqueNonEmptyTopicTitles(topics)) return false
@@ -431,13 +443,85 @@ export function getTopicAssessmentByTopicId(content: LessonContentV2, topicId: s
     }
 }
 
-export function isLessonContentPublishReady(value: unknown) {
-    return getLessonPublishReadinessIssues(value).length === 0
+type LessonContentTopic = LessonContentV2["topics"][number]
+
+export type LessonTopicRequirements = {
+    hasSectionContent: boolean
+    hasMedia: boolean
+    hasVideo: boolean
+    hasDocument: boolean
+    hasAssessment: boolean
+    hasStudentContent: boolean
+    requiresContentAcknowledgement: boolean
 }
 
-function hasPlaceholderText(value: string) {
-    const normalized = value.trim().toLowerCase()
-    return LESSON_PLACEHOLDER_PATTERNS.some((pattern) => normalized.includes(pattern.toLowerCase()))
+export function getLessonTopicRequirements(topic: LessonContentTopic): LessonTopicRequirements {
+    const topicMedia = topic.media ?? []
+    const sectionMedia = topic.sections.flatMap((section) => section.media ?? [])
+    const hasSectionContent = topic.sections.some((section) => isNonEmptyText(section.content))
+    const hasMedia = topicMedia.length > 0 || sectionMedia.length > 0
+    const hasVideo =
+        topicMedia.some((media) => media.type === "video") ||
+        sectionMedia.some((media) => media.type === "video")
+    const hasDocument = (topic.documents?.length ?? 0) > 0
+    const hasAssessment = Boolean(topic.assessment?.questionSetId)
+
+    return {
+        hasSectionContent,
+        hasMedia,
+        hasVideo,
+        hasDocument,
+        hasAssessment,
+        hasStudentContent: hasSectionContent || hasMedia || hasDocument || hasAssessment,
+        requiresContentAcknowledgement:
+            !hasVideo && (hasSectionContent || hasDocument || hasMedia),
+    }
+}
+
+export function getLessonTopicVideoMedia(topic: LessonContentTopic) {
+    const videos = [
+        ...(topic.media ?? []),
+        ...topic.sections.flatMap((section) => section.media ?? []),
+    ].filter((media) => media.type === "video")
+
+    return [...new Map(videos.map((media) => [media.id, media])).values()]
+}
+
+export function hasLessonTopicStudentContent(topic: LessonContentTopic) {
+    return getLessonTopicRequirements(topic).hasStudentContent
+}
+
+export function getActiveLessonTopics(content: LessonContentV2) {
+    const activeTopics = content.topics.filter(hasLessonTopicStudentContent)
+    return activeTopics.length > 0 ? activeTopics : content.topics
+}
+
+export function hasLessonTopicDeliverableContent(
+    topic: LessonContentTopic,
+    options?: { requireSectionHeading?: boolean; includeAssessment?: boolean }
+) {
+    const hasSectionContent = topic.sections.some((section) => {
+        const hasContent = isNonEmptyText(section.content)
+        return options?.requireSectionHeading ? isNonEmptyText(section.heading) && hasContent : hasContent
+    })
+    const hasVideo =
+        (topic.media?.some((media) => media.type === "video") ?? false) ||
+        topic.sections.some((section) => section.media?.some((media) => media.type === "video") ?? false)
+    const hasDocument = (topic.documents?.length ?? 0) > 0
+    const hasAssessment = options?.includeAssessment === false ? false : Boolean(topic.assessment?.questionSetId)
+
+    return hasSectionContent || hasVideo || hasDocument || hasAssessment
+}
+
+export function getLessonTopicContentStatus(
+    topic: LessonContentTopic,
+    options?: { requireSectionHeading?: boolean; includeAssessment?: boolean }
+): LessonContentTopic["contentStatus"] {
+    return hasLessonTopicDeliverableContent(topic, options) ? "edited" : "empty"
+}
+
+export function isLessonContentPublishReady(value: unknown) {
+    return getLessonPublishReadinessIssues(value).length === 0
 }
 
 export function getLessonPublishReadinessIssues(
@@ -454,98 +538,22 @@ export function getLessonPublishReadinessIssues(
     }
 
     const issues: LessonPublishReadinessIssue[] = []
-    const curriculum = value.metadata?.curriculum
 
-    if (!curriculum?.curriculumCode) {
-        issues.push({
-            code: "MISSING_CURRICULUM_CODE",
-            message: "Lesson is missing curriculumCode in metadata.",
+    // Medium publish gate: at least one topic with objectives AND some content —
+    // a section with real content, a video (topic or section), or an attached document.
+    // Curriculum metadata, per-topic video, and lesson-wide media are no longer hard blockers.
+    const publishableTopics = value.topics.filter((topic) => {
+        if (!isNonEmptyTextArray(topic.objectives)) return false
+        return hasLessonTopicDeliverableContent(topic, {
+            includeAssessment: false,
+            requireSectionHeading: true,
         })
-    }
-    if (!curriculum?.gradeLevel) {
-        issues.push({
-            code: "MISSING_CURRICULUM_GRADE_LEVEL",
-            message: "Lesson is missing curriculum gradeLevel in metadata.",
-        })
-    }
-    if (!curriculum?.unitId) {
-        issues.push({
-            code: "MISSING_CURRICULUM_UNIT_ID",
-            message: "Lesson is missing curriculum unitId in metadata.",
-        })
-    }
-    if (!curriculum?.learningOutcomeIds || curriculum.learningOutcomeIds.length === 0) {
-        issues.push({
-            code: "MISSING_CURRICULUM_OUTCOME_IDS",
-            message: "Lesson is missing linked learningOutcomeIds in metadata.",
-        })
-    }
+    })
 
-    const readyTopics = value.topics.filter((topic) => topic.contentStatus !== "empty")
-    if (readyTopics.length === 0) {
+    if (publishableTopics.length === 0) {
         issues.push({
             code: "NO_READY_TOPIC",
-            message: "Lesson needs at least one topic with generated or edited content before publish.",
-        })
-    }
-
-    for (const topic of readyTopics) {
-        if (!isNonEmptyTextArray(topic.objectives)) {
-            issues.push({
-                code: "MISSING_TOPIC_OBJECTIVES",
-                message: "Each ready topic needs at least one objective.",
-                topicId: topic.id,
-            })
-        }
-        if (
-            topic.sections.length === 0 ||
-            !topic.sections.every((section) => isLessonSection(section, { allowEmptyContent: false }))
-        ) {
-            issues.push({
-                code: "MISSING_TOPIC_SECTIONS",
-                message: "Each ready topic needs at least one section with real content.",
-                topicId: topic.id,
-            })
-        }
-
-        const textPool = [
-            topic.title,
-            topic.description ?? "",
-            ...topic.objectives,
-            ...topic.sections.flatMap((section) => [section.heading, section.content]),
-        ]
-        if (textPool.some((entry) => hasPlaceholderText(entry))) {
-            issues.push({
-                code: "AI_PLACEHOLDER_FOUND",
-                message: "Lesson still contains placeholder or review-needed text.",
-                topicId: topic.id,
-            })
-        }
-    }
-
-    // ตรวจสอบว่าทุก ready topic มีวิดีโออย่างน้อย 1 ชิ้น
-    for (const topic of readyTopics) {
-        const hasTopicVideo = topic.media?.some((m) => m.type === "video") ?? false
-        const hasSectionVideo = topic.sections.some(
-            (section) => section.media?.some((m) => m.type === "video") ?? false
-        )
-        if (!hasTopicVideo && !hasSectionVideo) {
-            issues.push({
-                code: "MISSING_TOPIC_VIDEO",
-                message: `หัวข้อ "${topic.title}" ยังไม่มีวิดีโอ กรุณาเพิ่มวิดีโอก่อน publish`,
-                topicId: topic.id,
-            })
-        }
-    }
-
-    const lessonHasMediaOrDocuments =
-        value.topics.some((topic) => (topic.documents?.length ?? 0) > 0 || (topic.media?.length ?? 0) > 0) ||
-        value.topics.some((topic) => topic.sections.some((section) => (section.media?.length ?? 0) > 0))
-
-    if (!lessonHasMediaOrDocuments) {
-        issues.push({
-            code: "MISSING_MEDIA_OR_DOCUMENT",
-            message: "Lesson needs at least one media item or document before publish.",
+            message: "ต้องมีอย่างน้อย 1 หัวข้อที่มีวัตถุประสงค์ พร้อมเนื้อหา วิดีโอ หรือเอกสาร ก่อนเผยแพร่",
         })
     }
 

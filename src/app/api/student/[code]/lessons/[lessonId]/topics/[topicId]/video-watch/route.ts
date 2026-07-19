@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAppErrorResponse } from "@/lib/api-error"
 import { db } from "@/lib/db"
+import { getLessonTopicById, getLessonTopicVideoMedia, isLessonContentV2 } from "@/lib/lessons/lesson-content"
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code"
 
 type Params = { params: Promise<{ code: string; lessonId: string; topicId: string }> }
@@ -78,28 +79,46 @@ export async function PATCH(req: Request, { params }: Params) {
                     loginCode: candidate,
                 })),
             },
-            select: { id: true },
+            select: { id: true, classId: true },
         })
         if (!student) {
             return createAppErrorResponse("NOT_FOUND", "Student not found", 404)
         }
 
         // ตรวจสอบว่า lesson มีอยู่จริงและ assigned ให้นักเรียนนี้
-        const lesson = await db.lesson.findUnique({
-            where: { id: lessonId },
-            select: { id: true },
+        const assignment = await db.lessonAssignment.findUnique({
+            where: { lessonId_classId: { lessonId, classId: student.classId } },
+            select: {
+                lesson: {
+                    select: { status: true, content: true },
+                },
+            },
         })
-        if (!lesson) {
-            return createAppErrorResponse("NOT_FOUND", "Lesson not found", 404)
+        if (
+            !assignment ||
+            assignment.lesson.status !== "PUBLISHED" ||
+            !isLessonContentV2(assignment.lesson.content)
+        ) {
+            return createAppErrorResponse("NOT_FOUND", "Lesson not found or not published", 404)
+        }
+
+        const topic = getLessonTopicById(assignment.lesson.content, topicId)
+        const normalizedMediaId = mediaId.trim()
+        const video = topic
+            ? getLessonTopicVideoMedia(topic).find((candidate) => candidate.id === normalizedMediaId)
+            : null
+        if (!video) {
+            return createAppErrorResponse("INVALID_PAYLOAD", "mediaId must reference a video in this topic", 400)
         }
 
         // โหลด record เดิม (ถ้ามี) เพื่อ merge ranges
         const existing = await db.topicVideoWatch.findUnique({
             where: {
-                studentId_lessonId_topicId: {
+                studentId_lessonId_topicId_mediaId: {
                     studentId: student.id,
                     lessonId,
                     topicId,
+                    mediaId: normalizedMediaId,
                 },
             },
             select: { watchedRanges: true, completedAt: true },
@@ -116,24 +135,24 @@ export async function PATCH(req: Request, { params }: Params) {
 
         const record = await db.topicVideoWatch.upsert({
             where: {
-                studentId_lessonId_topicId: {
+                studentId_lessonId_topicId_mediaId: {
                     studentId: student.id,
                     lessonId,
                     topicId,
+                    mediaId: normalizedMediaId,
                 },
             },
             create: {
                 studentId: student.id,
                 lessonId,
                 topicId,
-                mediaId: mediaId.trim(),
+                mediaId: normalizedMediaId,
                 watchedRanges: merged as unknown as object,
                 watchedSeconds,
                 totalSeconds,
                 completedAt,
             },
             update: {
-                mediaId: mediaId.trim(),
                 watchedRanges: merged as unknown as object,
                 watchedSeconds,
                 totalSeconds,

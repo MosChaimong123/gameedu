@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest"
 import {
+    getActiveLessonTopics,
     getCanonicalTopicAssessments,
     getLessonPublishReadinessIssues,
+    getLessonTopicContentStatus,
+    getLessonTopicRequirements,
+    hasLessonTopicDeliverableContent,
+    hasLessonTopicStudentContent,
     isLessonContentPublishReady,
     isLessonContentV2,
     isLessonOutlineBatchDraft,
@@ -218,16 +223,19 @@ describe("lesson content contracts", () => {
         ])
     })
 
-    it("reports publish readiness issues when curriculum, media, or confirmation are missing", () => {
-        const incompleteContent: LessonContentV2 = {
+    it("requires teacher confirmation when asked, even for publishable content", () => {
+        expect(
+            getLessonPublishReadinessIssues(validContentV2, {
+                requireTeacherConfirmation: true,
+                publishConfirmed: false,
+            }).map((issue) => issue.code)
+        ).toEqual(["TEACHER_CONFIRMATION_REQUIRED"])
+    })
+
+    it("publishes without curriculum metadata, per-topic video, or documents (medium gate)", () => {
+        const minimalContent: LessonContentV2 = {
             ...validContentV2,
-            metadata: {
-                ...validContentV2.metadata,
-                curriculum: {
-                    ...validContentV2.metadata!.curriculum!,
-                    gradeLevel: undefined,
-                },
-            },
+            metadata: undefined,
             topics: validContentV2.topics.map((topic) =>
                 topic.id === "topic-1"
                     ? {
@@ -239,19 +247,130 @@ describe("lesson content contracts", () => {
             ),
         }
 
-        expect(
-            getLessonPublishReadinessIssues(incompleteContent, {
-                requireTeacherConfirmation: true,
-                publishConfirmed: false,
-            }).map((issue) => issue.code)
-        ).toEqual(
-            expect.arrayContaining([
-                "MISSING_CURRICULUM_GRADE_LEVEL",
-                "MISSING_MEDIA_OR_DOCUMENT",
-                "MISSING_TOPIC_VIDEO",
-                "TEACHER_CONFIRMATION_REQUIRED",
-            ])
-        )
+        // topic-1 still has objectives + a section with real content → publishable
+        expect(isLessonContentPublishReady(minimalContent)).toBe(true)
+    })
+
+    it("blocks publish when no topic has objectives plus content", () => {
+        const emptyContent: LessonContentV2 = {
+            ...validContentV2,
+            topics: validContentV2.topics.map((topic) =>
+                topic.id === "topic-1"
+                    ? { ...topic, contentStatus: "empty" as const, sections: [], documents: [], media: [], assessment: undefined }
+                    : topic
+            ),
+        }
+
+        expect(getLessonPublishReadinessIssues(emptyContent).map((issue) => issue.code)).toEqual([
+            "NO_READY_TOPIC",
+        ])
+    })
+
+    it("marks topic status from deliverables without relying on objectives", () => {
+        const emptyTopic = {
+            ...validContentV2.topics[0],
+            objectives: ["auto-filled objective"],
+            sections: [],
+            documents: [],
+            media: [],
+            assessment: undefined,
+        }
+        const assessmentOnlyTopic = {
+            ...emptyTopic,
+            assessment: validTopicAssessment,
+        }
+
+        expect(hasLessonTopicDeliverableContent(emptyTopic)).toBe(false)
+        expect(getLessonTopicContentStatus(emptyTopic)).toBe("empty")
+        expect(hasLessonTopicDeliverableContent(assessmentOnlyTopic)).toBe(true)
+        expect(getLessonTopicContentStatus(assessmentOnlyTopic)).toBe("edited")
+        expect(hasLessonTopicStudentContent(assessmentOnlyTopic)).toBe(true)
+        expect(getLessonTopicRequirements(assessmentOnlyTopic).hasAssessment).toBe(true)
+    })
+
+    it("does not treat assessment-only topics as publishable content", () => {
+        const assessmentOnlyContent: LessonContentV2 = {
+            ...validContentV2,
+            topics: validContentV2.topics.map((topic) =>
+                topic.id === "topic-1"
+                    ? {
+                          ...topic,
+                          contentStatus: "empty" as const,
+                          sections: [],
+                          documents: [],
+                          media: [],
+                          assessment: validTopicAssessment,
+                      }
+                    : topic
+            ),
+        }
+
+        expect(getLessonTopicContentStatus(assessmentOnlyContent.topics[0])).toBe("edited")
+        expect(getLessonPublishReadinessIssues(assessmentOnlyContent).map((issue) => issue.code)).toEqual([
+            "NO_READY_TOPIC",
+        ])
+    })
+
+    it("selects active student topics from deliverables instead of stored content status", () => {
+        const videoOnlyTopic: LessonContentV2["topics"][number] = {
+            ...validContentV2.topics[0],
+            contentStatus: "empty",
+            sections: [],
+            documents: [],
+            media: [{ id: "video-1", type: "video", url: "https://example.com/video.mp4" }],
+            assessment: undefined,
+        }
+        const documentOnlyTopic: LessonContentV2["topics"][number] = {
+            ...validContentV2.topics[1],
+            contentStatus: "empty",
+            sections: [],
+            media: [],
+            documents: [{ id: "document-1", title: "Worksheet", url: "https://example.com/work.pdf" }],
+            assessment: undefined,
+        }
+        const emptyTopic: LessonContentV2["topics"][number] = {
+            ...validContentV2.topics[1],
+            id: "topic-empty",
+            contentStatus: "generated",
+            sections: [],
+            media: [],
+            documents: [],
+            assessment: undefined,
+        }
+        const content = {
+            ...validContentV2,
+            topics: [videoOnlyTopic, documentOnlyTopic, emptyTopic],
+        }
+
+        expect(getActiveLessonTopics(content).map((topic) => topic.id)).toEqual([
+            videoOnlyTopic.id,
+            documentOnlyTopic.id,
+        ])
+        expect(getLessonTopicRequirements(videoOnlyTopic)).toMatchObject({
+            hasMedia: true,
+            hasVideo: true,
+            hasStudentContent: true,
+        })
+        expect(hasLessonTopicStudentContent(documentOnlyTopic)).toBe(true)
+        expect(getLessonTopicRequirements(documentOnlyTopic)).toMatchObject({
+            hasDocument: true,
+            hasVideo: false,
+            requiresContentAcknowledgement: true,
+        })
+        expect(hasLessonTopicStudentContent(emptyTopic)).toBe(false)
+    })
+
+    it("keeps all topics as a compatibility fallback when none has student content", () => {
+        const emptyTopics = validContentV2.topics.map((topic) => ({
+            ...topic,
+            contentStatus: "empty" as const,
+            sections: [],
+            media: [],
+            documents: [],
+            assessment: undefined,
+        }))
+
+        expect(getActiveLessonTopics({ ...validContentV2, topics: emptyTopics })).toEqual(emptyTopics)
     })
 
     it("keeps backward compatibility for V2 payloads without metadata", () => {

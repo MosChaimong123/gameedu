@@ -14,6 +14,7 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
+  authVersion   Int?      @default(0) // Increment to revoke JWTs and adapter sessions after credential reset
   role          String    @default("USER") // "USER" = generic authenticated account, "STUDENT" = linked student portal account, plus "TEACHER" and "ADMIN"
   accounts      Account[]
   sessions      Session[]
@@ -55,7 +56,7 @@ model TeachingMedia {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   ownerUserId String   @db.ObjectId
   ownerUser   User     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  type        String   // file, image, video, youtube, link
+  type        String   // file, image, video, youtube, link, worksheet
   title       String
   description String?
   url         String?
@@ -134,6 +135,12 @@ model EmailVerificationCode {
   codePlain     String? // Ephemeral 6-digit; cleared on verify; matches alongside codeHash
   codeHash    String
   purpose     String   @default("SIGNUP_VERIFY")
+  status      String?  @default("ACTIVE") // PENDING | ACTIVE | CONSUMED | FAILED | EXPIRED; null/missing is legacy ACTIVE
+  emailProvider String?
+  providerMessageId String?
+  deliveryStatus String? // ACCEPTED | DELIVERED | BOUNCED | COMPLAINED | SUPPRESSED | FAILED | DELAYED
+  providerAcceptedAt DateTime?
+  deliveryUpdatedAt DateTime?
   attempts    Int      @default(0)
   maxAttempts Int      @default(5)
   expiresAt   DateTime
@@ -145,6 +152,37 @@ model EmailVerificationCode {
   @@index([userId, createdAt])
   @@index([email, createdAt])
   @@index([email, consumedAt, expiresAt])
+  @@index([userId, purpose, status, createdAt])
+  @@index([referenceCode, purpose])
+  @@index([providerMessageId, purpose])
+}
+
+model PasswordResetIssuanceLock {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @unique @db.ObjectId
+  requestToken String   @unique
+  lockedUntil  DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([lockedUntil])
+}
+
+model EmailDeliveryWebhookEvent {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  provider          String
+  providerEventId   String   @unique
+  providerMessageId String
+  eventType         String
+  deliveryStatus    String?
+  matched           Boolean  @default(false)
+  occurredAt        DateTime
+  processedAt       DateTime?
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+
+  @@index([providerMessageId, createdAt])
+  @@index([expiresAt])
 }
 
 // Gamification Models
@@ -287,6 +325,7 @@ model Student {
   economyTransactions EconomyTransaction[]
   lessonCompletions LessonCompletion[]
   topicVideoWatches TopicVideoWatch[]
+  lessonTopicAcknowledgements LessonTopicAcknowledgement[]
   courseProgresses CourseProgress[]
   courseAssessmentAttempts CourseAssessmentAttempt[]
   lessonAssessmentAttempts LessonAssessmentAttempt[]
@@ -328,6 +367,22 @@ model PointHistory {
 }
 
 model NegamonLiveBattleRewardClaim {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId      String   @db.ObjectId
+  classId        String   @db.ObjectId
+  gamePin        String
+  reason         String
+  idempotencyKey String   @unique
+  exp            Int
+  rank           Int
+  finalScore     Int
+  createdAt      DateTime @default(now())
+
+  @@index([classId, createdAt])
+  @@index([studentId, createdAt])
+}
+
+model ArQuestRewardClaim {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   studentId      String   @db.ObjectId
   classId        String   @db.ObjectId
@@ -806,6 +861,7 @@ model Lesson {
   assessmentAttempts   LessonAssessmentAttempt[]
   certificates         LessonCertificate[]
   topicVideoWatches    TopicVideoWatch[]
+  topicAcknowledgements LessonTopicAcknowledgement[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -920,6 +976,24 @@ model TopicVideoWatch {
   completedAt    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  @@unique([studentId, lessonId, topicId, mediaId])
+  @@index([studentId, lessonId])
+  @@index([studentId, lessonId, topicId])
+  @@index([lessonId])
+}
+
+model LessonTopicAcknowledgement {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId      String   @db.ObjectId
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lessonId       String   @db.ObjectId
+  lesson         Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  topicId        String
+  contentVersion String
+  acknowledgedAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@unique([studentId, lessonId, topicId])
   @@index([studentId, lessonId])

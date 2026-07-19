@@ -6,12 +6,14 @@ import { AUTH_REQUIRED_MESSAGE } from "@/lib/api-error";
 import { assertSafeHttpUrl, assertSafeUploadedMediaUrl, BOARD_ERR_INVALID_MEDIA } from "@/lib/safe-media-url";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
 import { normalizeTeachingMediaReferences } from "@/lib/teaching-media-reference";
+import { validateWorksheetData, type WorksheetData } from "@/lib/worksheet-schema";
 
-const MEDIA_TYPES = new Set(["file", "image", "video", "youtube", "link"]);
+const MEDIA_TYPES = new Set(["file", "image", "video", "youtube", "link", "worksheet"]);
 const MAX_TITLE_LENGTH = 180;
 const MAX_DESCRIPTION_LENGTH = 1000;
 const MAX_TAG_LENGTH = 40;
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+const WORKSHEET_URL_PREFIX = "worksheet:data:";
 
 export type TeachingMediaInput = {
     type: string;
@@ -23,6 +25,7 @@ export type TeachingMediaInput = {
     size?: number;
     youtubeId?: string;
     linkUrl?: string;
+    worksheetData?: unknown;
     tags?: string[];
     source?: string;
 };
@@ -38,6 +41,7 @@ export type TeachingMediaItem = {
     size: number | null;
     youtubeId: string | null;
     linkUrl: string | null;
+    worksheetData: WorksheetData | null;
     tags: string[];
     source: string | null;
     isFavorite: boolean;
@@ -93,6 +97,21 @@ function normalizeTags(tags: string[] | undefined) {
         .slice(0, 12);
 }
 
+function serializeWorksheetData(data: WorksheetData) {
+    return `${WORKSHEET_URL_PREFIX}${encodeURIComponent(JSON.stringify(data))}`;
+}
+
+function parseWorksheetDataFromMediaUrl(value: string | null | undefined): WorksheetData | null {
+    if (!value?.startsWith(WORKSHEET_URL_PREFIX)) return null;
+    try {
+        const parsed = JSON.parse(decodeURIComponent(value.slice(WORKSHEET_URL_PREFIX.length)));
+        const worksheet = validateWorksheetData(parsed);
+        return worksheet.ok ? worksheet.data : null;
+    } catch {
+        return null;
+    }
+}
+
 function normalizeTeachingMediaInput(input: TeachingMediaInput): TeachingMediaInput {
     const type = input.type.trim();
     if (!MEDIA_TYPES.has(type)) {
@@ -105,7 +124,11 @@ function normalizeTeachingMediaInput(input: TeachingMediaInput): TeachingMediaIn
     }
 
     const description = input.description?.trim().slice(0, MAX_DESCRIPTION_LENGTH);
-    const url = input.url?.trim();
+    const parsedWorksheet = type === "worksheet" ? validateWorksheetData(input.worksheetData) : null;
+    const url =
+        parsedWorksheet?.ok
+            ? serializeWorksheetData(parsedWorksheet.data)
+            : input.url?.trim();
     const linkUrl = input.linkUrl?.trim();
     const youtubeId = input.youtubeId?.trim();
 
@@ -124,6 +147,9 @@ function normalizeTeachingMediaInput(input: TeachingMediaInput): TeachingMediaIn
             throw new Error(BOARD_ERR_INVALID_MEDIA);
         }
     }
+    if (type === "worksheet" && !parsedWorksheet?.ok) {
+        throw new Error(BOARD_ERR_INVALID_MEDIA);
+    }
 
     return {
         ...input,
@@ -136,6 +162,7 @@ function normalizeTeachingMediaInput(input: TeachingMediaInput): TeachingMediaIn
         name: input.name?.trim().slice(0, MAX_TITLE_LENGTH),
         mimeType: input.mimeType?.trim().slice(0, 120),
         size: Number.isFinite(input.size) ? Math.max(0, Math.floor(input.size ?? 0)) : undefined,
+        worksheetData: parsedWorksheet?.ok ? parsedWorksheet.data : undefined,
         tags: normalizeTags(input.tags),
         source: input.source?.trim().slice(0, 80),
     };
@@ -219,6 +246,7 @@ function buildTeachingMediaItemFromRecord(
         size: item.size,
         youtubeId: item.youtubeId,
         linkUrl: item.linkUrl,
+        worksheetData: item.type === "worksheet" ? parseWorksheetDataFromMediaUrl(item.url) : null,
         tags: item.tags,
         source: item.source,
         isFavorite: item.isFavorite ?? false,
@@ -721,15 +749,16 @@ export async function syncTeachingMediaUsageForOwner(
 export async function getTeachingMediaTypeCounts() {
     const ownerUserId = await requireTeacherUserId();
     const baseWhere = { ownerUserId, isArchived: false };
-    const [file, image, video, youtube, link] = await Promise.all([
+    const [file, image, video, youtube, link, worksheet] = await Promise.all([
         db.teachingMedia.count({ where: { ...baseWhere, type: "file" } }),
         db.teachingMedia.count({ where: { ...baseWhere, type: "image" } }),
         db.teachingMedia.count({ where: { ...baseWhere, type: "video" } }),
         db.teachingMedia.count({ where: { ...baseWhere, type: "youtube" } }),
         db.teachingMedia.count({ where: { ...baseWhere, type: "link" } }),
+        db.teachingMedia.count({ where: { ...baseWhere, type: "worksheet" } }),
     ]);
 
-    return { file, image, video, youtube, link };
+    return { file, image, video, youtube, link, worksheet };
 }
 
 export async function getTeachingMediaStorageSummary(): Promise<TeachingMediaStorageSummary> {

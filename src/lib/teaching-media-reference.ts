@@ -1,6 +1,6 @@
 import type { TeachingMediaItem } from "@/lib/actions/teaching-media-actions";
 
-const MEDIA_REFERENCE_TYPES = new Set(["file", "image", "video", "youtube", "link"]);
+const MEDIA_REFERENCE_TYPES = new Set(["file", "image", "video", "youtube", "link", "worksheet"]);
 
 export type TeachingMediaReference = {
     mediaId?: string;
@@ -20,7 +20,7 @@ export function createTeachingMediaReference(item: TeachingMediaItem): TeachingM
         mediaId: item.id,
         type: item.type,
         title: item.title,
-        url: item.url ?? undefined,
+        url: item.type === "worksheet" ? undefined : item.url ?? undefined,
         name: item.name ?? undefined,
         mimeType: item.mimeType ?? undefined,
         size: item.size ?? undefined,

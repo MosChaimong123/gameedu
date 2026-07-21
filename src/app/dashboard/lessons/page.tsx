@@ -4,11 +4,8 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
-    ArrowRight,
-    ClipboardCheck,
     BookOpen,
     CheckCircle2,
-    Clock,
     FileText,
     GraduationCap,
     LayoutList,
@@ -17,7 +14,6 @@ import {
     Send,
     Sparkles,
     Trash2,
-    Upload,
     Users,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -40,8 +36,10 @@ import {
     CORE_SUBJECT_OPTIONS,
     parseLessonCurriculumContext,
     resolveCurriculumUnitTitle,
+    type LessonCurriculumContext,
     resolveLessonCurriculumContext,
 } from "@/lib/lessons/lesson-curriculum-context"
+import type { LessonNormalizedCurriculumSummary } from "@/lib/lessons/lesson-curriculum-metadata"
 import { cn } from "@/lib/utils"
 
 type ClassroomAssignment = {
@@ -58,6 +56,7 @@ type Lesson = {
     status: "DRAFT" | "PUBLISHED"
     sourceFileName: string | null
     content?: unknown
+    normalizedCurriculumSummary?: LessonNormalizedCurriculumSummary | null
     createdAt: string
     updatedAt: string
     classroomAssignments: ClassroomAssignment[]
@@ -68,6 +67,7 @@ type LessonListItem = Lesson & {
     curriculumSubjectId: CanonicalCoreSubjectId | null
     curriculumUnitId: string | null
     curriculumUnitTitle: string | null
+    curriculumCourseTitle: string | null
     estimatedMinutes: number | null
 }
 
@@ -78,17 +78,6 @@ const FILTERS: Array<{ value: LessonFilter; label: string }> = [
     { value: "assigned", label: "Assigned" },
 ]
 
-function formatDate(value: string) {
-    return new Date(value).toLocaleDateString("th-TH", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-    })
-}
-
-function getFilteredLessons(lessons: LessonListItem[], filter: LessonFilter, subjectId: CanonicalCoreSubjectId | "ALL", unitId: string | "ALL") {
-    return getFilteredLessonsByContext(lessons, filter, subjectId, unitId)
-}
 
 function getFilteredLessonsByContext(lessons: LessonListItem[], filter: LessonFilter, subjectId: CanonicalCoreSubjectId | "ALL", unitId: string | "ALL") {
     const byContext = subjectId === "ALL" ? lessons : lessons.filter((lesson) => lesson.curriculumSubjectId === subjectId)
@@ -153,12 +142,20 @@ export default function LessonsPage() {
     const lessonItems = useMemo<LessonListItem[]>(
         () =>
             lessons.map((lesson) => {
-                const context = resolveLessonCurriculumContext(lesson.content, lesson.subject)
+                const context: LessonCurriculumContext = lesson.normalizedCurriculumSummary
+                    ? {
+                          subjectId: lesson.normalizedCurriculumSummary.subjectId,
+                          unitId: lesson.normalizedCurriculumSummary.unitId,
+                      }
+                    : resolveLessonCurriculumContext(lesson.content, lesson.subject)
                 return {
                     ...lesson,
                     curriculumSubjectId: context.subjectId,
                     curriculumUnitId: context.unitId,
-                    curriculumUnitTitle: resolveCurriculumUnitTitle(context.subjectId, context.unitId),
+                    curriculumUnitTitle:
+                        lesson.normalizedCurriculumSummary?.unitTitle ??
+                        resolveCurriculumUnitTitle(context.subjectId, context.unitId),
+                    curriculumCourseTitle: lesson.normalizedCurriculumSummary?.courseTitle ?? null,
                     estimatedMinutes:
                         typeof (lesson.content as { estimatedMinutes?: unknown } | null)?.estimatedMinutes === "number"
                             ? ((lesson.content as { estimatedMinutes?: number }).estimatedMinutes ?? null)
@@ -171,7 +168,7 @@ export default function LessonsPage() {
         () => (subjectId === "ALL" ? null : getSubjectCurriculumMapPack(subjectId)),
         [subjectId]
     )
-    const availableUnits = selectedSubjectPack?.unitOutlines ?? []
+    const availableUnits = useMemo(() => selectedSubjectPack?.unitOutlines ?? [], [selectedSubjectPack])
 
     useEffect(() => {
         if (unitId === "ALL") return
@@ -197,10 +194,6 @@ export default function LessonsPage() {
 
     const publishedCount = lessonItems.filter((lesson) => lesson.status === "PUBLISHED").length
     const draftCount = lessonItems.filter((lesson) => lesson.status === "DRAFT").length
-    const unassignedPublishedCount = lessonItems.filter(
-        (lesson) => lesson.status === "PUBLISHED" && lesson.classroomAssignments.length === 0
-    ).length
-    const assignedLessonCount = lessonItems.filter((lesson) => lesson.classroomAssignments.length > 0).length
     const assignedClassCount = new Set(lessonItems.flatMap((lesson) => lesson.classroomAssignments.map((item) => item.classId))).size
     const filteredLessons = useMemo(
         () => getFilteredLessonsByContext(lessonItems, filter, subjectId, unitId),
@@ -213,46 +206,14 @@ export default function LessonsPage() {
         }),
         [subjectId, unitId]
     )
-    const createPdfHref = useMemo(
-        () => buildLessonCurriculumHref("/dashboard/lessons/create", activeCurriculumContext, { source: "pdf" }),
-        [activeCurriculumContext]
-    )
-    const createTextHref = useMemo(
-        () => buildLessonCurriculumHref("/dashboard/lessons/create", activeCurriculumContext, { source: "text" }),
+    const createManualHref = useMemo(
+        () => buildLessonCurriculumHref("/dashboard/lessons/create", activeCurriculumContext, { mode: "manual" }),
         [activeCurriculumContext]
     )
     const templateLibraryHref = useMemo(
         () => buildLessonCurriculumHref("/dashboard/lessons/create", activeCurriculumContext),
         [activeCurriculumContext]
     )
-    const qaChecks = [
-        {
-            label: "มีบทเรียนพร้อมให้ครูตรวจ",
-            detail: lessons.length > 0 ? `${lessons.length} บทเรียนในระบบ` : "ยังไม่มีบทเรียน",
-            done: lessons.length > 0,
-        },
-        {
-            label: "ไม่มี Draft ค้างก่อน release",
-            detail: draftCount === 0 ? "ไม่มี Draft ค้าง" : `${draftCount} บทยังรอ Publish`,
-            done: draftCount === 0 && lessons.length > 0,
-            onClick: () => setFilter("draft"),
-        },
-        {
-            label: "บทที่ Published ถูก Assign แล้ว",
-            detail: unassignedPublishedCount === 0 ? "ไม่มีบท Published ที่ลอยอยู่" : `${unassignedPublishedCount} บทรอ Assign`,
-            done: unassignedPublishedCount === 0 && publishedCount > 0,
-            onClick: () => setFilter("published"),
-        },
-        {
-            label: "มีบทเรียนใช้งานจริงในห้องเรียน",
-            detail: assignedLessonCount > 0 ? `${assignedLessonCount} บทถูก Assign แล้ว` : "ยังไม่มีบทที่ Assign",
-            done: assignedLessonCount > 0,
-            onClick: () => setFilter("assigned"),
-        },
-    ]
-    const qaPassedCount = qaChecks.filter((item) => item.done).length
-    const releaseGateReady = qaPassedCount === qaChecks.length
-
     async function handleDelete() {
         if (!deleteId) return
         setDeleting(true)
@@ -288,28 +249,18 @@ export default function LessonsPage() {
                     <div>
                         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-black backdrop-blur">
                             <GraduationCap className="h-4 w-4" />
-                            AI Lesson Generator
+                            สร้างบทเรียนจากหลักสูตร
                         </div>
                         <h1 className="text-3xl font-black tracking-tight">บทเรียนของฉัน</h1>
                         <p className="mt-2 max-w-2xl text-sm font-medium text-white/85">
-                            สร้างบทเรียนจาก PDF หรือข้อความ ตรวจแก้ เผยแพร่ แล้ว assign ให้นักเรียนเรียนออนไลน์ได้เลย
+                            สร้างบทเรียนจากหลักสูตรหรือกรอกเอง ตรวจแก้ เผยแพร่ แล้ว assign ให้นักเรียนเรียนออนไลน์ได้เลย
                         </p>
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row">
                         <Button asChild className="rounded-2xl bg-white font-black text-emerald-700 shadow-lg hover:bg-white/90">
-                            <Link href={createPdfHref}>
-                                <Upload className="mr-2 h-4 w-4" />
-                                สร้างจาก PDF
-                            </Link>
-                        </Button>
-                        <Button
-                            asChild
-                            variant="outline"
-                            className="rounded-2xl border-white/40 bg-white/10 font-black text-white hover:bg-white/20 hover:text-white"
-                        >
-                            <Link href={createTextHref}>
+                            <Link href={createManualHref}>
                                 <FileText className="mr-2 h-4 w-4" />
-                                สร้างจากข้อความ
+                                สร้างบทเรียนเอง
                             </Link>
                         </Button>
                         <Button
@@ -342,102 +293,6 @@ export default function LessonsPage() {
                     </div>
                 ))}
             </section>
-
-            <section className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                        <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
-                            <Sparkles className="h-3.5 w-3.5" />
-                            Teacher Command Center
-                        </div>
-                        <h2 className="mt-3 text-xl font-black text-slate-900">จัดการคอร์สออนไลน์จากจุดเดียว</h2>
-                        <p className="mt-1 text-sm font-medium text-slate-500">
-                            ดูทันทีว่าบทไหนยังต้องตรวจ, บทไหนพร้อม assign และบทไหนเปิดให้นักเรียนเรียนแล้ว
-                        </p>
-                    </div>
-                    <div className="grid gap-2 text-sm font-bold text-slate-600 sm:grid-cols-3 lg:min-w-[520px]">
-                        <button
-                            type="button"
-                            onClick={() => setFilter("draft")}
-                            className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-left text-amber-800 transition hover:border-amber-200"
-                        >
-                            <div className="text-2xl font-black">{draftCount}</div>
-                            <div>รอตรวจและ Publish</div>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setFilter("published")}
-                            className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-left text-blue-800 transition hover:border-blue-200"
-                        >
-                            <div className="text-2xl font-black">{unassignedPublishedCount}</div>
-                            <div>เผยแพร่แล้ว รอ Assign</div>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setFilter("assigned")}
-                            className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-left text-emerald-800 transition hover:border-emerald-200"
-                        >
-                            <div className="text-2xl font-black">{assignedLessonCount}</div>
-                            <div>ใช้งานในห้องเรียนแล้ว</div>
-                        </button>
-                    </div>
-                </div>
-            </section>
-
-            <section className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="max-w-xl">
-                        <div
-                            className={cn(
-                                "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black",
-                                releaseGateReady ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-                            )}
-                        >
-                            <ClipboardCheck className="h-3.5 w-3.5" />
-                            Manual QA Gate
-                        </div>
-                        <h2 className="mt-3 text-xl font-black text-slate-900">เช็คก่อนปล่อยบทเรียนให้นักเรียน</h2>
-                        <p className="mt-1 text-sm font-medium text-slate-500">
-                            ใช้เป็นด่านสุดท้ายของครู: สร้างบทเรียน, ตรวจเนื้อหา, Publish, Assign และเปิดดู progress ได้ครบก่อน deploy หรือใช้งานจริง
-                        </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm font-black text-slate-700">
-                        <span className={releaseGateReady ? "text-emerald-600" : "text-amber-600"}>
-                            {qaPassedCount}/{qaChecks.length}
-                        </span>{" "}
-                        checks passed
-                    </div>
-                </div>
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    {qaChecks.map((item) => (
-                        <button
-                            key={item.label}
-                            type="button"
-                            onClick={item.onClick}
-                            className={cn(
-                                "flex items-start gap-3 rounded-2xl border p-4 text-left transition",
-                                item.done
-                                    ? "border-emerald-100 bg-emerald-50/60"
-                                    : "border-amber-100 bg-amber-50/60 hover:border-amber-200"
-                            )}
-                        >
-                            <span
-                                className={cn(
-                                    "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
-                                    item.done ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"
-                                )}
-                            >
-                                {item.done ? <CheckCircle2 className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
-                            </span>
-                            <span>
-                                <span className="block text-sm font-black text-slate-900">{item.label}</span>
-                                <span className="mt-1 block text-xs font-bold text-slate-500">{item.detail}</span>
-                            </span>
-                        </button>
-                    ))}
-                </div>
-            </section>
-
             <section className="rounded-[2rem] border border-slate-100 bg-white shadow-sm">
                 <div className="flex flex-col gap-4 border-b border-slate-100 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
@@ -523,15 +378,15 @@ export default function LessonsPage() {
                             </div>
                             <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
                                 <Button asChild className="rounded-xl bg-emerald-600 font-bold text-white hover:bg-emerald-700">
-                                    <Link href={createPdfHref}>
-                                        <Upload className="mr-2 h-4 w-4" />
-                                        สร้างจาก PDF
+                                    <Link href={createManualHref}>
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        สร้างบทเรียนเอง
                                     </Link>
                                 </Button>
                                 <Button asChild variant="outline" className="rounded-xl font-bold">
-                                    <Link href={createTextHref}>
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        สร้างจากข้อความ
+                                    <Link href={templateLibraryHref}>
+                                        <GraduationCap className="mr-2 h-4 w-4" />
+                                        เทมเพลตบทเรียน
                                     </Link>
                                 </Button>
                             </div>
@@ -549,96 +404,32 @@ export default function LessonsPage() {
                     <div className="divide-y divide-slate-100">
                         {filteredLessons.map((lesson) => {
                             const step = getLessonStep(lesson)
-                            const readinessPercent =
-                                lesson.status === "DRAFT"
-                                    ? 33
-                                    : lesson.classroomAssignments.length === 0
-                                      ? 66
-                                      : 100
                             return (
-                                <div key={lesson.id} className="grid gap-4 px-6 py-5 transition-colors hover:bg-slate-50 lg:grid-cols-[1fr_auto]">
-                                    <div className="flex min-w-0 gap-4">
-                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-                                            <BookOpen className="h-6 w-6" />
+                                <div key={lesson.id} className="flex items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-slate-50">
+                                    <button
+                                        type="button"
+                                        onClick={() => router.push(`/dashboard/lessons/${lesson.id}/edit`)}
+                                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                                    >
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                                            <BookOpen className="h-5 w-5" />
                                         </div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => router.push(`/dashboard/lessons/${lesson.id}/edit`)}
-                                                    className="truncate text-left text-base font-black text-slate-900 hover:text-emerald-700"
-                                                >
-                                                    {lesson.title}
-                                                </button>
-                                                <Badge variant="outline" className={cn("rounded-full border font-bold", step.tone)}>
-                                                    {step.label}
-                                                </Badge>
-                                            </div>
-                                            <p className="mt-1 line-clamp-2 text-sm text-slate-500">
-                                                {lesson.description || "ยังไม่มีคำอธิบายบทเรียน ครูสามารถเพิ่มรายละเอียดในหน้าแก้ไขได้"}
-                                            </p>
-                                            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-medium text-slate-400">
-                                                {lesson.subject ? <span>{lesson.subject}</span> : null}
-                                                {lesson.curriculumUnitTitle ? <span>{lesson.curriculumUnitTitle}</span> : null}
-                                                {lesson.gradeLevel ? <span>{lesson.gradeLevel}</span> : null}
-                                                {lesson.sourceFileName ? (
-                                                    <span className="flex items-center gap-1">
-                                                        <FileText className="h-3 w-3" />
-                                                        {lesson.sourceFileName}
-                                                    </span>
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-black text-slate-900">{lesson.title}</p>
+                                            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs font-medium text-slate-400">
+                                                {(lesson.normalizedCurriculumSummary?.subjectLabel ?? lesson.subject) ? (
+                                                    <span className="truncate">{lesson.normalizedCurriculumSummary?.subjectLabel ?? lesson.subject}</span>
                                                 ) : null}
-                                                <span className="flex items-center gap-1">
-                                                    <Users className="h-3 w-3" />
-                                                    {lesson.classroomAssignments.length} ห้อง
-                                                </span>
-                                                {lesson.estimatedMinutes ? (
-                                                    <span className="flex items-center gap-1">
-                                                        <Clock className="h-3 w-3" />
-                                                        {lesson.estimatedMinutes} นาที
-                                                    </span>
-                                                ) : null}
-                                                <span className="flex items-center gap-1">
-                                                    <Clock className="h-3 w-3" />
-                                                    {formatDate(lesson.createdAt)}
-                                                </span>
-                                            </div>
-                                            {lesson.classroomAssignments.length > 0 ? (
-                                                <div className="mt-3 flex flex-wrap gap-1.5">
-                                                    {lesson.classroomAssignments.slice(0, 4).map((assignment) => (
-                                                        <span key={assignment.classId} className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
-                                                            {assignment.classroom.name}
-                                                        </span>
-                                                    ))}
-                                                    {lesson.classroomAssignments.length > 4 ? (
-                                                        <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
-                                                            +{lesson.classroomAssignments.length - 4}
-                                                        </span>
-                                                    ) : null}
-                                                </div>
-                                            ) : null}
-                                            <div className="mt-4 max-w-xl">
-                                                <div className="mb-1.5 flex items-center justify-between text-[11px] font-black text-slate-400">
-                                                    <span>Course readiness</span>
-                                                    <span>{readinessPercent}%</span>
-                                                </div>
-                                                <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                                                    <div
-                                                        className={cn(
-                                                            "h-full rounded-full transition-all duration-500",
-                                                            readinessPercent === 100
-                                                                ? "bg-emerald-500"
-                                                                : readinessPercent === 66
-                                                                  ? "bg-blue-400"
-                                                                  : "bg-amber-400"
-                                                        )}
-                                                        style={{ width: `${readinessPercent}%` }}
-                                                    />
-                                                </div>
+                                                {lesson.gradeLevel ? <span>· {lesson.gradeLevel}</span> : null}
+                                                <span>· {lesson.classroomAssignments.length} ห้อง</span>
                                             </div>
                                         </div>
-                                    </div>
+                                    </button>
 
-                                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <Badge variant="outline" className={cn("hidden rounded-full border font-bold sm:inline-flex", step.tone)}>
+                                            {step.label}
+                                        </Badge>
                                         {lesson.status === "DRAFT" ? (
                                             <Button
                                                 type="button"
@@ -648,30 +439,26 @@ export default function LessonsPage() {
                                                 disabled={publishingId === lesson.id}
                                             >
                                                 {publishingId === lesson.id ? (
-                                                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                                 ) : (
-                                                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                                                    <CheckCircle2 className="h-3.5 w-3.5" />
                                                 )}
-                                                Publish
                                             </Button>
                                         ) : (
-                                            <Button asChild size="sm" variant="outline" className="rounded-xl font-bold">
+                                            <Button asChild size="sm" variant="outline" className="rounded-xl font-bold" aria-label="Assign">
                                                 <Link href={`/dashboard/lessons/${lesson.id}/edit#assign`}>
-                                                    <Send className="mr-1.5 h-3.5 w-3.5" />
-                                                    Assign
+                                                    <Send className="h-3.5 w-3.5" />
                                                 </Link>
                                             </Button>
                                         )}
-                                        <Button asChild size="sm" variant="outline" className="rounded-xl font-bold">
-                                            <Link href={`/dashboard/lessons/${lesson.id}/edit#progress`}>
-                                                <Users className="mr-1.5 h-3.5 w-3.5" />
-                                                View Progress
+                                        <Button asChild size="sm" variant="outline" className="rounded-xl font-bold" aria-label="มุมมองนักเรียน">
+                                            <Link href={`/dashboard/lessons/${lesson.id}/preview`}>
+                                                <Users className="h-3.5 w-3.5" />
                                             </Link>
                                         </Button>
-                                        <Button asChild size="sm" variant="outline" className="rounded-xl font-bold">
+                                        <Button asChild size="sm" variant="outline" className="rounded-xl font-bold" aria-label="แก้ไข">
                                             <Link href={`/dashboard/lessons/${lesson.id}/edit`}>
-                                                <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                                                แก้ไข
+                                                <Pencil className="h-3.5 w-3.5" />
                                             </Link>
                                         </Button>
                                         <Button
@@ -680,13 +467,10 @@ export default function LessonsPage() {
                                             size="sm"
                                             className="rounded-xl border-red-200 font-bold text-red-600 hover:bg-red-50"
                                             onClick={() => setDeleteId(lesson.id)}
+                                            aria-label="ลบ"
                                         >
                                             <Trash2 className="h-3.5 w-3.5" />
                                         </Button>
-                                        <div className="hidden items-center gap-1 text-xs font-bold text-slate-400 xl:flex">
-                                            ต่อไป: {step.next}
-                                            <ArrowRight className="h-3 w-3" />
-                                        </div>
                                     </div>
                                 </div>
                             )

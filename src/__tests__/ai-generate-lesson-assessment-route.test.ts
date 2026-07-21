@@ -243,9 +243,9 @@ describe("POST /api/ai/lessons/generate-assessment", () => {
             sourceMetadata: {
                 source: { sourceType: "topic", lessonId: "lesson-1", topicId: "topic-1" },
                 generatedFrom: "ai_lesson_assessment",
-                subjectId: "physics",
-                unitId: "phy-m4-s1-u02",
-                assessmentBlueprintId: "physics-assessment-blueprint-v1",
+                subjectId: "science_technology",
+                unitId: "sci-tech-u02",
+                assessmentBlueprintId: "science_technology-assessment-blueprint-v1",
                 assessmentFamily: "science_inquiry",
                 recommendedPassScore: 4,
                 createdFromLessonTitle: "เนเธฃเธเนเธฅเธฐเธเธฒเธฃเน€เธเธฅเธทเนเธญเธเธ—เธตเน",

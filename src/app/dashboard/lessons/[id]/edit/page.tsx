@@ -35,7 +35,11 @@ import {
     TeacherAssessmentBuilderDialog,
     type TeacherAssessmentBuilderSourceOption,
 } from "@/components/lessons/teacher-assessment-builder-dialog"
-import { getLessonPublishReadinessIssues, type LessonContentV2 } from "@/lib/lessons/lesson-content"
+import {
+    getLessonPublishReadinessIssues,
+    getLessonTopicContentStatus,
+    type LessonContentV2,
+} from "@/lib/lessons/lesson-content"
 import { useToast } from "@/components/ui/use-toast"
 
 type LessonStudent = { id: string; name: string; nickname: string | null; order: number }
@@ -127,12 +131,6 @@ function hasPublishableTopic(content: LessonContentV2) {
     return getLessonPublishReadinessIssues(content).length === 0
 }
 
-function getTopicStatusAfterEdit(topic: LessonContentV2["topics"][number]): LessonContentV2["topics"][number]["contentStatus"] {
-    const ready =
-        topic.objectives.some((objective) => objective.trim()) &&
-        topic.sections.some((section) => section.heading.trim() && section.content.trim())
-    return ready ? "edited" : "empty"
-}
 
 function getAttemptTopicKey(attempt: LessonAssessmentAttemptRecord) {
     return attempt.topicAssessmentId ?? attempt.topicId ?? `lesson:${attempt.id}`
@@ -312,8 +310,8 @@ export default function EditLessonPage() {
             label: topic.title,
             description: topic.description || "สร้างเฉพาะหัวข้อนี้",
             requestBody: { lessonId: lesson.id, topicId: topic.id },
-            suggestedTitle: `${topic.title} แบบทดสอบย่อย`,
-            suggestedDescription: `แบบทดสอบจากหัวข้อ ${topic.title}`,
+            suggestedTitle: topic.title,
+            suggestedDescription: topic.description?.trim() || `แบบทดสอบจากหัวข้อ ${topic.title}`,
         }))
     }, [content, lesson])
 
@@ -331,7 +329,7 @@ export default function EditLessonPage() {
     )
     const publishBlockedReason =
         content && lesson?.status !== "PUBLISHED" && !hasPublishableTopic(content)
-                ? "ต้องมีบทเรียนอย่างน้อย 1 หัวข้อที่มีวัตถุประสงค์และเนื้อหาก่อนเผยแพร่"
+                ? "ต้องมีอย่างน้อย 1 หัวข้อที่มีวัตถุประสงค์ พร้อมเนื้อหา วิดีโอ หรือเอกสาร ก่อนเผยแพร่"
             : videoIssues.length > 0 && lesson?.status !== "PUBLISHED"
                   ? `หัวข้อที่ยังไม่มีวิดีโอ ${videoIssues.length} หัวข้อ — กรุณาเพิ่มวิดีโอทุกหัวข้อก่อนเผยแพร่`
               : ""
@@ -345,7 +343,10 @@ export default function EditLessonPage() {
             const topics = current.topics.map((topic) => {
                 if (topic.id !== topicId) return topic
                 const updated = mutator(topic)
-                return { ...updated, contentStatus: getTopicStatusAfterEdit(updated) }
+                return {
+                    ...updated,
+                    contentStatus: getLessonTopicContentStatus(updated, { requireSectionHeading: true }),
+                }
             })
             return {
                 ...current,
@@ -491,15 +492,6 @@ export default function EditLessonPage() {
                 <div className="flex flex-wrap gap-2">
                     <Button
                         variant="outline"
-                        onClick={() => setAssessmentBuilderOpen(true)}
-                        disabled={saving}
-                        className="rounded-xl font-bold"
-                    >
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        สร้างแบบทดสอบหัวข้อที่เลือก
-                    </Button>
-                    <Button
-                        variant="outline"
                         onClick={handleTogglePublish}
                         disabled={saving || Boolean(publishBlockedReason)}
                         title={publishBlockedReason || undefined}
@@ -569,6 +561,286 @@ export default function EditLessonPage() {
                             value={content.estimatedMinutes ?? ""}
                             onChange={(event) => updateContent((current) => ({ ...current, estimatedMinutes: Number(event.target.value) || undefined }))}
                             className="rounded-xl"
+                        />
+                    </div>
+                </div>
+            </section>
+
+            <section className="space-y-5">
+                <div className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="mb-3 flex items-center gap-2">
+                        <BookOpen className="h-5 w-5 text-emerald-600" />
+                        <h2 className="font-black text-slate-800">บทเรียน</h2>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {content.topics
+                            .slice()
+                            .sort((a, b) => a.order - b.order)
+                            .map((topic, index) => {
+                                const isSelected = topic.id === selectedTopic.id
+                                return (
+                                    <button
+                                        key={topic.id}
+                                        type="button"
+                                        onClick={() => setSelectedTopicId(topic.id)}
+                                        className={
+                                            isSelected
+                                                ? "flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-600 px-4 py-2 text-sm font-black text-white"
+                                                : "flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-white"
+                                        }
+                                    >
+                                        <span
+                                            className={
+                                                isSelected
+                                                    ? "grid h-5 w-5 place-items-center rounded-full bg-white/25 text-xs"
+                                                    : "grid h-5 w-5 place-items-center rounded-full bg-slate-200 text-xs text-slate-600"
+                                            }
+                                        >
+                                            {index + 1}
+                                        </span>
+                                        <span className="max-w-[160px] truncate">{topic.title}</span>
+                                        {topicsWithoutVideo.has(topic.id) && (
+                                            <VideoIcon className={isSelected ? "h-3.5 w-3.5 text-amber-200" : "h-3.5 w-3.5 text-amber-400"} />
+                                        )}
+                                        {topic.assessment && (
+                                            <span className={isSelected ? "h-1.5 w-1.5 rounded-full bg-white" : "h-1.5 w-1.5 rounded-full bg-violet-400"} />
+                                        )}
+                                    </button>
+                                )
+                            })}
+                    </div>
+                </div>
+                <div className="space-y-5">
+                    {/* Video warning banner — แสดงเมื่อ topic ที่เลือกยังไม่มีวิดีโอ */}
+                    {topicsWithoutVideo.has(selectedTopic.id) && (
+                        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5">
+                            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                            <div>
+                                <p className="text-sm font-black text-amber-900">หัวข้อนี้ยังไม่มีวิดีโอ</p>
+                                <p className="mt-0.5 text-xs font-bold text-amber-700">
+                                    ต้องเพิ่มวิดีโอทุกหัวข้อก่อนจึงจะเผยแพร่บทเรียนได้ — เลือกวิดีโอจากคลังสื่อในส่วน “คลิปประกอบหัวข้อย่อย” ด้านล่าง
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                        <div className="grid gap-4">
+                            <div className="space-y-2">
+                                <Label className="font-bold text-slate-700">ชื่อบทเรียนย่อย</Label>
+                                <Input
+                                    value={selectedTopic.title}
+                                    onChange={(event) => updateTopic(selectedTopic.id, (topic) => ({ ...topic, title: event.target.value }))}
+                                    className="rounded-xl font-black"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="font-bold text-slate-700">คำอธิบาย</Label>
+                                <Textarea
+                                    value={selectedTopic.description ?? ""}
+                                    onChange={(event) => updateTopic(selectedTopic.id, (topic) => ({ ...topic, description: event.target.value }))}
+                                    rows={2}
+                                    className="rounded-xl"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Target className="h-5 w-5 text-emerald-600" />
+                                <h3 className="font-black text-slate-800">วัตถุประสงค์การเรียนรู้</h3>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="rounded-xl text-xs font-bold text-slate-500"
+                                onClick={() => updateTopic(selectedTopic.id, (topic) => ({ ...topic, objectives: [...topic.objectives, ""] }))}
+                            >
+                                <Plus className="mr-1 h-3 w-3" />
+                                เพิ่ม
+                            </Button>
+                        </div>
+                        <div className="space-y-2">
+                            {selectedTopic.objectives.map((objective, index) => (
+                                <div key={index} className="flex items-start gap-2">
+                                    <Textarea
+                                        value={objective}
+                                        onChange={(event) =>
+                                            updateTopic(selectedTopic.id, (topic) => {
+                                                const objectives = [...topic.objectives]
+                                                objectives[index] = event.target.value
+                                                return { ...topic, objectives }
+                                            })
+                                        }
+                                        rows={2}
+                                        className="rounded-xl text-sm"
+                                    />
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="mt-1 shrink-0 rounded-xl text-slate-300 hover:text-red-500"
+                                        onClick={() =>
+                                            updateTopic(selectedTopic.id, (topic) => ({
+                                                ...topic,
+                                                objectives: topic.objectives.filter((_, itemIndex) => itemIndex !== index),
+                                            }))
+                                        }
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                        <div className="mb-4 flex items-center gap-2">
+                            <VideoIcon className="h-5 w-5 text-rose-600" />
+                            <h3 className="font-black text-slate-800">วิดีโอประกอบหัวข้อ</h3>
+                        </div>
+                        <TeachingMediaPickerPanel
+                            selected={(selectedTopic.media ?? []).map((m) => ({
+                                mediaId: m.mediaId,
+                                type: m.type,
+                                title: m.title ?? "",
+                                url: m.url,
+                                source: m.source,
+                            }))}
+                            allowedTypes={["video", "youtube"]}
+                            title="วิดีโอของหัวข้อนี้"
+                            description="เลือกวิดีโอหรือ YouTube จากคลังสื่อเพื่อใช้เป็นวิดีโอหลักของหัวข้อ"
+                            onChange={(references) => {
+                                const media = references.flatMap((reference) => {
+                                    const url = reference.url ?? reference.linkUrl ?? (reference.youtubeId ? `https://www.youtube.com/watch?v=${reference.youtubeId}` : "")
+                                    if (!url) return []
+                                    return [{
+                                        id: `media-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                                        type: "video" as const,
+                                        url,
+                                        mediaId: reference.mediaId,
+                                        title: reference.title,
+                                        source: "media_library" as const,
+                                    }]
+                                })
+                                updateTopic(selectedTopic.id, (topic) => ({ ...topic, media }))
+                            }}
+                        />
+                    </div>
+
+                    {selectedTopic.sections.map((section, sectionIndex) => (
+                        <div key={section.id} className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                            <div className="mb-3 flex items-center gap-2">
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-black text-blue-600">
+                                    {sectionIndex + 1}
+                                </div>
+                                <Input
+                                    value={section.heading}
+                                    onChange={(event) =>
+                                        updateTopic(selectedTopic.id, (topic) => {
+                                            const sections = [...topic.sections]
+                                            sections[sectionIndex] = { ...sections[sectionIndex], heading: event.target.value }
+                                            return { ...topic, sections }
+                                        })
+                                    }
+                                    className="rounded-xl font-black"
+                                    placeholder="ชื่อหัวข้อย่อย"
+                                />
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="shrink-0 rounded-xl text-slate-300 hover:text-red-500"
+                                    onClick={() =>
+                                        updateTopic(selectedTopic.id, (topic) => ({
+                                            ...topic,
+                                            sections: topic.sections.filter((_, itemIndex) => itemIndex !== sectionIndex),
+                                        }))
+                                    }
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            <Textarea
+                                value={section.content}
+                                onChange={(event) =>
+                                    updateTopic(selectedTopic.id, (topic) => {
+                                        const sections = [...topic.sections]
+                                        sections[sectionIndex] = { ...sections[sectionIndex], content: event.target.value }
+                                        return { ...topic, sections }
+                                    })
+                                }
+                                rows={6}
+                                className="rounded-xl text-sm text-slate-700"
+                                placeholder="เนื้อหาสั้น ๆ สำหรับหัวข้อย่อยนี้"
+                            />
+                            <div className="mt-4">
+                                <TeachingMediaPickerPanel
+                                    selected={(section.media ?? []).map((m) => ({
+                                        mediaId: m.mediaId,
+                                        type: m.type,
+                                        title: m.title ?? "",
+                                        url: m.url,
+                                        source: m.source,
+                                    }))}
+                                    allowedTypes={["video", "youtube"]}
+                                    title="คลิปประกอบหัวข้อย่อย"
+                                    description="เลือกวิดีโอหรือ YouTube จากคลังสื่อเพื่อใช้เป็นสื่อหลักของหัวข้อย่อย"
+                                    onChange={(references) => {
+                                        const media = references.flatMap((reference) => {
+                                            const url = reference.url ?? reference.linkUrl ?? (reference.youtubeId ? `https://www.youtube.com/watch?v=${reference.youtubeId}` : "")
+                                            if (!url) return []
+                                            return [{
+                                                id: `media-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                                                type: "video" as const,
+                                                url,
+                                                mediaId: reference.mediaId,
+                                                title: reference.title,
+                                                source: "media_library" as const,
+                                            }]
+                                        })
+                                        updateTopic(selectedTopic.id, (topic) => {
+                                            const sections = [...topic.sections]
+                                            sections[sectionIndex] = {
+                                                ...sections[sectionIndex],
+                                                media: media,
+                                            }
+                                            return { ...topic, sections }
+                                        })
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    ))}
+
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full rounded-2xl border-dashed font-bold text-slate-500"
+                        onClick={() =>
+                            updateTopic(selectedTopic.id, (topic) => ({
+                                ...topic,
+                                sections: [
+                                    ...topic.sections,
+                                    { id: `section-${Date.now()}`, heading: "หัวข้อย่อยใหม่", content: "" },
+                                ],
+                            }))
+                        }
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        เพิ่มส่วนเนื้อหา
+                    </Button>
+
+                    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                        <div className="mb-4 flex items-center gap-2">
+                            <FileText className="h-5 w-5 text-emerald-600" />
+                            <h3 className="font-black text-slate-800">เอกสารการเรียนรู้</h3>
+                        </div>
+                        <TeachingMediaPickerPanel
+                            selected={selectedTopic.documents ?? []}
+                            allowedTypes={["file", "link"]}
+                            title="แนบเอกสารการเรียนรู้"
+                            description="แนบไฟล์ PDF เอกสารประกอบ หรือแหล่งเรียนรู้ที่ใช้ดูกับบทเรียนนี้"
+                            onChange={(documents) => updateTopic(selectedTopic.id, (topic) => ({ ...topic, documents }))}
                         />
                     </div>
                 </div>
@@ -755,254 +1027,6 @@ export default function EditLessonPage() {
                         หัวข้อนี้ยังไม่มีแบบทดสอบ สร้าง question set สำหรับหัวข้อนี้ได้เลย
                     </div>
                 )}
-            </section>
-
-            <section className="grid gap-5 lg:grid-cols-[280px_1fr]">
-                <aside className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="mb-3 flex items-center gap-2">
-                        <BookOpen className="h-5 w-5 text-emerald-600" />
-                        <h2 className="font-black text-slate-800">บทเรียน</h2>
-                    </div>
-                    <div className="space-y-2">
-                        {content.topics
-                            .slice()
-                            .sort((a, b) => a.order - b.order)
-                            .map((topic) => (
-                                <button
-                                    key={topic.id}
-                                    type="button"
-                                    onClick={() => setSelectedTopicId(topic.id)}
-                                    className={
-                                        topic.id === selectedTopic.id
-                                            ? "w-full rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-left"
-                                            : "w-full rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-left hover:bg-white"
-                                    }
-                                >
-                                    <div className="flex items-center justify-between gap-2">
-                                        <p className="text-sm font-black text-slate-800">{topic.title}</p>
-                                        <div className="flex items-center gap-1">
-                                            {topic.assessment ? (
-                                                <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black text-violet-700">
-                                                    มีแบบทดสอบ
-                                                </span>
-                                            ) : null}
-                                            {topicsWithoutVideo.has(topic.id) && (
-                                                <span title="ยังไม่มีวิดีโอ" className="flex items-center gap-0.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">
-                                                    <VideoIcon className="h-3 w-3" />
-                                                    ขาดคลิป
-                                                </span>
-                                            )}
-                                            <Badge className={topic.contentStatus === "empty" ? "bg-slate-100 text-slate-500" : "bg-emerald-100 text-emerald-700"}>
-                                                {topic.contentStatus}
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                    {topic.description && <p className="mt-1 text-xs font-bold text-slate-400">{topic.description}</p>}
-                                </button>
-                            ))}
-                    </div>
-                </aside>
-
-                <div className="space-y-5">
-                    {/* Video warning banner — แสดงเมื่อ topic ที่เลือกยังไม่มีวิดีโอ */}
-                    {topicsWithoutVideo.has(selectedTopic.id) && (
-                        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5">
-                            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
-                            <div>
-                                <p className="text-sm font-black text-amber-900">หัวข้อนี้ยังไม่มีวิดีโอ</p>
-                                <p className="mt-0.5 text-xs font-bold text-amber-700">
-                                    ต้องเพิ่มวิดีโอทุกหัวข้อก่อนจึงจะเผยแพร่บทเรียนได้ — เลือกวิดีโอจากคลังสื่อในส่วน “คลิปประกอบหัวข้อย่อย” ด้านล่าง
-                                </p>
-                            </div>
-                        </div>
-                    )}
-                    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-                        <div className="grid gap-4">
-                            <div className="space-y-2">
-                                <Label className="font-bold text-slate-700">ชื่อบทเรียนย่อย</Label>
-                                <Input
-                                    value={selectedTopic.title}
-                                    onChange={(event) => updateTopic(selectedTopic.id, (topic) => ({ ...topic, title: event.target.value }))}
-                                    className="rounded-xl font-black"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="font-bold text-slate-700">คำอธิบาย</Label>
-                                <Textarea
-                                    value={selectedTopic.description ?? ""}
-                                    onChange={(event) => updateTopic(selectedTopic.id, (topic) => ({ ...topic, description: event.target.value }))}
-                                    rows={2}
-                                    className="rounded-xl"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-                        <div className="mb-3 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Target className="h-5 w-5 text-emerald-600" />
-                                <h3 className="font-black text-slate-800">วัตถุประสงค์การเรียนรู้</h3>
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="rounded-xl text-xs font-bold text-slate-500"
-                                onClick={() => updateTopic(selectedTopic.id, (topic) => ({ ...topic, objectives: [...topic.objectives, ""] }))}
-                            >
-                                <Plus className="mr-1 h-3 w-3" />
-                                เพิ่ม
-                            </Button>
-                        </div>
-                        <div className="space-y-2">
-                            {selectedTopic.objectives.map((objective, index) => (
-                                <div key={index} className="flex items-start gap-2">
-                                    <Textarea
-                                        value={objective}
-                                        onChange={(event) =>
-                                            updateTopic(selectedTopic.id, (topic) => {
-                                                const objectives = [...topic.objectives]
-                                                objectives[index] = event.target.value
-                                                return { ...topic, objectives }
-                                            })
-                                        }
-                                        rows={2}
-                                        className="rounded-xl text-sm"
-                                    />
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="mt-1 shrink-0 rounded-xl text-slate-300 hover:text-red-500"
-                                        onClick={() =>
-                                            updateTopic(selectedTopic.id, (topic) => ({
-                                                ...topic,
-                                                objectives: topic.objectives.filter((_, itemIndex) => itemIndex !== index),
-                                            }))
-                                        }
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {selectedTopic.sections.map((section, sectionIndex) => (
-                        <div key={section.id} className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-                            <div className="mb-3 flex items-center gap-2">
-                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-black text-blue-600">
-                                    {sectionIndex + 1}
-                                </div>
-                                <Input
-                                    value={section.heading}
-                                    onChange={(event) =>
-                                        updateTopic(selectedTopic.id, (topic) => {
-                                            const sections = [...topic.sections]
-                                            sections[sectionIndex] = { ...sections[sectionIndex], heading: event.target.value }
-                                            return { ...topic, sections }
-                                        })
-                                    }
-                                    className="rounded-xl font-black"
-                                    placeholder="ชื่อหัวข้อย่อย"
-                                />
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="shrink-0 rounded-xl text-slate-300 hover:text-red-500"
-                                    onClick={() =>
-                                        updateTopic(selectedTopic.id, (topic) => ({
-                                            ...topic,
-                                            sections: topic.sections.filter((_, itemIndex) => itemIndex !== sectionIndex),
-                                        }))
-                                    }
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </div>
-                            <Textarea
-                                value={section.content}
-                                onChange={(event) =>
-                                    updateTopic(selectedTopic.id, (topic) => {
-                                        const sections = [...topic.sections]
-                                        sections[sectionIndex] = { ...sections[sectionIndex], content: event.target.value }
-                                        return { ...topic, sections }
-                                    })
-                                }
-                                rows={6}
-                                className="rounded-xl text-sm text-slate-700"
-                                placeholder="เนื้อหาสั้น ๆ สำหรับหัวข้อย่อยนี้"
-                            />
-                            <div className="mt-4">
-                                <TeachingMediaPickerPanel
-                                    selected={(section.media ?? []).map((m) => ({
-                                        mediaId: m.mediaId,
-                                        type: m.type,
-                                        title: m.title ?? "",
-                                        url: m.url,
-                                        source: m.source,
-                                    }))}
-                                    allowedTypes={["video", "youtube"]}
-                                    title="คลิปประกอบหัวข้อย่อย"
-                                    description="เลือกวิดีโอหรือ YouTube จากคลังสื่อเพื่อใช้เป็นสื่อหลักของหัวข้อย่อย"
-                                    onChange={(references) => {
-                                        const media = references.flatMap((reference) => {
-                                            const url = reference.url ?? reference.linkUrl ?? (reference.youtubeId ? `https://www.youtube.com/watch?v=${reference.youtubeId}` : "")
-                                            if (!url) return []
-                                            return [{
-                                                id: `media-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                                                type: "video" as const,
-                                                url,
-                                                mediaId: reference.mediaId,
-                                                title: reference.title,
-                                                source: "media_library" as const,
-                                            }]
-                                        })
-                                        updateTopic(selectedTopic.id, (topic) => {
-                                            const sections = [...topic.sections]
-                                            sections[sectionIndex] = {
-                                                ...sections[sectionIndex],
-                                                media: media,
-                                            }
-                                            return { ...topic, sections }
-                                        })
-                                    }}
-                                />
-                            </div>
-                        </div>
-                    ))}
-
-                    <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full rounded-2xl border-dashed font-bold text-slate-500"
-                        onClick={() =>
-                            updateTopic(selectedTopic.id, (topic) => ({
-                                ...topic,
-                                sections: [
-                                    ...topic.sections,
-                                    { id: `section-${Date.now()}`, heading: "หัวข้อย่อยใหม่", content: "" },
-                                ],
-                            }))
-                        }
-                    >
-                        <Plus className="mr-2 h-4 w-4" />
-                        เพิ่มส่วนเนื้อหา
-                    </Button>
-
-                    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-                        <div className="mb-4 flex items-center gap-2">
-                            <FileText className="h-5 w-5 text-emerald-600" />
-                            <h3 className="font-black text-slate-800">เอกสารการเรียนรู้</h3>
-                        </div>
-                        <TeachingMediaPickerPanel
-                            selected={selectedTopic.documents ?? []}
-                            allowedTypes={["file", "link"]}
-                            title="แนบเอกสารการเรียนรู้"
-                            description="แนบไฟล์ PDF เอกสารประกอบ หรือแหล่งเรียนรู้ที่ใช้ดูกับบทเรียนนี้"
-                            onChange={(documents) => updateTopic(selectedTopic.id, (topic) => ({ ...topic, documents }))}
-                        />
-                    </div>
-                </div>
             </section>
 
             {lesson.classroomAssignments.length > 0 && (

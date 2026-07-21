@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
     BookOpen,
@@ -13,13 +13,10 @@ import {
     GripVertical,
     Loader2,
     Plus,
-    Sparkles,
     Target,
     Trash2,
-    Upload,
     PlaySquare,
     X,
-    AlignLeft,
 } from "lucide-react"
 import { TeachingMediaPickerPanel } from "@/components/dashboard/teaching-media-picker-panel"
 import { Button } from "@/components/ui/button"
@@ -28,25 +25,38 @@ import { Label } from "@/components/ui/label"
 import { PageBackLink } from "@/components/ui/page-back-link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { getCanonicalGradeLevelLabel, type CanonicalGradeLevel } from "@/lib/curriculum/grade-model"
-import { getSubjectCurriculumMapPack, type SubjectCurriculumMapPack, type SubjectCurriculumUnitOutline } from "@/lib/curriculum/map-packs"
+import {
+    ALL_CANONICAL_GRADE_LEVELS,
+    getCanonicalGradeLevelLabel,
+    type CanonicalGradeLevel,
+} from "@/lib/curriculum/grade-model"
+import { getCurriculumStandardByCode } from "@/lib/curriculum/indicators"
+import {
+    getCanonicalCourseOptions,
+    getPrimaryCoreCourseIndicatorCrosswalkRows,
+    getSecondaryCoreCourseUnits,
+    type CanonicalCourseEntry,
+} from "@/lib/curriculum/course-catalog"
+import type { SecondaryCoreUnit } from "@/lib/curriculum/import/secondary-core-unit-rows-source"
+import {
+    getSubjectCurriculumMapPack,
+    type SubjectCurriculumUnitOutline,
+} from "@/lib/curriculum/map-packs"
 import {
     getCanonicalSubjectById,
     type CanonicalCoreSubjectId,
 } from "@/lib/curriculum/subject-catalog"
-import {
-    getSubjectLessonTemplatePack,
-    type SubjectLessonTemplate,
-} from "@/lib/curriculum/template-master-pack"
+import { getCurriculumStandardById, type CurriculumStandard } from "@/lib/curriculum/strands-and-standards"
+import { SECONDARY_CORE_CURRICULUM_INDICATOR_CATALOG } from "@/lib/curriculum/canonical-indicators"
+import { type SubjectLessonTemplate } from "@/lib/curriculum/template-master-pack"
 import { getSubjectUnitLearningOutcomePack, type SubjectUnitLearningOutcomePack } from "@/lib/curriculum/unit-learning-outcomes"
 import { cn } from "@/lib/utils"
-import type {
-    LessonContentV2,
-    LessonContentMetadata,
-    LessonMediaBlock,
-    LessonOutlineBatchDraft,
-    LessonOutlineDraft,
-    LessonTopicContentDraft,
+import {
+    getLessonTopicContentStatus,
+    type LessonContentV2,
+    type LessonContentMetadata,
+    type LessonMediaBlock,
+    type LessonOutlineDraft,
 } from "@/lib/lessons/lesson-content"
 import {
     buildLessonCurriculumHref,
@@ -56,8 +66,19 @@ import {
 import type { TeachingMediaReference } from "@/lib/teaching-media-reference"
 
 type Step = "source" | "outline" | "topics"
-type SourceMode = "text" | "pdf"
+type CourseTrack = "basic" | "additional"
 type TopicDraft = LessonContentV2["topics"][number]
+type CurriculumIndicatorDisplay = {
+    id: string
+    standardId: string
+    indicatorCode: string
+    indicatorType: "during" | "terminal"
+}
+type CurriculumIndicatorRow = {
+    standard: CurriculumStandard
+    duringIndicators: CurriculumIndicatorDisplay[]
+    terminalIndicators: CurriculumIndicatorDisplay[]
+}
 type LessonDraftBundle = {
     id: string
     outline: LessonOutlineDraft
@@ -65,24 +86,17 @@ type LessonDraftBundle = {
     metadata?: LessonContentMetadata
 }
 
-type SourceSnapshot = {
-    text: string
-    pdfData: string | null
-}
-
-type CurriculumSelectionState = {
-    subjectId: CanonicalCoreSubjectId
-    unitId: string
-    templateId?: string
-    topicIds?: string[]
-    learningOutcomeIds?: string[]
-}
-
 const WIZARD_STEPS: Array<{ value: Step; label: string }> = [
     { value: "source", label: "แหล่งข้อมูล" },
     { value: "outline", label: "บทเรียน" },
     { value: "topics", label: "เนื้อหาในบทเรียน" },
 ]
+
+const COURSE_TRACK_OPTIONS: Array<{ value: CourseTrack; label: string }> = [
+    { value: "basic", label: "พื้นฐาน" },
+    { value: "additional", label: "เพิ่มเติม" },
+]
+const DEFAULT_CURRICULUM_SUBJECT_ID: CanonicalCoreSubjectId = "science_technology"
 
 function getLessonErrorMessage(payload: unknown, fallback: string) {
     if (!payload || typeof payload !== "object") return fallback
@@ -113,6 +127,10 @@ function createLessonDraftId(title: string, index: number) {
     return slug ? `lesson-${index + 1}-${slug}` : `lesson-${index + 1}`
 }
 
+function createSectionId() {
+    return `section-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 function createEmptyTopic(topic: LessonOutlineDraft["topics"][number]): TopicDraft {
     return {
         id: topic.id,
@@ -126,12 +144,8 @@ function createEmptyTopic(topic: LessonOutlineDraft["topics"][number]): TopicDra
     }
 }
 
-function createCurriculumTemplateDraftId(templateId: string) {
-    return `curriculum-template-${templateId}`
-}
-
-function createCurriculumUnitDraftId(unitId: string) {
-    return `curriculum-unit-${unitId}`
+function createCurriculumCourseDraftId(courseId: string) {
+    return `curriculum-course-${courseId}`
 }
 
 function getPrimaryGradeLevelLabel(unit: SubjectCurriculumUnitOutline) {
@@ -141,11 +155,26 @@ function getPrimaryGradeLevelLabel(unit: SubjectCurriculumUnitOutline) {
 
 function buildCurriculumMetadata(input: {
     subjectId: CanonicalCoreSubjectId
+    course?: CanonicalCourseEntry | null
     unit: SubjectCurriculumUnitOutline
     outcomePack: SubjectUnitLearningOutcomePack
     template?: SubjectLessonTemplate | null
 }) {
     const subject = getCanonicalSubjectById(input.subjectId)
+    const primaryCrosswalkRows = input.course ? getPrimaryCoreCourseIndicatorCrosswalkRows(input.course) : []
+    const primaryStandardIds = Array.from(
+        new Set(
+            primaryCrosswalkRows
+                .map((row) => getCurriculumStandardByCode(row.standardCode)?.id)
+                .filter((standardId): standardId is string => Boolean(standardId))
+        )
+    )
+    const primaryDuringIndicatorIds = primaryCrosswalkRows.flatMap((row) =>
+        row.duringIndicators.map((indicator) => indicator.code)
+    )
+    const primaryTerminalIndicatorIds = primaryCrosswalkRows.flatMap((row) =>
+        row.terminalIndicators.map((indicator) => indicator.code)
+    )
     const learningOutcomeIds = input.template?.suggestedOutcomeIds?.length
         ? input.template.suggestedOutcomeIds
         : input.outcomePack.learningOutcomes.map((outcome) => outcome.id)
@@ -154,9 +183,14 @@ function buildCurriculumMetadata(input: {
         curriculum: {
             subject: subject?.displayNameTh ?? input.subjectId,
             curriculumCode: "basic_education_2551",
-            gradeLevel: getPrimaryGradeLevelLabel(input.unit),
-            semester: input.unit.semester,
+            gradeLevel: input.course ? getCanonicalGradeLevelLabel(input.course.gradeLevel, "th") : getPrimaryGradeLevelLabel(input.unit),
+            semester: input.course?.semester ?? input.unit.semester,
+            courseId: input.course?.id,
+            courseTitle: input.course?.titleTh,
             unitId: input.unit.id,
+            standardIds: primaryStandardIds.length > 0 ? primaryStandardIds : input.course?.standardIds ?? input.unit.standardIds,
+            duringIndicatorIds: primaryDuringIndicatorIds.length > 0 ? primaryDuringIndicatorIds : input.course?.duringIndicatorIds,
+            terminalIndicatorIds: primaryTerminalIndicatorIds.length > 0 ? primaryTerminalIndicatorIds : input.course?.terminalIndicatorIds,
             learningOutcomeIds,
             sourceRefs: input.template ? [...input.unit.sourceRefs, ...input.template.sourceRefs] : input.unit.sourceRefs,
         },
@@ -169,79 +203,95 @@ function buildCurriculumMetadata(input: {
     } satisfies LessonContentMetadata
 }
 
-function buildCurriculumUnitOutline(
+function buildCurriculumCourseShellContentV2(
     subjectId: CanonicalCoreSubjectId,
+    course: CanonicalCourseEntry,
     unit: SubjectCurriculumUnitOutline,
-    outcomePack: SubjectUnitLearningOutcomePack
-): LessonOutlineDraft {
+    outcomePack: SubjectUnitLearningOutcomePack,
+    realUnits: SecondaryCoreUnit[]
+): LessonContentV2 {
     const subject = getCanonicalSubjectById(subjectId)
 
-    return {
-        title: unit.title,
-        description: unit.notes?.[0] ?? `โครงบทเรียนจากหน่วย ${unit.title}`,
+    // Prefer the real DOCX learning units (one lesson topic per หน่วยการเรียนรู้);
+    // fall back to the synthetic outcome-pack topics when the course has none.
+    if (realUnits.length > 0) {
+        const realUnitObjectivesByTopicId = new Map<string, string[]>()
+        const outline: LessonOutlineDraft = {
+            title: course.titleTh,
+            description: unit.notes?.[0] ?? `โครงบทเรียนจากรายวิชา ${course.titleTh}`,
+            subject: subject?.displayNameTh ?? subjectId,
+            gradeLevel: getCanonicalGradeLevelLabel(course.gradeLevel, "th"),
+            topics: realUnits.map((realUnit, index) => {
+                const indicators = [...realUnit.duringIndicators, ...realUnit.terminalIndicators]
+                const indicatorCodes = indicators.map((indicator) => indicator.code)
+                const objectives = indicators
+                    .map((indicator) => indicator.description?.trim())
+                    .filter((text): text is string => Boolean(text))
+                const topicId = `${course.id}-unit-${realUnit.unitNumber}-${index}`
+                if (objectives.length > 0) {
+                    realUnitObjectivesByTopicId.set(topicId, objectives)
+                }
+                return {
+                    id: topicId,
+                    title: realUnit.title,
+                    description:
+                        realUnit.summary ??
+                        (indicatorCodes.length > 0 ? `ตัวชี้วัด: ${indicatorCodes.join(", ")}` : undefined),
+                    order: index,
+                }
+            }),
+        }
+
+        const topics = outline.topics.map((topic) => ({
+            ...createEmptyTopic(topic),
+            objectives: realUnitObjectivesByTopicId.get(topic.id) ?? [],
+        }))
+
+        return buildContentV2(outline, topics, buildCurriculumMetadata({ subjectId, course, unit, outcomePack }))
+    }
+
+    const objectivesByTopicId = new Map<string, string[]>()
+    for (const outcome of outcomePack.learningOutcomes) {
+        for (const topicId of outcome.topicIds) {
+            const current = objectivesByTopicId.get(topicId) ?? []
+            current.push(outcome.text)
+            objectivesByTopicId.set(topicId, current)
+        }
+    }
+
+    const outline: LessonOutlineDraft = {
+        title: course.titleTh,
+        description: unit.notes?.[0] ?? `โครงบทเรียนจากรายวิชา ${course.titleTh}`,
         subject: subject?.displayNameTh ?? subjectId,
-        gradeLevel: getPrimaryGradeLevelLabel(unit),
+        gradeLevel: getCanonicalGradeLevelLabel(course.gradeLevel, "th"),
         topics: outcomePack.topics.map((topic, index) => ({
             id: topic.id,
             title: topic.title,
-            description: topic.notes?.[0] ?? outcomePack.learningOutcomes.find((outcome) => outcome.topicIds.includes(topic.id))?.text,
+            description:
+                topic.notes?.[0] ??
+                objectivesByTopicId.get(topic.id)?.[0] ??
+                undefined,
             order: index,
         })),
-    }
-}
-
-function buildCurriculumUnitShellContentV2(
-    subjectId: CanonicalCoreSubjectId,
-    unit: SubjectCurriculumUnitOutline,
-    outcomePack: SubjectUnitLearningOutcomePack
-): LessonContentV2 {
-    const outline = buildCurriculumUnitOutline(subjectId, unit, outcomePack)
-    return buildContentV2(outline, outline.topics.map(createEmptyTopic), buildCurriculumMetadata({ subjectId, unit, outcomePack }))
-}
-
-function buildCurriculumTemplateContentV2(
-    subjectId: CanonicalCoreSubjectId,
-    unit: SubjectCurriculumUnitOutline,
-    outcomePack: SubjectUnitLearningOutcomePack,
-    template: SubjectLessonTemplate
-): LessonContentV2 {
-    const subject = getCanonicalSubjectById(subjectId)
-    const topicMap = new Map(outcomePack.topics.map((topic) => [topic.id, topic]))
-    const outcomeMap = new Map(outcomePack.learningOutcomes.map((outcome) => [outcome.id, outcome]))
-
-    const outline: LessonOutlineDraft = {
-        title: template.title,
-        description: template.description,
-        subject: subject?.displayNameTh ?? subjectId,
-        gradeLevel: getPrimaryGradeLevelLabel(unit),
-        topics: template.topicStructure.map((topic, index) => {
-            const firstTopic = topic.topicIds[0] ? topicMap.get(topic.topicIds[0]) : null
-            const firstOutcome = topic.outcomeIds[0] ? outcomeMap.get(topic.outcomeIds[0]) : null
-            return {
-                id: topic.topicIds[0] ?? topic.id,
-                title: topic.title,
-                description: firstTopic?.notes?.[0] ?? firstOutcome?.text,
-                order: index,
-            }
-        }),
     }
 
     const topics = outline.topics.map((topic) => ({
         ...createEmptyTopic(topic),
-        objectives: outcomePack.learningOutcomes
-            .filter((outcome) => outcome.topicIds.includes(topic.id) && template.suggestedOutcomeIds.includes(outcome.id))
-            .map((outcome) => outcome.text),
+        objectives: objectivesByTopicId.get(topic.id) ?? [],
     }))
 
-    return buildContentV2(outline, topics, buildCurriculumMetadata({ subjectId, unit, outcomePack, template }))
+    return buildContentV2(outline, topics, buildCurriculumMetadata({ subjectId, course, unit, outcomePack }))
 }
 
 function buildContentV2(outline: LessonOutlineDraft, topics: TopicDraft[], metadata?: LessonContentMetadata): LessonContentV2 {
+    const normalizedTopics = topics.map((topic) => {
+        return { ...topic, contentStatus: getLessonTopicContentStatus(topic) }
+    })
     return {
         schemaVersion: "lesson_content_v2",
         outline,
-        topics,
-        estimatedMinutes: Math.max(10, topics.filter((topic) => topic.contentStatus !== "empty").length * 12),
+        topics: normalizedTopics,
+        estimatedMinutes: Math.max(10, normalizedTopics.filter((topic) => topic.contentStatus !== "empty").length * 12),
         metadata,
     }
 }
@@ -267,9 +317,9 @@ function createLessonDraftBundleFromContent(content: LessonContentV2, index: num
 }
 
 function statusLabel(status: TopicDraft["contentStatus"]) {
-    if (status === "generated") return "generated"
-    if (status === "edited") return "edited"
-    return "empty"
+    if (status === "generated") return "สร้างแล้ว"
+    if (status === "edited") return "แก้ไขแล้ว"
+    return "ยังไม่ใส่เนื้อหา"
 }
 
 function statusTone(status: TopicDraft["contentStatus"]) {
@@ -388,50 +438,39 @@ function MediaBlockEditor({
 export default function CreateLessonPage() {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const fileInputRef = useRef<HTMLInputElement>(null)
+
+    const manualMode = searchParams.get("mode") === "manual"
 
     const [step, setStep] = useState<Step>("source")
-    const [sourceMode, setSourceMode] = useState<SourceMode>("text")
-    const [sourceText, setSourceText] = useState("")
-    const [file, setFile] = useState<File | null>(null)
     const [subject, setSubject] = useState("")
     const [gradeLevel, setGradeLevel] = useState("")
-    const [lessonCount, setLessonCount] = useState("4")
-    const [language, setLanguage] = useState("th")
-    const [dragOver, setDragOver] = useState(false)
-    const [sourceSnapshot, setSourceSnapshot] = useState<SourceSnapshot | null>(null)
+    const [manualTitle, setManualTitle] = useState("")
 
     const [lessonDrafts, setLessonDrafts] = useState<LessonDraftBundle[]>([])
     const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null)
     const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null)
-    const [curriculumSubjectId, setCurriculumSubjectId] = useState<CanonicalCoreSubjectId>("science_technology")
+    const [curriculumSubjectId, setCurriculumSubjectId] = useState<CanonicalCoreSubjectId>(DEFAULT_CURRICULUM_SUBJECT_ID)
+    const [curriculumCourseTrack, setCurriculumCourseTrack] = useState<CourseTrack>("basic")
+    const [curriculumCourseGradeLevel, setCurriculumCourseGradeLevel] = useState<CanonicalGradeLevel>("m4")
+    const [curriculumCourseId, setCurriculumCourseId] = useState("")
     const [curriculumUnitId, setCurriculumUnitId] = useState("")
-    const [curriculumTemplateId, setCurriculumTemplateId] = useState("")
+    const [, setCurriculumTemplateId] = useState("")
+    const [courseDescriptionExpanded, setCourseDescriptionExpanded] = useState(false)
+    const [expandedUnitNumbers, setExpandedUnitNumbers] = useState<Set<number>>(new Set())
+    const [expandedStandardIds, setExpandedStandardIds] = useState<Set<string>>(new Set())
 
-    const [generatingOutline, setGeneratingOutline] = useState(false)
-    const [generatingTopicId, setGeneratingTopicId] = useState<string | null>(null)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState("")
     const initialCurriculumContext = useMemo(() => parseLessonCurriculumContext(searchParams), [searchParams])
-    const lessonListHref = useMemo(
-        () =>
-            buildLessonCurriculumHref("/dashboard/lessons", {
-                subjectId: curriculumSubjectId ?? initialCurriculumContext.subjectId,
-                unitId: curriculumUnitId || initialCurriculumContext.unitId,
-            }),
-        [curriculumSubjectId, curriculumUnitId, initialCurriculumContext.subjectId, initialCurriculumContext.unitId]
-    )
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search)
-        const source = params.get("source")
-        if (source === "pdf" || source === "text") setSourceMode(source)
         const subjectParam = params.get("subject")
         const subjectIdParam = params.get("subjectId")
         const effectiveSubjectId =
             subjectIdParam && CORE_SUBJECT_OPTIONS.includes(subjectIdParam as CanonicalCoreSubjectId)
                 ? (subjectIdParam as CanonicalCoreSubjectId)
-                : curriculumSubjectId
+                : DEFAULT_CURRICULUM_SUBJECT_ID
         const gradeLevelParam = params.get("gradeLevel")
         const unitId = params.get("unitId")
         if (subjectParam) setSubject(subjectParam)
@@ -439,34 +478,19 @@ export default function CreateLessonPage() {
             setCurriculumSubjectId(subjectIdParam as CanonicalCoreSubjectId)
         }
         if (gradeLevelParam) setGradeLevel(gradeLevelParam)
-        if (unitId) setCurriculumUnitId(unitId)
-        const templateId = params.get("templateId")
-        if (templateId) {
-            const curriculumTemplate = getSubjectLessonTemplatePack(effectiveSubjectId)?.templates.find(
-                (candidate) => candidate.id === templateId
-            )
-            if (curriculumTemplate) {
-                const unit = getSubjectCurriculumMapPack(effectiveSubjectId)?.unitOutlines.find(
-                    (candidate) => candidate.id === curriculumTemplate.unitId
-                )
-                const outcomePack = unit ? getSubjectUnitLearningOutcomePack(effectiveSubjectId, unit.id) : null
-                if (unit && outcomePack) {
-                    const bundle = createLessonDraftBundleFromContent(
-                        buildCurriculumTemplateContentV2(effectiveSubjectId, unit, outcomePack, curriculumTemplate),
-                        0
-                    )
-                    setCurriculumTemplateId(curriculumTemplate.id)
-                    setCurriculumUnitId(unit.id)
-                    setLessonDrafts([bundle])
-                    setSelectedLessonId(bundle.id)
-                    setSelectedTopicId(bundle.topics[0]?.id ?? null)
-                    setSourceSnapshot({ text: "", pdfData: null })
-                    setSubject(bundle.outline.subject ?? "")
-                    setGradeLevel(bundle.outline.gradeLevel ?? "")
-                    setStep("outline")
-                    return
-                }
-            }
+        if (unitId) {
+            setCurriculumUnitId(unitId)
+        }
+        const matchedCourse = unitId
+            ? getCanonicalCourseOptions(effectiveSubjectId).find(
+                  (entry) =>
+                      entry.unitIds.includes(unitId) &&
+                      (!gradeLevelParam || getCanonicalGradeLevelLabel(entry.gradeLevel, "th") === gradeLevelParam)
+              ) ?? getCanonicalCourseOptions(effectiveSubjectId).find((entry) => entry.unitIds.includes(unitId))
+            : null
+        if (matchedCourse) {
+            setCurriculumCourseGradeLevel(matchedCourse.gradeLevel)
+            setCurriculumCourseId(matchedCourse.id)
         }
     }, [])
 
@@ -475,7 +499,7 @@ export default function CreateLessonPage() {
         [selectedLessonId, lessonDrafts]
     )
     const outline = selectedLesson?.outline ?? null
-    const topicDrafts = selectedLesson?.topics ?? []
+    const topicDrafts = useMemo(() => selectedLesson?.topics ?? [], [selectedLesson])
     const selectedTopic = useMemo(
         () => topicDrafts.find((topic) => topic.id === selectedTopicId) ?? topicDrafts[0] ?? null,
         [selectedTopicId, topicDrafts]
@@ -484,79 +508,247 @@ export default function CreateLessonPage() {
         () => getCanonicalSubjectById(curriculumSubjectId),
         [curriculumSubjectId]
     )
-    const selectedCurriculumPack = useMemo<SubjectCurriculumMapPack | null>(
-        () => getSubjectCurriculumMapPack(curriculumSubjectId),
+    const availableCurriculumCourseGradeLevels = useMemo(
+        () =>
+            ALL_CANONICAL_GRADE_LEVELS.filter((grade) => getCanonicalCourseOptions(curriculumSubjectId, grade).length > 0),
         [curriculumSubjectId]
     )
+    const availableCurriculumCourseEntries = useMemo(
+        () =>
+            curriculumCourseTrack === "basic"
+                ? getCanonicalCourseOptions(curriculumSubjectId, curriculumCourseGradeLevel)
+                : [],
+        [curriculumCourseGradeLevel, curriculumCourseTrack, curriculumSubjectId]
+    )
+    const selectedCurriculumCourse = useMemo<CanonicalCourseEntry | null>(
+        () =>
+            availableCurriculumCourseEntries.find((entry) => entry.id === curriculumCourseId) ??
+            availableCurriculumCourseEntries[0] ??
+            null,
+        [availableCurriculumCourseEntries, curriculumCourseId]
+    )
+    const availableCurriculumUnitsForCourse = useMemo<SubjectCurriculumUnitOutline[]>(
+        () => {
+            if (!selectedCurriculumCourse) return []
+            const unitMap = new Map(
+                (getSubjectCurriculumMapPack(curriculumSubjectId)?.unitOutlines ?? []).map((unit) => [unit.id, unit])
+            )
+            return selectedCurriculumCourse.unitIds
+                .map((unitId) => unitMap.get(unitId) ?? null)
+                .filter((unit): unit is SubjectCurriculumUnitOutline => Boolean(unit))
+        },
+        [curriculumSubjectId, selectedCurriculumCourse]
+    )
+    const selectedCurriculumRealUnits = useMemo<SecondaryCoreUnit[]>(
+        () => (selectedCurriculumCourse ? getSecondaryCoreCourseUnits(selectedCurriculumCourse) : []),
+        [selectedCurriculumCourse]
+    )
     const selectedCurriculumUnit = useMemo<SubjectCurriculumUnitOutline | null>(
-        () => selectedCurriculumPack?.unitOutlines.find((unit) => unit.id === curriculumUnitId) ?? selectedCurriculumPack?.unitOutlines[0] ?? null,
-        [curriculumUnitId, selectedCurriculumPack]
+        () => {
+            if (availableCurriculumUnitsForCourse.length === 0) return null
+            return (
+                availableCurriculumUnitsForCourse.find((unit) => unit.id === curriculumUnitId) ??
+                availableCurriculumUnitsForCourse[0] ??
+                null
+            )
+        },
+        [availableCurriculumUnitsForCourse, curriculumUnitId]
     )
     const selectedCurriculumOutcomePack = useMemo<SubjectUnitLearningOutcomePack | null>(
         () => (selectedCurriculumUnit ? getSubjectUnitLearningOutcomePack(curriculumSubjectId, selectedCurriculumUnit.id) : null),
         [curriculumSubjectId, selectedCurriculumUnit]
     )
-    const selectedCurriculumTemplatePack = useMemo(
-        () => getSubjectLessonTemplatePack(curriculumSubjectId),
-        [curriculumSubjectId]
-    )
-    const selectedCurriculumTemplates = useMemo(
+    const lessonListHref = useMemo(
         () =>
-            selectedCurriculumTemplatePack?.templates.filter((template) =>
-                selectedCurriculumUnit ? template.unitId === selectedCurriculumUnit.id : true
-            ) ?? [],
-        [selectedCurriculumTemplatePack, selectedCurriculumUnit]
+            buildLessonCurriculumHref("/dashboard/lessons", {
+                subjectId: curriculumSubjectId ?? initialCurriculumContext.subjectId,
+                unitId: selectedCurriculumUnit?.id ?? (curriculumUnitId || initialCurriculumContext.unitId),
+            }),
+        [curriculumSubjectId, curriculumUnitId, initialCurriculumContext.subjectId, initialCurriculumContext.unitId, selectedCurriculumUnit?.id]
     )
-    const selectedCurriculumTemplate = useMemo(
-        () =>
-            selectedCurriculumTemplates.find((template) => template.id === curriculumTemplateId) ??
-            selectedCurriculumTemplates[0] ??
-            null,
-        [curriculumTemplateId, selectedCurriculumTemplates]
+    const selectedPrimaryIndicatorCrosswalkRows = useMemo(
+        () => (selectedCurriculumCourse ? getPrimaryCoreCourseIndicatorCrosswalkRows(selectedCurriculumCourse) : []),
+        [selectedCurriculumCourse]
     )
-
-    useEffect(() => {
-        const firstUnitId = selectedCurriculumPack?.unitOutlines[0]?.id ?? ""
-        if (!curriculumUnitId || !selectedCurriculumPack?.unitOutlines.some((unit) => unit.id === curriculumUnitId)) {
-            setCurriculumUnitId(firstUnitId)
-        }
-    }, [curriculumUnitId, selectedCurriculumPack])
-
-    useEffect(() => {
-        if (!selectedCurriculumSubject || !selectedCurriculumUnit) return
-        setSubject(selectedCurriculumSubject.displayNameTh)
-        setGradeLevel(getPrimaryGradeLevelLabel(selectedCurriculumUnit))
-    }, [selectedCurriculumSubject, selectedCurriculumUnit])
-
-    useEffect(() => {
-        if (!selectedCurriculumTemplate) {
-            if (curriculumTemplateId) setCurriculumTemplateId("")
-            return
-        }
-        if (!curriculumTemplateId || !selectedCurriculumTemplates.some((template) => template.id === curriculumTemplateId)) {
-            setCurriculumTemplateId(selectedCurriculumTemplate.id)
-        }
-    }, [curriculumTemplateId, selectedCurriculumTemplate, selectedCurriculumTemplates])
-
-    const canGenerateOutline = sourceMode === "pdf" ? Boolean(file) : sourceText.trim().length >= 20
-    const canSaveDraft = lessonDrafts.length > 0 && lessonDrafts.every((lesson) => lesson.outline.title.trim())
-
-    const handleFileSelect = useCallback((selected: File) => {
-        if (selected.type === "application/pdf" || selected.name.toLowerCase().endsWith(".pdf")) {
-            setFile(selected)
-            setSourceMode("pdf")
-        }
-    }, [])
-
-    const handleDrop = useCallback(
-        (event: React.DragEvent) => {
-            event.preventDefault()
-            setDragOver(false)
-            const dropped = event.dataTransfer.files[0]
-            if (dropped) handleFileSelect(dropped)
+    const selectedCurriculumStandards = useMemo(
+        () => {
+            if (selectedPrimaryIndicatorCrosswalkRows.length > 0) {
+                const seen = new Set<string>()
+                return selectedPrimaryIndicatorCrosswalkRows
+                    .map((row) => getCurriculumStandardByCode(row.standardCode))
+                    .filter((standard): standard is CurriculumStandard => {
+                        if (!standard || seen.has(standard.id)) return false
+                        seen.add(standard.id)
+                        return true
+                    })
+            }
+            return (
+                selectedCurriculumCourse?.standardIds
+                    .map((standardId) => getCurriculumStandardById(standardId))
+                    .filter((standard): standard is CurriculumStandard => Boolean(standard)) ?? []
+            )
         },
-        [handleFileSelect]
+        [selectedCurriculumCourse, selectedPrimaryIndicatorCrosswalkRows]
     )
+    const selectedCurriculumIndicators = useMemo<CurriculumIndicatorDisplay[]>(
+        () => {
+            if (!selectedCurriculumCourse) return []
+            const wanted = new Set([
+                ...selectedCurriculumCourse.duringIndicatorIds,
+                ...selectedCurriculumCourse.terminalIndicatorIds,
+            ])
+            const canonicalIndicators = SECONDARY_CORE_CURRICULUM_INDICATOR_CATALOG.indicators.filter((indicator) =>
+                wanted.has(indicator.id)
+            )
+            if (canonicalIndicators.length > 0) return canonicalIndicators
+
+            return selectedPrimaryIndicatorCrosswalkRows.flatMap((row, rowIndex) => {
+                const duringIndicators = row.duringIndicators.map((indicator, indicatorIndex) => {
+                    const standard = getCurriculumStandardByCode(indicator.standardCode)
+                    if (!standard) return null
+                    return {
+                        id: `${selectedCurriculumCourse.id}:during:${rowIndex}:${indicatorIndex}:${indicator.code}`,
+                        standardId: standard.id,
+                        indicatorCode: indicator.code,
+                        indicatorType: "during" as const,
+                    }
+                })
+                const terminalIndicators = row.terminalIndicators.map((indicator, indicatorIndex) => {
+                    const standard = getCurriculumStandardByCode(indicator.standardCode)
+                    if (!standard) return null
+                    return {
+                        id: `${selectedCurriculumCourse.id}:terminal:${rowIndex}:${indicatorIndex}:${indicator.code}`,
+                        standardId: standard.id,
+                        indicatorCode: indicator.code,
+                        indicatorType: "terminal" as const,
+                    }
+                })
+                return [...duringIndicators, ...terminalIndicators].filter((indicator): indicator is CurriculumIndicatorDisplay => Boolean(indicator))
+            })
+        },
+        [selectedCurriculumCourse, selectedPrimaryIndicatorCrosswalkRows]
+    )
+    const selectedCurriculumDuringIndicators = useMemo(
+        () => selectedCurriculumIndicators.filter((indicator) => indicator.indicatorType === "during"),
+        [selectedCurriculumIndicators]
+    )
+    const selectedCurriculumTerminalIndicators = useMemo(
+        () => selectedCurriculumIndicators.filter((indicator) => indicator.indicatorType === "terminal"),
+        [selectedCurriculumIndicators]
+    )
+    const selectedCurriculumIndicatorRows = useMemo(
+        () => {
+            if (selectedCurriculumCourse && selectedPrimaryIndicatorCrosswalkRows.length > 0) {
+                return selectedPrimaryIndicatorCrosswalkRows
+                    .map<CurriculumIndicatorRow | null>((row, rowIndex) => {
+                        const standard = getCurriculumStandardByCode(row.standardCode)
+                        if (!standard) return null
+                        return {
+                            standard,
+                            duringIndicators: row.duringIndicators.map((indicator, indicatorIndex) => ({
+                                id: `${selectedCurriculumCourse.id}:during-row:${rowIndex}:${indicatorIndex}:${indicator.code}`,
+                                standardId: standard.id,
+                                indicatorCode: indicator.code,
+                                indicatorType: "during" as const,
+                            })),
+                            terminalIndicators: row.terminalIndicators.map((indicator, indicatorIndex) => ({
+                                id: `${selectedCurriculumCourse.id}:terminal-row:${rowIndex}:${indicatorIndex}:${indicator.code}`,
+                                standardId: standard.id,
+                                indicatorCode: indicator.code,
+                                indicatorType: "terminal" as const,
+                            })),
+                        }
+                    })
+                    .filter((row): row is CurriculumIndicatorRow => Boolean(row))
+            }
+            return selectedCurriculumStandards.map((standard) => {
+                const duringIndicators = selectedCurriculumDuringIndicators.filter(
+                    (indicator) => indicator.standardId === standard.id
+                )
+                const terminalIndicators = selectedCurriculumTerminalIndicators.filter(
+                    (indicator) => indicator.standardId === standard.id
+                )
+
+                return {
+                    standard,
+                    duringIndicators,
+                    terminalIndicators,
+                }
+            })
+        },
+        [
+            selectedCurriculumCourse,
+            selectedCurriculumDuringIndicators,
+            selectedCurriculumStandards,
+            selectedCurriculumTerminalIndicators,
+            selectedPrimaryIndicatorCrosswalkRows,
+        ]
+    )
+    const selectedCourseDescription =
+        selectedCurriculumCourse?.descriptionText?.trim() || "ยังไม่มีคำอธิบายรายวิชาใน canonical catalog"
+    const shouldCollapseCourseDescription = selectedCourseDescription.length > 180
+    const availableCurriculumGradeLabels = useMemo(
+        () =>
+            selectedCurriculumCourse
+                ? [getCanonicalGradeLevelLabel(selectedCurriculumCourse.gradeLevel, "th")]
+                : [],
+        [selectedCurriculumCourse]
+    )
+    const availableCurriculumSemesters = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    (selectedCurriculumCourse?.semester ? [selectedCurriculumCourse.semester] : []).filter(
+                        (semester): semester is 1 | 2 => semester === 1 || semester === 2
+                    )
+                )
+            ).sort((left, right) => left - right),
+        [selectedCurriculumCourse]
+    )
+
+    useEffect(() => {
+        const firstGradeLevel = availableCurriculumCourseGradeLevels[0] ?? "m1"
+        if (!availableCurriculumCourseGradeLevels.includes(curriculumCourseGradeLevel)) {
+            setCurriculumCourseGradeLevel(firstGradeLevel)
+            setCurriculumCourseId("")
+        }
+    }, [availableCurriculumCourseGradeLevels, curriculumCourseGradeLevel])
+
+    useEffect(() => {
+        const firstCourseId = availableCurriculumCourseEntries[0]?.id ?? ""
+        if (!curriculumCourseId || !availableCurriculumCourseEntries.some((entry) => entry.id === curriculumCourseId)) {
+            setCurriculumCourseId(firstCourseId)
+            setCurriculumUnitId("")
+            setCurriculumTemplateId("")
+        }
+    }, [availableCurriculumCourseEntries, curriculumCourseId])
+
+    useEffect(() => {
+        const firstUnitId = availableCurriculumUnitsForCourse[0]?.id ?? ""
+        if (!curriculumUnitId || !availableCurriculumUnitsForCourse.some((unit) => unit.id === curriculumUnitId)) {
+            setCurriculumUnitId(firstUnitId)
+            setCurriculumTemplateId("")
+        }
+    }, [availableCurriculumUnitsForCourse, curriculumUnitId])
+
+    useEffect(() => {
+        setCourseDescriptionExpanded(false)
+    }, [selectedCurriculumCourse?.id])
+
+    useEffect(() => {
+        if (!selectedCurriculumCourse || !selectedCurriculumUnit) return
+        if (curriculumUnitId !== selectedCurriculumUnit.id) setCurriculumUnitId(selectedCurriculumUnit.id)
+        setSubject(selectedCurriculumSubject?.displayNameTh ?? curriculumSubjectId)
+        setGradeLevel(getCanonicalGradeLevelLabel(selectedCurriculumCourse.gradeLevel, "th"))
+    }, [
+        curriculumSubjectId,
+        curriculumUnitId,
+        selectedCurriculumCourse,
+        selectedCurriculumSubject,
+        selectedCurriculumUnit,
+    ])
+
+    const canSaveDraft = lessonDrafts.length > 0 && lessonDrafts.every((lesson) => lesson.outline.title.trim())
 
     function syncOutlineAndTopics(nextOutline: LessonOutlineDraft) {
         if (!selectedLesson) return
@@ -591,177 +783,6 @@ export default function CreateLessonPage() {
         )
     }
 
-    function getCurriculumSelectionState(): CurriculumSelectionState | null {
-        if (!selectedCurriculumUnit) return null
-        const selection: CurriculumSelectionState = {
-            subjectId: curriculumSubjectId,
-            unitId: selectedCurriculumUnit.id,
-        }
-
-        if (selectedCurriculumTemplate) {
-            selection.templateId = selectedCurriculumTemplate.id
-            selection.topicIds = selectedCurriculumTemplate.topicStructure.flatMap((topic) => topic.topicIds)
-            selection.learningOutcomeIds = selectedCurriculumTemplate.suggestedOutcomeIds
-        }
-
-        return selection
-    }
-
-    function applyCurriculumContext(subjectId: CanonicalCoreSubjectId, unit: SubjectCurriculumUnitOutline, template?: SubjectLessonTemplate | null) {
-        const subjectMeta = getCanonicalSubjectById(subjectId)
-        setCurriculumSubjectId(subjectId)
-        setCurriculumUnitId(unit.id)
-        setCurriculumTemplateId(template?.id ?? "")
-        setSubject(subjectMeta?.displayNameTh ?? subjectId)
-        setGradeLevel(getPrimaryGradeLevelLabel(unit))
-        if (template) {
-            setLessonCount("1")
-        }
-        setLanguage("th")
-        setError("")
-    }
-
-    function handleCurriculumSubjectChange(value: string) {
-        setCurriculumSubjectId(value as CanonicalCoreSubjectId)
-    }
-
-    function openCurriculumUnitShell() {
-        if (!selectedCurriculumUnit || !selectedCurriculumOutcomePack) return
-        applyCurriculumContext(curriculumSubjectId, selectedCurriculumUnit, null)
-        const content = buildCurriculumUnitShellContentV2(curriculumSubjectId, selectedCurriculumUnit, selectedCurriculumOutcomePack)
-        const bundle = {
-            ...createLessonDraftBundleFromContent(content, 0),
-            id: createCurriculumUnitDraftId(selectedCurriculumUnit.id),
-        }
-        setLessonDrafts([bundle])
-        setSelectedLessonId(bundle.id)
-        setSelectedTopicId(bundle.topics[0]?.id ?? null)
-        setSourceSnapshot({ text: "", pdfData: null })
-        setStep("outline")
-    }
-
-    function openCurriculumTemplateDraft(template: SubjectLessonTemplate) {
-        if (!selectedCurriculumUnit || !selectedCurriculumOutcomePack) return
-        applyCurriculumContext(curriculumSubjectId, selectedCurriculumUnit, template)
-        const content = buildCurriculumTemplateContentV2(curriculumSubjectId, selectedCurriculumUnit, selectedCurriculumOutcomePack, template)
-        const bundle = {
-            ...createLessonDraftBundleFromContent(content, 0),
-            id: createCurriculumTemplateDraftId(template.id),
-        }
-        setLessonDrafts([bundle])
-        setSelectedLessonId(bundle.id)
-        setSelectedTopicId(bundle.topics[0]?.id ?? null)
-        setSourceSnapshot({ text: "", pdfData: null })
-        setStep("outline")
-    }
-
-    async function parseSourceIfNeeded(): Promise<SourceSnapshot> {
-        if (sourceMode === "text") {
-            return { text: sourceText.trim(), pdfData: null }
-        }
-        if (!file) throw new Error("เลือกไฟล์ PDF ก่อน")
-
-        const formData = new FormData()
-        formData.append("file", file)
-        const parseRes = await fetch("/api/ai/parse-file", { method: "POST", body: formData })
-        if (!parseRes.ok) {
-            const err = await parseRes.json().catch(() => ({}))
-            throw new Error(err?.message ?? "อ่านไฟล์ PDF ไม่สำเร็จ")
-        }
-        return (await parseRes.json()) as SourceSnapshot
-    }
-
-    async function handleGenerateOutline() {
-        if (!canGenerateOutline) return
-        setGeneratingOutline(true)
-        setError("")
-        try {
-            const source = await parseSourceIfNeeded()
-            setSourceSnapshot(source)
-            const curriculumSelection = getCurriculumSelectionState()
-
-            const response = await fetch("/api/ai/lessons/generate-outline", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    text: source.text,
-                    pdfData: source.pdfData,
-                    subject,
-                    gradeLevel,
-                    language,
-                    lessonCount: Number(lessonCount),
-                    curriculumSelection: curriculumSelection ?? undefined,
-                }),
-            })
-            if (!response.ok) {
-                const err = await response.json().catch(() => ({}))
-                throw new Error(getLessonErrorMessage(err, "สร้างโครงบทเรียนไม่สำเร็จ"))
-            }
-            const batch = (await response.json()) as LessonOutlineBatchDraft
-            const metadata =
-                curriculumSelection && selectedCurriculumUnit && selectedCurriculumOutcomePack
-                    ? buildCurriculumMetadata({
-                          subjectId: curriculumSelection.subjectId,
-                          unit: selectedCurriculumUnit,
-                          outcomePack: selectedCurriculumOutcomePack,
-                          template: selectedCurriculumTemplate,
-                      })
-                    : undefined
-            const bundles = batch.lessons.map((lesson, index) => createLessonDraftBundle(lesson, index, { metadata }))
-            setLessonDrafts(bundles)
-            setSelectedLessonId(bundles[0]?.id ?? null)
-            setSelectedTopicId(bundles[0]?.topics[0]?.id ?? null)
-            setStep("outline")
-        } catch (caught) {
-            setError(caught instanceof Error ? caught.message : "เกิดข้อผิดพลาด")
-        } finally {
-            setGeneratingOutline(false)
-        }
-    }
-
-    async function handleGenerateTopic(topicId: string) {
-        if (!outline || !sourceSnapshot) return
-        setGeneratingTopicId(topicId)
-        setError("")
-        try {
-            const curriculumSelection = getCurriculumSelectionState()
-            const response = await fetch("/api/ai/lessons/generate-topic-content", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    outline,
-                    topicId,
-                    text: sourceSnapshot.text,
-                    pdfData: sourceSnapshot.pdfData,
-                    language,
-                    curriculumSelection: curriculumSelection ?? undefined,
-                }),
-            })
-            if (!response.ok) {
-                const err = await response.json().catch(() => ({}))
-                throw new Error(getLessonErrorMessage(err, "สร้างเนื้อหาหัวข้อไม่สำเร็จ"))
-            }
-            const generated = (await response.json()) as LessonTopicContentDraft
-            setCurrentTopicDrafts((current) =>
-                current.map((topic) =>
-                    topic.id === topicId
-                        ? {
-                              ...topic,
-                              contentStatus: "generated",
-                              objectives: generated.objectives,
-                              sections: generated.sections,
-                              documents: topic.documents ?? [],
-                          }
-                        : topic
-                )
-            )
-        } catch (caught) {
-            setError(caught instanceof Error ? caught.message : "เกิดข้อผิดพลาด")
-        } finally {
-            setGeneratingTopicId(null)
-        }
-    }
-
     function markTopicEdited(topicId: string, patch: Partial<TopicDraft>) {
         setCurrentTopicDrafts((current) =>
             current.map((topic) =>
@@ -769,11 +790,78 @@ export default function CreateLessonPage() {
                     ? {
                           ...topic,
                           ...patch,
-                          contentStatus: topic.contentStatus === "empty" ? "edited" : "edited",
+                          contentStatus: "edited",
                       }
                     : topic
             )
         )
+    }
+
+    function handleCurriculumSubjectChange(value: string) {
+        setCurriculumSubjectId(value as CanonicalCoreSubjectId)
+        setCurriculumCourseId("")
+        setCurriculumCourseGradeLevel("m1")
+        setCurriculumUnitId("")
+        setCurriculumTemplateId("")
+    }
+
+    function handleCurriculumCourseTrackChange(value: string) {
+        setCurriculumCourseTrack(value as CourseTrack)
+        setCurriculumCourseId("")
+        setCurriculumUnitId("")
+        setCurriculumTemplateId("")
+    }
+
+    function openCurriculumStandardShell() {
+        if (!selectedCurriculumCourse || !selectedCurriculumUnit || !selectedCurriculumOutcomePack) {
+            setError("กรุณาเลือกรายวิชา ชั้นเรียน และหน่วยที่พร้อมใช้งานก่อน")
+            return
+        }
+
+        const bundle = {
+            ...createLessonDraftBundleFromContent(
+                buildCurriculumCourseShellContentV2(
+                    curriculumSubjectId,
+                    selectedCurriculumCourse,
+                    selectedCurriculumUnit,
+                    selectedCurriculumOutcomePack,
+                    selectedCurriculumRealUnits
+                ),
+                0
+            ),
+            id: createCurriculumCourseDraftId(selectedCurriculumCourse.id),
+        }
+
+        setCurriculumUnitId(selectedCurriculumUnit.id)
+        setCurriculumTemplateId("")
+        setSubject(selectedCurriculumSubject?.displayNameTh ?? curriculumSubjectId)
+        setGradeLevel(getCanonicalGradeLevelLabel(selectedCurriculumCourse.gradeLevel, "th"))
+        setLessonDrafts([bundle])
+        setSelectedLessonId(bundle.id)
+        setSelectedTopicId(bundle.topics[0]?.id ?? null)
+        setError("")
+        setStep("outline")
+    }
+
+    function startManualLesson() {
+        const subjectLabel = selectedCurriculumSubject?.displayNameTh ?? curriculumSubjectId
+        const gradeLabel = getCanonicalGradeLevelLabel(curriculumCourseGradeLevel, "th")
+        const topicId = createTopicId("หัวข้อใหม่", 0)
+        const outline: LessonOutlineDraft = {
+            title: manualTitle.trim() || "บทเรียนใหม่",
+            description: "",
+            subject: subjectLabel,
+            gradeLevel: gradeLabel,
+            topics: [{ id: topicId, title: "หัวข้อที่ 1", description: "", order: 0 }],
+        }
+        const bundle = createLessonDraftBundle(outline, 0)
+        setSubject(subjectLabel)
+        setGradeLevel(gradeLabel)
+        setLessonDrafts([bundle])
+        setSelectedLessonId(bundle.id)
+        setSelectedTopicId(bundle.topics[0]?.id ?? null)
+        setError("")
+        setStep("outline")
     }
 
     function updateOutlineTopic(topicId: string, patch: Partial<LessonOutlineDraft["topics"][number]>) {
@@ -836,7 +924,7 @@ export default function CreateLessonPage() {
                         subject: lesson.outline.subject || subject || undefined,
                         gradeLevel: lesson.outline.gradeLevel || gradeLevel || undefined,
                         description: lesson.outline.description || undefined,
-                        sourceFileName: sourceMode === "pdf" ? file?.name : undefined,
+                        sourceFileName: undefined,
                         content,
                     }),
                 })
@@ -861,12 +949,14 @@ export default function CreateLessonPage() {
                 <div className="space-y-2">
                     <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
                         <GraduationCap className="h-4 w-4" />
-                        AI Lesson Wizard
+                        {manualMode ? "สร้างบทเรียนเอง" : "สร้างบทเรียนจากหลักสูตร"}
                     </div>
                     <div>
                         <h1 className="text-3xl font-black tracking-tight text-slate-950">สร้างบทเรียนใหม่</h1>
                         <p className="mt-1 text-sm font-medium text-slate-500">
-                            ให้ AI แบ่งแหล่งข้อมูลเป็นหลายบทเรียนก่อน แล้วแต่ละบทเรียนจะแบ่งหัวข้อตามเนื้อหาให้อัตโนมัติ
+                            {manualMode
+                                ? "เลือกวิชาแกนกลางและชั้นเรียนจากระบบ แล้วตั้งชื่อบทเรียน จากนั้นเพิ่มหัวข้อ เนื้อหา วิดีโอ และแบบทดสอบเองทั้งหมด"
+                                : "เลือกรายวิชาและชั้นเรียนจากหลักสูตร ระบบจะสร้างหัวข้อจากหน่วยการเรียนรู้จริง แล้วครูใส่เนื้อหา วิดีโอ และเอกสารเอง"}
                         </p>
                     </div>
                 </div>
@@ -901,57 +991,34 @@ export default function CreateLessonPage() {
                 </div>
             )}
 
-            {step === "source" && (
-                <>
-                <section className="rounded-[1.75rem] border border-sky-200 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-5 shadow-sm">
+            {step === "source" && manualMode && (
+                <section className="rounded-[1.75rem] border border-emerald-200 bg-white p-5 shadow-sm">
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div className="max-w-3xl">
-                            <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-3 py-1 text-[11px] font-black text-sky-700">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700">
                                 <GraduationCap className="h-3.5 w-3.5" />
-                                Curriculum Builder
+                                สร้างบทเรียนเอง
                             </div>
-                            <h2 className="mt-3 text-xl font-black text-slate-950">เลือกวิชา หน่วย และเทมเพลตจากหลักสูตรกลาง</h2>
+                            <h2 className="mt-3 text-xl font-black text-slate-950">กรอกข้อมูลบทเรียนเอง</h2>
                             <p className="mt-1 text-sm text-slate-600">
-                                หน้า builder ใหม่จะผูกกับโครงหลักสูตรกลางโดยตรง เพื่อให้ครูเปิด draft มาตรฐานของหน่วย
-                                หรือใช้เทมเพลตสอนตั้งต้นก่อนส่ง AI ช่วยแตกบทเรียนและสร้างเนื้อหาในขั้นถัดไป
+                                เลือกวิชาแกนกลางและชั้นเรียนจากระบบ แล้วตั้งชื่อบทเรียน จากนั้นเพิ่มหัวข้อ เนื้อหา วิดีโอ และแบบทดสอบเองได้ทั้งหมด
                             </p>
                         </div>
                         <div className="mt-3">
-                            <Button asChild variant="outline" className="rounded-xl border-sky-200 bg-white/80 font-bold text-sky-700 hover:bg-white">
+                            <Button asChild variant="outline" className="rounded-xl border-emerald-200 bg-white font-bold text-emerald-700 hover:bg-emerald-50">
                                 <Link href={lessonListHref}>
                                     <BookOpen className="mr-2 h-4 w-4" />
-                                    ดูบทเรียนวิชา/หน่วยนี้
+                                    ดูบทเรียนของฉัน
                                 </Link>
                             </Button>
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-3">
-                            <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 text-right">
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">วิชาที่เลือก</p>
-                                <p className="mt-1 text-base font-black text-slate-950">
-                                    {selectedCurriculumSubject?.displayNameTh ?? "-"}
-                                </p>
-                            </div>
-                            <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 text-right">
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">หน่วยที่พร้อมใช้</p>
-                                <p className="mt-1 text-2xl font-black text-slate-950">
-                                    {selectedCurriculumPack?.unitOutlines.length ?? 0}
-                                </p>
-                            </div>
-                            <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 text-right">
-                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">เทมเพลตที่พร้อมใช้</p>
-                                <p className="mt-1 text-2xl font-black text-slate-950">{selectedCurriculumTemplates.length}</p>
-                            </div>
-                        </div>
                     </div>
 
-                    <div className="mt-5 grid gap-3 lg:grid-cols-3">
-                        <div className="space-y-2">
+                    <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        <div className="min-w-0 space-y-2">
                             <Label className="font-bold text-slate-700">วิชาแกนกลาง</Label>
-                            <Select
-                                value={curriculumSubjectId}
-                                onValueChange={handleCurriculumSubjectChange}
-                            >
-                                <SelectTrigger className="rounded-xl bg-white">
+                            <Select value={curriculumSubjectId} onValueChange={handleCurriculumSubjectChange}>
+                                <SelectTrigger className="w-full min-w-0 rounded-xl bg-white [&>span]:truncate">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -966,342 +1033,602 @@ export default function CreateLessonPage() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="space-y-2">
-                            <Label className="font-bold text-slate-700">หน่วยหลักสูตร</Label>
-                            <Select
-                                value={selectedCurriculumUnit?.id ?? ""}
-                                onValueChange={setCurriculumUnitId}
-                                disabled={!selectedCurriculumPack}
-                            >
-                                <SelectTrigger className="rounded-xl bg-white">
-                                    <SelectValue placeholder="เลือกหน่วย" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {(selectedCurriculumPack?.unitOutlines ?? []).map((unit) => (
-                                        <SelectItem key={unit.id} value={unit.id}>
-                                            {unit.title}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="font-bold text-slate-700">เทมเพลตตั้งต้น</Label>
-                            <Select
-                                value={curriculumTemplateId || "__unit_shell__"}
-                                onValueChange={(value) => setCurriculumTemplateId(value === "__unit_shell__" ? "" : value)}
-                            >
-                                <SelectTrigger className="rounded-xl bg-white">
+
+                        <div className="min-w-0 space-y-2">
+                            <Label className="font-bold text-slate-700">ประเภทวิชา</Label>
+                            <Select value={curriculumCourseTrack} onValueChange={handleCurriculumCourseTrackChange}>
+                                <SelectTrigger className="w-full min-w-0 rounded-xl bg-white [&>span]:truncate">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="__unit_shell__">ใช้โครงหน่วยมาตรฐาน</SelectItem>
-                                    {selectedCurriculumTemplates.map((template) => (
-                                        <SelectItem key={template.id} value={template.id}>
-                                            {template.title}
+                                    {COURSE_TRACK_OPTIONS.map((option) => (
+                                        <SelectItem key={option.value} value={option.value}>
+                                            {option.label}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        <div className="min-w-0 space-y-2">
+                            <Label className="font-bold text-slate-700">ชั้นเรียน</Label>
+                            <Select
+                                value={curriculumCourseGradeLevel}
+                                onValueChange={(value) => setCurriculumCourseGradeLevel(value as CanonicalGradeLevel)}
+                                disabled={availableCurriculumCourseGradeLevels.length === 0}
+                            >
+                                <SelectTrigger className="w-full min-w-0 rounded-xl bg-white [&>span]:truncate">
+                                    <SelectValue placeholder="เลือกชั้นเรียน" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableCurriculumCourseGradeLevels.map((grade) => (
+                                        <SelectItem key={grade} value={grade}>
+                                            {getCanonicalGradeLevelLabel(grade, "th")}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="min-w-0 space-y-2">
+                            <Label className="font-bold text-slate-700">ชื่อบทเรียน</Label>
+                            <Input
+                                value={manualTitle}
+                                onChange={(event) => setManualTitle(event.target.value)}
+                                placeholder="เช่น แรงและการเคลื่อนที่"
+                                className="rounded-xl"
+                            />
+                        </div>
                     </div>
 
-                    {selectedCurriculumUnit && selectedCurriculumOutcomePack && (
-                        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
-                            <div className="rounded-[1.5rem] border border-sky-200 bg-white p-5 shadow-sm">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <p className="text-xs font-black uppercase tracking-wide text-sky-600">
-                                            {selectedCurriculumSubject?.displayNameTh ?? curriculumSubjectId}
-                                        </p>
-                                        <h3 className="mt-1 text-lg font-black text-slate-950">
-                                            {selectedCurriculumUnit.title}
-                                        </h3>
-                                    </div>
-                                    <span className="rounded-full bg-sky-50 px-3 py-1 text-[11px] font-black text-sky-700">
-                                        {getPrimaryGradeLevelLabel(selectedCurriculumUnit)}
-                                        {selectedCurriculumUnit.semester ? ` · เทอม ${selectedCurriculumUnit.semester}` : ""}
-                                    </span>
-                                </div>
-                                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                                        หัวข้อในหน่วย {selectedCurriculumOutcomePack.topics.length} หัวข้อ
-                                    </p>
-                                    <ul className="mt-3 space-y-2">
-                                        {selectedCurriculumOutcomePack.topics.slice(0, 5).map((topic, index) => (
-                                            <li key={topic.id} className="flex gap-2 text-sm text-slate-700">
-                                                <span className="shrink-0 font-black text-sky-600">{index + 1}.</span>
-                                                <span>{topic.title}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                    {selectedCurriculumOutcomePack.topics.length > 5 && (
-                                        <p className="mt-3 text-xs font-bold text-slate-400">
-                                            และอีก {selectedCurriculumOutcomePack.topics.length - 5} หัวข้อ
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                                    <Button
-                                        type="button"
-                                        onClick={openCurriculumUnitShell}
-                                        className="rounded-xl bg-sky-600 font-black text-white hover:bg-sky-700"
-                                    >
-                                        <BookOpen className="mr-2 h-4 w-4" />
-                                        เปิด draft ตามหน่วย
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        disabled={!selectedCurriculumTemplate}
-                                        onClick={() => selectedCurriculumTemplate && openCurriculumTemplateDraft(selectedCurriculumTemplate)}
-                                        className="rounded-xl font-bold"
-                                    >
-                                        <Sparkles className="mr-2 h-4 w-4" />
-                                        ใช้เทมเพลตที่เลือก
-                                    </Button>
-                                </div>
-                            </div>
+                    <div className="mt-5 flex justify-end">
+                        <Button onClick={startManualLesson} className="rounded-xl bg-emerald-600 font-black text-white hover:bg-emerald-700">
+                            <BookOpen className="mr-2 h-4 w-4" />
+                            เริ่มสร้างบทเรียน
+                        </Button>
+                    </div>
+                </section>
+            )}
 
-                            <div className="space-y-3">
-                                {selectedCurriculumTemplate ? (
-                                    <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm">
-                                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                            <div className="min-w-0">
-                                                <p className="text-xs font-black uppercase tracking-wide text-violet-600">
-                                                    Selected template
-                                                </p>
-                                                <h4 className="mt-1 text-base font-black text-slate-900">
-                                                    {selectedCurriculumTemplate.title}
-                                                </h4>
-                                                <p className="mt-1 text-sm text-slate-500">
-                                                    {selectedCurriculumTemplate.description}
-                                                </p>
-                                            </div>
+            {step === "source" && !manualMode && (
+                <section className="rounded-[1.75rem] border border-sky-200 bg-gradient-to-br from-sky-50 via-white to-violet-50 p-5 shadow-sm">
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                        <div className="max-w-3xl">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-3 py-1 text-[11px] font-black text-sky-700">
+                                <GraduationCap className="h-3.5 w-3.5" />
+                                สร้างจากหลักสูตร
+                            </div>
+                            <h2 className="mt-3 text-xl font-black text-slate-950">เลือกวิชาแกนกลาง รายวิชา และชั้นเรียน</h2>
+                            <p className="mt-1 text-sm text-slate-600">
+                                ขั้นนี้ให้เลือกข้อมูลหลักสูตรให้ครบก่อน ระบบจะแสดงมาตรฐาน ตัวชี้วัดระหว่างทาง ตัวชี้วัดปลายทาง
+                                และคำอธิบายรายวิชาแบบอ่านอย่างเดียว เพื่อให้ครูตรวจสอบก่อนสร้างบทเรียนตั้งต้น
+                            </p>
+                        </div>
+                        <div className="mt-3">
+                            <Button asChild variant="outline" className="rounded-xl border-sky-200 bg-white/80 font-bold text-sky-700 hover:bg-white">
+                                <Link href={lessonListHref}>
+                                    <BookOpen className="mr-2 h-4 w-4" />
+                                    ดูบทเรียนของฉัน
+                                </Link>
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 text-right">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">วิชาที่เลือก</p>
+                            <p className="mt-1 text-base font-black text-slate-950">{selectedCurriculumSubject?.displayNameTh ?? "-"}</p>
+                        </div>
+                        <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 text-right">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">รายวิชาที่พร้อมใช้</p>
+                            <p className="mt-1 text-2xl font-black text-slate-950">{availableCurriculumCourseEntries.length}</p>
+                        </div>
+                        <div className="rounded-2xl border border-white/70 bg-white/90 px-4 py-3 text-right">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">มาตรฐานที่พบ</p>
+                            <p className="mt-1 text-2xl font-black text-slate-950">{selectedCurriculumStandards.length}</p>
+                        </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        <div className="min-w-0 space-y-2">
+                            <Label className="font-bold text-slate-700">วิชาแกนกลาง</Label>
+                            <Select value={curriculumSubjectId} onValueChange={handleCurriculumSubjectChange}>
+                                <SelectTrigger className="w-full min-w-0 rounded-xl bg-white [&>span]:truncate">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {CORE_SUBJECT_OPTIONS.map((subjectId) => {
+                                        const option = getCanonicalSubjectById(subjectId)
+                                        return (
+                                            <SelectItem key={subjectId} value={subjectId}>
+                                                {option?.displayNameTh ?? subjectId}
+                                            </SelectItem>
+                                        )
+                                    })}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="min-w-0 space-y-2">
+                            <Label className="font-bold text-slate-700">ประเภทวิชา</Label>
+                            <Select value={curriculumCourseTrack} onValueChange={handleCurriculumCourseTrackChange}>
+                                <SelectTrigger className="w-full min-w-0 rounded-xl bg-white [&>span]:truncate">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {COURSE_TRACK_OPTIONS.map((option) => (
+                                        <SelectItem key={option.value} value={option.value}>
+                                            {option.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="min-w-0 space-y-2">
+                            <Label className="font-bold text-slate-700">ชั้นเรียน</Label>
+                            <Select
+                                value={curriculumCourseGradeLevel}
+                                onValueChange={(value) => {
+                                    setCurriculumCourseGradeLevel(value as CanonicalGradeLevel)
+                                    setCurriculumCourseId("")
+                                    setCurriculumUnitId("")
+                                    setCurriculumTemplateId("")
+                                }}
+                                disabled={availableCurriculumCourseGradeLevels.length === 0}
+                            >
+                                <SelectTrigger className="w-full min-w-0 rounded-xl bg-white [&>span]:truncate">
+                                    <SelectValue placeholder="เลือกชั้นเรียน" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableCurriculumCourseGradeLevels.map((grade) => (
+                                        <SelectItem key={grade} value={grade}>
+                                            {getCanonicalGradeLevelLabel(grade, "th")}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="min-w-0 space-y-2">
+                            <Label className="font-bold text-slate-700">รายวิชา</Label>
+                            <Select
+                                value={selectedCurriculumCourse?.id ?? curriculumCourseId}
+                                onValueChange={(value) => {
+                                    setCurriculumCourseId(value)
+                                    setCurriculumUnitId("")
+                                    setCurriculumTemplateId("")
+                                }}
+                                disabled={availableCurriculumCourseEntries.length === 0}
+                            >
+                                <SelectTrigger className="w-full min-w-0 rounded-xl bg-white [&>span]:truncate">
+                                    <SelectValue
+                                        placeholder={
+                                            curriculumCourseTrack === "additional"
+                                                ? "ยังไม่มีรายวิชาเพิ่มเติม"
+                                                : "เลือกรายวิชา"
+                                        }
+                                    />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableCurriculumCourseEntries.map((entry) => (
+                                        <SelectItem key={entry.id} value={entry.id}>
+                                            {entry.titleTh}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {curriculumCourseTrack === "additional" && (
+                                <p className="text-xs font-bold text-slate-500">
+                                    ยังไม่มีข้อมูลรายวิชาเพิ่มเติม ตอนนี้รายวิชาที่สร้างไว้ทั้งหมดอยู่ในประเภทพื้นฐาน
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {selectedCurriculumCourse && (
+                        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(320px,0.95fr)_minmax(0,1.05fr)]">
+                            <div className="rounded-[1.5rem] border border-sky-200 bg-white p-5 shadow-sm">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                        <p className="text-xs font-black uppercase tracking-wide text-sky-600">ข้อมูลรายวิชา</p>
+                                        <h3 className="mt-1 text-lg font-black text-slate-950">
+                                            {selectedCurriculumSubject?.displayNameTh ?? "-"}
+                                        </h3>
+                                        <p className="mt-1 text-sm text-slate-600">{selectedCurriculumCourse.titleTh}</p>
+                                        <p className="mt-1 text-sm font-bold text-slate-700">
+                                            {getCanonicalGradeLevelLabel(selectedCurriculumCourse.gradeLevel, "th")}
+                                            {selectedCurriculumCourse.semester ? " (เทอม " + selectedCurriculumCourse.semester + ")" : ""}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-2xl bg-sky-50 px-4 py-3 text-right">
+                                        <p className="text-xs font-black text-sky-600">หน่วยที่พร้อมสร้าง</p>
+                                        <p className="mt-1 text-2xl font-black text-sky-900">{selectedCurriculumRealUnits.length}</p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                        <p className="text-xs font-black uppercase tracking-wide text-slate-500">ชั้นเรียน</p>
+                                        <p className="mt-2 text-sm font-bold text-slate-800">
+                                            {availableCurriculumGradeLabels.length > 0 ? availableCurriculumGradeLabels.join(", ") : "ยังไม่มีข้อมูลชั้นเรียน"}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                        <p className="text-xs font-black uppercase tracking-wide text-slate-500">เทอม</p>
+                                        <p className="mt-2 text-sm font-bold text-slate-800">
+                                            {availableCurriculumSemesters.length > 0
+                                                ? availableCurriculumSemesters.map((semester) => "เทอม " + semester).join(", ")
+                                                : "ยังไม่มีข้อมูลเทอม"}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-xs font-black uppercase tracking-wide text-sky-600">
+                                                คำอธิบายรายวิชา
+                                            </p>
+                                            <p className="mt-1 text-xs font-bold text-sky-700">
+                                                ใช้เป็นบริบทหลักก่อนสร้างหน่วยและบทเรียน
+                                            </p>
+                                        </div>
+                                        {shouldCollapseCourseDescription ? (
                                             <Button
                                                 type="button"
                                                 variant="outline"
-                                                onClick={() => openCurriculumTemplateDraft(selectedCurriculumTemplate)}
-                                                className="rounded-xl font-bold"
+                                                size="sm"
+                                                onClick={() => setCourseDescriptionExpanded((current) => !current)}
+                                                className="shrink-0 rounded-full border-sky-200 bg-white text-xs font-black text-sky-700 hover:bg-sky-50"
                                             >
-                                                ใช้ draft นี้
+                                                {courseDescriptionExpanded ? "ย่อ" : "อ่านทั้งหมด"}
+                                                <ChevronDown
+                                                    className={cn(
+                                                        "ml-1 h-3.5 w-3.5 transition-transform",
+                                                        courseDescriptionExpanded && "rotate-180"
+                                                    )}
+                                                />
                                             </Button>
+                                        ) : null}
+                                    </div>
+                                    <div
+                                        className={cn(
+                                            "relative mt-3 text-sm leading-7 text-slate-700",
+                                            !courseDescriptionExpanded && shouldCollapseCourseDescription && "max-h-28 overflow-hidden"
+                                        )}
+                                    >
+                                        <p>{selectedCourseDescription}</p>
+                                        {!courseDescriptionExpanded && shouldCollapseCourseDescription ? (
+                                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-sky-50 to-transparent" />
+                                        ) : null}
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 rounded-2xl border border-sky-100 bg-white p-4">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-xs font-black uppercase tracking-wide text-sky-600">
+                                                หน่วยการเรียนรู้ในรายวิชานี้
+                                            </p>
+                                            <p className="mt-1 text-xs font-bold text-sky-700">
+                                                หน่วยการเรียนรู้จริงตามโครงสร้างรายวิชา สพฐ.
+                                            </p>
                                         </div>
-                                        <div className="mt-3 flex flex-wrap gap-2">
-                                            <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-black text-violet-700">
-                                                {selectedCurriculumTemplate.topicStructure.length} หัวข้อ
-                                            </span>
-                                            <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-[11px] font-black text-cyan-700">
-                                                {selectedCurriculumTemplate.suggestedOutcomeIds.length} ผลการเรียนรู้
-                                            </span>
-                                            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700">
-                                                {selectedCurriculumTemplate.estimatedMinutes} นาที
-                                            </span>
+                                        <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-black text-sky-800">
+                                            {selectedCurriculumRealUnits.length} หน่วย
+                                        </span>
+                                    </div>
+                                    {selectedCurriculumRealUnits.length > 0 ? (
+                                        <div className="mt-4 space-y-3">
+                                            {selectedCurriculumRealUnits.map((unit, unitIndex) => (
+                                                <div
+                                                    key={`${unit.unitNumber}-${unitIndex}`}
+                                                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                                                >
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="rounded-full bg-sky-100 px-2.5 py-1 text-[11px] font-black text-sky-800">
+                                                            หน่วย {unit.unitNumber}
+                                                        </span>
+                                                        <p className="text-sm font-black text-slate-900">{unit.title}</p>
+                                                    </div>
+                                                    {unit.summary ? (
+                                                        (() => {
+                                                            const expanded = expandedUnitNumbers.has(unitIndex)
+                                                            const shouldCollapse = unit.summary.length > 140
+                                                            return (
+                                                                <div className="mt-2">
+                                                                    <p
+                                                                        className={cn(
+                                                                            "text-sm leading-6 text-slate-700",
+                                                                            !expanded && shouldCollapse && "line-clamp-2"
+                                                                        )}
+                                                                    >
+                                                                        {unit.summary}
+                                                                    </p>
+                                                                    {shouldCollapse ? (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                setExpandedUnitNumbers((current) => {
+                                                                                    const next = new Set(current)
+                                                                                    if (next.has(unitIndex)) next.delete(unitIndex)
+                                                                                    else next.add(unitIndex)
+                                                                                    return next
+                                                                                })
+                                                                            }
+                                                                            className="mt-1 inline-flex items-center text-xs font-black text-sky-700 hover:text-sky-900"
+                                                                        >
+                                                                            {expanded ? "ย่อ" : "อ่านทั้งหมด"}
+                                                                            <ChevronDown
+                                                                                className={cn(
+                                                                                    "ml-1 h-3.5 w-3.5 transition-transform",
+                                                                                    expanded && "rotate-180"
+                                                                                )}
+                                                                            />
+                                                                        </button>
+                                                                    ) : null}
+                                                                </div>
+                                                            )
+                                                        })()
+                                                    ) : null}
+                                                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-black">
+                                                        {unit.hours != null ? (
+                                                            <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-800">
+                                                                {unit.hours} ชั่วโมง
+                                                            </span>
+                                                        ) : null}
+                                                        {unit.duringIndicators.length > 0 ? (
+                                                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-emerald-800">
+                                                                ระหว่างทาง {unit.duringIndicators.length}
+                                                            </span>
+                                                        ) : null}
+                                                        {unit.terminalIndicators.length > 0 ? (
+                                                            <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-800">
+                                                                ปลายทาง {unit.terminalIndicators.length}
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
+                                                    {unit.duringIndicators.length > 0 ? (
+                                                        <div className="mt-3">
+                                                            <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">
+                                                                ตัวชี้วัดระหว่างทาง
+                                                            </p>
+                                                            <ul className="mt-1 space-y-1">
+                                                                {unit.duringIndicators.map((indicator, indicatorIndex) => (
+                                                                    <li key={`${indicator.code}-${indicatorIndex}`} className="text-xs leading-5 text-slate-700">
+                                                                        <span className="font-black text-emerald-700">{indicator.code}</span>
+                                                                        {indicator.description ? ` ${indicator.description}` : ""}
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    ) : null}
+                                                    {unit.terminalIndicators.length > 0 ? (
+                                                        <div className="mt-3">
+                                                            <p className="text-[11px] font-black uppercase tracking-wide text-amber-700">
+                                                                ตัวชี้วัดปลายทาง
+                                                            </p>
+                                                            <ul className="mt-1 space-y-1">
+                                                                {unit.terminalIndicators.map((indicator, indicatorIndex) => (
+                                                                    <li key={`${indicator.code}-${indicatorIndex}`} className="text-xs leading-5 text-slate-700">
+                                                                        <span className="font-black text-amber-700">{indicator.code}</span>
+                                                                        {indicator.description ? ` ${indicator.description}` : ""}
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="mt-4 text-sm font-semibold text-slate-500">
+                                            ยังไม่มีข้อมูลหน่วยการเรียนรู้สำหรับรายวิชานี้
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="rounded-[1.5rem] border border-violet-200 bg-white p-5 shadow-sm">
+                                    <p className="text-xs font-black uppercase tracking-wide text-violet-600">มาตรฐานและตัวชี้วัด</p>
+                                    <div className="mt-4 space-y-4">
+                                        <div className="overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-sm">
+                                            <div className="grid grid-cols-[0.7fr_1.35fr_1.35fr] bg-slate-900 text-xs font-black text-white">
+                                                <div className="px-4 py-3">มาตรฐาน</div>
+                                                <div className="border-l border-white/10 px-4 py-3">ตัวชี้วัดระหว่างทาง</div>
+                                                <div className="border-l border-white/10 px-4 py-3">ตัวชี้วัดปลายทาง</div>
+                                            </div>
+                                            {selectedCurriculumIndicatorRows.length > 0 ? (
+                                                <div className="divide-y divide-slate-100">
+                                                    {selectedCurriculumIndicatorRows.map((row, rowIndex) => (
+                                                        <div
+                                                            key={`${row.standard.id}-${rowIndex}`}
+                                                            className="grid grid-cols-1 gap-0 bg-white text-sm md:grid-cols-[0.7fr_1.35fr_1.35fr]"
+                                                        >
+                                                            <div className="bg-emerald-50 px-4 py-4">
+                                                                <p className="text-sm font-black text-emerald-950">
+                                                                    {row.standard.code}
+                                                                </p>
+                                                                {expandedStandardIds.has(row.standard.id) && (
+                                                                    <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">
+                                                                        {row.standard.labelTh}
+                                                                    </p>
+                                                                )}
+                                                                {row.standard.labelTh.length > 0 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            setExpandedStandardIds((current) => {
+                                                                                const next = new Set(current)
+                                                                                if (next.has(row.standard.id)) next.delete(row.standard.id)
+                                                                                else next.add(row.standard.id)
+                                                                                return next
+                                                                            })
+                                                                        }
+                                                                        className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-black text-emerald-700 hover:text-emerald-900"
+                                                                    >
+                                                                        {expandedStandardIds.has(row.standard.id) ? (
+                                                                            <>
+                                                                                ย่อ
+                                                                                <ChevronDown className="h-3 w-3 rotate-180" />
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                ขยาย
+                                                                                <ChevronDown className="h-3 w-3" />
+                                                                            </>
+                                                                        )}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                            <div className="border-t border-slate-100 px-4 py-4 md:border-l md:border-t-0">
+                                                                {row.duringIndicators.length > 0 ? (
+                                                                    <div className="flex flex-wrap gap-2">
+                                                                        {row.duringIndicators.map((indicator) => (
+                                                                            <span
+                                                                                key={indicator.id}
+                                                                                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-800"
+                                                                            >
+                                                                                {indicator.indicatorCode}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <p className="text-sm font-semibold text-slate-400">ไม่มี</p>
+                                                                )}
+                                                            </div>
+                                                            <div className="border-t border-slate-100 px-4 py-4 md:border-l md:border-t-0">
+                                                                {row.terminalIndicators.length > 0 ? (
+                                                                    <div className="flex flex-wrap gap-2">
+                                                                        {row.terminalIndicators.map((indicator) => (
+                                                                            <span
+                                                                                key={indicator.id}
+                                                                                className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black text-amber-800"
+                                                                            >
+                                                                                {indicator.indicatorCode}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <p className="text-sm font-semibold text-slate-400">ไม่มี</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="p-5 text-sm font-semibold text-slate-500">
+                                                    ยังไม่มีข้อมูลมาตรฐานและตัวชี้วัดสำหรับรายวิชานี้
+                                                </div>
+                                            )}
+                                            <div className="grid gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3 text-xs font-black sm:grid-cols-2">
+                                                <p className="text-emerald-700">
+                                                    รวมตัวชี้วัดระหว่างทาง {selectedCurriculumDuringIndicators.length} ตัวชี้วัด
+                                                </p>
+                                                <p className="text-amber-700">
+                                                    รวมตัวชี้วัดปลายทาง {selectedCurriculumTerminalIndicators.length} ตัวชี้วัด
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                            <p className="text-sm font-black text-slate-900">มาตรฐาน</p>
+                                            {selectedCurriculumStandards.length > 0 ? (
+                                                <div className="mt-3 flex flex-wrap gap-2">
+                                                    {selectedCurriculumStandards.map((standard) => (
+                                                        <span
+                                                            key={standard.id}
+                                                            className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-black text-sky-800"
+                                                        >
+                                                            {standard.code}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="mt-2 text-sm text-slate-600">ยังไม่มีข้อมูลมาตรฐาน</p>
+                                            )}
+                                        </div>
+
+                                        <div className="hidden grid gap-4 md:grid-cols-2">
+                                            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                                                <p className="text-sm font-black text-emerald-800">ตัวชี้วัดระหว่างทาง</p>
+                                                {selectedCurriculumDuringIndicators.length > 0 ? (
+                                                    <>
+                                                        <div className="mt-3 flex flex-wrap gap-2">
+                                                            {selectedCurriculumDuringIndicators.map((indicator) => (
+                                                                <span
+                                                                    key={indicator.id}
+                                                                    className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-black text-emerald-800"
+                                                                >
+                                                                    {indicator.indicatorCode}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                        <p className="mt-3 text-xs font-bold text-emerald-700">
+                                                            รวม {selectedCurriculumDuringIndicators.length} ตัวชี้วัด
+                                                        </p>
+                                                    </>
+                                                ) : (
+                                                    <p className="mt-2 text-sm text-emerald-900">ยังไม่มีตัวชี้วัดระหว่างทาง</p>
+                                                )}
+                                            </div>
+
+                                            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                                <p className="text-sm font-black text-amber-800">ตัวชี้วัดปลายทาง</p>
+                                                {selectedCurriculumTerminalIndicators.length > 0 ? (
+                                                    <>
+                                                        <div className="mt-3 flex flex-wrap gap-2">
+                                                            {selectedCurriculumTerminalIndicators.map((indicator) => (
+                                                                <span
+                                                                    key={indicator.id}
+                                                                    className="rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-black text-amber-800"
+                                                                >
+                                                                    {indicator.indicatorCode}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                        <p className="mt-3 text-xs font-bold text-amber-700">
+                                                            รวม {selectedCurriculumTerminalIndicators.length} ตัวชี้วัด
+                                                        </p>
+                                                    </>
+                                                ) : (
+                                                    <p className="mt-2 text-sm text-amber-900">ยังไม่มีตัวชี้วัดปลายทาง</p>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                ) : (
-                                    <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-white/80 p-6 text-center">
-                                        <p className="text-sm font-black text-slate-700">
-                                            หน่วยนี้ยังไม่ได้เลือกเทมเพลตเฉพาะ
-                                        </p>
-                                        <p className="mt-1 text-sm text-slate-500">
-                                            เริ่มจาก draft มาตรฐานของหน่วยได้ทันที แล้วค่อยใช้ AI แตกบทเรียนหรือเติมเนื้อหาในขั้นถัดไป
-                                        </p>
+                                </div>
+
+                                <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+                                    <p className="text-sm font-black text-slate-900">พร้อมแล้วค่อยสร้างบทเรียนตั้งต้น</p>
+                                    <p className="mt-2 text-sm text-slate-600">
+                                        ปุ่มนี้จะสร้างร่างบทเรียนจากรายวิชาและชั้นเรียนที่เลือกก่อน จากนั้นหน้าถัดไปค่อยจัดการหน่วยการเรียนรู้
+                                        โครงบทเรียน และเนื้อหาให้ละเอียด
+                                    </p>
+                                    <div className="mt-4 flex flex-wrap gap-3">
+                                        <Button
+                                            type="button"
+                                            onClick={openCurriculumStandardShell}
+                                            disabled={!selectedCurriculumUnit || !selectedCurriculumOutcomePack}
+                                            className="rounded-xl bg-sky-600 font-black text-white hover:bg-sky-700"
+                                        >
+                                            <BookOpen className="mr-2 h-4 w-4" />
+                                            สร้างร่างบทเรียนจากรายวิชานี้
+                                        </Button>
+                                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600">
+                                            ขั้นถัดไปจะใช้ข้อมูลรายวิชาเป็นฐาน แล้วค่อยเลือกหน่วยและเทมเพลตต่อ
+                                        </div>
                                     </div>
-                                )}
+                                </div>
                             </div>
                         </div>
                     )}
                 </section>
-
-                <section className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-                    <div className="space-y-5">
-                        <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-                            <h2 className="text-base font-black text-slate-900">Step Source: PDF/text</h2>
-                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                                <Button
-                                    type="button"
-                                    variant={sourceMode === "text" ? "default" : "outline"}
-                                    onClick={() => setSourceMode("text")}
-                                    className={cn(
-                                        "h-auto justify-start rounded-2xl p-4 text-left",
-                                        sourceMode === "text" && "bg-emerald-600 text-white hover:bg-emerald-700"
-                                    )}
-                                >
-                                    <AlignLeft className="mr-3 h-5 w-5" />
-                                    <span>
-                                        <span className="block font-black">วางข้อความ</span>
-                                        <span className="text-xs opacity-80">ใช้เนื้อหาที่คัดลอกมาแล้ว</span>
-                                    </span>
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant={sourceMode === "pdf" ? "default" : "outline"}
-                                    onClick={() => setSourceMode("pdf")}
-                                    className={cn(
-                                        "h-auto justify-start rounded-2xl p-4 text-left",
-                                        sourceMode === "pdf" && "bg-emerald-600 text-white hover:bg-emerald-700"
-                                    )}
-                                >
-                                    <FileText className="mr-3 h-5 w-5" />
-                                    <span>
-                                        <span className="block font-black">อัปโหลด PDF</span>
-                                        <span className="text-xs opacity-80">อ่านไฟล์ก่อนสร้างโครงบทเรียน</span>
-                                    </span>
-                                </Button>
-                            </div>
-                        </div>
-
-                        {sourceMode === "text" ? (
-                            <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-                                <Label className="font-black text-slate-800">ข้อความต้นทาง</Label>
-                                <Textarea
-                                    value={sourceText}
-                                    onChange={(event) => setSourceText(event.target.value)}
-                                    rows={14}
-                                    className="mt-3 rounded-2xl text-sm"
-                                    placeholder="วางเนื้อหาจากหนังสือเรียน แผนการสอน หรือสรุปบทเรียน..."
-                                />
-                                <p className="mt-2 text-xs font-bold text-slate-400">
-                                    {sourceText.trim().length.toLocaleString()} ตัวอักษร
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-                                <Label className="font-black text-slate-800">ไฟล์ PDF</Label>
-                                <div
-                                    onDragOver={(event) => {
-                                        event.preventDefault()
-                                        setDragOver(true)
-                                    }}
-                                    onDragLeave={() => setDragOver(false)}
-                                    onDrop={handleDrop}
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className={cn(
-                                        "mt-3 cursor-pointer rounded-2xl border-2 border-dashed p-10 text-center transition-colors",
-                                        dragOver
-                                            ? "border-emerald-400 bg-emerald-50"
-                                            : file
-                                              ? "border-emerald-300 bg-emerald-50"
-                                              : "border-slate-200 hover:border-emerald-300 hover:bg-slate-50"
-                                    )}
-                                >
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept="application/pdf,.pdf"
-                                        className="hidden"
-                                        onChange={(event) => event.target.files?.[0] && handleFileSelect(event.target.files[0])}
-                                    />
-                                    {file ? (
-                                        <div className="flex flex-col items-center gap-3">
-                                            <FileText className="h-10 w-10 text-emerald-600" />
-                                            <p className="font-black text-slate-800">{file.name}</p>
-                                            <p className="text-sm text-slate-400">{(file.size / 1024).toFixed(0)} KB</p>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="text-slate-500 hover:text-red-600"
-                                                onClick={(event) => {
-                                                    event.stopPropagation()
-                                                    setFile(null)
-                                                }}
-                                            >
-                                                <X className="mr-1 h-4 w-4" />
-                                                เปลี่ยนไฟล์
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col items-center gap-3">
-                                            <Upload className="h-10 w-10 text-slate-400" />
-                                            <p className="font-black text-slate-700">ลากไฟล์ PDF มาวางที่นี่</p>
-                                            <p className="text-sm text-slate-400">หรือคลิกเพื่อเลือกไฟล์</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <aside className="space-y-5">
-                        <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-                            <h2 className="text-base font-black text-slate-900">ตั้งค่าโครงบทเรียน</h2>
-                            <div className="mt-4 space-y-4">
-                                <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
-                                    <p className="text-xs font-black uppercase tracking-wide text-sky-700">หลักสูตรที่เลือกด้านบน</p>
-                                    <p className="mt-1 font-black text-slate-900">
-                                        {selectedCurriculumSubject?.displayNameTh ?? "ยังไม่ได้เลือกวิชา"}
-                                    </p>
-                                    <p className="mt-1 text-sm font-medium text-slate-600">
-                                        {selectedCurriculumUnit?.title ?? "ยังไม่ได้เลือกหน่วย"}
-                                        {gradeLevel ? ` · ${gradeLevel}` : ""}
-                                    </p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-2">
-                                        <Label className="font-bold text-slate-700">จำนวนบทเรียน</Label>
-                                        <Select value={lessonCount} onValueChange={setLessonCount}>
-                                            <SelectTrigger className="rounded-xl">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {[1, 2, 3, 4, 5, 6, 7, 8].map((count) => (
-                                                    <SelectItem key={count} value={String(count)}>
-                                                        {count}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="font-bold text-slate-700">ภาษา</Label>
-                                        <Select value={language} onValueChange={setLanguage}>
-                                            <SelectTrigger className="rounded-xl">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="th">ไทย</SelectItem>
-                                                <SelectItem value="en">English</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                                {selectedCurriculumTemplate && (
-                                    <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3">
-                                        <p className="text-xs font-black uppercase tracking-wide text-violet-600">Template active</p>
-                                        <p className="mt-1 text-sm font-black text-violet-950">{selectedCurriculumTemplate.title}</p>
-                                        <p className="mt-1 text-xs text-violet-700">
-                                            ผูกกับ {selectedCurriculumTemplate.topicStructure.length} หัวข้อ และ{" "}
-                                            {selectedCurriculumTemplate.suggestedOutcomeIds.length} ผลการเรียนรู้
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        <Button
-                            onClick={handleGenerateOutline}
-                            disabled={!canGenerateOutline || generatingOutline}
-                            className="w-full rounded-2xl bg-emerald-600 py-6 text-base font-black text-white hover:bg-emerald-700 disabled:opacity-50"
-                        >
-                            {generatingOutline ? (
-                                <>
-                                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                    กำลังแบ่งบทเรียน...
-                                </>
-                            ) : (
-                                <>
-                                    <Sparkles className="mr-2 h-5 w-5" />
-                                    แบ่งเป็นบทเรียน
-                                </>
-                            )}
-                        </Button>
-                    </aside>
-                </section>
-                </>
             )}
-
             {step === "outline" && outline && (
                 <section className="space-y-5">
+
                     {lessonDrafts.length > 1 && (
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                             {lessonDrafts.map((lesson, index) => (
@@ -1414,7 +1741,7 @@ export default function CreateLessonPage() {
                             }}
                             className="rounded-xl bg-emerald-600 font-black text-white hover:bg-emerald-700"
                         >
-                            ไปสร้างเนื้อหาในบทเรียนนี้
+                            ไปใส่เนื้อหาในบทเรียนนี้
                         </Button>
                     </div>
                 </section>
@@ -1472,26 +1799,12 @@ export default function CreateLessonPage() {
 
                     <div className="space-y-5">
                         <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-                            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                <div>
-                                    <p className="text-xs font-black uppercase tracking-wide text-emerald-600">
-                                        {outline.title}
-                                    </p>
-                                    <h2 className="mt-1 text-2xl font-black text-slate-950">{selectedTopic.title}</h2>
-                                    {selectedTopic.description && <p className="mt-1 text-sm text-slate-500">{selectedTopic.description}</p>}
-                                </div>
-                                <Button
-                                    onClick={() => handleGenerateTopic(selectedTopic.id)}
-                                    disabled={generatingTopicId === selectedTopic.id}
-                                    className="rounded-xl bg-emerald-600 font-black text-white hover:bg-emerald-700"
-                                >
-                                    {generatingTopicId === selectedTopic.id ? (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Sparkles className="mr-2 h-4 w-4" />
-                                    )}
-                                    สร้างเนื้อหาหัวข้อนี้
-                                </Button>
+                            <div className="flex flex-col gap-3">
+                                <p className="text-xs font-black uppercase tracking-wide text-emerald-600">
+                                    {outline.title}
+                                </p>
+                                <h2 className="text-2xl font-black text-slate-950">{selectedTopic.title}</h2>
+                                {selectedTopic.description && <p className="text-sm text-slate-500">{selectedTopic.description}</p>}
                             </div>
                         </div>
 
@@ -1524,6 +1837,19 @@ export default function CreateLessonPage() {
                                     เพิ่มวัตถุประสงค์
                                 </Button>
                             </div>
+                        </div>
+
+                        <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+                            <div className="mb-4 flex items-center gap-2">
+                                <PlaySquare className="h-5 w-5 text-rose-600" />
+                                <h3 className="font-black text-slate-800">วิดีโอประกอบหัวข้อ</h3>
+                            </div>
+                            <MediaBlockEditor
+                                label="วิดีโอของหัวข้อนี้"
+                                blocks={selectedTopic.media ?? []}
+                                onChange={(media) => markTopicEdited(selectedTopic.id, { media })}
+                                videoOnly
+                            />
                         </div>
 
                         {selectedTopic.sections.map((section, sectionIndex) => (
@@ -1564,6 +1890,21 @@ export default function CreateLessonPage() {
                                 </div>
                             </div>
                         ))}
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                const sections = [
+                                    ...selectedTopic.sections,
+                                    { id: createSectionId(), heading: "หัวข้อย่อยใหม่", content: "", media: [] },
+                                ]
+                                markTopicEdited(selectedTopic.id, { sections })
+                            }}
+                            className="rounded-xl font-bold"
+                        >
+                            <Plus className="mr-2 h-4 w-4" />
+                            เพิ่มหัวข้อย่อย
+                        </Button>
 
                         <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
                             <div className="mb-4 flex items-center gap-2">
@@ -1589,12 +1930,13 @@ export default function CreateLessonPage() {
                                 className="rounded-xl bg-emerald-600 font-black text-white hover:bg-emerald-700"
                             >
                                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                บันทึก Draft ทั้งหมด ({lessonDrafts.length} บทเรียน)
+                                บันทึกบทเรียนทั้งหมด ({lessonDrafts.length} บทเรียน)
                             </Button>
                         </div>
                     </div>
                 </section>
             )}
+
         </div>
     )
 }

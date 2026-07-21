@@ -93,10 +93,26 @@ export async function GET(_req: Request, { params }: Params) {
                           lessonId: { in: publishedAssignments.map((assignment) => assignment.lesson.id) },
                           studentId: student.id,
                       },
+                          select: {
+                              lessonId: true,
+                              topicId: true,
+                              mediaId: true,
+                              completedAt: true,
+                      },
+                  })
+                : []
+        const topicAcknowledgements =
+            publishedAssignments.length > 0
+                ? await db.lessonTopicAcknowledgement.findMany({
+                      where: {
+                          lessonId: { in: publishedAssignments.map((assignment) => assignment.lesson.id) },
+                          studentId: student.id,
+                      },
                       select: {
                           lessonId: true,
                           topicId: true,
-                          completedAt: true,
+                          contentVersion: true,
+                          acknowledgedAt: true,
                       },
                   })
                 : []
@@ -112,16 +128,24 @@ export async function GET(_req: Request, { params }: Params) {
             current.push(watch)
             watchesByLessonId.set(watch.lessonId, current)
         }
+        const acknowledgementsByLessonId = new Map<string, typeof topicAcknowledgements>()
+        for (const acknowledgement of topicAcknowledgements) {
+            const current = acknowledgementsByLessonId.get(acknowledgement.lessonId) ?? []
+            current.push(acknowledgement)
+            acknowledgementsByLessonId.set(acknowledgement.lessonId, current)
+        }
 
         return NextResponse.json(
             publishedAssignments.map((assignment) => {
                 const attempts = attemptsByLessonId.get(assignment.lesson.id) ?? []
                 const watches = watchesByLessonId.get(assignment.lesson.id) ?? []
+                const acknowledgements = acknowledgementsByLessonId.get(assignment.lesson.id) ?? []
                 const completion = assignment.completions[0] ?? null
                 const progressSummary = summarizeStudentLessonProgress({
                     content: assignment.lesson.content,
                     attempts,
                     topicVideoWatches: watches,
+                    topicAcknowledgements: acknowledgements,
                     completedAt: completion?.completedAt ?? null,
                 })
                 return {

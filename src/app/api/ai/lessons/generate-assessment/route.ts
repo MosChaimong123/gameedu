@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from "@google/generative-ai"
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error"
@@ -12,6 +11,7 @@ import type { QuestionSetSourceMetadata } from "@/lib/courses/assessment-source"
 import { isCourseContentV1 } from "@/lib/courses/course-content"
 import { db } from "@/lib/db"
 import { isLessonContentV2, type LessonContentV2 } from "@/lib/lessons/lesson-content"
+import { resolveLessonContentCurriculumMetadata } from "@/lib/lessons/lesson-curriculum-metadata"
 import { getLimitsForUser } from "@/lib/plan/plan-access"
 import { normalizeGeneratedQuestions, type QuestionSetQuestion } from "@/lib/question-set-schema"
 import { logAuditEvent } from "@/lib/security/audit-log"
@@ -21,8 +21,11 @@ import {
     createRateLimitResponse,
     getRequestClientIdentifier,
 } from "@/lib/security/rate-limit"
-
-type GeminiContentPart = { text: string }
+import {
+    generateGeminiTextWithFallback,
+    stripJsonFence,
+    type GeminiContentPart,
+} from "@/lib/services/lessons/ai-generation"
 
 type AssessmentRequestBody = {
     lessonId?: string
@@ -68,10 +71,6 @@ type CourseRecord = {
 
 function asText(value: unknown, fallback = "") {
     return typeof value === "string" ? value.trim() : fallback
-}
-
-function stripJsonFence(raw: string) {
-    return raw.includes("```") ? raw.replace(/```json/g, "").replace(/```/g, "").trim() : raw.trim()
 }
 
 function clampQuestionCount(value: unknown) {
@@ -176,8 +175,10 @@ async function buildLessonPromptSource(
         return null
     }
 
-    const curriculum = lesson.content.metadata?.curriculum
-    const blueprintResolved = resolveSubjectAssessmentBlueprintFromLabel(lesson.subject || lesson.content.outline.subject)
+    const resolvedCurriculum = resolveLessonContentCurriculumMetadata(lesson.content, lesson.subject)
+    const blueprintResolved = resolvedCurriculum.subjectId
+        ? resolveSubjectAssessmentBlueprintFromLabel(resolvedCurriculum.subjectId)
+        : resolveSubjectAssessmentBlueprintFromLabel(lesson.subject || lesson.content.outline.subject)
     const recommendedPassScore = blueprintResolved
         ? getRecommendedAssessmentPassScore({
               questionCount: resolveAssessmentQuestionCount({
@@ -190,10 +191,10 @@ async function buildLessonPromptSource(
           })
         : null
     const promptContext = `Lesson title: ${lesson.title}
-Subject: ${lesson.subject || lesson.content.outline.subject || "not specified"}
-Grade level: ${lesson.gradeLevel || lesson.content.outline.gradeLevel || "not specified"}
-${curriculum?.curriculumCode ? `Curriculum code: ${curriculum.curriculumCode}` : ""}
-${curriculum?.unitId ? `Unit id: ${curriculum.unitId}` : ""}
+Subject: ${resolvedCurriculum.subjectLabel || lesson.subject || lesson.content.outline.subject || "not specified"}
+Grade level: ${resolvedCurriculum.gradeLevel || lesson.gradeLevel || lesson.content.outline.gradeLevel || "not specified"}
+${resolvedCurriculum.curriculumCode ? `Curriculum code: ${resolvedCurriculum.curriculumCode}` : ""}
+${resolvedCurriculum.unitId ? `Unit id: ${resolvedCurriculum.unitId}` : ""}
 
 ${topics.map(buildTopicBlock).join("\n\n---\n\n")}`.trim()
 
@@ -203,10 +204,13 @@ ${topics.map(buildTopicBlock).join("\n\n---\n\n")}`.trim()
             source: { sourceType: "topic", lessonId: lesson.id, topicId: topicId! },
             generatedFrom: "ai_lesson_assessment",
             subjectId: blueprintResolved?.subject.id,
-            curriculumCode: curriculum?.curriculumCode,
-            gradeLevel: lesson.gradeLevel || lesson.content.outline.gradeLevel || undefined,
-            unitId: curriculum?.unitId,
-            learningOutcomeIds: curriculum?.learningOutcomeIds,
+            curriculumCode: resolvedCurriculum.curriculumCode ?? undefined,
+            gradeLevel: resolvedCurriculum.gradeLevel || lesson.gradeLevel || lesson.content.outline.gradeLevel || undefined,
+            unitId: resolvedCurriculum.unitId ?? undefined,
+            learningOutcomeIds:
+                resolvedCurriculum.learningOutcomeIds.length > 0
+                    ? resolvedCurriculum.learningOutcomeIds
+                    : undefined,
             assessmentBlueprintId: blueprintResolved?.blueprint.id,
             assessmentFamily: blueprintResolved?.blueprint.assessmentFamily,
             recommendedPassScore: recommendedPassScore ?? undefined,
@@ -236,14 +240,16 @@ async function buildCoursePromptSource(
     }
 
     const selectedModules = moduleId
-        ? course.content.modules.filter((module) => module.id === moduleId)
+        ? course.content.modules.filter((courseModule) => courseModule.id === moduleId)
         : course.content.modules
 
     if (selectedModules.length === 0) {
         return null
     }
 
-    const orderedLessonIds = selectedModules.flatMap((module) => module.lessons.map((lesson) => lesson.lessonId))
+    const orderedLessonIds = selectedModules.flatMap((courseModule) =>
+        courseModule.lessons.map((lesson) => lesson.lessonId)
+    )
     const lessons = (await db.lesson.findMany({
         where: { id: { in: orderedLessonIds } },
         select: {
@@ -259,9 +265,9 @@ async function buildCoursePromptSource(
     const lessonsById = new Map(lessons.map((lesson) => [lesson.id, lesson]))
     const promptBlocks: string[] = []
 
-    for (const module of selectedModules) {
+    for (const courseModule of selectedModules) {
         const lessonBlocks: string[] = []
-        for (const lessonRef of module.lessons) {
+        for (const lessonRef of courseModule.lessons) {
             const lesson = lessonsById.get(lessonRef.lessonId)
             if (!lesson) return null
             if (lesson.ownerUserId !== sessionUserId && sessionRole !== "ADMIN") return null
@@ -274,8 +280,8 @@ ${lesson.content.topics.map(buildTopicBlock).join("\n\n")}`
         }
 
         promptBlocks.push(
-            `Module title: ${module.title}
-Module description: ${module.description || "not specified"}
+            `Module title: ${courseModule.title}
+Module description: ${courseModule.description || "not specified"}
 
 ${lessonBlocks.join("\n\n===\n\n")}`
         )
@@ -533,32 +539,10 @@ export async function POST(req: Request) {
             difficulty,
         })
 
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-        const models = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-flash-lite-latest"]
-
-        let raw = ""
-        let lastError: unknown
-        let rateLimited = false
-        for (const modelName of models) {
-            try {
-                const model = genAI.getGenerativeModel({ model: modelName })
-                const result = await model.generateContent([{ text: prompt } satisfies GeminiContentPart])
-                raw = result.response.text()
-                break
-            } catch (error) {
-                lastError = error
-                const message = error instanceof Error ? error.message : ""
-                const is503 = message.includes("503") || message.includes("overloaded") || message.includes("Service Unavailable")
-                const is429 = message.includes("429") || message.includes("Too Many Requests")
-                const is404 = message.includes("404") || message.includes("not found")
-                const isHardQuota = message.includes("limit: 0") || message.includes("limit\": 0")
-                if (is429) rateLimited = true
-                if (is404 || isHardQuota || is503 || is429) continue
-                throw error
-            }
-        }
-
-        if (!raw && rateLimited) {
+        const generated = await generateGeminiTextWithFallback([{ text: prompt } satisfies GeminiContentPart], {
+            apiKey: process.env.GEMINI_API_KEY,
+        })
+        if (!generated.ok && generated.reason === "rate_limited") {
             logAuditEvent({
                 actorUserId,
                 action: "ai.lesson_assessment_generate.failed",
@@ -569,11 +553,11 @@ export async function POST(req: Request) {
             })
             return createAppErrorResponse("RATE_LIMITED", "AI is currently rate limited. Please try again shortly.", 429)
         }
-        if (!raw) throw lastError
+        if (!generated.ok) throw generated.lastError
 
         let jsonPayload: unknown
         try {
-            jsonPayload = JSON.parse(stripJsonFence(raw))
+            jsonPayload = JSON.parse(stripJsonFence(generated.raw))
         } catch {
             logAuditEvent({
                 actorUserId,

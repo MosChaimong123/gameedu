@@ -106,8 +106,24 @@ describe("teacher lesson CRUD routes", () => {
     });
 
     it("scopes lesson list to the signed-in teacher", async () => {
+        mockLessonFindMany.mockResolvedValue([
+            {
+                id: "lesson-1",
+                title: "Physics",
+                subject: "physics",
+                gradeLevel: "ม.4",
+                description: "desc",
+                status: "DRAFT",
+                sourceFileName: null,
+                content: validContentV2,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                classroomAssignments: [],
+            },
+        ]);
         const { GET } = await import("@/app/api/lessons/route");
         const res = await GET();
+        const payload = await res.json();
 
         expect(res.status).toBe(200);
         expect(mockLessonFindMany).toHaveBeenCalledWith(
@@ -116,6 +132,11 @@ describe("teacher lesson CRUD routes", () => {
                 orderBy: { createdAt: "desc" },
             })
         );
+        expect(payload[0].normalizedCurriculumSummary).toMatchObject({
+            subjectId: "science_technology",
+            unitId: "sci-tech-u02",
+            unitTitle: "ธรรมชาติและพัฒนาการทางฟิสิกส์",
+        });
     });
 
     it("creates a draft lesson with validated content and trimmed fields", async () => {
@@ -133,6 +154,7 @@ describe("teacher lesson CRUD routes", () => {
                 }),
             })
         );
+        const payload = await res.json();
 
         expect(res.status).toBe(201);
         expect(mockLessonCreate).toHaveBeenCalledWith({
@@ -144,8 +166,21 @@ describe("teacher lesson CRUD routes", () => {
                 sourceFileName: "worksheet.pdf",
                 status: "DRAFT",
                 ownerUserId: "teacher-1",
-                content: validContentV2,
+                content: expect.objectContaining({
+                    ...validContentV2,
+                    metadata: {
+                        curriculum: expect.objectContaining({
+                            subject: "science_technology",
+                            unitId: "phy-m4-s1-u01",
+                        }),
+                    },
+                }),
             }),
+        });
+        expect(payload.normalizedCurriculumSummary).toMatchObject({
+            subjectId: "science_technology",
+            rawUnitId: "phy-m4-s1-u01",
+            unitId: "sci-tech-u02",
         });
     });
 
@@ -226,6 +261,7 @@ describe("teacher lesson CRUD routes", () => {
             }),
             { params: Promise.resolve({ id: "lesson-1" }) }
         );
+        const patchPayload = await patchRes.json();
         const deleteRes = await DELETE(new Request("http://localhost/api/lessons/lesson-1"), {
             params: Promise.resolve({ id: "lesson-1" }),
         });
@@ -237,10 +273,48 @@ describe("teacher lesson CRUD routes", () => {
             data: expect.objectContaining({
                 title: "Updated",
                 status: "PUBLISHED",
-                content: validContentV2,
+                content: expect.objectContaining({
+                    ...validContentV2,
+                    metadata: {
+                        curriculum: expect.objectContaining({
+                            subject: "science_technology",
+                            unitId: "phy-m4-s1-u01",
+                        }),
+                    },
+                }),
             }),
         });
         expect(mockLessonDelete).toHaveBeenCalledWith({ where: { id: "lesson-1" } });
+        expect(patchPayload.normalizedCurriculumSummary).toMatchObject({
+            subjectId: "science_technology",
+            rawUnitId: "phy-m4-s1-u01",
+            unitId: "sci-tech-u02",
+        });
+    });
+
+    it("returns normalized curriculum summary on lesson detail reads", async () => {
+        mockLessonFindUnique.mockResolvedValue({
+            id: "lesson-1",
+            ownerUserId: "teacher-1",
+            subject: "physics",
+            content: validContentV2,
+            classroomAssignments: [],
+            assessmentAttempts: [],
+            certificates: [],
+        });
+
+        const { GET } = await import("@/app/api/lessons/[id]/route");
+        const res = await GET(new Request("http://localhost/api/lessons/lesson-1"), {
+            params: Promise.resolve({ id: "lesson-1" }),
+        });
+        const payload = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(payload.normalizedCurriculumSummary).toMatchObject({
+            subjectId: "science_technology",
+            unitId: "sci-tech-u02",
+            unitTitle: "ธรรมชาติและพัฒนาการทางฟิสิกส์",
+        });
     });
 
     it("rejects publishing V2 lessons that have no generated topic content", async () => {
@@ -286,7 +360,7 @@ describe("teacher lesson CRUD routes", () => {
         expect(mockLessonUpdate).not.toHaveBeenCalled();
     });
 
-    it("allows publishing V2 lessons once requirements are met", async () => {
+    it("rejects publishing when teacher confirmation is omitted", async () => {
         mockLessonFindUnique.mockResolvedValue({ ownerUserId: "teacher-1", content: validContentV2 });
 
         const { PATCH } = await import("@/app/api/lessons/[id]/route");
@@ -297,15 +371,38 @@ describe("teacher lesson CRUD routes", () => {
             }),
             { params: Promise.resolve({ id: "lesson-1" }) }
         );
+        const payload = await res.json();
+
+        expect(res.status).toBe(400);
+        expect(payload.error).toMatchObject({
+            code: "LESSON_NOT_PUBLISH_READY",
+            details: expect.arrayContaining([
+                expect.objectContaining({ code: "TEACHER_CONFIRMATION_REQUIRED" }),
+            ]),
+        });
+        expect(mockLessonUpdate).not.toHaveBeenCalled();
+    });
+
+    it("allows non-publish patches without teacher confirmation", async () => {
+        mockLessonFindUnique.mockResolvedValue({ ownerUserId: "teacher-1", content: validContentV2 });
+
+        const { PATCH } = await import("@/app/api/lessons/[id]/route");
+        const res = await PATCH(
+            new Request("http://localhost/api/lessons/lesson-1", {
+                method: "PATCH",
+                body: JSON.stringify({ title: " Revised draft ", status: "DRAFT" }),
+            }),
+            { params: Promise.resolve({ id: "lesson-1" }) }
+        );
 
         expect(res.status).toBe(200);
         expect(mockLessonUpdate).toHaveBeenCalledWith({
             where: { id: "lesson-1" },
-            data: { status: "PUBLISHED" },
+            data: { title: "Revised draft", status: "DRAFT" },
         });
     });
 
-    it("rejects publishing when curriculum metadata is missing", async () => {
+    it("allows publishing without curriculum metadata (medium gate)", async () => {
         mockLessonFindUnique.mockResolvedValue({
             ownerUserId: "teacher-1",
             content: { ...validContentV2, metadata: undefined },
@@ -320,7 +417,10 @@ describe("teacher lesson CRUD routes", () => {
             { params: Promise.resolve({ id: "lesson-1" }) }
         );
 
-        expect(res.status).toBe(400);
-        expect(mockLessonUpdate).not.toHaveBeenCalled();
+        expect(res.status).toBe(200);
+        expect(mockLessonUpdate).toHaveBeenCalledWith({
+            where: { id: "lesson-1" },
+            data: { status: "PUBLISHED" },
+        });
     });
 });

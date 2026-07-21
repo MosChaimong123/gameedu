@@ -75,7 +75,19 @@ export async function POST(_req: Request, { params }: Params) {
             },
             select: {
                 topicId: true,
+                mediaId: true,
                 completedAt: true,
+            },
+        })
+        const topicAcknowledgements = await db.lessonTopicAcknowledgement.findMany({
+            where: {
+                lessonId,
+                studentId: student.id,
+            },
+            select: {
+                topicId: true,
+                contentVersion: true,
+                acknowledgedAt: true,
             },
         })
 
@@ -93,6 +105,7 @@ export async function POST(_req: Request, { params }: Params) {
             content,
             attempts: assessmentAttempts,
             topicVideoWatches,
+            topicAcknowledgements,
             completedAt: existing ? new Date() : null,
         })
 

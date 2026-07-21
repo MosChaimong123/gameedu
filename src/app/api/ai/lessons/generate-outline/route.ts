@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from "@google/generative-ai"
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from "@/lib/api-error"
@@ -24,10 +23,11 @@ import {
     createRateLimitResponse,
     getRequestClientIdentifier,
 } from "@/lib/security/rate-limit"
-
-type GeminiContentPart =
-    | { text: string }
-    | { inlineData: { data: string; mimeType: string } }
+import {
+    generateGeminiTextWithFallback,
+    stripJsonFence,
+    type GeminiContentPart,
+} from "@/lib/services/lessons/ai-generation"
 
 function asText(value: unknown, fallback = "") {
     return typeof value === "string" ? value.trim() : fallback
@@ -88,10 +88,6 @@ function normalizeGeneratedOutlineBatch(value: unknown): LessonOutlineBatchDraft
 
     const batch = { lessons }
     return isLessonOutlineBatchDraft(batch) ? batch : null
-}
-
-function stripJsonFence(raw: string) {
-    return raw.includes("```") ? raw.replace(/```json/g, "").replace(/```/g, "").trim() : raw.trim()
 }
 
 export async function POST(req: Request) {
@@ -187,6 +183,12 @@ export async function POST(req: Request) {
         const clampedLessonCount = resolvedCurriculumSelection
             ? 1
             : Math.min(Math.max(Number(lessonCount ?? topicCount) || 4, 1), 12)
+        const promptSubject = resolvedCurriculumSelection?.subject.displayNameTh || subject || "not specified"
+        const promptGradeLevel =
+            gradeLevel ||
+            (resolvedCurriculumSelection
+                ? resolvedCurriculumSelection.unit.gradeLevels.join(", ")
+                : "not specified")
         const curriculumPrompt = resolvedCurriculumSelection
             ? `\n${buildOutlineCurriculumPromptContext(resolvedCurriculumSelection)}\n`
             : ""
@@ -194,8 +196,8 @@ export async function POST(req: Request) {
         const prompt = `You are an expert Thai instructional designer.
 Analyze the provided curriculum source and split it into lesson drafts.
 
-Subject: ${subject || "not specified"}
-Grade Level: ${gradeLevel || "not specified"}
+Subject: ${promptSubject}
+Grade Level: ${promptGradeLevel}
 Response Language: ${language === "th" ? "Thai" : "English"}
 Target lesson count: ${clampedLessonCount}
 ${curriculumPrompt}
@@ -244,32 +246,10 @@ Return this exact JSON shape:
         }
         parts.push({ text: prompt })
 
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-        const models = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-flash-lite-latest"]
-
-        let raw = ""
-        let lastError: unknown
-        let rateLimited = false
-        for (const modelName of models) {
-            try {
-                const model = genAI.getGenerativeModel({ model: modelName })
-                const result = await model.generateContent(parts)
-                raw = result.response.text()
-                break
-            } catch (error) {
-                lastError = error
-                const message = error instanceof Error ? error.message : ""
-                const is503 = message.includes("503") || message.includes("overloaded") || message.includes("Service Unavailable")
-                const is429 = message.includes("429") || message.includes("Too Many Requests")
-                const is404 = message.includes("404") || message.includes("not found")
-                const isHardQuota = message.includes("limit: 0") || message.includes("limit\": 0")
-                if (is429) rateLimited = true
-                if (is404 || isHardQuota || is503 || is429) continue
-                throw error
-            }
-        }
-
-        if (!raw && rateLimited) {
+        const generated = await generateGeminiTextWithFallback(parts, {
+            apiKey: process.env.GEMINI_API_KEY,
+        })
+        if (!generated.ok && generated.reason === "rate_limited") {
             logAuditEvent({
                 actorUserId,
                 action: "ai.lesson_outline_generate.failed",
@@ -280,11 +260,11 @@ Return this exact JSON shape:
             })
             return createAppErrorResponse("RATE_LIMITED", "AI is currently rate limited. Please try again shortly.", 429)
         }
-        if (!raw) throw lastError
+        if (!generated.ok) throw generated.lastError
 
         let jsonPayload: unknown
         try {
-            jsonPayload = JSON.parse(stripJsonFence(raw))
+            jsonPayload = JSON.parse(stripJsonFence(generated.raw))
         } catch {
             logAuditEvent({
                 actorUserId,
@@ -342,6 +322,7 @@ Return this exact JSON shape:
                 hasPdf: Boolean(pdfData),
                 curriculumSubjectId: curriculumSelectionParsed.success ? curriculumSelectionParsed.data.subjectId : undefined,
                 curriculumUnitId: curriculumSelectionParsed.success ? curriculumSelectionParsed.data.unitId : undefined,
+                curriculumTemplateId: curriculumSelectionParsed.success ? curriculumSelectionParsed.data.templateId : undefined,
             },
         })
 

@@ -85,7 +85,19 @@ export async function GET(_req: Request, { params }: Params) {
             },
             select: {
                 topicId: true,
+                mediaId: true,
                 completedAt: true,
+            },
+        })
+        const topicAcknowledgements = await db.lessonTopicAcknowledgement.findMany({
+            where: {
+                lessonId: assignment.lesson.id,
+                studentId: student.id,
+            },
+            select: {
+                topicId: true,
+                contentVersion: true,
+                acknowledgedAt: true,
             },
         })
         const completion = assignment.completions[0] ?? null
@@ -93,6 +105,7 @@ export async function GET(_req: Request, { params }: Params) {
             content: assignment.lesson.content,
             attempts: assessmentAttempts,
             topicVideoWatches,
+            topicAcknowledgements,
             completedAt: completion?.completedAt ?? null,
         })
 

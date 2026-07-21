@@ -4,10 +4,12 @@ import { createAppErrorResponse, AUTH_REQUIRED_MESSAGE, FORBIDDEN_MESSAGE } from
 import { syncTeachingMediaUsageForOwner } from "@/lib/actions/teaching-media-actions"
 import { db } from "@/lib/db"
 import { parseLessonAssessmentQuestions } from "@/lib/lessons/lesson-assessment"
+import { isLessonContentV2 } from "@/lib/lessons/lesson-content"
 import {
-    getLessonPublishReadinessIssues,
-    isLessonContentV2,
-} from "@/lib/lessons/lesson-content"
+    normalizeLessonContentCurriculumForWrite,
+    withLessonNormalizedCurriculumSummary,
+} from "@/lib/lessons/lesson-curriculum-metadata"
+import { getLessonPublishCommandIssues } from "@/lib/services/lessons/lesson-publish"
 import { getLessonMediaBlockUsageReferences, getTeachingMediaUsageReferences } from "@/lib/teaching-media-reference"
 
 type Params = { params: Promise<{ id: string }> }
@@ -123,7 +125,7 @@ export async function GET(_req: Request, { params }: Params) {
         }
 
         const lessonWithParsedQuestionSets = {
-            ...lesson,
+            ...withLessonNormalizedCurriculumSummary(lesson),
             assessmentAttempts: lesson.assessmentAttempts.map((attempt) => ({
                 ...attempt,
                 questionSet: attempt.questionSet
@@ -182,12 +184,11 @@ export async function PATCH(req: Request, { params }: Params) {
         if (content !== undefined && !isLessonContentV2(content)) {
             return createAppErrorResponse("INVALID_PAYLOAD", "lesson content must use lesson_content_v2", 400)
         }
-        const nextContent = content !== undefined ? content : existing.content
+        const normalizedContent =
+            content !== undefined ? normalizeLessonContentCurriculumForWrite(content, subject) : undefined
+        const nextContent = normalizedContent !== undefined ? normalizedContent : existing.content
         if (status === "PUBLISHED") {
-            const readinessIssues = getLessonPublishReadinessIssues(nextContent, {
-                requireTeacherConfirmation: body.confirmPublishReady === false,
-                publishConfirmed: body.confirmPublishReady,
-            })
+            const readinessIssues = getLessonPublishCommandIssues(nextContent, body.confirmPublishReady)
             if (readinessIssues.length > 0) {
                 return NextResponse.json(
                     {
@@ -210,14 +211,19 @@ export async function PATCH(req: Request, { params }: Params) {
                 ...(gradeLevel !== undefined && { gradeLevel: gradeLevel?.trim() || null }),
                 ...(description !== undefined && { description: description?.trim() || null }),
                 ...(status !== undefined && { status }),
-                ...(content !== undefined && { content }),
+                ...(normalizedContent !== undefined && { content: normalizedContent }),
             },
         })
 
-        if (content !== undefined) {
-            const documentUsage = getTeachingMediaUsageReferences(content.topics.flatMap((topic) => topic.documents ?? []))
+        if (normalizedContent !== undefined) {
+            const documentUsage = getTeachingMediaUsageReferences(
+                normalizedContent.topics.flatMap((topic) => topic.documents ?? [])
+            )
             const mediaUsage = getLessonMediaBlockUsageReferences(
-                content.topics.flatMap((topic) => [...(topic.media ?? []), ...topic.sections.flatMap((section) => section.media ?? [])])
+                normalizedContent.topics.flatMap((topic) => [
+                    ...(topic.media ?? []),
+                    ...topic.sections.flatMap((section) => section.media ?? []),
+                ])
             )
 
             await syncTeachingMediaUsageForOwner(updated.ownerUserId, {
@@ -228,7 +234,17 @@ export async function PATCH(req: Request, { params }: Params) {
             })
         }
 
-        return NextResponse.json(updated)
+        return NextResponse.json(
+            withLessonNormalizedCurriculumSummary(updated, {
+                content: normalizedContent ?? nextContent,
+                subject:
+                    subject !== undefined
+                        ? subject?.trim() || null
+                        : typeof updated.subject === "string"
+                          ? updated.subject
+                          : undefined,
+            })
+        )
     } catch (error) {
         console.error("[LESSON_PATCH]", error)
         return createAppErrorResponse("INTERNAL_ERROR", "Failed to update lesson", 500)

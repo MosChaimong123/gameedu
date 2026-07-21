@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getLessonTopicProgressVersion } from "@/lib/lessons/lesson-progress";
 
 const mockStudentFindFirst = vi.fn();
 const mockLessonAssignmentFindMany = vi.fn();
@@ -9,6 +10,7 @@ const mockLessonAssessmentAttemptFindMany = vi.fn();
 const mockLessonAssessmentAttemptCreate = vi.fn();
 const mockLessonAssessmentAttemptUpdate = vi.fn();
 const mockTopicVideoWatchFindMany = vi.fn();
+const mockLessonTopicAcknowledgementFindMany = vi.fn();
 const mockQuestionSetFindUnique = vi.fn();
 const mockStudentUpdate = vi.fn();
 const mockPointHistoryCreate = vi.fn();
@@ -39,6 +41,9 @@ vi.mock("@/lib/db", () => ({
         },
         topicVideoWatch: {
             findMany: mockTopicVideoWatchFindMany,
+        },
+        lessonTopicAcknowledgement: {
+            findMany: mockLessonTopicAcknowledgementFindMany,
         },
         lessonCertificate: {
             findMany: mockLessonCertificateFindMany,
@@ -170,6 +175,20 @@ describe("student lessons routes", () => {
         });
         mockLessonAssessmentAttemptFindMany.mockResolvedValue([]);
         mockTopicVideoWatchFindMany.mockResolvedValue([]);
+        mockLessonTopicAcknowledgementFindMany.mockResolvedValue([
+            {
+                lessonId: "lesson-1",
+                topicId: "topic-1",
+                contentVersion: getLessonTopicProgressVersion(topicAssessmentLessonContentV2.topics[0]),
+                acknowledgedAt: "2026-07-12T10:00:00.000Z",
+            },
+            {
+                lessonId: "lesson-1",
+                topicId: "topic-2",
+                contentVersion: getLessonTopicProgressVersion(topicAssessmentLessonContentV2.topics[1]),
+                acknowledgedAt: "2026-07-12T10:05:00.000Z",
+            },
+        ]);
         mockLessonAssessmentAttemptCreate.mockResolvedValue({
             id: "attempt-1",
             score: 1,
@@ -717,6 +736,48 @@ describe("student lessons routes", () => {
 
         expect(res.status).toBe(403);
         expect(body.error.message).toContain("Pass all required topic assessments");
+        expect(mockLessonCompletionUpsert).not.toHaveBeenCalled();
+    });
+
+    it("blocks lesson completion when text topics are not acknowledged", async () => {
+        mockLessonTopicAcknowledgementFindMany.mockResolvedValue([]);
+        mockLessonAssessmentAttemptFindMany.mockResolvedValue([
+            {
+                questionSetId: "set-topic-1",
+                assessmentSourceType: "topic",
+                topicId: "topic-1",
+                topicAssessmentId: "topic-assessment-1",
+                score: 1,
+                maxScore: 1,
+                passed: true,
+                attemptNumber: 1,
+                rewardGrantedAt: null,
+                certificateIssuedAt: null,
+                completedAt: "2026-06-17T12:00:00.000Z",
+            },
+            {
+                questionSetId: "set-topic-2",
+                assessmentSourceType: "topic",
+                topicId: "topic-2",
+                topicAssessmentId: "topic-assessment-2",
+                score: 1,
+                maxScore: 1,
+                passed: true,
+                attemptNumber: 1,
+                rewardGrantedAt: null,
+                certificateIssuedAt: null,
+                completedAt: "2026-06-17T12:05:00.000Z",
+            },
+        ]);
+
+        const { POST } = await import("@/app/api/student/[code]/lessons/[lessonId]/complete/route");
+        const res = await POST(new Request("http://localhost", { method: "POST" }), {
+            params: Promise.resolve({ code: "abc123", lessonId: "lesson-1" }),
+        });
+        const body = await res.json();
+
+        expect(res.status).toBe(403);
+        expect(body.error.message).toContain("Finish the required lesson content");
         expect(mockLessonCompletionUpsert).not.toHaveBeenCalled();
     });
 

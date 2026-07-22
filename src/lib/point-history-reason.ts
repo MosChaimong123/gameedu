@@ -4,6 +4,7 @@
  */
 const NEGAMON_LIVE_BATTLE_V1_PREFIX = "negamon-live-v1|";
 const NEGAMON_LIVE_BATTLE_V2_PREFIX = "negamon-live-v2|";
+const AR_QUEST_LIVE_V1_PREFIX = "ar-quest-live-v1|";
 const NEGAMON_ATTENDANCE_PREFIX = "negamon_attendance_reward:";
 const NEGAMON_QUEST_PREFIX = "negamon_quest_reward:";
 const NEGAMON_LEVEL_UP_PREFIX = "negamon_level_up:";
@@ -53,6 +54,14 @@ export function encodeNegamonLiveBattleRewardReason(
     return `${NEGAMON_LIVE_BATTLE_V2_PREFIX}${gamePin}|${rank}|${finalScore}|${startHp}`;
 }
 
+export function encodeArQuestLiveRewardReason(
+    gamePin: string,
+    rank: number,
+    finalScore: number
+): string {
+    return `${AR_QUEST_LIVE_V1_PREFIX}${gamePin}|${rank}|${finalScore}`;
+}
+
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
 
 function formatNegamonQuestRewardReason(payload: string, t: TranslateFn): string | null {
@@ -72,6 +81,14 @@ function formatNegamonQuestRewardReason(payload: string, t: TranslateFn): string
 }
 
 export function formatPointHistoryReason(reason: string, t: TranslateFn): string {
+    if (reason.startsWith(AR_QUEST_LIVE_V1_PREFIX)) {
+        const rest = reason.slice(AR_QUEST_LIVE_V1_PREFIX.length);
+        const [, rank, finalScore] = rest.split("|");
+        if (rank && finalScore) {
+            return t("arQuestPointHistoryLiveReward", { rank, finalScore });
+        }
+    }
+
     if (reason.startsWith(NEGAMON_LIVE_BATTLE_V2_PREFIX)) {
         const rest = reason.slice(NEGAMON_LIVE_BATTLE_V2_PREFIX.length);
         const [, rank, finalScore, startHp] = rest.split("|");

@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Lock } from "lucide-react"
+import { Lock, ScanLine, Sparkles } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { isNegamonBattleHostEnabled } from "@/lib/negamon-battle-host-enabled"
 import { PageBackLink } from "@/components/ui/page-back-link"
@@ -13,7 +13,8 @@ type GameModeBase = {
     id: string
     titleKey: string
     descKey: string
-    imageSrc: string
+    imageSrc?: string
+    iconKind?: "ar"
     playersKey: string
     durationKey: string
     color: string
@@ -93,6 +94,17 @@ const MODE_DEFS: GameModeBase[] = [
         active: true,
     },
     {
+        id: "ar-quest",
+        titleKey: "hostModeArQuestTitle",
+        descKey: "hostModeArQuestDesc",
+        iconKind: "ar",
+        playersKey: "hostModePlayers2to60",
+        durationKey: "hostModeDurationArQuest",
+        color: "bg-teal-900 border-cyan-300/60",
+        previewAccent: "bg-cyan-950/55",
+        active: true,
+    },
+    {
         id: "factory",
         titleKey: "hostModeFactoryTitle",
         descKey: "hostModeFactoryDesc",
@@ -140,13 +152,20 @@ export function GameModeSelector({ onSelect, onBack }: GameModeSelectorProps) {
                     description: t(def.descKey),
                     players: t(def.playersKey),
                     time: t(def.durationKey),
-                    icon: (
+                    icon: def.iconKind === "ar" ? (
+                        <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-2xl bg-cyan-950/70 text-cyan-100">
+                            <div className="absolute inset-3 rounded-2xl border border-cyan-300/25" />
+                            <ScanLine className="h-3/5 w-3/5 drop-shadow-lg" strokeWidth={2.4} />
+                            <Sparkles className="absolute right-4 top-4 h-5 w-5 text-brand-yellow drop-shadow-md" />
+                            <Sparkles className="absolute bottom-5 left-5 h-4 w-4 text-cyan-200/90 drop-shadow-md" />
+                        </div>
+                    ) : (
                         <Image
-                            src={def.imageSrc}
+                            src={def.imageSrc ?? "/assets/gold-quest.svg"}
                             alt={title}
                             width={512}
                             height={512}
-                            unoptimized={def.imageSrc.endsWith(".svg")}
+                            unoptimized={def.imageSrc?.endsWith(".svg")}
                             className="h-full w-full object-contain drop-shadow-lg rounded-2xl"
                         />
                     ),

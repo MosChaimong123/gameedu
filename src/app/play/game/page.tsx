@@ -19,6 +19,7 @@ import { SoundController } from "@/components/game/sound-controller"
 import { motion } from "framer-motion"
 import {
     createInitialPlayer,
+    isArQuestPlayer,
     isBingoPlayer,
     isCryptoHackPlayer,
     isNegamonBattlePlayer,
@@ -137,7 +138,7 @@ export default function PlayerGamePage() {
             })
             return
         }
-        socket.emit("submit-answer", {
+        socket.emit(gameModeRef.current === "AR_QUEST" ? "submit-ar-answer" : "submit-answer", {
             pin,
             questionId: currentQuestion.id,
             answerIndex: index,
@@ -255,6 +256,8 @@ export default function PlayerGamePage() {
                                     ? `${player.battleHp} HP`
                                     : gameMode === "CRYPTO_HACK"
                                       ? `₿ ${(player as CryptoHackPlayer).crypto?.toLocaleString()}`
+                                      : gameMode === "AR_QUEST" && isArQuestPlayer(player)
+                                      ? `${player.arScore.toLocaleString()} pts`
                                       : (player as GoldQuestPlayer).gold?.toLocaleString()}
                             </div>
                             {finalStandings.length > 0 && (
@@ -272,6 +275,8 @@ export default function PlayerGamePage() {
                                                     ? `${standing.battleHp} HP`
                                                     : gameMode === "CRYPTO_HACK" && isCryptoHackPlayer(standing)
                                                       ? `₿ ${standing.crypto.toLocaleString()}`
+                                                      : gameMode === "AR_QUEST" && isArQuestPlayer(standing)
+                                                        ? `${standing.arScore.toLocaleString()} pts`
                                                       : (standing as GoldQuestPlayer).gold?.toLocaleString() ?? "0"
                                             return (
                                                 <li

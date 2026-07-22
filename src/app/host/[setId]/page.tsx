@@ -12,12 +12,15 @@ import { GameModeSelector } from "@/components/host/game-mode-selector"
 import { GoldQuestSettings } from "@/components/host/settings/gold-quest-settings"
 import { CryptoHackSettings } from "@/components/host/settings/crypto-hack-settings"
 import { BingoSettings } from "@/components/host/settings/bingo-settings"
+import { ArQuestSettings } from "@/components/host/settings/ar-quest-settings"
 import { GoldQuestHostView } from "@/components/game/gold-quest/host-view"
 import { CryptoHackHostView } from "@/components/game/crypto-hack/host-view"
 import { NegamonBattleHostView } from "@/components/game/negamon/negamon-battle-host-view"
 import { BingoHostView } from "@/components/game/bingo/bingo-host-view"
+import { ArQuestHostView } from "@/components/game/ar-quest/ar-quest-host-view"
 import { collectAnswerPool, linesToWinForSize, normalizeCardSize } from "@/lib/game-engine/bingo-card"
 import {
+    ArQuestPlayer,
     GoldQuestPlayer,
     CryptoHackPlayer,
     NegamonBattlePlayer,
@@ -48,8 +51,8 @@ import { isSocketSessionResetError, SOCKET_ERROR_BINGO_NOT_ENOUGH_ANSWERS } from
 import { isNegamonBattleHostEnabled } from "@/lib/negamon-battle-host-enabled"
 
 type HostView = "SELECT_MODE" | "SETTINGS" | "LOBBY" | "PLAYING" | "ENDED"
-type GameMode = "GOLD_QUEST" | "CRYPTO_HACK" | "NEGAMON_BATTLE" | "BINGO"
-type HostPlayer = GoldQuestPlayer | CryptoHackPlayer | NegamonBattlePlayer | BingoPlayer
+type GameMode = "GOLD_QUEST" | "CRYPTO_HACK" | "NEGAMON_BATTLE" | "BINGO" | "AR_QUEST"
+type HostPlayer = GoldQuestPlayer | CryptoHackPlayer | NegamonBattlePlayer | BingoPlayer | ArQuestPlayer
 
 type HostEvent = {
     source: string
@@ -74,6 +77,10 @@ function isBingoPlayer(player: HostPlayer): player is BingoPlayer {
     return "card" in player && Array.isArray((player as BingoPlayer).card)
 }
 
+function isArQuestPlayer(player: HostPlayer): player is ArQuestPlayer {
+    return "arScore" in player && typeof (player as ArQuestPlayer).arScore === "number"
+}
+
 function sortHostPlayersForStandings(players: HostPlayer[], mode: GameMode): HostPlayer[] {
     return [...players].sort((a, b) => {
         if (mode === "BINGO") {
@@ -81,6 +88,11 @@ function sortHostPlayersForStandings(players: HostPlayer[], mode: GameMode): Hos
             const bl = isBingoPlayer(b) ? b.completedLines : 0
             if (bl !== al) return bl - al
             return (b.correctAnswers ?? 0) - (a.correctAnswers ?? 0)
+        }
+        if (mode === "AR_QUEST") {
+            const aScore = isArQuestPlayer(a) ? a.arScore : 0
+            const bScore = isArQuestPlayer(b) ? b.arScore : 0
+            return bScore - aScore
         }
         if (mode === "NEGAMON_BATTLE") {
             const ah = isNegamonBattlePlayer(a) ? a.battleHp : 0
@@ -169,7 +181,7 @@ export default function HostLobbyPage() {
             // Pre-select game mode from ?mode= query param (e.g. from NegamonBattleLauncher)
             const rawMode = params.get("mode") as GameMode | null
             const negamonOk = isNegamonBattleHostEnabled()
-            if (rawMode === "GOLD_QUEST" || rawMode === "CRYPTO_HACK") {
+            if (rawMode === "GOLD_QUEST" || rawMode === "CRYPTO_HACK" || rawMode === "AR_QUEST") {
                 setSelectedMode(rawMode)
                 setView("SETTINGS")
             } else if (rawMode === "NEGAMON_BATTLE" && negamonOk) {
@@ -197,7 +209,7 @@ export default function HostLobbyPage() {
     const isClient = useIsClient()
     const uniqueLobbyPlayers = Array.from(new Map(players.map((player) => [player.id, player])).values())
     const negamonIdentityStatus =
-        selectedMode === "NEGAMON_BATTLE" && rewardClassroomFromQuery
+        (selectedMode === "NEGAMON_BATTLE" || selectedMode === "AR_QUEST") && rewardClassroomFromQuery
             ? {
                   linked: uniqueLobbyPlayers.filter((player) => Boolean(player.studentId)).length,
                   total: uniqueLobbyPlayers.length,
@@ -276,6 +288,7 @@ export default function HostLobbyPage() {
                 if (data.gameMode === "NEGAMON_BATTLE") setSelectedMode("NEGAMON_BATTLE")
                 else if (data.gameMode === "CRYPTO_HACK") setSelectedMode("CRYPTO_HACK")
                 else if (data.gameMode === "BINGO") setSelectedMode("BINGO")
+                else if (data.gameMode === "AR_QUEST") setSelectedMode("AR_QUEST")
                 else if (data.gameMode === "GOLD_QUEST") setSelectedMode("GOLD_QUEST")
             }
         )
@@ -304,6 +317,7 @@ export default function HostLobbyPage() {
                 bingoTotalLinesRef.current = 0
                 bingoLinesInitRef.current = false
             }
+            else if (incomingMode === "AR_QUEST") setSelectedMode("AR_QUEST")
             else setSelectedMode("GOLD_QUEST")
 
             if (data.settings) setGameSettings(data.settings);
@@ -521,6 +535,9 @@ export default function HostLobbyPage() {
         } else if (modeId === "bingo") {
             setSelectedMode("BINGO");
             setView("SETTINGS");
+        } else if (modeId === "ar-quest") {
+            setSelectedMode("AR_QUEST");
+            setView("SETTINGS");
         }
     }
 
@@ -541,7 +558,7 @@ export default function HostLobbyPage() {
             settings,
             mode: selectedMode,
             rewardClassroomId:
-                selectedMode === "NEGAMON_BATTLE" && rewardClassroomFromQuery
+                (selectedMode === "NEGAMON_BATTLE" || selectedMode === "AR_QUEST") && rewardClassroomFromQuery
                     ? rewardClassroomFromQuery
                     : undefined,
         })
@@ -627,6 +644,14 @@ export default function HostLobbyPage() {
                 </>
             )
         }
+        if (selectedMode === "AR_QUEST") {
+            return (
+                <>
+                    <SoundController className="fixed top-4 right-4" />
+                    <ArQuestSettings onHost={handleHostGame} onBack={() => setView("SELECT_MODE")} />
+                </>
+            )
+        }
         return (
             <>
                 <SoundController className="fixed top-4 right-4" />
@@ -699,6 +724,17 @@ export default function HostLobbyPage() {
                 />
             </>
         }
+        if (selectedMode === "AR_QUEST") {
+            return <>
+                <SoundController className="fixed bottom-6 left-6 z-[60]" />
+                <ArQuestHostView
+                    players={players.filter(isArQuestPlayer)}
+                    timeLeft={timeLeft}
+                    onEndGame={handleEndGame}
+                    pin={pin || ""}
+                />
+            </>
+        }
         if (selectedMode === "CRYPTO_HACK") {
             return <>
                 <SoundController className="fixed bottom-6 left-6 z-[60]" />
@@ -715,7 +751,7 @@ export default function HostLobbyPage() {
         return <>
             <SoundController className="fixed bottom-6 left-6 z-[60]" />
             <GoldQuestHostView
-                players={players.filter((player): player is GoldQuestPlayer => !isCryptoHackPlayer(player) && !isNegamonBattlePlayer(player))}
+                players={players.filter((player): player is GoldQuestPlayer => !isCryptoHackPlayer(player) && !isNegamonBattlePlayer(player) && !isArQuestPlayer(player))}
                 events={gameEvents}
                 timeLeft={timeLeft}
                 onEndGame={handleEndGame}
@@ -755,6 +791,8 @@ export default function HostLobbyPage() {
                                         ? t("playBingoLinesLabel", { count: player.completedLines })
                                         : isNegamonBattlePlayer(player)
                                         ? `${player.battleHp} HP`
+                                        : isArQuestPlayer(player)
+                                        ? `${player.arScore.toLocaleString()} pts`
                                         : ("crypto" in player) ?
                                         `₿ ${(player as CryptoHackPlayer).crypto.toLocaleString()}` :
                                         (player as GoldQuestPlayer).gold?.toLocaleString() || "0"}

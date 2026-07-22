@@ -6,12 +6,14 @@ import { GoldQuestEngine } from "./gold-quest-engine";
 import { CryptoHackEngine } from "./crypto-hack-engine";
 import { NegamonBattleEngine } from "./negamon-battle-engine";
 import { BingoEngine } from "./bingo-engine";
+import { ArQuestEngine } from "./ar-quest-engine";
 import { db } from "../db";
 import type { GameSettings } from "../types/game";
 import { toPrismaJson } from "../prisma-json";
 import { triggerNegamonClassroomRewardSync } from "./negamon-reward-sync-runner";
+import { triggerArQuestClassroomRewardSync } from "./ar-quest-reward-sync-runner";
 
-type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE" | "BINGO";
+type GameMode = "GOLD_QUEST" | "CLASSIC" | "CRYPTO_HACK" | "NEGAMON_BATTLE" | "BINGO" | "AR_QUEST";
 
 type PersistedGameRecord = {
     pin: string;
@@ -88,6 +90,8 @@ class GameManager {
             game = new NegamonBattleEngine(pin, hostId, setId, settings, questions, io);
         } else if (mode === "BINGO") {
             game = new BingoEngine(pin, hostId, setId, settings, questions, io);
+        } else if (mode === "AR_QUEST") {
+            game = new ArQuestEngine(pin, hostId, setId, settings, questions, io);
         } else {
             // CLASSIC or unknown → Gold Quest
             game = new GoldQuestEngine(pin, hostId, setId, settings, questions, io);
@@ -246,6 +250,15 @@ class GameManager {
                         parseQuestions(record.questions),
                         null as unknown as Server
                     );
+                } else if (record.gameMode === "AR_QUEST") {
+                    game = new ArQuestEngine(
+                        record.pin,
+                        record.hostId,
+                        "",
+                        parseSettings(record.settings),
+                        parseQuestions(record.questions),
+                        null as unknown as Server
+                    );
                 } else {
                     // Default to Gold Quest
                     game = new GoldQuestEngine(
@@ -305,6 +318,7 @@ class GameManager {
                 // 2. Negamon live battle -> classroom EXP.
                 // Retry is safe because the reward service writes per-student idempotency claims first.
                 triggerNegamonClassroomRewardSync(game);
+                triggerArQuestClassroomRewardSync(game);
 
                 // 3. Check for End & Archive
                 if (game.status === "ENDED" && !game.hasArchived) {

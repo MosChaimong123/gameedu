@@ -42,6 +42,13 @@ const stats = {
     errors: 0,
     connectErrors: 0,
     joinLatencies: [], // ms from connect -> joined-success
+    // gameplay diagnostics
+    questions: 0,
+    correct: 0,
+    wrong: 0,
+    chests: 0,
+    gameStarted: 0,
+    errorMessages: new Map(), // message -> count
 };
 
 const sockets = [];
@@ -70,7 +77,8 @@ function spawnPlayer(index) {
 
     socket.on("error", (e) => {
         stats.errors++;
-        if (stats.errors <= 5) console.error(`[player ${index}] error:`, e?.message ?? e);
+        const msg = String(e?.message ?? e);
+        stats.errorMessages.set(msg, (stats.errorMessages.get(msg) ?? 0) + 1);
     });
 
     socket.on("connect_error", (e) => {
@@ -79,15 +87,46 @@ function spawnPlayer(index) {
     });
 
     if (PLAY) {
-        // When the server pushes a question, answer after a human-ish delay.
-        const answer = () => {
-            const choice = Math.floor(Math.random() * 4);
-            socket.emit("submit-answer", { answer: choice });
+        // Gold Quest state machine. Chest opening only works while the game is
+        // PLAYING (server returns silently otherwise), so the loop is driven ONLY
+        // by game-started — never in the lobby. One action in flight per phase.
+        const rand = (n) => Math.floor(Math.random() * n);
+        let phase = "idle"; // idle | waiting-q | waiting-result | waiting-chest
+        // Every player game event must carry the pin or the server rejects it
+        // with playSocketRoomPinMismatch (see forwardPlayerGameEvent).
+        let chestTimer = null;
+        const requestQ = () => { phase = "waiting-q"; socket.emit("request-question", { pin: PIN }); };
+        const openChest = () => {
+            phase = "waiting-chest";
+            socket.emit("open-chest", { pin: PIN, chestIndex: rand(3) });
+            // open-chest returns silently before the game is PLAYING; retry until
+            // it lands (self-heals the lobby -> started transition).
+            clearTimeout(chestTimer);
+            chestTimer = setTimeout(() => { if (phase === "waiting-chest") openChest(); }, 2500);
         };
-        socket.on("new-question", () => setTimeout(answer, 500 + Math.random() * 2500));
-        socket.on("question", () => setTimeout(answer, 500 + Math.random() * 2500));
-        // Ask for the first question like the real client does.
-        socket.once("game-started", () => socket.emit("request-question"));
+
+        socket.on("next-question", (q) => {
+            stats.questions++;
+            const n = Array.isArray(q?.options) ? q.options.length : 4;
+            phase = "waiting-result";
+            setTimeout(() => socket.emit("submit-answer", { pin: PIN, questionId: q?.id, answerIndex: rand(n) }),
+                500 + rand(1500));
+        });
+        socket.on("answer-result", (r) => {
+            if (r?.correct) { stats.correct++; setTimeout(openChest, 400); }   // correct -> open a chest
+            else { stats.wrong++; setTimeout(requestQ, 500 + rand(1000)); }    // wrong -> next question
+        });
+        socket.on("chest-result", () => { clearTimeout(chestTimer); stats.chests++; setTimeout(requestQ, 500 + rand(1000)); });
+        socket.once("game-started", () => { stats.gameStarted++; });
+        // Gentle recovery: re-drive the CURRENT phase after a backoff — no tight loop.
+        socket.on("error", () => {
+            setTimeout(() => { phase === "waiting-chest" ? openChest() : requestQ(); }, 2000);
+        });
+
+        // Start playing when the game starts (present at start) OR shortly after
+        // joining a game that is already running (late join).
+        socket.once("game-started", () => setTimeout(requestQ, 300 + rand(1200)));
+        socket.once("joined-success", () => setTimeout(requestQ, 1500 + rand(1000)));
     }
 }
 
@@ -105,6 +144,16 @@ function report(final = false) {
         `joined=${stats.joined} errors=${stats.errors} connErrors=${stats.connectErrors} ` +
         `joinLatency avg=${avg}ms p95=${pct(lat, 95)}ms max=${lat.length ? Math.max(...lat) : 0}ms`
     );
+    if (PLAY) {
+        console.log(
+            `   gameplay: started=${stats.gameStarted} questions=${stats.questions} ` +
+            `correct=${stats.correct} wrong=${stats.wrong} chestsOpened=${stats.chests}`
+        );
+        if (final && stats.errorMessages.size) {
+            console.log("   error messages:");
+            for (const [msg, count] of stats.errorMessages) console.log(`     ${count}x  ${msg}`);
+        }
+    }
 }
 
 console.log(`Load test → ${URL}  pin=${PIN}  players=${PLAYERS}  ramp=${RAMP_MS}ms  play=${PLAY}`);

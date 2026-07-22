@@ -1,4 +1,4 @@
-import type { BingoPlayer, CryptoHackPlayer, GoldQuestPlayer, NegamonBattlePlayer, GameSettings } from "@/lib/types/game"
+import type { ArQuestPlayer, BingoPlayer, CryptoHackPlayer, GoldQuestPlayer, NegamonBattlePlayer, GameSettings } from "@/lib/types/game"
 import { DEFAULT_NEGAMON_BATTLE_TUNING } from "@/lib/types/game"
 
 export { formatSocketErrorMessage } from "@/lib/socket-error-messages"
@@ -25,8 +25,8 @@ export type QuestionPayload = {
     image?: string
 }
 
-export type PlayerMode = "GOLD_QUEST" | "CRYPTO_HACK" | "NEGAMON_BATTLE" | "BINGO"
-export type PlayerState = GoldQuestPlayer | CryptoHackPlayer | NegamonBattlePlayer | BingoPlayer
+export type PlayerMode = "GOLD_QUEST" | "CRYPTO_HACK" | "NEGAMON_BATTLE" | "BINGO" | "AR_QUEST"
+export type PlayerState = GoldQuestPlayer | CryptoHackPlayer | NegamonBattlePlayer | BingoPlayer | ArQuestPlayer
 
 export type BingoQuestionPayload = {
     id: string
@@ -97,6 +97,10 @@ export function isBingoPlayer(player: PlayerState): player is BingoPlayer {
     return "card" in player && Array.isArray((player as BingoPlayer).card)
 }
 
+export function isArQuestPlayer(player: PlayerState): player is ArQuestPlayer {
+    return "arScore" in player && typeof (player as ArQuestPlayer).arScore === "number"
+}
+
 export function createBingoPlayer(name: string): BingoPlayer {
     return {
         id: "me",
@@ -127,6 +131,19 @@ export function createNegamonPlayer(
         score: 0,
         correctAnswers: 0,
         incorrectAnswers: 0,
+    }
+}
+
+export function createArQuestPlayer(name: string): ArQuestPlayer {
+    return {
+        id: "me",
+        name,
+        isConnected: true,
+        score: 0,
+        correctAnswers: 0,
+        incorrectAnswers: 0,
+        arScore: 0,
+        streak: 0,
     }
 }
 
@@ -176,6 +193,21 @@ export function toGoldQuestPlayer(player: PlayerState): GoldQuestPlayer {
             streak: 0,
         }
     }
+    if (isArQuestPlayer(player)) {
+        return {
+            gold: player.arScore,
+            id: player.id,
+            name: player.name,
+            avatar: player.avatar,
+            isConnected: player.isConnected,
+            score: player.score,
+            correctAnswers: player.correctAnswers,
+            incorrectAnswers: player.incorrectAnswers,
+            responses: player.responses,
+            multiplier: 1,
+            streak: player.streak,
+        }
+    }
 
     return player
 }
@@ -183,6 +215,7 @@ export function toGoldQuestPlayer(player: PlayerState): GoldQuestPlayer {
 export function getPlayerScoreValue(player: PlayerState, mode: PlayerMode): number {
     if (mode === "NEGAMON_BATTLE" && isNegamonBattlePlayer(player)) return player.battleHp
     if (mode === "BINGO" && isBingoPlayer(player)) return player.completedLines
+    if (mode === "AR_QUEST" && isArQuestPlayer(player)) return player.arScore
     return mode === "CRYPTO_HACK" && isCryptoHackPlayer(player) ? player.crypto : toGoldQuestPlayer(player).gold
 }
 

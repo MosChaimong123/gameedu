@@ -7,6 +7,8 @@ export function formatGameModeLabel(gameMode: string, t: TranslateFn): string {
             return t("gameModeLabelGoldQuest");
         case "CRYPTO_HACK":
             return t("gameModeLabelCryptoHack");
+        case "AR_QUEST":
+            return t("hostModeArQuestTitle");
         default:
             return gameMode.replace(/_/g, " ");
     }

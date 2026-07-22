@@ -31,11 +31,13 @@ import type {
 import type { NegamonBetweenRoundPlayback } from "./negamon-play-ui"
 import {
     createNegamonPlayer,
+    createArQuestPlayer,
     formatSocketErrorMessage,
     getPlayerLiveRank,
     findCurrentPlayer,
     sortPlayersForStandings,
     isBingoPlayer,
+    isArQuestPlayer,
     isCryptoHackPlayer,
     isNegamonBattlePlayer,
     looksLikeNegamonPlayerRow,
@@ -180,6 +182,11 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
                 hasRequestedFirstQuestion.current = true
             }
 
+            if (data.gameMode === "AR_QUEST") {
+                setPlayer(createArQuestPlayer(playerSession.name))
+                hasRequestedFirstQuestion.current = false
+            }
+
             console.log("Game started. Waiting for state update to confirm mode and request question...")
 
             if (data.settings?.winCondition === "TIME" && data.startTime && data.settings.timeLimitMinutes) {
@@ -215,6 +222,9 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
 
                     if (gameModeRef.current === "GOLD_QUEST") {
                         setView("CHEST")
+                    } else if (gameModeRef.current === "AR_QUEST") {
+                        const pin = playerSession.pin
+                        if (pin) socket.emit("request-question", { pin })
                     } else if (gameModeRef.current === "CRYPTO_HACK") {
                         console.log("Skipping CHEST nav because mode is CRYPTO_HACK. Waiting for choose-box...")
                     }
@@ -286,6 +296,26 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
                     if (bingoMe.card.length > 0) {
                         setView((v) => (v === "GAME_OVER" ? v : "BINGO_CARD"))
                     }
+                }
+                return
+            }
+
+            if (gameModeRef.current === "AR_QUEST" || data.players.some(isArQuestPlayer)) {
+                setGameMode("AR_QUEST")
+                gameModeRef.current = "AR_QUEST"
+
+                const me = findCurrentPlayer(data.players, socket.id, playerSession.name)
+                setOtherPlayers(data.players.filter((p) => p.id !== me?.id))
+
+                const rank = me ? getPlayerLiveRank(data.players, me, "AR_QUEST") : 0
+                if (me && isArQuestPlayer(me)) {
+                    setPlayer((prev) => ({ ...prev, ...me, score: rank }))
+                }
+
+                if (!hasRequestedFirstQuestion.current) {
+                    const pin = playerSession.pin
+                    if (pin) socket.emit("request-question", { pin })
+                    hasRequestedFirstQuestion.current = true
                 }
                 return
             }
@@ -689,9 +719,17 @@ export function usePlayGameSocket(params: UsePlayGameSocketParams): void {
                 hasRequestedFirstQuestion.current = true
             }
 
+            if (data?.gameMode === "AR_QUEST") {
+                setPlayer(createArQuestPlayer(data.nickname))
+                hasRequestedFirstQuestion.current = false
+            }
+
             const pin = playerSession.pin
             if (pin && gameModeRef.current === "GOLD_QUEST") {
                 socket.emit("request-question", { pin })
+            } else if (pin && gameModeRef.current === "AR_QUEST") {
+                socket.emit("request-question", { pin })
+                hasRequestedFirstQuestion.current = true
             } else {
                 console.log("Waiting for game logic based on mode:", gameModeRef.current)
             }

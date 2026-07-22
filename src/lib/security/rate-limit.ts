@@ -1,6 +1,8 @@
 import { createAppError } from "@/lib/api-error";
+import { createHmac } from "node:crypto";
 import { resolveRateLimitStore } from "@/lib/env";
 import { getRateLimitCollection } from "@/lib/ops/mongo-admin";
+import { resolveEmailVerificationPepper } from "@/lib/email-verification";
 
 type RateLimitEntry = {
   count: number;
@@ -28,6 +30,13 @@ export function buildRateLimitKey(...parts: Array<string | null | undefined>) {
     .map((part) => (part ?? "").trim())
     .filter(Boolean)
     .join(":");
+}
+
+/** Stable non-PII identifier for email/account rate-limit buckets. */
+export function digestRateLimitIdentifier(value: string) {
+  return createHmac("sha256", resolveEmailVerificationPepper())
+    .update(value.trim().toLowerCase())
+    .digest("hex");
 }
 
 export function getRequestClientIdentifier(request: Pick<Request, "headers">) {

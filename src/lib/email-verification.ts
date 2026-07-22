@@ -7,7 +7,6 @@ export const EMAIL_VERIFICATION_MAX_ATTEMPTS = 5;
 export const EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 30;
 export const EMAIL_VERIFICATION_PURPOSE = "SIGNUP_VERIFY";
 
-const BCRYPT_ROUNDS = 10;
 const VERIFICATION_HASH_V3_PREFIX = "v3:";
 
 export function normalizeVerificationEmail(email: string) {
@@ -62,11 +61,18 @@ export function resolveEmailVerificationPepperCandidates(): string[] {
   if (dedicated) peppers.add(dedicated);
   if (nextAuth) peppers.add(nextAuth);
   if (auth) peppers.add(auth);
-  peppers.add("dev-email-verification-pepper");
+  if (process.env.NODE_ENV !== "production") {
+    peppers.add("dev-email-verification-pepper");
+  }
   return [...peppers];
 }
 
 export function resolveEmailVerificationPepper() {
+  const dedicated = process.env.EMAIL_VERIFICATION_PEPPER?.trim();
+  if (dedicated) return dedicated;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("EMAIL_VERIFICATION_PEPPER_REQUIRED");
+  }
   return resolveEmailVerificationPepperCandidates()[0] ?? "dev-email-verification-pepper";
 }
 

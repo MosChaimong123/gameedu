@@ -245,6 +245,7 @@ describe("auth credentials authorize", () => {
       image: "eve.png",
       role: "USER",
       school: "School E",
+      authVersion: 0,
     });
   });
 });

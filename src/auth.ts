@@ -16,6 +16,7 @@ import {
     getRequestClientIdentifier,
 } from "@/lib/security/rate-limit"
 import { isGoogleOAuthConfigured } from "@/lib/auth/google-oauth-env"
+import { isAuthVersionCurrent, normalizeAuthVersion } from "@/lib/auth/session-version"
 
 class EmailNotVerified extends CredentialsSignin {
     code = "email_not_verified"
@@ -137,6 +138,7 @@ function createAuthConfig(): NextAuthConfig {
                     image: user.image,
                     role: normalizedRole,
                     school: user.school,
+                    authVersion: normalizeAuthVersion(user.authVersion),
                 }
             },
         }),
@@ -154,6 +156,7 @@ function createAuthConfig(): NextAuthConfig {
                 if (normalizedUserRole) {
                     token.role = normalizedUserRole
                 }
+                token.authVersion = normalizeAuthVersion(user.authVersion)
             }
 
             // Sync with DB if updated (SHIELDED FROM EDGE)
@@ -171,25 +174,38 @@ function createAuthConfig(): NextAuthConfig {
                             plan: true,
                             planStatus: true,
                             planExpiry: true,
+                            authVersion: true,
                         },
                     })
 
-                    if (freshUser) {
-                        if (freshUser.name !== undefined) token.name = freshUser.name
-                        token.picture = freshUser.image
-                        const normalizedFreshRole = normalizeSessionRole(freshUser.role)
-                        if (normalizedFreshRole) {
-                            token.role = normalizedFreshRole
-                        }
-                        token.school = freshUser.school
-                        token.settings = freshUser.settings
-                        token.plan = freshUser.plan
-                        token.planStatus = freshUser.planStatus
-                        token.planExpiry =
-                            freshUser.planExpiry instanceof Date && !Number.isNaN(freshUser.planExpiry.getTime())
-                                ? freshUser.planExpiry.toISOString()
-                                : null
+                    if (!freshUser) {
+                        return null
                     }
+
+                    const currentAuthVersion = normalizeAuthVersion(freshUser.authVersion)
+                    if (!isAuthVersionCurrent({
+                        tokenVersion: token.authVersion,
+                        currentVersion: currentAuthVersion,
+                        isNewSignIn: Boolean(user),
+                    })) {
+                        return null
+                    }
+
+                    token.authVersion = currentAuthVersion
+                    if (freshUser.name !== undefined) token.name = freshUser.name
+                    token.picture = freshUser.image
+                    const normalizedFreshRole = normalizeSessionRole(freshUser.role)
+                    if (normalizedFreshRole) {
+                        token.role = normalizedFreshRole
+                    }
+                    token.school = freshUser.school
+                    token.settings = freshUser.settings
+                    token.plan = freshUser.plan
+                    token.planStatus = freshUser.planStatus
+                    token.planExpiry =
+                        freshUser.planExpiry instanceof Date && !Number.isNaN(freshUser.planExpiry.getTime())
+                            ? freshUser.planExpiry.toISOString()
+                            : null
                 } catch {
                     // If it's an edge error, we just keep the existing token
                     console.log("[AUTH_JWT] Skipping DB sync (likely Edge or DB down)")

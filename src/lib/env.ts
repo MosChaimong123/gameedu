@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolveEmailDeliveryReadiness } from "@/lib/email/email-delivery-readiness";
 
 const PRODUCTION_PUBLIC_URL_REQUIRED = "productionPublicUrlRequired";
 
@@ -29,8 +30,12 @@ const appEnvSchema = z.object({
   BILLING_THAI_WEBHOOK_SECRET: trimOrUnset,
   /** Resend API key — optional in dev; verification emails log link to console if unset */
   RESEND_API_KEY: trimOrUnset,
+  /** Signing secret for POST /api/webhooks/resend. */
+  RESEND_WEBHOOK_SECRET: trimOrUnset,
   /** From address for Resend (e.g. TeachPlayEdu <notify@yourdomain.com>) */
   EMAIL_FROM: trimOrUnset,
+  /** Dedicated HMAC secret for OTP storage and non-PII recovery rate-limit keys. */
+  EMAIL_VERIFICATION_PEPPER: trimOrUnset,
   /** Sentry observability (optional in dev; required to ship errors in prod) */
   SENTRY_DSN: trimOrUnset,
   NEXT_PUBLIC_SENTRY_DSN: trimOrUnset,
@@ -115,7 +120,9 @@ export function getAppEnv(env: NodeJS.ProcessEnv = process.env): AppEnv {
     BILLING_THAI_PROVIDER: env.BILLING_THAI_PROVIDER,
     BILLING_THAI_WEBHOOK_SECRET: env.BILLING_THAI_WEBHOOK_SECRET,
     RESEND_API_KEY: env.RESEND_API_KEY,
+    RESEND_WEBHOOK_SECRET: env.RESEND_WEBHOOK_SECRET,
     EMAIL_FROM: env.EMAIL_FROM,
+    EMAIL_VERIFICATION_PEPPER: env.EMAIL_VERIFICATION_PEPPER,
     SENTRY_DSN: env.SENTRY_DSN,
     NEXT_PUBLIC_SENTRY_DSN: env.NEXT_PUBLIC_SENTRY_DSN,
     SENTRY_AUTH_TOKEN: env.SENTRY_AUTH_TOKEN,
@@ -163,6 +170,16 @@ export function validateServerEnv(env: NodeJS.ProcessEnv = process.env) {
 
   if (config.NODE_ENV === "production" && !config.NEXT_PUBLIC_APP_URL && !config.NEXTAUTH_URL) {
     throw new Error(PRODUCTION_PUBLIC_URL_REQUIRED);
+  }
+
+  if (config.NODE_ENV === "production") {
+    if (!config.EMAIL_VERIFICATION_PEPPER || config.EMAIL_VERIFICATION_PEPPER.length < 32) {
+      throw new Error("productionEmailVerificationPepperRequired");
+    }
+    const emailDelivery = resolveEmailDeliveryReadiness(env);
+    if (emailDelivery.status !== "configured") {
+      throw new Error(`productionEmailDelivery:${emailDelivery.reason ?? emailDelivery.status}`);
+    }
   }
 
   return config;

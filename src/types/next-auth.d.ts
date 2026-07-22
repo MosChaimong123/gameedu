@@ -9,6 +9,8 @@ type AppUserFields = {
   settings?: unknown;
   plan?: string | null;
   planStatus?: string | null;
+  /** Credential generation captured when the JWT was issued. */
+  authVersion?: number;
   /** ISO 8601 from JWT sync (`User.planExpiry`). */
   planExpiry?: string | null;
 };

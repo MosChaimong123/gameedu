@@ -174,7 +174,7 @@ describe("register route POST", () => {
         userId: "user-1",
         email: "alice@example.com",
         referenceCode: expect.stringMatching(/^TP-/),
-        codePlain: expect.stringMatching(/^\d{6}$/),
+        codePlain: null,
         codeHash: expect.any(String),
         purpose: "SIGNUP_VERIFY",
         attempts: 0,

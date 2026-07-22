@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   codesMatchPlaintext,
   normalizeVerificationCodeInput,
@@ -9,6 +9,16 @@ import {
 } from "@/lib/email-verification";
 
 describe("emailVerificationCodeMatches", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("requires the dedicated pepper for new production hashes", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("EMAIL_VERIFICATION_PEPPER", "");
+    expect(() => hashEmailVerificationCodeForStorage("535244")).toThrow(
+      "EMAIL_VERIFICATION_PEPPER_REQUIRED"
+    );
+  });
+
   it("accepts v3 HMAC hashes for new codes", async () => {
     const stored = hashEmailVerificationCodeForStorage("535244");
     expect(stored.startsWith("v3:")).toBe(true);

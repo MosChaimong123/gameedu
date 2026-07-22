@@ -68,7 +68,7 @@ async function recordMatchesCode(
   if (candidate.attempts >= candidate.maxAttempts) {
     return false;
   }
-  const plainMatches = codesMatchPlaintext(candidate.codePlain, params.code);
+  const plainMatches = process.env.NODE_ENV !== "production" && codesMatchPlaintext(candidate.codePlain, params.code);
   const hashMatches = await emailVerificationCodeMatches(candidate.codeHash, params);
   return plainMatches || hashMatches;
 }

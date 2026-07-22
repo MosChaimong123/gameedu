@@ -1,6 +1,7 @@
 import { Resend } from "resend";
+import { resolveEmailDeliveryReadiness } from "@/lib/email/email-delivery-readiness";
 
-export type SendPasswordResetEmailResult = { sent: boolean };
+export type SendPasswordResetEmailResult = { sent: boolean; messageId?: string };
 
 function normalizePublicOrigin(raw: string | undefined): string | undefined {
     const value = raw?.trim();
@@ -32,6 +33,13 @@ export async function sendPasswordResetEmail(
     expiresInMinutes: number,
     referenceCode: string
 ): Promise<SendPasswordResetEmailResult> {
+    if (process.env.NODE_ENV === "production") {
+        const readiness = resolveEmailDeliveryReadiness(process.env);
+        if (readiness.status !== "configured") {
+            throw new Error(`EMAIL_DELIVERY_NOT_READY:${readiness.reason ?? readiness.status}`);
+        }
+    }
+
     const origin = resolvePublicOrigin();
     if (!origin) {
         throw new Error("MISSING_APP_URL");
@@ -53,7 +61,7 @@ export async function sendPasswordResetEmail(
     }
 
     const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
         from,
         to: email,
         subject: `TeachPlayEdu รีเซ็ตรหัสผ่าน ${referenceCode}`,
@@ -73,5 +81,9 @@ export async function sendPasswordResetEmail(
         throw new Error(error.message || "RESEND_SEND_FAILED");
     }
 
-    return { sent: true };
+    if (!data?.id) {
+        throw new Error("RESEND_MESSAGE_ID_MISSING");
+    }
+
+    return { sent: true, messageId: data.id };
 }

@@ -107,7 +107,7 @@ export async function POST(req: Request) {
             userId: user.id,
             email: identifier,
             referenceCode: verificationReference,
-            codePlain: verificationCode,
+            codePlain: null,
             codeHash: verificationCodeHash,
             purpose: EMAIL_VERIFICATION_PURPOSE,
             attempts: 0,

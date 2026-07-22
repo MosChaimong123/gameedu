@@ -73,6 +73,27 @@ Last updated: 2026-05-03
 - [x] No stale session loop or repeated toast spam after auth failure
 - [x] No infinite retry behavior from protected pages after auth failure
 
+## Password Recovery
+
+Local/pre-deploy:
+
+- [x] Forgot-password success copy remains neutral for existing and nonexistent accounts
+- [x] Reset-password copy is available in Thai and English through shared translations
+- [x] OTP input supports numeric entry, paste, and `autocomplete="one-time-code"`
+- [x] New-password and confirmation inputs expose `autocomplete="new-password"`
+- [x] Forgot-password form has no horizontal overflow at 390 px and desktop widths
+- [x] Auth recovery regression suite and security guard pass
+
+Controlled rollout:
+
+- [ ] Deployed `/api/ready` reports `checks.emailDelivery: "configured"`
+- [ ] Controlled credentials mailbox receives OTP from the verified sender domain
+- [ ] Controlled Google-only account receives neutral provider guidance
+- [ ] OTP works once; reuse, expiry, attempt-limit, and concurrent reuse fail safely
+- [ ] Old password and pre-reset sessions fail after a successful reset
+- [ ] New password succeeds and Login/Register/Google OAuth remain healthy
+- [ ] Real mailbox delivery succeeds with at least two providers
+
 ## Exit Condition
 
 - [x] Dev manual QA complete
@@ -119,6 +140,9 @@ Open findings / remaining blockers:
 
 - Staging manual QA is blocked because no staging URL or staging credentials were provided.
 - Full production build verification for the latest auth callback fix is currently blocked by a local Prisma engine file lock during `prisma generate`, while `npm.cmd run predev` still passes.
+- Production check on 2026-07-14 returned HTTP 200 from `/api/ready`, but the response did not contain `checks.emailDelivery`; the Phase 0-7 recovery revision is therefore not yet verifiable on production.
+- The currently deployed reset page still showed a 6-character password placeholder and omitted `autocomplete="new-password"`. Local code now uses an 8-character minimum, localized Thai/English copy, and password-manager attributes; deployment is required before retesting.
+- Controlled staging URL/account credentials and two controlled mailbox providers were not available in this QA run, so no OTP or password was submitted.
 
 ## Automated Preflight
 

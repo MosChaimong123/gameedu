@@ -57,6 +57,7 @@ describe("auth core callbacks", () => {
       plan: "PRO",
       planStatus: "ACTIVE",
       planExpiry: new Date("2028-01-01T00:00:00.000Z"),
+      authVersion: 0,
     });
     mockNextAuth.mockReturnValue({
       handlers: {},
@@ -98,6 +99,7 @@ describe("auth core callbacks", () => {
         plan: "PRO",
         planStatus: "ACTIVE",
         planExpiry: "2028-01-01T00:00:00.000Z",
+        authVersion: 0,
       })
     );
     expect(mockUserFindUnique).toHaveBeenCalledWith({
@@ -111,6 +113,7 @@ describe("auth core callbacks", () => {
         plan: true,
         planStatus: true,
         planExpiry: true,
+        authVersion: true,
       },
     });
   });
@@ -129,6 +132,7 @@ describe("auth core callbacks", () => {
       plan: "FREE",
       planStatus: "TRIALING",
       planExpiry: null,
+      authVersion: 0,
     });
 
     const token = await config.callbacks.jwt({
@@ -195,5 +199,117 @@ describe("auth core callbacks", () => {
         school: "Existing School",
       })
     );
+  });
+
+  it("rejects a jwt issued before the user's auth version changed", async () => {
+    const mod = await import("@/auth");
+    const config = getLastNextAuthConfigArg(mockNextAuth);
+    expect(mod).toBeTruthy();
+
+    mockUserFindUnique.mockResolvedValue({
+      name: "Alice",
+      image: null,
+      role: "TEACHER",
+      school: "School A",
+      settings: null,
+      plan: "FREE",
+      planStatus: "INACTIVE",
+      planExpiry: null,
+      authVersion: 2,
+    });
+
+    const token = await config.callbacks.jwt({
+      token: { id: "user-1", authVersion: 1 },
+      user: undefined,
+      trigger: undefined,
+      session: undefined,
+    });
+
+    expect(token).toBeNull();
+  });
+
+  it("adopts the current auth version for a new OAuth or credentials sign-in", async () => {
+    const mod = await import("@/auth");
+    const config = getLastNextAuthConfigArg(mockNextAuth);
+    expect(mod).toBeTruthy();
+
+    mockUserFindUnique.mockResolvedValue({
+      name: "Alice",
+      image: null,
+      role: "TEACHER",
+      school: "School A",
+      settings: null,
+      plan: "FREE",
+      planStatus: "INACTIVE",
+      planExpiry: null,
+      authVersion: 3,
+    });
+
+    const token = await config.callbacks.jwt({
+      token: {},
+      user: {
+        id: "user-1",
+        email: "alice@example.com",
+        role: "TEACHER",
+      },
+      trigger: "signIn",
+      session: undefined,
+    });
+
+    expect(token).toEqual(expect.objectContaining({ id: "user-1", authVersion: 3 }));
+  });
+
+  it("keeps a jwt issued after reset when its auth version is current", async () => {
+    const mod = await import("@/auth");
+    const config = getLastNextAuthConfigArg(mockNextAuth);
+    expect(mod).toBeTruthy();
+
+    mockUserFindUnique.mockResolvedValue({
+      name: "Alice",
+      image: null,
+      role: "TEACHER",
+      school: "School A",
+      settings: null,
+      plan: "FREE",
+      planStatus: "INACTIVE",
+      planExpiry: null,
+      authVersion: 2,
+    });
+
+    const token = await config.callbacks.jwt({
+      token: { id: "user-1", authVersion: 2 },
+      user: undefined,
+      trigger: undefined,
+      session: undefined,
+    });
+
+    expect(token).toEqual(expect.objectContaining({ id: "user-1", authVersion: 2 }));
+  });
+
+  it("keeps pre-migration jwt sessions valid at legacy version zero", async () => {
+    const mod = await import("@/auth");
+    const config = getLastNextAuthConfigArg(mockNextAuth);
+    expect(mod).toBeTruthy();
+
+    mockUserFindUnique.mockResolvedValue({
+      name: "Legacy User",
+      image: null,
+      role: "TEACHER",
+      school: null,
+      settings: null,
+      plan: "FREE",
+      planStatus: "INACTIVE",
+      planExpiry: null,
+      authVersion: null,
+    });
+
+    const token = await config.callbacks.jwt({
+      token: { id: "legacy-user" },
+      user: undefined,
+      trigger: undefined,
+      session: undefined,
+    });
+
+    expect(token).toEqual(expect.objectContaining({ id: "legacy-user", authVersion: 0 }));
   });
 });

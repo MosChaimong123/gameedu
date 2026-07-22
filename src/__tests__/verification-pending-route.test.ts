@@ -35,7 +35,7 @@ describe("verification pending route GET", () => {
     });
   });
 
-  it("returns the active reference and dev code outside production", async () => {
+  it("returns the active reference without exposing plaintext outside production", async () => {
     vi.stubEnv("NODE_ENV", "development");
     const { GET } = await import("@/app/api/auth/verification-pending/route");
 
@@ -45,12 +45,13 @@ describe("verification pending route GET", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store, max-age=0");
-    expect(await response.json()).toMatchObject({
+    const body = await response.json();
+    expect(body).toMatchObject({
       ok: true,
       pending: true,
       referenceCode: "TP-NBA6",
-      devCode: "123456",
     });
+    expect(body).not.toHaveProperty("devCode");
   });
 
   it("does not expose the plain code in production", async () => {

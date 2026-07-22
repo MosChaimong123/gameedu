@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { createAppErrorResponse } from "@/lib/api-error";
 import { logAuditEvent } from "@/lib/security/audit-log";
 import {
-    EMAIL_VERIFICATION_MAX_ATTEMPTS,
+    buildRateLimitKey,
+    consumeRateLimitWithStore,
+    createRateLimitResponse,
+    digestRateLimitIdentifier,
+    getRequestClientIdentifier,
+} from "@/lib/security/rate-limit";
+import {
     codesMatchPlaintext,
     emailVerificationCodeMatches,
     isEmailVerificationCodeExpired,
@@ -14,6 +21,7 @@ import {
 } from "@/lib/email-verification";
 
 const PASSWORD_RESET_PURPOSE = "PASSWORD_RESET";
+const PASSWORD_RESET_VERIFY_WINDOW_MS = 15 * 60_000;
 
 const bodySchema = z.object({
     email: z.string().email().transform((s) => s.trim().toLowerCase()),
@@ -28,7 +36,7 @@ const bodySchema = z.object({
         .transform((s) => normalizeVerificationReferenceCode(s))
         .refine((s) => /^TP-[A-Z0-9]{4}$/.test(s), "Invalid reference code")
         .optional(),
-    newPassword: z.string().min(6, "Password must be at least 6 characters"),
+    newPassword: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 type ResetRecord = {
@@ -38,19 +46,60 @@ type ResetRecord = {
     referenceCode: string | null;
     codePlain: string | null;
     codeHash: string;
+    purpose: string;
     attempts: number;
     maxAttempts: number;
     expiresAt: Date;
+    status?: string | null;
 };
+
+class PasswordResetCodeStateChangedError extends Error {}
+
+function activePasswordResetWhere(): Prisma.EmailVerificationCodeWhereInput {
+    return {
+        purpose: PASSWORD_RESET_PURPOSE,
+        AND: [
+            { OR: [{ consumedAt: null }, { consumedAt: { isSet: false } }] },
+            { OR: [{ status: "ACTIVE" }, { status: { isSet: false } }] },
+        ],
+    };
+}
+
+function passwordResetCandidateCasWhere(
+    candidate: ResetRecord,
+    now: Date
+): Prisma.EmailVerificationCodeWhereInput {
+    return {
+        id: candidate.id,
+        attempts: candidate.attempts,
+        expiresAt: { gt: now },
+        ...activePasswordResetWhere(),
+    };
+}
+
+async function incrementInvalidAttempt(candidate: ResetRecord, now: Date) {
+    const nextAttempts = candidate.attempts + 1;
+    const tooMany = nextAttempts >= candidate.maxAttempts;
+    const result = await db.emailVerificationCode.updateMany({
+        where: passwordResetCandidateCasWhere(candidate, now),
+        data: {
+            attempts: { increment: 1 },
+            ...(tooMany ? { consumedAt: now, status: "FAILED", codePlain: null } : {}),
+        },
+    });
+    return { updated: result.count === 1, tooMany };
+}
 
 async function recordMatchesCode(
     candidate: ResetRecord,
     params: { userId: string; email: string; code: string },
     now: Date
 ) {
+    if (candidate.purpose !== PASSWORD_RESET_PURPOSE) return false;
+    if (candidate.status && candidate.status !== "ACTIVE") return false;
     if (isEmailVerificationCodeExpired(candidate.expiresAt, now)) return false;
     if (candidate.attempts >= candidate.maxAttempts) return false;
-    const plainMatches = codesMatchPlaintext(candidate.codePlain, params.code);
+    const plainMatches = process.env.NODE_ENV !== "production" && codesMatchPlaintext(candidate.codePlain, params.code);
     const hashMatches = await emailVerificationCodeMatches(candidate.codeHash, params);
     return plainMatches || hashMatches;
 }
@@ -74,10 +123,31 @@ export async function POST(req: Request) {
 
     const normalizedEmail = normalizeVerificationEmail(email);
     const now = new Date();
+    const clientIdentifier = getRequestClientIdentifier(req);
+    const recoveryDigest = digestRateLimitIdentifier(
+        buildRateLimitKey(normalizedEmail, referenceCode ?? "no-reference")
+    );
+    const [ipLimit, recoveryLimit] = await Promise.all([
+        consumeRateLimitWithStore({
+            bucket: "auth:reset-password:ip",
+            key: buildRateLimitKey(clientIdentifier),
+            limit: 30,
+            windowMs: PASSWORD_RESET_VERIFY_WINDOW_MS,
+        }),
+        consumeRateLimitWithStore({
+            bucket: "auth:reset-password:recovery",
+            key: recoveryDigest,
+            limit: 10,
+            windowMs: PASSWORD_RESET_VERIFY_WINDOW_MS,
+        }),
+    ]);
+    if (!ipLimit.allowed || !recoveryLimit.allowed) {
+        return createRateLimitResponse(Math.max(ipLimit.retryAfterSeconds, recoveryLimit.retryAfterSeconds));
+    }
 
     const user = await db.user.findFirst({
         where: { email: { equals: normalizedEmail, mode: "insensitive" } },
-        select: { id: true, email: true },
+        select: { id: true, email: true, authVersion: true },
     });
 
     if (!user) {
@@ -91,8 +161,7 @@ export async function POST(req: Request) {
             where: {
                 email: normalizedEmail,
                 referenceCode,
-                purpose: PASSWORD_RESET_PURPOSE,
-                OR: [{ consumedAt: null }, { consumedAt: { isSet: false } }],
+                ...activePasswordResetWhere(),
             },
             orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         });
@@ -104,22 +173,20 @@ export async function POST(req: Request) {
                 record = byReference;
             } else {
                 if (isEmailVerificationCodeExpired(byReference.expiresAt, now)) {
+                    await db.emailVerificationCode.update({
+                        where: { id: byReference.id },
+                        data: { status: "EXPIRED", consumedAt: now, codePlain: null },
+                    });
                     return createAppErrorResponse("EMAIL_VERIFICATION_CODE_EXPIRED", "Reset code expired", 400);
                 }
                 if (byReference.attempts >= byReference.maxAttempts) {
                     return createAppErrorResponse("EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS", "Too many invalid attempts", 429);
                 }
 
-                const nextAttempts = byReference.attempts + 1;
-                await db.emailVerificationCode.update({
-                    where: { id: byReference.id },
-                    data: {
-                        attempts: nextAttempts,
-                        ...(nextAttempts >= Math.max(byReference.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS) ? { consumedAt: now } : {}),
-                    },
-                });
-
-                const tooMany = nextAttempts >= Math.max(byReference.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS);
+                const { updated, tooMany } = await incrementInvalidAttempt(byReference, now);
+                if (!updated) {
+                    return createAppErrorResponse("EMAIL_VERIFICATION_CODE_INVALID", "Invalid reset code", 400);
+                }
                 return createAppErrorResponse(
                     tooMany ? "EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS" : "EMAIL_VERIFICATION_CODE_INVALID",
                     tooMany ? "Too many invalid attempts" : "Invalid reset code",
@@ -133,8 +200,7 @@ export async function POST(req: Request) {
         const activeRecords = await db.emailVerificationCode.findMany({
             where: {
                 userId: user.id,
-                purpose: PASSWORD_RESET_PURPOSE,
-                OR: [{ consumedAt: null }, { consumedAt: { isSet: false } }],
+                ...activePasswordResetWhere(),
             },
             orderBy: [{ createdAt: "desc" }, { id: "desc" }],
             take: 5,
@@ -156,22 +222,20 @@ export async function POST(req: Request) {
             const latest = activeRecords[0];
             const allExpired = activeRecords.every((e) => isEmailVerificationCodeExpired(e.expiresAt, now));
             if (allExpired) {
+                await db.emailVerificationCode.updateMany({
+                    where: { id: { in: activeRecords.map((entry) => entry.id) } },
+                    data: { status: "EXPIRED", consumedAt: now, codePlain: null },
+                });
                 return createAppErrorResponse("EMAIL_VERIFICATION_CODE_EXPIRED", "Reset code expired", 400);
             }
             if (latest.attempts >= latest.maxAttempts) {
                 return createAppErrorResponse("EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS", "Too many invalid attempts", 429);
             }
 
-            const nextAttempts = latest.attempts + 1;
-            await db.emailVerificationCode.update({
-                where: { id: latest.id },
-                data: {
-                    attempts: nextAttempts,
-                    ...(nextAttempts >= Math.max(latest.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS) ? { consumedAt: now } : {}),
-                },
-            });
-
-            const tooMany = nextAttempts >= Math.max(latest.maxAttempts, EMAIL_VERIFICATION_MAX_ATTEMPTS);
+            const { updated, tooMany } = await incrementInvalidAttempt(latest, now);
+            if (!updated) {
+                return createAppErrorResponse("EMAIL_VERIFICATION_CODE_INVALID", "Invalid reset code", 400);
+            }
             return createAppErrorResponse(
                 tooMany ? "EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS" : "EMAIL_VERIFICATION_CODE_INVALID",
                 tooMany ? "Too many invalid attempts" : "Invalid reset code",
@@ -182,16 +246,41 @@ export async function POST(req: Request) {
 
     const bcrypt = await import("bcryptjs");
     const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const authVersionUpdate =
+        typeof user.authVersion === "number" && Number.isSafeInteger(user.authVersion) && user.authVersion >= 0
+            ? { increment: 1 }
+            : 1;
+    let deletedDatabaseSessions = 0;
 
-    await db.user.update({ where: { id: user.id }, data: { password: hashedPassword } });
-    await db.emailVerificationCode.updateMany({
-        where: {
-            userId: user.id,
-            purpose: PASSWORD_RESET_PURPOSE,
-            OR: [{ consumedAt: null }, { consumedAt: { isSet: false } }],
-        },
-        data: { consumedAt: now, codePlain: null },
-    });
+    try {
+        deletedDatabaseSessions = await db.$transaction(async (tx) => {
+            const claimed = await tx.emailVerificationCode.updateMany({
+                where: passwordResetCandidateCasWhere(record, now),
+                data: { status: "CONSUMED", consumedAt: now, codePlain: null },
+            });
+            if (claimed.count !== 1) {
+                throw new PasswordResetCodeStateChangedError();
+            }
+            await tx.emailVerificationCode.updateMany({
+                where: {
+                    userId: user.id,
+                    ...activePasswordResetWhere(),
+                },
+                data: { status: "CONSUMED", consumedAt: now, codePlain: null },
+            });
+            await tx.user.update({
+                where: { id: user.id },
+                data: { password: hashedPassword, authVersion: authVersionUpdate },
+            });
+            const deletedSessions = await tx.session.deleteMany({ where: { userId: user.id } });
+            return deletedSessions.count;
+        });
+    } catch (error) {
+        if (error instanceof PasswordResetCodeStateChangedError) {
+            return createAppErrorResponse("EMAIL_VERIFICATION_CODE_INVALID", "Invalid reset code", 400);
+        }
+        throw error;
+    }
 
     logAuditEvent({
         actorUserId: user.id,
@@ -201,6 +290,15 @@ export async function POST(req: Request) {
         targetType: "user",
         targetId: user.id,
         metadata: {},
+    });
+    logAuditEvent({
+        actorUserId: user.id,
+        action: "auth.password_reset.sessions_revoked",
+        category: "auth",
+        status: "success",
+        targetType: "user",
+        targetId: user.id,
+        metadata: { strategy: "jwt", databaseSessionsDeleted: deletedDatabaseSessions },
     });
 
     return NextResponse.json({ ok: true });

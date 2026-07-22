@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   consumeRateLimit,
+  digestRateLimitIdentifier,
   resetRateLimitStore,
 } from "@/lib/security/rate-limit";
 
@@ -36,5 +37,12 @@ describe("rate limit utility", () => {
     expect(second.allowed).toBe(true);
     expect(third.allowed).toBe(false);
     expect(third.retryAfterSeconds).toBeGreaterThan(0);
+  });
+
+  it("builds stable non-PII digests for sensitive identifiers", () => {
+    const digest = digestRateLimitIdentifier(" Alice@Example.com ");
+    expect(digest).toBe(digestRateLimitIdentifier("alice@example.com"));
+    expect(digest).not.toContain("alice@example.com");
+    expect(digest).toMatch(/^[a-f0-9]{64}$/);
   });
 });

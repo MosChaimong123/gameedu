@@ -139,6 +139,16 @@ describe("ui error messages", () => {
     ).resolves.toBe("This email is already in use.");
   });
 
+  it("returns the lesson completion fallback for an unreadable failure response", async () => {
+    const t = (key: string) =>
+      key === "lessonCompleteError" ? "บันทึกการเรียนจบไม่สำเร็จ กรุณาลองอีกครั้ง" : key;
+    const response = new Response("", { status: 500 });
+
+    await expect(
+      getLocalizedErrorMessageFromResponse(response, "lessonCompleteError", t, "th")
+    ).resolves.toBe("บันทึกการเรียนจบไม่สำเร็จ กรุณาลองอีกครั้ง");
+  });
+
   it("localizes typical browser fetch network failures", () => {
     const t = (key: string) => (key === "errorNetworkUnavailable" ? "Offline" : key);
     expect(tryLocalizeFetchNetworkFailureMessage("Failed to fetch", t)).toBe("Offline");

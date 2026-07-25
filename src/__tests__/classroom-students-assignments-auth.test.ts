@@ -1,4 +1,4 @@
-import { beforeEach, describe, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   expectAppErrorResponse,
   makeJsonRequest,
@@ -286,6 +286,33 @@ describe("classroom students and assignments auth contract", () => {
       status: 400,
       code: "INVALID_PAYLOAD",
       message: "Invalid quizReviewMode",
+    });
+  });
+
+  it("clears quiz-only fields when patching an assignment to score type", async () => {
+    mockAssignmentFindUnique.mockResolvedValueOnce({
+      id: "assignment-1",
+      classId: "class-1",
+      type: "quiz",
+      quizSetId: "set-1",
+    });
+    mockAssignmentUpdate.mockResolvedValueOnce({ id: "assignment-1", type: "score" });
+    const { PATCH } = await import("@/app/api/classrooms/[id]/assignments/[assignmentId]/route");
+
+    await PATCH(
+      makeJsonRequest({ type: "score", name: "Score task" }),
+      makeRouteParams({ id: "class-1", assignmentId: "assignment-1" })
+    );
+
+    expect(mockAssignmentUpdate).toHaveBeenCalledWith({
+      where: { id: "assignment-1" },
+      data: expect.objectContaining({
+        type: "score",
+        quizSetId: null,
+        quizData: null,
+        quizReviewMode: null,
+        timeLimitMinutes: null,
+      }),
     });
   });
 

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
     Archive,
@@ -7,6 +8,7 @@ import {
     ImageIcon,
     Library,
     LinkIcon,
+    PanelsTopLeft,
     PlaySquare,
     Youtube,
 } from "lucide-react";
@@ -32,11 +34,17 @@ const TYPE_LABEL: Record<string, string> = {
 
 function MediaIcon({ type }: { type: string }) {
     const className = "h-5 w-5";
+    if (type === "worksheet") return <PanelsTopLeft className={className} />;
     if (type === "image") return <ImageIcon className={className} />;
     if (type === "video") return <PlaySquare className={className} />;
     if (type === "youtube") return <Youtube className={className} />;
     if (type === "link") return <LinkIcon className={className} />;
     return <FileText className={className} />;
+}
+
+function getTypeLabel(type: string) {
+    if (type === "worksheet") return "ใบงานโต้ตอบ";
+    return TYPE_LABEL[type] ?? type;
 }
 
 type MediaLibraryPageProps = {
@@ -48,7 +56,7 @@ function readStringParam(value: string | string[] | undefined) {
 }
 
 function normalizeTypeParam(value: string) {
-    return ["file", "image", "video", "youtube", "link"].includes(value) ? value : "";
+    return ["file", "image", "video", "youtube", "link", "worksheet"].includes(value) ? value : "";
 }
 
 function normalizeArchivedParam(value: string) {
@@ -160,19 +168,26 @@ export default async function MediaLibraryPage({ searchParams }: MediaLibraryPag
                         </p>
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <Link
+                            href="/dashboard/media-library/worksheet/new"
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-black text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/15"
+                        >
+                            <PanelsTopLeft className="h-4 w-4" />
+                            สร้างใบงาน
+                        </Link>
                         <AddTeachingMediaDialog tagSuggestions={tagSuggestions} />
                     </div>
                 </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-5">
-                {["file", "image", "video", "youtube", "link"].map((typeKey) => (
+                {["file", "image", "video", "youtube", "link", "worksheet"].map((typeKey) => (
                     <div key={typeKey} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                         <div className="mb-3 inline-flex rounded-xl bg-indigo-50 p-2 text-indigo-600">
                             <MediaIcon type={typeKey} />
                         </div>
                         <p className="text-2xl font-black text-slate-900">{counts[typeKey as keyof typeof counts] ?? 0}</p>
-                        <p className="text-xs font-bold text-slate-400">{TYPE_LABEL[typeKey]}</p>
+                        <p className="text-xs font-bold text-slate-400">{getTypeLabel(typeKey)}</p>
                     </div>
                 ))}
             </div>

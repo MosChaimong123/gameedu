@@ -18,6 +18,7 @@ import {
     LinkIcon,
     Loader2,
     MoreHorizontal,
+    PanelsTopLeft,
     Pencil,
     PlaySquare,
     Star,
@@ -42,13 +43,18 @@ import {
 import type { TeachingMediaItem, TeachingMediaSort, TeachingMediaTagSuggestion } from "@/lib/actions/teaching-media-actions";
 import { cn } from "@/lib/utils";
 
-const TYPE_FILTERS = [
+const BASE_TYPE_FILTERS = [
     { value: "", label: "ทั้งหมด" },
     { value: "file", label: "ไฟล์" },
     { value: "image", label: "รูปภาพ" },
     { value: "video", label: "วิดีโอ" },
     { value: "youtube", label: "YouTube" },
     { value: "link", label: "ลิงก์" },
+] as const;
+
+const TYPE_FILTERS = [
+    ...BASE_TYPE_FILTERS,
+    { value: "worksheet", label: "ใบงานโต้ตอบ" },
 ] as const;
 
 const SORT_OPTIONS = [
@@ -76,6 +82,7 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 function getTypeLabel(type: string) {
+    if (type === "worksheet") return "ใบงานโต้ตอบ";
     return TYPE_LABEL[type] ?? "ทั้งหมด";
 }
 
@@ -110,6 +117,7 @@ function buildEmptyStateDescription(input: { typeFilter: string; archiveFilter: 
 
 function MediaIcon({ type, className }: { type: string; className?: string }) {
     const cls = cn("h-5 w-5", className);
+    if (type === "worksheet") return <PanelsTopLeft className={cls} />;
     if (type === "image") return <ImageIcon className={cls} />;
     if (type === "video") return <PlaySquare className={cls} />;
     if (type === "youtube") return <Youtube className={cls} />;
@@ -148,6 +156,16 @@ function getFileExtension(item: Pick<TeachingMediaItem, "name" | "url" | "mimeTy
 }
 
 function getMediaVisualConfig(item: Pick<TeachingMediaItem, "type" | "name" | "url" | "mimeType">): MediaVisualConfig {
+    if (item.type === "worksheet") {
+        return {
+            tileClassName: "bg-fuchsia-50 text-fuchsia-700 ring-1 ring-fuchsia-100",
+            chipClassName: "bg-fuchsia-100 text-fuchsia-700",
+            iconClassName: "text-fuchsia-700",
+            label: "ใบงานโต้ตอบ",
+            Icon: PanelsTopLeft,
+        };
+    }
+
     if (item.type === "image") {
         return {
             tileClassName: "bg-sky-50 text-sky-600 ring-1 ring-sky-100",
@@ -309,6 +327,7 @@ function MediaThumb({ item }: { item: TeachingMediaItem }) {
 }
 
 function getMediaUrl(item: TeachingMediaItem): string | null {
+    if (item.type === "worksheet") return null;
     if (item.url) return item.url;
     if (item.linkUrl) return item.linkUrl;
     if (item.youtubeId) return `https://www.youtube.com/watch?v=${item.youtubeId}`;
@@ -976,8 +995,10 @@ export function MediaLibraryGrid({
     const selectedArchivedCount = selectedItems.filter((item) => item.isArchived).length;
 
     useEffect(() => {
-        setItems(initialItems);
-        setSelectedIds((prev) => prev.filter((id) => initialItems.some((item) => item.id === id)));
+        queueMicrotask(() => {
+            setItems(initialItems);
+            setSelectedIds((prev) => prev.filter((id) => initialItems.some((item) => item.id === id)));
+        });
     }, [initialItems]);
 
     const updateUrl = useCallback(

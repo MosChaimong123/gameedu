@@ -35,7 +35,7 @@ import {
     toDatetimeLocalValue,
 } from "@/lib/datetime-local";
 import { cn } from "@/lib/utils";
-import { WorksheetBuilder } from "@/components/classroom/worksheet-builder";
+import { WorksheetMediaPickerPanel } from "@/components/classroom/worksheet-media-picker-panel";
 import { TeachingMediaPickerPanel } from "@/components/dashboard/teaching-media-picker-panel";
 import { getThemeBgStyle, getThemeHorizontalBgClass } from "@/lib/classroom-utils";
 import {
@@ -71,6 +71,7 @@ import {
     sumWorksheetMaxScore,
 } from "@/lib/worksheet-assignment";
 import {
+    createTeachingMediaReference,
     normalizeTeachingMediaReferences,
     type TeachingMediaReference,
 } from "@/lib/teaching-media-reference";
@@ -283,6 +284,7 @@ export function AddAssignmentDialog({
     const [quizTimeLimitMinutes, setQuizTimeLimitMinutes] = useState("");
     const [questionSets, setQuestionSets] = useState<QuestionSetOption[]>([]);
     const [worksheetData, setWorksheetData] = useState<WorksheetData>(buildDefaultWorksheetData());
+    const [worksheetMediaId, setWorksheetMediaId] = useState("");
     const [mediaReferences, setMediaReferences] = useState<TeachingMediaReference[]>([]);
 
     const resetForm = useCallback(() => {
@@ -298,6 +300,7 @@ export function AddAssignmentDialog({
         setQuizReviewPolicy(QUIZ_REVIEW_INHERIT);
         setQuizTimeLimitMinutes("");
         setWorksheetData(buildDefaultWorksheetData());
+        setWorksheetMediaId("");
         setMediaReferences([]);
     }, []);
 
@@ -347,6 +350,7 @@ export function AddAssignmentDialog({
         setQuizSetId(a.quizSetId ?? "");
         const parsedWorksheet = parseWorksheetDataFromAssignmentPayload(a.quizData);
         setWorksheetData(parsedWorksheet ?? buildDefaultWorksheetData());
+        setWorksheetMediaId("");
         const arm = a.quizReviewMode;
         if (arm === "never" || arm === "end_only") {
             setQuizReviewPolicy(arm);
@@ -1015,9 +1019,23 @@ export function AddAssignmentDialog({
                                                 />
                                             </div>
                                         </div>
-                                        <WorksheetBuilder
-                                            value={worksheetData}
-                                            onChange={setWorksheetData}
+                                        <WorksheetMediaPickerPanel
+                                            selectedId={worksheetMediaId}
+                                            selectedWorksheet={
+                                                validateWorksheetData(worksheetData).ok ? worksheetData : null
+                                            }
+                                            onSelect={(item) => {
+                                                setWorksheetMediaId(item.id);
+                                                setWorksheetData(item.worksheetData);
+                                                setMediaReferences((current) => [
+                                                    ...current.filter((reference) => reference.type !== "worksheet"),
+                                                    createTeachingMediaReference(item),
+                                                ]);
+                                                if (!name.trim()) setName(item.title);
+                                                if (!description.trim() && item.description) {
+                                                    setDescription(item.description);
+                                                }
+                                            }}
                                             disabled={loading}
                                         />
                                     </div>

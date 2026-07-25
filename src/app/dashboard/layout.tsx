@@ -3,6 +3,7 @@ import { DashboardAuthSync } from "@/components/auth/dashboard-auth-sync"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Topbar } from "@/components/layout/topbar"
 import { SessionProvider } from "next-auth/react"
+import { redirect } from "next/navigation"
 
 export default async function DashboardLayout({
     children,
@@ -10,6 +11,7 @@ export default async function DashboardLayout({
     children: React.ReactNode
 }) {
     const session = await auth()
+    if (!session?.user?.id) redirect("/login")
 
     return (
         <SessionProvider session={session}>

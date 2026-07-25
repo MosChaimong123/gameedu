@@ -1,4 +1,4 @@
-import { ExternalLink, FileText, ImageIcon, Link as LinkIcon, PlayCircle, Video } from "lucide-react";
+import { ExternalLink, FileText, ImageIcon, Link as LinkIcon, PanelsTopLeft, PlayCircle, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     describeTeachingMediaReference,
@@ -13,6 +13,7 @@ const typeIcon = {
     video: Video,
     youtube: PlayCircle,
     link: LinkIcon,
+    worksheet: PanelsTopLeft,
 } as const;
 
 function getReferenceHref(reference: TeachingMediaReference) {
@@ -31,7 +32,7 @@ export function TeachingMediaReferenceList({
     compact?: boolean;
     className?: string;
 }) {
-    const items = normalizeTeachingMediaReferences(references);
+    const items = normalizeTeachingMediaReferences(references).filter((item) => item.type !== "worksheet");
     if (items.length === 0) return null;
 
     return (

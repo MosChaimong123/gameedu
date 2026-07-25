@@ -37,11 +37,9 @@ import {
 import { WorksheetSubmissionReviewDialog } from "@/components/classroom/worksheet-submission-review-dialog";
 import { QuizAllowRetakeButton } from "@/components/classroom/quiz-allow-retake-button";
 import { parseWorksheetSubmissionContent } from "@/lib/worksheet-review";
-import {
-    parseLineTextSubmissionContent,
-    type ParsedLineTextSubmissionContent,
-} from "@/lib/line-bot/submission-content";
+import { parseLineTextSubmissionContent } from "@/lib/line-bot/submission-content";
 import { isQuizSubmissionCompleted } from "@/lib/quiz-attempt";
+import { LineSubmissionReviewHint } from "@/components/classroom/line-submission-review-hint";
 
 type ChecklistItem = string | { text?: string; points?: number };
 
@@ -62,55 +60,6 @@ function roundScore(value: number) {
 
 function formatScore(value: number) {
     return roundScore(value).toFixed(2);
-}
-
-function LineSubmissionReviewHint({
-    content,
-    onApplySuggestedScore,
-    applying = false,
-    compact = false,
-}: {
-    content: ParsedLineTextSubmissionContent;
-    onApplySuggestedScore?: () => void;
-    applying?: boolean;
-    compact?: boolean;
-}) {
-    const graded = content.aiPreliminaryGrading.status === "graded" ? content.aiPreliminaryGrading : null;
-    const review = content.aiPreliminaryReview ?? null;
-    const preview = content.text.length > 64 ? `${content.text.slice(0, 64)}...` : content.text;
-
-    return (
-        <div className={cn(
-            "rounded-lg border border-sky-200 bg-sky-50 px-2 py-1 text-left text-[10px] leading-snug text-sky-900",
-            compact ? "max-w-[7.5rem]" : "max-w-sm"
-        )}>
-            <div className="font-black">
-                LINE {graded ? `AI ${graded.suggestedScore}/${graded.maxScore}` : "รอตรวจ"}
-            </div>
-            {review ? (
-                <div className="font-bold text-emerald-700">
-                    {review.status === "accepted" ? "ครูใช้คะแนน AI แล้ว" : review.status === "edited" ? "ครูแก้คะแนนแล้ว" : "ครูไม่ใช้คะแนน AI"}
-                </div>
-            ) : null}
-            <div className="line-clamp-2 text-sky-700">{preview}</div>
-            {graded && !review && onApplySuggestedScore ? (
-                <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={applying}
-                    className={cn(
-                        "mt-1 h-7 border-sky-300 bg-white px-2 text-[10px] font-black text-sky-800 hover:bg-sky-100",
-                        compact && "h-6 px-1.5"
-                    )}
-                    onClick={onApplySuggestedScore}
-                >
-                    {applying ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />}
-                    ใช้ AI
-                </Button>
-            ) : null}
-        </div>
-    );
 }
 
 function buildSubmissionMap(students: StudentWithSubmissions[]) {

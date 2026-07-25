@@ -59,6 +59,10 @@ vi.mock("@/components/student/sync-account-button", () => ({
   },
 }));
 
+vi.mock("@/components/student/student-line-link-dialog", () => ({
+  StudentLineLinkDialog: () => React.createElement("div", { "data-testid": "line-link-dialog-mock" }),
+}));
+
 describe("student dashboard header", () => {
   beforeEach(() => {
     vi.clearAllMocks();

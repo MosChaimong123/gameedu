@@ -103,6 +103,39 @@ describe("health and readiness routes", () => {
     expect(mockPingOperationalDb).toHaveBeenCalledWith(1000);
   });
 
+  it("reports password-recovery email readiness without exposing secrets", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test_key");
+    vi.stubEnv("EMAIL_FROM", "TeachPlayEdu <notify@teachplayedu.com>");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://www.teachplayedu.com");
+    const { GET } = await import("@/app/api/ready/route");
+
+    const response = await GET();
+    const body = await response.json() as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(body.checks).toMatchObject({ emailDelivery: "configured" });
+    expect(JSON.stringify(body)).not.toContain("re_test_key");
+    expect(JSON.stringify(body)).not.toContain("notify@teachplayedu.com");
+  });
+
+  it("returns not-ready with a non-secret email configuration status", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("RESEND_API_KEY", "");
+    vi.stubEnv("EMAIL_FROM", "");
+    mockValidateServerEnv.mockImplementationOnce(() => {
+      throw new Error("productionEmailDelivery:missing_api_key");
+    });
+    const { GET } = await import("@/app/api/ready/route");
+
+    const response = await GET();
+    const body = await response.json() as Record<string, unknown>;
+
+    expect(response.status).toBe(503);
+    expect(body.status).toBe("not_ready");
+    expect(body.checks).toEqual({ emailDelivery: "not_configured" });
+    expect(JSON.stringify(body)).not.toContain("RESEND_API_KEY");
+  });
+
   it("returns 503 with structured errors when mongodb ping fails", async () => {
     mockPingOperationalDb.mockRejectedValue(new Error("Database ping timed out"));
     const { GET } = await import("@/app/api/ready/route");

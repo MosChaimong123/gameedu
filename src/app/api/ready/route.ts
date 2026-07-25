@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { createAppErrorResponse, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error";
 import { validateServerEnv } from "@/lib/env";
+import { resolveEmailDeliveryReadiness } from "@/lib/email/email-delivery-readiness";
 import { pingOperationalDb } from "@/lib/ops/mongo-admin";
 import { db } from "@/lib/db";
 import { isLineBotConfigured } from "@/lib/line-bot/config";
 import { isR2Configured } from "@/lib/storage/r2-env";
 
-type CheckStatus = "ok" | "configured" | "not_configured" | "error";
+type CheckStatus = "ok" | "configured" | "not_configured" | "invalid" | "error";
 
 type ReadinessChecks = {
     mongodb: CheckStatus;
@@ -14,17 +14,26 @@ type ReadinessChecks = {
     lineBot: "configured" | "not_configured";
     r2Storage: "configured" | "not_configured";
     stripe: "configured" | "not_configured";
+    emailDelivery: "configured" | "not_configured" | "invalid";
 };
 
 export async function GET() {
+    const emailDelivery = resolveEmailDeliveryReadiness();
     let env: ReturnType<typeof validateServerEnv>;
     try {
         env = validateServerEnv();
     } catch (error) {
-        return createAppErrorResponse(
-            "INTERNAL_ERROR",
-            error instanceof Error ? error.message : INTERNAL_ERROR_MESSAGE,
-            503
+        return NextResponse.json(
+            {
+                ok: false,
+                status: "not_ready",
+                checks: { emailDelivery: emailDelivery.status },
+                errors: [
+                    `server_env: ${error instanceof Error ? error.message : "invalid configuration"}`,
+                ],
+                timestamp: new Date().toISOString(),
+            },
+            { status: 503 }
         );
     }
 
@@ -34,6 +43,7 @@ export async function GET() {
         lineBot: isLineBotConfigured() ? "configured" : "not_configured",
         r2Storage: isR2Configured() ? "configured" : "not_configured",
         stripe: env.STRIPE_SECRET_KEY ? "configured" : "not_configured",
+        emailDelivery: emailDelivery.status,
     };
 
     const criticalErrors: string[] = [];

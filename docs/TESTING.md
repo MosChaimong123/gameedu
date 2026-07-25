@@ -170,6 +170,7 @@ src/__tests__/utils/route-test-helpers.ts   — shared route-test helpers (impor
 ```bash
 npx tsc --noEmit          # Type-check (no output)
 npx eslint .              # Lint
+npm run check:architecture # Guard cleaned route/service/UI boundaries
 npm run check:i18n        # Detect hardcoded (non-translated) strings
 npm run check:i18n:strict # Stricter i18n scan
 npm run check:phase1      # Phase-1 production readiness checks
@@ -208,7 +209,6 @@ Before releasing, use the relevant manual checklist for your domain:
 | Student dashboard | [student-dashboard-manual-qa-checklist.md](student-dashboard-manual-qa-checklist.md) |
 | Lessons / online course | [lesson-online-course-manual-qa-checklist.md](lesson-online-course-manual-qa-checklist.md) |
 | Lesson assessment / pass-fail | [lesson-assessment-pass-fail-manual-qa-checklist.md](lesson-assessment-pass-fail-manual-qa-checklist.md) |
-| Physics lesson templates | [physics-template-pack-manual-qa-checklist.md](physics-template-pack-manual-qa-checklist.md) |
 | Economy / shop | [economy-shop-ledger-manual-qa-checklist.md](economy-shop-ledger-manual-qa-checklist.md) |
 | Live games | [live-game-host-play-socket-manual-qa-checklist.md](live-game-host-play-socket-manual-qa-checklist.md) |
 | Negamon battle | [negamon-battle-manual-qa-checklist.md](negamon-battle-manual-qa-checklist.md) |

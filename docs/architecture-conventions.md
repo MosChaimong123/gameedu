@@ -55,6 +55,13 @@
 - `src/components/classroom/toolkit/group-maker.tsx`
 - `src/app/dashboard/my-sets/page.tsx`
 
+## Automated Guard
+
+Run `npm run check:architecture` after changing routes, services, or large UI
+components that were covered by the cleanup phases. The guard is documented in
+`docs/architecture-guards.md` and checks the cleaned boundaries without blocking
+known legacy hotspots that still need separate refactor passes.
+
 ## Review Checklist
 
 - page/route นี้ยังถือ business logic อยู่หรือไม่

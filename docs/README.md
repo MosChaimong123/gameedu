@@ -27,6 +27,7 @@ Use the sections below to find what you need.
 |----------|---------|
 | [architecture.md](architecture.md) | Full architecture reference (layers, dependency centrality, flows) |
 | [architecture-conventions.md](architecture-conventions.md) | Layering rules — page / service / component separation, read/write rules |
+| [architecture-guards.md](architecture-guards.md) | Static guard command for cleaned route/service/UI boundaries |
 | [route-pattern-guide.md](route-pattern-guide.md) | API route naming and structure conventions |
 | [role-semantics.md](role-semantics.md) | `USER` vs `STUDENT` vs `TEACHER` vs `ADMIN` |
 | [error-code-contract.md](error-code-contract.md) | Standard error response shape and error codes |
@@ -63,7 +64,6 @@ Use the sections below to find what you need.
 | [student-dashboard-manual-qa-checklist.md](student-dashboard-manual-qa-checklist.md) | Student portal |
 | [lesson-online-course-manual-qa-checklist.md](lesson-online-course-manual-qa-checklist.md) | Lessons / online course experience |
 | [lesson-assessment-pass-fail-manual-qa-checklist.md](lesson-assessment-pass-fail-manual-qa-checklist.md) | Lesson assessment, pass/fail, reward, certificate |
-| [physics-template-pack-manual-qa-checklist.md](physics-template-pack-manual-qa-checklist.md) | Physics lesson template release gate |
 | [economy-shop-ledger-manual-qa-checklist.md](economy-shop-ledger-manual-qa-checklist.md) | Economy, shop, ledger |
 | [live-game-host-play-socket-manual-qa-checklist.md](live-game-host-play-socket-manual-qa-checklist.md) | Live game sessions |
 | [negamon-battle-manual-qa-checklist.md](negamon-battle-manual-qa-checklist.md) | Negamon battle |

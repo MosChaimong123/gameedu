@@ -59,6 +59,9 @@
 - [ ] กด section แล้ว progress การอ่านเพิ่มขึ้น
 - [ ] กด complete แล้วสถานะเป็น `เรียนจบ`
 - [ ] Quiz score badge แสดงหลังมีคะแนน
+- [x] Desktop: player, tabs, topic sidebar และ bottom progress ไม่ทับกันที่ viewport 1440x900
+- [x] Mobile: topic drawer, video selector และ bottom progress ใช้งานได้ที่ viewport 390x844
+- [x] progress percent, completed topics และสิทธิ์ complete อ่านจาก server `progressSummary`
 
 ## Release Checks
 

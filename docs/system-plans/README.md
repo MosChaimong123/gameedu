@@ -57,6 +57,9 @@ Use this folder for system-by-system analysis and development planning across Ga
 49. [AI Curriculum-to-Lesson Rules](./ai-curriculum-to-lesson-rules.md)
 50. [Assessment Blueprint Per Subject](./assessment-blueprint-per-subject.md)
 51. [Bingo Game Mode Plan](./43-bingo-game-mode-plan.md)
+52. [Frontend Architecture Hotspot Cleanup](./52-frontend-architecture-hotspot-cleanup.md)
+53. [Lesson System Correctness And Progress](./53-lesson-system-correctness-and-progress.md)
+54. [Auth Password Recovery And Email Delivery Hardening](./54-auth-password-recovery-email-delivery-hardening.md)
 
 ## How To Use
 

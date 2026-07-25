@@ -51,3 +51,11 @@ next-env.d.ts
 /.kiro/
 /.understand-anything/
 /.agents/skills/
+
+# curriculum import scratch (regenerated from source DOCX)
+/tmp-secondary-core-document.xml
+/tmp-secondary-core-source.docx
+
+# python tooling cache
+__pycache__/
+*.pyc

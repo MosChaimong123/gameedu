@@ -161,17 +161,17 @@ function isCourseLessonRef(value: unknown): value is CourseLessonRef {
 function isCourseModule(value: unknown): value is CourseModule {
     if (!value || typeof value !== "object") return false
 
-    const module = value as Record<string, unknown>
+    const mod = value as Record<string, unknown>
     if (
-        !isNonEmptyText(module.id) ||
-        !isNonEmptyText(module.title) ||
-        !isOptionalText(module.description) ||
-        !Number.isInteger(module.order) ||
-        (module.order as number) < 0 ||
-        !Array.isArray(module.lessons)
+        !isNonEmptyText(mod.id) ||
+        !isNonEmptyText(mod.title) ||
+        !isOptionalText(mod.description) ||
+        !Number.isInteger(mod.order) ||
+        (mod.order as number) < 0 ||
+        !Array.isArray(mod.lessons)
     ) return false
 
-    const lessons = module.lessons
+    const lessons = mod.lessons
     if (!lessons.every(isCourseLessonRef)) return false
 
     const refIds = lessons.map((lesson) => lesson.id)
@@ -294,30 +294,30 @@ export function getCoursePublishReadinessIssues(
     const recordsById = normalizeLessonRecords(lessonRecords)
     const questionSetsById = normalizeQuestionSetRecords(questionSetRecords)
 
-    for (const module of content.modules) {
-        if (moduleIds.has(module.id)) {
+    for (const mod of content.modules) {
+        if (moduleIds.has(mod.id)) {
             issues.push({
                 code: "DUPLICATE_MODULE_ID",
                 message: "Course modules must have unique ids.",
-                moduleId: module.id,
+                moduleId: mod.id,
             })
         }
-        moduleIds.add(module.id)
+        moduleIds.add(mod.id)
 
-        if (module.lessons.length === 0) {
+        if (mod.lessons.length === 0) {
             issues.push({
                 code: "EMPTY_MODULE",
                 message: "Published modules must contain at least one lesson.",
-                moduleId: module.id,
+                moduleId: mod.id,
             })
         }
 
-        for (const lesson of module.lessons) {
+        for (const lesson of mod.lessons) {
             if (lessonRefIds.has(lesson.id)) {
                 issues.push({
                     code: "DUPLICATE_LESSON_REF_ID",
                     message: "Course lesson refs must have unique ids.",
-                    moduleId: module.id,
+                    moduleId: mod.id,
                     lessonId: lesson.lessonId,
                 })
             }
@@ -327,7 +327,7 @@ export function getCoursePublishReadinessIssues(
                 issues.push({
                     code: "DUPLICATE_LESSON_ID",
                     message: "A lesson can appear only once in a published course.",
-                    moduleId: module.id,
+                    moduleId: mod.id,
                     lessonId: lesson.lessonId,
                 })
             }
@@ -338,7 +338,7 @@ export function getCoursePublishReadinessIssues(
                 issues.push({
                     code: "MISSING_LESSON_RECORD",
                     message: "Published courses must validate every lesson reference.",
-                    moduleId: module.id,
+                    moduleId: mod.id,
                     lessonId: lesson.lessonId,
                 })
                 continue
@@ -348,7 +348,7 @@ export function getCoursePublishReadinessIssues(
                 issues.push({
                     code: "LESSON_NOT_PUBLISHED",
                     message: "Course lessons must be published before the course is published.",
-                    moduleId: module.id,
+                    moduleId: mod.id,
                     lessonId: lesson.lessonId,
                 })
             }
@@ -357,7 +357,7 @@ export function getCoursePublishReadinessIssues(
                 issues.push({
                     code: "LEGACY_LESSON_CONTENT",
                     message: "Course lessons must use lesson_content_v2.",
-                    moduleId: module.id,
+                    moduleId: mod.id,
                     lessonId: lesson.lessonId,
                 })
                 continue
@@ -367,14 +367,14 @@ export function getCoursePublishReadinessIssues(
                 issues.push({
                     code: "LESSON_NOT_PUBLISH_READY",
                     message: "Course lessons must be publish-ready Lesson V2 content.",
-                    moduleId: module.id,
+                    moduleId: mod.id,
                     lessonId: lesson.lessonId,
                 })
             }
         }
     }
 
-    const moduleIdSet = new Set(content.modules.map((module) => module.id))
+    const moduleIdSet = new Set(content.modules.map((mod) => mod.id))
     const assessmentIds = new Set<string>()
     for (const assessment of content.assessments ?? []) {
         if (assessmentIds.has(assessment.id)) {

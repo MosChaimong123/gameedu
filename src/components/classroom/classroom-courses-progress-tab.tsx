@@ -247,6 +247,8 @@ export function ClassroomCoursesProgressTab({ classId, studentCount }: Classroom
 
     useEffect(() => {
         if (!selectedCourseId) {
+            // Reset detail panels when no course is selected — intended dependency-change reset.
+            /* eslint-disable-next-line react-hooks/set-state-in-effect */
             setSelectedProgress(null)
             setAssessmentResults(null)
             return

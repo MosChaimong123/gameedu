@@ -120,13 +120,13 @@ async function resolveStudent(code: string): Promise<any | null> {
 
 async function resolveBattleProgress(studentId: string) {
     const [played, won] = await Promise.all([
-        (db.battleSession as any).count({
+        (db.battleSession as { count: (args: unknown) => Promise<number> }).count({
             where: {
                 interactivePending: false,
                 OR: [{ challengerId: studentId }, { defenderId: studentId }],
             },
         }),
-        (db.battleSession as any).count({
+        (db.battleSession as { count: (args: unknown) => Promise<number> }).count({
             where: {
                 interactivePending: false,
                 winnerId: studentId,

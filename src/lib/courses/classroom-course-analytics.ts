@@ -48,8 +48,8 @@ function buildLessonTitleMap(content: CourseContentV1) {
 
 export function getNextIncompleteLessonId(content: CourseContentV1, completedLessonIds: string[]) {
     const completedSet = new Set(completedLessonIds)
-    for (const module of content.modules) {
-        for (const lesson of module.lessons) {
+    for (const mod of content.modules) {
+        for (const lesson of mod.lessons) {
             if (!lesson.required) continue
             if (!completedSet.has(lesson.lessonId)) {
                 return lesson.lessonId

@@ -26,6 +26,8 @@ export function EventBanner({ classId, loginCode }: { classId: string; loginCode
   useEffect(() => {
     const code = loginCode.trim();
     if (!code) {
+      // Reset events when the login code clears — intended dependency-change reset.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEvents([]);
       return;
     }

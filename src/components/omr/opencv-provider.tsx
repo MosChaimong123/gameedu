@@ -12,6 +12,8 @@ export function OpenCVProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         const qaFlags = parseOmrScannerQaFlags(window.location.search)
+        // QA test hooks force an initial status synchronously — intended init, not a cascading render.
+        /* eslint-disable react-hooks/set-state-in-effect */
         if (qaFlags.forceCvError) {
             setCvStatus("error")
             return
@@ -20,6 +22,7 @@ export function OpenCVProvider({ children }: { children: React.ReactNode }) {
             setCvStatus("loaded")
             return
         }
+        /* eslint-enable react-hooks/set-state-in-effect */
 
         // Polling fallback
         const poll = setInterval(() => {

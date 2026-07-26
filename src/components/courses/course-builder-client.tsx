@@ -265,9 +265,9 @@ export function CourseBuilderClient({ mode, courseId }: { mode: "create" | "edit
     const publishWarnings = useMemo(() => {
         const warnings: string[] = []
         if (content.modules.length === 0) warnings.push("คอร์สต้องมีอย่างน้อย 1 โมดูล")
-        for (const module of content.modules) {
-            if (module.lessons.length === 0) warnings.push(`${module.title} ยังไม่มีบทเรียน`)
-            for (const ref of module.lessons) {
+        for (const mod of content.modules) {
+            if (mod.lessons.length === 0) warnings.push(`${mod.title} ยังไม่มีบทเรียน`)
+            for (const ref of mod.lessons) {
                 const lesson = lessons.find((candidate) => candidate.id === ref.lessonId)
                 if (!lesson) warnings.push(`${ref.title ?? ref.lessonId} ไม่พบบทเรียนต้นทาง`)
                 else if (!lessonIsPublishReady(lesson)) warnings.push(`${lesson.title} ยังไม่พร้อม publish ในคอร์ส`)

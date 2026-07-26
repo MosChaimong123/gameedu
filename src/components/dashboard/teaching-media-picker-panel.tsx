@@ -51,6 +51,8 @@ export function TeachingMediaPickerPanel({
     useEffect(() => {
         if (!open) return;
         let cancelled = false;
+        // Loading flag set before an async fetch — intended pre-fetch state, not a cascading render.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLoading(true);
         listTeachingMedia({ query: query || undefined, limit: 60 })
             .then((result) => {

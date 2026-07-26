@@ -176,6 +176,11 @@ export function StudentLessonsTab({ code }: StudentLessonsTabProps) {
         };
     }, [code]);
 
+    const lessonStatuses = useMemo(
+        () => new Map(lessons.map((lesson) => [lesson.id, getLessonStatus(lesson)] as const)),
+        [lessons]
+    );
+
     if (loading) {
         return (
             <div className="flex items-center justify-center py-16">
@@ -211,10 +216,6 @@ export function StudentLessonsTab({ code }: StudentLessonsTabProps) {
         );
     }
 
-    const lessonStatuses = useMemo(
-        () => new Map(lessons.map((lesson) => [lesson.id, getLessonStatus(lesson)] as const)),
-        [lessons]
-    );
     const completedCount = lessons.filter((lesson) => lessonStatuses.get(lesson.id) === "completed").length;
     const inProgressCount = lessons.filter((lesson) => lessonStatuses.get(lesson.id) === "in_progress").length;
     const totalMinutes = lessons.reduce((sum, item) => sum + (item.lesson.content?.estimatedMinutes ?? 0), 0);

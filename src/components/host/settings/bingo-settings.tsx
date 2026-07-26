@@ -38,8 +38,11 @@ export function BingoSettings({ onHost, onBack, uniqueAnswerCount = null }: Bing
         if (uniqueAnswerCount === null || selectedSizeAvailable) return
         const nextSize = CARD_SIZES.find((size) => uniqueAnswerCount >= requiredDistinctAnswers(size))
         if (nextSize) {
+            // Auto-shrink the card to a size the answer pool can fill — intended derived-state sync.
+            /* eslint-disable react-hooks/set-state-in-effect */
             setCardSize(nextSize)
             setLinesToWin((current) => Math.min(current, nextSize * 2 + 2))
+            /* eslint-enable react-hooks/set-state-in-effect */
         }
     }, [selectedSizeAvailable, uniqueAnswerCount])
 

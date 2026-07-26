@@ -100,6 +100,8 @@ export function StudentCoursesTab({ code }: StudentCoursesTabProps) {
     }, [code])
 
     useEffect(() => {
+        // loadCourses only sets state inside async fetch callbacks, not synchronously here.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         loadCourses()
     }, [loadCourses])
 

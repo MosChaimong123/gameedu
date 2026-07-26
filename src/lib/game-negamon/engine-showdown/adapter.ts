@@ -426,14 +426,14 @@ type ParsedShowdownExactHpSnapshot = {
 };
 
 async function loadShowdownRuntime(): Promise<ShowdownRuntimeModule> {
-    const module = (await import("pokemon-showdown")) as {
+    const mod = (await import("pokemon-showdown")) as {
         default?: unknown;
         "module.exports"?: unknown;
     };
     const candidate =
-        (isShowdownRuntimeModule(module) ? module : null) ??
-        (isShowdownRuntimeModule(module.default) ? module.default : null) ??
-        (isShowdownRuntimeModule(module["module.exports"]) ? module["module.exports"] : null);
+        (isShowdownRuntimeModule(mod) ? mod : null) ??
+        (isShowdownRuntimeModule(mod.default) ? mod.default : null) ??
+        (isShowdownRuntimeModule(mod["module.exports"]) ? mod["module.exports"] : null);
 
     if (!candidate) {
         throw new Error("Pokemon Showdown runtime is missing BattleStream/getPlayerStreams exports.");

@@ -112,7 +112,7 @@ describe("student course certificate route", () => {
             },
         ])
         mockCourseCertificateFindUnique.mockResolvedValue(null)
-        mockTransaction.mockImplementation(async (callback: (tx: any) => Promise<unknown>) =>
+        mockTransaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) =>
             callback({
                 courseCertificate: {
                     create: vi.fn().mockResolvedValue({

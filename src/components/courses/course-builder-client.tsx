@@ -36,7 +36,7 @@ import { PageBackLink } from "@/components/ui/page-back-link"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import { getSubjectCurriculumMapPack } from "@/lib/curriculum/map-packs"
-import { getCanonicalSubjectById, type CanonicalCoreSubjectId } from "@/lib/curriculum/subject-catalog"
+import { getCanonicalSubjectById, type CanonicalSubjectId } from "@/lib/curriculum/subject-catalog"
 import type {
     CourseAssessmentV2,
     CourseCertificateConfigV1,
@@ -75,7 +75,7 @@ type LessonRecord = {
 }
 
 type LessonOptionItem = LessonRecord & {
-    curriculumSubjectId: CanonicalCoreSubjectId | null
+    curriculumSubjectId: CanonicalSubjectId | null
     curriculumUnitId: string | null
     curriculumUnitTitle: string | null
 }
@@ -188,7 +188,7 @@ export function CourseBuilderClient({ mode, courseId }: { mode: "create" | "edit
     const [description, setDescription] = useState("")
     const [coverImageUrl, setCoverImageUrl] = useState("")
     const [content, setContent] = useState<CourseContentV1>(() => createEmptyCourseContent())
-    const [subjectFilter, setSubjectFilter] = useState<CanonicalCoreSubjectId | "ALL">(initialCurriculumContext.subjectId ?? "ALL")
+    const [subjectFilter, setSubjectFilter] = useState<CanonicalSubjectId | "ALL">(initialCurriculumContext.subjectId ?? "ALL")
     const [unitFilter, setUnitFilter] = useState<string | "ALL">(initialCurriculumContext.unitId ?? "ALL")
     const [assignStartAt, setAssignStartAt] = useState("")
     const [assignDueAt, setAssignDueAt] = useState("")
@@ -940,7 +940,7 @@ export function CourseBuilderClient({ mode, courseId }: { mode: "create" | "edit
                                 <select
                                     className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700"
                                     value={subjectFilter}
-                                    onChange={(event) => setSubjectFilter(event.target.value as CanonicalCoreSubjectId | "ALL")}
+                                    onChange={(event) => setSubjectFilter(event.target.value as CanonicalSubjectId | "ALL")}
                                 >
                                     <option value="ALL">ทุกวิชา</option>
                                     {CORE_SUBJECT_OPTIONS.map((subjectId) => (

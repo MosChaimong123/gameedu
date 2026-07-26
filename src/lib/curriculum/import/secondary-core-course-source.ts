@@ -105,7 +105,13 @@ export function buildSecondaryCoreCourseSourceRowsFromTables(tables: SecondaryCo
                 const matchedStandards = unique(
                     references.map((reference) => getCurriculumStandardByCode(reference.standardCode)).filter(Boolean)
                 )
-                const subjectIds = unique(matchedStandards.map((standard) => standard!.subjectId))
+                const subjectIds = unique(
+                    matchedStandards
+                        .map((standard) => standard!.subjectId)
+                        .filter((subjectId): subjectId is z.infer<typeof canonicalCoreSubjectIdSchema> =>
+                            canonicalCoreSubjectIdSchema.safeParse(subjectId).success
+                        )
+                )
                 const gradeLevels = unique(
                     references
                         .map((reference) => gradeLevelFromIndicatorCode(reference.indicatorCode))

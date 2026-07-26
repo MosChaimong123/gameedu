@@ -1,9 +1,9 @@
 import { z } from "zod"
 import { curriculumSourceRefSchema, type CurriculumSourceRef } from "@/lib/curriculum/source-registry"
 import {
-    canonicalCoreSubjectIdSchema,
+    canonicalSubjectIdSchema,
     getCanonicalSubjectById,
-    type CanonicalCoreSubjectId,
+    type CanonicalSubjectId,
 } from "@/lib/curriculum/subject-catalog"
 
 export const CURRICULUM_STRAND_STANDARD_SCHEMA_VERSION = "curriculum_strand_standard_v1" as const
@@ -12,7 +12,7 @@ export const curriculumStandardCodeSchema = z.string().trim().regex(/^[ก-ฮA-
 
 export const curriculumStrandSchema = z.object({
     id: z.string().trim().min(1),
-    subjectId: canonicalCoreSubjectIdSchema,
+    subjectId: canonicalSubjectIdSchema,
     code: z.string().trim().min(1),
     labelTh: z.string().trim().min(1),
     labelEn: z.string().trim().min(1),
@@ -22,7 +22,7 @@ export const curriculumStrandSchema = z.object({
 
 export const curriculumStandardSchema = z.object({
     id: z.string().trim().min(1),
-    subjectId: canonicalCoreSubjectIdSchema,
+    subjectId: canonicalSubjectIdSchema,
     strandId: z.string().trim().min(1),
     code: curriculumStandardCodeSchema,
     labelTh: z.string().trim().min(1),
@@ -54,7 +54,7 @@ const DOCX_REF: CurriculumSourceRef = {
     note: "Derived from verified teacher-uploaded DOCX extraction for secondary core structure.",
 }
 
-const SUBJECT_STANDARD_CODE_PREFIX: Record<CanonicalCoreSubjectId, string> = {
+const SUBJECT_STANDARD_CODE_PREFIX: Record<CanonicalSubjectId, string> = {
     thai: "ท",
     mathematics: "ค",
     science_technology: "ว",
@@ -63,11 +63,15 @@ const SUBJECT_STANDARD_CODE_PREFIX: Record<CanonicalCoreSubjectId, string> = {
     arts: "ศ",
     career: "ง",
     foreign_languages: "ต",
+    physics: "PHYS",
+    chemistry: "CHEM",
+    biology: "BIO",
+    earth_space_science: "EARTH",
 }
 
 function buildStrand(
     id: string,
-    subjectId: CanonicalCoreSubjectId,
+    subjectId: CanonicalSubjectId,
     code: string,
     labelTh: string,
     labelEn: string,
@@ -86,7 +90,7 @@ function buildStrand(
 
 function buildStandard(
     id: string,
-    subjectId: CanonicalCoreSubjectId,
+    subjectId: CanonicalSubjectId,
     strandId: string,
     code: string,
     labelTh: string,
@@ -120,6 +124,11 @@ const STRANDS: CurriculumStrand[] = [
     buildStrand("sci-physical-science", "science_technology", "SCI-PHYSICAL", "วิทยาศาสตร์กายภาพ", "Physical Science", 1),
     buildStrand("sci-earth-space", "science_technology", "SCI-EARTHSPACE", "วิทยาศาสตร์โลก และอวกาศ", "Earth and Space Science", 2),
     buildStrand("sci-technology", "science_technology", "SCI-TECH", "เทคโนโลยี", "Technology", 3),
+
+    buildStrand("phys-foundations-motion", "physics", "PHYS-MOTION", "ฟิสิกส์: ธรรมชาติ แรง และการเคลื่อนที่", "Physics Foundations, Force and Motion", 0),
+    buildStrand("phys-waves-light-sound", "physics", "PHYS-WAVES", "ฟิสิกส์: คลื่น เสียง และแสง", "Waves Sound and Light", 1),
+    buildStrand("phys-electricity-magnetism", "physics", "PHYS-EM", "ฟิสิกส์: ไฟฟ้า แม่เหล็ก และคลื่นแม่เหล็กไฟฟ้า", "Electricity Magnetism and Electromagnetic Waves", 2),
+    buildStrand("phys-thermal-modern", "physics", "PHYS-MODERN", "ฟิสิกส์: ความร้อน ของไหล อะตอม และนิวเคลียร์", "Thermal Fluid Atomic and Nuclear Physics", 3),
 
     buildStrand("social-religion-morality", "social_religion_culture", "SOCIAL-RELIGION", "ศาสนา ศีลธรรม จริยธรรม", "Religion Morality and Ethics", 0),
     buildStrand("social-civics-culture", "social_religion_culture", "SOCIAL-CIVICS", "หน้าที่พลเมือง วัฒนธรรม และการดำเนินชีวิตในสังคม", "Civics Culture and Social Life", 1),
@@ -171,6 +180,11 @@ const STANDARDS: CurriculumStandard[] = [
     buildStandard("sci-w4_1", "science_technology", "sci-technology", "ว 4.1", "เข้าใจแนวคิดหลักของเทคโนโลยีเพื่อการดำรงชีวิตในสังคม มีการเปลี่ยนแปลงอย่างรวดเร็ว ใช้ความรู้และทักษะในการแก้ปัญหาอย่างเหมาะสม", "Understand technology concepts and use them appropriately for problem solving in society.", 0),
     buildStandard("sci-w4_2", "science_technology", "sci-technology", "ว 4.2", "เข้าใจและใช้แนวคิดเชิงคำนวณในการแก้ปัญหา พบกับสถานการณ์ใหม่อย่างเป็นระบบ ใช้เทคโนโลยีสารสนเทศอย่างปลอดภัย", "Use computational thinking and information technology safely and systematically.", 1),
 
+    buildStandard("phys-p1_1", "physics", "phys-foundations-motion", "PHYS 1.1", "เข้าใจธรรมชาติของฟิสิกส์ การวัด แรง การเคลื่อนที่ งาน พลังงาน โมเมนตัม และสมดุลกล รวมทั้งนำความรู้ไปใช้ประโยชน์", "Understand physics foundations, measurement, force, motion, work, energy, momentum, and equilibrium.", 0),
+    buildStandard("phys-p2_1", "physics", "phys-waves-light-sound", "PHYS 2.1", "เข้าใจการเคลื่อนที่แบบฮาร์มอนิก คลื่นกล เสียง แสง และการมองเห็น รวมทั้งนำความรู้ไปใช้ประโยชน์", "Understand harmonic motion, mechanical waves, sound, light, and vision.", 0),
+    buildStandard("phys-p3_1", "physics", "phys-electricity-magnetism", "PHYS 3.1", "เข้าใจไฟฟ้าสถิต กระแสไฟฟ้า แม่เหล็กไฟฟ้า ไฟฟ้ากระแสสลับ คลื่นแม่เหล็กไฟฟ้า และการสื่อสาร", "Understand electrostatics, electric current, electromagnetism, alternating current, electromagnetic waves, and communication.", 0),
+    buildStandard("phys-p4_1", "physics", "phys-thermal-modern", "PHYS 4.1", "เข้าใจความร้อน แก๊ส ของแข็ง ของไหล ฟิสิกส์อะตอม ฟิสิกส์นิวเคลียร์ และฟิสิกส์อนุภาค รวมทั้งนำความรู้ไปใช้ประโยชน์", "Understand heat, gas, solids, fluids, atomic physics, nuclear physics, and particle physics.", 0),
+
     buildStandard("social-s1_1", "social_religion_culture", "social-religion-morality", "ส 1.1", "รู้และเข้าใจประวัติ ความสำคัญ ศาสดา หลักธรรมของพระพุทธศาสนาหรือศาสนาที่ตนนับถือ", "Understand core religious history, importance, and principles.", 0),
     buildStandard("social-s1_2", "social_religion_culture", "social-religion-morality", "ส 1.2", "ยึดมั่นและปฏิบัติตนตามหลักธรรมเพื่ออยู่ร่วมกันอย่างสันติสุข", "Apply moral principles for peaceful coexistence.", 1),
     buildStandard("social-s2_1", "social_religion_culture", "social-civics-culture", "ส 2.1", "เข้าใจและปฏิบัติตนตามหน้าที่ของการเป็นพลเมืองดี มีค่านิยมที่ดีงาม และธำรงรักษาประเพณีและวัฒนธรรมไทย", "Practice good citizenship and preserve Thai culture and traditions.", 0),
@@ -217,7 +231,7 @@ function hasUniqueValues(values: string[]) {
     return new Set(values).size === values.length
 }
 
-function matchesSubjectStandardCodePrefix(subjectId: CanonicalCoreSubjectId, code: string) {
+function matchesSubjectStandardCodePrefix(subjectId: CanonicalSubjectId, code: string) {
     const prefix = SUBJECT_STANDARD_CODE_PREFIX[subjectId]
     return code.startsWith(prefix)
 }
@@ -303,7 +317,7 @@ export function isCurriculumStrandStandardCatalog(value: unknown): value is Curr
     return validateCurriculumStrandStandardCatalog(value).success
 }
 
-export function getCurriculumStrandsForSubject(subjectId: CanonicalCoreSubjectId) {
+export function getCurriculumStrandsForSubject(subjectId: CanonicalSubjectId) {
     return CURRICULUM_STRAND_STANDARD_CATALOG.strands
         .filter((strand) => strand.subjectId === subjectId)
         .sort((left, right) => left.order - right.order)
@@ -317,7 +331,7 @@ export function getCurriculumStandardById(standardId: string) {
     return CURRICULUM_STRAND_STANDARD_CATALOG.standards.find((standard) => standard.id === standardId) ?? null
 }
 
-export function getStandardsForSubjectAndStrand(subjectId: CanonicalCoreSubjectId, strandId: string) {
+export function getStandardsForSubjectAndStrand(subjectId: CanonicalSubjectId, strandId: string) {
     const strand = getCurriculumStrandById(strandId)
     if (!strand || strand.subjectId !== subjectId) {
         return []

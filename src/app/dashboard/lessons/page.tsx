@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getSubjectCurriculumMapPack } from "@/lib/curriculum/map-packs"
-import { getCanonicalSubjectById, type CanonicalCoreSubjectId } from "@/lib/curriculum/subject-catalog"
+import { getCanonicalSubjectById, type CanonicalSubjectId } from "@/lib/curriculum/subject-catalog"
 import {
     buildLessonCurriculumHref,
     CORE_SUBJECT_OPTIONS,
@@ -64,7 +64,7 @@ type Lesson = {
 
 type LessonFilter = "all" | "draft" | "published" | "assigned"
 type LessonListItem = Lesson & {
-    curriculumSubjectId: CanonicalCoreSubjectId | null
+    curriculumSubjectId: CanonicalSubjectId | null
     curriculumUnitId: string | null
     curriculumUnitTitle: string | null
     curriculumCourseTitle: string | null
@@ -79,7 +79,7 @@ const FILTERS: Array<{ value: LessonFilter; label: string }> = [
 ]
 
 
-function getFilteredLessonsByContext(lessons: LessonListItem[], filter: LessonFilter, subjectId: CanonicalCoreSubjectId | "ALL", unitId: string | "ALL") {
+function getFilteredLessonsByContext(lessons: LessonListItem[], filter: LessonFilter, subjectId: CanonicalSubjectId | "ALL", unitId: string | "ALL") {
     const byContext = subjectId === "ALL" ? lessons : lessons.filter((lesson) => lesson.curriculumSubjectId === subjectId)
     const byUnit = unitId === "ALL" ? byContext : byContext.filter((lesson) => lesson.curriculumUnitId === unitId)
     if (filter === "draft") return byUnit.filter((lesson) => lesson.status === "DRAFT")
@@ -116,7 +116,7 @@ export default function LessonsPage() {
     const initialCurriculumContext = useMemo(() => parseLessonCurriculumContext(searchParams), [searchParams])
     const [lessons, setLessons] = useState<Lesson[]>([])
     const [filter, setFilter] = useState<LessonFilter>((searchParams.get("filter") as LessonFilter) || "all")
-    const [subjectId, setSubjectId] = useState<CanonicalCoreSubjectId | "ALL">(initialCurriculumContext.subjectId ?? "ALL")
+    const [subjectId, setSubjectId] = useState<CanonicalSubjectId | "ALL">(initialCurriculumContext.subjectId ?? "ALL")
     const [unitId, setUnitId] = useState<string | "ALL">(initialCurriculumContext.unitId ?? "ALL")
     const [loading, setLoading] = useState(true)
     const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -303,7 +303,7 @@ export default function LessonsPage() {
                     </div>
                     <div className="flex flex-col gap-3 lg:items-end">
                         <div className="grid gap-2 sm:grid-cols-2">
-                            <Select value={subjectId} onValueChange={(value) => setSubjectId(value as CanonicalCoreSubjectId | "ALL")}>
+                            <Select value={subjectId} onValueChange={(value) => setSubjectId(value as CanonicalSubjectId | "ALL")}>
                                 <SelectTrigger className="min-w-[220px] rounded-xl bg-white">
                                     <SelectValue placeholder="ทุกวิชา" />
                                 </SelectTrigger>

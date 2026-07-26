@@ -16,10 +16,11 @@ describe("subject curriculum map packs", () => {
         expect(validateSubjectCurriculumMapPackCatalog(SUBJECT_CURRICULUM_MAP_PACKS).success).toBe(true)
     })
 
-    it("covers all eight core learning areas", () => {
-        expect(SUBJECT_CURRICULUM_MAP_PACKS).toHaveLength(8)
+    it("covers all eight core learning areas plus the active physics additional pack", () => {
+        expect(SUBJECT_CURRICULUM_MAP_PACKS).toHaveLength(9)
         expect(SUBJECT_CURRICULUM_MAP_PACKS.map((pack) => pack.subjectId)).toEqual(
             expect.arrayContaining([
+                "physics",
                 "thai",
                 "mathematics",
                 "science_technology",
@@ -30,6 +31,17 @@ describe("subject curriculum map packs", () => {
                 "foreign_languages",
             ])
         )
+    })
+
+    it("resolves the physics additional pack with upper-secondary semester units", () => {
+        const pack = getSubjectCurriculumMapPack("physics")
+
+        expect(pack).not.toBeNull()
+        expect(pack?.packStatus).toBe("starter_additional_map")
+        expect(pack?.semesterMode).toBe("required")
+        expect(pack?.unitOutlines.length).toBeGreaterThan(0)
+        expect(pack?.unitOutlines.every((unit) => unit.courseType === "additional")).toBe(true)
+        expect(pack?.unitOutlines.some((unit) => unit.gradeLevels.includes("m4") && unit.semester === 1)).toBe(true)
     })
 
     it("resolves a subject pack by canonical subject id", () => {

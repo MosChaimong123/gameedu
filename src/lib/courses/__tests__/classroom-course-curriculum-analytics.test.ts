@@ -76,7 +76,9 @@ describe("buildClassroomCourseCurriculumAnalytics", () => {
             },
         })
 
-        expect(analytics.subjectLabel).toBe("วิทยาศาสตร์และเทคโนโลยี")
+        // Both lessons carry retired phy-* unit ids, so they resolve back to ฟิสิกส์ —
+        // and to two distinct units rather than collapsing onto one science_technology unit.
+        expect(analytics.subjectLabel).toBe("ฟิสิกส์")
         expect(analytics.requiredLessonCount).toBe(1)
         expect(analytics.optionalLessonCount).toBe(1)
         expect(analytics.unitCount).toBe(2)

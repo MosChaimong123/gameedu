@@ -44,7 +44,7 @@ import {
 } from "@/lib/curriculum/map-packs"
 import {
     getCanonicalSubjectById,
-    type CanonicalCoreSubjectId,
+    type CanonicalSubjectId,
 } from "@/lib/curriculum/subject-catalog"
 import { getCurriculumStandardById, type CurriculumStandard } from "@/lib/curriculum/strands-and-standards"
 import { SECONDARY_CORE_CURRICULUM_INDICATOR_CATALOG } from "@/lib/curriculum/canonical-indicators"
@@ -52,12 +52,17 @@ import { type SubjectLessonTemplate } from "@/lib/curriculum/template-master-pac
 import { getSubjectUnitLearningOutcomePack, type SubjectUnitLearningOutcomePack } from "@/lib/curriculum/unit-learning-outcomes"
 import { cn } from "@/lib/utils"
 import {
-    getLessonTopicContentStatus,
     type LessonContentV2,
     type LessonContentMetadata,
     type LessonMediaBlock,
     type LessonOutlineDraft,
 } from "@/lib/lessons/lesson-content"
+import {
+    buildContentV2,
+    buildCurriculumCourseShellContentV2,
+    createEmptyTopic,
+    type TopicDraft,
+} from "@/lib/lessons/curriculum-course-shell"
 import {
     buildLessonCurriculumHref,
     CORE_SUBJECT_OPTIONS,
@@ -67,7 +72,6 @@ import type { TeachingMediaReference } from "@/lib/teaching-media-reference"
 
 type Step = "source" | "outline" | "topics"
 type CourseTrack = "basic" | "additional"
-type TopicDraft = LessonContentV2["topics"][number]
 type CurriculumIndicatorDisplay = {
     id: string
     standardId: string
@@ -96,7 +100,8 @@ const COURSE_TRACK_OPTIONS: Array<{ value: CourseTrack; label: string }> = [
     { value: "basic", label: "พื้นฐาน" },
     { value: "additional", label: "เพิ่มเติม" },
 ]
-const DEFAULT_CURRICULUM_SUBJECT_ID: CanonicalCoreSubjectId = "science_technology"
+const DEFAULT_CURRICULUM_SUBJECT_ID: CanonicalSubjectId = "science_technology"
+const DEFAULT_ADDITIONAL_SUBJECT_ID: CanonicalSubjectId = "physics"
 
 function getLessonErrorMessage(payload: unknown, fallback: string) {
     if (!payload || typeof payload !== "object") return fallback
@@ -131,169 +136,8 @@ function createSectionId() {
     return `section-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-function createEmptyTopic(topic: LessonOutlineDraft["topics"][number]): TopicDraft {
-    return {
-        id: topic.id,
-        title: topic.title,
-        description: topic.description,
-        order: topic.order,
-        contentStatus: "empty",
-        objectives: [],
-        sections: [],
-        documents: [],
-    }
-}
-
 function createCurriculumCourseDraftId(courseId: string) {
     return `curriculum-course-${courseId}`
-}
-
-function getPrimaryGradeLevelLabel(unit: SubjectCurriculumUnitOutline) {
-    const gradeLevel = unit.gradeLevels[0] as CanonicalGradeLevel | undefined
-    return gradeLevel ? getCanonicalGradeLevelLabel(gradeLevel, "th") : ""
-}
-
-function buildCurriculumMetadata(input: {
-    subjectId: CanonicalCoreSubjectId
-    course?: CanonicalCourseEntry | null
-    unit: SubjectCurriculumUnitOutline
-    outcomePack: SubjectUnitLearningOutcomePack
-    template?: SubjectLessonTemplate | null
-}) {
-    const subject = getCanonicalSubjectById(input.subjectId)
-    const primaryCrosswalkRows = input.course ? getPrimaryCoreCourseIndicatorCrosswalkRows(input.course) : []
-    const primaryStandardIds = Array.from(
-        new Set(
-            primaryCrosswalkRows
-                .map((row) => getCurriculumStandardByCode(row.standardCode)?.id)
-                .filter((standardId): standardId is string => Boolean(standardId))
-        )
-    )
-    const primaryDuringIndicatorIds = primaryCrosswalkRows.flatMap((row) =>
-        row.duringIndicators.map((indicator) => indicator.code)
-    )
-    const primaryTerminalIndicatorIds = primaryCrosswalkRows.flatMap((row) =>
-        row.terminalIndicators.map((indicator) => indicator.code)
-    )
-    const learningOutcomeIds = input.template?.suggestedOutcomeIds?.length
-        ? input.template.suggestedOutcomeIds
-        : input.outcomePack.learningOutcomes.map((outcome) => outcome.id)
-
-    return {
-        curriculum: {
-            subject: subject?.displayNameTh ?? input.subjectId,
-            curriculumCode: "basic_education_2551",
-            gradeLevel: input.course ? getCanonicalGradeLevelLabel(input.course.gradeLevel, "th") : getPrimaryGradeLevelLabel(input.unit),
-            semester: input.course?.semester ?? input.unit.semester,
-            courseId: input.course?.id,
-            courseTitle: input.course?.titleTh,
-            unitId: input.unit.id,
-            standardIds: primaryStandardIds.length > 0 ? primaryStandardIds : input.course?.standardIds ?? input.unit.standardIds,
-            duringIndicatorIds: primaryDuringIndicatorIds.length > 0 ? primaryDuringIndicatorIds : input.course?.duringIndicatorIds,
-            terminalIndicatorIds: primaryTerminalIndicatorIds.length > 0 ? primaryTerminalIndicatorIds : input.course?.terminalIndicatorIds,
-            learningOutcomeIds,
-            sourceRefs: input.template ? [...input.unit.sourceRefs, ...input.template.sourceRefs] : input.unit.sourceRefs,
-        },
-        template: input.template
-            ? {
-                  templateId: input.template.id,
-                  templateLabel: input.template.title,
-              }
-            : undefined,
-    } satisfies LessonContentMetadata
-}
-
-function buildCurriculumCourseShellContentV2(
-    subjectId: CanonicalCoreSubjectId,
-    course: CanonicalCourseEntry,
-    unit: SubjectCurriculumUnitOutline,
-    outcomePack: SubjectUnitLearningOutcomePack,
-    realUnits: SecondaryCoreUnit[]
-): LessonContentV2 {
-    const subject = getCanonicalSubjectById(subjectId)
-
-    // Prefer the real DOCX learning units (one lesson topic per หน่วยการเรียนรู้);
-    // fall back to the synthetic outcome-pack topics when the course has none.
-    if (realUnits.length > 0) {
-        const realUnitObjectivesByTopicId = new Map<string, string[]>()
-        const outline: LessonOutlineDraft = {
-            title: course.titleTh,
-            description: unit.notes?.[0] ?? `โครงบทเรียนจากรายวิชา ${course.titleTh}`,
-            subject: subject?.displayNameTh ?? subjectId,
-            gradeLevel: getCanonicalGradeLevelLabel(course.gradeLevel, "th"),
-            topics: realUnits.map((realUnit, index) => {
-                const indicators = [...realUnit.duringIndicators, ...realUnit.terminalIndicators]
-                const indicatorCodes = indicators.map((indicator) => indicator.code)
-                const objectives = indicators
-                    .map((indicator) => indicator.description?.trim())
-                    .filter((text): text is string => Boolean(text))
-                const topicId = `${course.id}-unit-${realUnit.unitNumber}-${index}`
-                if (objectives.length > 0) {
-                    realUnitObjectivesByTopicId.set(topicId, objectives)
-                }
-                return {
-                    id: topicId,
-                    title: realUnit.title,
-                    description:
-                        realUnit.summary ??
-                        (indicatorCodes.length > 0 ? `ตัวชี้วัด: ${indicatorCodes.join(", ")}` : undefined),
-                    order: index,
-                }
-            }),
-        }
-
-        const topics = outline.topics.map((topic) => ({
-            ...createEmptyTopic(topic),
-            objectives: realUnitObjectivesByTopicId.get(topic.id) ?? [],
-        }))
-
-        return buildContentV2(outline, topics, buildCurriculumMetadata({ subjectId, course, unit, outcomePack }))
-    }
-
-    const objectivesByTopicId = new Map<string, string[]>()
-    for (const outcome of outcomePack.learningOutcomes) {
-        for (const topicId of outcome.topicIds) {
-            const current = objectivesByTopicId.get(topicId) ?? []
-            current.push(outcome.text)
-            objectivesByTopicId.set(topicId, current)
-        }
-    }
-
-    const outline: LessonOutlineDraft = {
-        title: course.titleTh,
-        description: unit.notes?.[0] ?? `โครงบทเรียนจากรายวิชา ${course.titleTh}`,
-        subject: subject?.displayNameTh ?? subjectId,
-        gradeLevel: getCanonicalGradeLevelLabel(course.gradeLevel, "th"),
-        topics: outcomePack.topics.map((topic, index) => ({
-            id: topic.id,
-            title: topic.title,
-            description:
-                topic.notes?.[0] ??
-                objectivesByTopicId.get(topic.id)?.[0] ??
-                undefined,
-            order: index,
-        })),
-    }
-
-    const topics = outline.topics.map((topic) => ({
-        ...createEmptyTopic(topic),
-        objectives: objectivesByTopicId.get(topic.id) ?? [],
-    }))
-
-    return buildContentV2(outline, topics, buildCurriculumMetadata({ subjectId, course, unit, outcomePack }))
-}
-
-function buildContentV2(outline: LessonOutlineDraft, topics: TopicDraft[], metadata?: LessonContentMetadata): LessonContentV2 {
-    const normalizedTopics = topics.map((topic) => {
-        return { ...topic, contentStatus: getLessonTopicContentStatus(topic) }
-    })
-    return {
-        schemaVersion: "lesson_content_v2",
-        outline,
-        topics: normalizedTopics,
-        estimatedMinutes: Math.max(10, normalizedTopics.filter((topic) => topic.contentStatus !== "empty").length * 12),
-        metadata,
-    }
 }
 
 function createLessonDraftBundle(
@@ -449,7 +293,7 @@ export default function CreateLessonPage() {
     const [lessonDrafts, setLessonDrafts] = useState<LessonDraftBundle[]>([])
     const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null)
     const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null)
-    const [curriculumSubjectId, setCurriculumSubjectId] = useState<CanonicalCoreSubjectId>(DEFAULT_CURRICULUM_SUBJECT_ID)
+    const [curriculumSubjectId, setCurriculumSubjectId] = useState<CanonicalSubjectId>(DEFAULT_CURRICULUM_SUBJECT_ID)
     const [curriculumCourseTrack, setCurriculumCourseTrack] = useState<CourseTrack>("basic")
     const [curriculumCourseGradeLevel, setCurriculumCourseGradeLevel] = useState<CanonicalGradeLevel>("m4")
     const [curriculumCourseId, setCurriculumCourseId] = useState("")
@@ -468,14 +312,14 @@ export default function CreateLessonPage() {
         const subjectParam = params.get("subject")
         const subjectIdParam = params.get("subjectId")
         const effectiveSubjectId =
-            subjectIdParam && CORE_SUBJECT_OPTIONS.includes(subjectIdParam as CanonicalCoreSubjectId)
-                ? (subjectIdParam as CanonicalCoreSubjectId)
+            subjectIdParam && CORE_SUBJECT_OPTIONS.includes(subjectIdParam as CanonicalSubjectId)
+                ? (subjectIdParam as CanonicalSubjectId)
                 : DEFAULT_CURRICULUM_SUBJECT_ID
         const gradeLevelParam = params.get("gradeLevel")
         const unitId = params.get("unitId")
         if (subjectParam) setSubject(subjectParam)
-        if (subjectIdParam && CORE_SUBJECT_OPTIONS.includes(subjectIdParam as CanonicalCoreSubjectId)) {
-            setCurriculumSubjectId(subjectIdParam as CanonicalCoreSubjectId)
+        if (subjectIdParam && CORE_SUBJECT_OPTIONS.includes(subjectIdParam as CanonicalSubjectId)) {
+            setCurriculumSubjectId(subjectIdParam as CanonicalSubjectId)
         }
         if (gradeLevelParam) setGradeLevel(gradeLevelParam)
         if (unitId) {
@@ -508,6 +352,16 @@ export default function CreateLessonPage() {
         () => getCanonicalSubjectById(curriculumSubjectId),
         [curriculumSubjectId]
     )
+    const availableCurriculumSubjectOptions = useMemo(
+        () =>
+            CORE_SUBJECT_OPTIONS.filter((subjectId) => {
+                const option = getCanonicalSubjectById(subjectId)
+                return curriculumCourseTrack === "additional"
+                    ? option?.courseType === "additional"
+                    : option?.courseType === "core"
+            }),
+        [curriculumCourseTrack]
+    )
     const availableCurriculumCourseGradeLevels = useMemo(
         () =>
             ALL_CANONICAL_GRADE_LEVELS.filter((grade) => getCanonicalCourseOptions(curriculumSubjectId, grade).length > 0),
@@ -515,9 +369,7 @@ export default function CreateLessonPage() {
     )
     const availableCurriculumCourseEntries = useMemo(
         () =>
-            curriculumCourseTrack === "basic"
-                ? getCanonicalCourseOptions(curriculumSubjectId, curriculumCourseGradeLevel)
-                : [],
+            getCanonicalCourseOptions(curriculumSubjectId, curriculumCourseGradeLevel),
         [curriculumCourseGradeLevel, curriculumCourseTrack, curriculumSubjectId]
     )
     const selectedCurriculumCourse = useMemo<CanonicalCourseEntry | null>(
@@ -798,15 +650,20 @@ export default function CreateLessonPage() {
     }
 
     function handleCurriculumSubjectChange(value: string) {
-        setCurriculumSubjectId(value as CanonicalCoreSubjectId)
+        const nextSubjectId = value as CanonicalSubjectId
+        const nextSubject = getCanonicalSubjectById(nextSubjectId)
+        setCurriculumSubjectId(nextSubjectId)
         setCurriculumCourseId("")
-        setCurriculumCourseGradeLevel("m1")
+        setCurriculumCourseGradeLevel(nextSubject?.courseType === "additional" ? "m4" : "m1")
         setCurriculumUnitId("")
         setCurriculumTemplateId("")
     }
 
     function handleCurriculumCourseTrackChange(value: string) {
-        setCurriculumCourseTrack(value as CourseTrack)
+        const nextTrack = value as CourseTrack
+        setCurriculumCourseTrack(nextTrack)
+        setCurriculumSubjectId(nextTrack === "additional" ? DEFAULT_ADDITIONAL_SUBJECT_ID : DEFAULT_CURRICULUM_SUBJECT_ID)
+        setCurriculumCourseGradeLevel(nextTrack === "additional" ? "m4" : "m1")
         setCurriculumCourseId("")
         setCurriculumUnitId("")
         setCurriculumTemplateId("")
@@ -1016,13 +873,15 @@ export default function CreateLessonPage() {
 
                     <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                         <div className="min-w-0 space-y-2">
-                            <Label className="font-bold text-slate-700">วิชาแกนกลาง</Label>
+                            <Label className="font-bold text-slate-700">
+                                {curriculumCourseTrack === "additional" ? "วิชาเพิ่มเติม" : "วิชาแกนกลาง"}
+                            </Label>
                             <Select value={curriculumSubjectId} onValueChange={handleCurriculumSubjectChange}>
                                 <SelectTrigger className="w-full min-w-0 rounded-xl bg-white [&>span]:truncate">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {CORE_SUBJECT_OPTIONS.map((subjectId) => {
+                                    {availableCurriculumSubjectOptions.map((subjectId) => {
                                         const option = getCanonicalSubjectById(subjectId)
                                         return (
                                             <SelectItem key={subjectId} value={subjectId}>
@@ -1130,13 +989,15 @@ export default function CreateLessonPage() {
 
                     <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                         <div className="min-w-0 space-y-2">
-                            <Label className="font-bold text-slate-700">วิชาแกนกลาง</Label>
+                            <Label className="font-bold text-slate-700">
+                                {curriculumCourseTrack === "additional" ? "วิชาเพิ่มเติม" : "วิชาแกนกลาง"}
+                            </Label>
                             <Select value={curriculumSubjectId} onValueChange={handleCurriculumSubjectChange}>
                                 <SelectTrigger className="w-full min-w-0 rounded-xl bg-white [&>span]:truncate">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {CORE_SUBJECT_OPTIONS.map((subjectId) => {
+                                    {availableCurriculumSubjectOptions.map((subjectId) => {
                                         const option = getCanonicalSubjectById(subjectId)
                                         return (
                                             <SelectItem key={subjectId} value={subjectId}>
@@ -1204,7 +1065,7 @@ export default function CreateLessonPage() {
                                     <SelectValue
                                         placeholder={
                                             curriculumCourseTrack === "additional"
-                                                ? "ยังไม่มีรายวิชาเพิ่มเติม"
+                                                ? "เลือกรายวิชาเพิ่มเติม"
                                                 : "เลือกรายวิชา"
                                         }
                                     />
@@ -1217,9 +1078,9 @@ export default function CreateLessonPage() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                            {curriculumCourseTrack === "additional" && (
+                            {curriculumCourseTrack === "additional" && availableCurriculumCourseEntries.length === 0 && (
                                 <p className="text-xs font-bold text-slate-500">
-                                    ยังไม่มีข้อมูลรายวิชาเพิ่มเติม ตอนนี้รายวิชาที่สร้างไว้ทั้งหมดอยู่ในประเภทพื้นฐาน
+                                    ยังไม่มีข้อมูลรายวิชาเพิ่มเติมสำหรับวิชาและชั้นเรียนนี้
                                 </p>
                             )}
                         </div>
@@ -1242,7 +1103,7 @@ export default function CreateLessonPage() {
                                     </div>
                                     <div className="rounded-2xl bg-sky-50 px-4 py-3 text-right">
                                         <p className="text-xs font-black text-sky-600">หน่วยที่พร้อมสร้าง</p>
-                                        <p className="mt-1 text-2xl font-black text-sky-900">{selectedCurriculumRealUnits.length}</p>
+                                        <p className="mt-1 text-2xl font-black text-sky-900">{availableCurriculumUnitsForCourse.length}</p>
                                     </div>
                                 </div>
 

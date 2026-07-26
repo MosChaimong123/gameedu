@@ -40,20 +40,39 @@ const legacyPhysicsLessonContent: LessonContentV2 = {
 }
 
 describe("lesson curriculum compatibility", () => {
-    it("maps legacy physics labels into the canonical core subject filter", () => {
-        expect(resolveCanonicalSubjectId("physics")).toBe("science_technology")
-        expect(resolveCanonicalSubjectId("ฟิสิกส์")).toBe("science_technology")
+    it("resolves physics labels to the physics subject now that it is an active additional subject", () => {
+        expect(resolveCanonicalSubjectId("physics")).toBe("physics")
+        expect(resolveCanonicalSubjectId("ฟิสิกส์")).toBe("physics")
     })
 
-    it("maps legacy physics units to the canonical physical science unit for read compatibility", () => {
+    it("migrates retired phy-* units onto their current physics equivalent", () => {
         expect(
             resolveLegacyLessonCurriculumContext({
                 subject: "physics",
                 unitId: "phy-m4-s1-u02",
             })
         ).toEqual({
-            subjectId: "science_technology",
-            unitId: "sci-tech-u02",
+            subjectId: "physics",
+            unitId: "physics-additional-m4-s1-u02",
+        })
+    })
+
+    it("migrates retired units that สสวท. moved to a different term", () => {
+        // การเคลื่อนที่แนวโค้ง moved from ม.4 เทอม 2 to เทอม 1.
+        expect(
+            resolveLegacyLessonCurriculumContext({ subject: "ฟิสิกส์", unitId: "phy-m4-s2-u04" })
+        ).toEqual({
+            subjectId: "physics",
+            unitId: "physics-additional-m4-s1-u04",
+        })
+    })
+
+    it("drops an unknown phy-* unit rather than guessing", () => {
+        expect(
+            resolveLegacyLessonCurriculumContext({ subject: "physics", unitId: "phy-m9-s9-u99" })
+        ).toEqual({
+            subjectId: "physics",
+            unitId: null,
         })
     })
 
@@ -71,8 +90,8 @@ describe("lesson curriculum compatibility", () => {
 
     it("resolves lesson context from legacy V2 metadata", () => {
         expect(resolveLessonCurriculumContext(legacyPhysicsLessonContent, "physics")).toEqual({
-            subjectId: "science_technology",
-            unitId: "sci-tech-u02",
+            subjectId: "physics",
+            unitId: "physics-additional-m4-s1-u01",
         })
     })
 

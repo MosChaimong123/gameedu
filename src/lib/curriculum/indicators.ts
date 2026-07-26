@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { curriculumSourceRefSchema, type CurriculumSourceRef } from "@/lib/curriculum/source-registry"
 import { canonicalGradeLevelSchema, type CanonicalGradeLevel } from "@/lib/curriculum/grade-model"
+import { canonicalCoreSubjectIdSchema } from "@/lib/curriculum/subject-catalog"
 import {
     curriculumStandardCodeSchema,
     CURRICULUM_STRAND_STANDARD_CATALOG,
@@ -118,6 +119,10 @@ function buildIndicatorRecord(
     indicatorType: CurriculumIndicatorType,
     textTh?: string
 ): CurriculumIndicator | null {
+    const subjectId = canonicalCoreSubjectIdSchema.safeParse(standard.subjectId)
+    if (!subjectId.success) {
+        return null
+    }
     const gradeLevel = gradeLevelFromIndicatorCode(indicatorCode)
     if (!gradeLevel) {
         return null
@@ -125,7 +130,7 @@ function buildIndicatorRecord(
 
     return {
         id: buildCurriculumIndicatorId(standard.id, indicatorType, indicatorCode),
-        subjectId: standard.subjectId,
+        subjectId: subjectId.data,
         strandId: standard.strandId,
         standardId: standard.id,
         standardCode: standard.code,

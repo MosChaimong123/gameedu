@@ -10,7 +10,7 @@ import {
 } from "@/lib/lessons/lesson-curriculum-metadata"
 
 describe("lesson curriculum metadata", () => {
-    it("normalizes legacy physics lesson metadata into canonical subject and unit context", () => {
+    it("migrates retired physics lesson metadata onto the current physics unit", () => {
         const content: LessonContentV2 = {
             schemaVersion: "lesson_content_v2",
             outline: {
@@ -44,17 +44,13 @@ describe("lesson curriculum metadata", () => {
 
         const resolved = resolveLessonContentCurriculumMetadata(content, "physics")
 
-        expect(resolved.subjectId).toBe("science_technology")
-        expect(resolved.subjectLabel).toBe("วิทยาศาสตร์และเทคโนโลยี")
+        expect(resolved.subjectId).toBe("physics")
+        expect(resolved.subjectLabel).toBe("ฟิสิกส์")
         expect(resolved.rawUnitId).toBe("phy-m4-s1-u01")
-        expect(resolved.unitId).toBe("sci-tech-u02")
-        expect(resolved.unitTitle).toBe("ธรรมชาติและพัฒนาการทางฟิสิกส์")
-        expect(resolved.learningOutcomes).toEqual([
-            expect.objectContaining({
-                id: "phy-lo-m4-s1-u01-01",
-            }),
-        ])
-        expect(resolved.isLegacyPhysics).toBe(true)
+        expect(resolved.unitId).toBe("physics-additional-m4-s1-u01")
+        expect(resolved.unitTitle).toBe("หน่วยการเรียนรู้ที่ 1 การศึกษาวิชาฟิสิกส์")
+        // The retired catalog held the outcome texts, so phy-lo-* ids no longer resolve.
+        expect(resolved.learningOutcomes).toEqual([])
     })
 
     it("keeps canonical lesson metadata readable without legacy fallback", () => {
@@ -77,12 +73,15 @@ describe("lesson curriculum metadata", () => {
                 id: "thai-lo-u01-01",
             }),
         ])
-        expect(resolved.isLegacyPhysics).toBe(false)
     })
 
-    it("resolves unit titles for both canonical and legacy ids", () => {
+    it("resolves unit titles from the live packs only", () => {
         expect(resolveLessonCurriculumUnitTitle("thai-u01")).toBe("การฟัง การดู และการพูด")
-        expect(resolveLessonCurriculumUnitTitle("phy-m4-s1-u01")).toBe("ธรรมชาติและพัฒนาการทางฟิสิกส์")
+        expect(resolveLessonCurriculumUnitTitle("physics-additional-m4-s1-u01")).toBe(
+            "หน่วยการเรียนรู้ที่ 1 การศึกษาวิชาฟิสิกส์"
+        )
+        // Retired ids are migrated by the context resolver, not resolvable as titles themselves.
+        expect(resolveLessonCurriculumUnitTitle("phy-m4-s1-u01")).toBeNull()
     })
 
     it("normalizes canonical lesson metadata before write", () => {
@@ -244,7 +243,7 @@ describe("lesson curriculum metadata", () => {
         expect(lesson.normalizedCurriculumSummary?.courseTitle).toBe("การฟัง การดู และการพูด")
     })
 
-    it("keeps legacy physics unit ids on write while normalizing subject into canonical core subject", () => {
+    it("rewrites retired physics unit ids onto the current pack on write", () => {
         const content: LessonContentV2 = {
             schemaVersion: "lesson_content_v2",
             outline: {
@@ -279,8 +278,8 @@ describe("lesson curriculum metadata", () => {
         const normalized = normalizeLessonContentCurriculumForWrite(content, "physics")
 
         expect(normalized.metadata?.curriculum).toMatchObject({
-            subject: "science_technology",
-            unitId: "phy-m4-s1-u01",
+            subject: "physics",
+            unitId: "physics-additional-m4-s1-u01",
             learningOutcomeIds: ["phy-lo-m4-s1-u01-01"],
         })
     })

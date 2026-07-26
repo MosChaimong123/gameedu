@@ -83,7 +83,7 @@ export type CanonicalAdditionalSubjectCatalogEntry = CanonicalSubjectCatalogEntr
     courseType: "additional"
     groupType: "additional_subject"
     parentSubjectId: "science_technology"
-    lessonBuilderAvailability: "coming_soon"
+    lessonBuilderAvailability: CanonicalLessonBuilderAvailability
 }
 
 function normalizeSubjectLabel(value: string) {
@@ -132,7 +132,8 @@ function buildAdditionalSubject(
     keywords: string[],
     aliases: string[],
     semesterMode: CanonicalSemesterMode,
-    ui: CanonicalSubjectUiMeta
+    ui: CanonicalSubjectUiMeta,
+    lessonBuilderAvailability: CanonicalLessonBuilderAvailability = "coming_soon"
 ): CanonicalSubjectCatalogEntry {
     return {
         id,
@@ -148,7 +149,7 @@ function buildAdditionalSubject(
         sourceRegistryIds,
         keywords,
         aliases,
-        lessonBuilderAvailability: "coming_soon",
+        lessonBuilderAvailability,
         ui,
     }
 }
@@ -257,7 +258,8 @@ export const CANONICAL_SUBJECT_CATALOG: CanonicalSubjectCatalog = [
         ["physics", "motion", "force", "energy"],
         ["ฟิสิกส์", "physics"],
         "required",
-        { icon: "atom", colorToken: "indigo", accentToken: "blue" }
+        { icon: "atom", colorToken: "indigo", accentToken: "blue" },
+        "active"
     ),
     buildAdditionalSubject(
         "chemistry",

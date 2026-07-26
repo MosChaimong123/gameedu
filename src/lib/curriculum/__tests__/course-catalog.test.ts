@@ -127,6 +127,20 @@ describe("canonical course catalog", () => {
         expect(options).toHaveLength(4)
     })
 
+    it("returns physics additional upper-secondary courses by grade and semester", () => {
+        const m4Physics = getCanonicalCourseOptions("physics", "m4")
+
+        expect(m4Physics).toHaveLength(2)
+        expect(m4Physics.map((entry) => entry.semester)).toEqual([1, 2])
+        expect(m4Physics.map((entry) => entry.titleTh)).toEqual([
+            "ฟิสิกส์เพิ่มเติม ฟิสิกส์ เล่ม 1 ภาคเรียนที่ 1",
+            "ฟิสิกส์เพิ่มเติม ฟิสิกส์ เล่ม 2 ภาคเรียนที่ 2",
+        ])
+        expect(m4Physics.every((entry) => entry.coreSubjectId === "physics")).toBe(true)
+        expect(m4Physics.every((entry) => entry.duringIndicatorIds.length === 0)).toBe(true)
+        expect(m4Physics.every((entry) => entry.terminalIndicatorIds.length === 0)).toBe(true)
+    })
+
     it("returns only the ม.4 science courses (ชีวภาพ + เทคโนโลยีออกแบบ + วิทยาการคำนวณ)", () => {
         const options = getCanonicalCourseOptions("science_technology", "m4")
 

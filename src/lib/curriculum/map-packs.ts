@@ -18,13 +18,16 @@ import {
 } from "@/lib/curriculum/source-registry"
 import {
     canonicalCoreSubjectIdSchema,
+    canonicalSubjectIdSchema,
     getCanonicalSubjectById,
     type CanonicalCoreSubjectId,
+    type CanonicalSubjectId,
 } from "@/lib/curriculum/subject-catalog"
 import {
     getCurriculumStandardById,
     getCurriculumStrandById,
 } from "@/lib/curriculum/strands-and-standards"
+import { PHYSICS_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/physics-additional-upper-secondary-source"
 
 export const SUBJECT_CURRICULUM_MAP_PACK_SCHEMA_VERSION = "subject_curriculum_map_pack_v1" as const
 
@@ -56,7 +59,7 @@ export const subjectCurriculumUnitOutlineSchema = z
         id: z.string().trim().min(1),
         title: z.string().trim().min(1),
         order: z.number().int().min(0),
-        courseType: z.literal("core"),
+        courseType: z.enum(["core", "additional"]),
         strandId: z.string().trim().min(1),
         standardIds: z.array(z.string().trim().min(1)).min(1),
         indicatorIds: z.array(z.string().trim().min(1)).default([]),
@@ -72,11 +75,11 @@ export const subjectCurriculumUnitOutlineSchema = z
 
 export const subjectCurriculumMapPackSchema = z.object({
     schemaVersion: z.literal(SUBJECT_CURRICULUM_MAP_PACK_SCHEMA_VERSION),
-    subjectId: canonicalCoreSubjectIdSchema,
+    subjectId: canonicalSubjectIdSchema,
     curriculumCode: z.literal(BASIC_EDUCATION_CURRICULUM_CODE),
     displayNameTh: z.string().trim().min(1),
     displayNameEn: z.string().trim().min(1),
-    packStatus: z.enum(["starter_core_map"]),
+    packStatus: z.enum(["starter_core_map", "starter_additional_map"]),
     coverageGradeBands: z.array(canonicalGradeBandSchema).min(1),
     coverageGradeLevels: z.array(canonicalGradeLevelSchema).min(1),
     semesterMode: canonicalSemesterModeSchema,
@@ -155,6 +158,39 @@ function buildCoreUnit(
     }
 }
 
+function buildAdditionalUnit(
+    id: string,
+    title: string,
+    order: number,
+    strandId: string,
+    standardIds: string[],
+    keyConceptTh: string,
+    competencies: string[],
+    estimatedHours: number,
+    gradeLevels: CanonicalGradeLevel[],
+    semester: CanonicalSemester,
+    notes: string[]
+): SubjectCurriculumUnitOutline {
+    return {
+        id,
+        title,
+        order,
+        courseType: "additional",
+        strandId,
+        standardIds,
+        indicatorIds: [],
+        gradeBands: ["m4_m6"],
+        gradeLevels,
+        keyConceptTh,
+        competencies,
+        estimatedHours,
+        semesterMode: "required",
+        semester,
+        sourceRefs: [IPST_REF("Additional science curriculum structure reference"), PLATFORM_REF],
+        notes,
+    }
+}
+
 function buildPack(
     subjectId: CanonicalCoreSubjectId,
     sourceTitle: string,
@@ -180,7 +216,89 @@ function buildPack(
     }
 }
 
+function buildAdditionalPack(
+    subjectId: CanonicalSubjectId,
+    sourceTitle: string,
+    unitOutlines: SubjectCurriculumUnitOutline[]
+): SubjectCurriculumMapPack {
+    const subject = getCanonicalSubjectById(subjectId)
+    if (!subject) {
+        throw new Error(`Missing canonical subject metadata for ${subjectId}`)
+    }
+
+    return {
+        schemaVersion: SUBJECT_CURRICULUM_MAP_PACK_SCHEMA_VERSION,
+        subjectId,
+        curriculumCode: BASIC_EDUCATION_CURRICULUM_CODE,
+        displayNameTh: subject.displayNameTh,
+        displayNameEn: subject.displayNameEn,
+        packStatus: "starter_additional_map",
+        coverageGradeBands: ["m4_m6"],
+        coverageGradeLevels: ["m4", "m5", "m6"],
+        semesterMode: "required",
+        sourceRefs: [IPST_REF(sourceTitle), PLATFORM_REF],
+        unitOutlines,
+    }
+}
+
+function resolvePhysicsStandard(courseId: string) {
+    if (courseId === "physics-additional-m4-s1" || courseId === "physics-additional-m4-s2") {
+        return {
+            strandId: "phys-foundations-motion",
+            standardIds: ["phys-p1_1"],
+            keyConceptTh: "ธรรมชาติของฟิสิกส์ แรง การเคลื่อนที่ งาน พลังงาน โมเมนตัม และสมดุลกล",
+        }
+    }
+    if (courseId === "physics-additional-m5-s1") {
+        return {
+            strandId: "phys-waves-light-sound",
+            standardIds: ["phys-p2_1"],
+            keyConceptTh: "การเคลื่อนที่แบบฮาร์มอนิก คลื่นกล เสียง แสง และการมองเห็น",
+        }
+    }
+    if (courseId === "physics-additional-m5-s2") {
+        return {
+            strandId: "phys-electricity-magnetism",
+            standardIds: ["phys-p3_1"],
+            keyConceptTh: "แสงเชิงกายภาพ ไฟฟ้าสถิต กระแสไฟฟ้า และวงจรไฟฟ้ากระแสตรง",
+        }
+    }
+    if (courseId === "physics-additional-m6-s1") {
+        return {
+            strandId: "phys-thermal-modern",
+            standardIds: ["phys-p4_1"],
+            keyConceptTh: "แม่เหล็กไฟฟ้า ไฟฟ้ากระแสสลับ ความร้อน แก๊ส และของไหล",
+        }
+    }
+    return {
+        strandId: "phys-thermal-modern",
+        standardIds: ["phys-p4_1"],
+        keyConceptTh: "คลื่นแม่เหล็กไฟฟ้า ฟิสิกส์อะตอม ฟิสิกส์นิวเคลียร์ และฟิสิกส์อนุภาค",
+    }
+}
+
+const PHYSICS_ADDITIONAL_UNIT_OUTLINES: SubjectCurriculumUnitOutline[] =
+    PHYSICS_ADDITIONAL_UPPER_SECONDARY_COURSES.flatMap((course, courseIndex) => {
+        const standard = resolvePhysicsStandard(course.id)
+        return course.units.map((unit, unitIndex) =>
+            buildAdditionalUnit(
+                unit.id,
+                unit.title,
+                courseIndex * 10 + unitIndex,
+                standard.strandId,
+                standard.standardIds,
+                standard.keyConceptTh,
+                ["การคิดวิเคราะห์", "การแก้ปัญหา", "การใช้กระบวนการทางวิทยาศาสตร์"],
+                Math.max(1, Math.round(course.hours / course.units.length)),
+                [course.gradeLevel],
+                course.semester,
+                [`Source course: ${course.id}`, `Source file: ${course.sourceFile}`]
+            )
+        )
+    })
+
 export const SUBJECT_CURRICULUM_MAP_PACKS: SubjectCurriculumMapPackCatalog = [
+    buildAdditionalPack("physics", "Additional physics upper-secondary source map", PHYSICS_ADDITIONAL_UNIT_OUTLINES),
     buildPack("thai", "Thai language learning area starter map", [
         buildCoreUnit(
             "thai-u01",
@@ -671,15 +789,15 @@ export function validateSubjectCurriculumMapPackCatalog(value: unknown) {
     return { success: false as const, error: new z.ZodError(issues) }
 }
 
-export function getSubjectCurriculumMapPack(subjectId: CanonicalCoreSubjectId) {
+export function getSubjectCurriculumMapPack(subjectId: CanonicalSubjectId) {
     return SUBJECT_CURRICULUM_MAP_PACKS.find((pack) => pack.subjectId === subjectId) ?? null
 }
 
-export function getSubjectCurriculumUnitById(subjectId: CanonicalCoreSubjectId, unitId: string) {
+export function getSubjectCurriculumUnitById(subjectId: CanonicalSubjectId, unitId: string) {
     return getSubjectCurriculumMapPack(subjectId)?.unitOutlines.find((unit) => unit.id === unitId) ?? null
 }
 
-export function listSubjectCurriculumUnitsForGradeBand(subjectId: CanonicalCoreSubjectId, gradeBand: CanonicalGradeBand) {
+export function listSubjectCurriculumUnitsForGradeBand(subjectId: CanonicalSubjectId, gradeBand: CanonicalGradeBand) {
     const pack = getSubjectCurriculumMapPack(subjectId)
     if (!pack) {
         return []
@@ -691,7 +809,7 @@ export function listSubjectCurriculumUnitsForGradeBand(subjectId: CanonicalCoreS
 }
 
 export function listSubjectCurriculumUnitsForGradeLevel(
-    subjectId: CanonicalCoreSubjectId,
+    subjectId: CanonicalSubjectId,
     gradeLevel: CanonicalGradeLevel
 ) {
     const pack = getSubjectCurriculumMapPack(subjectId)
@@ -705,7 +823,7 @@ export function listSubjectCurriculumUnitsForGradeLevel(
 }
 
 export function listSubjectCurriculumUnitsByCurriculumSelection(input: {
-    subjectId: CanonicalCoreSubjectId
+    subjectId: CanonicalSubjectId
     gradeLevel?: CanonicalGradeLevel | null
     strandId?: string | null
     standardId?: string | null

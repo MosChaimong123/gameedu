@@ -3,7 +3,7 @@ import type { LessonContentV2 } from "@/lib/lessons/lesson-content"
 import { resolveLessonRuntimeMeta } from "@/lib/lessons/lesson-runtime-meta"
 
 describe("lesson runtime meta", () => {
-    it("keeps rendering legacy physics lesson metadata for old lesson payloads", () => {
+    it("renders retired physics lesson payloads against the current physics unit", () => {
         const content: LessonContentV2 = {
             schemaVersion: "lesson_content_v2",
             outline: {
@@ -42,8 +42,8 @@ describe("lesson runtime meta", () => {
                 gradeLevel: "ม.4",
             })
         ).toMatchObject({
-            subjectLabel: "วิทยาศาสตร์และเทคโนโลยี",
-            unitTitle: "ธรรมชาติและพัฒนาการทางฟิสิกส์",
+            subjectLabel: "ฟิสิกส์",
+            unitTitle: "หน่วยการเรียนรู้ที่ 1 การศึกษาวิชาฟิสิกส์",
             gradeLabel: "ม.4",
             semesterLabel: "เทอม 1",
         })

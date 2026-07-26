@@ -35,10 +35,13 @@ import {
 import { BASIC_EDUCATION_CURRICULUM_SOURCE_REGISTRY } from "@/lib/curriculum/source-registry"
 import {
     getCanonicalCoreSubjects,
+    getCanonicalAdditionalSubjects,
     getCanonicalSubjectById,
     type CanonicalCoreSubjectId,
+    type CanonicalSubjectId,
 } from "@/lib/curriculum/subject-catalog"
 import { CURRICULUM_STRAND_STANDARD_CATALOG } from "@/lib/curriculum/strands-and-standards"
+import { PHYSICS_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/physics-additional-upper-secondary-source"
 
 export const canonicalCourseEntrySchema = z.object({
     id: z.string().trim().min(1),
@@ -51,6 +54,10 @@ export const canonicalCourseEntrySchema = z.object({
         "arts",
         "career",
         "foreign_languages",
+        "physics",
+        "chemistry",
+        "biology",
+        "earth_space_science",
     ]),
     courseCode: z.string().trim().min(1).nullable(),
     titleTh: z.string().trim().min(1),
@@ -427,6 +434,10 @@ function buildCourseId(subjectId: CanonicalCoreSubjectId, courseDefinitionId: st
     return `${subjectId}:${courseDefinitionId}:${gradeLevel}`
 }
 
+function buildAdditionalCourseId(subjectId: CanonicalSubjectId, courseDefinitionId: string, gradeLevel: CanonicalGradeLevel, semester: 1 | 2) {
+    return `${subjectId}:${courseDefinitionId}:${gradeLevel}:s${semester}`
+}
+
 function buildCourseEntryFromDefinition(
     definition: SecondaryCoreCourseDefinition,
     gradeLevel: CanonicalGradeLevel
@@ -554,6 +565,45 @@ function buildPrimaryCourseEntryFromDefinition(
     }
 }
 
+function buildPhysicsAdditionalCourseEntries(): CanonicalCourseEntry[] {
+    const subject = getCanonicalSubjectById("physics")
+    if (!subject) {
+        throw new Error("Missing canonical subject metadata for physics")
+    }
+    const pack = getSubjectCurriculumMapPack("physics")
+    if (!pack) {
+        throw new Error("Missing curriculum map pack for physics")
+    }
+
+    return PHYSICS_ADDITIONAL_UPPER_SECONDARY_COURSES.map((course) => {
+        const units = course.units.map((unit) => {
+            const unitOutline = pack.unitOutlines.find((candidate) => candidate.id === unit.id)
+            if (!unitOutline) {
+                throw new Error(`Missing curriculum unit physics:${unit.id}`)
+            }
+            return unitOutline
+        })
+        const standardIds = unique(units.flatMap((unit) => unit.standardIds))
+        const strandIds = unique(units.map((unit) => unit.strandId))
+        return {
+            id: buildAdditionalCourseId("physics", course.id, course.gradeLevel, course.semester),
+            coreSubjectId: "physics",
+            courseCode: null,
+            titleTh: `ฟิสิกส์เพิ่มเติม ${course.bookTitle} ภาคเรียนที่ ${course.semester}`,
+            titleEn: `Additional Physics ${course.bookTitle} Semester ${course.semester}`,
+            gradeLevel: course.gradeLevel,
+            semester: course.semester,
+            strandIds,
+            standardIds,
+            duringIndicatorIds: [],
+            terminalIndicatorIds: [],
+            descriptionText: course.descriptionText,
+            sourceRegistryIds: subject.sourceRegistryIds,
+            unitIds: course.units.map((unit) => unit.id),
+        } satisfies CanonicalCourseEntry
+    })
+}
+
 function buildCanonicalCourseCatalog(): CanonicalCourseCatalog {
     const secondaryCourses = SECONDARY_CORE_COURSE_DEFINITIONS.flatMap((definition) => {
         const eligibleGrades = definition.gradeLevels
@@ -564,7 +614,7 @@ function buildCanonicalCourseCatalog(): CanonicalCourseCatalog {
     const primaryCourses = PRIMARY_CORE_COURSE_DEFINITIONS.flatMap((definition) =>
         PRIMARY_GRADE_LEVELS.map((gradeLevel) => buildPrimaryCourseEntryFromDefinition(definition, gradeLevel))
     )
-    return [...primaryCourses, ...secondaryCourses]
+    return [...primaryCourses, ...secondaryCourses, ...buildPhysicsAdditionalCourseEntries()]
 }
 
 export const CANONICAL_COURSE_CATALOG: CanonicalCourseCatalog = buildCanonicalCourseCatalog()
@@ -629,7 +679,7 @@ export function validateCanonicalCourseCatalog(value: unknown) {
     }
 
     const issues: z.ZodIssue[] = []
-    const subjectMap = new Map(getCanonicalCoreSubjects().map((subject) => [subject.id, subject]))
+    const subjectMap = new Map([...getCanonicalCoreSubjects(), ...getCanonicalAdditionalSubjects()].map((subject) => [subject.id, subject]))
     const standardMap = new Map(CURRICULUM_STRAND_STANDARD_CATALOG.standards.map((standard) => [standard.id, standard]))
     const indicatorMap = new Map(
         SECONDARY_CORE_CURRICULUM_INDICATOR_CATALOG.indicators.map((indicator) => [indicator.id, indicator])
@@ -828,12 +878,12 @@ export function getCanonicalCourseById(courseId: string) {
     return CANONICAL_COURSE_CATALOG.find((entry) => entry.id === courseId) ?? null
 }
 
-export function getCanonicalCoursesForSubject(coreSubjectId: CanonicalCoreSubjectId) {
+export function getCanonicalCoursesForSubject(coreSubjectId: CanonicalSubjectId) {
     return CANONICAL_COURSE_CATALOG.filter((entry) => entry.coreSubjectId === coreSubjectId)
 }
 
 export function getCanonicalCoursesForSubjectAndGrade(
-    coreSubjectId: CanonicalCoreSubjectId,
+    coreSubjectId: CanonicalSubjectId,
     gradeLevel?: CanonicalGradeLevel | null
 ) {
     return getCanonicalCoursesForSubject(coreSubjectId).filter(
@@ -841,7 +891,7 @@ export function getCanonicalCoursesForSubjectAndGrade(
     )
 }
 
-export function getCanonicalCourseOptions(coreSubjectId: CanonicalCoreSubjectId, gradeLevel?: CanonicalGradeLevel | null) {
+export function getCanonicalCourseOptions(coreSubjectId: CanonicalSubjectId, gradeLevel?: CanonicalGradeLevel | null) {
     return getCanonicalCoursesForSubjectAndGrade(coreSubjectId, gradeLevel).sort((left, right) =>
         left.titleTh.localeCompare(right.titleTh, "th")
     )

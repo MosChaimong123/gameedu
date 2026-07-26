@@ -31,6 +31,18 @@ describe("subject unit learning outcomes", () => {
         expect(outcomes[0]?.concepts.length).toBeGreaterThan(0)
     })
 
+    it("loads physics additional outcomes from the imported upper-secondary source", () => {
+        const m4s1FirstUnitPack = getSubjectUnitLearningOutcomePack("physics", "physics-additional-m4-s1-u01")
+        const physicsOutcomes = SUBJECT_UNIT_LEARNING_OUTCOME_CATALOG
+            .filter((pack) => pack.subjectId === "physics")
+            .flatMap((pack) => pack.learningOutcomes)
+
+        expect(m4s1FirstUnitPack).not.toBeNull()
+        expect(m4s1FirstUnitPack?.unitTitle).toBe("หน่วยการเรียนรู้ที่ 1 การศึกษาวิชาฟิสิกส์")
+        expect(physicsOutcomes).toHaveLength(68)
+        expect(physicsOutcomes[0]?.text).toContain("การค้นหาความรู้ทางฟิสิกส์")
+    })
+
     it("finds an outcome by id and returns its parent pack", () => {
         const found = findSubjectUnitLearningOutcome("thai-lo-u05-02")
 

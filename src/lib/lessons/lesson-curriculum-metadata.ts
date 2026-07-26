@@ -1,9 +1,13 @@
 import { getSubjectCurriculumMapPack } from "@/lib/curriculum/map-packs"
-import { getCanonicalSubjectById, type CanonicalCoreSubjectId } from "@/lib/curriculum/subject-catalog"
+import {
+    getCanonicalAdditionalSubjects,
+    getCanonicalCoreSubjects,
+    getCanonicalSubjectById,
+    type CanonicalSubjectId,
+} from "@/lib/curriculum/subject-catalog"
 import { getSubjectUnitLearningOutcomePack } from "@/lib/curriculum/unit-learning-outcomes"
 import { isLessonContentV2, type LessonContentMetadata, type LessonContentV2 } from "@/lib/lessons/lesson-content"
 import { resolveLegacyLessonCurriculumContext } from "@/lib/lessons/lesson-curriculum-context"
-import { findPhysicsCurriculumUnitById, findPhysicsLearningOutcomesByIds } from "@/lib/physics/curriculum"
 
 export type ResolvedLessonLearningOutcome = {
     id: string
@@ -11,7 +15,7 @@ export type ResolvedLessonLearningOutcome = {
 }
 
 export type ResolvedLessonCurriculumMetadata = {
-    subjectId: CanonicalCoreSubjectId | null
+    subjectId: CanonicalSubjectId | null
     subjectLabel: string | null
     curriculumCode: string | null
     gradeLevel: string | null
@@ -26,7 +30,6 @@ export type ResolvedLessonCurriculumMetadata = {
     terminalIndicatorIds: string[]
     learningOutcomeIds: string[]
     learningOutcomes: ResolvedLessonLearningOutcome[]
-    isLegacyPhysics: boolean
 }
 
 export type LessonNormalizedCurriculumSummary = ResolvedLessonCurriculumMetadata
@@ -36,30 +39,15 @@ function normalizeText(value: string | null | undefined) {
     return trimmed && trimmed.length > 0 ? trimmed : null
 }
 
-function isLegacyPhysicsOutcomeId(outcomeId: string) {
-    return outcomeId.startsWith("phy-")
-}
-
 export function resolveLessonCurriculumUnitTitle(unitId: string | null | undefined) {
     const normalizedUnitId = normalizeText(unitId)
     if (!normalizedUnitId) {
         return null
     }
 
-    const legacyPhysicsUnit = findPhysicsCurriculumUnitById(normalizedUnitId)
-    if (legacyPhysicsUnit?.unit.title) {
-        return legacyPhysicsUnit.unit.title
-    }
-
-    const subjectIds: CanonicalCoreSubjectId[] = [
-        "thai",
-        "mathematics",
-        "science_technology",
-        "social_religion_culture",
-        "health_physical_education",
-        "arts",
-        "career",
-        "foreign_languages",
+    const subjectIds: CanonicalSubjectId[] = [
+        ...getCanonicalCoreSubjects().map((subject) => subject.id),
+        ...getCanonicalAdditionalSubjects().map((subject) => subject.id),
     ]
 
     for (const subjectId of subjectIds) {
@@ -74,7 +62,7 @@ export function resolveLessonCurriculumUnitTitle(unitId: string | null | undefin
 }
 
 export function resolveLessonCurriculumLearningOutcomes(input: {
-    subjectId: CanonicalCoreSubjectId | null
+    subjectId: CanonicalSubjectId | null
     unitId: string | null
     learningOutcomeIds: string[] | null | undefined
 }) {
@@ -84,13 +72,6 @@ export function resolveLessonCurriculumLearningOutcomes(input: {
 
     if (learningOutcomeIds.length === 0) {
         return []
-    }
-
-    if (learningOutcomeIds.some(isLegacyPhysicsOutcomeId)) {
-        return findPhysicsLearningOutcomesByIds(learningOutcomeIds).map((outcome) => ({
-            id: outcome.id,
-            text: outcome.text,
-        }))
     }
 
     if (!input.subjectId || !input.unitId) {
@@ -149,10 +130,6 @@ export function resolveLessonCurriculumMetadata(input: {
             unitId: context.unitId,
             learningOutcomeIds,
         }),
-        isLegacyPhysics:
-            rawSubject?.toLowerCase() === "physics" ||
-            rawUnitId?.startsWith("phy-") === true ||
-            learningOutcomeIds.some(isLegacyPhysicsOutcomeId),
     }
 }
 
@@ -226,13 +203,9 @@ export function normalizeLessonContentCurriculumForWrite(
         ...(resolvedCurriculum.semester ? { semester: resolvedCurriculum.semester } : {}),
         ...(resolvedCurriculum.courseId ? { courseId: resolvedCurriculum.courseId } : {}),
         ...(resolvedCurriculum.courseTitle ? { courseTitle: resolvedCurriculum.courseTitle } : {}),
-        ...(resolvedCurriculum.isLegacyPhysics
-            ? resolvedCurriculum.rawUnitId
-                ? { unitId: resolvedCurriculum.rawUnitId }
-                : {}
-            : resolvedCurriculum.unitId
-              ? { unitId: resolvedCurriculum.unitId }
-              : {}),
+        // Retired phy-* ids resolve to their current equivalent, so saving an old physics
+        // lesson now rewrites it onto the live unit instead of preserving the dead id.
+        ...(resolvedCurriculum.unitId ? { unitId: resolvedCurriculum.unitId } : {}),
         ...(resolvedCurriculum.standardIds.length > 0 ? { standardIds: resolvedCurriculum.standardIds } : {}),
         ...(resolvedCurriculum.duringIndicatorIds.length > 0
             ? { duringIndicatorIds: resolvedCurriculum.duringIndicatorIds }

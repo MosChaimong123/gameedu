@@ -133,9 +133,9 @@ describe("teacher lesson CRUD routes", () => {
             })
         );
         expect(payload[0].normalizedCurriculumSummary).toMatchObject({
-            subjectId: "science_technology",
-            unitId: "sci-tech-u02",
-            unitTitle: "ธรรมชาติและพัฒนาการทางฟิสิกส์",
+            subjectId: "physics",
+            unitId: "physics-additional-m4-s1-u01",
+            unitTitle: "หน่วยการเรียนรู้ที่ 1 การศึกษาวิชาฟิสิกส์",
         });
     });
 
@@ -170,17 +170,17 @@ describe("teacher lesson CRUD routes", () => {
                     ...validContentV2,
                     metadata: {
                         curriculum: expect.objectContaining({
-                            subject: "science_technology",
-                            unitId: "phy-m4-s1-u01",
+                            subject: "physics",
+                            unitId: "physics-additional-m4-s1-u01",
                         }),
                     },
                 }),
             }),
         });
         expect(payload.normalizedCurriculumSummary).toMatchObject({
-            subjectId: "science_technology",
-            rawUnitId: "phy-m4-s1-u01",
-            unitId: "sci-tech-u02",
+            subjectId: "physics",
+            rawUnitId: "physics-additional-m4-s1-u01",
+            unitId: "physics-additional-m4-s1-u01",
         });
     });
 
@@ -277,8 +277,8 @@ describe("teacher lesson CRUD routes", () => {
                     ...validContentV2,
                     metadata: {
                         curriculum: expect.objectContaining({
-                            subject: "science_technology",
-                            unitId: "phy-m4-s1-u01",
+                            subject: "physics",
+                            unitId: "physics-additional-m4-s1-u01",
                         }),
                     },
                 }),
@@ -286,9 +286,9 @@ describe("teacher lesson CRUD routes", () => {
         });
         expect(mockLessonDelete).toHaveBeenCalledWith({ where: { id: "lesson-1" } });
         expect(patchPayload.normalizedCurriculumSummary).toMatchObject({
-            subjectId: "science_technology",
-            rawUnitId: "phy-m4-s1-u01",
-            unitId: "sci-tech-u02",
+            subjectId: "physics",
+            rawUnitId: "physics-additional-m4-s1-u01",
+            unitId: "physics-additional-m4-s1-u01",
         });
     });
 
@@ -311,9 +311,9 @@ describe("teacher lesson CRUD routes", () => {
 
         expect(res.status).toBe(200);
         expect(payload.normalizedCurriculumSummary).toMatchObject({
-            subjectId: "science_technology",
-            unitId: "sci-tech-u02",
-            unitTitle: "ธรรมชาติและพัฒนาการทางฟิสิกส์",
+            subjectId: "physics",
+            unitId: "physics-additional-m4-s1-u01",
+            unitTitle: "หน่วยการเรียนรู้ที่ 1 การศึกษาวิชาฟิสิกส์",
         });
     });
 

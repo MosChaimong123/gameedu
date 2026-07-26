@@ -4,7 +4,8 @@ import {
     getSubjectCurriculumMapPack,
     type SubjectCurriculumUnitOutline,
 } from "@/lib/curriculum/map-packs"
-import { canonicalCoreSubjectIdSchema, type CanonicalCoreSubjectId } from "@/lib/curriculum/subject-catalog"
+import { canonicalSubjectIdSchema, type CanonicalSubjectId } from "@/lib/curriculum/subject-catalog"
+import { PHYSICS_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/physics-additional-upper-secondary-source"
 
 export const SUBJECT_UNIT_OUTCOME_CATALOG_SCHEMA_VERSION = "subject_unit_outcome_catalog_v1" as const
 
@@ -34,7 +35,7 @@ export const subjectUnitLearningOutcomeSchema = z.object({
 
 export const subjectUnitLearningOutcomePackSchema = z.object({
     schemaVersion: z.literal(SUBJECT_UNIT_OUTCOME_CATALOG_SCHEMA_VERSION),
-    subjectId: canonicalCoreSubjectIdSchema,
+    subjectId: canonicalSubjectIdSchema,
     unitId: z.string().trim().min(1),
     unitTitle: z.string().trim().min(1),
     topics: z.array(subjectUnitTopicSchema).min(1),
@@ -85,7 +86,7 @@ function unique(values: string[]) {
     return new Set(values).size === values.length
 }
 
-function getUnitOutlineOrThrow(subjectId: CanonicalCoreSubjectId, unitId: string): SubjectCurriculumUnitOutline {
+function getUnitOutlineOrThrow(subjectId: CanonicalSubjectId, unitId: string): SubjectCurriculumUnitOutline {
     const pack = getSubjectCurriculumMapPack(subjectId)
     if (!pack) {
         throw new Error(`Missing subject curriculum pack for ${subjectId}`)
@@ -123,7 +124,7 @@ function buildOutcome(
 }
 
 function buildOutcomePack(
-    subjectId: CanonicalCoreSubjectId,
+    subjectId: CanonicalSubjectId,
     unitId: string,
     topics: SubjectUnitTopic[],
     learningOutcomes: SubjectUnitLearningOutcome[]
@@ -147,7 +148,71 @@ function buildOutcomePack(
     }
 }
 
+function chunkByUnit<T>(items: readonly T[], unitCount: number) {
+    return Array.from({ length: unitCount }, (_, index) => {
+        const start = Math.floor((index * items.length) / unitCount)
+        const end = Math.floor(((index + 1) * items.length) / unitCount)
+        return items.slice(start, end)
+    })
+}
+
+function inferPhysicsConcepts(text: string) {
+    const concepts = new Set<string>(["ฟิสิกส์"])
+    ;[
+        "การเคลื่อนที่",
+        "แรง",
+        "พลังงาน",
+        "โมเมนตัม",
+        "สมดุล",
+        "คลื่น",
+        "เสียง",
+        "แสง",
+        "ไฟฟ้า",
+        "แม่เหล็ก",
+        "ความร้อน",
+        "แก๊ส",
+        "ของไหล",
+        "นิวเคลียร์",
+        "อะตอม",
+    ].forEach((concept) => {
+        if (text.includes(concept)) concepts.add(concept)
+    })
+    return [...concepts].slice(0, 5)
+}
+
+function inferPhysicsSkills(text: string) {
+    const skills = new Set<string>(["อธิบาย"])
+    ;["ทดลอง", "คำนวณ", "วิเคราะห์", "สืบค้น", "สังเกต", "เขียน", "เปรียบเทียบ"].forEach((skill) => {
+        if (text.includes(skill)) skills.add(skill)
+    })
+    return [...skills]
+}
+
+const PHYSICS_ADDITIONAL_OUTCOME_PACKS: SubjectUnitLearningOutcomePack[] =
+    PHYSICS_ADDITIONAL_UPPER_SECONDARY_COURSES.flatMap((course) => {
+        const chunks = chunkByUnit(course.outcomes, course.units.length)
+        return course.units.map((unit, unitIndex) => {
+            const topicId = `${unit.id}-t01`
+            return buildOutcomePack(
+                "physics",
+                unit.id,
+                [buildTopic(topicId, unit.title, [`Source course: ${course.id}`])],
+                chunks[unitIndex].map((outcome) =>
+                    buildOutcome(
+                        outcome.id,
+                        outcome.text,
+                        inferPhysicsConcepts(`${unit.title} ${outcome.text}`),
+                        inferPhysicsSkills(outcome.text),
+                        [topicId],
+                        [`official curriculum outcome ${outcome.sourceCode}`, `source course ${course.id}`]
+                    )
+                )
+            )
+        })
+    })
+
 export const SUBJECT_UNIT_LEARNING_OUTCOME_CATALOG: SubjectUnitLearningOutcomeCatalog = [
+    ...PHYSICS_ADDITIONAL_OUTCOME_PACKS,
     buildOutcomePack("thai", "thai-u01", [
         buildTopic("thai-u01-t01", "การฟังและจับใจความ"),
         buildTopic("thai-u01-t02", "การพูดสื่อสารและอภิปราย"),
@@ -871,7 +936,7 @@ export const SUBJECT_UNIT_LEARNING_OUTCOME_CATALOG: SubjectUnitLearningOutcomeCa
     ]),
 ]
 
-function getPack(subjectId: CanonicalCoreSubjectId, unitId: string) {
+function getPack(subjectId: CanonicalSubjectId, unitId: string) {
     return SUBJECT_UNIT_LEARNING_OUTCOME_CATALOG.find((pack) => pack.subjectId === subjectId && pack.unitId === unitId) ?? null
 }
 
@@ -948,11 +1013,11 @@ export function validateSubjectUnitLearningOutcomeCatalog(value: unknown) {
     return { success: false as const, error: new z.ZodError(issues) }
 }
 
-export function getSubjectUnitLearningOutcomePack(subjectId: CanonicalCoreSubjectId, unitId: string) {
+export function getSubjectUnitLearningOutcomePack(subjectId: CanonicalSubjectId, unitId: string) {
     return getPack(subjectId, unitId)
 }
 
-export function listSubjectUnitLearningOutcomes(subjectId: CanonicalCoreSubjectId, unitId: string) {
+export function listSubjectUnitLearningOutcomes(subjectId: CanonicalSubjectId, unitId: string) {
     return getPack(subjectId, unitId)?.learningOutcomes ?? []
 }
 
@@ -971,11 +1036,11 @@ export function validateSubjectUnitOutcomeSelection(
 ): { ok: true; pack: SubjectUnitLearningOutcomePack } | { ok: false; issues: SubjectUnitOutcomeSelectionIssue[] } {
     const issues: SubjectUnitOutcomeSelectionIssue[] = []
 
-    const subjectParsed = canonicalCoreSubjectIdSchema.safeParse(value.subjectId)
+    const subjectParsed = canonicalSubjectIdSchema.safeParse(value.subjectId)
     if (!subjectParsed.success) {
         return {
             ok: false,
-            issues: [{ code: "INVALID_SUBJECT_ID", message: "subjectId must be a canonical core subject id." }],
+            issues: [{ code: "INVALID_SUBJECT_ID", message: "subjectId must be a canonical subject id." }],
         }
     }
 

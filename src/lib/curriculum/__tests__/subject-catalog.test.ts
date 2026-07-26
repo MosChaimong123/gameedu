@@ -30,7 +30,7 @@ describe("canonical subject catalog", () => {
         expect(physics?.parentSubjectId).toBe("science_technology")
         expect(physics?.gradeLevels).toEqual(["m4", "m5", "m6"])
         expect(physics?.semesterMode).toBe("required")
-        expect(physics?.lessonBuilderAvailability).toBe("coming_soon")
+        expect(physics?.lessonBuilderAvailability).toBe("active")
     })
 
     it("keeps exactly 8 canonical core subjects available for the lesson builder", () => {
@@ -51,13 +51,17 @@ describe("canonical subject catalog", () => {
         ])
     })
 
-    it("marks additional subjects as cataloged but not yet active in the lesson builder", () => {
+    it("activates physics as the first additional lesson-builder subject", () => {
         const additionalSubjects = getCanonicalAdditionalSubjects()
         const activeAdditionalLessonBuilderSubjects = getLessonBuilderSubjectOptions("additional")
 
         expect(additionalSubjects).toHaveLength(4)
-        expect(additionalSubjects.every((entry) => entry.lessonBuilderAvailability === "coming_soon")).toBe(true)
-        expect(activeAdditionalLessonBuilderSubjects).toEqual([])
+        expect(activeAdditionalLessonBuilderSubjects.map((entry) => entry.id)).toEqual(["physics"])
+        expect(
+            additionalSubjects
+                .filter((entry) => entry.id !== "physics")
+                .every((entry) => entry.lessonBuilderAvailability === "coming_soon")
+        ).toBe(true)
     })
 
     it("resolves core subject display names in Thai and English", () => {

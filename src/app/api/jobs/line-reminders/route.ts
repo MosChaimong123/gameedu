@@ -5,6 +5,7 @@ import { runLineAutoReminders } from "@/lib/line-bot/auto-reminders";
 import { logAuditEvent } from "@/lib/security/audit-log";
 import { getDeliveryModel } from "@/lib/line-bot/delivery-contract";
 import { getNextCronRunAt } from "@/lib/line-bot/bangkok-date";
+import { processDueLineReminderRetries } from "@/lib/line-bot/reminder-retry";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,7 @@ export async function POST(req: Request) {
     }
 
     try {
+        const retries = await processDueLineReminderRetries();
         const result = await runLineAutoReminders();
         logAuditEvent({
             action: "line.reminder_job.run",
@@ -40,11 +42,13 @@ export async function POST(req: Request) {
                 sentCount: result.sentCount,
                 skippedDuplicateCount: result.skippedDuplicateCount,
                 failedCount: result.failedCount,
+                retryAttemptedCount: retries.attempted,
+                retrySentCount: retries.sent,
                 startedAt: result.startedAt,
                 completedAt: result.completedAt,
             },
         });
-        return NextResponse.json({ success: true, ...result });
+        return NextResponse.json({ success: true, retries, ...result });
     } catch (error) {
         console.error("[jobs/line-reminders]", error);
         logAuditEvent({

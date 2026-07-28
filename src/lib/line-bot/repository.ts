@@ -1,4 +1,4 @@
-import type { LineGroupDebt, LineBotGroup } from "@prisma/client";
+import type { LineBotGroup } from "@prisma/client";
 import { db, getOptionalDbModel } from "@/lib/db";
 import type {
     ClassroomReminderSummary,
@@ -7,7 +7,6 @@ import type {
     LineMyProgressSummary,
     LineStudentBindingSuccess,
     LineTextSubmission,
-    OpenDebtRow,
 } from "@/lib/line-bot/commands";
 import { createMissingStudentNameResolver } from "@/lib/line-bot/missing-student-names";
 import { getLineGroupMemberDisplayName } from "@/lib/line-bot/client";
@@ -19,10 +18,8 @@ import {
     buildLineSubmissionContent,
     getLineAssignmentShortCode,
     matchesLineAssignmentRef,
+    parseLineTextSubmissionContent,
 } from "@/lib/line-bot/submission-content";
-
-export const LINE_DEBT_STATUS_OPEN = "OPEN";
-export const LINE_DEBT_STATUS_PAID = "PAID";
 
 export async function upsertLineBotGroup(lineGroupId: string, name?: string | null): Promise<LineBotGroup> {
     return db.lineBotGroup.upsert({
@@ -161,7 +158,7 @@ export type CreateLineAssignmentResult =
 
 export type SubmitLineTextAssignmentResult =
     | { ok: true; submission: LineTextSubmission }
-    | { ok: false; reason: "UNBOUND" | "NOT_FOUND" | "UNSUPPORTED_ASSIGNMENT" | "PLAN_LIMIT" | "AMBIGUOUS" };
+    | { ok: false; reason: "UNBOUND" | "NOT_FOUND" | "UNSUPPORTED_ASSIGNMENT" | "PLAN_LIMIT" | "AMBIGUOUS" | "LOCKED" | "CONFLICT" };
 
 export type BindLineStudentResult =
     | { ok: true; binding: LineStudentBindingSuccess }
@@ -316,81 +313,6 @@ export async function createAssignmentForLineGroup(input: {
     };
 }
 
-export async function submitTextAssignmentForLineGroup(input: {
-    lineGroupId: string;
-    studentCode: string;
-    assignmentRef: string;
-    content: string;
-}): Promise<SubmitLineTextAssignmentResult> {
-    const group = await db.lineBotGroup.findUnique({
-        where: { lineGroupId: input.lineGroupId },
-        select: {
-            classroomId: true,
-            classroom: {
-                select: {
-                    id: true,
-                    name: true,
-                    teacher: {
-                        select: {
-                            role: true,
-                            plan: true,
-                            planStatus: true,
-                            planExpiry: true,
-                        },
-                    },
-                    students: {
-                        select: {
-                            id: true,
-                            loginCode: true,
-                        },
-                    },
-                    assignments: {
-                        where: { visible: true },
-                        select: {
-                            id: true,
-                            name: true,
-                            description: true,
-                            type: true,
-                            maxScore: true,
-                            order: true,
-                        },
-                    },
-                },
-            },
-        },
-    });
-
-    if (!group?.classroomId || !group.classroom) {
-        return { ok: false, reason: "UNBOUND" };
-    }
-
-    if (!canUseLineFeature(group.classroom.teacher, "lineSubmission")) {
-        return { ok: false, reason: "PLAN_LIMIT" };
-    }
-
-    const student = group.classroom.students.find(
-        (item) => item.loginCode.toLowerCase() === input.studentCode.trim().toLowerCase()
-    );
-    if (!student) {
-        return { ok: false, reason: "NOT_FOUND" };
-    }
-
-    const assignment = resolveLineAssignmentRef(group.classroom.assignments, input.assignmentRef);
-    if (assignment.status === "not_found") {
-        return { ok: false, reason: "NOT_FOUND" };
-    }
-    if (assignment.status === "ambiguous") {
-        return { ok: false, reason: "AMBIGUOUS" };
-    }
-
-    return submitResolvedLineTextAssignment({
-        classroom: group.classroom,
-        student,
-        assignment: assignment.assignment,
-        content: input.content,
-    });
-}
-
 export async function submitTextAssignmentForLinkedLineAccount(input: {
     lineUserId: string;
     assignmentRef: string;
@@ -435,17 +357,18 @@ export async function submitTextAssignmentForLinkedLineAccount(input: {
                                     type: true,
                                     maxScore: true,
                                     order: true,
+                                    deadline: true,
                                 },
                             },
                         },
                     }),
                     db.student.findUnique({
                         where: { id: link.studentId },
-                        select: { id: true },
+                        select: { id: true, classId: true },
                     }),
                 ]);
 
-                if (!classroom || !student) return null;
+                if (!classroom || !student || student.classId !== classroom.id) return null;
                 if (!canUseLineFeature(classroom.teacher, "lineSubmission")) {
                     return { status: "plan_limit" as const };
                 }
@@ -480,6 +403,7 @@ export async function submitTextAssignmentForLinkedLineAccount(input: {
         student: matched[0].student,
         assignment: matched[0].assignment,
         content: input.content,
+        actorLineUserId: input.lineUserId,
     });
 }
 
@@ -501,12 +425,17 @@ async function submitResolvedLineTextAssignment(input: {
         description: string | null;
         type: string;
         maxScore: number;
+        deadline?: Date | null;
     };
     content: string;
+    actorLineUserId: string;
 }): Promise<SubmitLineTextAssignmentResult> {
     const assignmentType = input.assignment.type.toLowerCase();
     if (assignmentType === "quiz" || assignmentType === "worksheet") {
         return { ok: false, reason: "UNSUPPORTED_ASSIGNMENT" };
+    }
+    if (input.assignment.deadline && input.assignment.deadline.getTime() <= Date.now()) {
+        return { ok: false, reason: "LOCKED" };
     }
 
     const existing = await db.assignmentSubmission.findUnique({
@@ -516,7 +445,7 @@ async function submitResolvedLineTextAssignment(input: {
                 assignmentId: input.assignment.id,
             },
         },
-        select: { id: true },
+        select: { id: true, score: true, content: true, updatedAt: true },
     });
 
     const aiPreliminaryGrade = canUseLineFeature(input.classroom.teacher, "lineAiPreliminaryGrading")
@@ -527,29 +456,43 @@ async function submitResolvedLineTextAssignment(input: {
             studentAnswer: input.content,
         })
         : ({ status: "unavailable", reason: "plan_limit" } as LineAiPreliminaryGradeResult);
-    // AI grading is advisory only. The teacher must confirm the final score in the dashboard.
-    const score = 0;
+    const previous = parseLineTextSubmissionContent(existing?.content);
+    const teacherHasReviewed = Boolean(previous?.teacherReview || previous?.aiPreliminaryReview || (existing && existing.score !== 0));
+    const submissionState = existing ? (teacherHasReviewed ? "needs_review" : "resubmitted") : "submitted";
+    const revision = (previous?.revisions?.at(-1)?.revision ?? (existing ? 1 : 0)) + 1;
+    const submittedAt = new Date();
+    const score = teacherHasReviewed && existing ? existing.score : 0;
+    const storedContent = buildLineSubmissionContent(input.content, aiPreliminaryGrade, {
+        revision,
+        state: submissionState,
+        submittedAt: submittedAt.toISOString(),
+        actorLineUserId: input.actorLineUserId,
+        linkedStudentId: input.student.id,
+    }, existing?.content);
 
-    await db.assignmentSubmission.upsert({
-        where: {
-            studentId_assignmentId: {
-                studentId: input.student.id,
-                assignmentId: input.assignment.id,
-            },
-        },
-        create: {
-            studentId: input.student.id,
-            assignmentId: input.assignment.id,
-            score,
-            content: buildLineSubmissionContent(input.content, aiPreliminaryGrade),
-            cheatingLogs: [],
-        },
-        update: {
-            score,
-            content: buildLineSubmissionContent(input.content, aiPreliminaryGrade),
-            submittedAt: new Date(),
-        },
-    });
+    if (!existing) {
+        try {
+            await db.assignmentSubmission.create({
+                data: {
+                    studentId: input.student.id,
+                    assignmentId: input.assignment.id,
+                    score,
+                    content: storedContent,
+                    cheatingLogs: [],
+                    submittedAt,
+                },
+            });
+        } catch (error) {
+            if (isUniqueConstraintError(error)) return { ok: false, reason: "CONFLICT" };
+            throw error;
+        }
+    } else {
+        const updated = await db.assignmentSubmission.updateMany({
+            where: { id: existing.id, updatedAt: existing.updatedAt },
+            data: { score, content: storedContent, submittedAt },
+        });
+        if (updated.count !== 1) return { ok: false, reason: "CONFLICT" };
+    }
 
     const aiPreliminaryScore =
         aiPreliminaryGrade.status === "graded"
@@ -573,6 +516,9 @@ async function submitResolvedLineTextAssignment(input: {
             assignmentName: input.assignment.name,
             classroomName: input.classroom.name,
             replacedPreviousSubmission: Boolean(existing),
+            studentId: input.student.id,
+            revision,
+            submissionState,
             aiPreliminaryScore,
             reward: {
                 awarded: reward.awarded,
@@ -580,6 +526,9 @@ async function submitResolvedLineTextAssignment(input: {
             },
         },
     };
+}
+function isUniqueConstraintError(error: unknown): boolean {
+    return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2002";
 }
 
 function resolveLineAssignmentRef<T extends { id: string; name: string; order?: number | null }>(
@@ -1018,87 +967,5 @@ function getBangkokDateParts(date: Date): { year: number; month: number; day: nu
         year: bangkok.getUTCFullYear(),
         month: bangkok.getUTCMonth() + 1,
         day: bangkok.getUTCDate(),
-    };
-}
-
-export async function listOpenDebtsForLineGroup(lineGroupId: string): Promise<OpenDebtRow[]> {
-    const group = await db.lineBotGroup.findUnique({
-        where: { lineGroupId },
-        include: {
-            debts: {
-                where: { status: LINE_DEBT_STATUS_OPEN },
-                orderBy: { shortCode: "asc" },
-            },
-        },
-    });
-
-    if (!group) return [];
-
-    return group.debts.map(debtToOpenRow);
-}
-
-export async function createLineGroupDebt(input: {
-    lineGroupId: string;
-    debtorLabel: string;
-    amountBaht: number;
-    note?: string;
-    createdByLineUserId?: string;
-    createdByLabel?: string;
-}): Promise<{ group: LineBotGroup; debt: LineGroupDebt }> {
-    const group = await upsertLineBotGroup(input.lineGroupId);
-
-    const max = await db.lineGroupDebt.aggregate({
-        where: { groupId: group.id },
-        _max: { shortCode: true },
-    });
-    const shortCode = (max._max.shortCode ?? 0) + 1;
-
-    const debt = await db.lineGroupDebt.create({
-        data: {
-            groupId: group.id,
-            shortCode,
-            debtorLabel: input.debtorLabel,
-            amountBaht: input.amountBaht,
-            note: input.note,
-            status: LINE_DEBT_STATUS_OPEN,
-            createdByLineUserId: input.createdByLineUserId,
-            createdByLabel: input.createdByLabel,
-        },
-    });
-
-    return { group, debt };
-}
-
-export async function markLineGroupDebtPaid(
-    lineGroupId: string,
-    shortCode: number
-): Promise<LineGroupDebt | null> {
-    const group = await db.lineBotGroup.findUnique({ where: { lineGroupId } });
-    if (!group) return null;
-
-    const existing = await db.lineGroupDebt.findFirst({
-        where: {
-            groupId: group.id,
-            shortCode,
-            status: LINE_DEBT_STATUS_OPEN,
-        },
-    });
-    if (!existing) return null;
-
-    return db.lineGroupDebt.update({
-        where: { id: existing.id },
-        data: {
-            status: LINE_DEBT_STATUS_PAID,
-            paidAt: new Date(),
-        },
-    });
-}
-
-function debtToOpenRow(debt: LineGroupDebt): OpenDebtRow {
-    return {
-        shortCode: debt.shortCode,
-        debtorLabel: debt.debtorLabel,
-        amountBaht: debt.amountBaht,
-        note: debt.note,
     };
 }

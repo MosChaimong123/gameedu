@@ -14,6 +14,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
+import { useLanguage } from "@/components/providers/language-provider";
 import { formatDeadlineDisplayTh, isAssignmentDeadlinePast } from "@/lib/datetime-local";
 import { cn } from "@/lib/utils";
 import {
@@ -36,6 +37,13 @@ type ClassroomLineAssignmentPanelProps = {
 };
 
 type LineBindingCommandPayload = {
+    classroomId: string;
+    classroomName: string;
+    command: string;
+    expiresAt: string;
+};
+
+type LineTeacherLinkCommandPayload = {
     classroomId: string;
     classroomName: string;
     command: string;
@@ -67,7 +75,7 @@ type LineReminderDeliveryPayload = {
     targetCount: number;
     status?: string;
     errorMessage?: string | null;
-    sentAt: string;
+    sentAt: string | null;
 };
 
 type ReminderPresetKey = "recommended" | "light" | "intense" | "custom";
@@ -446,9 +454,32 @@ function DeliveryStatusBadge({ status }: { status: string }) {
     );
 }
 
-function DeliveryHistorySection({ deliveries }: { deliveries: LineReminderDeliveryPayload[] }) {
+function DeliveryHistorySection({
+    classroomId,
+    deliveries,
+    onRetried,
+}: {
+    classroomId: string;
+    deliveries: LineReminderDeliveryPayload[];
+    onRetried: () => Promise<void>;
+}) {
+    const { t } = useLanguage();
     const [statusFilter, setStatusFilter] = useState<DeliveryStatusFilter>("all");
     const [showAll, setShowAll] = useState(false);
+    const [retryingId, setRetryingId] = useState<string | null>(null);
+
+    async function retryDelivery(deliveryId: string) {
+        setRetryingId(deliveryId);
+        try {
+            await fetch(
+                `/api/classrooms/${classroomId}/line-reminder-deliveries/${deliveryId}/retry`,
+                { method: "POST" }
+            );
+            await onRetried();
+        } finally {
+            setRetryingId(null);
+        }
+    }
 
     const filtered = deliveries.filter(
         (d) => statusFilter === "all" || (d.status ?? "sent") === statusFilter
@@ -514,11 +545,13 @@ function DeliveryHistorySection({ deliveries }: { deliveries: LineReminderDelive
                                 <div className="flex shrink-0 flex-col items-end gap-1">
                                     <DeliveryStatusBadge status={delivery.status ?? "sent"} />
                                     <span className="text-[11px] text-slate-400">
-                                        {new Date(delivery.sentAt).toLocaleString("th-TH", {
-                                            dateStyle: "short",
-                                            timeStyle: "short",
-                                            timeZone: "Asia/Bangkok",
-                                        })}
+                                        {delivery.sentAt
+                                            ? new Date(delivery.sentAt).toLocaleString("th-TH", {
+                                                  dateStyle: "short",
+                                                  timeStyle: "short",
+                                                  timeZone: "Asia/Bangkok",
+                                              })
+                                            : "-"}
                                     </span>
                                 </div>
                             </div>
@@ -527,6 +560,18 @@ function DeliveryHistorySection({ deliveries }: { deliveries: LineReminderDelive
                                 <p className="mt-1.5 rounded-lg bg-red-50 px-2 py-1 text-[11px] text-red-700">
                                     {delivery.errorMessage}
                                 </p>
+                            ) : null}
+                            {delivery.status === "failed" || delivery.status === "retry_wait" ? (
+                                <button
+                                    type="button"
+                                    disabled={retryingId === delivery.id}
+                                    onClick={() => void retryDelivery(delivery.id)}
+                                    className="mt-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
+                                >
+                                    {retryingId === delivery.id
+                                        ? t("lineReminderRetrying")
+                                        : t("lineReminderRetryAction")}
+                                </button>
                             ) : null}
                         </div>
                     ))
@@ -896,6 +941,9 @@ export function ClassroomLineAssignmentPanel({
     const [lastBulkResult, setLastBulkResult] = useState<SendClassroomLineReminderResult | null>(null);
     const [bindingDialogOpen, setBindingDialogOpen] = useState(false);
     const [bindingCommand, setBindingCommand] = useState<LineBindingCommandPayload | null>(null);
+    const [teacherLinkCommand, setTeacherLinkCommand] = useState<LineTeacherLinkCommandPayload | null>(null);
+    const [teacherLineLinked, setTeacherLineLinked] = useState<boolean | null>(null);
+    const [teacherLinkRevoking, setTeacherLinkRevoking] = useState(false);
     const [bindingLoading, setBindingLoading] = useState(false);
     const [bindingError, setBindingError] = useState<string | null>(null);
     const [bindingStatusRefreshing, setBindingStatusRefreshing] = useState(false);
@@ -1082,6 +1130,27 @@ export function ClassroomLineAssignmentPanel({
         }
     }
 
+    async function loadTeacherLinkCommand() {
+        try {
+            const response = await fetch(`/api/classrooms/${classroom.id}/line-teacher-link-command`);
+            if (!response.ok) throw new Error("โหลดคำสั่งยืนยัน LINE สำหรับครูไม่สำเร็จ");
+            setTeacherLinkCommand((await response.json()) as LineTeacherLinkCommandPayload);
+        } catch (error) {
+            setBindingError(error instanceof Error ? error.message : "โหลดคำสั่งยืนยัน LINE สำหรับครูไม่สำเร็จ");
+        }
+    }
+
+    async function loadTeacherLineLinkStatus() {
+        try {
+            const response = await fetch(`/api/classrooms/${classroom.id}/line-teacher-link`);
+            if (!response.ok) throw new Error("โหลดสถานะ LINE ของครูไม่สำเร็จ");
+            const payload = (await response.json()) as { linked: boolean };
+            setTeacherLineLinked(payload.linked);
+        } catch (error) {
+            setBindingError(error instanceof Error ? error.message : "โหลดสถานะ LINE ของครูไม่สำเร็จ");
+        }
+    }
+
     async function loadReminderSettings() {
         setReminderSettingsLoading(true);
         try {
@@ -1206,6 +1275,30 @@ export function ClassroomLineAssignmentPanel({
             title: "คัดลอกคำสั่งผูก LINE แล้ว",
             description: "นำไปวางในกลุ่ม LINE ที่เชิญบอทเข้าไว้ได้เลย",
         });
+    }
+
+    async function handleCopyTeacherLinkCommand() {
+        if (!teacherLinkCommand) return;
+        await navigator.clipboard.writeText(teacherLinkCommand.command);
+        toast({
+            title: "คัดลอกคำสั่งยืนยันครูแล้ว",
+            description: "ส่งคำสั่งนี้ในแชตส่วนตัวกับ LINE bot ก่อนใช้คำสั่งจัดการในกลุ่ม",
+        });
+    }
+
+    async function handleRevokeTeacherLineLink() {
+        setTeacherLinkRevoking(true);
+        try {
+            const response = await fetch(`/api/classrooms/${classroom.id}/line-teacher-link`, { method: "DELETE" });
+            if (!response.ok) throw new Error("ยกเลิกการยืนยัน LINE สำหรับครูไม่สำเร็จ");
+            setTeacherLineLinked(false);
+            await loadTeacherLinkCommand();
+            toast({ title: "ยกเลิกการยืนยัน LINE แล้ว", description: "คำสั่งจัดการจากกลุ่ม LINE จะใช้ไม่ได้จนกว่าจะยืนยันใหม่" });
+        } catch (error) {
+            setBindingError(error instanceof Error ? error.message : "ยกเลิกการยืนยัน LINE สำหรับครูไม่สำเร็จ");
+        } finally {
+            setTeacherLinkRevoking(false);
+        }
     }
 
     async function handleRefreshBindingStatus() {
@@ -1410,6 +1503,8 @@ export function ClassroomLineAssignmentPanel({
                             setBindingDialogOpen(open);
                             if (open && !bindingLoading) {
                                 void loadBindingCommand();
+                                void loadTeacherLinkCommand();
+                                void loadTeacherLineLinkStatus();
                             }
                         }}
                     >
@@ -1431,11 +1526,42 @@ export function ClassroomLineAssignmentPanel({
                                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
                                     <p className="font-bold text-slate-900">ขั้นตอน</p>
                                     <ol className="mt-2 list-decimal space-y-1 pl-5">
+                                        <li>ยืนยัน LINE ของครูในแชตส่วนตัวกับบอท</li>
                                         <li>เพิ่มบอท LINE เป็นเพื่อน และเชิญบอทเข้ากลุ่มห้องนี้</li>
                                         <li>เปิดกลุ่มนั้น แล้ววางคำสั่งผูกห้องจากด้านล่าง</li>
-                                        <li>เมื่อผูกสำเร็จ กลุ่มนี้จะใช้ `Send LINE` และ `ทวงงานค้างทั้งห้อง` ได้ทันที</li>
+                                        <li>เมื่อผูกสำเร็จ ครูที่ยืนยันแล้วจึงจะใช้คำสั่งจัดการห้องในกลุ่มได้</li>
                                     </ol>
                                 </div>
+
+                                {teacherLineLinked ? (
+                                    <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <p className="text-sm font-bold text-emerald-950">LINE ของครูยืนยันแล้ว</p>
+                                            <p className="text-xs text-emerald-700">ใช้คำสั่งจัดการในกลุ่มที่ผูกกับห้องนี้ได้</p>
+                                        </div>
+                                        <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => void handleRevokeTeacherLineLink()} disabled={teacherLinkRevoking}>
+                                            {teacherLinkRevoking ? "กำลังยกเลิก..." : "ยกเลิกการยืนยัน"}
+                                        </Button>
+                                    </div>
+                                ) : teacherLinkCommand ? (
+                                    <div className="space-y-3 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-4 min-w-0">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                            <div>
+                                                <p className="text-sm font-bold text-indigo-950">1. ยืนยัน LINE สำหรับครู</p>
+                                                <p className="text-xs text-indigo-700">
+                                                    ส่งในแชตส่วนตัวกับบอท ภายใน {new Date(teacherLinkCommand.expiresAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}
+                                                </p>
+                                            </div>
+                                            <Button type="button" size="sm" className="h-9 w-full sm:w-auto" onClick={() => void handleCopyTeacherLinkCommand()}>
+                                                <Clipboard className="mr-1.5 h-3.5 w-3.5" />
+                                                คัดลอกคำสั่งยืนยัน
+                                            </Button>
+                                        </div>
+                                        <div className="overflow-x-auto rounded-xl border border-indigo-200 bg-white px-3 py-3 font-mono text-sm text-slate-800 break-all whitespace-pre-wrap">
+                                            {teacherLinkCommand.command}
+                                        </div>
+                                    </div>
+                                ) : null}
 
                                 {classroom.lineBotGroups.length > 0 ? (
                                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
@@ -1740,7 +1866,11 @@ export function ClassroomLineAssignmentPanel({
                                                 </button>
                                             </div>
                                             {testRunResult ? <TestRunResultPanel result={testRunResult} /> : null}
-                                            <DeliveryHistorySection deliveries={reminderDeliveries} />
+                                            <DeliveryHistorySection
+                                                classroomId={classroom.id}
+                                                deliveries={reminderDeliveries}
+                                                onRetried={loadReminderSettings}
+                                            />
                                         </section>
                                     </div>
 
@@ -1980,7 +2110,7 @@ export function ClassroomLineAssignmentPanel({
                         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                         <div>
                             ห้องนี้ยังไม่ผูกกับ LINE group จึงยังส่ง `Send LINE` หรือ `ทวงงานค้างทั้งห้อง` ไม่ได้
-                            ตอนนี้ยังผูกผ่านคำสั่ง LINE เดิมก่อน: `ผูกห้อง classroomId secret`
+                            เปิดเมนู `ผูก LINE ห้องนี้` เพื่อยืนยัน LINE สำหรับครู และรับคำสั่งผูกห้องแบบหมดอายุ
                         </div>
                     </div>
                 </div>

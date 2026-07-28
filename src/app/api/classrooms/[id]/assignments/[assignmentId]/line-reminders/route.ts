@@ -7,30 +7,20 @@ import {
     NOT_FOUND_MESSAGE,
     createAppErrorResponse,
 } from "@/lib/api-error";
-import { db, getOptionalDbModel } from "@/lib/db";
+import { db } from "@/lib/db";
 import { pushLineFlex } from "@/lib/line-bot/client";
 import { canUseLineFeature } from "@/lib/line-bot/plan-access";
 import { createMissingStudentNameResolver } from "@/lib/line-bot/missing-student-names";
 import { buildReminderFlexBubble, type ChecklistItemSummary } from "@/lib/line-bot/reminder-flex";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
+import {
+    dispatchLineReminder,
+    getDeliveryModel,
+} from "@/lib/line-bot/delivery-contract";
 
 function getAppUrl(): string | undefined {
     return process.env.NEXT_PUBLIC_APP_URL?.trim() || process.env.LINE_BOT_CHAT_URL?.trim() || undefined;
 }
-
-type LineReminderDeliveryModel = {
-    create(input: {
-        data: {
-            lineBotGroupId: string;
-            lineGroupId: string;
-            classroomId: string;
-            assignmentId: string;
-            reminderKey: string;
-            reminderType: string;
-            targetCount: number;
-        };
-    }): Promise<unknown>;
-};
 
 export async function POST(
     _req: Request,
@@ -96,7 +86,7 @@ export async function POST(
             );
         }
 
-        const deliveryModel = getOptionalDbModel<LineReminderDeliveryModel>("lineAssignmentReminderDelivery");
+        const deliveryModel = getDeliveryModel();
         if (!deliveryModel) {
             return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
         }
@@ -115,15 +105,15 @@ export async function POST(
         }
 
         const now = new Date();
-        const reminderKey = `manual:${now.toISOString()}`;
+        const reminderKey = `manual:${Math.floor(now.getTime() / 60_000)}`;
         const tone = assignment.deadline && assignment.deadline < now ? "overdue" : "today";
 
         let sentCount = 0;
         let failedCount = 0;
         for (const group of groups) {
-            try {
-                await deliveryModel.create({
-                    data: {
+            const dispatched = await dispatchLineReminder({
+                model: deliveryModel,
+                delivery: {
                         lineBotGroupId: group.id,
                         lineGroupId: group.lineGroupId,
                         classroomId: assignment.classroom.id,
@@ -131,8 +121,10 @@ export async function POST(
                         reminderKey,
                         reminderType: "manual",
                         targetCount,
-                    },
-                });
+                        triggeredBy: "manual_assignment",
+                },
+                now,
+                send: async () => {
                 const resolveMissingNames = await createMissingStudentNameResolver({
                     lineGroupId: group.lineGroupId,
                     classroomId: assignment.classroom.id,
@@ -179,10 +171,13 @@ export async function POST(
                     `กริ่งเตือนจากครู: ${assignment.name} (ยังขาด ${targetCount} คน)`,
                     bubble
                 );
+                },
+            });
+            if (dispatched.status === "sent") {
                 sentCount += 1;
-            } catch (error) {
+            } else if (dispatched.status !== "duplicate") {
                 failedCount += 1;
-                console.error("[ASSIGNMENT_LINE_REMINDERS_POST]", error);
+                console.error("[ASSIGNMENT_LINE_REMINDERS_POST]", dispatched.message);
             }
         }
 
@@ -199,4 +194,3 @@ export async function POST(
         return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 }
-

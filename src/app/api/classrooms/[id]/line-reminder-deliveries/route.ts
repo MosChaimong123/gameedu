@@ -19,14 +19,21 @@ type ReminderDeliveryRow = {
     reminderType: string;
     targetCount: number;
     status: string;
+    attemptCount: number;
+    maxAttempts: number;
+    errorCode: string | null;
     errorMessage: string | null;
-    sentAt: Date;
+    nextAttemptAt: Date | null;
+    lastAttemptAt: Date | null;
+    sentAt: Date | null;
+    failedAt: Date | null;
+    createdAt: Date;
 };
 
 type ReminderDeliveryModel = {
     findMany(input: {
-        where: { classroomId: string };
-        orderBy: { sentAt: "desc" };
+        where: Record<string, unknown>;
+        orderBy: { createdAt: "desc" };
         take: number;
         select: {
             id: true;
@@ -37,8 +44,15 @@ type ReminderDeliveryModel = {
             reminderType: true;
             targetCount: true;
             status: true;
+            attemptCount: true;
+            maxAttempts: true;
+            errorCode: true;
             errorMessage: true;
+            nextAttemptAt: true;
+            lastAttemptAt: true;
             sentAt: true;
+            failedAt: true;
+            createdAt: true;
         };
     }): Promise<ReminderDeliveryRow[]>;
 };
@@ -59,13 +73,13 @@ async function assertTeacherOwnsClassroom(classroomId: string) {
     if (!classroom) {
         return { ok: false as const, response: createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404) };
     }
-    if (classroom.teacherId !== session.user.id) {
+    if (session.user.role !== "ADMIN" && classroom.teacherId !== session.user.id) {
         return { ok: false as const, response: createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403) };
     }
     return { ok: true as const };
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     const guard = await assertTeacherOwnsClassroom(id);
     if (!guard.ok) return guard.response;
@@ -75,10 +89,24 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
     }
 
+    const search = new URL(req.url).searchParams;
+    const status = search.get("status")?.trim();
+    const assignmentId = search.get("assignmentId")?.trim();
+    const from = search.get("from");
+    const to = search.get("to");
+    const createdAt = {
+        ...(from && !Number.isNaN(Date.parse(from)) ? { gte: new Date(from) } : {}),
+        ...(to && !Number.isNaN(Date.parse(to)) ? { lte: new Date(to) } : {}),
+    };
     const deliveries = await model.findMany({
-        where: { classroomId: id },
-        orderBy: { sentAt: "desc" },
-        take: 20,
+        where: {
+            classroomId: id,
+            ...(status ? { status } : {}),
+            ...(assignmentId ? { assignmentId } : {}),
+            ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
+        },
+        orderBy: { createdAt: "desc" },
+        take: Math.min(100, Math.max(1, Number(search.get("take")) || 20)),
         select: {
             id: true,
             lineGroupId: true,
@@ -88,8 +116,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             reminderType: true,
             targetCount: true,
             status: true,
+            attemptCount: true,
+            maxAttempts: true,
+            errorCode: true,
             errorMessage: true,
+            nextAttemptAt: true,
+            lastAttemptAt: true,
             sentAt: true,
+            failedAt: true,
+            createdAt: true,
         },
     });
 
@@ -107,7 +142,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         deliveries: deliveries.map((delivery) => ({
             ...delivery,
             assignmentName: assignmentNameById.get(delivery.assignmentId) ?? null,
-            sentAt: delivery.sentAt.toISOString(),
+            nextAttemptAt: delivery.nextAttemptAt?.toISOString() ?? null,
+            lastAttemptAt: delivery.lastAttemptAt?.toISOString() ?? null,
+            sentAt: delivery.sentAt?.toISOString() ?? null,
+            failedAt: delivery.failedAt?.toISOString() ?? null,
+            createdAt: delivery.createdAt.toISOString(),
         })),
     });
 }

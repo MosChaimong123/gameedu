@@ -17,14 +17,15 @@ import {
 } from "@/lib/line-bot/bangkok-date";
 import {
     getDeliveryModel,
-    recordDelivery,
-    markDeliverySent,
-    markDeliveryFailed,
-    classifyDispatchError,
+    dispatchLineReminder,
     type LineDispatchRunResult,
     type LineDispatchItemResult,
 } from "@/lib/line-bot/delivery-contract";
 import { logAuditEvent } from "@/lib/security/audit-log";
+import {
+    isLineClassroomInPilot,
+    isLineReminderDeliveryEnabled,
+} from "@/lib/line-bot/config";
 
 type ReminderSettingModel = {
     findMany(input: {
@@ -75,6 +76,19 @@ export async function runLineAutoReminders(
 ): Promise<LineDispatchRunResult> {
     const startedAt = new Date();
     const now = input.now ?? startedAt;
+    if (!isLineReminderDeliveryEnabled()) {
+        return {
+            triggeredBy: "cron",
+            startedAt: startedAt.toISOString(),
+            completedAt: new Date().toISOString(),
+            scannedGroups: 0,
+            candidateCount: 0,
+            sentCount: 0,
+            skippedDuplicateCount: 0,
+            failedCount: 0,
+            items: [],
+        };
+    }
 
     const deliveryModel = getDeliveryModel();
     if (!deliveryModel) {
@@ -165,46 +179,20 @@ export async function runLineAutoReminders(
             reminderKey: candidate.reminderKey,
         };
 
-        const recorded = await recordDelivery(deliveryModel, {
-            lineBotGroupId: candidate.lineBotGroupId,
-            lineGroupId: candidate.lineGroupId,
-            classroomId: candidate.classroomId,
-            assignmentId: candidate.assignmentId,
-            reminderKey: candidate.reminderKey,
-            reminderType: candidate.reminderType,
-            targetCount: candidate.missingSubmissions,
-            triggeredBy: "cron",
-        });
-
-        if (recorded.type === "duplicate") {
-            skippedDuplicateCount += 1;
-            items.push({ ...baseItem, status: "duplicate" });
-            continue;
-        }
-
-        if (recorded.type === "error") {
-            failedCount += 1;
-            items.push({ ...baseItem, status: "record_error", errorMessage: recorded.message });
-            console.error("[line-auto-reminders] failed to record delivery", recorded.message);
-            logAuditEvent({
-                action: "line.reminder.record_error",
-                category: "line",
-                status: "error",
-                targetType: "LineAssignmentReminderDelivery",
-                targetId: candidate.assignmentId,
-                metadata: {
-                    classroomId: candidate.classroomId,
-                    reminderType: candidate.reminderType,
-                    reminderKey: candidate.reminderKey,
-                    reason: recorded.message,
-                },
-            });
-            continue;
-        }
-
-        const deliveryId = recorded.id;
-
-        try {
+        const dispatched = await dispatchLineReminder({
+            model: deliveryModel,
+            delivery: {
+                lineBotGroupId: candidate.lineBotGroupId,
+                lineGroupId: candidate.lineGroupId,
+                classroomId: candidate.classroomId,
+                assignmentId: candidate.assignmentId,
+                reminderKey: candidate.reminderKey,
+                reminderType: candidate.reminderType,
+                targetCount: candidate.missingSubmissions,
+                triggeredBy: "cron",
+            },
+            now,
+            send: async () => {
             const resolveMissingNames = await getResolverFor(candidate);
             const missingStudents = await resolveMissingNames(candidate.missingStudentList);
 
@@ -235,17 +223,29 @@ export async function runLineAutoReminders(
                 `กริ่งเตือนงานค้าง: ${candidate.assignmentName} (ยังขาด ${candidate.missingSubmissions} คน)`,
                 bubble
             );
-            await markDeliverySent(deliveryModel, deliveryId);
+            },
+        });
+
+        if (dispatched.status === "sent") {
             sentCount += 1;
             items.push({ ...baseItem, status: "sent" });
-        } catch (error) {
+        } else if (dispatched.status === "duplicate") {
+            skippedDuplicateCount += 1;
+            items.push({ ...baseItem, status: "duplicate" });
+        } else {
             failedCount += 1;
-            const errorCode = classifyDispatchError(error);
-            await markDeliveryFailed(deliveryModel, deliveryId, errorCode, error);
-            items.push({ ...baseItem, status: "failed", errorCode });
-            console.error("[line-auto-reminders] failed to push LINE reminder", error);
+            items.push({
+                ...baseItem,
+                status: dispatched.status,
+                errorCode: dispatched.errorCode,
+                errorMessage: dispatched.message,
+            });
+            console.error("[line-auto-reminders] delivery failed", dispatched.message);
             logAuditEvent({
-                action: "line.reminder.push_failed",
+                action:
+                    dispatched.status === "record_error"
+                        ? "line.reminder.record_error"
+                        : "line.reminder.push_failed",
                 category: "line",
                 status: "error",
                 targetType: "LineAssignmentReminderDelivery",
@@ -255,8 +255,8 @@ export async function runLineAutoReminders(
                     lineGroupId: candidate.lineGroupId,
                     reminderType: candidate.reminderType,
                     reminderKey: candidate.reminderKey,
-                    errorCode,
-                    reason: error instanceof Error ? error.message : String(error),
+                    errorCode: dispatched.errorCode,
+                    reason: dispatched.message,
                 },
             });
         }
@@ -300,6 +300,7 @@ function buildCandidatesForGroup(
     setting?: ClassroomLineReminderSettingSnapshot
 ): ReminderCandidate[] {
     if (!group.classroomId || !group.classroom) return [];
+    if (!isLineClassroomInPilot(group.classroom.id)) return [];
     if (!canUseLineFeature(group.classroom.teacher, "lineAutoReminders")) return [];
 
     const reminderSetting = normalizeClassroomLineReminderSetting(group.classroom.id, setting);

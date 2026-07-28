@@ -9,6 +9,10 @@ type DbModelName =
     | "teacherMission"
     | "lineAssignmentReminderDelivery"
     | "lineStudentBinding"
+    | "lineStudentAccountLink"
+    | "lineTeacherAccountLink"
+    | "lineTeacherLinkCode"
+    | "lineWebhookEvent"
     | "classroomLineReminderSetting"
 
 export function getOptionalDbModel<T = unknown>(name: DbModelName): T | null {

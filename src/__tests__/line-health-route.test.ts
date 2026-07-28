@@ -7,7 +7,9 @@ const mockGetLineChannelSecret = vi.fn();
 const mockGetLineChannelAccessToken = vi.fn();
 const mockGetLineClassroomBindingSecret = vi.fn();
 const mockGetLineReminderCronSecret = vi.fn();
+const mockGetLineWebhookInboxSecret = vi.fn();
 const mockGetLineBotChatUrl = vi.fn();
+const mockGetLineAppUrl = vi.fn();
 const mockIsLineBotEnabled = vi.fn();
 
 vi.mock("@/auth", () => ({
@@ -27,10 +29,12 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/line-bot/config", () => ({
     getLineBotChatUrl: mockGetLineBotChatUrl,
+    getLineAppUrl: mockGetLineAppUrl,
     getLineChannelAccessToken: mockGetLineChannelAccessToken,
     getLineChannelSecret: mockGetLineChannelSecret,
     getLineClassroomBindingSecret: mockGetLineClassroomBindingSecret,
     getLineReminderCronSecret: mockGetLineReminderCronSecret,
+    getLineWebhookInboxSecret: mockGetLineWebhookInboxSecret,
     isLineBotEnabled: mockIsLineBotEnabled,
 }));
 
@@ -45,7 +49,9 @@ describe("GET /api/health/line", () => {
         mockGetLineChannelAccessToken.mockReturnValue("token");
         mockGetLineClassroomBindingSecret.mockReturnValue("binding");
         mockGetLineReminderCronSecret.mockReturnValue("cron");
+        mockGetLineWebhookInboxSecret.mockReturnValue("inbox-secret");
         mockGetLineBotChatUrl.mockReturnValue("https://line.me/R/ti/p/@bot");
+        mockGetLineAppUrl.mockReturnValue("https://www.teachplayedu.com");
         mockListRecentAuditEvents
             .mockResolvedValueOnce([
                 {

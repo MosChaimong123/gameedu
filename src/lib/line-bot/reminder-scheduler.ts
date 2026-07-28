@@ -15,6 +15,8 @@
 import { isLineBotEnabled } from "@/lib/line-bot/config";
 import { runLineAutoReminders } from "@/lib/line-bot/auto-reminders";
 import { logAuditEvent } from "@/lib/security/audit-log";
+import { processDueLineReminderRetries } from "@/lib/line-bot/reminder-retry";
+import { pruneExpiredLineReminderDeliveries } from "@/lib/line-bot/delivery-contract";
 
 const DEFAULT_INTERVAL_MINUTES = 30;
 const MIN_INTERVAL_MINUTES = 5;
@@ -23,6 +25,7 @@ const INITIAL_DELAY_MS = 60_000;
 
 let started = false;
 let running = false;
+let runCount = 0;
 
 function resolveIntervalMs(): number {
     const raw = process.env.LINE_REMINDER_INTERVAL_MINUTES?.trim();
@@ -56,7 +59,10 @@ async function runOnce(): Promise<void> {
     }
     running = true;
     try {
+        const retries = await processDueLineReminderRetries();
         const result = await runLineAutoReminders();
+        runCount += 1;
+        if (runCount % 48 === 0) await pruneExpiredLineReminderDeliveries();
         logAuditEvent({
             action: "line.reminder_job.run",
             category: "line",
@@ -69,11 +75,13 @@ async function runOnce(): Promise<void> {
                 sentCount: result.sentCount,
                 skippedDuplicateCount: result.skippedDuplicateCount,
                 failedCount: result.failedCount,
+                retryAttemptedCount: retries.attempted,
+                retrySentCount: retries.sent,
                 startedAt: result.startedAt,
                 completedAt: result.completedAt,
             },
         });
-        if (result.candidateCount > 0 || result.sentCount > 0) {
+        if (result.candidateCount > 0 || result.sentCount > 0 || retries.attempted > 0) {
             console.log(
                 `[line-reminder-scheduler] run complete: scanned=${result.scannedGroups} candidates=${result.candidateCount} sent=${result.sentCount} duplicate=${result.skippedDuplicateCount} failed=${result.failedCount}`
             );

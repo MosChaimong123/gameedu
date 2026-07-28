@@ -10,6 +10,7 @@ Set these in Render for the production web service:
 - `LINE_CHANNEL_ACCESS_TOKEN`
 - `LINE_CLASSROOM_BINDING_SECRET`
 - `LINE_REMINDER_CRON_SECRET`
+- `LINE_WEBHOOK_INBOX_SECRET`
 - `NEXT_PUBLIC_APP_URL=https://www.teachplayedu.com`
 - `NEXT_PUBLIC_LINE_BOT_URL` or `LINE_BOT_CHAT_URL`
 
@@ -17,12 +18,15 @@ Optional:
 
 - `LINE_BOT_ENABLED=false` to disable the LINE webhook without removing secrets
 - `GEMINI_API_KEY` for AI preliminary grading on LINE text submissions
+- `LINE_PILOT_CLASSROOM_IDS` as a comma-separated classroom allowlist during rollout
 
 Notes:
 
 - `LINE_CLASSROOM_BINDING_SECRET` should be a long random secret.
-- `LINE_REMINDER_CRON_SECRET` can be different from `ADMIN_SECRET`; prefer a dedicated secret.
+- `LINE_REMINDER_CRON_SECRET` must be a dedicated secret and never falls back to `ADMIN_SECRET`.
+- `LINE_WEBHOOK_INBOX_SECRET` must be a separate secret of at least 32 characters.
 - `NEXT_PUBLIC_LINE_BOT_URL` should be the LINE official account chat/add-friend URL so student dialogs can open the bot chat.
+- Keep `LINE_GROUP_MUTATIONS_ENABLED=false` until real LINE provider and device QA pass.
 
 Production confirmation shortcut:
 
@@ -32,6 +36,7 @@ Production confirmation shortcut:
   - `LINE_CHANNEL_ACCESS_TOKEN`
   - `LINE_CLASSROOM_BINDING_SECRET`
   - `LINE_REMINDER_CRON_SECRET`
+  - `LINE_WEBHOOK_INBOX_SECRET`
   - `NEXT_PUBLIC_APP_URL`
   - `LINE_BOT_CHAT_URL`
 - Confirm `GEMINI_API_KEY` only if AI preliminary grading is expected in production
@@ -87,8 +92,7 @@ Expected success response:
 Run before a LINE-only deploy:
 
 ```powershell
-npm.cmd test -- src/__tests__/line-webhook-route.test.ts src/__tests__/line-auto-reminders-route.test.ts src/__tests__/assignment-line-reminders-route.test.ts src/__tests__/classroom-student-line-link-route.test.ts src/lib/line-bot/__tests__/commands.test.ts src/lib/line-bot/__tests__/handlers.test.ts src/lib/line-bot/__tests__/student-linking.test.ts src/lib/line-bot/__tests__/auto-reminders.test.ts src/lib/line-bot/__tests__/ai-grading.test.ts src/lib/line-bot/__tests__/repository-submission.test.ts
-npx.cmd tsc --project tsconfig.server.json --noEmit
+npm.cmd run check:line
 ```
 
 If the change touches pricing or plan gates, also run:
@@ -133,10 +137,14 @@ git status --short
 For a LINE-only deploy, include only:
 
 - `src/lib/line-bot/**`
+- `prisma/schema.prisma`
+- `server.ts`
 - `src/app/api/webhooks/line/**`
 - `src/app/api/jobs/line-reminders/**`
+- `src/app/api/admin/ops/line-events/**`
 - `src/app/api/classrooms/[id]/**/line-*`
 - `src/app/api/student/[code]/line-link/**`
+- `src/components/admin/admin-line-health-client.tsx`
 - `src/components/classroom/classroom-line-assignment-panel.tsx`
 - `src/components/student/student-line-link-dialog.tsx`
 - LINE tests

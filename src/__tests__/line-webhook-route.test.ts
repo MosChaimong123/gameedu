@@ -1,11 +1,11 @@
 import { createHmac } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const handleLineWebhookEvents = vi.fn();
+const enqueueLineWebhookEvents = vi.fn();
 const logAuditEvent = vi.fn();
 
-vi.mock("@/lib/line-bot/handlers", () => ({
-    handleLineWebhookEvents,
+vi.mock("@/lib/line-bot/webhook-inbox", () => ({
+    enqueueLineWebhookEvents,
 }));
 
 vi.mock("@/lib/security/audit-log", () => ({
@@ -14,6 +14,7 @@ vi.mock("@/lib/security/audit-log", () => ({
 
 vi.mock("@/lib/line-bot/config", () => ({
     isLineBotEnabled: () => true,
+    isLineWebhookAcceptingEnabled: () => true,
     getLineChannelSecret: () => "test-channel-secret",
 }));
 
@@ -23,7 +24,7 @@ function signBody(body: string, secret: string): string {
 
 describe("POST /api/webhooks/line", () => {
     beforeEach(() => {
-        handleLineWebhookEvents.mockReset();
+        enqueueLineWebhookEvents.mockReset();
         logAuditEvent.mockReset();
         process.env.LINE_CHANNEL_SECRET = "test-channel-secret";
         process.env.LINE_CHANNEL_ACCESS_TOKEN = "test-access-token";
@@ -44,8 +45,8 @@ describe("POST /api/webhooks/line", () => {
         expect(res.status).toBe(400);
     });
 
-    it("accepts valid signature and forwards events", async () => {
-        handleLineWebhookEvents.mockResolvedValue(undefined);
+    it("accepts valid signature and persists events without processing inline", async () => {
+        enqueueLineWebhookEvents.mockResolvedValue({ accepted: 1, duplicates: 0 });
 
         const payload = JSON.stringify({
             events: [{ type: "message", message: { type: "text", text: "ping" } }],
@@ -62,7 +63,7 @@ describe("POST /api/webhooks/line", () => {
         );
 
         expect(res.status).toBe(200);
-        expect(handleLineWebhookEvents).toHaveBeenCalledTimes(1);
+        expect(enqueueLineWebhookEvents).toHaveBeenCalledTimes(1);
         expect(logAuditEvent).toHaveBeenCalledWith({
             action: "line.webhook.received",
             category: "line",
@@ -70,6 +71,8 @@ describe("POST /api/webhooks/line", () => {
             targetType: "LineWebhook",
             metadata: {
                 eventCount: 1,
+                acceptedCount: 1,
+                duplicateCount: 0,
             },
         });
     });

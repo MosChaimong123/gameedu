@@ -9,6 +9,7 @@ const mockLinkCodeFindFirst = vi.fn();
 const mockLinkCodeCreate = vi.fn();
 const mockLinkCodeFindUnique = vi.fn();
 const mockLinkCodeUpdate = vi.fn();
+const mockLinkCodeUpdateMany = vi.fn();
 const mockTransaction = vi.fn();
 const mockGetOptionalDbModel = vi.fn();
 const mockBindingDeleteMany = vi.fn();
@@ -47,6 +48,7 @@ describe("student LINE self-linking", () => {
                 },
                 lineStudentLinkCode: {
                     update: mockLinkCodeUpdate,
+                    updateMany: mockLinkCodeUpdateMany,
                 },
             };
             return callback(tx);
@@ -55,6 +57,7 @@ describe("student LINE self-linking", () => {
             deleteMany: mockBindingDeleteMany,
             upsert: mockBindingUpsert,
         });
+        mockLinkCodeUpdateMany.mockResolvedValue({ count: 1 });
     });
 
     it("returns an existing active code for the linked-in student owner", async () => {
@@ -203,6 +206,19 @@ describe("student LINE self-linking", () => {
         });
 
         expect(result).toEqual({ ok: false, reason: "EXPIRED" });
+        expect(mockAccountLinkCreate).not.toHaveBeenCalled();
+    });
+
+    it("does not link a second concurrent consume after the atomic claim loses", async () => {
+        mockLinkCodeFindUnique.mockResolvedValue({
+            id: "code-1", userId: "user-1", studentId: "student-1", classroomId: "classroom-1",
+            studentLoginCode: "S12345", expiresAt: new Date("2026-06-03T13:10:00.000Z"), consumedAt: null,
+        });
+        mockStudentFindUnique.mockResolvedValue({ id: "student-1", name: "Somchai", classroom: { id: "classroom-1", name: "M1/1" } });
+        mockLinkCodeUpdateMany.mockResolvedValue({ count: 0 });
+
+        const { consumeStudentLineLinkCode } = await import("@/lib/line-bot/student-linking");
+        await expect(consumeStudentLineLinkCode({ lineUserId: "line-user-2", code: "483921", now: new Date("2026-06-03T13:00:00.000Z") })).resolves.toEqual({ ok: false, reason: "EXPIRED" });
         expect(mockAccountLinkCreate).not.toHaveBeenCalled();
     });
 });

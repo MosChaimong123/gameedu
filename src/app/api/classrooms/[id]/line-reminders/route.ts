@@ -90,22 +90,30 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         // Prevent double-taps: if a manual delivery was created for this classroom
         // less than MANUAL_COOLDOWN_SECONDS ago, return 429.
         const deliveryModel = getDeliveryModel();
-        if (deliveryModel) {
+        if (!deliveryModel) {
+            return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 503);
+        }
+        {
             type RecentCheckModel = {
                 findFirst(input: {
-                    where: { classroomId: string; reminderType: string };
+                    where: Record<string, unknown>;
                     orderBy: { sentAt: "desc" };
                     select: { sentAt: true };
-                }): Promise<{ sentAt: Date } | null>;
+                }): Promise<{ sentAt: Date | null } | null>;
             };
             const recentModel = deliveryModel as unknown as RecentCheckModel;
             try {
                 const recent = await recentModel.findFirst({
-                    where: { classroomId: id, reminderType: "manual_classroom" },
+                    where: {
+                        classroomId: id,
+                        reminderType: "manual_classroom",
+                        status: "sent",
+                        sentAt: { not: null },
+                    },
                     orderBy: { sentAt: "desc" },
                     select: { sentAt: true },
                 });
-                if (recent) {
+                if (recent?.sentAt) {
                     const secondsAgo = (Date.now() - recent.sentAt.getTime()) / 1000;
                     if (secondsAgo < MANUAL_COOLDOWN_SECONDS) {
                         const retryAfter = Math.ceil(MANUAL_COOLDOWN_SECONDS - secondsAgo);
@@ -175,7 +183,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
         for (const group of groups) {
             // Collect delivery record IDs created for this group so we can mark them
-            const deliveryIds: string[] = [];
+            const deliveryClaims: Array<{ id: string; attemptCount: number }> = [];
 
             try {
                 const resolveMissingNames = await createMissingStudentNameResolver({
@@ -202,9 +210,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
                 if (bubbles.length === 0) continue;
 
-                // Create pending delivery records before pushing to LINE
+                // Claim records before pushing. Only claimed bubbles are sent;
+                // sent/in-flight duplicates are never included again.
+                const claimedBubbles: messagingApi.FlexBubble[] = [];
                 if (deliveryModel) {
-                    for (const assignment of carouselAssignments) {
+                    for (const [index, assignment] of carouselAssignments.entries()) {
                         const key = `manual_classroom:${manualDateKey}:${assignment.assignmentId}`;
                         const result = await recordDelivery(deliveryModel, {
                             lineBotGroupId: group.id,
@@ -216,15 +226,21 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
                             targetCount: assignment.missingSubmissions,
                             triggeredBy: "manual",
                         });
-                        if (result.type === "created") {
-                            deliveryIds.push(result.id);
+                        if (result.type === "claimed") {
+                            deliveryClaims.push({
+                                id: result.id,
+                                attemptCount: result.attemptCount,
+                            });
+                            claimedBubbles.push(bubbles[index]);
                         }
-                        // duplicate = already sent today for this assignment, skip silently
                     }
                 }
 
+                if (claimedBubbles.length === 0) continue;
                 const contents: messagingApi.FlexContainer =
-                    bubbles.length === 1 ? bubbles[0] : { type: "carousel", contents: bubbles };
+                    claimedBubbles.length === 1
+                        ? claimedBubbles[0]
+                        : { type: "carousel", contents: claimedBubbles };
                 await pushLineFlex(
                     group.lineGroupId,
                     `กริ่งเตือนงานค้าง ห้อง ${classroom.name} (${carouselAssignments.length} งาน)`,
@@ -234,7 +250,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
                 // Mark all created records as sent
                 if (deliveryModel) {
                     await Promise.allSettled(
-                        deliveryIds.map((deliveryId) => markDeliverySent(deliveryModel, deliveryId))
+                        deliveryClaims.map((claim) => markDeliverySent(deliveryModel, claim.id))
                     );
                 }
                 sentCount += 1;
@@ -242,10 +258,16 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
                 failedCount += 1;
                 const errorCode = classifyDispatchError(error);
                 // Mark all pending records as failed
-                if (deliveryModel && deliveryIds.length > 0) {
+                if (deliveryModel && deliveryClaims.length > 0) {
                     await Promise.allSettled(
-                        deliveryIds.map((deliveryId) =>
-                            markDeliveryFailed(deliveryModel, deliveryId, errorCode, error)
+                        deliveryClaims.map((claim) =>
+                            markDeliveryFailed(
+                                deliveryModel,
+                                claim.id,
+                                claim.attemptCount,
+                                errorCode,
+                                error
+                            )
                         )
                     );
                 }

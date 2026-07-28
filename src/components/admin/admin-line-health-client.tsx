@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { PageBackLink } from "@/components/ui/page-back-link";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/components/providers/language-provider";
 
 type HealthStatus = "healthy" | "degraded";
 type CheckState = "configured" | "missing";
@@ -27,6 +28,7 @@ type LineHealthResponse = {
         channelAccessToken: CheckState;
         bindingSecret: CheckState;
         cronSecret: CheckState;
+        webhookInboxSecret: CheckState;
         appUrl: CheckState;
         botChatUrl: CheckState;
         geminiApiKey: CheckState;
@@ -37,13 +39,24 @@ type LineHealthResponse = {
         lastAuditAction: string | null;
         lastAuditStatus: string | null;
         lastEventCount: number | null;
+        workerLastAttemptedAt: string | null;
+        workerLastSuccessfulAt: string | null;
+        pendingCount: number;
+        processingCount: number;
+        retryingCount: number;
+        deadCount: number;
     };
     reminders: {
         lastDeliveryAt: string | null;
         lastDeliveryType: string | null;
         lastDeliveryTargetCount: number | null;
-        lastCronRunAt: string | null;
+        lastCronAttemptedAt: string | null;
+        lastCronSuccessfulAt: string | null;
         lastCronRunStatus: string | null;
+        pendingCount: number;
+        sendingCount: number;
+        retryWaitCount: number;
+        failedCount: number;
     };
     errors: {
         lastLineErrorAt: string | null;
@@ -59,6 +72,20 @@ type LineHealthResponse = {
         timestamp: string;
     }>;
     timestamp: string;
+};
+
+type LineInboxFailure = {
+    id: string;
+    eventKey: string;
+    eventType: string;
+    sourceType: string | null;
+    status: "retry_wait" | "dead";
+    attemptCount: number;
+    availableAt: string;
+    failedAt: string | null;
+    lastErrorCode: string | null;
+    lastErrorMessage: string | null;
+    updatedAt: string;
 };
 
 function formatDateTime(value: string | null) {
@@ -137,7 +164,9 @@ function InfoCard({
 }
 
 export function AdminLineHealthClient() {
+    const { t } = useLanguage();
     const [data, setData] = useState<LineHealthResponse | null>(null);
+    const [inboxFailures, setInboxFailures] = useState<LineInboxFailure[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -150,15 +179,22 @@ export function AdminLineHealthClient() {
         }
 
         try {
-            const response = await fetch("/api/health/line", { cache: "no-store" });
+            const [response, failuresResponse] = await Promise.all([
+                fetch("/api/health/line", { cache: "no-store" }),
+                fetch("/api/admin/ops/line-events?take=20", { cache: "no-store" }),
+            ]);
             const payload = (await response.json().catch(() => null)) as unknown;
+            const failuresPayload = (await failuresResponse.json().catch(() => null)) as
+                | { events?: LineInboxFailure[] }
+                | null;
 
-            if (!response.ok) {
+            if (!response.ok && response.status !== 503) {
                 const message = getErrorMessage(payload) ?? "โหลด LINE health ไม่สำเร็จ";
                 throw new Error(message);
             }
 
             setData(payload as LineHealthResponse);
+            setInboxFailures(failuresPayload?.events ?? []);
             setError(null);
         } catch (nextError) {
             setError(nextError instanceof Error ? nextError.message : "โหลด LINE health ไม่สำเร็จ");
@@ -264,7 +300,7 @@ export function AdminLineHealthClient() {
                             />
                             <InfoCard
                                 title="Cron ล่าสุด"
-                                value={formatDateTime(data.reminders.lastCronRunAt)}
+                                value={formatDateTime(data.reminders.lastCronAttemptedAt)}
                                 subvalue={data.reminders.lastCronRunStatus ? `status: ${data.reminders.lastCronRunStatus}` : "ยังไม่มี cron audit"}
                             />
                             <InfoCard
@@ -287,6 +323,59 @@ export function AdminLineHealthClient() {
                             />
                         </div>
 
+                        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <h2 className="text-lg font-black text-slate-900">
+                                        {t("adminLineInboxTitle")}
+                                    </h2>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                        {t("adminLineInboxDescription")}
+                                    </p>
+                                </div>
+                                <div className="flex gap-2 text-xs font-bold">
+                                    <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-800">
+                                        retry {data.webhook.retryingCount}
+                                    </span>
+                                    <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-800">
+                                        dead {data.webhook.deadCount}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="mt-4 divide-y divide-slate-100">
+                                {inboxFailures.length === 0 ? (
+                                    <p className="py-5 text-sm text-slate-500">
+                                        {t("adminLineInboxEmpty")}
+                                    </p>
+                                ) : (
+                                    inboxFailures.map((event) => (
+                                        <div
+                                            key={event.id}
+                                            className="grid gap-2 py-3 text-sm md:grid-cols-[1fr_auto]"
+                                        >
+                                            <div className="min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="font-bold text-slate-900">
+                                                        {event.eventType}
+                                                    </span>
+                                                    <span className={statusClassName(event.status === "dead" ? "error" : "rejected") + " rounded-full border px-2 py-0.5 text-xs font-bold"}>
+                                                        {event.status}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-1 truncate font-mono text-xs text-slate-500">
+                                                    {event.lastErrorCode ?? "-"} · {event.lastErrorMessage ?? "-"}
+                                                </p>
+                                            </div>
+                                            <div className="text-xs text-slate-500 md:text-right">
+                                                <div>{t("adminLineInboxAttempts")}: {event.attemptCount}</div>
+                                                <div>{formatDateTime(event.updatedAt)}</div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
                         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
                             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                                 <h2 className="text-lg font-black text-slate-900">Config readiness</h2>
@@ -295,6 +384,7 @@ export function AdminLineHealthClient() {
                                     <CheckBadge ok={data.checks.channelAccessToken === "configured"} label="LINE_CHANNEL_ACCESS_TOKEN" />
                                     <CheckBadge ok={data.checks.bindingSecret === "configured"} label="LINE_CLASSROOM_BINDING_SECRET" />
                                     <CheckBadge ok={data.checks.cronSecret === "configured"} label="LINE_REMINDER_CRON_SECRET" />
+                                    <CheckBadge ok={data.checks.webhookInboxSecret === "configured"} label="LINE_WEBHOOK_INBOX_SECRET" />
                                     <CheckBadge ok={data.checks.appUrl === "configured"} label="NEXT_PUBLIC_APP_URL" />
                                     <CheckBadge ok={data.checks.botChatUrl === "configured"} label="LINE_BOT_CHAT_URL" />
                                     <CheckBadge ok={data.checks.geminiApiKey === "configured"} label="GEMINI_API_KEY (optional)" />

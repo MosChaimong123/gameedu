@@ -40,8 +40,15 @@ describe("classroom LINE reminder deliveries route", () => {
                 reminderType: "weekly_summary",
                 targetCount: 3,
                 status: "failed",
+                attemptCount: 3,
+                maxAttempts: 3,
+                errorCode: "LINE_PUSH_FAILED",
                 errorMessage: "LINE API failed",
+                nextAttemptAt: null,
+                lastAttemptAt: new Date("2026-06-08T02:00:00.000Z"),
                 sentAt: new Date("2026-06-08T02:00:00.000Z"),
+                failedAt: new Date("2026-06-08T02:00:00.000Z"),
+                createdAt: new Date("2026-06-08T01:59:00.000Z"),
             },
         ]);
     });

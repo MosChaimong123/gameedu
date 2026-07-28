@@ -6,25 +6,17 @@ export type LineDebtCommand =
     | { type: "classroom_remind" }
     | { type: "classroom_student_work"; scope: LineStudentWorkScope }
     | { type: "student_link_account"; code: string }
+    | { type: "teacher_link_account"; code: string }
     | { type: "classroom_bind_student"; studentCode: string }
     | { type: "classroom_my_work" }
     | { type: "classroom_my_scores" }
     | { type: "classroom_my_submissions" }
-    | { type: "classroom_submit_text"; studentCode: string; assignmentRef: string; content: string }
     | { type: "classroom_submit_text_linked"; assignmentRef: string; content: string }
     | { type: "classroom_create_assignment"; name: string; deadlineText: string | null }
-    | { type: "bind_classroom"; classroomId: string; secret: string }
     | { type: "bind_classroom_token"; token: string }
-    | { type: "add"; debtorLabel: string; amountBaht: number; note?: string }
-    | { type: "summary" }
-    | { type: "remind" }
-    | { type: "mark_paid"; shortCode: number }
     | { type: "help" }
     | { type: "ping" };
 
-const ADD_PREFIXES = ["ค้าง", "เพิ่ม", "add"] as const;
-const SUMMARY_KEYWORDS = new Set(["สรุป", "list", "รายการ"]);
-const REMIND_KEYWORDS = new Set(["ทวง", "remind"]);
 const HELP_KEYWORDS = new Set(["help", "ช่วย", "คำสั่ง"]);
 const PING_KEYWORDS = new Set(["ping", "ทดสอบ"]);
 const NEAR_MISS_HELP_KEYWORDS = new Set(["งาน", "ส่งงาน", "คะแนน", "ส่งแล้ว", "assignment", "assignments", "score", "scores", "submit"]);
@@ -64,6 +56,11 @@ export function parseLineDebtCommand(rawText: string): LineDebtCommand | null {
         return { type: "student_link_account", code: studentLinkMatch[1] };
     }
 
+    const teacherLinkMatch = text.match(/^(?:ยืนยันครู|verify teacher)\s+([A-Za-z0-9_-]{20,128})$/i);
+    if (teacherLinkMatch) {
+        return { type: "teacher_link_account", code: teacherLinkMatch[1] };
+    }
+
     const studentBindMatch = text.match(/^(?:ผูกนักเรียน|bind student)\s+(\S{3,64})$/i);
     if (studentBindMatch) {
         return { type: "classroom_bind_student", studentCode: studentBindMatch[1].trim() };
@@ -75,11 +72,6 @@ export function parseLineDebtCommand(rawText: string): LineDebtCommand | null {
     const createAssignmentCommand = parseCreateAssignmentCommand(text);
     if (createAssignmentCommand) return createAssignmentCommand;
 
-    const bindMatch = text.match(/^(?:ผูกห้อง|bind classroom)\s+([a-f0-9]{24})\s+(\S{4,128})$/i);
-    if (bindMatch) {
-        return { type: "bind_classroom", classroomId: bindMatch[1], secret: bindMatch[2] };
-    }
-
     const bindTokenMatch = text.match(/^(?:ผูกห้อง|bind classroom)\s+([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i);
     if (bindTokenMatch) {
         return { type: "bind_classroom_token", token: bindTokenMatch[1] };
@@ -87,21 +79,7 @@ export function parseLineDebtCommand(rawText: string): LineDebtCommand | null {
 
     if (PING_KEYWORDS.has(lower)) return { type: "ping" };
     if (HELP_KEYWORDS.has(lower)) return { type: "help" };
-    if (SUMMARY_KEYWORDS.has(lower)) return { type: "summary" };
-    if (REMIND_KEYWORDS.has(lower)) return { type: "remind" };
     if (NEAR_MISS_HELP_KEYWORDS.has(lower)) return { type: "classroom_help" };
-
-    const paidMatch = text.match(/^จ่ายแล้ว\s+#?(\d+)\s*$/i);
-    if (paidMatch) {
-        return { type: "mark_paid", shortCode: Number(paidMatch[1]) };
-    }
-
-    for (const prefix of ADD_PREFIXES) {
-        if (!lower.startsWith(prefix.toLowerCase())) continue;
-        const rest = text.slice(prefix.length).trim();
-        const parsed = parseAddRest(rest);
-        if (parsed) return parsed;
-    }
 
     return null;
 }
@@ -109,8 +87,6 @@ export function parseLineDebtCommand(rawText: string): LineDebtCommand | null {
 function parseSubmitTextCommand(text: string): LineDebtCommand | null {
     const linkedThaiMatch = text.match(/^ส่งงาน\s+(.+?)\s*[:：]\s*(.+)$/i);
     if (linkedThaiMatch) {
-        const legacy = parseLegacyThaiSubmitTextCommand(linkedThaiMatch[1], linkedThaiMatch[2]);
-        if (legacy) return legacy;
         return buildLinkedSubmitTextCommand(linkedThaiMatch[1], linkedThaiMatch[2]);
     }
 
@@ -119,23 +95,7 @@ function parseSubmitTextCommand(text: string): LineDebtCommand | null {
         return buildLinkedSubmitTextCommand(linkedEnglishMatch[1], linkedEnglishMatch[2]);
     }
 
-    const englishMatch = text.match(/^submit work\s+(\S+)\s+(.+?)\s*[:：]\s*(.+)$/i);
-    if (englishMatch) {
-        return buildSubmitTextCommand(englishMatch[1], englishMatch[2], englishMatch[3]);
-    }
-
     return null;
-}
-
-function parseLegacyThaiSubmitTextCommand(assignmentPart: string, content: string): LineDebtCommand | null {
-    const [possibleStudentCode, ...assignmentTokens] = assignmentPart.trim().split(/\s+/);
-    if (!possibleStudentCode || assignmentTokens.length === 0) return null;
-    if (!looksLikeStudentLoginCode(possibleStudentCode)) return null;
-    return buildSubmitTextCommand(possibleStudentCode, assignmentTokens.join(" "), content);
-}
-
-function looksLikeStudentLoginCode(value: string): boolean {
-    return /^[A-Z]{0,4}\d{2,}$/i.test(value) || /^[A-Z]{1,4}\d{1,}$/i.test(value);
 }
 
 function buildLinkedSubmitTextCommand(assignmentRef: string, content: string): LineDebtCommand | null {
@@ -149,22 +109,6 @@ function buildLinkedSubmitTextCommand(assignmentRef: string, content: string): L
     };
 }
 
-function buildSubmitTextCommand(
-    studentCode: string,
-    assignmentRef: string,
-    content: string
-): LineDebtCommand | null {
-    const trimmedStudentCode = studentCode.trim();
-    const trimmedAssignmentRef = assignmentRef.trim();
-    const trimmedContent = content.trim();
-    if (!trimmedStudentCode || !trimmedAssignmentRef || !trimmedContent) return null;
-    return {
-        type: "classroom_submit_text",
-        studentCode: trimmedStudentCode,
-        assignmentRef: trimmedAssignmentRef,
-        content: trimmedContent,
-    };
-}
 
 function parseCreateAssignmentCommand(text: string): LineDebtCommand | null {
     const englishNoDueMatch = text.match(/^create assignment\s+(.+?)\s+no due$/i);
@@ -204,29 +148,6 @@ function parseCreateAssignmentCommand(text: string): LineDebtCommand | null {
     }
 
     return null;
-}
-
-function parseAddRest(rest: string): LineDebtCommand | null {
-    if (!rest) return null;
-
-    const match = rest.match(/^(.+?)\s+(\d[\d,]*)(?:\s+(.+))?$/);
-    if (!match) return null;
-
-    const debtorLabel = match[1].trim();
-    const amountBaht = Number(match[2].replace(/,/g, ""));
-    const note = match[3]?.trim();
-
-    if (!debtorLabel) return null;
-    if (!Number.isFinite(amountBaht) || amountBaht <= 0 || !Number.isInteger(amountBaht)) {
-        return null;
-    }
-
-    return {
-        type: "add",
-        debtorLabel,
-        amountBaht,
-        note: note || undefined,
-    };
 }
 
 export function formatClassroomReminderHelpMessage(): string {
@@ -339,6 +260,10 @@ export type LineTextSubmission = {
     assignmentName: string;
     classroomName: string;
     replacedPreviousSubmission: boolean;
+    /** Internal audit values; formatters intentionally do not expose these to LINE users. */
+    studentId?: string;
+    revision?: number;
+    submissionState?: "submitted" | "resubmitted" | "needs_review";
     aiPreliminaryScore?: {
         suggestedScore: number;
         maxScore: number;
@@ -589,6 +514,13 @@ export function formatLineDirectHelpMessage(): string {
     ].join("\n");
 }
 
+export function formatLineGroupMutationDisabledMessage(): string {
+    return [
+        "คำสั่งแก้ไขข้อมูลจากกลุ่ม LINE ถูกปิดชั่วคราวเพื่อความปลอดภัย",
+        "กรุณาใช้หน้า GameEdu หรือแชตส่วนตัวกับบอทสำหรับการส่งงานและเชื่อมบัญชี",
+    ].join("\n");
+}
+
 export function formatLineStudentAccountLinkedMessage(input: {
     studentName: string;
     classroomName: string;
@@ -607,6 +539,30 @@ export function formatLineStudentAccountLinkFailedMessage(): string {
         "เชื่อม LINE ไม่สำเร็จ",
         "รหัสเชื่อมไม่ถูกต้องหรือหมดอายุแล้ว",
         "กลับไปกดปุ่ม เชื่อม LINE ใน GameEdu เพื่อรับรหัสใหม่อีกครั้ง",
+    ].join("\n");
+}
+
+export function formatLineTeacherAccountLinkedMessage(input: { teacherName: string; classroomName: string }): string {
+    return [
+        "ยืนยัน LINE สำหรับครูสำเร็จแล้ว",
+        `ครู: ${input.teacherName}`,
+        `ห้อง: ${input.classroomName}`,
+        "ตอนนี้คุณใช้คำสั่งจัดการห้องในกลุ่ม LINE ที่ผูกกับห้องนี้ได้",
+    ].join("\n");
+}
+
+export function formatLineTeacherAccountLinkFailedMessage(): string {
+    return [
+        "ยืนยัน LINE สำหรับครูไม่สำเร็จ",
+        "คำสั่งอาจหมดอายุ ถูกใช้แล้ว หรือ LINE นี้เชื่อมกับบัญชีอื่นอยู่",
+        "กลับไปที่หน้า GameEdu ของห้องเรียน แล้วสร้างคำสั่งยืนยันใหม่อีกครั้ง",
+    ].join("\n");
+}
+
+export function formatLineTeacherAuthorizationRequiredMessage(): string {
+    return [
+        "คำสั่งนี้ใช้ได้เฉพาะครูที่ยืนยัน LINE แล้ว",
+        "ไปที่หน้า GameEdu ของห้องเรียน เลือก ยืนยัน LINE สำหรับครู แล้วส่งคำสั่งในแชตส่วนตัวกับบอท",
     ].join("\n");
 }
 
@@ -636,7 +592,10 @@ export function formatLineMyWorkMessage(summary: LineMyWorkSummary): string {
     const lines = [
         `งานของ ${summary.studentName}`,
         `ห้อง: ${summary.classroomName}`,
-        ...summary.items.map((item) => `- ${item.assignmentName}: ${formatDeadline(item.deadline)}`),
+        ...summary.items.map(
+            (item) =>
+                `- ${item.assignmentCode ? `[${item.assignmentCode}] ` : ""}${item.assignmentName}: ${formatDeadline(item.deadline)}`
+        ),
         "",
         "เปิด GameEdu เพื่อตรวจรายละเอียดและส่งงานได้เลย",
     ];
@@ -679,7 +638,10 @@ export function formatLineMyWorkListMessage(
         ...scopedSummaries.flatMap((summary) => [
             "",
             `${summary.classroomName} - ${summary.studentName}`,
-            ...summary.items.map((item) => `- ${item.assignmentName}: ${formatDeadline(item.deadline)}`),
+            ...summary.items.map(
+                (item) =>
+                    `- ${item.assignmentCode ? `[${item.assignmentCode}] ` : ""}${item.assignmentName}: ${formatDeadline(item.deadline)}`
+            ),
             ...formatStudentDashboardUrlLines(summary.studentUrl),
         ]),
         "",

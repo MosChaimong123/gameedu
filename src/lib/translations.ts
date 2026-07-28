@@ -3,6 +3,12 @@ import legacyThaiTranslations from "./translations-th-legacy.json";
 export type Language = "en" | "th";
 
 export const thaiPack = {
+        adminLineInboxTitle: "Webhook ที่ต้องตรวจสอบ",
+        adminLineInboxDescription: "แสดงเฉพาะ retry/dead โดยไม่เปิดเผย payload หรือ LINE user ID",
+        adminLineInboxEmpty: "ไม่มี webhook ที่ล้มเหลว",
+        adminLineInboxAttempts: "ครั้งที่ลอง",
+        lineReminderRetryAction: "ลองส่งอีกครั้ง",
+        lineReminderRetrying: "กำลังลองใหม่...",
         lessonTopicAcknowledgeAction: "อ่านหัวข้อนี้แล้ว",
         lessonTopicAcknowledged: "อ่านหัวข้อนี้เรียบร้อยแล้ว",
         lessonTopicAcknowledgeError: "บันทึกสถานะการอ่านไม่สำเร็จ กรุณาลองอีกครั้ง",
@@ -1075,6 +1081,12 @@ export const thaiPack = {
 };
 
 const englishPack = {
+        adminLineInboxTitle: "Webhook events needing attention",
+        adminLineInboxDescription: "Shows retry/dead metadata without exposing payloads or LINE user IDs",
+        adminLineInboxEmpty: "No failed webhook events",
+        adminLineInboxAttempts: "Attempts",
+        lineReminderRetryAction: "Retry delivery",
+        lineReminderRetrying: "Retrying...",
         loading: "Loading...",
         yes: "Yes",
         no: "No",

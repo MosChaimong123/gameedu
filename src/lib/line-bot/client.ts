@@ -26,6 +26,44 @@ export async function replyLineText(replyToken: string, text: string): Promise<v
     });
 }
 
+export async function replyLineTextWithQuickActions(
+    replyToken: string,
+    text: string,
+    actions: Array<
+        | { type?: "postback"; label: string; data: string; displayText: string }
+        | { type: "uri"; label: string; uri: string }
+    >
+): Promise<void> {
+    const lineClient = getLineMessagingClient();
+    await lineClient.replyMessage({
+        replyToken,
+        messages: [
+            {
+                type: "text",
+                text,
+                quickReply: {
+                    items: actions.slice(0, 13).map((action) => ({
+                        type: "action" as const,
+                        action:
+                            action.type === "uri"
+                                ? {
+                                      type: "uri" as const,
+                                      label: action.label.slice(0, 20),
+                                      uri: action.uri,
+                                  }
+                                : {
+                                      type: "postback" as const,
+                                      label: action.label.slice(0, 20),
+                                      data: action.data.slice(0, 300),
+                                      displayText: action.displayText.slice(0, 300),
+                                  },
+                    })),
+                },
+            },
+        ],
+    });
+}
+
 export async function pushLineText(to: string, text: string): Promise<void> {
     const lineClient = getLineMessagingClient();
     await lineClient.pushMessage({

@@ -4,6 +4,10 @@ const mockAuth = vi.fn();
 const mockAssignmentFindUnique = vi.fn();
 const mockGetOptionalDbModel = vi.fn();
 const mockDeliveryCreate = vi.fn();
+const mockDeliveryUpdate = vi.fn();
+const mockDeliveryFindFirst = vi.fn();
+const mockDeliveryFindUnique = vi.fn();
+const mockDeliveryUpdateMany = vi.fn();
 const mockBindingFindMany = vi.fn();
 const mockBindingUpdate = vi.fn();
 const mockPushLineFlex = vi.fn();
@@ -31,7 +35,13 @@ describe("POST /api/classrooms/[id]/assignments/[assignmentId]/line-reminders", 
         mockAuth.mockResolvedValue({ user: { id: "teacher-1", role: "TEACHER" } });
         mockGetOptionalDbModel.mockImplementation((modelName: string) => {
             if (modelName === "lineAssignmentReminderDelivery") {
-                return { create: mockDeliveryCreate };
+                return {
+                    create: mockDeliveryCreate,
+                    update: mockDeliveryUpdate,
+                    findFirst: mockDeliveryFindFirst,
+                    findUnique: mockDeliveryFindUnique,
+                    updateMany: mockDeliveryUpdateMany,
+                };
             }
             if (modelName === "lineStudentBinding") {
                 return { findMany: mockBindingFindMany, update: mockBindingUpdate };
@@ -39,6 +49,8 @@ describe("POST /api/classrooms/[id]/assignments/[assignmentId]/line-reminders", 
             return null;
         });
         mockDeliveryCreate.mockResolvedValue({ id: "delivery-1" });
+        mockDeliveryUpdate.mockResolvedValue({});
+        mockDeliveryUpdateMany.mockResolvedValue({ count: 1 });
         mockBindingFindMany.mockResolvedValue([]);
         mockBindingUpdate.mockResolvedValue({});
         mockPushLineFlex.mockResolvedValue(undefined);

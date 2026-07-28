@@ -181,40 +181,50 @@ export async function consumeStudentLineLinkCode(input: {
     const directLineGroupId = `${DIRECT_LINE_GROUP_PREFIX}${input.lineUserId}`;
     const bindingModel = getOptionalDbModel<LineStudentBindingModel>("lineStudentBinding");
 
-    await db.$transaction(async (tx) => {
-        await tx.lineStudentAccountLink.deleteMany({
-            where: {
-                OR: [
-                    {
-                        userId: codeRow.userId,
-                        classroomId: codeRow.classroomId,
-                    },
-                    {
-                        lineUserId: input.lineUserId,
-                        classroomId: codeRow.classroomId,
-                    },
-                ],
-            },
-        });
+    try {
+        await db.$transaction(async (tx) => {
+            // Claim before creating the account link. Only one concurrent request
+            // can update a still-active code, and a transaction rolls it back if
+            // the following link write fails.
+            const claimed = await tx.lineStudentLinkCode.updateMany({
+                where: {
+                    id: codeRow.id,
+                    consumedAt: null,
+                    expiresAt: { gt: now },
+                },
+                data: { consumedAt: now, lineUserId: input.lineUserId },
+            });
+            if (claimed.count !== 1) throw new LinkCodeUnavailableError();
 
-        await tx.lineStudentAccountLink.create({
-            data: {
-                userId: codeRow.userId,
-                studentId: codeRow.studentId,
-                classroomId: codeRow.classroomId,
-                lineUserId: input.lineUserId,
-                studentLoginCode: codeRow.studentLoginCode,
-            },
-        });
+            await tx.lineStudentAccountLink.deleteMany({
+                where: {
+                    OR: [
+                        {
+                            userId: codeRow.userId,
+                            classroomId: codeRow.classroomId,
+                        },
+                        {
+                            lineUserId: input.lineUserId,
+                            classroomId: codeRow.classroomId,
+                        },
+                    ],
+                },
+            });
 
-        await tx.lineStudentLinkCode.update({
-            where: { id: codeRow.id },
-            data: {
-                consumedAt: now,
-                lineUserId: input.lineUserId,
-            },
+            await tx.lineStudentAccountLink.create({
+                data: {
+                    userId: codeRow.userId,
+                    studentId: codeRow.studentId,
+                    classroomId: codeRow.classroomId,
+                    lineUserId: input.lineUserId,
+                    studentLoginCode: codeRow.studentLoginCode,
+                },
+            });
         });
-    });
+    } catch (error) {
+        if (error instanceof LinkCodeUnavailableError) return { ok: false, reason: "EXPIRED" };
+        throw error;
+    }
 
     if (bindingModel) {
         await bindingModel.deleteMany({
@@ -263,6 +273,8 @@ export async function consumeStudentLineLinkCode(input: {
         },
     };
 }
+
+class LinkCodeUnavailableError extends Error {}
 
 export function buildStudentLineLinkCommand(code: string): string {
     return `เชื่อม ${code}`;

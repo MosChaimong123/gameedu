@@ -1,315 +1,99 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockLineBotGroupFindUnique = vi.fn();
-const mockAssignmentSubmissionFindUnique = vi.fn();
-const mockAssignmentSubmissionUpsert = vi.fn();
-const mockGradeLineTextSubmissionWithAi = vi.fn();
-const mockAwardLineAssignmentSubmissionReward = vi.fn();
-const mockLineStudentAccountLinkFindMany = vi.fn();
+const mockFindUnique = vi.fn();
+const mockCreate = vi.fn();
+const mockUpdateMany = vi.fn();
+const mockLinksFindMany = vi.fn();
 const mockClassroomFindUnique = vi.fn();
 const mockStudentFindUnique = vi.fn();
+const mockGrade = vi.fn();
+const mockReward = vi.fn();
 
 vi.mock("@/lib/db", () => ({
     db: {
-        lineBotGroup: {
-            findUnique: mockLineBotGroupFindUnique,
-        },
-        assignmentSubmission: {
-            findUnique: mockAssignmentSubmissionFindUnique,
-            upsert: mockAssignmentSubmissionUpsert,
-        },
-        lineStudentAccountLink: {
-            findMany: mockLineStudentAccountLinkFindMany,
-        },
-        classroom: {
-            findUnique: mockClassroomFindUnique,
-        },
-        student: {
-            findUnique: mockStudentFindUnique,
-        },
+        assignmentSubmission: { findUnique: mockFindUnique, create: mockCreate, updateMany: mockUpdateMany },
+        lineStudentAccountLink: { findMany: mockLinksFindMany },
+        classroom: { findUnique: mockClassroomFindUnique },
+        student: { findUnique: mockStudentFindUnique },
     },
 }));
+vi.mock("@/lib/line-bot/ai-grading", () => ({ gradeLineTextSubmissionWithAi: mockGrade }));
+vi.mock("@/lib/services/student-economy/line-assignment-reward", () => ({ awardLineAssignmentSubmissionReward: mockReward }));
 
-vi.mock("@/lib/notifications", () => ({
-    sendNotification: vi.fn(),
-}));
-
-vi.mock("@/lib/line-bot/ai-grading", () => ({
-    gradeLineTextSubmissionWithAi: mockGradeLineTextSubmissionWithAi,
-}));
-
-vi.mock("@/lib/services/student-economy/line-assignment-reward", () => ({
-    awardLineAssignmentSubmissionReward: mockAwardLineAssignmentSubmissionReward,
-}));
-
-describe("line-bot repository text submissions", () => {
+describe("linked LINE text submissions", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mockAssignmentSubmissionFindUnique.mockResolvedValue(null);
-        mockAssignmentSubmissionUpsert.mockResolvedValue({ id: "submission-1" });
-        mockGradeLineTextSubmissionWithAi.mockResolvedValue({
-            status: "unavailable",
-            reason: "missing_api_key",
-        });
-        mockAwardLineAssignmentSubmissionReward.mockResolvedValue({
-            awarded: false,
-            gold: 0,
-            idempotencyKey: "line_assignment:student-1:assignment-1",
-            reason: "already_awarded",
-        });
-        mockLineStudentAccountLinkFindMany.mockResolvedValue([]);
-        mockClassroomFindUnique.mockResolvedValue(null);
-        mockStudentFindUnique.mockResolvedValue(null);
-    });
-
-    it("creates a text submission for a bound classroom assignment", async () => {
-        mockLineBotGroupFindUnique.mockResolvedValue({
-            classroomId: "classroom-1",
-            classroom: {
-                id: "classroom-1",
-                name: "M1/1",
-                teacher: { role: "TEACHER", plan: "PLUS", planStatus: "ACTIVE", planExpiry: null },
-                students: [{ id: "student-1", loginCode: "S123" }],
-                assignments: [{
-                    id: "assignment-1",
-                    name: "Homework 1",
-                    description: "Explain your answer",
-                    type: "score",
-                    maxScore: 10,
-                }],
-            },
-        });
-
-        const { submitTextAssignmentForLineGroup } = await import("@/lib/line-bot/repository");
-        const result = await submitTextAssignmentForLineGroup({
-            lineGroupId: "line-group-1",
-            studentCode: "S123",
-            assignmentRef: "Homework 1",
-            content: "My answer",
-        });
-
-        expect(result).toMatchObject({
-            ok: true,
-            submission: {
-                assignmentName: "Homework 1",
-                classroomName: "M1/1",
-                replacedPreviousSubmission: false,
-                aiPreliminaryScore: null,
-                reward: {
-                    awarded: false,
-                    gold: 0,
-                },
-            },
-        });
-        expect(mockGradeLineTextSubmissionWithAi).toHaveBeenCalledWith({
-            assignmentName: "Homework 1",
-            assignmentDescription: "Explain your answer",
-            maxScore: 10,
-            studentAnswer: "My answer",
-        });
-        expect(mockAssignmentSubmissionUpsert).toHaveBeenCalledWith({
-            where: {
-                studentId_assignmentId: {
-                    studentId: "student-1",
-                    assignmentId: "assignment-1",
-                },
-            },
-            create: expect.objectContaining({
-                studentId: "student-1",
-                assignmentId: "assignment-1",
-                score: 0,
-                content: expect.stringContaining("missing_api_key"),
-            }),
-            update: expect.objectContaining({
-                content: expect.stringContaining("missing_api_key"),
-            }),
-        });
-        expect(mockAwardLineAssignmentSubmissionReward).toHaveBeenCalledWith(expect.anything(), {
-            studentId: "student-1",
-            classId: "classroom-1",
-            assignmentId: "assignment-1",
-            assignmentName: "Homework 1",
-            aiPreliminaryScore: null,
-        });
-    });
-
-    it("stores AI preliminary grading metadata and suggested score for text submissions", async () => {
-        mockGradeLineTextSubmissionWithAi.mockResolvedValue({
-            status: "graded",
-            suggestedScore: 8,
-            maxScore: 10,
-            confidence: "medium",
-            feedback: "คำตอบตรงประเด็น แต่ยังขาดเหตุผลประกอบ",
-        });
-        mockAwardLineAssignmentSubmissionReward.mockResolvedValue({
-            awarded: true,
-            gold: 15,
-            newGold: 115,
-            idempotencyKey: "line_assignment:student-1:assignment-1",
-            reason: "first_submission",
-        });
-        mockLineBotGroupFindUnique.mockResolvedValue({
-            classroomId: "classroom-1",
-            classroom: {
-                id: "classroom-1",
-                name: "M1/1",
-                teacher: { role: "TEACHER", plan: "PLUS", planStatus: "ACTIVE", planExpiry: null },
-                students: [{ id: "student-1", loginCode: "S123" }],
-                assignments: [{
-                    id: "assignment-1",
-                    name: "Homework 1",
-                    description: null,
-                    type: "score",
-                    maxScore: 10,
-                }],
-            },
-        });
-
-        const { submitTextAssignmentForLineGroup } = await import("@/lib/line-bot/repository");
-        const result = await submitTextAssignmentForLineGroup({
-            lineGroupId: "line-group-1",
-            studentCode: "S123",
-            assignmentRef: "Homework 1",
-            content: "My answer",
-        });
-
-        expect(result).toMatchObject({
-            ok: true,
-            submission: {
-                aiPreliminaryScore: {
-                    suggestedScore: 8,
-                    maxScore: 10,
-                    confidence: "medium",
-                },
-                reward: {
-                    awarded: true,
-                    gold: 15,
-                },
-            },
-        });
-        expect(mockAssignmentSubmissionUpsert).toHaveBeenCalledWith(expect.objectContaining({
-            create: expect.objectContaining({
-                score: 0,
-                content: expect.stringContaining("คำตอบตรงประเด็น"),
-            }),
-            update: expect.objectContaining({
-                score: 0,
-                content: expect.stringContaining("คำตอบตรงประเด็น"),
-            }),
-        }));
-        expect(mockAwardLineAssignmentSubmissionReward).toHaveBeenCalledWith(expect.anything(), {
-            studentId: "student-1",
-            classId: "classroom-1",
-            assignmentId: "assignment-1",
-            assignmentName: "Homework 1",
-            aiPreliminaryScore: {
-                suggestedScore: 8,
-                maxScore: 10,
-                confidence: "medium",
-            },
-        });
-    });
-
-    it("rejects quiz and worksheet assignments for LINE text submission", async () => {
-        mockLineBotGroupFindUnique.mockResolvedValue({
-            classroomId: "classroom-1",
-            classroom: {
-                id: "classroom-1",
-                name: "M1/1",
-                teacher: { role: "TEACHER", plan: "PLUS", planStatus: "ACTIVE", planExpiry: null },
-                students: [{ id: "student-1", loginCode: "S123" }],
-                assignments: [{ id: "assignment-1", name: "Quiz 1", description: null, type: "quiz", maxScore: 10 }],
-            },
-        });
-
-        const { submitTextAssignmentForLineGroup } = await import("@/lib/line-bot/repository");
-        const result = await submitTextAssignmentForLineGroup({
-            lineGroupId: "line-group-1",
-            studentCode: "S123",
-            assignmentRef: "Quiz 1",
-            content: "A",
-        });
-
-        expect(result).toEqual({ ok: false, reason: "UNSUPPORTED_ASSIGNMENT" });
-        expect(mockAssignmentSubmissionUpsert).not.toHaveBeenCalled();
-        expect(mockGradeLineTextSubmissionWithAi).not.toHaveBeenCalled();
-        expect(mockAwardLineAssignmentSubmissionReward).not.toHaveBeenCalled();
-    });
-
-    it("creates a text submission from a linked LINE account using assignment short code", async () => {
-        mockLineStudentAccountLinkFindMany.mockResolvedValue([
-            { classroomId: "classroom-1", studentId: "student-1" },
-        ]);
+        mockLinksFindMany.mockResolvedValue([{ classroomId: "class-1", studentId: "student-1" }]);
         mockClassroomFindUnique.mockResolvedValue({
-            id: "classroom-1",
+            id: "class-1",
             name: "M1/1",
             teacher: { role: "TEACHER", plan: "PLUS", planStatus: "ACTIVE", planExpiry: null },
-            assignments: [
-                {
-                    id: "assignment-1",
-                    name: "Homework 1",
-                    description: null,
-                    type: "score",
-                    maxScore: 10,
-                    order: 0,
-                },
-            ],
+            assignments: [{ id: "assignment-1", name: "Homework 1", description: null, type: "score", maxScore: 10, order: 0, deadline: null }],
         });
-        mockStudentFindUnique.mockResolvedValue({ id: "student-1" });
+        mockStudentFindUnique.mockResolvedValue({ id: "student-1", classId: "class-1" });
+        mockFindUnique.mockResolvedValue(null);
+        mockCreate.mockResolvedValue({ id: "submission-1" });
+        mockUpdateMany.mockResolvedValue({ count: 1 });
+        mockGrade.mockResolvedValue({ status: "unavailable", reason: "missing_api_key" });
+        mockReward.mockResolvedValue({ awarded: false, gold: 0, reason: "already_awarded" });
+    });
 
+    it("creates work only for the student linked to the LINE account and records revision 1", async () => {
         const { submitTextAssignmentForLinkedLineAccount } = await import("@/lib/line-bot/repository");
-        const result = await submitTextAssignmentForLinkedLineAccount({
-            lineUserId: "line-user-1",
-            assignmentRef: "A1",
-            content: "My answer",
-        });
+        const result = await submitTextAssignmentForLinkedLineAccount({ lineUserId: "line-user-1", assignmentRef: "A1", content: "My answer" });
 
-        expect(result).toMatchObject({
-            ok: true,
-            submission: {
-                assignmentName: "Homework 1",
-                classroomName: "M1/1",
-            },
-        });
-        expect(mockAssignmentSubmissionUpsert).toHaveBeenCalledWith(expect.objectContaining({
-            where: {
-                studentId_assignmentId: {
-                    studentId: "student-1",
-                    assignmentId: "assignment-1",
-                },
-            },
+        expect(result).toMatchObject({ ok: true, submission: { studentId: "student-1", revision: 1, submissionState: "submitted" } });
+        expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
+            data: expect.objectContaining({ studentId: "student-1", assignmentId: "assignment-1", score: 0, content: expect.stringContaining("line-user-1") }),
         }));
     });
 
-    it("blocks LINE text submission for classrooms on the free plan", async () => {
-        mockLineBotGroupFindUnique.mockResolvedValue({
-            classroomId: "classroom-1",
-            classroom: {
-                id: "classroom-1",
-                name: "M1/1",
-                teacher: { role: "TEACHER", plan: "FREE", planStatus: "INACTIVE", planExpiry: null },
-                students: [{ id: "student-1", loginCode: "S123" }],
-                assignments: [{
-                    id: "assignment-1",
-                    name: "Homework 1",
-                    description: null,
-                    type: "score",
-                    maxScore: 10,
-                }],
-            },
-        });
+    it("rejects a stale LINE link whose student is no longer in that classroom", async () => {
+        mockStudentFindUnique.mockResolvedValue({ id: "student-1", classId: "other-class" });
+        const { submitTextAssignmentForLinkedLineAccount } = await import("@/lib/line-bot/repository");
+        await expect(submitTextAssignmentForLinkedLineAccount({ lineUserId: "line-user-1", assignmentRef: "A1", content: "My answer" })).resolves.toEqual({ ok: false, reason: "NOT_FOUND" });
+        expect(mockCreate).not.toHaveBeenCalled();
+    });
 
-        const { submitTextAssignmentForLineGroup } = await import("@/lib/line-bot/repository");
-        const result = await submitTextAssignmentForLineGroup({
-            lineGroupId: "line-group-1",
-            studentCode: "S123",
-            assignmentRef: "Homework 1",
-            content: "A",
+    it("preserves a teacher-reviewed score and uses optimistic concurrency on resubmission", async () => {
+        const updatedAt = new Date("2026-07-27T10:00:00.000Z");
+        mockFindUnique.mockResolvedValue({
+            id: "submission-1",
+            score: 8,
+            updatedAt,
+            content: JSON.stringify({
+                mode: "line_text", text: "old", submittedVia: "line",
+                aiPreliminaryGrading: { status: "unavailable", reason: "not_requested" },
+                teacherReview: { score: 8, reviewedAt: "2026-07-27T09:00:00.000Z", reviewedBy: "teacher-1" },
+                submissionState: "submitted",
+                revisions: [{ revision: 1, state: "submitted", submittedAt: "2026-07-27T08:00:00.000Z", actorLineUserId: "line-user-1", linkedStudentId: "student-1" }],
+            }),
         });
+        const { submitTextAssignmentForLinkedLineAccount } = await import("@/lib/line-bot/repository");
+        const result = await submitTextAssignmentForLinkedLineAccount({ lineUserId: "line-user-1", assignmentRef: "A1", content: "revised" });
 
-        expect(result).toEqual({ ok: false, reason: "PLAN_LIMIT" });
-        expect(mockAssignmentSubmissionUpsert).not.toHaveBeenCalled();
-        expect(mockGradeLineTextSubmissionWithAi).not.toHaveBeenCalled();
-        expect(mockAwardLineAssignmentSubmissionReward).not.toHaveBeenCalled();
+        expect(result).toMatchObject({ ok: true, submission: { revision: 2, submissionState: "needs_review" } });
+        expect(mockUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+            where: { id: "submission-1", updatedAt },
+            data: expect.objectContaining({ score: 8, content: expect.stringContaining('"revision":2') }),
+        }));
+    });
+
+    it("does not award or overwrite when another writer changes the submission first", async () => {
+        mockFindUnique.mockResolvedValue({ id: "submission-1", score: 0, content: null, updatedAt: new Date() });
+        mockUpdateMany.mockResolvedValue({ count: 0 });
+        const { submitTextAssignmentForLinkedLineAccount } = await import("@/lib/line-bot/repository");
+        await expect(submitTextAssignmentForLinkedLineAccount({ lineUserId: "line-user-1", assignmentRef: "A1", content: "My answer" })).resolves.toEqual({ ok: false, reason: "CONFLICT" });
+        expect(mockReward).not.toHaveBeenCalled();
+    });
+
+    it("locks submissions after the deadline", async () => {
+        mockClassroomFindUnique.mockResolvedValue({
+            id: "class-1", name: "M1/1", teacher: { role: "TEACHER", plan: "PLUS", planStatus: "ACTIVE", planExpiry: null },
+            assignments: [{ id: "assignment-1", name: "Homework 1", description: null, type: "score", maxScore: 10, order: 0, deadline: new Date("2020-01-01") }],
+        });
+        const { submitTextAssignmentForLinkedLineAccount } = await import("@/lib/line-bot/repository");
+        await expect(submitTextAssignmentForLinkedLineAccount({ lineUserId: "line-user-1", assignmentRef: "A1", content: "late" })).resolves.toEqual({ ok: false, reason: "LOCKED" });
+        expect(mockCreate).not.toHaveBeenCalled();
     });
 });

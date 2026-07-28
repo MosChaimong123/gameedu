@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/auth";
 import { parseAndValidateManualScore } from "@/lib/validate-manual-assignment-score";
-import { markLineAiPreliminaryReview } from "@/lib/line-bot/submission-content";
+import { markLineAiPreliminaryReview, markLineSubmissionTeacherReview } from "@/lib/line-bot/submission-content";
 import { logAuditEvent } from "@/lib/security/audit-log";
 import {
     AUTH_REQUIRED_MESSAGE,
@@ -92,6 +92,11 @@ export async function POST(
                 reviewedBy: session.user.id,
             })
             : null;
+        const teacherReviewedLineContent = markLineSubmissionTeacherReview(existingSubmission?.content, {
+            score: validated.score,
+            reviewedAt: new Date().toISOString(),
+            reviewedBy: session.user.id,
+        });
 
         if (lineAiReviewAction && !reviewedLineContent) {
             return createAppErrorResponse("INVALID_PAYLOAD", "LINE AI review is unavailable for this submission", 400);
@@ -106,7 +111,11 @@ export async function POST(
             },
             update: {
                 score: validated.score,
-                ...(reviewedLineContent ? { content: reviewedLineContent } : {}),
+                ...(reviewedLineContent
+                    ? { content: reviewedLineContent }
+                    : teacherReviewedLineContent
+                      ? { content: teacherReviewedLineContent }
+                      : {}),
             },
             create: {
                 studentId,

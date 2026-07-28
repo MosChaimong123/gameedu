@@ -1,8 +1,12 @@
 import { validateSignature, type WebhookRequestBody } from "@line/bot-sdk";
 import { NextResponse } from "next/server";
 import { createAppErrorResponse } from "@/lib/api-error";
-import { getLineChannelSecret, isLineBotEnabled } from "@/lib/line-bot/config";
-import { handleLineWebhookEvents } from "@/lib/line-bot/handlers";
+import {
+    getLineChannelSecret,
+    isLineBotEnabled,
+    isLineWebhookAcceptingEnabled,
+} from "@/lib/line-bot/config";
+import { enqueueLineWebhookEvents } from "@/lib/line-bot/webhook-inbox";
 import { logAuditEvent } from "@/lib/security/audit-log";
 
 export const runtime = "nodejs";
@@ -15,6 +19,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+    if (!isLineWebhookAcceptingEnabled()) {
+        return createAppErrorResponse("INTERNAL_ERROR", "LINE webhook intake is paused", 503);
+    }
     if (!isLineBotEnabled()) {
         console.error("[webhooks/line] LINE bot is not configured or disabled");
         return createAppErrorResponse("INTERNAL_ERROR", "LINE bot not configured", 503);
@@ -46,7 +53,7 @@ export async function POST(req: Request) {
     const events = body.events ?? [];
     if (events.length > 0) {
         try {
-            await handleLineWebhookEvents(events);
+            const queued = await enqueueLineWebhookEvents(events);
             logAuditEvent({
                 action: "line.webhook.received",
                 category: "line",
@@ -54,10 +61,12 @@ export async function POST(req: Request) {
                 targetType: "LineWebhook",
                 metadata: {
                     eventCount: events.length,
+                    acceptedCount: queued.accepted,
+                    duplicateCount: queued.duplicates,
                 },
             });
         } catch (error) {
-            console.error("[webhooks/line] Handler error", error);
+            console.error("[webhooks/line] Inbox persistence error", error);
             logAuditEvent({
                 action: "line.webhook.received",
                 category: "line",
@@ -65,7 +74,7 @@ export async function POST(req: Request) {
                 targetType: "LineWebhook",
                 metadata: {
                     eventCount: events.length,
-                    reason: error instanceof Error ? error.message : "handler_failed",
+                    reason: error instanceof Error ? error.message : "inbox_persist_failed",
                 },
             });
             return createAppErrorResponse("INTERNAL_ERROR", "Handler failed", 500);

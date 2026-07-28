@@ -51,6 +51,8 @@ import {
 import { getLimitsForUser } from "./src/lib/plan/plan-access";
 import { isAppRole } from "./src/lib/roles";
 import { startLineReminderScheduler } from "./src/lib/line-bot/reminder-scheduler";
+import { startLineWebhookScheduler } from "./src/lib/line-bot/webhook-scheduler";
+import { getLineConfigurationReadiness, isLineBotEnabled } from "./src/lib/line-bot/config";
 
 type RegisterHandlersDeps = Parameters<typeof registerGameSocketHandlers>[1];
 
@@ -64,6 +66,14 @@ const handler = app.getRequestHandler();
 
 app.prepare().then(async () => {
     const env = validateServerEnv();
+    if (isLineBotEnabled()) {
+        const lineReadiness = getLineConfigurationReadiness();
+        if (!lineReadiness.ready) {
+            console.error(
+                `[startup] LINE configuration incomplete; missing=${lineReadiness.missing.join(",")}`
+            );
+        }
+    }
     await ensureOperationalIndexes();
 
     // Attempt to recover active games from DB
@@ -212,5 +222,6 @@ app.prepare().then(async () => {
             // bot is disabled or when relying on an external cron (see
             // reminder-scheduler.ts for env gating).
             startLineReminderScheduler();
+            startLineWebhookScheduler();
         });
 });

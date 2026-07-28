@@ -31,11 +31,9 @@ describe("line-bot commands", () => {
         expect(parseLineDebtCommand("gring help")).toEqual({ type: "classroom_help" });
         expect(parseLineDebtCommand("gring summary")).toEqual({ type: "classroom_summary" });
         expect(parseLineDebtCommand("gring remind")).toEqual({ type: "classroom_remind" });
-        expect(parseLineDebtCommand("bind classroom 507f1f77bcf86cd799439011 test-secret")).toEqual({
-            type: "bind_classroom",
-            classroomId: "507f1f77bcf86cd799439011",
-            secret: "test-secret",
-        });
+        expect(
+            parseLineDebtCommand("bind classroom 507f1f77bcf86cd799439011 test-secret")
+        ).toBeNull();
         expect(parseLineDebtCommand("create assignment Homework 1 due tomorrow")).toEqual({
             type: "classroom_create_assignment",
             name: "Homework 1",
@@ -90,33 +88,24 @@ describe("line-bot commands", () => {
             assignmentRef: "A2",
             content: "My answer",
         });
-        expect(parseLineDebtCommand("submit work S123 Homework 1: My answer")).toEqual({
-            type: "classroom_submit_text",
-            studentCode: "S123",
-            assignmentRef: "Homework 1",
-            content: "My answer",
-        });
+        expect(parseLineDebtCommand("submit work S123 Homework 1: My answer")).toBeNull();
+        // Student codes are never accepted as a submission identity. Direct chat
+        // uses the LINE account link and the shorter `submit A1: ...` syntax.
         expect(parseLineDebtCommand("ส่งงาน S123 แบบฝึกหัด 1: คำตอบของฉัน")).toEqual({
-            type: "classroom_submit_text",
-            studentCode: "S123",
-            assignmentRef: "แบบฝึกหัด 1",
+            type: "classroom_submit_text_linked",
+            assignmentRef: "S123 แบบฝึกหัด 1",
             content: "คำตอบของฉัน",
         });
     });
 
-    it("parses legacy add command with optional note", () => {
-        expect(parseLineDebtCommand("add Somchai 500 lunch")).toEqual({
-            type: "add",
-            debtorLabel: "Somchai",
-            amountBaht: 500,
-            note: "lunch",
-        });
+    it("does not parse removed legacy debt mutation commands", () => {
+        expect(parseLineDebtCommand("add Somchai 500 lunch")).toBeNull();
     });
 
-    it("parses legacy summary, remind, paid, and ping", () => {
-        expect(parseLineDebtCommand("list")).toEqual({ type: "summary" });
-        expect(parseLineDebtCommand("remind")).toEqual({ type: "remind" });
-        expect(parseLineDebtCommand("จ่ายแล้ว 3")).toEqual({ type: "mark_paid", shortCode: 3 });
+    it("ignores removed legacy debt commands and still parses ping", () => {
+        expect(parseLineDebtCommand("list")).toBeNull();
+        expect(parseLineDebtCommand("remind")).toBeNull();
+        expect(parseLineDebtCommand("จ่ายแล้ว 3")).toBeNull();
         expect(parseLineDebtCommand("ping")).toEqual({ type: "ping" });
     });
 

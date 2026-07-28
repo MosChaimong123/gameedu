@@ -14,6 +14,11 @@ vi.mock("@/lib/line-bot/auto-reminders", () => ({
     runLineAutoReminders: mockRunLineAutoReminders,
 }));
 
+vi.mock("@/lib/line-bot/reminder-retry", () => ({
+    processDueLineReminderRetries: () =>
+        Promise.resolve({ attempted: 0, sent: 0, failed: 0 }),
+}));
+
 vi.mock("@/lib/security/audit-log", () => ({
     logAuditEvent: mockLogAuditEvent,
 }));
@@ -55,18 +60,18 @@ describe("POST /api/jobs/line-reminders", () => {
             sentCount: 1,
         });
         expect(mockRunLineAutoReminders).toHaveBeenCalledOnce();
-        expect(mockLogAuditEvent).toHaveBeenCalledWith({
+        expect(mockLogAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
             action: "line.reminder_job.run",
             category: "line",
             status: "success",
             targetType: "LineReminderJob",
-            metadata: {
+            metadata: expect.objectContaining({
                 scannedGroups: 1,
                 candidateCount: 1,
                 sentCount: 1,
                 skippedDuplicateCount: 0,
                 failedCount: 0,
-            },
-        });
+            }),
+        }));
     });
 });

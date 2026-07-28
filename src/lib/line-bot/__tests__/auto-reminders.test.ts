@@ -5,6 +5,8 @@ const mockGetOptionalDbModel = vi.fn();
 const mockPushLineFlex = vi.fn();
 const mockDeliveryCreate = vi.fn();
 const mockDeliveryUpdate = vi.fn();
+const mockDeliveryFindFirst = vi.fn();
+const mockDeliveryUpdateMany = vi.fn();
 const mockBindingFindMany = vi.fn();
 const mockBindingUpdate = vi.fn();
 const mockSettingFindMany = vi.fn();
@@ -22,12 +24,23 @@ vi.mock("@/lib/line-bot/client", () => ({
     pushLineFlex: mockPushLineFlex,
 }));
 
+vi.mock("@/lib/line-bot/config", () => ({
+    isLineClassroomInPilot: () => true,
+    isLineReminderDeliveryEnabled: () => true,
+}));
+
 describe("line auto reminders", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockGetOptionalDbModel.mockImplementation((modelName: string) => {
             if (modelName === "lineAssignmentReminderDelivery") {
-                return { create: mockDeliveryCreate, update: mockDeliveryUpdate };
+                return {
+                    create: mockDeliveryCreate,
+                    findFirst: mockDeliveryFindFirst,
+                    findUnique: vi.fn(),
+                    updateMany: mockDeliveryUpdateMany,
+                    update: mockDeliveryUpdate,
+                };
             }
             if (modelName === "lineStudentBinding") {
                 return { findMany: mockBindingFindMany, update: mockBindingUpdate };
@@ -40,6 +53,7 @@ describe("line auto reminders", () => {
         mockBindingFindMany.mockResolvedValue([]);
         mockBindingUpdate.mockResolvedValue({});
         mockDeliveryUpdate.mockResolvedValue({});
+        mockDeliveryUpdateMany.mockResolvedValue({ count: 1 });
         mockSettingFindMany.mockResolvedValue([
             {
                 classroomId: "classroom-1",
@@ -94,14 +108,14 @@ describe("line auto reminders", () => {
                 reminderKey: "due_today:2026-06-02",
                 reminderType: "due_today",
                 targetCount: 1,
-                status: "pending",
+                status: "sending",
                 triggeredBy: "cron",
             }),
         });
-        expect(mockDeliveryUpdate).toHaveBeenCalledWith({
+        expect(mockDeliveryUpdate).toHaveBeenCalledWith(expect.objectContaining({
             where: { id: "delivery-1" },
-            data: { status: "sent", errorCode: null, errorMessage: null },
-        });
+            data: expect.objectContaining({ status: "sent", errorCode: null, errorMessage: null, sentAt: expect.any(Date) }),
+        }));
         expect(mockPushLineFlex).toHaveBeenCalledWith(
             "line-group-1",
             expect.stringContaining("Homework 1"),
@@ -132,6 +146,14 @@ describe("line auto reminders", () => {
             },
         ]);
         mockDeliveryCreate.mockRejectedValue({ code: "P2002" });
+        mockDeliveryFindFirst.mockResolvedValue({
+            id: "delivery-1",
+            status: "sent",
+            attemptCount: 1,
+            maxAttempts: 3,
+            nextAttemptAt: null,
+            lockedAt: null,
+        });
 
         const { runLineAutoReminders } = await import("@/lib/line-bot/auto-reminders");
         const result = await runLineAutoReminders({ now: new Date("2026-06-02T02:00:00.000Z") });
@@ -278,7 +300,7 @@ describe("line auto reminders", () => {
             data: expect.objectContaining({
                 reminderKey: "weekly_summary:2026-W24",
                 reminderType: "weekly_summary",
-                status: "pending",
+                status: "sending",
             }),
         });
     });
@@ -312,9 +334,9 @@ describe("line auto reminders", () => {
 
         expect(result.failedCount).toBe(1);
         expect(result.sentCount).toBe(0);
-        expect(mockDeliveryUpdate).toHaveBeenCalledWith({
+        expect(mockDeliveryUpdate).toHaveBeenCalledWith(expect.objectContaining({
             where: { id: "delivery-1" },
-            data: { status: "failed", errorCode: "UNKNOWN_ERROR", errorMessage: "LINE API failed" },
-        });
+            data: expect.objectContaining({ status: "failed", errorCode: "UNKNOWN_ERROR", errorMessage: "LINE API failed", failedAt: expect.any(Date) }),
+        }));
     });
 });

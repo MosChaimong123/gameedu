@@ -126,13 +126,29 @@ services:
         sync: false
       - key: LINE_CHANNEL_ACCESS_TOKEN
         sync: false
+      - key: LINE_WEBHOOK_INBOX_SECRET
+        sync: false
       - key: LINE_CLASSROOM_BINDING_SECRET
         sync: false
-      # Used as footer URL in LINE Flex reminder cards; falls back to APP_BASE_URL
-      - key: NEXT_PUBLIC_APP_URL
+      # Public deep-link to the LINE OA chat. NEXT_PUBLIC_* is embedded at build time.
+      - key: NEXT_PUBLIC_LINE_BOT_URL
         sync: false
+      # Staged rollout controls. Group mutations remain disabled until real-device QA passes.
+      - key: LINE_GROUP_MUTATIONS_ENABLED
+        value: "false"
+      - key: LINE_WEBHOOK_ACCEPTING_ENABLED
+        value: "true"
+      - key: LINE_REMINDER_DELIVERY_ENABLED
+        value: "true"
+      - key: LINE_DIRECT_SUBMISSIONS_ENABLED
+        value: "true"
+      - key: LINE_PILOT_CLASSROOM_IDS
+        sync: false
+      - key: LINE_WEBHOOK_RETENTION_DAYS
+        value: "30"
+      - key: LINE_DELIVERY_RETENTION_DAYS
+        value: "90"
       # Secret for POST /api/jobs/line-reminders (external cron trigger)
-      # Falls back to ADMIN_SECRET if not set
       - key: LINE_REMINDER_CRON_SECRET
         sync: false
 
@@ -151,15 +167,13 @@ services:
     buildCommand: "true"
     startCommand: >
       node -e "
-        const secret = process.env.LINE_REMINDER_CRON_SECRET || process.env.ADMIN_SECRET;
+        const secret = process.env.LINE_REMINDER_CRON_SECRET;
         const url = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_BASE_URL) + '/api/jobs/line-reminders';
         fetch(url, { method: 'POST', headers: { 'x-cron-secret': secret } })
           .then(r => r.json()).then(console.log).catch(console.error);
       "
     envVars:
       - key: LINE_REMINDER_CRON_SECRET
-        sync: false
-      - key: ADMIN_SECRET
         sync: false
       - key: NEXT_PUBLIC_APP_URL
         sync: false

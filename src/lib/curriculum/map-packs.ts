@@ -28,6 +28,9 @@ import {
     getCurriculumStrandById,
 } from "@/lib/curriculum/strands-and-standards"
 import { PHYSICS_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/physics-additional-upper-secondary-source"
+import { CHEM_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/chemistry-additional-upper-secondary-source"
+import { BIO_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/biology-additional-upper-secondary-source"
+import { EARTH_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/earth-space-additional-upper-secondary-source"
 
 export const SUBJECT_CURRICULUM_MAP_PACK_SCHEMA_VERSION = "subject_curriculum_map_pack_v1" as const
 
@@ -277,6 +280,188 @@ function resolvePhysicsStandard(courseId: string) {
     }
 }
 
+function resolveChemistryStandard(courseId: string) {
+    if (courseId === "chemistry-additional-m4-s1") {
+        return {
+            strandId: "chem-atomic-bonding",
+            standardIds: ["chem-c1_1"],
+            keyConceptTh: "โครงสร้างอะตอม ตารางธาตุ พันธะไอออนิก พันธะโคเวเลนต์ และพันธะโลหะ",
+        }
+    }
+    if (courseId === "chemistry-additional-m4-s2") {
+        return {
+            strandId: "chem-quantitative",
+            standardIds: ["chem-c2_1"],
+            keyConceptTh: "มวลอะตอมและโมเลกุล ความเข้มข้นของสารละลาย และการคำนวณปริมาณสารในปฏิกิริยาเคมี",
+        }
+    }
+    if (courseId === "chemistry-additional-m5-s1") {
+        return {
+            strandId: "chem-kinetics-equilibrium",
+            standardIds: ["chem-c3_1"],
+            keyConceptTh: "สมบัติของแก๊ส อัตราการเกิดปฏิกิริยาเคมี และภาวะสมดุลเคมี",
+        }
+    }
+    if (courseId === "chemistry-additional-m5-s2") {
+        return {
+            strandId: "chem-acid-base-electro",
+            standardIds: ["chem-c4_1"],
+            keyConceptTh: "สมบัติของกรด-เบส ปฏิกิริยารีดอกซ์ และเซลล์ไฟฟ้าเคมี",
+        }
+    }
+    return {
+        strandId: "chem-organic-polymer",
+        standardIds: ["chem-c5_1"],
+        keyConceptTh: "โครงสร้างและสมบัติของสารประกอบอินทรีย์และพอลิเมอร์ รวมทั้งการนำความรู้ทางเคมีไปใช้แก้ปัญหา",
+    }
+}
+
+const CHEMISTRY_ADDITIONAL_UNIT_OUTLINES: SubjectCurriculumUnitOutline[] =
+    CHEM_ADDITIONAL_UPPER_SECONDARY_COURSES.flatMap((course, courseIndex) => {
+        const standard = resolveChemistryStandard(course.id)
+        return course.units.map((unit, unitIndex) =>
+            buildAdditionalUnit(
+                unit.id,
+                unit.title,
+                courseIndex * 10 + unitIndex,
+                standard.strandId,
+                standard.standardIds,
+                standard.keyConceptTh,
+                ["การคิดวิเคราะห์", "การแก้ปัญหา", "การใช้กระบวนการทางวิทยาศาสตร์"],
+                Math.max(1, Math.round(course.hours / course.units.length)),
+                [course.gradeLevel],
+                course.semester,
+                [`Source course: ${course.id}`, `Source file: ${course.sourceFile}`]
+            )
+        )
+    })
+
+function resolveBiologyStandard(courseId: string) {
+    if (courseId === "biology-additional-m4-s1") {
+        return {
+            strandId: "bio-cell-chemistry",
+            standardIds: ["bio-b1_1"],
+            keyConceptTh: "ธรรมชาติของสิ่งมีชีวิต เคมีที่เป็นองค์ประกอบของเซลล์ การลำเลียงสารผ่านเซลล์ การแบ่งเซลล์ และการหายใจระดับเซลล์",
+        }
+    }
+    if (courseId === "biology-additional-m4-s2") {
+        return {
+            strandId: "bio-genetics",
+            standardIds: ["bio-b2_1"],
+            keyConceptTh: "การถ่ายทอดลักษณะทางพันธุกรรม ยีนและโครโมโซม และเทคโนโลยีทางดีเอ็นเอ",
+        }
+    }
+    if (courseId === "biology-additional-m5-s1") {
+        return {
+            strandId: "bio-plant",
+            standardIds: ["bio-b3_1"],
+            keyConceptTh: "โครงสร้างและหน้าที่ของพืชดอก การสังเคราะห์ด้วยแสง การสืบพันธุ์ และการตอบสนองของพืช",
+        }
+    }
+    if (courseId === "biology-additional-m5-s2") {
+        return {
+            strandId: "bio-animal-physiology",
+            standardIds: ["bio-b4_1"],
+            keyConceptTh: "ระบบย่อยอาหาร ระบบหายใจ ระบบหมุนเวียนเลือด และระบบขับถ่ายของสัตว์",
+        }
+    }
+    if (courseId === "biology-additional-m6-s1") {
+        return {
+            strandId: "bio-animal-systems",
+            standardIds: ["bio-b5_1"],
+            keyConceptTh: "การสืบพันธุ์และการเจริญเติบโต ระบบประสาท ระบบต่อมไร้ท่อ การเคลื่อนที่ และพฤติกรรมของสัตว์",
+        }
+    }
+    return {
+        strandId: "bio-ecology",
+        standardIds: ["bio-b6_1"],
+        keyConceptTh: "ความหลากหลายทางชีวภาพ ระบบนิเวศ พลวัตของประชากร และการอนุรักษ์สิ่งแวดล้อม",
+    }
+}
+
+const BIOLOGY_ADDITIONAL_UNIT_OUTLINES: SubjectCurriculumUnitOutline[] =
+    BIO_ADDITIONAL_UPPER_SECONDARY_COURSES.flatMap((course, courseIndex) => {
+        const standard = resolveBiologyStandard(course.id)
+        return course.units.map((unit, unitIndex) =>
+            buildAdditionalUnit(
+                unit.id,
+                unit.title,
+                courseIndex * 10 + unitIndex,
+                standard.strandId,
+                standard.standardIds,
+                standard.keyConceptTh,
+                ["การคิดวิเคราะห์", "การแก้ปัญหา", "การใช้กระบวนการทางวิทยาศาสตร์"],
+                Math.max(1, Math.round(course.hours / course.units.length)),
+                [course.gradeLevel],
+                course.semester,
+                [`Source course: ${course.id}`, `Source file: ${course.sourceFile}`]
+            )
+        )
+    })
+
+function resolveEarthSpaceStandard(courseId: string) {
+    if (courseId === "earth-space-additional-m4-s1") {
+        return {
+            strandId: "earth-structure-tectonics",
+            standardIds: ["earth-e1_1"],
+            keyConceptTh: "โครงสร้างโลก ธรณีแปรสัณฐาน ธรณีพิบัติภัย และการลำดับชั้นหิน",
+        }
+    }
+    if (courseId === "earth-space-additional-m4-s2") {
+        return {
+            strandId: "earth-resources-maps",
+            standardIds: ["earth-e2_1"],
+            keyConceptTh: "ทรัพยากรธรณีและการอ่านแปลความหมายแผนที่ภูมิประเทศและแผนที่ธรณีวิทยา",
+        }
+    }
+    if (courseId === "earth-space-additional-m5-s1") {
+        return {
+            strandId: "earth-atmosphere-ocean",
+            standardIds: ["earth-e3_1"],
+            keyConceptTh: "องค์ประกอบของบรรยากาศ การหมุนเวียนของลม และการหมุนเวียนของน้ำในมหาสมุทร",
+        }
+    }
+    if (courseId === "earth-space-additional-m5-s2") {
+        return {
+            strandId: "earth-weather-climate",
+            standardIds: ["earth-e4_1"],
+            keyConceptTh: "เสถียรภาพอากาศ แนวปะทะอากาศ การเปลี่ยนแปลงภูมิอากาศของโลก และการพยากรณ์อากาศ",
+        }
+    }
+    if (courseId === "earth-space-additional-m6-s1") {
+        return {
+            strandId: "earth-astronomy",
+            standardIds: ["earth-e5_1"],
+            keyConceptTh: "กำเนิดและวิวัฒนาการของเอกภพ กาแล็กซี ดาวฤกษ์ และระบบสุริยะ",
+        }
+    }
+    return {
+        strandId: "earth-space-tech",
+        standardIds: ["earth-e6_1"],
+        keyConceptTh: "การระบุตำแหน่งบนทรงกลมฟ้า การเคลื่อนที่ปรากฏของดวงดาว และการประยุกต์ใช้เทคโนโลยีอวกาศ",
+    }
+}
+
+const EARTH_SPACE_ADDITIONAL_UNIT_OUTLINES: SubjectCurriculumUnitOutline[] =
+    EARTH_ADDITIONAL_UPPER_SECONDARY_COURSES.flatMap((course, courseIndex) => {
+        const standard = resolveEarthSpaceStandard(course.id)
+        return course.units.map((unit, unitIndex) =>
+            buildAdditionalUnit(
+                unit.id,
+                unit.title,
+                courseIndex * 10 + unitIndex,
+                standard.strandId,
+                standard.standardIds,
+                standard.keyConceptTh,
+                ["การคิดวิเคราะห์", "การแก้ปัญหา", "การใช้กระบวนการทางวิทยาศาสตร์"],
+                Math.max(1, Math.round(course.hours / course.units.length)),
+                [course.gradeLevel],
+                course.semester,
+                [`Source course: ${course.id}`, `Source file: ${course.sourceFile}`]
+            )
+        )
+    })
+
 const PHYSICS_ADDITIONAL_UNIT_OUTLINES: SubjectCurriculumUnitOutline[] =
     PHYSICS_ADDITIONAL_UPPER_SECONDARY_COURSES.flatMap((course, courseIndex) => {
         const standard = resolvePhysicsStandard(course.id)
@@ -299,6 +484,9 @@ const PHYSICS_ADDITIONAL_UNIT_OUTLINES: SubjectCurriculumUnitOutline[] =
 
 export const SUBJECT_CURRICULUM_MAP_PACKS: SubjectCurriculumMapPackCatalog = [
     buildAdditionalPack("physics", "Additional physics upper-secondary source map", PHYSICS_ADDITIONAL_UNIT_OUTLINES),
+    buildAdditionalPack("chemistry", "Additional chemistry upper-secondary source map", CHEMISTRY_ADDITIONAL_UNIT_OUTLINES),
+    buildAdditionalPack("biology", "Additional biology upper-secondary source map", BIOLOGY_ADDITIONAL_UNIT_OUTLINES),
+    buildAdditionalPack("earth_space_science", "Additional earth-space-science upper-secondary source map", EARTH_SPACE_ADDITIONAL_UNIT_OUTLINES),
     buildPack("thai", "Thai language learning area starter map", [
         buildCoreUnit(
             "thai-u01",

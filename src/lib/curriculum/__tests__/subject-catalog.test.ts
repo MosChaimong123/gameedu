@@ -51,15 +51,16 @@ describe("canonical subject catalog", () => {
         ])
     })
 
-    it("activates physics as the first additional lesson-builder subject", () => {
+    it("activates all four additional subjects as lesson-builder subjects", () => {
         const additionalSubjects = getCanonicalAdditionalSubjects()
         const activeAdditionalLessonBuilderSubjects = getLessonBuilderSubjectOptions("additional")
+        const activeIds = ["physics", "chemistry", "biology", "earth_space_science"]
 
         expect(additionalSubjects).toHaveLength(4)
-        expect(activeAdditionalLessonBuilderSubjects.map((entry) => entry.id)).toEqual(["physics"])
+        expect(activeAdditionalLessonBuilderSubjects.map((entry) => entry.id)).toEqual(activeIds)
         expect(
             additionalSubjects
-                .filter((entry) => entry.id !== "physics")
+                .filter((entry) => !activeIds.includes(entry.id))
                 .every((entry) => entry.lessonBuilderAvailability === "coming_soon")
         ).toBe(true)
     })

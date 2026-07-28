@@ -16,11 +16,14 @@ describe("subject curriculum map packs", () => {
         expect(validateSubjectCurriculumMapPackCatalog(SUBJECT_CURRICULUM_MAP_PACKS).success).toBe(true)
     })
 
-    it("covers all eight core learning areas plus the active physics additional pack", () => {
-        expect(SUBJECT_CURRICULUM_MAP_PACKS).toHaveLength(9)
+    it("covers all eight core learning areas plus all four active additional packs", () => {
+        expect(SUBJECT_CURRICULUM_MAP_PACKS).toHaveLength(12)
         expect(SUBJECT_CURRICULUM_MAP_PACKS.map((pack) => pack.subjectId)).toEqual(
             expect.arrayContaining([
                 "physics",
+                "chemistry",
+                "biology",
+                "earth_space_science",
                 "thai",
                 "mathematics",
                 "science_technology",

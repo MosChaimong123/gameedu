@@ -270,7 +270,8 @@ export const CANONICAL_SUBJECT_CATALOG: CanonicalSubjectCatalog = [
         ["chemistry", "matter", "reaction"],
         ["เคมี", "chemistry"],
         "required",
-        { icon: "beaker", colorToken: "emerald", accentToken: "green" }
+        { icon: "beaker", colorToken: "emerald", accentToken: "green" },
+        "active"
     ),
     buildAdditionalSubject(
         "biology",
@@ -281,7 +282,8 @@ export const CANONICAL_SUBJECT_CATALOG: CanonicalSubjectCatalog = [
         ["biology", "life science", "organism"],
         ["ชีววิทยา", "biology"],
         "required",
-        { icon: "leaf", colorToken: "lime", accentToken: "green" }
+        { icon: "leaf", colorToken: "lime", accentToken: "green" },
+        "active"
     ),
     buildAdditionalSubject(
         "earth_space_science",
@@ -292,7 +294,8 @@ export const CANONICAL_SUBJECT_CATALOG: CanonicalSubjectCatalog = [
         ["earth", "space", "astronomy", "geoscience"],
         ["โลก ดาราศาสตร์ และอวกาศ", "โลกและอวกาศ", "ดาราศาสตร์", "earth space science", "astronomy"],
         "required",
-        { icon: "orbit", colorToken: "slate", accentToken: "sky" }
+        { icon: "orbit", colorToken: "slate", accentToken: "sky" },
+        "active"
     ),
 ]
 

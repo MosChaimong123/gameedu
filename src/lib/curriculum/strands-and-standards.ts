@@ -130,6 +130,26 @@ const STRANDS: CurriculumStrand[] = [
     buildStrand("phys-electricity-magnetism", "physics", "PHYS-EM", "ฟิสิกส์: ไฟฟ้า แม่เหล็ก และคลื่นแม่เหล็กไฟฟ้า", "Electricity Magnetism and Electromagnetic Waves", 2),
     buildStrand("phys-thermal-modern", "physics", "PHYS-MODERN", "ฟิสิกส์: ความร้อน ของไหล อะตอม และนิวเคลียร์", "Thermal Fluid Atomic and Nuclear Physics", 3),
 
+    buildStrand("chem-atomic-bonding", "chemistry", "CHEM-ATOMIC", "เคมี: อะตอม ตารางธาตุ และพันธะเคมี", "Atomic Structure, Periodic Table and Chemical Bonding", 0),
+    buildStrand("chem-quantitative", "chemistry", "CHEM-QUANT", "เคมี: ปริมาณสัมพันธ์และสารละลาย", "Stoichiometry and Solutions", 1),
+    buildStrand("chem-kinetics-equilibrium", "chemistry", "CHEM-KINETICS", "เคมี: แก๊ส อัตราการเกิดปฏิกิริยา และสมดุลเคมี", "Gases, Reaction Rates and Chemical Equilibrium", 2),
+    buildStrand("chem-acid-base-electro", "chemistry", "CHEM-ACIDBASE", "เคมี: กรด-เบส และเคมีไฟฟ้า", "Acids, Bases and Electrochemistry", 3),
+    buildStrand("chem-organic-polymer", "chemistry", "CHEM-ORGANIC", "เคมี: เคมีอินทรีย์และพอลิเมอร์", "Organic Chemistry and Polymers", 4),
+
+    buildStrand("bio-cell-chemistry", "biology", "BIO-CELL", "ชีววิทยา: ธรรมชาติของสิ่งมีชีวิตและเคมีของเซลล์", "Nature of Life and Cell Chemistry", 0),
+    buildStrand("bio-genetics", "biology", "BIO-GENETICS", "ชีววิทยา: พันธุกรรม ยีน และเทคโนโลยีทางดีเอ็นเอ", "Heredity, Genes and DNA Technology", 1),
+    buildStrand("bio-plant", "biology", "BIO-PLANT", "ชีววิทยา: โครงสร้าง การสังเคราะห์ด้วยแสง และการสืบพันธุ์ของพืช", "Plant Structure, Photosynthesis and Reproduction", 2),
+    buildStrand("bio-animal-physiology", "biology", "BIO-PHYSIO", "ชีววิทยา: ระบบย่อยอาหาร หายใจ หมุนเวียนเลือด และขับถ่ายของสัตว์", "Animal Digestive, Respiratory, Circulatory and Excretory Systems", 3),
+    buildStrand("bio-animal-systems", "biology", "BIO-SYSTEMS", "ชีววิทยา: การสืบพันธุ์ ระบบประสาท ต่อมไร้ท่อ การเคลื่อนที่ และพฤติกรรมของสัตว์", "Animal Reproduction, Nervous, Endocrine, Movement and Behaviour", 4),
+    buildStrand("bio-ecology", "biology", "BIO-ECOLOGY", "ชีววิทยา: ความหลากหลายทางชีวภาพ ระบบนิเวศ และประชากร", "Biodiversity, Ecosystems and Populations", 5),
+
+    buildStrand("earth-structure-tectonics", "earth_space_science", "EARTH-TECTONICS", "โลกฯ: โครงสร้างโลก ธรณีแปรสัณฐาน และธรณีพิบัติภัย", "Earth Structure, Plate Tectonics and Geohazards", 0),
+    buildStrand("earth-resources-maps", "earth_space_science", "EARTH-RESOURCES", "โลกฯ: ทรัพยากรธรณีและแผนที่", "Geological Resources and Maps", 1),
+    buildStrand("earth-atmosphere-ocean", "earth_space_science", "EARTH-OCEAN", "โลกฯ: บรรยากาศ ลม และการหมุนเวียนของน้ำในมหาสมุทร", "Atmosphere, Wind and Ocean Circulation", 2),
+    buildStrand("earth-weather-climate", "earth_space_science", "EARTH-CLIMATE", "โลกฯ: เสถียรภาพอากาศ การเปลี่ยนแปลงภูมิอากาศ และการพยากรณ์อากาศ", "Air Stability, Climate Change and Weather Forecasting", 3),
+    buildStrand("earth-astronomy", "earth_space_science", "EARTH-ASTRO", "โลกฯ: เอกภพ กาแล็กซี ดาวฤกษ์ และระบบสุริยะ", "The Universe, Galaxies, Stars and the Solar System", 4),
+    buildStrand("earth-space-tech", "earth_space_science", "EARTH-SPACETECH", "โลกฯ: ตำแหน่งท้องฟ้า การเคลื่อนที่ปรากฏของดาว และเทคโนโลยีอวกาศ", "Celestial Coordinates, Apparent Motion and Space Technology", 5),
+
     buildStrand("social-religion-morality", "social_religion_culture", "SOCIAL-RELIGION", "ศาสนา ศีลธรรม จริยธรรม", "Religion Morality and Ethics", 0),
     buildStrand("social-civics-culture", "social_religion_culture", "SOCIAL-CIVICS", "หน้าที่พลเมือง วัฒนธรรม และการดำเนินชีวิตในสังคม", "Civics Culture and Social Life", 1),
     buildStrand("social-economics", "social_religion_culture", "SOCIAL-ECON", "เศรษฐศาสตร์", "Economics", 2),
@@ -184,6 +204,26 @@ const STANDARDS: CurriculumStandard[] = [
     buildStandard("phys-p2_1", "physics", "phys-waves-light-sound", "PHYS 2.1", "เข้าใจการเคลื่อนที่แบบฮาร์มอนิก คลื่นกล เสียง แสง และการมองเห็น รวมทั้งนำความรู้ไปใช้ประโยชน์", "Understand harmonic motion, mechanical waves, sound, light, and vision.", 0),
     buildStandard("phys-p3_1", "physics", "phys-electricity-magnetism", "PHYS 3.1", "เข้าใจไฟฟ้าสถิต กระแสไฟฟ้า แม่เหล็กไฟฟ้า ไฟฟ้ากระแสสลับ คลื่นแม่เหล็กไฟฟ้า และการสื่อสาร", "Understand electrostatics, electric current, electromagnetism, alternating current, electromagnetic waves, and communication.", 0),
     buildStandard("phys-p4_1", "physics", "phys-thermal-modern", "PHYS 4.1", "เข้าใจความร้อน แก๊ส ของแข็ง ของไหล ฟิสิกส์อะตอม ฟิสิกส์นิวเคลียร์ และฟิสิกส์อนุภาค รวมทั้งนำความรู้ไปใช้ประโยชน์", "Understand heat, gas, solids, fluids, atomic physics, nuclear physics, and particle physics.", 0),
+
+    buildStandard("chem-c1_1", "chemistry", "chem-atomic-bonding", "CHEM 1.1", "เข้าใจโครงสร้างอะตอม การจัดเรียงธาตุในตารางธาตุ และการเกิดพันธะเคมี รวมทั้งนำความรู้ไปใช้ประโยชน์", "Understand atomic structure, the periodic table, and chemical bonding.", 0),
+    buildStandard("chem-c2_1", "chemistry", "chem-quantitative", "CHEM 2.1", "เข้าใจปริมาณสัมพันธ์ มวลอะตอมและโมเลกุล ความเข้มข้นของสารละลาย และการคำนวณปริมาณสารในปฏิกิริยาเคมี", "Understand stoichiometry, atomic and molecular mass, solution concentration, and reaction quantity calculations.", 0),
+    buildStandard("chem-c3_1", "chemistry", "chem-kinetics-equilibrium", "CHEM 3.1", "เข้าใจสมบัติของแก๊ส อัตราการเกิดปฏิกิริยาเคมี และภาวะสมดุลเคมี รวมทั้งนำความรู้ไปใช้ประโยชน์", "Understand gas properties, reaction rates, and chemical equilibrium.", 0),
+    buildStandard("chem-c4_1", "chemistry", "chem-acid-base-electro", "CHEM 4.1", "เข้าใจสมบัติของกรด-เบส ปฏิกิริยารีดอกซ์ และเซลล์ไฟฟ้าเคมี รวมทั้งนำความรู้ไปใช้ประโยชน์", "Understand acid-base properties, redox reactions, and electrochemical cells.", 0),
+    buildStandard("chem-c5_1", "chemistry", "chem-organic-polymer", "CHEM 5.1", "เข้าใจโครงสร้างและสมบัติของสารประกอบอินทรีย์และพอลิเมอร์ รวมทั้งการนำความรู้ทางเคมีไปใช้แก้ปัญหา", "Understand the structure and properties of organic compounds and polymers, and apply chemistry to solve problems.", 0),
+
+    buildStandard("bio-b1_1", "biology", "bio-cell-chemistry", "BIO 1.1", "เข้าใจธรรมชาติของสิ่งมีชีวิต สารเคมีที่เป็นองค์ประกอบของเซลล์ และการลำเลียงสารผ่านเซลล์ รวมทั้งการแบ่งเซลล์และการหายใจระดับเซลล์", "Understand the nature of living things, cell chemistry, cell transport, cell division, and cellular respiration.", 0),
+    buildStandard("bio-b2_1", "biology", "bio-genetics", "BIO 2.1", "เข้าใจการถ่ายทอดลักษณะทางพันธุกรรม ยีนและโครโมโซม และการนำเทคโนโลยีทางดีเอ็นเอไปใช้ประโยชน์", "Understand heredity, genes and chromosomes, and the application of DNA technology.", 0),
+    buildStandard("bio-b3_1", "biology", "bio-plant", "BIO 3.1", "เข้าใจโครงสร้างและหน้าที่ของพืชดอก การสังเคราะห์ด้วยแสง การสืบพันธุ์ และการตอบสนองของพืช", "Understand flowering plant structure and function, photosynthesis, reproduction, and plant responses.", 0),
+    buildStandard("bio-b4_1", "biology", "bio-animal-physiology", "BIO 4.1", "เข้าใจโครงสร้างและหน้าที่ของระบบย่อยอาหาร ระบบหายใจ ระบบหมุนเวียนเลือด และระบบขับถ่ายของสัตว์", "Understand the structure and function of animal digestive, respiratory, circulatory, and excretory systems.", 0),
+    buildStandard("bio-b5_1", "biology", "bio-animal-systems", "BIO 5.1", "เข้าใจการสืบพันธุ์และการเจริญเติบโต ระบบประสาท ระบบต่อมไร้ท่อ การเคลื่อนที่ และพฤติกรรมของสัตว์", "Understand animal reproduction and growth, the nervous and endocrine systems, movement, and behaviour.", 0),
+    buildStandard("bio-b6_1", "biology", "bio-ecology", "BIO 6.1", "เข้าใจความหลากหลายทางชีวภาพ ระบบนิเวศ พลวัตของประชากร และแนวทางการอนุรักษ์สิ่งแวดล้อม", "Understand biodiversity, ecosystems, population dynamics, and environmental conservation.", 0),
+
+    buildStandard("earth-e1_1", "earth_space_science", "earth-structure-tectonics", "EARTH 1.1", "เข้าใจโครงสร้างโลก ธรณีแปรสัณฐาน ธรณีพิบัติภัย และการลำดับชั้นหิน", "Understand Earth's structure, plate tectonics, geohazards, and stratigraphy.", 0),
+    buildStandard("earth-e2_1", "earth_space_science", "earth-resources-maps", "EARTH 2.1", "เข้าใจทรัพยากรธรณีและการอ่านแปลความหมายแผนที่ภูมิประเทศและแผนที่ธรณีวิทยา", "Understand geological resources and the interpretation of topographic and geological maps.", 0),
+    buildStandard("earth-e3_1", "earth_space_science", "earth-atmosphere-ocean", "EARTH 3.1", "เข้าใจองค์ประกอบของบรรยากาศ การหมุนเวียนของลม และการหมุนเวียนของน้ำในมหาสมุทร", "Understand atmospheric composition, wind circulation, and ocean circulation.", 0),
+    buildStandard("earth-e4_1", "earth_space_science", "earth-weather-climate", "EARTH 4.1", "เข้าใจเสถียรภาพอากาศ แนวปะทะอากาศ การเปลี่ยนแปลงภูมิอากาศของโลก และการพยากรณ์อากาศ", "Understand air stability, air masses and fronts, global climate change, and weather forecasting.", 0),
+    buildStandard("earth-e5_1", "earth_space_science", "earth-astronomy", "EARTH 5.1", "เข้าใจกำเนิดและวิวัฒนาการของเอกภพ กาแล็กซี ดาวฤกษ์ และระบบสุริยะ", "Understand the origin and evolution of the universe, galaxies, stars, and the solar system.", 0),
+    buildStandard("earth-e6_1", "earth_space_science", "earth-space-tech", "EARTH 6.1", "เข้าใจการระบุตำแหน่งบนทรงกลมฟ้า การเคลื่อนที่ปรากฏของดวงดาว และการประยุกต์ใช้เทคโนโลยีอวกาศ", "Understand celestial coordinate systems, the apparent motion of celestial objects, and applications of space technology.", 0),
 
     buildStandard("social-s1_1", "social_religion_culture", "social-religion-morality", "ส 1.1", "รู้และเข้าใจประวัติ ความสำคัญ ศาสดา หลักธรรมของพระพุทธศาสนาหรือศาสนาที่ตนนับถือ", "Understand core religious history, importance, and principles.", 0),
     buildStandard("social-s1_2", "social_religion_culture", "social-religion-morality", "ส 1.2", "ยึดมั่นและปฏิบัติตนตามหลักธรรมเพื่ออยู่ร่วมกันอย่างสันติสุข", "Apply moral principles for peaceful coexistence.", 1),

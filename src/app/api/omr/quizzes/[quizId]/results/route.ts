@@ -1,125 +1,184 @@
-import { NextResponse } from "next/server"
-import type { Prisma } from "@prisma/client"
-import { auth } from "@/auth"
-import { db as prisma } from "@/lib/db"
-import { isTeacherOrAdmin } from "@/lib/role-guards"
+import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
+import { auth } from "@/auth";
+import { db } from "@/lib/db";
+import { isTeacherOrAdmin } from "@/lib/role-guards";
 import {
-    AUTH_REQUIRED_MESSAGE,
-    FORBIDDEN_MESSAGE,
-    INTERNAL_ERROR_MESSAGE,
-    NOT_FOUND_MESSAGE,
-    createAppErrorResponse,
+  AUTH_REQUIRED_MESSAGE,
+  FORBIDDEN_MESSAGE,
+  INTERNAL_ERROR_MESSAGE,
+  NOT_FOUND_MESSAGE,
+  createAppErrorResponse,
 } from "@/lib/api-error";
 import { getLimitsForUser } from "@/lib/plan/plan-access";
+import {
+  gradeOmrAnswers,
+  parseOmrAnswerKey,
+  parseOmrDetectedAnswers,
+} from "@/lib/omr-grading";
+import {
+  OMR_QUESTION_COUNT,
+  OMR_TEMPLATE_ID,
+  isOmrStudentCode,
+} from "@/lib/omr-template";
 
-interface IParams {
-    quizId: string
+interface RouteParams {
+  quizId: string;
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function isFiniteInteger(value: unknown) {
-    return Number.isInteger(value) && Number.isFinite(value)
-}
-
-// POST /api/omr/quizzes/[quizId]/results - Save a new scan result
 export async function POST(
-    req: Request,
-    { params }: { params: Promise<IParams> }
+  req: Request,
+  { params }: { params: Promise<RouteParams> }
 ) {
-    try {
-        const { quizId } = await params
-        const session = await auth()
-        if (!session?.user?.id) return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401)
-        if (!isTeacherOrAdmin(session.user.role)) return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403)
-        const body = await req.json()
-        const { studentId, studentName, score, total, answers } = body
-
-        if (studentId !== undefined && studentId !== null && typeof studentId !== "string") {
-            return createAppErrorResponse("INVALID_PAYLOAD", "Student id must be a string", 400)
-        }
-        if (studentName !== undefined && studentName !== null && typeof studentName !== "string") {
-            return createAppErrorResponse("INVALID_PAYLOAD", "Student name must be a string", 400)
-        }
-        if (!isFiniteInteger(score) || !isFiniteInteger(total) || Number(score) < 0 || Number(total) <= 0 || Number(score) > Number(total)) {
-            return createAppErrorResponse("INVALID_PAYLOAD", "Score and total are invalid", 400)
-        }
-        if (!Array.isArray(answers) && !isPlainObject(answers)) {
-            return createAppErrorResponse("INVALID_PAYLOAD", "Answers must be an object or array", 400)
-        }
-
-        // Verify quiz ownership
-        const quiz = await prisma.oMRQuiz.findFirst({
-            where: { id: quizId, teacherId: session.user.id },
-            select: { id: true, classId: true },
-        })
-
-        if (!quiz) return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404)
-
-        let normalizedStudentId: string | null = null
-        let normalizedStudentName: string | null = typeof studentName === "string" ? studentName.trim() : null
-        if (typeof studentId === "string" && studentId.trim()) {
-            const student = await prisma.student.findUnique({
-                where: { id: studentId.trim() },
-                select: { id: true, classId: true, name: true, nickname: true },
-            })
-            if (!student) {
-                return createAppErrorResponse("INVALID_PAYLOAD", "Student not found", 400)
-            }
-            if (quiz.classId && student.classId !== quiz.classId) {
-                return createAppErrorResponse("INVALID_PAYLOAD", "Student does not belong to this quiz classroom", 400)
-            }
-            normalizedStudentId = student.id
-            if (!normalizedStudentName) {
-                normalizedStudentName = student.nickname?.trim() || student.name.trim()
-            }
-        }
-
-        if (!normalizedStudentName) {
-            return createAppErrorResponse("INVALID_PAYLOAD", "Student name is required", 400)
-        }
-
-        const limits = getLimitsForUser(
-            session.user.role,
-            session.user.plan,
-            session.user.planStatus,
-            session.user.planExpiry
-        )
-        if (Number.isFinite(limits.maxOmrScansPerMonth)) {
-            const start = new Date()
-            start.setDate(1)
-            start.setHours(0, 0, 0, 0)
-            const used = await prisma.oMRResult.count({
-                where: {
-                    scannedAt: { gte: start },
-                    quiz: { teacherId: session.user.id },
-                },
-            })
-            if (used >= limits.maxOmrScansPerMonth) {
-                return createAppErrorResponse(
-                    "PLAN_LIMIT_OMR_MONTHLY",
-                    "Monthly OMR scan limit reached for your plan",
-                    403
-                )
-            }
-        }
-
-        const result = await prisma.oMRResult.create({
-            data: {
-                quizId,
-                studentId: normalizedStudentId,
-                studentName: normalizedStudentName,
-                score,
-                total,
-                answers: answers as Prisma.InputJsonValue,
-            }
-        })
-
-        return NextResponse.json(result)
-    } catch (error) {
-        console.error("[OMR_RESULTS_POST]", error)
-        return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500)
+  try {
+    const { quizId } = await params;
+    const session = await auth();
+    if (!session?.user?.id) {
+      return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
     }
+    if (!isTeacherOrAdmin(session.user.role)) {
+      return createAppErrorResponse("FORBIDDEN", FORBIDDEN_MESSAGE, 403);
+    }
+
+    const body = (await req.json()) as {
+      studentCode?: unknown;
+      answers?: unknown;
+    };
+    if (!isOmrStudentCode(body.studentCode)) {
+      return createAppErrorResponse(
+        "INVALID_PAYLOAD",
+        "Student code must contain exactly 5 digits",
+        400
+      );
+    }
+    const parsedAnswers = parseOmrDetectedAnswers(body.answers);
+    if (!parsedAnswers.ok) {
+      return createAppErrorResponse("INVALID_PAYLOAD", parsedAnswers.message, 400);
+    }
+
+    const quiz = await db.oMRQuiz.findFirst({
+      where: { id: quizId, teacherId: session.user.id },
+      select: {
+        id: true,
+        classId: true,
+        answerKey: true,
+        questionCount: true,
+      },
+    });
+    if (!quiz) {
+      return createAppErrorResponse("NOT_FOUND", NOT_FOUND_MESSAGE, 404);
+    }
+    if (!quiz.classId || quiz.questionCount !== OMR_QUESTION_COUNT) {
+      return createAppErrorResponse(
+        "INVALID_PAYLOAD",
+        `Quiz must use the ${OMR_TEMPLATE_ID} template and belong to a classroom`,
+        400
+      );
+    }
+
+    const parsedAnswerKey = parseOmrAnswerKey(quiz.answerKey, { requireComplete: true });
+    if (!parsedAnswerKey.ok) {
+      return createAppErrorResponse("INVALID_PAYLOAD", parsedAnswerKey.message, 400);
+    }
+
+    const seatNumber = Number(body.studentCode);
+    if (!Number.isInteger(seatNumber) || seatNumber <= 0) {
+      return createAppErrorResponse("INVALID_PAYLOAD", "Student code is invalid", 400);
+    }
+    const student = await db.student.findFirst({
+      where: {
+        classId: quiz.classId,
+        order: seatNumber - 1,
+      },
+      select: { id: true, name: true, nickname: true, order: true },
+    });
+    if (!student) {
+      return createAppErrorResponse(
+        "INVALID_PAYLOAD",
+        "Student code does not match this classroom",
+        400
+      );
+    }
+
+    const grading = gradeOmrAnswers(
+      parsedAnswers.answers,
+      parsedAnswerKey.answerKey as Record<string, "A" | "B" | "C" | "D" | "E">
+    );
+    const studentName = student.nickname?.trim() || student.name.trim();
+    const existing = await db.oMRResult.findFirst({
+      where: { quizId, studentId: student.id },
+      select: { id: true },
+    });
+
+    // Re-scanning the same student's paper replaces the previous reading, so
+    // only a new result consumes another monthly scan slot.
+    if (!existing) {
+      const limits = getLimitsForUser(
+        session.user.role,
+        session.user.plan,
+        session.user.planStatus,
+        session.user.planExpiry
+      );
+      if (Number.isFinite(limits.maxOmrScansPerMonth)) {
+        const start = new Date();
+        start.setDate(1);
+        start.setHours(0, 0, 0, 0);
+        const used = await db.oMRResult.count({
+          where: {
+            scannedAt: { gte: start },
+            quiz: { teacherId: session.user.id },
+          },
+        });
+        if (used >= limits.maxOmrScansPerMonth) {
+          return createAppErrorResponse(
+            "PLAN_LIMIT_OMR_MONTHLY",
+            "Monthly OMR scan limit reached for your plan",
+            403
+          );
+        }
+      }
+    }
+
+    const storedAnswers = {
+      templateId: OMR_TEMPLATE_ID,
+      studentCode: body.studentCode,
+      detected: parsedAnswers.answers,
+      graded: grading.answers,
+    } as Prisma.InputJsonValue;
+    const result = existing
+      ? await db.oMRResult.update({
+          where: { id: existing.id },
+          data: {
+            studentName,
+            score: grading.score,
+            total: grading.total,
+            answers: storedAnswers,
+            scannedAt: new Date(),
+          },
+        })
+      : await db.oMRResult.create({
+          data: {
+            quizId,
+            studentId: student.id,
+            studentName,
+            score: grading.score,
+            total: grading.total,
+            answers: storedAnswers,
+          },
+        });
+
+    return NextResponse.json({
+      ...result,
+      grading: {
+        score: grading.score,
+        total: grading.total,
+        studentName,
+        studentCode: body.studentCode,
+        answers: grading.answers,
+      },
+    });
+  } catch (error) {
+    console.error("[OMR_RESULTS_POST]", error);
+    return createAppErrorResponse("INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, 500);
+  }
 }

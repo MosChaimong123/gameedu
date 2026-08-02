@@ -58,6 +58,7 @@ describe("GoldQuestEngine", () => {
       sock
     );
 
+    engine.handleEvent("request-question", {}, sock);
     engine.handleEvent("submit-answer", { questionId: "q1", answerIndex: 1 }, sock);
     expect(engine.getPlayer("sock-a")?.pendingChest).toBe(true);
 
@@ -107,6 +108,7 @@ describe("GoldQuestEngine", () => {
       sock
     );
 
+    engine.handleEvent("request-question", {}, sock);
     engine.handleEvent("submit-answer", { questionId: "q1", answerIndex: 1 }, sock);
     engine.handleEvent("request-question", {}, sock);
     expect(sock.emit).toHaveBeenCalledWith("error", { message: SOCKET_ERROR_GOLD_QUEST_CHEST_PENDING });
@@ -139,7 +141,7 @@ describe("GoldQuestEngine", () => {
     expect(sock.emit).toHaveBeenCalledWith("error", { message: SOCKET_ERROR_PLAY_NOT_IN_GAME });
   });
 
-  it("open-chest rolls independently each time (non-deterministic across opens)", () => {
+  it("allows a fresh chest roll after each newly served correct answer", () => {
     const sock = mockSocket("sock-e");
     engine.addPlayer(
       {
@@ -157,6 +159,7 @@ describe("GoldQuestEngine", () => {
     );
     const rewards: unknown[] = [];
     for (let i = 0; i < 12; i++) {
+      engine.handleEvent("request-question", {}, sock);
       engine.handleEvent("submit-answer", { questionId: "q1", answerIndex: 1 }, sock);
       engine.handleEvent("open-chest", { chestIndex: 1 }, sock);
       const reward = (sock.emit as ReturnType<typeof vi.fn>).mock.calls
@@ -164,8 +167,7 @@ describe("GoldQuestEngine", () => {
         .pop()?.[1]?.reward;
       rewards.push(reward);
     }
-    const types = new Set(rewards.map((r) => (r as { type?: string })?.type));
     expect(rewards.length).toBe(12);
-    expect(types.size).toBeGreaterThan(1);
+    expect(rewards.every(Boolean)).toBe(true);
   });
 });

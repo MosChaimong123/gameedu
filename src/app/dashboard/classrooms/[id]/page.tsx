@@ -12,6 +12,7 @@ import { ClassroomCoursesProgressTab } from "@/components/classroom/classroom-co
 import { ClassroomPageBackLink } from "./classroom-page-back-link";
 import { getClassroomDashboardForTeacher } from "@/lib/services/classroom-dashboard/get-classroom-dashboard";
 import { normalizeClassroomPageQuery } from "./classroom-page-query";
+import { isCoursesUiEnabled } from "@/lib/courses-ui-enabled";
 
 interface ClassroomPageProps {
     params: Promise<{
@@ -32,7 +33,7 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
     const params = await props.params;
     const searchParams = await props.searchParams;
     const {
-        defaultTab,
+        defaultTab: requestedTab,
         classFocus,
         highlightAssignmentId,
         studentLookup,
@@ -40,6 +41,9 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
         historyStudentId,
         rewardGamePin,
     } = normalizeClassroomPageQuery(searchParams);
+    // คอร์สถูกซ่อนอยู่ — `?tab=courses` ต้องไม่พาไปที่แท็บที่ไม่มีเนื้อหา
+    const defaultTab =
+        requestedTab === "courses" && !isCoursesUiEnabled() ? "lessons" : requestedTab;
     const session = await auth();
     if (!session?.user) return redirect("/");
     if (!session.user.id) return redirect("/dashboard/classrooms");
@@ -72,6 +76,7 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
                     {/* Height calculation to fit within dashboard layout without double scrollbars */}
                     <ClassroomDashboard
                         classroom={classroom}
+                        currentUserRole={session.user.role}
                         initialClassFocus={classFocus}
                         highlightAssignmentId={highlightAssignmentId}
                         initialStudentLookup={studentLookup}
@@ -108,9 +113,11 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
                     <ClassroomLessonsProgressTab classId={classroom.id} studentCount={classroom.students.length} />
                 </TabsContent>
 
-                <TabsContent value="courses" className="mt-0 flex-1 overflow-y-auto">
-                    <ClassroomCoursesProgressTab classId={classroom.id} studentCount={classroom.students.length} />
-                </TabsContent>
+                {isCoursesUiEnabled() && (
+                    <TabsContent value="courses" className="mt-0 flex-1 overflow-y-auto">
+                        <ClassroomCoursesProgressTab classId={classroom.id} studentCount={classroom.students.length} />
+                    </TabsContent>
+                )}
 
             </Tabs>
         </div>

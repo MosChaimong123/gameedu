@@ -246,7 +246,7 @@ describe("student quest ledger", () => {
       where: { id: "student-1" },
       data: {
         behaviorPoints: { increment: 1 },
-        negamonSkills: ["basic-attack", "pyronox-ember-fang", "pyronox-shadow-rend", "pyronox-war-cry"],
+        negamonSkills: ["basic-attack", "pyronox-ember-fang", "pyronox-war-cry"],
       },
       select: { behaviorPoints: true, negamonSkills: true },
     });

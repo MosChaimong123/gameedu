@@ -81,7 +81,7 @@ describe("CryptoHackEngine", () => {
     expect(player?.password).toBe("Dogecoin");
   });
 
-  it("offers exactly 4 hack password options with the target password included", () => {
+  it("offers exactly 3 hack password options with the target password included", () => {
     const alice = mockSocket("alice-socket");
     const bob = mockSocket("bob-socket");
 
@@ -110,7 +110,7 @@ describe("CryptoHackEngine", () => {
 
     expect(latestHackOptionsCall).toBeDefined();
     const payload = latestHackOptionsCall?.[1] as { options: string[] };
-    expect(payload.options).toHaveLength(4);
-    expect(new Set(payload.options).size).toBe(4);
+    expect(payload.options).toHaveLength(3);
+    expect(new Set(payload.options).size).toBe(3);
   });
 });

@@ -6,6 +6,10 @@ import {
 } from "@/lib/curriculum/map-packs"
 import { canonicalSubjectIdSchema, type CanonicalSubjectId } from "@/lib/curriculum/subject-catalog"
 import { PHYSICS_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/physics-additional-upper-secondary-source"
+import { CHEM_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/chemistry-additional-upper-secondary-source"
+import { BIO_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/biology-additional-upper-secondary-source"
+import { EARTH_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/earth-space-additional-upper-secondary-source"
+import { ADDITIONAL_SCIENCE_TOC_TOPIC_SOURCES } from "@/lib/curriculum/import/additional-science-toc-topics-source"
 
 export const SUBJECT_UNIT_OUTCOME_CATALOG_SCHEMA_VERSION = "subject_unit_outcome_catalog_v1" as const
 
@@ -39,7 +43,7 @@ export const subjectUnitLearningOutcomePackSchema = z.object({
     unitId: z.string().trim().min(1),
     unitTitle: z.string().trim().min(1),
     topics: z.array(subjectUnitTopicSchema).min(1),
-    learningOutcomes: z.array(subjectUnitLearningOutcomeSchema).min(2),
+    learningOutcomes: z.array(subjectUnitLearningOutcomeSchema).min(1),
     crosswalkRules: subjectUnitCrosswalkRulesSchema,
 })
 
@@ -148,14 +152,6 @@ function buildOutcomePack(
     }
 }
 
-function chunkByUnit<T>(items: readonly T[], unitCount: number) {
-    return Array.from({ length: unitCount }, (_, index) => {
-        const start = Math.floor((index * items.length) / unitCount)
-        const end = Math.floor(((index + 1) * items.length) / unitCount)
-        return items.slice(start, end)
-    })
-}
-
 function inferPhysicsConcepts(text: string) {
     const concepts = new Set<string>(["ฟิสิกส์"])
     ;[
@@ -188,31 +184,63 @@ function inferPhysicsSkills(text: string) {
     return [...skills]
 }
 
-const PHYSICS_ADDITIONAL_OUTCOME_PACKS: SubjectUnitLearningOutcomePack[] =
-    PHYSICS_ADDITIONAL_UPPER_SECONDARY_COURSES.flatMap((course) => {
-        const chunks = chunkByUnit(course.outcomes, course.units.length)
-        return course.units.map((unit, unitIndex) => {
-            const topicId = `${unit.id}-t01`
+type AdditionalUpperSecondaryCourseSource = {
+    id: string
+    units: ReadonlyArray<{ id: string; title: string; outcomeNumbers: readonly number[] }>
+    outcomes: ReadonlyArray<{ id: string; sourceCode: string; text: string }>
+}
+
+const ADDITIONAL_SCIENCE_TOC_TOPICS_BY_UNIT_ID = new Map(
+    ADDITIONAL_SCIENCE_TOC_TOPIC_SOURCES.map((source) => [source.unitId, source])
+)
+
+function buildAdditionalOutcomePacks(
+    subjectId: CanonicalSubjectId,
+    baseConcept: string,
+    courses: readonly AdditionalUpperSecondaryCourseSource[]
+): SubjectUnitLearningOutcomePack[] {
+    return courses.flatMap((course) => {
+        return course.units.map((unit) => {
+            const tocSource = ADDITIONAL_SCIENCE_TOC_TOPICS_BY_UNIT_ID.get(unit.id)
+            if (!tocSource) {
+                throw new Error(`Missing Chapter Title topics for additional-science unit ${unit.id}`)
+            }
+            const topics = tocSource.topics.map((title, index) =>
+                buildTopic(`${unit.id}-toc-t${String(index + 1).padStart(2, "0")}`, title, [
+                    `Chapter Title: ${tocSource.sourceFile}`,
+                ])
+            )
+            const outcomes = unit.outcomeNumbers
+                .map((outcomeNumber) => course.outcomes[outcomeNumber - 1] ?? null)
+                .filter((outcome): outcome is (typeof course.outcomes)[number] => Boolean(outcome))
             return buildOutcomePack(
-                "physics",
+                subjectId,
                 unit.id,
-                [buildTopic(topicId, unit.title, [`Source course: ${course.id}`])],
-                chunks[unitIndex].map((outcome) =>
+                topics,
+                outcomes.map((outcome) =>
                     buildOutcome(
                         outcome.id,
                         outcome.text,
-                        inferPhysicsConcepts(`${unit.title} ${outcome.text}`),
+                        inferPhysicsConcepts(`${baseConcept} ${unit.title} ${outcome.text}`),
                         inferPhysicsSkills(outcome.text),
-                        [topicId],
+                        topics.map((topic) => topic.id),
                         [`official curriculum outcome ${outcome.sourceCode}`, `source course ${course.id}`]
                     )
                 )
             )
         })
     })
+}
+
+const ADDITIONAL_SCIENCE_OUTCOME_PACKS: SubjectUnitLearningOutcomePack[] = [
+    ...buildAdditionalOutcomePacks("physics", "ฟิสิกส์", PHYSICS_ADDITIONAL_UPPER_SECONDARY_COURSES),
+    ...buildAdditionalOutcomePacks("chemistry", "เคมี", CHEM_ADDITIONAL_UPPER_SECONDARY_COURSES),
+    ...buildAdditionalOutcomePacks("biology", "ชีววิทยา", BIO_ADDITIONAL_UPPER_SECONDARY_COURSES),
+    ...buildAdditionalOutcomePacks("earth_space_science", "โลก ดาราศาสตร์ และอวกาศ", EARTH_ADDITIONAL_UPPER_SECONDARY_COURSES),
+]
 
 export const SUBJECT_UNIT_LEARNING_OUTCOME_CATALOG: SubjectUnitLearningOutcomeCatalog = [
-    ...PHYSICS_ADDITIONAL_OUTCOME_PACKS,
+    ...ADDITIONAL_SCIENCE_OUTCOME_PACKS,
     buildOutcomePack("thai", "thai-u01", [
         buildTopic("thai-u01-t01", "การฟังและจับใจความ"),
         buildTopic("thai-u01-t02", "การพูดสื่อสารและอภิปราย"),

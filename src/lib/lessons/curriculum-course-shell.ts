@@ -8,7 +8,10 @@ import type { SecondaryCoreUnit } from "@/lib/curriculum/import/secondary-core-u
 import type { CurriculumSourceRef } from "@/lib/curriculum/source-registry"
 import { getCanonicalSubjectById, type CanonicalSubjectId } from "@/lib/curriculum/subject-catalog"
 import { type SubjectLessonTemplate } from "@/lib/curriculum/template-master-pack"
-import type { SubjectUnitLearningOutcomePack } from "@/lib/curriculum/unit-learning-outcomes"
+import {
+    getSubjectUnitLearningOutcomePack,
+    type SubjectUnitLearningOutcomePack,
+} from "@/lib/curriculum/unit-learning-outcomes"
 import {
     getLessonTopicContentStatus,
     type LessonContentMetadata,
@@ -136,12 +139,18 @@ export function buildCurriculumCourseShellContentV2(
     // fall back to the synthetic outcome-pack topics when the course has none.
     if (realUnits.length > 0) {
         const realUnitObjectivesByTopicId = new Map<string, string[]>()
+        const realUnitSectionsByTopicId = new Map<string, TopicDraft["sections"]>()
         const outline: LessonOutlineDraft = {
             title: course.titleTh,
             description: unit.notes?.[0] ?? `โครงบทเรียนจากรายวิชา ${course.titleTh}`,
             subject: subject?.displayNameTh ?? subjectId,
             gradeLevel: getCanonicalGradeLevelLabel(course.gradeLevel, "th"),
             topics: realUnits.map((realUnit, index) => {
+                const unitId = course.unitIds[index]
+                const unitOutcomePack =
+                    subject?.courseType === "additional" && unitId
+                        ? getSubjectUnitLearningOutcomePack(subjectId, unitId)
+                        : null
                 const indicators = [...realUnit.duringIndicators, ...realUnit.terminalIndicators]
                 const indicatorCodes = indicators.map((indicator) => indicator.code)
                 const objectives = indicators
@@ -150,6 +159,16 @@ export function buildCurriculumCourseShellContentV2(
                 const topicId = `${course.id}-unit-${realUnit.unitNumber}-${index}`
                 if (objectives.length > 0) {
                     realUnitObjectivesByTopicId.set(topicId, objectives)
+                }
+                if (unitOutcomePack?.topics.length) {
+                    realUnitSectionsByTopicId.set(
+                        topicId,
+                        unitOutcomePack.topics.map((topic) => ({
+                            id: `${topic.id}-section`,
+                            heading: topic.title,
+                            content: "",
+                        }))
+                    )
                 }
                 return {
                     id: topicId,
@@ -165,6 +184,7 @@ export function buildCurriculumCourseShellContentV2(
         const topics = outline.topics.map((topic) => ({
             ...createEmptyTopic(topic),
             objectives: realUnitObjectivesByTopicId.get(topic.id) ?? [],
+            sections: realUnitSectionsByTopicId.get(topic.id) ?? [],
         }))
 
         return buildContentV2(

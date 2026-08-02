@@ -74,6 +74,7 @@ describe("admin users page", () => {
           planStatus: true,
           planExpiry: true,
           emailVerified: true,
+          password: true,
           createdAt: true,
           _count: {
             select: {

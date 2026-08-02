@@ -22,7 +22,7 @@ describe("student dashboard production QA guardrails", () => {
 
     expect(source).toContain("NegamonBattleStateV4");
     expect(source).toContain("statusIds");
-    expect(source).toContain("stat_stage_changed");
+    expect(source).toContain("summarizeNegamonBattleEvent");
     expect(source).toContain("PP {resource.pp}/{resource.maxPp}");
     expect(source).toContain("CD {resource.cooldown}");
     expect(source).not.toMatch(/Pokemon-Lite|Pokemon Lite|\\bLite\\b|\\bLegacy\\b/);

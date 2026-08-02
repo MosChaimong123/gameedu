@@ -159,7 +159,7 @@ describe("Negamon character and monster contracts", () => {
             level: 16,
             evolutionStage: 2,
             exp: 4125,
-            elementTypes: ["FIRE", "DARK"],
+            elementTypes: ["FIRE"],
             abilityId: "rage_mode",
             traitId: "trait_rage_mode",
         });

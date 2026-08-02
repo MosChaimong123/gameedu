@@ -5,6 +5,7 @@ import { LayoutDashboard, MessageSquare, Trophy, GraduationCap, Layers3 } from "
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { brandPurpleTabActiveCn } from "@/components/classroom/gamification-toolbar-styles";
+import { isCoursesUiEnabled } from "@/lib/courses-ui-enabled";
 import type {
     StudentDashboardMode,
     StudentDashboardTranslateFn,
@@ -56,6 +57,10 @@ export function StudentDashboardTabNav({
     t,
     mode,
 }: StudentDashboardTabNavProps) {
+    const visibleLearnTabs = isCoursesUiEnabled()
+        ? learnTabs
+        : learnTabs.filter((tab) => tab.value !== "courses");
+
     if (mode === "learn") {
         return (
             <motion.div
@@ -66,12 +71,13 @@ export function StudentDashboardTabNav({
             >
                 <TabsList
                     className={cn(
-                        "grid h-auto w-full grid-cols-5 gap-1 rounded-[22px] border border-[#e5e7eb] bg-white/95 p-1.5",
+                        "grid h-auto w-full gap-1 rounded-[22px] border border-[#e5e7eb] bg-white/95 p-1.5",
+                        visibleLearnTabs.length === 5 ? "grid-cols-5" : "grid-cols-4",
                         "shadow-[0_1px_3px_rgba(15,23,42,0.06)] backdrop-blur-sm",
                         "sm:gap-1.5"
                     )}
                 >
-                    {learnTabs.map(({ value, icon: Icon, labelKey }) => (
+                    {visibleLearnTabs.map(({ value, icon: Icon, labelKey }) => (
                         <TabsTrigger
                             key={value}
                             value={value}

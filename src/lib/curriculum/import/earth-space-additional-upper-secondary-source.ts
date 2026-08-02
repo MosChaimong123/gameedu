@@ -9,7 +9,7 @@ export type EarthAdditionalUpperSecondaryCourse = {
     hours: number
     sourceFile: string
     descriptionText: string
-    units: Array<{ id: string; title: string }>
+    units: Array<{ id: string; title: string; outcomeNumbers: readonly number[] }>
     outcomes: Array<{ id: string; sourceCode: string; text: string }>
 }
 
@@ -25,19 +25,23 @@ export const EARTH_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly EarthAdditionalU
         "units": [
             {
                 "id": "earth-space-additional-m4-s1-u01",
-                "title": "หน่วยการเรียนรู้ที่ 1 โครงสร้างโลก"
+                "title": "หน่วยการเรียนรู้ที่ 1 โครงสร้างโลก",
+                "outcomeNumbers": [1]
             },
             {
                 "id": "earth-space-additional-m4-s1-u02",
-                "title": "หน่วยการเรียนรู้ที่ 2 ธรณีแปรสัณฐาน"
+                "title": "หน่วยการเรียนรู้ที่ 2 ธรณีแปรสัณฐาน",
+                "outcomeNumbers": [2, 3]
             },
             {
                 "id": "earth-space-additional-m4-s1-u03",
-                "title": "หน่วยการเรียนรู้ที่ 3 ธรณีพิบัติภัย"
+                "title": "หน่วยการเรียนรู้ที่ 3 ธรณีพิบัติภัย",
+                "outcomeNumbers": [5, 6, 7]
             },
             {
                 "id": "earth-space-additional-m4-s1-u04",
-                "title": "หน่วยการเรียนรู้ที่ 4 ลำดับชั้นหิน"
+                "title": "หน่วยการเรียนรู้ที่ 4 ลำดับชั้นหิน",
+                "outcomeNumbers": [4]
             }
         ],
         "outcomes": [
@@ -89,11 +93,13 @@ export const EARTH_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly EarthAdditionalU
         "units": [
             {
                 "id": "earth-space-additional-m4-s2-u01",
-                "title": "หน่วยการเรียนรู้ที่ 5 ทรัพยากรธรณี"
+                "title": "หน่วยการเรียนรู้ที่ 5 ทรัพยากรธรณี",
+                "outcomeNumbers": [1, 2, 3, 4]
             },
             {
                 "id": "earth-space-additional-m4-s2-u02",
-                "title": "หน่วยการเรียนรู้ที่ 6 แผนที่"
+                "title": "หน่วยการเรียนรู้ที่ 6 แผนที่",
+                "outcomeNumbers": [5]
             }
         ],
         "outcomes": [
@@ -135,15 +141,18 @@ export const EARTH_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly EarthAdditionalU
         "units": [
             {
                 "id": "earth-space-additional-m5-s1-u01",
-                "title": "หน่วยการเรียนรู้ที่ 1 อากาศ"
+                "title": "หน่วยการเรียนรู้ที่ 1 อากาศ",
+                "outcomeNumbers": [1, 2]
             },
             {
                 "id": "earth-space-additional-m5-s1-u02",
-                "title": "หน่วยการเรียนรู้ที่ 2 การหมุนเวียนของระบบลมของโลก"
+                "title": "หน่วยการเรียนรู้ที่ 2 การหมุนเวียนของระบบลมของโลก",
+                "outcomeNumbers": [3, 4]
             },
             {
                 "id": "earth-space-additional-m5-s1-u03",
-                "title": "หน่วยการเรียนรู้ที่ 3 การหมุนเวียนของน้ำในมหาสมุทร"
+                "title": "หน่วยการเรียนรู้ที่ 3 การหมุนเวียนของน้ำในมหาสมุทร",
+                "outcomeNumbers": [5, 6, 7]
             }
         ],
         "outcomes": [
@@ -195,15 +204,18 @@ export const EARTH_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly EarthAdditionalU
         "units": [
             {
                 "id": "earth-space-additional-m5-s2-u01",
-                "title": "หน่วยการเรียนรู้ที่ 4 เสถียรภาพอากาศและแนวปะทะอากาศ"
+                "title": "หน่วยการเรียนรู้ที่ 4 เสถียรภาพอากาศและแนวปะทะอากาศ",
+                "outcomeNumbers": [1, 2]
             },
             {
                 "id": "earth-space-additional-m5-s2-u02",
-                "title": "หน่วยการเรียนรู้ที่ 5 การเปลี่ยนแปลงภูมิอากาศของโลก"
+                "title": "หน่วยการเรียนรู้ที่ 5 การเปลี่ยนแปลงภูมิอากาศของโลก",
+                "outcomeNumbers": [3, 4]
             },
             {
                 "id": "earth-space-additional-m5-s2-u03",
-                "title": "หน่วยการเรียนรู้ที่ 6 การพยากรณ์อากาศ"
+                "title": "หน่วยการเรียนรู้ที่ 6 การพยากรณ์อากาศ",
+                "outcomeNumbers": [5, 6]
             }
         ],
         "outcomes": [
@@ -250,15 +262,18 @@ export const EARTH_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly EarthAdditionalU
         "units": [
             {
                 "id": "earth-space-additional-m6-s1-u01",
-                "title": "หน่วยการเรียนรู้ที่ 1 เอกภพและกาแล็กซี"
+                "title": "หน่วยการเรียนรู้ที่ 1 เอกภพและกาแล็กซี",
+                "outcomeNumbers": [1, 2, 3]
             },
             {
                 "id": "earth-space-additional-m6-s1-u02",
-                "title": "หน่วยการเรียนรู้ที่ 2 ดาวฤกษ์"
+                "title": "หน่วยการเรียนรู้ที่ 2 ดาวฤกษ์",
+                "outcomeNumbers": [4, 5, 6, 7, 8, 9]
             },
             {
                 "id": "earth-space-additional-m6-s1-u03",
-                "title": "หน่วยการเรียนรู้ที่ 3 ระบบสุริยะ"
+                "title": "หน่วยการเรียนรู้ที่ 3 ระบบสุริยะ",
+                "outcomeNumbers": [10, 11, 12]
             }
         ],
         "outcomes": [
@@ -335,15 +350,18 @@ export const EARTH_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly EarthAdditionalU
         "units": [
             {
                 "id": "earth-space-additional-m6-s2-u01",
-                "title": "หน่วยการเรียนรู้ที่ 4 ทรงกลมฟ้า"
+                "title": "หน่วยการเรียนรู้ที่ 4 ทรงกลมฟ้า",
+                "outcomeNumbers": [1, 2, 3, 4]
             },
             {
                 "id": "earth-space-additional-m6-s2-u02",
-                "title": "หน่วยการเรียนรู้ที่ 5 การเคลื่อนที่ปรากฏของดาวเคราะห์"
+                "title": "หน่วยการเรียนรู้ที่ 5 การเคลื่อนที่ปรากฏของดาวเคราะห์",
+                "outcomeNumbers": [5]
             },
             {
                 "id": "earth-space-additional-m6-s2-u03",
-                "title": "หน่วยการเรียนรู้ที่ 6 เทคโนโลยีอวกาศกับการประยุกต์ใช้"
+                "title": "หน่วยการเรียนรู้ที่ 6 เทคโนโลยีอวกาศกับการประยุกต์ใช้",
+                "outcomeNumbers": [6, 7]
             }
         ],
         "outcomes": [

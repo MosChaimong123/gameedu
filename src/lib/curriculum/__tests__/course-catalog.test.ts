@@ -141,6 +141,42 @@ describe("canonical course catalog", () => {
         expect(m4Physics.every((entry) => entry.terminalIndicatorIds.length === 0)).toBe(true)
     })
 
+    it("returns displayable unit outlines for physics additional courses", () => {
+        const [m4Semester1] = getCanonicalCourseOptions("physics", "m4")
+        const units = getSecondaryCoreCourseUnits(m4Semester1)
+
+        expect(units).toHaveLength(4)
+        expect(units.map((unit) => unit.title)).toEqual([
+            "หน่วยการเรียนรู้ที่ 1 การศึกษาวิชาฟิสิกส์",
+            "หน่วยการเรียนรู้ที่ 2 การเคลื่อนที่ในแนวตรง",
+            "หน่วยการเรียนรู้ที่ 3 แรงและกฎการเคลื่อนที่",
+            "หน่วยการเรียนรู้ที่ 4 การเคลื่อนที่แนวโค้ง",
+        ])
+        expect(units.every((unit) => unit.hours === 20)).toBe(true)
+    })
+
+    it("returns additional upper-secondary courses for chemistry, biology, and earth-space science", () => {
+        const chemistry = getCanonicalCourseOptions("chemistry", "m4")
+        const biology = getCanonicalCourseOptions("biology", "m4")
+        const earthSpace = getCanonicalCourseOptions("earth_space_science", "m4")
+
+        expect(chemistry).toHaveLength(2)
+        expect(biology).toHaveLength(2)
+        expect(earthSpace).toHaveLength(2)
+        expect(chemistry[0]?.titleTh).toBe("เคมีเพิ่มเติม เคมี เล่ม 1 ภาคเรียนที่ 1")
+        expect(biology[0]?.titleTh).toBe("ชีววิทยาเพิ่มเติม ชีววิทยา เล่ม 1 ภาคเรียนที่ 1")
+        expect(earthSpace[0]?.titleTh).toBe("โลก ดาราศาสตร์ และอวกาศเพิ่มเติม โลก ดาราศาสตร์ และอวกาศ เล่ม 1 ภาคเรียนที่ 1")
+        expect(getSecondaryCoreCourseUnits(chemistry[0]!).map((unit) => unit.title)).toContain(
+            "หน่วยการเรียนรู้ที่ 1 ปฏิบัติการเคมีเบื้องต้น"
+        )
+        expect(getSecondaryCoreCourseUnits(biology[0]!).map((unit) => unit.title)).toContain(
+            "หน่วยการเรียนรู้ที่ 1 ธรรมชาติของสิ่งมีชีวิต"
+        )
+        expect(getSecondaryCoreCourseUnits(earthSpace[0]!).map((unit) => unit.title)).toContain(
+            "หน่วยการเรียนรู้ที่ 1 โครงสร้างโลก"
+        )
+    })
+
     it("returns only the ม.4 science courses (ชีวภาพ + เทคโนโลยีออกแบบ + วิทยาการคำนวณ)", () => {
         const options = getCanonicalCourseOptions("science_technology", "m4")
 

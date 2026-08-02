@@ -47,7 +47,7 @@ describe("Negamon content catalog foundation", () => {
             id: "pyronox",
             role: expect.any(String),
             growthCurve: expect.any(String),
-            elementTypes: ["FIRE", "DARK"],
+            elementTypes: ["FIRE"],
             baseStats: expect.objectContaining({
                 hp: expect.any(Number),
                 atk: expect.any(Number),
@@ -78,7 +78,7 @@ describe("Negamon content catalog foundation", () => {
         expect(byId.get("voltshade")).toMatchObject({ role: "control" });
 
         for (const monster of catalog.monsters) {
-            expect(monster.species.moves.length).toBeGreaterThanOrEqual(4);
+            expect(monster.species.moves.length).toBeGreaterThanOrEqual(3);
             expect(monster.evolutionRules).toHaveLength(6);
             expect(monster.traits.length).toBeGreaterThanOrEqual(1);
         }

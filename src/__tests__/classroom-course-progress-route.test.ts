@@ -177,10 +177,9 @@ describe("classroom course progress route", () => {
         expect(payload.summary.notStartedCount).toBe(1)
         expect(payload.summary.certificateIssuedCount).toBe(1)
         expect(payload.summary.blockerLessons[0].lessonTitle).toBe("Motion")
-        expect(payload.curriculumAnalytics.subjectLabel).toBe("วิทยาศาสตร์และเทคโนโลยี")
-        // Legacy "phy-*" units are mapped onto the canonical science_technology
-        // unit (sci-tech-u02), so both lessons roll up into a single unit.
-        expect(payload.curriculumAnalytics.unitCount).toBe(1)
+        expect(payload.curriculumAnalytics.subjectLabel).toBe("ฟิสิกส์")
+        // Additional physics lessons retain their canonical subject identity.
+        expect(payload.curriculumAnalytics.unitCount).toBe(2)
         expect(payload.curriculumAnalytics.lessonCompletion[0].completionRate).toBe(67)
         expect(payload.students.find((student: { studentId: string }) => student.studentId === "student-2").needsAttention).toBe(true)
     })

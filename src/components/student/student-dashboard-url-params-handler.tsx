@@ -6,6 +6,7 @@ import {
     parseStudentDashboardNegamonOpenParam,
     studentDashboardTabToMode,
 } from "@/lib/student-dashboard-url-tabs";
+import { isCoursesUiEnabled } from "@/lib/courses-ui-enabled";
 import type { StudentDashboardMode } from "@/lib/services/student-dashboard/student-dashboard.types";
 
 type Props = {
@@ -44,7 +45,7 @@ function StudentDashboardUrlParamsHandlerInner({ code, setMode, setActiveTab }: 
         }
 
         const tabParam = searchParams.get("tab");
-        if (tabParam) {
+        if (tabParam && (tabParam !== "courses" || isCoursesUiEnabled())) {
             const mode = studentDashboardTabToMode(tabParam);
             if (mode) {
                 appliedKey.current = key;

@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
 import { isOmrDashboardEnabled } from "@/lib/omr-dashboard-enabled"
+import { isCoursesUiEnabled } from "@/lib/courses-ui-enabled"
 import { BrandLogo } from "@/components/layout/brand-logo"
 
 const navItems = [
@@ -48,6 +49,10 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
     const pathname = usePathname()
     const { t } = useLanguage()
     const omrLive = isOmrDashboardEnabled()
+    const coursesLive = isCoursesUiEnabled()
+    const visibleNavItems = coursesLive
+        ? navItems
+        : navItems.filter((item) => item.href !== "/dashboard/courses")
     const { data: session } = useSession()
     const plan = resolvePlanIdForQuota(
         session?.user?.plan,
@@ -74,7 +79,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
                 </span>
             </Link>
             <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-4" aria-label={t("mainNavigation")}>
-                {navItems.map((item) => {
+                {visibleNavItems.map((item) => {
                     const isActive =
                         item.href === "/dashboard"
                             ? pathname === "/dashboard"

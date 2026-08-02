@@ -140,8 +140,8 @@ function inferMonsterRole(species: MonsterSpecies): NegamonMonsterRole {
         move.effect === "LOWER_EN_REGEN"
     );
     if (hasSupportMove || species.ability?.id === "guardian_scale") return "support";
-    if (hasControlMove || species.ability?.id === "volt_flow") return "control";
     if (species.ability?.id === "iron_shell") return "defender";
+    if (hasControlMove || species.ability?.id === "volt_flow") return "control";
     if (species.ability?.id === "aerial_strike") return "attacker";
     if (atk >= def + 8) return "attacker";
     if (def >= atk + 8) return "defender";

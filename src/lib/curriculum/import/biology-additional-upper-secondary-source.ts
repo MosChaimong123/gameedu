@@ -9,7 +9,7 @@ export type BioAdditionalUpperSecondaryCourse = {
     hours: number
     sourceFile: string
     descriptionText: string
-    units: Array<{ id: string; title: string }>
+    units: Array<{ id: string; title: string; outcomeNumbers: readonly number[] }>
     outcomes: Array<{ id: string; sourceCode: string; text: string }>
 }
 
@@ -25,15 +25,18 @@ export const BIO_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly BioAdditionalUpper
         "units": [
             {
                 "id": "biology-additional-m4-s1-u01",
-                "title": "หน่วยการเรียนรู้ที่ 1 ธรรมชาติของสิ่งมีชีวิต"
+                "title": "หน่วยการเรียนรู้ที่ 1 ธรรมชาติของสิ่งมีชีวิต",
+                "outcomeNumbers": [1, 2]
             },
             {
                 "id": "biology-additional-m4-s1-u02",
-                "title": "หน่วยการเรียนรู้ที่ 2 เคมีที่เป็นพื้นฐานของสิ่งมีชีวิต"
+                "title": "หน่วยการเรียนรู้ที่ 2 เคมีที่เป็นพื้นฐานของสิ่งมีชีวิต",
+                "outcomeNumbers": [3, 4, 5, 6, 7, 8, 9]
             },
             {
                 "id": "biology-additional-m4-s1-u03",
-                "title": "หน่วยการเรียนรู้ที่ 3 เซลล์ของสิ่งมีชีวิต"
+                "title": "หน่วยการเรียนรู้ที่ 3 เซลล์ของสิ่งมีชีวิต",
+                "outcomeNumbers": [10, 11, 12, 13, 14, 15, 16, 17]
             }
         ],
         "outcomes": [
@@ -135,15 +138,18 @@ export const BIO_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly BioAdditionalUpper
         "units": [
             {
                 "id": "biology-additional-m4-s2-u01",
-                "title": "หน่วยการเรียนรู้ที่ 4 การถ่ายทอดทางพันธุกรรม"
+                "title": "หน่วยการเรียนรู้ที่ 4 การถ่ายทอดทางพันธุกรรม",
+                "outcomeNumbers": [1, 2, 3, 4, 5]
             },
             {
                 "id": "biology-additional-m4-s2-u02",
-                "title": "หน่วยการเรียนรู้ที่ 5 ยีนและโครโมโซม"
+                "title": "หน่วยการเรียนรู้ที่ 5 ยีนและโครโมโซม",
+                "outcomeNumbers": [6, 7, 8, 9]
             },
             {
                 "id": "biology-additional-m4-s2-u03",
-                "title": "หน่วยการเรียนรู้ที่ 6 พันธุศาสตร์และเทคโนโลยีทางดีเอ็นเอ"
+                "title": "หน่วยการเรียนรู้ที่ 6 พันธุศาสตร์และเทคโนโลยีทางดีเอ็นเอ",
+                "outcomeNumbers": [10, 11, 12, 13, 14, 15]
             }
         ],
         "outcomes": [
@@ -235,19 +241,23 @@ export const BIO_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly BioAdditionalUpper
         "units": [
             {
                 "id": "biology-additional-m5-s1-u01",
-                "title": "หน่วยการเรียนรู้ที่ 1 โครงสร้างและหน้าที่ของพืชดอก"
+                "title": "หน่วยการเรียนรู้ที่ 1 โครงสร้างและหน้าที่ของพืชดอก",
+                "outcomeNumbers": [1, 2, 3, 4, 5, 6, 7, 8, 9]
             },
             {
                 "id": "biology-additional-m5-s1-u02",
-                "title": "หน่วยการเรียนรู้ที่ 2 การสังเคราะห์ด้วยแสง"
+                "title": "หน่วยการเรียนรู้ที่ 2 การสังเคราะห์ด้วยแสง",
+                "outcomeNumbers": [10, 11, 12]
             },
             {
                 "id": "biology-additional-m5-s1-u03",
-                "title": "หน่วยการเรียนรู้ที่ 3 การสืบพันธุ์ของพืชดอกและการเจริญเติบโต"
+                "title": "หน่วยการเรียนรู้ที่ 3 การสืบพันธุ์ของพืชดอกและการเจริญเติบโต",
+                "outcomeNumbers": [13, 14, 15]
             },
             {
                 "id": "biology-additional-m5-s1-u04",
-                "title": "หน่วยการเรียนรู้ที่ 4 การตอบสนองของพืช"
+                "title": "หน่วยการเรียนรู้ที่ 4 การตอบสนองของพืช",
+                "outcomeNumbers": [16, 17, 18]
             }
         ],
         "outcomes": [
@@ -354,19 +364,23 @@ export const BIO_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly BioAdditionalUpper
         "units": [
             {
                 "id": "biology-additional-m5-s2-u01",
-                "title": "หน่วยการเรียนรู้ที่ 5 ระบบย่อยอาหาร"
+                "title": "หน่วยการเรียนรู้ที่ 5 ระบบย่อยอาหาร",
+                "outcomeNumbers": [1, 2, 3]
             },
             {
                 "id": "biology-additional-m5-s2-u02",
-                "title": "หน่วยการเรียนรู้ที่ 6 ระบบหายใจ"
+                "title": "หน่วยการเรียนรู้ที่ 6 ระบบหายใจ",
+                "outcomeNumbers": [4, 5, 6, 7]
             },
             {
                 "id": "biology-additional-m5-s2-u03",
-                "title": "หน่วยการเรียนรู้ที่ 7 ระบบหมุนเวียนเลือด ระบบน้ำเหลือง ระบบภูมิคุ้มกัน"
+                "title": "หน่วยการเรียนรู้ที่ 7 ระบบหมุนเวียนเลือด ระบบน้ำเหลือง ระบบภูมิคุ้มกัน",
+                "outcomeNumbers": [8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
             },
             {
                 "id": "biology-additional-m5-s2-u04",
-                "title": "หน่วยการเรียนรู้ที่ 8 ระบบขับถ่าย"
+                "title": "หน่วยการเรียนรู้ที่ 8 ระบบขับถ่าย",
+                "outcomeNumbers": [18, 19, 20, 21]
             }
         ],
         "outcomes": [
@@ -488,23 +502,28 @@ export const BIO_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly BioAdditionalUpper
         "units": [
             {
                 "id": "biology-additional-m6-s1-u01",
-                "title": "หน่วยการเรียนรู้ที่ 1 การสืบพันธุ์และการเจริญเติบโตของสัตว์"
+                "title": "หน่วยการเรียนรู้ที่ 1 การสืบพันธุ์และการเจริญเติบโตของสัตว์",
+                "outcomeNumbers": [1, 2, 3, 4]
             },
             {
                 "id": "biology-additional-m6-s1-u02",
-                "title": "หน่วยการเรียนรู้ที่ 2 ระบบประสาทและอวัยวะรับความรู้สึก"
+                "title": "หน่วยการเรียนรู้ที่ 2 ระบบประสาทและอวัยวะรับความรู้สึก",
+                "outcomeNumbers": [5, 6, 7, 8, 9, 10, 11, 12]
             },
             {
                 "id": "biology-additional-m6-s1-u03",
-                "title": "หน่วยการเรียนรู้ที่ 3 ระบบต่อมไร้ท่อ"
+                "title": "หน่วยการเรียนรู้ที่ 3 ระบบต่อมไร้ท่อ",
+                "outcomeNumbers": [13]
             },
             {
                 "id": "biology-additional-m6-s1-u04",
-                "title": "หน่วยการเรียนรู้ที่ 4 การเคลื่อนที่ของสิ่งมีชีวิต"
+                "title": "หน่วยการเรียนรู้ที่ 4 การเคลื่อนที่ของสิ่งมีชีวิต",
+                "outcomeNumbers": [14, 15, 16]
             },
             {
                 "id": "biology-additional-m6-s1-u05",
-                "title": "หน่วยการเรียนรู้ที่ 5 พฤติกรรมของสัตว์"
+                "title": "หน่วยการเรียนรู้ที่ 5 พฤติกรรมของสัตว์",
+                "outcomeNumbers": [17, 18, 19]
             }
         ],
         "outcomes": [
@@ -616,19 +635,23 @@ export const BIO_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly BioAdditionalUpper
         "units": [
             {
                 "id": "biology-additional-m6-s2-u01",
-                "title": "หน่วยการเรียนรู้ที่ 6 ความหลากหลายทางชีวภาพ"
+                "title": "หน่วยการเรียนรู้ที่ 6 ความหลากหลายทางชีวภาพ",
+                "outcomeNumbers": [1, 2, 3, 4, 5, 6, 7, 8, 9]
             },
             {
                 "id": "biology-additional-m6-s2-u02",
-                "title": "หน่วยการเรียนรู้ที่ 7 ระบบนิเวศ"
+                "title": "หน่วยการเรียนรู้ที่ 7 ระบบนิเวศ",
+                "outcomeNumbers": [10]
             },
             {
                 "id": "biology-additional-m6-s2-u03",
-                "title": "หน่วยการเรียนรู้ที่ 8 ประชากร"
+                "title": "หน่วยการเรียนรู้ที่ 8 ประชากร",
+                "outcomeNumbers": [11, 12, 13]
             },
             {
                 "id": "biology-additional-m6-s2-u04",
-                "title": "หน่วยการเรียนรู้ที่ 9 มนุษย์กับความยั่งยืนของสิ่งแวดล้อม"
+                "title": "หน่วยการเรียนรู้ที่ 9 มนุษย์กับความยั่งยืนของสิ่งแวดล้อม",
+                "outcomeNumbers": [14, 15, 16, 17, 18]
             }
         ],
         "outcomes": [

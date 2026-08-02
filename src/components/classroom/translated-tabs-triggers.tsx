@@ -2,6 +2,7 @@
 
 import { useLanguage } from "@/components/providers/language-provider"
 import { TabsTrigger } from "@/components/ui/tabs"
+import { isCoursesUiEnabled } from "@/lib/courses-ui-enabled"
 
 export function TranslatedTabsTriggers() {
     const { t } = useLanguage()
@@ -27,9 +28,11 @@ export function TranslatedTabsTriggers() {
             <TabsTrigger className={triggerClassName} value="lessons" suppressHydrationWarning>
                 บทเรียน
             </TabsTrigger>
-            <TabsTrigger className={triggerClassName} value="courses" suppressHydrationWarning>
-                คอร์สเรียน
-            </TabsTrigger>
+            {isCoursesUiEnabled() && (
+                <TabsTrigger className={triggerClassName} value="courses" suppressHydrationWarning>
+                    คอร์สเรียน
+                </TabsTrigger>
+            )}
         </>
     )
 }

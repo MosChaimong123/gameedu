@@ -12,6 +12,7 @@ import { StudentDashboardMonsterTab } from "./student-dashboard-monster-tab";
 import { StudentGameTabs } from "@/components/game/shell/student-game-tabs";
 import { StudentCoursesTab } from "./student-courses-tab";
 import { StudentLessonsTab } from "./student-lessons-tab";
+import { isCoursesUiEnabled } from "@/lib/courses-ui-enabled";
 import type {
     ClassroomRecord,
     DashboardStudent,
@@ -124,9 +125,11 @@ export function StudentDashboardMainTabs({
                     <StudentLessonsTab code={code} />
                 </TabsContent>
 
-                <TabsContent value="courses" className="mt-0 border-none p-0 outline-hidden">
-                    <StudentCoursesTab code={code} />
-                </TabsContent>
+                {isCoursesUiEnabled() && (
+                    <TabsContent value="courses" className="mt-0 border-none p-0 outline-hidden">
+                        <StudentCoursesTab code={code} />
+                    </TabsContent>
+                )}
 
                 <StudentDashboardBoardTab
                     t={t}

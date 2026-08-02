@@ -13,6 +13,31 @@ Expected result:
 - [x] `test:omr` passes
 - [x] `predev` passes
 
+## THAI-50-V1 Release Gate
+
+- [x] Template page offers only `THAI-50-V1`
+- [x] Generated sheet contains five student-code columns and questions 1–50
+- [x] Quiz creation requires a classroom and always creates 50 answer-key entries
+- [x] Save API rejects missing/duplicate/malformed answers and incomplete keys
+- [x] Score, total, and per-question correctness are computed on the server
+- [x] Re-scan replaces the existing quiz/student result
+- [x] OpenCV reads the supplied blank reference image as 50 blank answers with no ambiguity
+- [x] OpenCV synthetic fixture reads all 50 marks and student code `00001`
+- [x] OpenCV reads the supplied fully marked THAI-50-V1 image: 50/50 answers,
+  code `00001`, confidence 1.0 on every answer, and zero ambiguity
+- [x] Automated robustness matrix preserves all 50 answers and code `00001`
+  across ±5° rotation, perspective, 38% dimming, diagonal shadow, low
+  resolution, and JPEG quality 42
+- [ ] Print at 100% scale on A4 and confirm no browser “fit to page” scaling
+- [ ] Scan clean unmarked sheet on iOS Safari and Android Chrome
+- [ ] Scan fully marked sheet on iOS Safari and Android Chrome
+- [ ] Verify each block: 1–10, 11–20, 21–30, 31–40, 41–50
+- [ ] Verify student codes `00001`, a middle seat number, and the final seat number
+- [ ] Verify light pencil, dark pencil, blue pen, and black pen
+- [ ] Verify one blank answer and one double-mark are flagged for review
+- [ ] Verify moderate rotation, perspective angle, shadow, and indoor lighting
+- [ ] Confirm saved score and student identity against a manual count
+
 ## Dev QA
 
 - [x] Teacher-only OMR quiz and OMR sets routes reject unauthenticated and student access
@@ -30,6 +55,27 @@ Expected result:
 - [x] Temporary staging fixture is deleted after verification
 
 ## Notes
+
+- The current release candidate supports one paper format only:
+  `THAI-50-V1` (50 questions, five choices, five-digit student seat code).
+- Image-level preflight:
+  `npm.cmd run qa:omr-image -- "C:\path\to\sheet.png"`.
+- Synthetic full-mark preflight:
+  `npm.cmd run qa:omr-image -- --synthetic`.
+- Robustness matrix:
+  `npm.cmd run qa:omr-image -- "C:\path\to\filled-sheet.png" --matrix`.
+- The supplied 1110×1417 blank reference image was normalized to 705×900 and
+  passed marker detection with 50 blank answers, zero false marks, and zero
+  ambiguous questions on `2026-07-27`.
+- The supplied 569×806 fully marked image also passed on `2026-07-27`: all five
+  question blocks matched the visible marks, student code was `00001`, every
+  answer confidence was 1.0, and no manual-review flags were raised.
+- The same filled image passed all seven automated degradation variants with
+  identical answers, identical student code, and zero ambiguity. This closes
+  software-level rotation/perspective/light/compression robustness; physical
+  iOS and Android camera checks remain separate release gates.
+- Do not enable the OMR dashboard feature flag globally until every unchecked
+  THAI-50-V1 release-gate item above passes on physical paper.
 
 - Prefer a temporary OMR quiz fixture and delete it after verification.
 - Record quiz id, classroom id if linked, whether the scan was camera-based or upload-based, and the exact error shown for any blocked path.

@@ -20,7 +20,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { getLocalizedErrorMessageFromResponse } from "@/lib/ui-error-messages";
 import { PLAN_LIMITS } from "@/constants/plan-limits";
 import { getAllowedNegamonSpeciesIdsForPlan } from "@/lib/plan/plan-access";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/auth/client-session";
 import {
     Select,
     SelectContent,

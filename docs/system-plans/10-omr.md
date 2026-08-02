@@ -1,6 +1,6 @@
 # System Plan 10: OMR
 
-Last updated: 2026-05-08
+Last updated: 2026-07-27
 
 ## Scope
 
@@ -82,3 +82,34 @@ Last updated: 2026-05-08
   - unauthenticated `GET /api/omr/quizzes` was blocked with `401 AUTH_REQUIRED`
   - temporary staging fixtures were deleted after verification
 - Headless staging browser still hit camera denial during scanner UI verification, but that surfaced a readable error (`Could not access the camera. Check permissions and try again.`) and did not block authenticated result-save verification for the selected quiz.
+
+## Progress Note 5 — THAI-50-V1 overhaul
+
+- Replaced the variable 20/80-question prototype with one fixed, versioned
+  `THAI-50-V1` contract: 50 questions, five choices (`ก ข ค ง จ`), and a
+  five-digit classroom seat code.
+- The printable SVG and OpenCV scanner now share the same canonical geometry,
+  registration markers, bubble coordinates, and A4 aspect ratio.
+- Scanner processing now perspective-corrects the sheet, reads the student code,
+  reports ambiguous marks, and requires teacher review before saving.
+- Result saving now validates all 50 detected answers and grades them against the
+  complete answer key on the server. Client-submitted scores are no longer trusted.
+- A seat code maps to the student's one-based classroom number (`00001` is the
+  first student). Re-scanning that student updates the existing result without
+  consuming another monthly scan slot.
+- Validation on `2026-07-27`: `npm.cmd run check:omr` passed with
+  `4 files / 24 tests`; scoped ESLint passed without errors; production build
+  completed successfully.
+- Added a real OpenCV image preflight (`npm.cmd run qa:omr-image`) and calibrated
+  the canonical bubble geometry directly from the supplied reference sheet.
+  The blank reference now returns zero false marks and zero ambiguity; the
+  synthetic fixture correctly reads all 50 patterned answers and code `00001`.
+- Camera capture is capped at 1200 px on the longest edge to reduce mobile
+  processing time and memory pressure without changing the canonical grading
+  coordinates.
+- The fully marked reference passed a seven-case degradation matrix: ±5°
+  rotation, perspective warp, 38% dimming, diagonal shadow, 500 px
+  low-resolution input, and JPEG quality 42. Every variant retained all 50
+  answers, code `00001`, and zero ambiguity.
+- Release gate still open: print the generated sheet at actual size and complete
+  the physical camera matrix below before enabling the feature flag for all users.

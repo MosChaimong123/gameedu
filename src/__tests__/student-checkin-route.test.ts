@@ -193,9 +193,7 @@ describe("student checkin route", () => {
         negamonSkills: [
           "basic-attack",
           "pyronox-ember-fang",
-          "pyronox-shadow-rend",
           "pyronox-war-cry",
-          "pyronox-scorch-rush",
         ],
       },
       select: { behaviorPoints: true, negamonSkills: true },

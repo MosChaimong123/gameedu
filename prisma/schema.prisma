@@ -651,7 +651,7 @@ model OMRQuiz {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   title       String
   description String?
-  questionCount Int    @default(20)
+  questionCount Int    @default(50)
   answerKey   Json     // Map of question numbers to correct answers { "1": "A", "2": "B" ... }
   
   classId     String?  @db.ObjectId

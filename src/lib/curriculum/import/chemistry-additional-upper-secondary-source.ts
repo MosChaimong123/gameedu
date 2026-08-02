@@ -9,7 +9,7 @@ export type ChemAdditionalUpperSecondaryCourse = {
     hours: number
     sourceFile: string
     descriptionText: string
-    units: Array<{ id: string; title: string }>
+    units: Array<{ id: string; title: string; outcomeNumbers: readonly number[] }>
     outcomes: Array<{ id: string; sourceCode: string; text: string }>
 }
 
@@ -25,15 +25,18 @@ export const CHEM_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly ChemAdditionalUpp
         "units": [
             {
                 "id": "chemistry-additional-m4-s1-u01",
-                "title": "หน่วยการเรียนรู้ที่ 1 ปฏิบัติการเคมีเบื้องต้น"
+                "title": "หน่วยการเรียนรู้ที่ 1 ปฏิบัติการเคมีเบื้องต้น",
+                "outcomeNumbers": [1, 2, 3, 4]
             },
             {
                 "id": "chemistry-additional-m4-s1-u02",
-                "title": "หน่วยการเรียนรู้ที่ 2 อะตอมและตารางธาตุ"
+                "title": "หน่วยการเรียนรู้ที่ 2 อะตอมและตารางธาตุ",
+                "outcomeNumbers": [5, 6, 7, 8, 9, 10, 11, 12]
             },
             {
                 "id": "chemistry-additional-m4-s1-u03",
-                "title": "หน่วยการเรียนรู้ที่ 3 พันธะเคมี"
+                "title": "หน่วยการเรียนรู้ที่ 3 พันธะเคมี",
+                "outcomeNumbers": [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
             }
         ],
         "outcomes": [
@@ -175,15 +178,18 @@ export const CHEM_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly ChemAdditionalUpp
         "units": [
             {
                 "id": "chemistry-additional-m4-s2-u01",
-                "title": "หน่วยการเรียนรู้ที่ 4 ปริมาณสัมพันธ์"
+                "title": "หน่วยการเรียนรู้ที่ 4 ปริมาณสัมพันธ์",
+                "outcomeNumbers": [1, 2, 3, 4]
             },
             {
                 "id": "chemistry-additional-m4-s2-u02",
-                "title": "หน่วยการเรียนรู้ที่ 5 สารละลาย"
+                "title": "หน่วยการเรียนรู้ที่ 5 สารละลาย",
+                "outcomeNumbers": [5, 6, 7]
             },
             {
                 "id": "chemistry-additional-m4-s2-u03",
-                "title": "หน่วยการเรียนรู้ที่ 6 ปริมาณสัมพันธ์ในปฏิกิริยาเคมี"
+                "title": "หน่วยการเรียนรู้ที่ 6 ปริมาณสัมพันธ์ในปฏิกิริยาเคมี",
+                "outcomeNumbers": [8, 9, 10, 11, 12, 13, 14]
             }
         ],
         "outcomes": [
@@ -270,15 +276,18 @@ export const CHEM_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly ChemAdditionalUpp
         "units": [
             {
                 "id": "chemistry-additional-m5-s1-u01",
-                "title": "หน่วยการเรียนรู้ที่ 1 แก๊ส"
+                "title": "หน่วยการเรียนรู้ที่ 1 แก๊ส",
+                "outcomeNumbers": [1, 2, 3, 4, 5, 6]
             },
             {
                 "id": "chemistry-additional-m5-s1-u02",
-                "title": "หน่วยการเรียนรู้ที่ 2 อัตราการเกิดปฏิกิริยาเคมี"
+                "title": "หน่วยการเรียนรู้ที่ 2 อัตราการเกิดปฏิกิริยาเคมี",
+                "outcomeNumbers": [7, 8, 9, 10, 11, 12]
             },
             {
                 "id": "chemistry-additional-m5-s1-u03",
-                "title": "หน่วยการเรียนรู้ที่ 3 สมดุลเคมี"
+                "title": "หน่วยการเรียนรู้ที่ 3 สมดุลเคมี",
+                "outcomeNumbers": [13, 14, 15, 16, 17, 18, 19]
             }
         ],
         "outcomes": [
@@ -390,11 +399,13 @@ export const CHEM_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly ChemAdditionalUpp
         "units": [
             {
                 "id": "chemistry-additional-m5-s2-u01",
-                "title": "หน่วยการเรียนรู้ที่ 4 กรด-เบส"
+                "title": "หน่วยการเรียนรู้ที่ 4 กรด-เบส",
+                "outcomeNumbers": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
             },
             {
                 "id": "chemistry-additional-m5-s2-u02",
-                "title": "หน่วยการเรียนรู้ที่ 5 ไฟฟ้าเคมี"
+                "title": "หน่วยการเรียนรู้ที่ 5 ไฟฟ้าเคมี",
+                "outcomeNumbers": [11, 12, 13, 14, 15, 16, 17, 18, 19]
             }
         ],
         "outcomes": [
@@ -506,11 +517,13 @@ export const CHEM_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly ChemAdditionalUpp
         "units": [
             {
                 "id": "chemistry-additional-m6-s1-u01",
-                "title": "หน่วยการเรียนรู้ที่ 1 เคมีอินทรีย์"
+                "title": "หน่วยการเรียนรู้ที่ 1 เคมีอินทรีย์",
+                "outcomeNumbers": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
             },
             {
                 "id": "chemistry-additional-m6-s1-u02",
-                "title": "หน่วยการเรียนรู้ที่ 2 พอลิเมอร์"
+                "title": "หน่วยการเรียนรู้ที่ 2 พอลิเมอร์",
+                "outcomeNumbers": [11, 12, 13, 14, 15]
             }
         ],
         "outcomes": [
@@ -602,11 +615,13 @@ export const CHEM_ADDITIONAL_UPPER_SECONDARY_COURSES: readonly ChemAdditionalUpp
         "units": [
             {
                 "id": "chemistry-additional-m6-s2-u01",
-                "title": "หน่วยการเรียนรู้ที่ 3 โครงงานวิทยาศาสตร์"
+                "title": "หน่วยการเรียนรู้ที่ 3 โครงงานวิทยาศาสตร์",
+                "outcomeNumbers": [1, 2]
             },
             {
                 "id": "chemistry-additional-m6-s2-u02",
-                "title": "หน่วยการเรียนรู้ที่ 4 ประเภทของโครงงานวิทยาศาสตร์"
+                "title": "หน่วยการเรียนรู้ที่ 4 ประเภทของโครงงานวิทยาศาสตร์",
+                "outcomeNumbers": [3, 4]
             }
         ],
         "outcomes": [

@@ -42,6 +42,9 @@ import {
 } from "@/lib/curriculum/subject-catalog"
 import { CURRICULUM_STRAND_STANDARD_CATALOG } from "@/lib/curriculum/strands-and-standards"
 import { PHYSICS_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/physics-additional-upper-secondary-source"
+import { CHEM_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/chemistry-additional-upper-secondary-source"
+import { BIO_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/biology-additional-upper-secondary-source"
+import { EARTH_ADDITIONAL_UPPER_SECONDARY_COURSES } from "@/lib/curriculum/import/earth-space-additional-upper-secondary-source"
 
 export const canonicalCourseEntrySchema = z.object({
     id: z.string().trim().min(1),
@@ -566,31 +569,51 @@ function buildPrimaryCourseEntryFromDefinition(
 }
 
 function buildPhysicsAdditionalCourseEntries(): CanonicalCourseEntry[] {
-    const subject = getCanonicalSubjectById("physics")
+    return buildAdditionalCourseEntries("physics", "ฟิสิกส์เพิ่มเติม", "Additional Physics", PHYSICS_ADDITIONAL_UPPER_SECONDARY_COURSES)
+}
+
+type AdditionalUpperSecondaryCourseSource = {
+    id: string
+    gradeLevel: CanonicalGradeLevel
+    semester: 1 | 2
+    bookTitle: string
+    hours: number
+    sourceFile: string
+    descriptionText: string
+    units: ReadonlyArray<{ id: string; title: string }>
+}
+
+function buildAdditionalCourseEntries(
+    subjectId: CanonicalSubjectId,
+    titlePrefixTh: string,
+    titlePrefixEn: string,
+    courses: readonly AdditionalUpperSecondaryCourseSource[]
+): CanonicalCourseEntry[] {
+    const subject = getCanonicalSubjectById(subjectId)
     if (!subject) {
-        throw new Error("Missing canonical subject metadata for physics")
+        throw new Error(`Missing canonical subject metadata for ${subjectId}`)
     }
-    const pack = getSubjectCurriculumMapPack("physics")
+    const pack = getSubjectCurriculumMapPack(subjectId)
     if (!pack) {
-        throw new Error("Missing curriculum map pack for physics")
+        throw new Error(`Missing curriculum map pack for ${subjectId}`)
     }
 
-    return PHYSICS_ADDITIONAL_UPPER_SECONDARY_COURSES.map((course) => {
+    return courses.map((course) => {
         const units = course.units.map((unit) => {
             const unitOutline = pack.unitOutlines.find((candidate) => candidate.id === unit.id)
             if (!unitOutline) {
-                throw new Error(`Missing curriculum unit physics:${unit.id}`)
+                throw new Error(`Missing curriculum unit ${subjectId}:${unit.id}`)
             }
             return unitOutline
         })
         const standardIds = unique(units.flatMap((unit) => unit.standardIds))
         const strandIds = unique(units.map((unit) => unit.strandId))
         return {
-            id: buildAdditionalCourseId("physics", course.id, course.gradeLevel, course.semester),
-            coreSubjectId: "physics",
+            id: buildAdditionalCourseId(subjectId, course.id, course.gradeLevel, course.semester),
+            coreSubjectId: subjectId,
             courseCode: null,
-            titleTh: `ฟิสิกส์เพิ่มเติม ${course.bookTitle} ภาคเรียนที่ ${course.semester}`,
-            titleEn: `Additional Physics ${course.bookTitle} Semester ${course.semester}`,
+            titleTh: `${titlePrefixTh} ${course.bookTitle} ภาคเรียนที่ ${course.semester}`,
+            titleEn: `${titlePrefixEn} ${course.bookTitle} Semester ${course.semester}`,
             gradeLevel: course.gradeLevel,
             semester: course.semester,
             strandIds,
@@ -614,7 +637,19 @@ function buildCanonicalCourseCatalog(): CanonicalCourseCatalog {
     const primaryCourses = PRIMARY_CORE_COURSE_DEFINITIONS.flatMap((definition) =>
         PRIMARY_GRADE_LEVELS.map((gradeLevel) => buildPrimaryCourseEntryFromDefinition(definition, gradeLevel))
     )
-    return [...primaryCourses, ...secondaryCourses, ...buildPhysicsAdditionalCourseEntries()]
+    return [
+        ...primaryCourses,
+        ...secondaryCourses,
+        ...buildPhysicsAdditionalCourseEntries(),
+        ...buildAdditionalCourseEntries("chemistry", "เคมีเพิ่มเติม", "Additional Chemistry", CHEM_ADDITIONAL_UPPER_SECONDARY_COURSES),
+        ...buildAdditionalCourseEntries("biology", "ชีววิทยาเพิ่มเติม", "Additional Biology", BIO_ADDITIONAL_UPPER_SECONDARY_COURSES),
+        ...buildAdditionalCourseEntries(
+            "earth_space_science",
+            "โลก ดาราศาสตร์ และอวกาศเพิ่มเติม",
+            "Additional Earth and Space Science",
+            EARTH_ADDITIONAL_UPPER_SECONDARY_COURSES
+        ),
+    ]
 }
 
 export const CANONICAL_COURSE_CATALOG: CanonicalCourseCatalog = buildCanonicalCourseCatalog()
@@ -643,7 +678,23 @@ export function getSecondaryCoreCourseUnits(course: CanonicalCourseEntry): Secon
     }
     const definition = SECONDARY_CORE_DEFINITIONS_BY_ID.get(definitionId)
     if (!definition) {
-        return []
+        const pack = getSubjectCurriculumMapPack(course.coreSubjectId)
+        if (!pack) return []
+        const unitsById = new Map(pack.unitOutlines.map((unit) => [unit.id, unit]))
+        const displayUnits: SecondaryCoreUnit[] = []
+        course.unitIds.forEach((unitId, unitIndex) => {
+            const unit = unitsById.get(unitId)
+            if (!unit) return
+            displayUnits.push({
+                unitNumber: unitIndex + 1,
+                title: unit.title,
+                hours: unit.estimatedHours,
+                duringIndicators: [],
+                terminalIndicators: [],
+                summary: unit.keyConceptTh,
+            })
+        })
+        return displayUnits
     }
     const sourceTitleTh = resolveSecondaryCoreSourceTitle(definition, course.gradeLevel)
     return getSecondaryCoreUnitsForCourse(SECONDARY_CORE_UNIT_ROWS_PAYLOAD, sourceTitleTh, course.gradeLevel)

@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/dialog";
 import { Users } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
-import { useSession } from "next-auth/react";
 import { isClassroomGamificationEnabled } from "@/lib/classroom-gamification-enabled";
 import { isTeacherOrAdmin } from "@/lib/role-guards";
 import { useToast } from "@/components/ui/use-toast";
@@ -51,6 +50,7 @@ import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashb
 
 interface ClassroomDashboardProps {
     classroom: ClassroomDashboardViewModel;
+    currentUserRole: string | null | undefined;
     /** When set (e.g. from `?focus=assignments`), open table view for assignment columns. */
     initialClassFocus?: "assignments" | null;
     /** When set (e.g. from `?highlightAssignmentId=`), scroll/highlight that assignment column. */
@@ -67,6 +67,7 @@ interface ClassroomDashboardProps {
 
 export function ClassroomDashboard({
     classroom: initialClassroom,
+    currentUserRole,
     initialClassFocus = null,
     highlightAssignmentId = null,
     initialStudentLookup = null,
@@ -75,7 +76,6 @@ export function ClassroomDashboard({
     initialRewardGamePin = null,
 }: ClassroomDashboardProps) {
     const { t } = useLanguage();
-    const { data: session, status: sessionStatus } = useSession();
     const [selectedStudent, setSelectedStudent] = useState<ClassroomDashboardViewModel["students"][number] | null>(null);
     const [lineManagerOpen, setLineManagerOpen] = useState(false);
     const [activeHighlightAssignmentId, setActiveHighlightAssignmentId] = useState<string | null>(
@@ -259,11 +259,7 @@ export function ClassroomDashboard({
     }, [highlightAssignmentId]);
 
     const gamificationToolbarMode =
-        sessionStatus === "loading"
-            ? "loading"
-            : isTeacherOrAdmin(session?.user?.role) && isClassroomGamificationEnabled()
-              ? "live"
-              : "comingSoon";
+        isTeacherOrAdmin(currentUserRole) && isClassroomGamificationEnabled() ? "live" : "comingSoon";
 
     useEffect(() => {
         if (gamificationToolbarMode !== "live" && viewMode === "negamon") {

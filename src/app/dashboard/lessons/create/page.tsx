@@ -48,7 +48,6 @@ import {
 } from "@/lib/curriculum/subject-catalog"
 import { getCurriculumStandardById, type CurriculumStandard } from "@/lib/curriculum/strands-and-standards"
 import { SECONDARY_CORE_CURRICULUM_INDICATOR_CATALOG } from "@/lib/curriculum/canonical-indicators"
-import { type SubjectLessonTemplate } from "@/lib/curriculum/template-master-pack"
 import { getSubjectUnitLearningOutcomePack, type SubjectUnitLearningOutcomePack } from "@/lib/curriculum/unit-learning-outcomes"
 import { cn } from "@/lib/utils"
 import {
@@ -77,6 +76,11 @@ type CurriculumIndicatorDisplay = {
     standardId: string
     indicatorCode: string
     indicatorType: "during" | "terminal"
+}
+type CurriculumUnitDisplay = {
+    unit: SecondaryCoreUnit
+    outline: SubjectCurriculumUnitOutline | null
+    outcomePack: SubjectUnitLearningOutcomePack | null
 }
 type CurriculumIndicatorRow = {
     standard: CurriculumStandard
@@ -370,7 +374,7 @@ export default function CreateLessonPage() {
     const availableCurriculumCourseEntries = useMemo(
         () =>
             getCanonicalCourseOptions(curriculumSubjectId, curriculumCourseGradeLevel),
-        [curriculumCourseGradeLevel, curriculumCourseTrack, curriculumSubjectId]
+        [curriculumCourseGradeLevel, curriculumSubjectId]
     )
     const selectedCurriculumCourse = useMemo<CanonicalCourseEntry | null>(
         () =>
@@ -394,6 +398,19 @@ export default function CreateLessonPage() {
     const selectedCurriculumRealUnits = useMemo<SecondaryCoreUnit[]>(
         () => (selectedCurriculumCourse ? getSecondaryCoreCourseUnits(selectedCurriculumCourse) : []),
         [selectedCurriculumCourse]
+    )
+    const selectedCurriculumUnitDisplays = useMemo<CurriculumUnitDisplay[]>(
+        () =>
+            selectedCurriculumRealUnits.map((unit, unitIndex) => {
+                const outline = availableCurriculumUnitsForCourse[unitIndex] ?? null
+                const shouldShowOutcomes = curriculumCourseTrack === "additional" && selectedCurriculumSubject?.courseType === "additional"
+                return {
+                    unit,
+                    outline,
+                    outcomePack: shouldShowOutcomes && outline ? getSubjectUnitLearningOutcomePack(curriculumSubjectId, outline.id) : null,
+                }
+            }),
+        [availableCurriculumUnitsForCourse, curriculumCourseTrack, curriculumSubjectId, selectedCurriculumRealUnits, selectedCurriculumSubject?.courseType]
     )
     const selectedCurriculumUnit = useMemo<SubjectCurriculumUnitOutline | null>(
         () => {
@@ -1179,9 +1196,9 @@ export default function CreateLessonPage() {
                                             {selectedCurriculumRealUnits.length} หน่วย
                                         </span>
                                     </div>
-                                    {selectedCurriculumRealUnits.length > 0 ? (
+                                    {selectedCurriculumUnitDisplays.length > 0 ? (
                                         <div className="mt-4 space-y-3">
-                                            {selectedCurriculumRealUnits.map((unit, unitIndex) => (
+                                            {selectedCurriculumUnitDisplays.map(({ unit, outcomePack }, unitIndex) => (
                                                 <div
                                                     key={`${unit.unitNumber}-${unitIndex}`}
                                                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
@@ -1248,7 +1265,47 @@ export default function CreateLessonPage() {
                                                                 ปลายทาง {unit.terminalIndicators.length}
                                                             </span>
                                                         ) : null}
+                                                        {outcomePack ? (
+                                                            <span className="rounded-full border border-sky-200 bg-white px-2.5 py-1 text-sky-800">
+                                                                ผลการเรียนรู้ {outcomePack.learningOutcomes.length}
+                                                            </span>
+                                                        ) : null}
                                                     </div>
+                                                    {outcomePack && curriculumCourseTrack === "additional" && selectedCurriculumSubject?.courseType === "additional" ? (
+                                                        <div className="mt-3 rounded-xl border border-violet-100 bg-violet-50/50 px-3 py-3">
+                                                            <p className="text-[11px] font-black uppercase tracking-wide text-violet-700">
+                                                                หัวข้อย่อยในหน่วย
+                                                            </p>
+                                                            <ul className="mt-2 space-y-1.5">
+                                                                {outcomePack.topics.map((topic) => (
+                                                                    <li key={topic.id} className="grid grid-cols-[0.75rem_1fr] gap-2 text-xs leading-5 text-slate-700">
+                                                                        <span className="font-black text-violet-700">•</span>
+                                                                        <span>{topic.title}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    ) : null}
+                                                    {outcomePack ? (
+                                                        <div className="mt-3 rounded-xl border border-sky-100 bg-white px-3 py-3">
+                                                            <p className="text-[11px] font-black uppercase tracking-wide text-sky-700">
+                                                                ผลการเรียนรู้ที่สอดคล้อง
+                                                            </p>
+                                                            <ol className="mt-2 space-y-1.5">
+                                                                {outcomePack.learningOutcomes.map((outcome, outcomeIndex) => (
+                                                                    <li
+                                                                        key={outcome.id}
+                                                                        className="grid grid-cols-[1.75rem_1fr] gap-2 text-xs leading-5 text-slate-700"
+                                                                    >
+                                                                        <span className="font-black text-sky-700">
+                                                                            {outcomeIndex + 1}.
+                                                                        </span>
+                                                                        <span>{outcome.text}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ol>
+                                                        </div>
+                                                    ) : null}
                                                     {unit.duringIndicators.length > 0 ? (
                                                         <div className="mt-3">
                                                             <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">

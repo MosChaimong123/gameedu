@@ -35,12 +35,24 @@ import { tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages"
 import { useLanguage } from "@/components/providers/language-provider"
 import { isTeacherOrAdmin } from "@/lib/role-guards"
 import { isOmrDashboardEnabled } from "@/lib/omr-dashboard-enabled"
+import { OMR_QUESTION_COUNT } from "@/lib/omr-template"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 
 type OMRQuiz = {
     id: string
     title: string
     questionCount: number
     answerKey: Record<string, string>
+    classroom?: {
+        id: string
+        name: string
+    } | null
     showResults?: boolean
     _count?: {
         results: number
@@ -52,6 +64,11 @@ type OMRQuiz = {
         score: number
         total: number
     }[]
+}
+
+type ClassroomOption = {
+    id: string
+    name: string
 }
 
 export default function OMRDashboardPage() {
@@ -66,9 +83,14 @@ export default function OMRDashboardPage() {
     const [selectedQuiz, setSelectedQuiz] = useState<OMRQuiz | null>(null)
     const [deleteTarget, setDeleteTarget] = useState<OMRQuiz | null>(null)
     const [isDeletingQuiz, setIsDeletingQuiz] = useState(false)
+    const [classrooms, setClassrooms] = useState<ClassroomOption[]>([])
     
     // New Quiz State
-    const [newQuiz, setNewQuiz] = useState({ title: "", questionCount: 20 })
+    const [newQuiz, setNewQuiz] = useState({
+        title: "",
+        classId: "",
+        questionCount: OMR_QUESTION_COUNT,
+    })
     const omrEnabled = isOmrDashboardEnabled()
 
     useEffect(() => {
@@ -85,14 +107,24 @@ export default function OMRDashboardPage() {
 
     const fetchQuizzes = useCallback(async () => {
         try {
-            const res = await fetch("/api/omr/quizzes")
-            if (!res.ok) {
+            const [quizResponse, classroomResponse] = await Promise.all([
+                fetch("/api/omr/quizzes"),
+                fetch("/api/classrooms"),
+            ])
+            if (!quizResponse.ok) {
                 throw new Error(
-                    await getLocalizedOmrErrorMessageFromResponse(res, "omrLoadQuizzesError", t, language)
+                    await getLocalizedOmrErrorMessageFromResponse(quizResponse, "omrLoadQuizzesError", t, language)
                 )
             }
-            const data = await res.json()
+            if (!classroomResponse.ok) {
+                throw new Error(t("omrLoadQuizzesError"))
+            }
+            const [data, classroomData] = await Promise.all([
+                quizResponse.json(),
+                classroomResponse.json(),
+            ])
             setQuizzes(Array.isArray(data) ? data : [])
+            setClassrooms(Array.isArray(classroomData) ? classroomData : [])
         } catch (error) {
             const raw = error instanceof Error ? error.message : null
             const net = tryLocalizeFetchNetworkFailureMessage(raw, t)
@@ -134,7 +166,7 @@ export default function OMRDashboardPage() {
     }
 
     const handleCreateQuiz = async () => {
-        if (!newQuiz.title) return
+        if (!newQuiz.title.trim() || !newQuiz.classId) return
         try {
             const res = await fetch("/api/omr/quizzes", {
                 method: "POST",
@@ -148,6 +180,7 @@ export default function OMRDashboardPage() {
             const data = await res.json()
             setQuizzes([data, ...quizzes])
             setIsCreateModalOpen(false)
+            setNewQuiz({ title: "", classId: "", questionCount: OMR_QUESTION_COUNT })
             toast({
                 title: t("omrToastQuizCreatedTitle"),
                 description: t("omrToastQuizCreatedDesc"),
@@ -363,22 +396,40 @@ export default function OMRDashboardPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">{t("omrLabelNumQuestions")}</label>
-                                    <div className="grid grid-cols-3 gap-3 mt-2">
-                                        {[20, 50, 80].map((num) => (
-                                            <button
-                                                key={num}
-                                                onClick={() => setNewQuiz({...newQuiz, questionCount: num})}
-                                                className={`h-12 rounded-xl font-black text-xs transition-all ${newQuiz.questionCount === num ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
-                                            >
-                                                {t("omrNumQuestionsOption", { count: num })}
-                                            </button>
-                                        ))}
-                                    </div>
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">{t("omrLabelClassroom")}</label>
+                                    <Select
+                                        value={newQuiz.classId}
+                                        onValueChange={(classId) => setNewQuiz({ ...newQuiz, classId })}
+                                    >
+                                        <SelectTrigger className="mt-2 h-14 w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 font-bold">
+                                            <SelectValue placeholder={t("omrSelectClassroom")} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {classrooms.map((classroom) => (
+                                                <SelectItem key={classroom.id} value={classroom.id}>
+                                                    {classroom.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="rounded-2xl border border-brand-purple/15 bg-brand-purple/5 p-4">
+                                    <p className="text-sm font-black text-brand-purple">
+                                        {t("omrNumQuestionsOption", { count: OMR_QUESTION_COUNT })}
+                                    </p>
+                                    <p className="mt-1 text-xs font-bold text-slate-500">
+                                        {t("omrFixedTemplateHint")}
+                                    </p>
                                 </div>
                                 <div className="flex gap-4 pt-4">
                                     <Button variant="ghost" className="flex-1 h-16 rounded-2xl font-black text-slate-400" onClick={() => setIsCreateModalOpen(false)}>{t("omrWizardCancel")}</Button>
-                                    <Button className="flex-1 h-16 rounded-2xl bg-slate-900 text-white font-black" onClick={handleCreateQuiz}>{t("omrWizardCreate")}</Button>
+                                    <Button
+                                        className="flex-1 h-16 rounded-2xl bg-slate-900 text-white font-black"
+                                        onClick={handleCreateQuiz}
+                                        disabled={!newQuiz.title.trim() || !newQuiz.classId}
+                                    >
+                                        {t("omrWizardCreate")}
+                                    </Button>
                                 </div>
                             </div>
                         </motion.div>

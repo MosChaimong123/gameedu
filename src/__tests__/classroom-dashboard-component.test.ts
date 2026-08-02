@@ -13,7 +13,6 @@ const mockUseUiState = vi.fn();
 const mockUseAttendanceFlow = vi.fn();
 const mockUsePointsFlow = vi.fn();
 const mockUseSelectionFlow = vi.fn();
-const mockUseSession = vi.fn();
 
 const toolbarPropsSpy = vi.fn();
 const attendanceBannerPropsSpy = vi.fn();
@@ -35,6 +34,14 @@ vi.mock("use-sound", () => ({
   default: mockUseSound,
 }));
 
+vi.mock("@/lib/auth/client-session", () => ({
+  useSession: vi.fn(),
+}));
+
+vi.mock("@/lib/actions/teaching-media-actions", () => ({
+  listTeachingMedia: vi.fn(),
+}));
+
 vi.mock("@/components/classroom/use-classroom-dashboard-state", () => ({
   useClassroomDashboardState: mockUseDashboardState,
 }));
@@ -53,10 +60,6 @@ vi.mock("@/components/classroom/use-classroom-points-flow", () => ({
 
 vi.mock("@/components/classroom/use-classroom-selection-flow", () => ({
   useClassroomSelectionFlow: mockUseSelectionFlow,
-}));
-
-vi.mock("next-auth/react", () => ({
-  useSession: mockUseSession,
 }));
 
 vi.mock("@/components/classroom/classroom-dashboard-toolbar", () => ({
@@ -210,10 +213,6 @@ describe("classroom dashboard component", () => {
       resetPoints: vi.fn(),
     });
 
-    mockUseSession.mockReturnValue({
-      data: { user: { role: "TEACHER" } },
-      status: "authenticated",
-    });
   });
 
   it(
@@ -224,6 +223,7 @@ describe("classroom dashboard component", () => {
     renderToStaticMarkup(
       React.createElement(ClassroomDashboard, {
         classroom: baseClassroom,
+        currentUserRole: "TEACHER",
         initialClassFocus: null,
         highlightAssignmentId: "assignment-1",
       })
@@ -293,6 +293,7 @@ describe("classroom dashboard component", () => {
     renderToStaticMarkup(
       React.createElement(ClassroomDashboard, {
         classroom: baseClassroom,
+        currentUserRole: "TEACHER",
       })
     );
 

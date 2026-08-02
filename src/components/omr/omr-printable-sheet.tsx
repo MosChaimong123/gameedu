@@ -1,288 +1,194 @@
-"use client"
+"use client";
 
-import React, { useRef } from "react"
-import { Download } from "lucide-react"
-import html2canvas from "html2canvas"
-import { Button } from "@/components/ui/button"
-import { useLanguage } from "@/components/providers/language-provider"
+import { useRef } from "react";
+import { Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/components/providers/language-provider";
+import {
+  OMR_ANSWER_GEOMETRY,
+  OMR_BUBBLE_RADIUS,
+  OMR_CANONICAL_HEIGHT,
+  OMR_CANONICAL_WIDTH,
+  OMR_OPTION_LABELS_TH,
+  OMR_REGISTRATION_MARKERS,
+  OMR_STUDENT_ID_GEOMETRY,
+  OMR_TEMPLATE_ID,
+} from "@/lib/omr-template";
 
 interface OMRPrintableSheetProps {
-    type: "20" | "50" | "80"
-    quizTitle?: string
+  quizTitle?: string;
 }
 
-export function OMRPrintableSheet({ type, quizTitle }: OMRPrintableSheetProps) {
-    const { t, language } = useLanguage()
-    const resolvedTitle = quizTitle ?? t("omrPrintableDefaultQuizTitle")
-    const sheetRef = useRef<HTMLDivElement>(null)
+const OPTION_HEADER_QUESTIONS = new Set([1, 11, 21, 31, 41]);
 
-    const downloadImage = async () => {
-        if (!sheetRef.current) return
+export function OMRPrintableSheet({ quizTitle }: OMRPrintableSheetProps) {
+  const { t } = useLanguage();
+  const svgRef = useRef<SVGSVGElement>(null);
+  const resolvedTitle = quizTitle?.trim() || t("omrPrintableDefaultQuizTitle");
 
-        const canvas = await html2canvas(sheetRef.current, {
-            scale: 3, 
-            useCORS: true,
-            logging: false,
-            backgroundColor: "#ffffff",
-            windowWidth: 794, // 210mm at 96dpi
-            windowHeight: 1123, // 297mm at 96dpi
-            onclone: (clonedDoc) => {
-                const element = clonedDoc.getElementById('printable-omr-sheet');
-                if (element) {
-                    element.style.scale = "1";
-                    element.style.transform = "none";
-                    element.style.boxShadow = "none";
-                }
-                
-                const style = clonedDoc.createElement('style');
-                style.innerHTML = `
-                    :root {
-                        --background: 255 255 255 !important;
-                        --foreground: 0 0 0 !important;
-                        --primary: 0 0 0 !important;
-                        --border: 0 0 0 !important;
-                    }
-                    #printable-omr-sheet {
-                        background-color: #ffffff !important;
-                    }
-                    #printable-omr-sheet * {
-                        color: #000000 !important;
-                        border-color: #000000 !important;
-                        text-shadow: none !important;
-                        box-sizing: border-box !important;
-                    }
-                    /* Bubble Specific Reset - ONLY for bubbles */
-                    .omr-bubble {
-                        display: flex !important;
-                        align-items: center !important;
-                        justify-content: center !important;
-                        overflow: visible !important;
-                    }
-                    .omr-bubble span {
-                        line-height: 0 !important; 
-                    }
-                    /* Labels - use absolute vertical center-ish */
-                    .omr-label {
-                        display: flex !important;
-                        align-items: center !important;
-                        justify-content: center !important;
-                        padding-top: 2px !important; /* Optical correction for Thai font descenders */
-                    }
-                    .text-slate-400 { color: #94a3b8 !important; }
-                    .bg-slate-50 { background-color: #f8fafc !important; }
-                `;
-                clonedDoc.head.appendChild(style);
-            }
-        })
-
-        const imgData = canvas.toDataURL("image/png", 1.0)
-        const link = document.createElement('a')
-        link.href = imgData
-        const safeName = resolvedTitle.replace(/[/\\?%*:|"<>]/g, "-").slice(0, 80)
-        link.download = `OMR_Sheet_${type}q_${safeName}.png`
-        link.click()
-    }
-
-    const getColCount = () => {
-        if (type === "20") return 2
-        if (type === "50") return 3
-        if (type === "80") return 4 // 80/4 = 20 rows, fits perfectly
-        return 2
-    }
-    const colCount = getColCount()
-
-    // Mathematical Centering Helper (SVG)
-    const SVGBubble = ({ text, size, isID = false }: { text: string, size: string, isID?: boolean }) => {
-        // Calculate pixel size for the SVG container
-        const pxSize = size.includes('w-6') ? 24 : size.includes('w-5') ? 20 : size.includes('w-3.5') ? 14 : 20;
-        
-        return (
-            <svg 
-                width={pxSize} 
-                height={pxSize} 
-                viewBox="0 0 100 100" 
-                className={size}
-            >
-                <circle 
-                    cx="50" 
-                    cy="50" 
-                    r="47" 
-                    fill="none" 
-                    stroke="black" 
-                    strokeWidth="6" 
-                />
-                <text 
-                    x="50" 
-                    y={isID ? "52" : "55"} // Precise vertical balancing
-                    textAnchor="middle" 
-                    dominantBaseline="central" 
-                    fontSize={isID ? "50" : "55"} 
-                    fontFamily="sans-serif" 
-                    fontWeight="900"
-                    fill="black"
-                    className="italic font-black"
-                >
-                    {text}
-                </text>
-            </svg>
-        );
+  const downloadImage = async () => {
+    if (!svgRef.current) return;
+    const clone = svgRef.current.cloneNode(true) as SVGSVGElement;
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    clone.setAttribute("width", String(OMR_CANONICAL_WIDTH * 2));
+    clone.setAttribute("height", String(OMR_CANONICAL_HEIGHT * 2));
+    const source = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const image = new window.Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = OMR_CANONICAL_WIDTH * 2;
+      canvas.height = OMR_CANONICAL_HEIGHT * 2;
+      const context = canvas.getContext("2d");
+      if (!context) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const link = document.createElement("a");
+      const safeName = resolvedTitle.replace(/[/\\?%*:|"<>]/g, "-").slice(0, 80);
+      link.href = canvas.toDataURL("image/png", 1);
+      link.download = `OMR_${OMR_TEMPLATE_ID}_${safeName}.png`;
+      link.click();
+      URL.revokeObjectURL(url);
     };
+    image.onerror = () => URL.revokeObjectURL(url);
+    image.src = url;
+  };
 
-    const renderBubbles = (count: number) => {
-        const rows = []
-        const options = ["A", "B", "C", "D", "E"]
-        const questionsPerCol = Math.ceil(count / colCount)
+  return (
+    <div className="flex w-full max-w-4xl flex-col items-center gap-6">
+      <Button
+        onClick={downloadImage}
+        className="h-14 rounded-2xl bg-slate-900 px-8 text-base font-black text-white shadow-xl transition-transform hover:scale-[1.02] hover:bg-brand-purple"
+      >
+        <Download className="mr-2 h-5 w-5" />
+        {t("omrPrintableDownloadPng")}
+      </Button>
 
-        const bubbleSize = type === "20" ? "w-6 h-6" : "w-5 h-5"
-        const numSize = type === "20" ? "w-6 text-base" : "w-5 text-sm"
-        for (let col = 0; col < colCount; col++) {
-            const colQs = []
-            for (let q = 1; q <= questionsPerCol; q++) {
-                const qNum = col * questionsPerCol + q
-                if (qNum > count) break
+      <div className="w-full overflow-auto rounded-[2rem] border border-slate-200 bg-slate-100 p-3 shadow-inner sm:p-6">
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${OMR_CANONICAL_WIDTH} ${OMR_CANONICAL_HEIGHT}`}
+          role="img"
+          aria-label={t("omrTemplatesPreviewTitle")}
+          className="mx-auto block h-auto w-full max-w-[794px] bg-white shadow-xl"
+          style={{ fontFamily: '"Noto Sans Thai", "Tahoma", sans-serif' }}
+        >
+          <rect width={OMR_CANONICAL_WIDTH} height={OMR_CANONICAL_HEIGHT} fill="white" />
 
-                colQs.push(
-                    <div key={qNum} className={`flex items-center ${type === "20" ? "gap-1.5 mb-2.5" : "gap-1 mb-1.5"}`}>
-                        <span className={`${numSize} font-black text-right`} style={{ color: 'rgb(0, 0, 0)' }}>{qNum}</span>
-                        <div className={`flex ${type === "20" ? "gap-1.5" : "gap-1"}`}>
-                            {options.map(opt => (
-                                <SVGBubble key={opt} text={opt} size={bubbleSize} />
-                            ))}
-                        </div>
-                    </div>
-                )
-            }
-            rows.push(
-                <div key={col} className={`flex flex-col ${type === "20" ? "gap-2.5 px-4" : "gap-1.5 px-2"} border-l-[2px] first:border-l-0`} style={{ borderLeftColor: 'rgb(241, 245, 249)' }}>
-                    {/* Synchronized Header Row */}
-                    <div className={`flex items-center ${type === "20" ? "gap-1.5 mb-2" : "gap-1 mb-1"}`}>
-                        <div className={`${numSize}`} /> {/* Mirror number column spacer */}
-                        <div className={`flex ${type === "20" ? "gap-1.5" : "gap-1"}`}>
-                            {options.map(o => (
-                                <div 
-                                    key={o} 
-                                    className={`${bubbleSize} flex items-center justify-center font-black text-black italic text-[11px] leading-none`}
-                                >
-                                    {o}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    {colQs}
-                </div>
-            )
-        }
-        return rows
-    }
+          {OMR_REGISTRATION_MARKERS.map((marker) => (
+            <rect
+              key={marker.id}
+              x={marker.x - marker.size / 2}
+              y={marker.y - marker.size / 2}
+              width={marker.size}
+              height={marker.size}
+              rx="1"
+              fill="black"
+            />
+          ))}
 
-    return (
-        <div className="flex flex-col items-center gap-6 w-full max-w-4xl">
-            {/* Action Buttons */}
-            <div className="flex gap-4">
-                <Button 
-                    onClick={downloadImage}
-                    className="h-14 px-10 rounded-[2rem] bg-slate-900 text-white font-black text-lg shadow-xl hover:bg-purple-600 transition-all hover:scale-105"
-                >
-                    <Download className="mr-2 w-6 h-6" />
-                    {t("omrPrintableDownloadPng")}
-                </Button>
-            </div>
+          <g fill="none" stroke="black" strokeWidth="3">
+            <rect x="180" y="78" width="650" height="112" rx="28" />
+            <line x1="180" y1="132" x2="830" y2="132" />
+            <line x1="290" y1="78" x2="290" y2="132" />
+            <line x1="620" y1="78" x2="620" y2="132" />
+            <line x1="680" y1="78" x2="680" y2="132" />
+            <line x1="260" y1="132" x2="260" y2="190" />
+            <line x1="505" y1="132" x2="505" y2="190" />
+            <line x1="565" y1="132" x2="565" y2="190" />
+          </g>
 
-            {/* A4 Sheet Container (Hidden/Printable) */}
-            <div className="overflow-hidden bg-slate-100 p-8 rounded-[3rem] border border-slate-200 shadow-inner">
-                <div 
-                    ref={sheetRef}
-                    id="printable-omr-sheet"
-                    className="w-[210mm] h-[297mm] min-h-[297mm] bg-white p-[10mm] relative flex flex-col font-sans"
-                    lang={language === "th" ? "th" : "en"}
-                    style={{ 
-                        boxShadow: "0 0 20px rgba(0,0,0,0.05)",
-                        scale: "0.65",
-                        transformOrigin: "top center",
-                        color: 'rgb(15, 23, 42)',
-                        width: '210mm',
-                        height: '297mm'
-                    }}
-                >
-                    {/* A4 Dimension Indicator (Requested by User) */}
-                    <div className="absolute top-1 left-1/2 -translate-x-1/2 text-[8px] text-slate-300 font-mono pointer-events-none">
-                        {t("omrPrintableA4Hint")}
-                    </div>
-                    {/* Perspective Markers (Squares) */}
-                    {/* Perspective Markers (Absolute edges of A4) */}
-                    <div className="absolute top-2 left-2 w-10 h-10 bg-black z-10" />
-                    <div className="absolute top-2 right-2 w-10 h-10 bg-black z-10" />
-                    <div className="absolute bottom-2 left-2 w-10 h-10 bg-black z-10" />
-                    <div className="absolute bottom-2 right-2 w-10 h-10 bg-black z-10" />
-                    <div className="absolute top-1/2 left-2 -translate-y-1/2 w-10 h-10 bg-black z-10" />
-                    <div className="absolute top-1/2 right-2 -translate-y-1/2 w-10 h-10 bg-black z-10" />
+          <g fill="black" fontSize="20" fontWeight="700">
+            <text x="198" y="114">{t("omrSheetLabelFullName")}</text>
+            <text x="635" y="114">{t("omrSheetDate")}</text>
+            <text x="198" y="168">{t("omrSheetLabelClass")}</text>
+            <text x="518" y="168">{t("omrSheetLabelSeatNo")}</text>
+            <text x="180" y="220">{t("omrSheetStudentId")}</text>
+          </g>
 
-                    {/* Content Padder (Strictly constrained to A4 safe area) */}
-                    <div className="flex-1 flex flex-col px-10 py-4 border-2" style={{ borderColor: 'rgb(248, 250, 252)' }}>
-                        {/* Header Row (Name & ID) - Compact */}
-                        <div className="mb-4 flex gap-6 items-start">
-                            {/* Header Box (Compressed) */}
-                            <div className="flex-1">
-                                <div className="w-full border-[3px] rounded-xl overflow-hidden shadow-sm" style={{ borderColor: 'rgb(0, 0, 0)' }}>
-                                    <div className="flex border-b-[3px]" style={{ borderBottomColor: 'rgb(0, 0, 0)' }}>
-                                        <div className="px-4 py-2.5 font-black text-base border-r-[3px] min-w-[8.5rem] bg-slate-50 omr-label whitespace-nowrap" style={{ backgroundColor: 'rgb(241, 245, 249)', borderColor: 'rgb(0, 0, 0)' }}>{t("omrSheetLabelFullName")}</div>
-                                        <div className="flex-1"></div>
-                                    </div>
-                                    <div className="flex text-sm">
-                                        <div className="px-4 py-1.5 font-black border-r-[3px] min-w-[8.5rem] bg-slate-50 omr-label whitespace-nowrap" style={{ backgroundColor: 'rgb(241, 245, 249)', borderColor: 'rgb(0, 0, 0)' }}>{t("omrSheetLabelClass")}</div>
-                                        <div className="flex-1 border-r-[3px]" style={{ borderRightColor: 'rgb(0, 0, 0)' }}></div>
-                                        <div className="px-4 py-1.5 font-black min-w-[8.5rem] bg-slate-50 omr-label whitespace-nowrap" style={{ backgroundColor: 'rgb(241, 245, 249)' }}>{t("omrSheetLabelSeatNo")}</div>
-                                        <div className="flex-1"></div>
-                                    </div>
-                                </div>
-                            </div>
+          <g fill="none" stroke="#d7dce2" strokeWidth="2">
+            {Array.from({ length: 5 }, (_, index) => (
+              <rect key={index} x={176 + index * 38} y="228" width="38" height="38" />
+            ))}
+          </g>
 
-                            {/* Student ID Grid (Ultra Compact Header Row) */}
-                            <div className="flex flex-col border-[2px] p-1.5 rounded-xl w-fit shrink-0 bg-white" style={{ borderColor: 'rgb(0, 0, 0)' }}>
-                                <span
-                                    className={`text-[8px] font-black mb-1 text-center tracking-widest omr-label max-w-[5.5rem] leading-tight ${language === "en" ? "uppercase" : ""}`}
-                                    style={{ color: "rgb(0, 0, 0)" }}
-                                >
-                                    {t("omrSheetStudentId")}
-                                </span>
-                                <div className="flex gap-1.5">
-                                    {Array.from({ length: 5 }).map((_, i) => (
-                                        <div key={i} className="flex flex-col gap-0.5">
-                                            <div className="w-4 h-5 border-[2px] rounded-sm mb-0.5 flex items-center justify-center font-black text-[10px]" style={{ borderColor: 'rgb(0, 0, 0)' }} />
-                                            <div className="flex flex-col gap-0.5">
-                                                {Array.from({ length: 10 }).map((_, n) => (
-                                                    <SVGBubble key={n} text={n.toString()} size={type === "20" ? "w-5 h-5" : "w-3.5 h-3.5"} isID />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
+          <g fill="black" fontSize="18" fontWeight="700">
+            {OMR_STUDENT_ID_GEOMETRY.flatMap((column) =>
+              column.bubbles.map((bubble) => (
+                <g key={`student-${column.position}-${bubble.value}`}>
+                  {column.position === 0 ? (
+                    <text x={bubble.x - 38} y={bubble.y + 6} textAnchor="middle">
+                      {bubble.value}
+                    </text>
+                  ) : null}
+                  <circle
+                    cx={bubble.x}
+                    cy={bubble.y}
+                    r={OMR_BUBBLE_RADIUS}
+                    fill="white"
+                    stroke="#aeb5bd"
+                    strokeWidth="2"
+                  />
+                </g>
+              ))
+            )}
+          </g>
 
-                        {/* Middle Section: Questions (Tightened) */}
-                        <div className="flex justify-center pt-0">
-                            <div className="flex gap-4">
-                                {renderBubbles(parseInt(type))}
-                            </div>
-                        </div>
+          {OMR_ANSWER_GEOMETRY.map((geometry) => (
+            <g key={geometry.question}>
+              {OPTION_HEADER_QUESTIONS.has(geometry.question) ? (
+                <g fill="black" fontSize="19" fontWeight="700">
+                  {geometry.bubbles.map((bubble, optionIndex) => (
+                    <text
+                      key={`header-${geometry.question}-${bubble.value}`}
+                      x={bubble.x}
+                      y={geometry.bubbles[0].y - 34}
+                      textAnchor="middle"
+                    >
+                      {OMR_OPTION_LABELS_TH[optionIndex]}
+                    </text>
+                  ))}
+                </g>
+              ) : null}
+              <text
+                x={geometry.label.x}
+                y={geometry.label.y}
+                fill="black"
+                fontSize="20"
+                fontWeight="700"
+                textAnchor="middle"
+              >
+                {geometry.question}
+              </text>
+              {geometry.bubbles.map((bubble) => (
+                <circle
+                  key={`${geometry.question}-${bubble.value}`}
+                  cx={bubble.x}
+                  cy={bubble.y}
+                  r={OMR_BUBBLE_RADIUS}
+                  fill="white"
+                  stroke="#aeb5bd"
+                  strokeWidth="2"
+                />
+              ))}
+            </g>
+          ))}
 
-                        {/* Bottom Row: Branding (Compact) */}
-                        <div className="mt-auto pt-6 flex items-end justify-end">
-                            <div className="flex items-center gap-6">
-                                <div className="flex flex-col items-end">
-                                    <div className="font-black text-lg italic leading-none">{t("omrSheetBrandLine")}</div>
-                                    <div
-                                        className={`text-[10px] font-black tracking-[0.2em] mt-1 ${language === "en" ? "uppercase" : ""}`}
-                                    >
-                                        {t("omrSheetBrandSub")}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
+          <g fill="#5d6670" fontSize="11" fontWeight="700">
+            <text x="500" y="1380" textAnchor="middle">
+              {resolvedTitle} • {OMR_TEMPLATE_ID}
+            </text>
+            <text x="500" y="1397" textAnchor="middle">
+              {t("omrSheetPrintInstruction")}
+            </text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  );
 }

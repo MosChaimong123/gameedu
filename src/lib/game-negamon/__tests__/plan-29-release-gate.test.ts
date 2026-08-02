@@ -103,7 +103,7 @@ describe("Plan 29 release gate", () => {
         const lumilune = requireSpecies("lumilune");
         const voltshade = requireSpecies("voltshade");
 
-        expect(lumilune.moves.some((move) => move.category === "HEAL")).toBe(true);
+        expect(lumilune.moves.some((move) => move.effectFamily === "SHIELD")).toBe(true);
         expect(lumilune.moves.some((move) => move.effectFamily === "TEMPO_CONTROL")).toBe(true);
         expect(voltshade.moves.some((move) => move.effect === "PARALYZE")).toBe(true);
         expect(voltshade.moves.some((move) => move.effectFamily === "STRIKE_STATUS")).toBe(true);

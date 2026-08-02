@@ -1,147 +1,324 @@
-/**
- * OMR Logic Utility using OpenCV.js
- * I am Antigravity.
- */
-
-/**
- * OMR Logic Utility using OpenCV.js
- * I am Antigravity.
- */
+import type { OmrDetectedAnswer } from "@/lib/omr-grading";
+import {
+  OMR_ANSWER_GEOMETRY,
+  OMR_CANONICAL_HEIGHT,
+  OMR_CANONICAL_WIDTH,
+  OMR_OUTER_MARKERS,
+  OMR_STUDENT_ID_GEOMETRY,
+  type OmrPoint,
+} from "@/lib/omr-template";
 
 type OpenCVMatrix = {
-    delete: () => void
-    roi: (rect: unknown) => OpenCVMatrix
-}
-
-type OpenCVDeletable = {
-    delete: () => void
-}
+  cols: number;
+  rows: number;
+  delete: () => void;
+  roi: (rect: unknown) => OpenCVMatrix;
+};
 
 type OpenCVContourVector = {
-    delete: () => void
-    size: () => number
-    get: (index: number) => unknown
+  delete: () => void;
+  size: () => number;
+  get: (index: number) => OpenCVMatrix;
+};
+
+export type OpenCVRuntime = {
+  imread: (imageSource: HTMLImageElement | HTMLCanvasElement) => OpenCVMatrix;
+  Mat: new () => OpenCVMatrix;
+  MatVector: new () => OpenCVContourVector;
+  Rect: new (x: number, y: number, width: number, height: number) => unknown;
+  Size: new (width: number, height: number) => unknown;
+  cvtColor: (...args: unknown[]) => void;
+  adaptiveThreshold: (...args: unknown[]) => void;
+  findContours: (...args: unknown[]) => void;
+  boundingRect: (contour: unknown) => { x: number; y: number; width: number; height: number };
+  matFromArray: (...args: unknown[]) => OpenCVMatrix;
+  getPerspectiveTransform: (src: OpenCVMatrix, dst: OpenCVMatrix) => OpenCVMatrix;
+  warpPerspective: (...args: unknown[]) => void;
+  mean: (roi: OpenCVMatrix) => number[];
+  COLOR_RGBA2GRAY: number;
+  ADAPTIVE_THRESH_GAUSSIAN_C: number;
+  THRESH_BINARY_INV: number;
+  RETR_EXTERNAL: number;
+  CHAIN_APPROX_SIMPLE: number;
+  CV_32FC2: number;
+  INTER_LINEAR?: number;
+  BORDER_CONSTANT?: number;
+};
+
+type MarkerCandidate = OmrPoint & {
+  fillRatio: number;
+};
+
+export type OmrProcessResult =
+  | {
+      success: true;
+      messageKey: "omrProcessReadyForReview";
+      data: OmrDetectedAnswer[];
+      studentCode: string | null;
+      studentCodeConfidence: number;
+      ambiguousQuestions: number[];
+    }
+  | {
+      success: false;
+      messageKey:
+        | "omrProcessMarkersMissing"
+        | "omrProcessStudentCodeUnclear"
+        | "omrProcessingError";
+    };
+
+const MARKER_MIN_FILL_RATIO = 0.48;
+const BUBBLE_MIN_DARKNESS = 78;
+const BUBBLE_SECOND_MARK_DARKNESS = 62;
+const BUBBLE_MIN_MARGIN = 30;
+const SAMPLE_RADIUS = 7;
+
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, value));
 }
 
-type OpenCVRuntime = {
-    imread: (imageSource: HTMLImageElement | HTMLCanvasElement) => OpenCVMatrix
-    Mat: new () => OpenCVMatrix
-    MatVector: new () => OpenCVContourVector
-    Rect: new (x: number, y: number, width: number, height: number) => unknown
-    Size: new (width: number, height: number) => unknown
-    cvtColor: (...args: unknown[]) => void
-    adaptiveThreshold: (...args: unknown[]) => void
-    findContours: (...args: unknown[]) => void
-    boundingRect: (contour: unknown) => { x: number; y: number; width: number; height: number }
-    matFromArray: (...args: unknown[]) => OpenCVDeletable
-    getPerspectiveTransform: (src: OpenCVDeletable, dst: OpenCVDeletable) => OpenCVDeletable
-    warpPerspective: (...args: unknown[]) => void
-    mean: (roi: OpenCVMatrix) => number[]
-    COLOR_RGBA2GRAY: number
-    ADAPTIVE_THRESH_GAUSSIAN_C: number
-    THRESH_BINARY_INV: number
-    RETR_EXTERNAL: number
-    CHAIN_APPROX_SIMPLE: number
-    CV_32FC2: number
+function sampleDarkness(
+  cv: OpenCVRuntime,
+  matrix: OpenCVMatrix,
+  point: OmrPoint,
+  radius = SAMPLE_RADIUS
+) {
+  const x = Math.max(0, Math.round(point.x - radius));
+  const y = Math.max(0, Math.round(point.y - radius));
+  const width = Math.min(radius * 2, matrix.cols - x);
+  const height = Math.min(radius * 2, matrix.rows - y);
+  if (width <= 0 || height <= 0) return 0;
+  const roi = matrix.roi(new cv.Rect(x, y, width, height));
+  const value = cv.mean(roi)[0] ?? 0;
+  roi.delete();
+  return value;
 }
 
-export const processOMR = async (cv: OpenCVRuntime, imageSource: HTMLImageElement | HTMLCanvasElement) => {
-    const src = cv.imread(imageSource)
-    const gray = new cv.Mat()
-    const thresh = new cv.Mat()
+function findMarkerCandidates(
+  cv: OpenCVRuntime,
+  threshold: OpenCVMatrix,
+  contours: OpenCVContourVector
+): MarkerCandidate[] {
+  const minDimension = Math.min(threshold.cols, threshold.rows);
+  const candidates: MarkerCandidate[] = [];
 
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0)
-    cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 11, 2)
-
-    const contours = new cv.MatVector()
-    const hierarchy = new cv.Mat()
-    cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-
-    const anchors = []
-    for (let i = 0; i < contours.size(); ++i) {
-        const cnt = contours.get(i)
-        const rect = cv.boundingRect(cnt)
-        const aspectRatio = rect.width / rect.height
-        
-        if (aspectRatio > 0.7 && aspectRatio < 1.3 && rect.width > 15 && rect.width < 120) {
-            anchors.push({
-                x: rect.x + rect.width / 2,
-                y: rect.y + rect.height / 2,
-                area: rect.width * rect.height
-            })
-        }
+  for (let index = 0; index < contours.size(); index += 1) {
+    const contour = contours.get(index);
+    const rect = cv.boundingRect(contour);
+    contour.delete();
+    const aspectRatio = rect.width / Math.max(rect.height, 1);
+    const normalizedSize = Math.max(rect.width, rect.height) / minDimension;
+    if (
+      aspectRatio < 0.72 ||
+      aspectRatio > 1.28 ||
+      normalizedSize < 0.012 ||
+      normalizedSize > 0.09
+    ) {
+      continue;
     }
 
-    if (anchors.length < 4) {
-        // Cleanup and return failure
-        src.delete(); gray.delete(); thresh.delete(); contours.delete(); hierarchy.delete();
-        return { success: false, message: `ตรวจไม่พบเครื่องหมาย (พบเพียง ${anchors.length}/4 จุด)` }
+    const roi = threshold.roi(new cv.Rect(rect.x, rect.y, rect.width, rect.height));
+    const fillRatio = (cv.mean(roi)[0] ?? 0) / 255;
+    roi.delete();
+    if (fillRatio < MARKER_MIN_FILL_RATIO) continue;
+
+    candidates.push({
+      x: rect.x + rect.width / 2,
+      y: rect.y + rect.height / 2,
+      fillRatio,
+    });
+  }
+
+  return candidates;
+}
+
+function pickCornerMarker(
+  candidates: MarkerCandidate[],
+  width: number,
+  height: number,
+  corner: "top-left" | "top-right" | "bottom-left" | "bottom-right"
+) {
+  const isLeft = corner.endsWith("left");
+  const isTop = corner.startsWith("top");
+  const eligible = candidates.filter((candidate) => {
+    const horizontal = isLeft ? candidate.x < width * 0.32 : candidate.x > width * 0.68;
+    const vertical = isTop ? candidate.y < height * 0.25 : candidate.y > height * 0.75;
+    return horizontal && vertical;
+  });
+  const targetX = isLeft ? 0 : width;
+  const targetY = isTop ? 0 : height;
+
+  return (
+    eligible.sort((a, b) => {
+      const distanceA =
+        Math.hypot((a.x - targetX) / width, (a.y - targetY) / height) -
+        a.fillRatio * 0.04;
+      const distanceB =
+        Math.hypot((b.x - targetX) / width, (b.y - targetY) / height) -
+        b.fillRatio * 0.04;
+      return distanceA - distanceB;
+    })[0] ?? null
+  );
+}
+
+function classifyValues<T extends string>(
+  samples: Array<{ value: T; darkness: number }>
+): { value: T | null; confidence: number; ambiguous: boolean } {
+  const sorted = [...samples].sort((a, b) => b.darkness - a.darkness);
+  const first = sorted[0];
+  const second = sorted[1];
+  if (!first || first.darkness < BUBBLE_MIN_DARKNESS) {
+    return { value: null, confidence: 1 - clamp01((first?.darkness ?? 0) / BUBBLE_MIN_DARKNESS), ambiguous: false };
+  }
+
+  const margin = first.darkness - (second?.darkness ?? 0);
+  const ambiguous =
+    (second?.darkness ?? 0) >= BUBBLE_SECOND_MARK_DARKNESS || margin < BUBBLE_MIN_MARGIN;
+  return {
+    // Never preselect an uncertain mark. The review UI must make the teacher
+    // explicitly resolve double marks, shifted circles, and weak separation.
+    value: ambiguous ? null : first.value,
+    confidence: clamp01(margin / 120),
+    ambiguous,
+  };
+}
+
+export async function processOMR(
+  cv: OpenCVRuntime,
+  imageSource: HTMLImageElement | HTMLCanvasElement
+): Promise<OmrProcessResult> {
+  const src = cv.imread(imageSource);
+  const gray = new cv.Mat();
+  const threshold = new cv.Mat();
+  const contours = new cv.MatVector();
+  const hierarchy = new cv.Mat();
+  const warped = new cv.Mat();
+  let sourceCoordinates: OpenCVMatrix | null = null;
+  let destinationCoordinates: OpenCVMatrix | null = null;
+  let perspective: OpenCVMatrix | null = null;
+
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+    cv.adaptiveThreshold(
+      gray,
+      threshold,
+      255,
+      cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+      cv.THRESH_BINARY_INV,
+      31,
+      10
+    );
+    cv.findContours(
+      threshold,
+      contours,
+      hierarchy,
+      cv.RETR_EXTERNAL,
+      cv.CHAIN_APPROX_SIMPLE
+    );
+
+    const candidates = findMarkerCandidates(cv, threshold, contours);
+    const detectedCorners = [
+      pickCornerMarker(candidates, src.cols, src.rows, "top-left"),
+      pickCornerMarker(candidates, src.cols, src.rows, "top-right"),
+      pickCornerMarker(candidates, src.cols, src.rows, "bottom-left"),
+      pickCornerMarker(candidates, src.cols, src.rows, "bottom-right"),
+    ];
+    if (detectedCorners.some((point) => point === null)) {
+      return { success: false, messageKey: "omrProcessMarkersMissing" };
     }
 
-    // Sort anchors by distance to corners to identify TL, TR, BL, BR
-    // Logic: TL has smallest sum(x,y), BR has largest sum(x,y), etc.
-    anchors.sort((a, b) => (a.x + a.y) - (b.x + b.y))
-    const tl = anchors[0]
-    const br = anchors[anchors.length - 1]
-    
-    // Remaining two are TR and BL
-    const others = anchors.slice(1, -1).sort((a, b) => a.x - b.x)
-    const bl = others[0]
-    const tr = others[1]
+    const [topLeft, topRight, bottomLeft, bottomRight] = detectedCorners as [
+      MarkerCandidate,
+      MarkerCandidate,
+      MarkerCandidate,
+      MarkerCandidate,
+    ];
+    sourceCoordinates = cv.matFromArray(4, 1, cv.CV_32FC2, [
+      topLeft.x,
+      topLeft.y,
+      topRight.x,
+      topRight.y,
+      bottomLeft.x,
+      bottomLeft.y,
+      bottomRight.x,
+      bottomRight.y,
+    ]);
+    const canonicalTopLeft = OMR_OUTER_MARKERS[0];
+    const canonicalTopRight = OMR_OUTER_MARKERS[1];
+    const canonicalBottomLeft = OMR_OUTER_MARKERS[4];
+    const canonicalBottomRight = OMR_OUTER_MARKERS[5];
+    destinationCoordinates = cv.matFromArray(4, 1, cv.CV_32FC2, [
+      canonicalTopLeft.x,
+      canonicalTopLeft.y,
+      canonicalTopRight.x,
+      canonicalTopRight.y,
+      canonicalBottomLeft.x,
+      canonicalBottomLeft.y,
+      canonicalBottomRight.x,
+      canonicalBottomRight.y,
+    ]);
+    perspective = cv.getPerspectiveTransform(sourceCoordinates, destinationCoordinates);
+    cv.warpPerspective(
+      threshold,
+      warped,
+      perspective,
+      new cv.Size(OMR_CANONICAL_WIDTH, OMR_CANONICAL_HEIGHT)
+    );
 
-    // Perspective Transformation
-    const srcCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y])
-    const outSize = 600 // We want a 600x600 square result
-    const dstCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, outSize, 0, 0, outSize, outSize, outSize])
-    
-    const M = cv.getPerspectiveTransform(srcCoords, dstCoords)
-    const warped = new cv.Mat()
-    cv.warpPerspective(gray, warped, M, new cv.Size(outSize, outSize))
+    const answers: OmrDetectedAnswer[] = OMR_ANSWER_GEOMETRY.map((geometry) => {
+      const classified = classifyValues(
+        geometry.bubbles.map((bubble) => ({
+          value: bubble.value,
+          darkness: sampleDarkness(cv, warped, bubble),
+        }))
+      );
+      return {
+        question: geometry.question,
+        answer: classified.value,
+        confidence: classified.confidence,
+        ambiguous: classified.ambiguous,
+      };
+    });
 
-    // Bubble Detection (20 Questions mock grid)
-    const questions = 20
-    const detectedAnswers = []
-    
-    // Approximate grid parameters (adjusted to the OMRSheet.tsx design)
-    // In actual production, these would be calculated based on the template proportions
-    for (let q = 0; q < questions; q++) {
-        const rowY = 100 + (q * 23) // Skip header, each row roughly 23px
-        let bestOption = -1
-        let maxDarkness = -1
+    const detectedStudentDigits = OMR_STUDENT_ID_GEOMETRY.map((geometry) =>
+      classifyValues(
+        geometry.bubbles.map((bubble) => ({
+          value: bubble.value,
+          darkness: sampleDarkness(cv, warped, bubble),
+        }))
+      )
+    );
+    const studentCodeIsClear = detectedStudentDigits.every(
+      (digit) => digit.value !== null && !digit.ambiguous
+    );
+    const studentCode = studentCodeIsClear
+      ? detectedStudentDigits.map((digit) => digit.value).join("")
+      : null;
+    const studentCodeConfidence =
+      detectedStudentDigits.reduce((sum, digit) => sum + digit.confidence, 0) /
+      detectedStudentDigits.length;
 
-        for (let opt = 0; opt < 4; opt++) {
-            const colX = 130 + (opt * 45) // First bubble starts at 130, spacing 45
-            
-            // Sample a 10x10 area around the bubble center
-            const rect = new cv.Rect(colX - 5, rowY - 5, 10, 10)
-            const roi = warped.roi(rect)
-            
-            // Count average intensity (0=black, 255=white)
-            const mean = cv.mean(roi)[0]
-            const darkness = 255 - mean // Reverse to 255=black
-
-            if (darkness > maxDarkness) {
-                maxDarkness = darkness
-                bestOption = opt
-            }
-            roi.delete()
-        }
-        
-        // Threshold for a "filled" bubble (tuning required)
-        if (maxDarkness > 80) {
-            detectedAnswers.push({ question: q + 1, answer: String.fromCharCode(65 + bestOption) })
-        } else {
-            detectedAnswers.push({ question: q + 1, answer: null })
-        }
-    }
-
-    // Cleanup
-    src.delete(); gray.delete(); thresh.delete(); contours.delete(); hierarchy.delete();
-    srcCoords.delete(); dstCoords.delete(); M.delete(); warped.delete();
-
-    return { 
-        success: true, 
-        message: "สกัดข้อมูลคำตอบสำเร็จ",
-        data: detectedAnswers
-    }
+    return {
+      success: true,
+      messageKey: "omrProcessReadyForReview",
+      data: answers,
+      studentCode,
+      studentCodeConfidence,
+      ambiguousQuestions: answers
+        .filter((answer) => answer.ambiguous)
+        .map((answer) => answer.question),
+    };
+  } catch (error) {
+    console.error("[OMR_PROCESS]", error);
+    return { success: false, messageKey: "omrProcessingError" };
+  } finally {
+    perspective?.delete();
+    destinationCoordinates?.delete();
+    sourceCoordinates?.delete();
+    warped.delete();
+    hierarchy.delete();
+    contours.delete();
+    threshold.delete();
+    gray.delete();
+    src.delete();
+  }
 }

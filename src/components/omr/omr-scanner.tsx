@@ -7,6 +7,8 @@ import { motion } from "framer-motion"
 import { useLanguage } from "@/components/providers/language-provider"
 import { getOmrCameraErrorMessage, parseOmrScannerQaFlags } from "@/lib/omr-scanner-fallbacks"
 
+const OMR_CAPTURE_MAX_DIMENSION = 1200
+
 interface OMRScannerProps {
     onCapture: (imageData: string) => void
     onClose: () => void
@@ -16,10 +18,14 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
     const { t } = useLanguage()
     const videoRef = useRef<HTMLVideoElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
-    const [stream, setStream] = useState<MediaStream | null>(null)
+    const streamRef = useRef<MediaStream | null>(null)
+    const [cameraReady, setCameraReady] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const startCamera = useCallback(async () => {
         try {
+            streamRef.current?.getTracks().forEach((track) => track.stop())
+            streamRef.current = null
+            setCameraReady(false)
             const qaFlags = parseOmrScannerQaFlags(window.location.search)
             if (qaFlags.forceCameraError) {
                 setError(getOmrCameraErrorMessage(null, t, qaFlags))
@@ -35,7 +41,8 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
             if (videoRef.current) {
                 videoRef.current.srcObject = mediaStream
             }
-            setStream(mediaStream)
+            streamRef.current = mediaStream
+            setCameraReady(true)
             setError(null)
         } catch (err) {
             console.error("Error accessing camera:", err)
@@ -44,10 +51,10 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
     }, [t])
 
     const stopCamera = useCallback(() => {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop())
-        }
-    }, [stream])
+        streamRef.current?.getTracks().forEach((track) => track.stop())
+        streamRef.current = null
+        setCameraReady(false)
+    }, [])
 
     useEffect(() => {
         const frameId = window.requestAnimationFrame(() => {
@@ -64,13 +71,17 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
         
         const video = videoRef.current
         const canvas = canvasRef.current
-        canvas.width = video.videoWidth
-        canvas.height = video.videoHeight
+        const scale = Math.min(
+            1,
+            OMR_CAPTURE_MAX_DIMENSION / Math.max(video.videoWidth, video.videoHeight)
+        )
+        canvas.width = Math.round(video.videoWidth * scale)
+        canvas.height = Math.round(video.videoHeight * scale)
         
         const ctx = canvas.getContext("2d")
         if (ctx) {
-            ctx.drawImage(video, 0, 0)
-            const imageData = canvas.toDataURL("image/jpeg")
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            const imageData = canvas.toDataURL("image/jpeg", 0.92)
             onCapture(imageData)
         }
     }
@@ -96,7 +107,7 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
             </div>
 
             {/* Viewfinder Area */}
-            <div className="relative w-full aspect-[3/4] max-w-lg bg-slate-900 rounded-[2.5rem] overflow-hidden border-4 border-white/20 shadow-2xl">
+            <div className="relative w-full aspect-[1/1.414] max-w-lg bg-slate-900 rounded-[2.5rem] overflow-hidden border-4 border-white/20 shadow-2xl">
                 {error ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
                         <p className="text-red-400 font-bold text-lg mb-4">{error}</p>
@@ -110,7 +121,7 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
                             ref={videoRef} 
                             autoPlay 
                             playsInline 
-                            className="absolute inset-0 w-full h-full object-cover"
+                            className="absolute inset-0 w-full h-full object-contain"
                         />
                         
                         {/* Overlay Alignment Guide */}
@@ -150,7 +161,7 @@ export function OMRScanner({ onCapture, onClose }: OMRScannerProps) {
 
                 <button 
                     onClick={captureImage}
-                    disabled={!!error || !stream}
+                    disabled={!!error || !cameraReady}
                     className="w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.4)] active:scale-95 transition-all group disabled:opacity-50"
                 >
                     <div className="w-16 h-16 rounded-full border-4 border-black/5 flex items-center justify-center">

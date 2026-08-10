@@ -71,6 +71,86 @@ requireText(
   "resend.webhooks.verify",
   "delivery webhooks must verify their signature"
 );
+requireText(
+  "src/app/api/auth/change-email/confirm/route.ts",
+  "tx.emailVerificationCode.updateMany",
+  "email change must claim its OTP inside the same transaction as the identity mutation"
+);
+requireText(
+  "src/app/api/auth/change-email/confirm/route.ts",
+  "tx.session.deleteMany",
+  "email change must revoke existing database sessions"
+);
+requireText(
+  "src/lib/auth/prisma-auth-adapter.ts",
+  "PROVIDER_LINK_REAUTH_REQUIRED",
+  "provider linking must enforce the signed recent-reauth intent at the adapter boundary"
+);
+requireText(
+  "src/app/api/auth/account-providers/google/route.ts",
+  "Cannot remove the last login method",
+  "provider unlink must preserve at least one login method"
+);
+requireText(
+  "src/auth.ts",
+  "allowDangerousEmailAccountLinking: false",
+  "same-email OAuth identities must never auto-link without authenticated intent"
+);
+requireText(
+  "src/lib/auth/password-policy.ts",
+  "PASSWORD_MIN_LENGTH = 12",
+  "new passwords must share the Phase 8B minimum-length policy"
+);
+requireText(
+  "src/lib/auth/session-registry.ts",
+  "sessionIdHash",
+  "JWT session identifiers must be stored only as hashes in the device registry"
+);
+requireText(
+  "src/auth.ts",
+  "validateAndTouchUserAuthSession",
+  "JWT callbacks must enforce per-device revocation and explicit idle/absolute expiry"
+);
+requireText(
+  "src/auth.ts",
+  "freshUser.disabledAt",
+  "disabled account status must be checked against the database on session refresh"
+);
+requireText(
+  "src/app/api/auth/security/sessions/[id]/route.ts",
+  "where: { id, userId, ...activeUserAuthSessionFilter() }",
+  "single-session revocation must be scoped to the authenticated owner"
+);
+requireText(
+  "src/lib/auth/session-registry.ts",
+  "{ revokedAt: { isSet: false } }",
+  "active security-session filters must support legacy MongoDB rows where revokedAt is missing"
+);
+requireText(
+  "src/app/api/admin/users/[id]/security/route.ts",
+  "securitySessionsRevoked",
+  "administrator disable/revoke-all must revoke registry sessions in the security transaction"
+);
+requireText(
+  "src/app/api/admin/security/auth-health/route.ts",
+  'session.user.role !== "ADMIN" || session.user.mfaLevel !== 1',
+  "aggregate auth metrics must require an MFA-authenticated administrator"
+);
+requireText(
+  "src/lib/security/auth-observability.ts",
+  "countDocuments",
+  "identity rollout metrics must be aggregated instead of exporting raw audit events"
+);
+requireText(
+  "src/auth.ts",
+  'actorUserId: null',
+  "failed public sign-in audits must not persist an account identifier"
+);
+requireText(
+  "scripts/prune-auth-security-metadata.mjs",
+  "AUTH_SESSION_METADATA_RETENTION_DAYS",
+  "session and device metadata must have an explicit retention cleanup"
+);
 
 if (failures.length > 0) {
   console.error("Auth recovery security guard failed:\n");

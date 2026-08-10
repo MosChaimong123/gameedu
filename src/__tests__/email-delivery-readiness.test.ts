@@ -9,6 +9,7 @@ function productionEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     AUTH_SECRET: "test-secret",
     NEXT_PUBLIC_APP_URL: "https://www.teachplayedu.com",
     RESEND_API_KEY: "re_test_key",
+    RESEND_WEBHOOK_SECRET: "whsec_test_secret",
     EMAIL_FROM: "TeachPlayEdu <notify@teachplayedu.com>",
     EMAIL_VERIFICATION_PEPPER: "test-email-verification-pepper-32-chars",
     ...overrides,
@@ -42,6 +43,18 @@ describe("email delivery readiness", () => {
       status: "not_configured",
       reason: "missing_from",
     });
+  });
+
+  it("requires signed Resend delivery webhooks in production", () => {
+    const env = productionEnv({ RESEND_WEBHOOK_SECRET: "" });
+
+    expect(resolveEmailDeliveryReadiness(env)).toEqual({
+      status: "not_configured",
+      reason: "missing_webhook_secret",
+    });
+    expect(() => validateServerEnv(env)).toThrow(
+      "productionEmailDelivery:missing_webhook_secret"
+    );
   });
 
   it("rejects the Resend testing sender domain in production readiness", () => {

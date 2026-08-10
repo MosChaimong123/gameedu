@@ -14,6 +14,7 @@ describe("sendPasswordResetEmail", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://www.teachplayedu.com");
     vi.stubEnv("RESEND_API_KEY", "re_test");
+    vi.stubEnv("RESEND_WEBHOOK_SECRET", "whsec_test");
     vi.stubEnv("EMAIL_FROM", "TeachPlayEdu <notify@teachplayedu.com>");
   });
 
@@ -67,6 +68,16 @@ describe("sendPasswordResetEmail", () => {
     await expect(
       sendPasswordResetEmail("alice@example.com", "123456", 15, "TP-AB12")
     ).rejects.toThrow("EMAIL_DELIVERY_NOT_READY:missing_api_key");
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing production webhook secret before calling Resend", async () => {
+    vi.stubEnv("RESEND_WEBHOOK_SECRET", "");
+    const { sendPasswordResetEmail } = await import("@/lib/email/send-password-reset-email");
+
+    await expect(
+      sendPasswordResetEmail("alice@example.com", "123456", 15, "TP-AB12")
+    ).rejects.toThrow("EMAIL_DELIVERY_NOT_READY:missing_webhook_secret");
     expect(mockSend).not.toHaveBeenCalled();
   });
 

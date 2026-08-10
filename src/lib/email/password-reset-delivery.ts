@@ -146,11 +146,8 @@ export async function processResendPasswordResetEvent(
 
   try {
     const code = await db.emailVerificationCode.findFirst({
-      where: {
-        purpose: PASSWORD_RESET_PURPOSE,
-        providerMessageId: event.data.email_id,
-      },
-      select: { id: true, userId: true, referenceCode: true, deliveryStatus: true },
+      where: { providerMessageId: event.data.email_id },
+      select: { id: true, userId: true, purpose: true, referenceCode: true, deliveryStatus: true },
     });
     const shouldUpdate = Boolean(
       code && deliveryStatus && shouldApplyDeliveryTransition(code.deliveryStatus, deliveryStatus)
@@ -166,10 +163,15 @@ export async function processResendPasswordResetEvent(
       data: { matched: Boolean(code), processedAt: new Date() },
     });
 
+    const auditScope = !code?.purpose || code.purpose === "PASSWORD_RESET"
+      ? "password_reset"
+      : code?.purpose === "EMAIL_CHANGE"
+        ? "email_change"
+        : "signup_verification";
     if (code && deliveryStatus === "DELIVERED") {
       logAuditEvent({
         actorUserId: code.userId,
-        action: "auth.password_reset.delivered",
+        action: `auth.${auditScope}.delivered`,
         category: "auth",
         status: "success",
         targetType: "user",
@@ -179,14 +181,14 @@ export async function processResendPasswordResetEvent(
     } else if (code && FAILURE_STATUSES.includes(deliveryStatus as (typeof FAILURE_STATUSES)[number])) {
       logAuditEvent({
         actorUserId: code.userId,
-        action: "auth.password_reset.delivery_failed",
+        action: `auth.${auditScope}.delivery_failed`,
         category: "auth",
         status: "error",
         targetType: "user",
         targetId: code.userId,
         metadata: { provider: "resend", referenceCode: code.referenceCode, deliveryStatus },
       });
-      await emitFailureRateAlertIfNeeded();
+      if (!code.purpose || code.purpose === PASSWORD_RESET_PURPOSE) await emitFailureRateAlertIfNeeded();
     }
 
     return { matched: Boolean(code), status: deliveryStatus };
@@ -195,3 +197,6 @@ export async function processResendPasswordResetEvent(
     throw error;
   }
 }
+
+/** Generic name for new callers; the legacy export remains for compatibility. */
+export const processResendEmailDeliveryEvent = processResendPasswordResetEvent;

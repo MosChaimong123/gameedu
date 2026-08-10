@@ -125,7 +125,7 @@ export async function POST(req: Request) {
     const responseStartedAt = Date.now();
     const clientIdentifier = getRequestClientIdentifier(req);
     const emailDigest = digestRateLimitIdentifier(identifier);
-    const [ipLimit, emailLimit] = await Promise.all([
+    const [ipLimit, emailLimit, combinedLimit] = await Promise.all([
         consumeRateLimitWithStore({
             bucket: "auth:forgot-password:ip",
             key: buildRateLimitKey(clientIdentifier),
@@ -138,8 +138,14 @@ export async function POST(req: Request) {
             limit: 5,
             windowMs: PASSWORD_RESET_REQUEST_WINDOW_MS,
         }),
+        consumeRateLimitWithStore({
+            bucket: "auth:forgot-password:ip-email",
+            key: buildRateLimitKey(clientIdentifier, emailDigest),
+            limit: 5,
+            windowMs: PASSWORD_RESET_REQUEST_WINDOW_MS,
+        }),
     ]);
-    if (!ipLimit.allowed || !emailLimit.allowed) {
+    if (!ipLimit.allowed || !emailLimit.allowed || !combinedLimit.allowed) {
         return createNeutralResponse(responseStartedAt);
     }
     logAuditEvent({

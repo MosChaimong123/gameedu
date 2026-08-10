@@ -3,6 +3,7 @@ export type EmailDeliveryReadinessStatus = "configured" | "not_configured" | "in
 export type EmailDeliveryReadinessReason =
   | "missing_api_key"
   | "missing_from"
+  | "missing_webhook_secret"
   | "invalid_from"
   | "test_sender_domain"
   | "missing_public_url"
@@ -41,6 +42,13 @@ export function resolveEmailDeliveryReadiness(
   const senderDomain = mailbox.split("@")[1];
   if (senderDomain === "resend.dev" || senderDomain.endsWith(".resend.dev")) {
     return { status: "invalid", reason: "test_sender_domain" };
+  }
+
+  if (
+    env.NODE_ENV === "production" &&
+    !env.RESEND_WEBHOOK_SECRET?.trim()
+  ) {
+    return { status: "not_configured", reason: "missing_webhook_secret" };
   }
 
   const publicUrl =

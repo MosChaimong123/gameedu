@@ -12,6 +12,9 @@ const mockUserFindUnique = vi.fn();
 const mockUserCreate = vi.fn();
 const mockEmailVerificationCodeDeleteMany = vi.fn();
 const mockEmailVerificationCodeCreate = vi.fn();
+const mockEmailVerificationCodeUpdate = vi.fn();
+const mockEmailVerificationCodeUpdateMany = vi.fn();
+const mockTransaction = vi.fn();
 const mockHash = vi.fn();
 const mockConsumeRateLimit = vi.fn();
 const mockLogAuditEvent = vi.fn();
@@ -19,6 +22,7 @@ const mockSendVerificationEmail = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
+    $transaction: mockTransaction,
     user: {
       findUnique: mockUserFindUnique,
       create: mockUserCreate,
@@ -26,6 +30,8 @@ vi.mock("@/lib/db", () => ({
     emailVerificationCode: {
       deleteMany: mockEmailVerificationCodeDeleteMany,
       create: mockEmailVerificationCodeCreate,
+      update: mockEmailVerificationCodeUpdate,
+      updateMany: mockEmailVerificationCodeUpdateMany,
     },
   },
 }));
@@ -37,7 +43,7 @@ vi.mock("bcryptjs", () => ({
 vi.mock("@/lib/security/rate-limit", () => ({
   consumeRateLimit: mockConsumeRateLimit,
   consumeRateLimitWithStore: mockConsumeRateLimit,
-  createRateLimitResponse: (retryAfterSeconds: number) =>
+  createRateLimitResponse: (input: number | { retryAfterSeconds: number }) =>
     Response.json(
       {
         error: {
@@ -45,9 +51,15 @@ vi.mock("@/lib/security/rate-limit", () => ({
           message: "Too many requests",
         },
       },
-      { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(typeof input === "number" ? input : input.retryAfterSeconds),
+        },
+      }
     ),
   getRequestClientIdentifier: () => "test-client",
+  digestRateLimitIdentifier: (value: string) => `digest:${value}`,
 }));
 
 vi.mock("@/lib/security/audit-log", () => ({
@@ -62,6 +74,7 @@ describe("register route POST", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
+    vi.stubEnv("AUTH_SECRET", "test-verification-flow-secret-with-32-bytes");
     mockConsumeRateLimit.mockReturnValue({
       allowed: true,
       remaining: 9,
@@ -80,7 +93,17 @@ describe("register route POST", () => {
       id: "code-1",
       email: "alice@example.com",
     });
-    mockSendVerificationEmail.mockResolvedValue(undefined);
+    mockEmailVerificationCodeUpdate.mockResolvedValue({});
+    mockEmailVerificationCodeUpdateMany.mockResolvedValue({ count: 1 });
+    mockTransaction.mockImplementation(async (callback) =>
+      callback({
+        emailVerificationCode: {
+          update: mockEmailVerificationCodeUpdate,
+          updateMany: mockEmailVerificationCodeUpdateMany,
+        },
+      })
+    );
+    mockSendVerificationEmail.mockResolvedValue({ sent: true });
   });
 
   it("returns 503 when public signup is disabled", async () => {
@@ -92,7 +115,7 @@ describe("register route POST", () => {
         name: "Alice",
         username: "alice01",
         email: "alice@example.com",
-        password: "secret123",
+        password: "strong-secret123",
         role: "STUDENT",
       })
     );
@@ -110,7 +133,7 @@ describe("register route POST", () => {
         name: "Alice",
         username: "alice01",
         email: "alice@example.com",
-        password: "secret123",
+        password: "strong-secret123",
         role: "ADMIN",
         school: "TeachPlayEdu Academy",
       })
@@ -134,7 +157,7 @@ describe("register route POST", () => {
         name: "Bob Teacher",
         username: "bobteach",
         email: "bob@example.com",
-        password: "secret123",
+        password: "strong-secret123",
         role: "TEACHER",
         school: "Test School",
       })
@@ -146,7 +169,7 @@ describe("register route POST", () => {
         name: "Bob Teacher",
         username: "bobteach",
         email: "bob@example.com",
-        password: "hashed-password",
+        password: "$gamedu$sha256$hashed-password",
         role: "TEACHER",
         school: "Test School",
       }),
@@ -161,14 +184,14 @@ describe("register route POST", () => {
         name: "Alice",
         username: "alice01",
         email: "alice@example.com",
-        password: "secret123",
+        password: "strong-secret123",
         role: "STUDENT",
       })
     );
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(mockEmailVerificationCodeDeleteMany).toHaveBeenCalled();
+    expect(mockEmailVerificationCodeDeleteMany).not.toHaveBeenCalled();
     expect(mockEmailVerificationCodeCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: "user-1",
@@ -177,6 +200,7 @@ describe("register route POST", () => {
         codePlain: null,
         codeHash: expect.any(String),
         purpose: "SIGNUP_VERIFY",
+        status: "PENDING",
         attempts: 0,
         maxAttempts: 5,
         expiresAt: expect.any(Date),
@@ -189,11 +213,45 @@ describe("register route POST", () => {
       15,
       expect.stringMatching(/^TP-/)
     );
+    expect(mockEmailVerificationCodeUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "code-1", status: "PENDING" }),
+        data: expect.objectContaining({ status: "ACTIVE" }),
+      })
+    );
     expect(body).toEqual({
       user: { name: "Alice", email: "alice@example.com", role: "STUDENT" },
       verifyRequired: true,
       verifyMethod: "code",
     });
+    expect(response.headers.get("set-cookie")).toContain("gamedu_verification_flow=");
+    expect(response.headers.get("set-cookie")).toContain("HttpOnly");
+    expect(response.headers.get("set-cookie")).toContain("SameSite=lax");
+    expect(body).not.toHaveProperty("verificationHandle");
+  });
+
+  it("marks a pending code failed when the verification provider rejects it", async () => {
+    mockSendVerificationEmail.mockRejectedValue(new Error("provider rejected"));
+    const { POST } = await import("@/app/api/register/route");
+
+    const response = await POST(
+      makeJsonRequest({
+        name: "Alice",
+        username: "alice01",
+        email: "alice@example.com",
+        password: "strong-secret123",
+        role: "STUDENT",
+      })
+    );
+
+    expect(response.status).toBe(503);
+    expect(mockEmailVerificationCodeUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "code-1", status: "PENDING" }),
+        data: expect.objectContaining({ status: "FAILED", consumedAt: expect.any(Date) }),
+      })
+    );
+    expect(mockTransaction).not.toHaveBeenCalled();
   });
 
   it("returns 429 when registration rate limit is exceeded", async () => {
@@ -209,7 +267,7 @@ describe("register route POST", () => {
         name: "Alice",
         username: "alice01",
         email: "alice@example.com",
-        password: "secret123",
+        password: "strong-secret123",
       })
     );
     const body = await response.json();
@@ -236,7 +294,7 @@ describe("register route POST", () => {
         name: "Alice",
         username: "alice01",
         email: "alice@example.com",
-        password: "secret123",
+        password: "strong-secret123",
       })
     );
 
@@ -265,7 +323,7 @@ describe("register route POST", () => {
         name: "Alice",
         username: "alice01",
         email: "alice@example.com",
-        password: "secret123",
+        password: "strong-secret123",
       })
     );
 
@@ -295,7 +353,7 @@ describe("register route POST", () => {
         name: "Alice",
         username: "alice01",
         email: "alice@example.com",
-        password: "secret123",
+        password: "strong-secret123",
       })
     );
     const body = await response.json();

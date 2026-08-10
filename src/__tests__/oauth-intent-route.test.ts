@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockResolveAuthSecret = vi.fn();
 const mockEncodeOAuthRoleIntent = vi.fn();
+const mockConsumeRateLimitWithStore = vi.fn();
 
 vi.mock("@/lib/env", () => ({
   resolveAuthSecret: mockResolveAuthSecret,
@@ -12,11 +13,18 @@ vi.mock("@/lib/auth/oauth-role-intent-cookie", () => ({
   encodeOAuthRoleIntent: mockEncodeOAuthRoleIntent,
 }));
 
+vi.mock("@/lib/security/rate-limit", () => ({
+  consumeRateLimitWithStore: mockConsumeRateLimitWithStore,
+  getRequestClientIdentifier: () => "test-client",
+  createRateLimitResponse: () => Response.json({ error: { code: "RATE_LIMITED" } }, { status: 429 }),
+}));
+
 describe("oauth intent route POST", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockResolveAuthSecret.mockReturnValue("test-secret");
     mockEncodeOAuthRoleIntent.mockReturnValue("signed-intent");
+    mockConsumeRateLimitWithStore.mockResolvedValue({ allowed: true, retryAfterSeconds: 60 });
   });
 
   it("rejects invalid payloads with a structured error", async () => {

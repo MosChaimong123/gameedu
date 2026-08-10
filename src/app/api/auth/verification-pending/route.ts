@@ -1,45 +1,44 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { cookies } from "next/headers";
 import { db } from "@/lib/db";
+import { resolveAuthSecret } from "@/lib/env";
 import { isEmailVerificationApiEnabled } from "@/lib/auth/signup-policy";
 import {
-  EMAIL_VERIFICATION_PURPOSE,
-  isEmailVerificationCodeExpired,
-  normalizeVerificationEmail,
-} from "@/lib/email-verification";
+  decodeVerificationFlowHandle,
+  VERIFICATION_FLOW_COOKIE,
+} from "@/lib/auth/verification-flow-handle";
+import { activeSignupVerificationWhere } from "@/lib/auth/signup-verification-lifecycle";
+import { isEmailVerificationCodeExpired } from "@/lib/email-verification";
 
 export const dynamic = "force-dynamic";
 
-const querySchema = z.object({
-  email: z.string().email().transform((s) => s.trim().toLowerCase()),
-});
-
-function jsonNoStore(body: unknown, init?: ResponseInit) {
-  const headers = new Headers(init?.headers);
-  headers.set("Cache-Control", "no-store, max-age=0");
-  return NextResponse.json(body, { ...init, headers });
+function jsonNoStore(body: unknown) {
+  return NextResponse.json(body, {
+    headers: { "Cache-Control": "no-store, max-age=0" },
+  });
 }
 
 export async function GET(req: Request) {
+  void req;
   if (!isEmailVerificationApiEnabled()) {
     return jsonNoStore({ ok: true, pending: false });
   }
 
-  const url = new URL(req.url);
-  let email: string;
-  try {
-    email = querySchema.parse({ email: url.searchParams.get("email") ?? "" }).email;
-  } catch {
-    return jsonNoStore({ ok: false }, { status: 400 });
+  const secret = resolveAuthSecret();
+  const jar = await cookies();
+  const rawHandle = jar.get(VERIFICATION_FLOW_COOKIE)?.value;
+  const flow = rawHandle && secret
+    ? decodeVerificationFlowHandle(rawHandle, secret)
+    : null;
+
+  if (!flow) {
+    return jsonNoStore({ ok: true, pending: false });
   }
 
-  const normalizedEmail = normalizeVerificationEmail(email);
-  const now = new Date();
   const active = await db.emailVerificationCode.findFirst({
     where: {
-      email: normalizedEmail,
-      purpose: EMAIL_VERIFICATION_PURPOSE,
-      OR: [{ consumedAt: null }, { consumedAt: { isSet: false } }],
+      ...activeSignupVerificationWhere(flow.userId),
+      email: flow.email,
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
@@ -49,12 +48,12 @@ export async function GET(req: Request) {
     },
   });
 
-  if (!active || isEmailVerificationCodeExpired(active.expiresAt, now)) {
+  if (!active || isEmailVerificationCodeExpired(active.expiresAt, new Date())) {
     return jsonNoStore({ ok: true, pending: false });
   }
 
   const user = await db.user.findUnique({
-    where: { id: active.userId },
+    where: { id: flow.userId },
     select: { emailVerified: true },
   });
 
@@ -65,7 +64,11 @@ export async function GET(req: Request) {
   return jsonNoStore({
     ok: true,
     pending: true,
+    email: flow.email,
     referenceCode: active.referenceCode,
     expiresAt: active.expiresAt.toISOString(),
+    ...(process.env.NODE_ENV !== "production" && flow.devCode
+      ? { devCode: flow.devCode }
+      : {}),
   });
 }

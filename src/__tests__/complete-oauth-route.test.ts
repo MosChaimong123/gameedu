@@ -7,6 +7,7 @@ const mockResolveAuthSecret = vi.fn();
 const mockDecodeOAuthRoleIntent = vi.fn();
 const mockResolveBrowserRedirectOrigin = vi.fn();
 const mockCookies = vi.fn();
+const mockLogAuditEvent = vi.fn();
 
 vi.mock("@/auth", () => ({
   auth: mockAuth,
@@ -36,6 +37,10 @@ vi.mock("@/lib/auth/oauth-role-intent-cookie", () => ({
 
 vi.mock("@/lib/resolve-browser-redirect-origin", () => ({
   resolveBrowserRedirectOrigin: mockResolveBrowserRedirectOrigin,
+}));
+
+vi.mock("@/lib/security/audit-log", () => ({
+  logAuditEvent: mockLogAuditEvent,
 }));
 
 describe("complete oauth route", () => {
@@ -70,6 +75,11 @@ describe("complete oauth route", () => {
       "http://localhost:3000/login?callbackUrl=%2Fdashboard"
     );
     expect(mockUserFindUnique).not.toHaveBeenCalled();
+    expect(mockLogAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
+      action: "auth.oauth.failed",
+      actorUserId: null,
+      reason: "callback_session_missing",
+    }));
   });
 
   it("prefers a validated callbackUrl and clears the intent cookie", async () => {
@@ -116,5 +126,9 @@ describe("complete oauth route", () => {
       "http://localhost:3000/login?callbackUrl=%2Fdashboard"
     );
     expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(mockLogAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
+      action: "auth.oauth.failed",
+      reason: "account_missing",
+    }));
   });
 });

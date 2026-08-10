@@ -7,9 +7,14 @@ import {
     decodeOAuthRoleIntent,
     OAUTH_ROLE_INTENT_COOKIE,
 } from "@/lib/auth/oauth-role-intent-cookie";
-import { appendCallbackUrl, getSafeAuthCallbackPath } from "@/lib/auth/callback-url";
+import {
+    appendCallbackUrl,
+    getSafeAuthCallbackPath,
+    getSafeSameOriginPath,
+} from "@/lib/auth/callback-url";
 import { getDefaultPostAuthPath, normalizePostAuthRole } from "@/lib/auth/post-auth-destination";
 import { resolveBrowserRedirectOrigin } from "@/lib/resolve-browser-redirect-origin";
+import { logAuditEvent } from "@/lib/security/audit-log";
 
 function clearIntentCookie(response: NextResponse) {
     const secure = process.env.NODE_ENV === "production";
@@ -29,6 +34,7 @@ export async function GET(req: Request) {
     const loginPath = appendCallbackUrl("/login", callbackPath);
 
     if (!session?.user?.id) {
+        logAuditEvent({ actorUserId: null, action: "auth.oauth.failed", category: "auth", status: "rejected", reason: "callback_session_missing", targetType: "oauth_callback" });
         return NextResponse.redirect(new URL(loginPath, origin));
     }
 
@@ -37,7 +43,8 @@ export async function GET(req: Request) {
     const raw = jar.get(OAUTH_ROLE_INTENT_COOKIE)?.value ?? null;
 
     const redirectWithClearedCookie = (path: string) => {
-        const res = NextResponse.redirect(new URL(path, origin));
+        const safePath = getSafeSameOriginPath(path, origin) ?? "/login";
+        const res = NextResponse.redirect(new URL(safePath, origin));
         clearIntentCookie(res);
         return res;
     };
@@ -51,6 +58,7 @@ export async function GET(req: Request) {
     });
 
     if (!user) {
+        logAuditEvent({ actorUserId: session.user.id, action: "auth.oauth.failed", category: "auth", status: "rejected", reason: "account_missing", targetType: "user", targetId: session.user.id });
         return redirectWithClearedCookie(loginPath);
     }
 

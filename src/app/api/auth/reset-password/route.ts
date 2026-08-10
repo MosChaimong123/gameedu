@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import {
+    changeUserPassword,
+    PasswordPolicyError,
+    PasswordReuseError,
+} from "@/lib/auth/change-user-password";
+import { passwordChangeSchema } from "@/lib/auth/password-policy";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { createAppErrorResponse } from "@/lib/api-error";
@@ -19,6 +25,7 @@ import {
     normalizeVerificationEmail,
     normalizeVerificationReferenceCode,
 } from "@/lib/email-verification";
+import { sendCredentialChangedNotification } from "@/lib/email/send-security-notification-email";
 
 const PASSWORD_RESET_PURPOSE = "PASSWORD_RESET";
 const PASSWORD_RESET_VERIFY_WINDOW_MS = 15 * 60_000;
@@ -36,7 +43,7 @@ const bodySchema = z.object({
         .transform((s) => normalizeVerificationReferenceCode(s))
         .refine((s) => /^TP-[A-Z0-9]{4}$/.test(s), "Invalid reference code")
         .optional(),
-    newPassword: z.string().min(8, "Password must be at least 8 characters"),
+    newPassword: passwordChangeSchema,
 });
 
 type ResetRecord = {
@@ -127,7 +134,7 @@ export async function POST(req: Request) {
     const recoveryDigest = digestRateLimitIdentifier(
         buildRateLimitKey(normalizedEmail, referenceCode ?? "no-reference")
     );
-    const [ipLimit, recoveryLimit] = await Promise.all([
+    const [ipLimit, recoveryLimit, combinedLimit] = await Promise.all([
         consumeRateLimitWithStore({
             bucket: "auth:reset-password:ip",
             key: buildRateLimitKey(clientIdentifier),
@@ -140,9 +147,18 @@ export async function POST(req: Request) {
             limit: 10,
             windowMs: PASSWORD_RESET_VERIFY_WINDOW_MS,
         }),
+        consumeRateLimitWithStore({
+            bucket: "auth:reset-password:ip-recovery",
+            key: buildRateLimitKey(clientIdentifier, recoveryDigest),
+            limit: 10,
+            windowMs: PASSWORD_RESET_VERIFY_WINDOW_MS,
+        }),
     ]);
-    if (!ipLimit.allowed || !recoveryLimit.allowed) {
-        return createRateLimitResponse(Math.max(ipLimit.retryAfterSeconds, recoveryLimit.retryAfterSeconds));
+    if (!ipLimit.allowed || !recoveryLimit.allowed || !combinedLimit.allowed) {
+        const blocked = [ipLimit, recoveryLimit, combinedLimit]
+            .filter((result) => !result.allowed)
+            .sort((a, b) => b.retryAfterSeconds - a.retryAfterSeconds)[0];
+        return createRateLimitResponse(blocked);
     }
 
     const user = await db.user.findFirst({
@@ -244,40 +260,30 @@ export async function POST(req: Request) {
         }
     }
 
-    const bcrypt = await import("bcryptjs");
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
-    const authVersionUpdate =
-        typeof user.authVersion === "number" && Number.isSafeInteger(user.authVersion) && user.authVersion >= 0
-            ? { increment: 1 }
-            : 1;
     let deletedDatabaseSessions = 0;
 
     try {
-        deletedDatabaseSessions = await db.$transaction(async (tx) => {
-            const claimed = await tx.emailVerificationCode.updateMany({
-                where: passwordResetCandidateCasWhere(record, now),
-                data: { status: "CONSUMED", consumedAt: now, codePlain: null },
-            });
-            if (claimed.count !== 1) {
-                throw new PasswordResetCodeStateChangedError();
-            }
-            await tx.emailVerificationCode.updateMany({
-                where: {
-                    userId: user.id,
-                    ...activePasswordResetWhere(),
-                },
-                data: { status: "CONSUMED", consumedAt: now, codePlain: null },
-            });
-            await tx.user.update({
-                where: { id: user.id },
-                data: { password: hashedPassword, authVersion: authVersionUpdate },
-            });
-            const deletedSessions = await tx.session.deleteMany({ where: { userId: user.id } });
-            return deletedSessions.count;
+        const result = await changeUserPassword({
+            userId: user.id,
+            newPassword,
+            changedAt: now,
+            claimChallenge: async (tx) => {
+                const claimed = await tx.emailVerificationCode.updateMany({
+                    where: passwordResetCandidateCasWhere(record, now),
+                    data: { status: "CONSUMED", consumedAt: now, codePlain: null },
+                });
+                if (claimed.count !== 1) {
+                    throw new PasswordResetCodeStateChangedError();
+                }
+            },
         });
+        deletedDatabaseSessions = result.databaseSessionsDeleted;
     } catch (error) {
         if (error instanceof PasswordResetCodeStateChangedError) {
             return createAppErrorResponse("EMAIL_VERIFICATION_CODE_INVALID", "Invalid reset code", 400);
+        }
+        if (error instanceof PasswordPolicyError || error instanceof PasswordReuseError) {
+            return createAppErrorResponse("PASSWORD_POLICY_VIOLATION", error.message, 400);
         }
         throw error;
     }
@@ -300,6 +306,11 @@ export async function POST(req: Request) {
         targetId: user.id,
         metadata: { strategy: "jwt", databaseSessionsDeleted: deletedDatabaseSessions },
     });
+
+    if (user.email) {
+        try { await sendCredentialChangedNotification(user.email, "password"); }
+        catch (error) { console.error("[reset-password] security notification failed", error); }
+    }
 
     return NextResponse.json({ ok: true });
 }

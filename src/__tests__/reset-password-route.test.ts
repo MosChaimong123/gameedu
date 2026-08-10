@@ -12,6 +12,8 @@ const mockHash = vi.fn();
 const mockConsumeRateLimitWithStore = vi.fn();
 const mockTransaction = vi.fn();
 const mockSessionDeleteMany = vi.fn();
+const mockTransactionUserFindUnique = vi.fn();
+const mockSecuritySessionUpdateMany = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -30,10 +32,15 @@ vi.mock("@/lib/security/audit-log", () => ({ logAuditEvent: mockLogAuditEvent })
 vi.mock("@/lib/security/rate-limit", () => ({
   buildRateLimitKey: (...parts: string[]) => parts.filter(Boolean).join(":"),
   consumeRateLimitWithStore: mockConsumeRateLimitWithStore,
-  createRateLimitResponse: (retryAfterSeconds: number) =>
+  createRateLimitResponse: (input: number | { retryAfterSeconds: number }) =>
     Response.json(
       { error: { code: "RATE_LIMITED", message: "Too many requests" } },
-      { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(typeof input === "number" ? input : input.retryAfterSeconds),
+        },
+      }
     ),
   digestRateLimitIdentifier: (value: string) => `digest:${value}`,
   getRequestClientIdentifier: () => "test-client",
@@ -86,12 +93,15 @@ describe("reset password route lifecycle", () => {
     mockConsumeRateLimitWithStore.mockResolvedValue({ allowed: true, retryAfterSeconds: 60 });
     mockTransaction.mockImplementation(async (callback) =>
       callback({
-        user: { update: mockUserUpdate },
+        user: { findUnique: mockTransactionUserFindUnique, update: mockUserUpdate },
         session: { deleteMany: mockSessionDeleteMany },
+        userAuthSession: { updateMany: mockSecuritySessionUpdateMany },
         emailVerificationCode: { updateMany: mockCodeUpdateMany },
       })
     );
     mockSessionDeleteMany.mockResolvedValue({ count: 2 });
+    mockSecuritySessionUpdateMany.mockResolvedValue({ count: 3 });
+    mockTransactionUserFindUnique.mockResolvedValue({ authVersion: 4 });
   });
 
   it("only queries active or legacy password-reset records", async () => {
@@ -112,7 +122,7 @@ describe("reset password route lifecycle", () => {
     );
     expect(mockUserUpdate).toHaveBeenCalledWith({
       where: { id: "user-1" },
-      data: { password: "hashed-new-password", authVersion: { increment: 1 } },
+      data: { password: "$gamedu$sha256$hashed-new-password", authVersion: { increment: 1 }, passwordChangedAt: expect.any(Date) },
     });
     expect(mockSessionDeleteMany).toHaveBeenCalledWith({ where: { userId: "user-1" } });
     expect(mockCodeUpdateMany).toHaveBeenCalledWith(
@@ -139,13 +149,14 @@ describe("reset password route lifecycle", () => {
       email: "alice@example.com",
       authVersion: null,
     });
+    mockTransactionUserFindUnique.mockResolvedValue({ authVersion: null });
     const { POST } = await import("@/app/api/auth/reset-password/route");
     const response = await POST(request());
 
     expect(response.status).toBe(200);
     expect(mockUserUpdate).toHaveBeenCalledWith({
       where: { id: "legacy-user" },
-      data: { password: "hashed-new-password", authVersion: 1 },
+      data: { password: "$gamedu$sha256$hashed-new-password", authVersion: 1, passwordChangedAt: expect.any(Date) },
     });
   });
 
@@ -265,14 +276,14 @@ describe("reset password route lifecycle", () => {
     const response = await POST(request({ newPassword: "new-password" }));
 
     expect(response.status).toBe(200);
-    expect(mockHash).toHaveBeenCalledWith("new-password", 12);
+    expect(mockHash).toHaveBeenCalledWith(expect.any(String), 12);
     const serializedAudits = JSON.stringify(mockLogAuditEvent.mock.calls);
     expect(serializedAudits).not.toContain("123456");
     expect(serializedAudits).not.toContain("new-password");
     expect(serializedAudits).not.toContain("hashed-new-password");
   });
 
-  it("enforces an eight-character reset password policy", async () => {
+  it("enforces a twelve-character reset password policy", async () => {
     const { POST } = await import("@/app/api/auth/reset-password/route");
     const response = await POST(request({ newPassword: "short7" }));
 

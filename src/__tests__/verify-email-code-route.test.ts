@@ -6,19 +6,22 @@ import {
 
 const mockUserFindFirst = vi.fn();
 const mockUserFindUnique = vi.fn();
-const mockUserUpdate = vi.fn();
+const mockUserUpdateMany = vi.fn();
 const mockEmailVerificationCodeFindFirst = vi.fn();
 const mockEmailVerificationCodeFindMany = vi.fn();
 const mockEmailVerificationCodeUpdate = vi.fn();
 const mockEmailVerificationCodeUpdateMany = vi.fn();
 const mockConsumeRateLimitWithStore = vi.fn();
+const mockTransaction = vi.fn();
+const mockLogAuditEvent = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
+    $transaction: mockTransaction,
     user: {
       findFirst: mockUserFindFirst,
       findUnique: mockUserFindUnique,
-      update: mockUserUpdate,
+      updateMany: mockUserUpdateMany,
     },
     emailVerificationCode: {
       findFirst: mockEmailVerificationCodeFindFirst,
@@ -33,6 +36,7 @@ vi.mock("@/lib/security/rate-limit", () => ({
   consumeRateLimitWithStore: mockConsumeRateLimitWithStore,
   buildRateLimitKey: (...parts: Array<string | null | undefined>) => parts.filter(Boolean).join(":"),
   getRequestClientIdentifier: () => "test-client",
+  digestRateLimitIdentifier: (value: string) => `digest:${value}`,
   createRateLimitResponse: (retryAfterSeconds: number) =>
     Response.json(
       {
@@ -44,6 +48,8 @@ vi.mock("@/lib/security/rate-limit", () => ({
       { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
     ),
 }));
+
+vi.mock("@/lib/security/audit-log", () => ({ logAuditEvent: mockLogAuditEvent }));
 
 describe("verify email code route POST", () => {
   beforeEach(async () => {
@@ -67,14 +73,24 @@ describe("verify email code route POST", () => {
         email: "alice@example.com",
         codePlain: "123456",
         codeHash: hashEmailVerificationCodeForStorage("123456"),
+        purpose: "SIGNUP_VERIFY",
+        status: "ACTIVE",
         attempts: 0,
         maxAttempts: 5,
         expiresAt: new Date(Date.now() + 60_000),
       },
     ]);
-    mockUserUpdate.mockResolvedValue({});
+    mockUserUpdateMany.mockResolvedValue({ count: 1 });
     mockEmailVerificationCodeUpdate.mockResolvedValue({});
     mockEmailVerificationCodeUpdateMany.mockResolvedValue({ count: 1 });
+    mockTransaction.mockImplementation(async (callback) =>
+      callback({
+        user: { updateMany: mockUserUpdateMany },
+        emailVerificationCode: {
+          updateMany: mockEmailVerificationCodeUpdateMany,
+        },
+      })
+    );
   });
 
   it("verifies a correct code and marks the user verified", async () => {
@@ -91,18 +107,15 @@ describe("verify email code route POST", () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ ok: true, verified: true });
-    expect(mockUserUpdate).toHaveBeenCalledWith({
-      where: { id: "user-1" },
-      data: { emailVerified: expect.any(Date) },
-    });
-    expect(mockEmailVerificationCodeUpdateMany).toHaveBeenCalledWith({
-      where: {
-        userId: "user-1",
-        purpose: "SIGNUP_VERIFY",
-        OR: [{ consumedAt: null }, { consumedAt: { isSet: false } }],
-      },
-      data: { consumedAt: expect.any(Date), codePlain: null },
-    });
+    expect(mockLogAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
+      action: "auth.verification.completed",
+      actorUserId: "user-1",
+      status: "success",
+    }));
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mockUserUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { emailVerified: expect.any(Date) } })
+    );
   });
 
   it("verifies using reference code tied to the verification email record", async () => {
@@ -162,10 +175,12 @@ describe("verify email code route POST", () => {
         message: "Invalid verification code",
       },
     });
-    expect(mockEmailVerificationCodeUpdate).toHaveBeenCalledWith({
-      where: { id: "code-1" },
-      data: { attempts: 1 },
-    });
+    expect(mockEmailVerificationCodeUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "code-1", attempts: 0 }),
+        data: { attempts: { increment: 1 } },
+      })
+    );
   });
 
   it("rejects expired codes without consuming the record", async () => {
@@ -198,7 +213,14 @@ describe("verify email code route POST", () => {
         message: "Verification code expired",
       },
     });
-    expect(mockEmailVerificationCodeUpdate).not.toHaveBeenCalled();
+    expect(mockEmailVerificationCodeUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "EXPIRED",
+          consumedAt: expect.any(Date),
+        }),
+      })
+    );
   });
 
   it("locks the code after too many failed attempts", async () => {
@@ -231,13 +253,16 @@ describe("verify email code route POST", () => {
         message: "Too many invalid verification attempts",
       },
     });
-    expect(mockEmailVerificationCodeUpdate).toHaveBeenCalledWith({
-      where: { id: "code-1" },
-      data: {
-        attempts: 5,
-        consumedAt: expect.any(Date),
-      },
-    });
+    expect(mockEmailVerificationCodeUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "code-1", attempts: 4 }),
+        data: expect.objectContaining({
+          attempts: { increment: 1 },
+          status: "FAILED",
+          consumedAt: expect.any(Date),
+        }),
+      })
+    );
   });
 
   it("accepts a matching code from an older active verification record", async () => {
@@ -277,7 +302,7 @@ describe("verify email code route POST", () => {
     expect(await response.json()).toEqual({ ok: true, verified: true });
   });
 
-  it("returns success when the user is already verified", async () => {
+  it("does not report verification success for an already verified account", async () => {
     mockUserFindFirst.mockResolvedValue({
       id: "user-1",
       email: "alice@example.com",
@@ -294,8 +319,37 @@ describe("verify email code route POST", () => {
     );
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body).toEqual({ ok: true, alreadyVerified: true });
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: {
+        code: "EMAIL_VERIFICATION_CODE_INVALID",
+        message: "Invalid verification code",
+      },
+    });
     expect(mockEmailVerificationCodeFindMany).not.toHaveBeenCalled();
+  });
+
+  it("allows at most one concurrent request to claim a valid OTP", async () => {
+    let claims = 0;
+    mockEmailVerificationCodeUpdateMany.mockImplementation(async (args) => {
+      if (args.where?.id === "code-1") {
+        claims += 1;
+        return { count: claims === 1 ? 1 : 0 };
+      }
+      return { count: 1 };
+    });
+    const { POST } = await import("@/app/api/auth/verify-email-code/route");
+    const makeRequest = () =>
+      new Request("http://localhost:3000/api/auth/verify-email-code", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "alice@example.com", code: "123456" }),
+      });
+
+    const responses = await Promise.all([POST(makeRequest()), POST(makeRequest())]);
+    const statuses = responses.map((response) => response.status).sort();
+
+    expect(statuses).toEqual([200, 400]);
+    expect(claims).toBe(2);
   });
 });

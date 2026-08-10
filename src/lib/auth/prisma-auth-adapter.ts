@@ -1,6 +1,14 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { AdapterUser } from "@auth/core/adapters";
 import type { PrismaClient } from "@prisma/client";
+import { cookies } from "next/headers";
+import { resolveAuthSecret } from "@/lib/env";
+import {
+    decodeProviderLinkIntent,
+    PROVIDER_LINK_INTENT_COOKIE,
+} from "@/lib/auth/provider-link-intent";
+import { logAuditEvent } from "@/lib/security/audit-log";
+import { sendCredentialChangedNotification } from "@/lib/email/send-security-notification-email";
 
 type ProviderAccountKey = {
     provider: string;
@@ -28,9 +36,42 @@ function toAdapterUser(
  */
 export function prismaAuthAdapter(db: PrismaClient) {
     const base = PrismaAdapter(db);
+    const baseLinkAccount = base.linkAccount;
 
     return {
         ...base,
+        async linkAccount(account: Parameters<NonNullable<typeof baseLinkAccount>>[0]) {
+            if (!baseLinkAccount) throw new Error("ADAPTER_LINK_ACCOUNT_UNAVAILABLE");
+            const targetUser = await db.user.findUnique({
+                where: { id: account.userId },
+                select: { password: true, email: true },
+            });
+            // A password account linking Google is a sensitive mutation. Auth.js already
+            // binds the OAuth callback to the signed-in user; this additionally proves a
+            // fresh password reauthentication happened immediately before the redirect.
+            if (account.provider === "google" && targetUser?.password) {
+                const secret = resolveAuthSecret();
+                const jar = await cookies();
+                const encoded = jar.get(PROVIDER_LINK_INTENT_COOKIE)?.value;
+                const intent = secret && encoded ? decodeProviderLinkIntent(encoded, secret) : null;
+                if (!intent || intent.userId !== account.userId || intent.provider !== "google") {
+                    throw new Error("PROVIDER_LINK_REAUTH_REQUIRED");
+                }
+            }
+            await baseLinkAccount(account);
+            logAuditEvent({
+                actorUserId: account.userId,
+                action: "auth.provider_linked",
+                category: "auth",
+                targetType: "user",
+                targetId: account.userId,
+                metadata: { provider: account.provider },
+            });
+            if (targetUser?.password && targetUser.email) {
+                try { await sendCredentialChangedNotification(targetUser.email, "provider"); }
+                catch (error) { console.error("[auth] Provider-link notification failed", error); }
+            }
+        },
         async getUserByAccount(provider_providerAccountId: ProviderAccountKey) {
             const account = await db.account.findUnique({
                 where: { provider_providerAccountId },

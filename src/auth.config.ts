@@ -18,7 +18,23 @@ export const authConfig = {
             const isOnDashboard = nextUrl.pathname.startsWith("/dashboard")
             const isOnAdmin = nextUrl.pathname.startsWith("/admin")
             const isOnStudentHome = nextUrl.pathname.startsWith("/student/home")
+            const isOnMfa = nextUrl.pathname.startsWith("/auth/mfa")
+            const mfaEnrolled = Boolean(auth?.user?.mfaEnrolled)
+            const mfaVerified = auth?.user?.mfaLevel === 1
+            // Controlled rollout: MFA setup remains available, but it must not
+            // block normal sign-in until real-device staging has passed. Enable
+            // enforcement explicitly only after the rollout checklist is green.
+            const enforceMfa = process.env.AUTH_MFA_ENFORCEMENT?.trim().toLowerCase() === "enforce"
             const roleRequiredUrl = new URL(appendAuthError("/login", "role_required"), nextUrl)
+
+            if (isOnMfa) return isLoggedIn
+
+            if (enforceMfa && isLoggedIn && role === "ADMIN" && (!mfaEnrolled || !mfaVerified)) {
+                return Response.redirect(new URL(mfaEnrolled ? "/auth/mfa" : "/auth/mfa/setup", nextUrl))
+            }
+            if (enforceMfa && isLoggedIn && role === "TEACHER" && mfaEnrolled && !mfaVerified) {
+                return Response.redirect(new URL("/auth/mfa", nextUrl))
+            }
 
             // /admin -> ADMIN only
             if (isOnAdmin) {

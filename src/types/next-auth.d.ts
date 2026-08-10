@@ -11,6 +11,13 @@ type AppUserFields = {
   planStatus?: string | null;
   /** Credential generation captured when the JWT was issued. */
   authVersion?: number;
+  /** Legacy credential authenticated successfully but does not meet the current creation policy. */
+  passwordUpgradeRequired?: boolean;
+  securitySessionId?: string;
+  authenticatedAt?: number;
+  mfaEnrolled?: boolean;
+  mfaLevel?: number;
+  mfaVerifiedAt?: number;
   /** ISO 8601 from JWT sync (`User.planExpiry`). */
   planExpiry?: string | null;
 };
@@ -32,5 +39,6 @@ declare module "next-auth/jwt" {
     email?: string | null;
     name?: string | null;
     picture?: string | null;
+    securitySessionToken?: string;
   }
 }

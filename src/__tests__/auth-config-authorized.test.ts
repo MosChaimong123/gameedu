@@ -1,8 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { authConfig } from "@/auth.config";
 
 const authorized = authConfig.callbacks?.authorized;
+const originalMfaEnforcement = process.env.AUTH_MFA_ENFORCEMENT;
+
+afterEach(() => {
+  if (originalMfaEnforcement === undefined) delete process.env.AUTH_MFA_ENFORCEMENT;
+  else process.env.AUTH_MFA_ENFORCEMENT = originalMfaEnforcement;
+});
 
 describe("auth.config authorized callback", () => {
   it("requires authentication for dashboard and student home routes", () => {
@@ -66,7 +72,7 @@ describe("auth.config authorized callback", () => {
   it("allows matching privileged users through", () => {
     expect(
       authorized?.({
-        auth: { user: { role: "ADMIN" } },
+        auth: { user: { role: "ADMIN", mfaEnrolled: true, mfaLevel: 1 } },
         request: { nextUrl: new URL("http://localhost:3000/admin") },
       } as never)
     ).toBe(true);
@@ -84,5 +90,38 @@ describe("auth.config authorized callback", () => {
         request: { nextUrl: new URL("http://localhost:3000/student/home") },
       } as never)
     ).toBe(true);
+  });
+
+  it("keeps MFA in opt-in mode until controlled rollout enables enforcement", () => {
+    delete process.env.AUTH_MFA_ENFORCEMENT;
+    expect(
+      authorized?.({
+        auth: { user: { role: "ADMIN", mfaEnrolled: false, mfaLevel: 0 } },
+        request: { nextUrl: new URL("http://localhost:3000/admin") },
+      } as never)
+    ).toBe(true);
+  });
+
+  it("requires every admin to enroll and complete MFA when enforcement is enabled", () => {
+    process.env.AUTH_MFA_ENFORCEMENT = "enforce";
+    const enrollmentResult = authorized?.({
+      auth: { user: { role: "ADMIN", mfaEnrolled: false, mfaLevel: 0 } },
+      request: { nextUrl: new URL("http://localhost:3000/admin") },
+    } as never);
+
+    expect(enrollmentResult).toBeInstanceOf(Response);
+    expect((enrollmentResult as Response).headers.get("location")).toBe(
+      "http://localhost:3000/auth/mfa/setup"
+    );
+
+    const challengeResult = authorized?.({
+      auth: { user: { role: "ADMIN", mfaEnrolled: true, mfaLevel: 0 } },
+      request: { nextUrl: new URL("http://localhost:3000/admin") },
+    } as never);
+
+    expect(challengeResult).toBeInstanceOf(Response);
+    expect((challengeResult as Response).headers.get("location")).toBe(
+      "http://localhost:3000/auth/mfa"
+    );
   });
 });

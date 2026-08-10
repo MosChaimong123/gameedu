@@ -5,6 +5,8 @@ const mockNextAuth = vi.fn();
 const mockGoogleProvider = vi.fn((config) => ({ id: "google", config }));
 const mockCredentialsProvider = vi.fn((config) => ({ id: "credentials", ...config }));
 const mockPrismaAdapter = vi.fn(() => ({ name: "prisma-adapter" }));
+const mockRegisterAuthSession = vi.fn();
+const mockValidateAuthSession = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -37,7 +39,15 @@ vi.mock("@/lib/security/rate-limit", () => ({
   buildRateLimitKey: vi.fn(() => "bucket:key"),
   consumeRateLimitWithStore: vi.fn(),
   getRequestClientIdentifier: vi.fn(() => "test-client"),
+  getTrustedClientAddress: vi.fn(() => "test-client"),
 }));
+vi.mock("next/headers", () => ({ headers: async () => new Headers({ "user-agent": "Test Browser" }) }));
+vi.mock("@/lib/auth/session-registry", () => ({
+  activeUserAuthSessionFilter: () => ({ OR: [{ revokedAt: null }, { revokedAt: { isSet: false } }] }),
+  registerUserAuthSession: mockRegisterAuthSession,
+  validateAndTouchUserAuthSession: mockValidateAuthSession,
+}));
+vi.mock("@/lib/email/send-security-notification-email", () => ({ sendNewDeviceLoginNotification: vi.fn() }));
 
 function getLastNextAuthConfigArg(mock: typeof mockNextAuth) {
   const arg = mock.mock.calls.at(-1)?.[0];
@@ -65,6 +75,10 @@ describe("auth core callbacks", () => {
       signOut: vi.fn(),
       auth: vi.fn(),
     });
+    const record = { id: "session-1", deviceLabel: "Browser on Test" };
+    mockRegisterAuthSession.mockResolvedValue({ rawSessionId: "raw-session", record, isNewDevice: false, notificationEmail: null });
+    mockValidateAuthSession.mockResolvedValue(record);
+    process.env.AUTH_SECRET = "test-auth-secret";
   });
 
   it("hydrates jwt tokens from the user and refreshes them from the database", async () => {
@@ -114,6 +128,8 @@ describe("auth core callbacks", () => {
         planStatus: true,
         planExpiry: true,
         authVersion: true,
+        disabledAt: true,
+        mfaEnabledAt: true,
       },
     });
   });
@@ -166,11 +182,16 @@ describe("auth core callbacks", () => {
         plan: "FREE",
         planStatus: "TRIALING",
         planExpiry: null,
+        securitySessionId: "session-1",
+        authenticatedAt: expect.any(Number),
+        mfaEnrolled: false,
+        mfaLevel: 0,
+        mfaVerifiedAt: undefined,
       },
     });
   });
 
-  it("keeps the existing token when db refresh fails during jwt sync", async () => {
+  it("fails closed for an enrolled session when security-state refresh fails", async () => {
     const mod = await import("@/auth");
     const config = getLastNextAuthConfigArg(mockNextAuth);
     expect(mod).toBeTruthy();
@@ -190,15 +211,61 @@ describe("auth core callbacks", () => {
       session: { name: "Updated Name", image: "updated.png" },
     });
 
-    expect(token).toEqual(
-      expect.objectContaining({
-        id: "user-3",
-        name: "Updated Name",
-        picture: "updated.png",
+    expect(token).toBeNull();
+  });
+
+  it("does not trust client-supplied MFA elevation fields during session update", async () => {
+    const mod = await import("@/auth");
+    const config = getLastNextAuthConfigArg(mockNextAuth);
+    expect(mod).toBeTruthy();
+    mockValidateAuthSession.mockResolvedValue({ id: "session-1", mfaLevel: 0 });
+
+    const token = await config.callbacks.jwt({
+      token: {
+        id: "user-1",
         role: "TEACHER",
-        school: "Existing School",
-      })
-    );
+        authVersion: 0,
+        securitySessionToken: "raw-session",
+        securitySessionId: "session-1",
+      },
+      user: undefined,
+      trigger: "update",
+      session: { user: { mfaLevel: 1, mfaVerifiedAt: Date.now() } },
+    });
+
+    expect(token.mfaLevel).toBe(0);
+    expect(token.mfaVerifiedAt).toBeUndefined();
+  });
+
+  it("accepts a server-signed MFA proof bound to the active security session", async () => {
+    const { encodeMfaSessionProof } = await import("@/lib/auth/mfa-session-proof");
+    const mod = await import("@/auth");
+    const config = getLastNextAuthConfigArg(mockNextAuth);
+    expect(mod).toBeTruthy();
+    mockValidateAuthSession.mockResolvedValue({ id: "session-1", mfaLevel: 1 });
+    const verifiedAt = Date.now();
+    const mfaProof = encodeMfaSessionProof({
+      userId: "user-1",
+      securitySessionId: "session-1",
+      verifiedAt,
+      secret: process.env.AUTH_SECRET!,
+    });
+
+    const token = await config.callbacks.jwt({
+      token: {
+        id: "user-1",
+        role: "TEACHER",
+        authVersion: 0,
+        securitySessionToken: "raw-session",
+        securitySessionId: "session-1",
+      },
+      user: undefined,
+      trigger: "update",
+      session: { user: { mfaProof } },
+    });
+
+    expect(token.mfaLevel).toBe(1);
+    expect(token.mfaVerifiedAt).toBe(verifiedAt);
   });
 
   it("rejects a jwt issued before the user's auth version changed", async () => {

@@ -9,7 +9,9 @@ const mockPrismaAdapter = vi.fn(() => ({ name: "prisma-adapter" }));
 const mockConsumeRateLimitWithStore = vi.fn();
 const mockBuildRateLimitKey = vi.fn(() => "bucket:key");
 const mockGetRequestClientIdentifier = vi.fn(() => "test-client");
+const mockDigestRateLimitIdentifier = vi.fn((value: string) => `digest:${value}`);
 const mockCompare = vi.fn();
+const mockLogAuditEvent = vi.fn();
 
 class MockCredentialsSignin extends Error {
   code = "credentials_signin";
@@ -45,10 +47,15 @@ vi.mock("@/lib/security/rate-limit", () => ({
   buildRateLimitKey: mockBuildRateLimitKey,
   consumeRateLimitWithStore: mockConsumeRateLimitWithStore,
   getRequestClientIdentifier: mockGetRequestClientIdentifier,
+  digestRateLimitIdentifier: mockDigestRateLimitIdentifier,
 }));
 
 vi.mock("bcryptjs", () => ({
   compare: mockCompare,
+}));
+
+vi.mock("@/lib/security/audit-log", () => ({
+  logAuditEvent: mockLogAuditEvent,
 }));
 
 function getLastNextAuthConfigArg(mock: typeof mockNextAuth) {
@@ -119,7 +126,15 @@ describe("auth credentials authorize", () => {
       )
     ).rejects.toMatchObject({ code: "rate_limited" });
 
-    expect(mockBuildRateLimitKey).toHaveBeenCalledWith("test-client", "alice@example.com");
+    expect(mockConsumeRateLimitWithStore).toHaveBeenCalledTimes(3);
+    expect(mockBuildRateLimitKey).toHaveBeenCalledWith("test-client", "digest:alice@example.com");
+    expect(mockLogAuditEvent).toHaveBeenCalledWith(expect.objectContaining({
+      actorUserId: null,
+      action: "auth.login.rate_limited",
+      reason: "rate_limited",
+      metadata: { authMethod: "credentials" },
+    }));
+    expect(JSON.stringify(mockLogAuditEvent.mock.calls)).not.toContain("alice@example.com");
   });
 
   it("returns null when the user is missing or the password does not match", async () => {
@@ -147,6 +162,34 @@ describe("auth credentials authorize", () => {
         new Request("http://localhost:3000/api/auth/callback/credentials")
       )
     ).resolves.toBeNull();
+  });
+
+  it("rejects a disabled account even when its password is valid", async () => {
+    mockUserFindFirst.mockResolvedValue({
+      id: "user-disabled",
+      email: "disabled@example.com",
+      password: "hashed",
+      disabledAt: new Date("2026-08-01T00:00:00.000Z"),
+      emailVerified: new Date("2026-01-01T00:00:00.000Z"),
+      role: "TEACHER",
+    });
+    mockCompare.mockResolvedValue(true);
+    const authorize = await getAuthorize();
+    await expect(authorize(
+      { email: "disabled@example.com", password: "correct-password" },
+      new Request("http://localhost:3000/api/auth/callback/credentials")
+    )).resolves.toBeNull();
+    expect(mockLogAuditEvent).toHaveBeenCalledWith({
+      actorUserId: null,
+      action: "auth.login.failed",
+      category: "auth",
+      status: "rejected",
+      reason: "invalid_credentials",
+      targetType: "authentication_attempt",
+      metadata: { authMethod: "credentials" },
+    });
+    expect(JSON.stringify(mockLogAuditEvent.mock.calls)).not.toContain("disabled@example.com");
+    expect(JSON.stringify(mockLogAuditEvent.mock.calls)).not.toContain("correct-password");
   });
 
   it("allows login and auto-verifies when email verification is skipped", async () => {
@@ -246,6 +289,8 @@ describe("auth credentials authorize", () => {
       role: "USER",
       school: "School E",
       authVersion: 0,
+      passwordUpgradeRequired: true,
+      mfaEnrolled: false,
     });
   });
 });

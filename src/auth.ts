@@ -13,10 +13,21 @@ import { isAppRole, type AppRole } from "@/lib/roles"
 import {
     buildRateLimitKey,
     consumeRateLimitWithStore,
+    digestRateLimitIdentifier,
     getRequestClientIdentifier,
 } from "@/lib/security/rate-limit"
 import { isGoogleOAuthConfigured } from "@/lib/auth/google-oauth-env"
 import { isAuthVersionCurrent, normalizeAuthVersion } from "@/lib/auth/session-version"
+import { verifyPassword } from "@/lib/auth/password-hash"
+import { isPasswordChangeAllowed } from "@/lib/auth/password-policy"
+import { headers } from "next/headers"
+import { getTrustedClientAddress } from "@/lib/security/rate-limit"
+import { activeUserAuthSessionFilter, hashSessionIdentifier, registerUserAuthSession, validateAndTouchUserAuthSession } from "@/lib/auth/session-registry"
+import { logAuditEvent } from "@/lib/security/audit-log"
+import { sendNewDeviceLoginNotification } from "@/lib/email/send-security-notification-email"
+import { verifyPasskeyAuthentication } from "@/lib/auth/passkeys"
+import { resolveAuthSecret } from "@/lib/env"
+import { decodeMfaSessionProof } from "@/lib/auth/mfa-session-proof"
 
 class EmailNotVerified extends CredentialsSignin {
     code = "email_not_verified"
@@ -44,6 +55,8 @@ function resolveGoogleProvider() {
     return Google({
         clientId: googleClientId!,
         clientSecret: googleClientSecret!,
+        // Same-email matching alone is never sufficient to link an identity.
+        allowDangerousEmailAccountLinking: false,
     })
 }
 
@@ -69,7 +82,7 @@ function createAuthConfig(): NextAuthConfig {
         ...authConfig,
         trustHost: true,
         adapter: prismaAuthAdapter(db),
-        session: { strategy: "jwt" },
+        session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
         providers: [
             ...(googleProvider ? [googleProvider] : []),
             Credentials({
@@ -85,17 +98,42 @@ function createAuthConfig(): NextAuthConfig {
 
                 const email = (credentials.email as string).trim().toLowerCase()
                 const password = credentials.password as string
-                const rateLimit = await consumeRateLimitWithStore({
-                    bucket: "auth-credentials:authorize",
-                    key: buildRateLimitKey(
-                        getRequestClientIdentifier(request),
-                        email.toLowerCase()
-                    ),
-                    limit: 10,
-                    windowMs: 60_000,
-                })
+                const clientIdentifier = getRequestClientIdentifier(request)
+                const accountIdentifier = digestRateLimitIdentifier(email)
+                const auditFailure = (action: "auth.login.failed" | "auth.login.rate_limited", reason: string) => {
+                    logAuditEvent({
+                        actorUserId: null,
+                        action,
+                        category: "auth",
+                        status: "rejected",
+                        reason,
+                        targetType: "authentication_attempt",
+                        metadata: { authMethod: "credentials" },
+                    })
+                }
+                const rateLimits = await Promise.all([
+                    consumeRateLimitWithStore({
+                        bucket: "auth:login:ip",
+                        key: clientIdentifier,
+                        limit: 30,
+                        windowMs: 60_000,
+                    }),
+                    consumeRateLimitWithStore({
+                        bucket: "auth:login:account",
+                        key: accountIdentifier,
+                        limit: 10,
+                        windowMs: 60_000,
+                    }),
+                    consumeRateLimitWithStore({
+                        bucket: "auth:login:ip-account",
+                        key: buildRateLimitKey(clientIdentifier, accountIdentifier),
+                        limit: 10,
+                        windowMs: 60_000,
+                    }),
+                ])
 
-                if (!rateLimit.allowed) {
+                if (rateLimits.some((rateLimit) => !rateLimit.allowed)) {
+                    auditFailure("auth.login.rate_limited", "rate_limited")
                     throw new RateLimitedSignin()
                 }
 
@@ -105,14 +143,15 @@ function createAuthConfig(): NextAuthConfig {
                     },
                 })
 
-                if (!user || !user.password) {
+                if (!user || !user.password || user.disabledAt) {
+                    auditFailure("auth.login.failed", "invalid_credentials")
                     return null
                 }
 
-                const bcrypt = await import("bcryptjs")
-                const isPasswordValid = await bcrypt.compare(password, user.password)
+                const isPasswordValid = await verifyPassword(password, user.password)
 
                 if (!isPasswordValid) {
+                    auditFailure("auth.login.failed", "invalid_credentials")
                     return null
                 }
 
@@ -128,6 +167,7 @@ function createAuthConfig(): NextAuthConfig {
 
                 const normalizedRole = normalizeSessionRole(user.role)
                 if (!normalizedRole) {
+                    auditFailure("auth.login.failed", "invalid_credentials")
                     return null
                 }
 
@@ -139,13 +179,55 @@ function createAuthConfig(): NextAuthConfig {
                     role: normalizedRole,
                     school: user.school,
                     authVersion: normalizeAuthVersion(user.authVersion),
+                    passwordUpgradeRequired: !isPasswordChangeAllowed(password),
+                    mfaEnrolled: Boolean(user.mfaEnabledAt),
+                }
+            },
+        }),
+        Credentials({
+            id: "passkey",
+            name: "Passkey",
+            credentials: { response: { label: "WebAuthn response", type: "text" } },
+            authorize: async (credentials) => {
+                if (typeof credentials?.response !== "string" || credentials.response.length > 64_000) return null
+                let response: unknown
+                try {
+                    response = JSON.parse(credentials.response)
+                } catch {
+                    return null
+                }
+                const user = await verifyPasskeyAuthentication(response as never)
+                const role = normalizeSessionRole(user?.role)
+                if (!user || !role) return null
+                return {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    image: user.image,
+                    role,
+                    school: user.school,
+                    authVersion: normalizeAuthVersion(user.authVersion),
+                    passwordUpgradeRequired: false,
+                    mfaEnrolled: true,
+                    mfaLevel: 1,
+                    mfaVerifiedAt: Date.now(),
                 }
             },
         }),
     ],
+    events: {
+        async signOut(message) {
+            const token = "token" in message ? message.token : null
+            if (!token?.securitySessionToken) return
+            await db.userAuthSession.updateMany({
+                where: { sessionIdHash: hashSessionIdentifier(token.securitySessionToken), ...activeUserAuthSessionFilter() },
+                data: { revokedAt: new Date(), revokedReason: "signed_out" },
+            })
+        },
+    },
     callbacks: {
         ...authConfig.callbacks,
-        jwt: async ({ token, user, trigger, session }) => {
+        jwt: async ({ token, user, account, trigger, session }) => {
             // Initial sign in
             if (user) {
                 token.id = user.id
@@ -157,6 +239,49 @@ function createAuthConfig(): NextAuthConfig {
                     token.role = normalizedUserRole
                 }
                 token.authVersion = normalizeAuthVersion(user.authVersion)
+                token.passwordUpgradeRequired = user.passwordUpgradeRequired
+                token.mfaEnrolled = user.mfaEnrolled
+                token.mfaLevel = user.mfaLevel ?? 0
+                token.mfaVerifiedAt = user.mfaVerifiedAt
+            }
+
+            if (token.id && !token.securitySessionToken) {
+                try {
+                    const requestHeaders = await headers()
+                    const registered = await registerUserAuthSession({
+                        userId: token.id as string,
+                        role: normalizeSessionRole(token.role),
+                        authMethod: account?.provider ?? (user ? "credentials" : "legacy-session-migration"),
+                        mfaLevel: token.mfaLevel,
+                        metadata: {
+                            userAgent: requestHeaders.get("user-agent"),
+                            clientAddress: getTrustedClientAddress({ headers: requestHeaders }),
+                        },
+                    })
+                    token.securitySessionToken = registered.rawSessionId
+                    token.securitySessionId = registered.record.id
+                    // Existing pre-registry JWTs are enrolled for revocation but are not
+                    // promoted to "recently authenticated" without a fresh sign-in.
+                    if (user) token.authenticatedAt = Date.now()
+                    logAuditEvent({
+                        actorUserId: token.id as string,
+                        action: registered.isNewDevice ? "auth.login.new_device" : "auth.login.succeeded",
+                        category: "auth",
+                        targetType: "user",
+                        targetId: token.id as string,
+                        metadata: { authMethod: account?.provider ?? "credentials", deviceLabel: registered.record.deviceLabel },
+                    })
+                    if (registered.isNewDevice && registered.notificationEmail) {
+                        try {
+                            await sendNewDeviceLoginNotification(registered.notificationEmail, registered.record.deviceLabel)
+                        } catch (notificationError) {
+                            console.error("[AUTH_SESSION] New-device notification failed", notificationError)
+                        }
+                    }
+                } catch (error) {
+                    console.error("[AUTH_SESSION] Could not register security session", error)
+                    return null
+                }
             }
 
             // Sync with DB if updated (SHIELDED FROM EDGE)
@@ -175,11 +300,24 @@ function createAuthConfig(): NextAuthConfig {
                             planStatus: true,
                             planExpiry: true,
                             authVersion: true,
+                            disabledAt: true,
+                            mfaEnabledAt: true,
                         },
                     })
 
-                    if (!freshUser) {
+                    if (!freshUser || freshUser.disabledAt) {
                         return null
+                    }
+
+                    if (token.securitySessionToken) {
+                        const securitySession = await validateAndTouchUserAuthSession({
+                            userId: token.id as string,
+                            rawSessionId: token.securitySessionToken,
+                            role: normalizeSessionRole(freshUser.role),
+                        })
+                        if (!securitySession) return null
+                        token.securitySessionId = securitySession.id
+                        token.mfaLevel = securitySession.mfaLevel
                     }
 
                     const currentAuthVersion = normalizeAuthVersion(freshUser.authVersion)
@@ -206,9 +344,15 @@ function createAuthConfig(): NextAuthConfig {
                         freshUser.planExpiry instanceof Date && !Number.isNaN(freshUser.planExpiry.getTime())
                             ? freshUser.planExpiry.toISOString()
                             : null
-                } catch {
-                    // If it's an edge error, we just keep the existing token
-                    console.log("[AUTH_JWT] Skipping DB sync (likely Edge or DB down)")
+                    token.mfaEnrolled = Boolean(freshUser.mfaEnabledAt)
+                } catch (error) {
+                    // Registry/status checks protect revocation and disabled accounts. Once
+                    // enrolled, all roles fail closed rather than silently restoring access.
+                    if (token.securitySessionToken || token.role === "ADMIN") {
+                        console.error("[AUTH_JWT] Security state check failed closed", error)
+                        return null
+                    }
+                    console.log("[AUTH_JWT] Skipping DB sync for a pre-registry non-admin token")
                 }
             }
 
@@ -216,6 +360,19 @@ function createAuthConfig(): NextAuthConfig {
             if (trigger === "update" && session) {
                 if (session.name) token.name = session.name
                 if (session.image) token.picture = session.image
+                const updateUser = session.user as { mfaProof?: unknown } | undefined
+                const secret = resolveAuthSecret()
+                const proof = typeof updateUser?.mfaProof === "string" && secret
+                    ? decodeMfaSessionProof(updateUser.mfaProof, secret)
+                    : null
+                if (
+                    proof &&
+                    proof.userId === token.id &&
+                    proof.securitySessionId === token.securitySessionId
+                ) {
+                    token.mfaLevel = 1
+                    token.mfaVerifiedAt = proof.verifiedAt
+                }
             }
 
             return token
@@ -234,6 +391,14 @@ function createAuthConfig(): NextAuthConfig {
                 session.user.plan = token.plan
                 session.user.planStatus = token.planStatus
                 session.user.planExpiry = token.planExpiry ?? null
+                if (typeof token.passwordUpgradeRequired === "boolean") {
+                    session.user.passwordUpgradeRequired = token.passwordUpgradeRequired
+                }
+                session.user.securitySessionId = token.securitySessionId
+                session.user.authenticatedAt = token.authenticatedAt
+                session.user.mfaEnrolled = Boolean(token.mfaEnrolled)
+                session.user.mfaLevel = token.mfaLevel === 1 ? 1 : 0
+                session.user.mfaVerifiedAt = token.mfaVerifiedAt
             }
             return session
         }
@@ -241,4 +406,4 @@ function createAuthConfig(): NextAuthConfig {
     }
 }
 
-export const { handlers, signIn, signOut, auth } = NextAuth(() => createAuthConfig())
+export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth(() => createAuthConfig())

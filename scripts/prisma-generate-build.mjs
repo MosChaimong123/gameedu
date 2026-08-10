@@ -1,7 +1,4 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, statSync } from "node:fs";
-import path from "node:path";
-
 const isWindows = process.platform === "win32";
 
 function commandLabel(command, args) {
@@ -44,45 +41,6 @@ function hasPrismaEngineLock(result) {
   return combined.includes("query_engine-windows.dll.node") && combined.includes("EPERM");
 }
 
-function getPrismaClientPaths() {
-  const clientDir = path.join(process.cwd(), "node_modules", ".prisma", "client");
-  return {
-    clientDir,
-    enginePath: path.join(clientDir, "query_engine-windows.dll.node"),
-    indexPath: path.join(clientDir, "index.js"),
-    generatedSchemaPath: path.join(clientDir, "schema.prisma"),
-    sourceSchemaPath: path.join(process.cwd(), "prisma", "schema.prisma"),
-  };
-}
-
-function hasExistingPrismaClient() {
-  const { enginePath, indexPath, generatedSchemaPath } = getPrismaClientPaths();
-  return (
-    existsSync(enginePath) &&
-    existsSync(indexPath) &&
-    existsSync(generatedSchemaPath)
-  );
-}
-
-function hasSchemaSynchronizedClient() {
-  if (!hasExistingPrismaClient()) {
-    return false;
-  }
-
-  const { generatedSchemaPath, sourceSchemaPath } = getPrismaClientPaths();
-  if (!existsSync(sourceSchemaPath)) {
-    return false;
-  }
-
-  try {
-    const generatedSchemaStat = statSync(generatedSchemaPath);
-    const sourceSchemaStat = statSync(sourceSchemaPath);
-    return generatedSchemaStat.mtimeMs >= sourceSchemaStat.mtimeMs;
-  } catch {
-    return false;
-  }
-}
-
 function exitWith(result, command, args) {
   writeOutput(result);
 
@@ -109,13 +67,6 @@ if (!isWindows || !hasPrismaEngineLock(primaryResult)) {
 
 writeOutput(primaryResult);
 
-if (hasSchemaSynchronizedClient()) {
-  console.warn(
-    "Prisma generate hit a Windows engine lock, but the existing generated client matches the current schema. Continuing without stopping the dev server."
-  );
-  process.exit(0);
-}
-
 console.warn(
   "Prisma generate hit a Windows engine lock. Retrying with the repository unlock script."
 );
@@ -126,14 +77,6 @@ const fallbackResult = runCommand(fallbackCommand, fallbackArgs);
 
 if ((fallbackResult.status ?? 1) === 0) {
   exitWith(fallbackResult, fallbackCommand, fallbackArgs);
-}
-
-if (hasPrismaEngineLock(fallbackResult) && hasExistingPrismaClient()) {
-  writeOutput(fallbackResult);
-  console.warn(
-    "Prisma engine remains locked on Windows, but an existing generated client is present. Continuing the build with the current client."
-  );
-  process.exit(0);
 }
 
 exitWith(fallbackResult, fallbackCommand, fallbackArgs);

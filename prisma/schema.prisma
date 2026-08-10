@@ -15,9 +15,19 @@ model User {
   image         String?
   password      String?
   authVersion   Int?      @default(0) // Increment to revoke JWTs and adapter sessions after credential reset
+  passwordChangedAt DateTime?
+  lastLoginAt   DateTime?
+  disabledAt    DateTime?
+  disabledReason String?
+  mfaEnabledAt   DateTime?
   role          String    @default("USER") // "USER" = generic authenticated account, "STUDENT" = linked student portal account, plus "TEACHER" and "ADMIN"
   accounts      Account[]
   sessions      Session[]
+  authSessions  UserAuthSession[]
+  mfaAuthenticators MfaAuthenticator[]
+  mfaRecoveryCodes MfaRecoveryCode[]
+  passkeyCredentials PasskeyCredential[]
+  authChallenges AuthChallenge[]
   classrooms    Classroom[]
   studentProfiles Student[]
   gameHistories GameHistory[]
@@ -116,6 +126,88 @@ model Session {
   userId       String   @db.ObjectId
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MfaAuthenticator {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String    @db.ObjectId
+  type             String    @default("TOTP")
+  name             String    @default("Authenticator app")
+  secretCiphertext String
+  secretIv         String
+  secretTag        String
+  enabledAt        DateTime?
+  lastUsedStep     Int?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, enabledAt])
+}
+
+model MfaRecoveryCode {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String    @db.ObjectId
+  codeHash   String    @unique
+  createdAt  DateTime  @default(now())
+  consumedAt DateTime?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, consumedAt])
+}
+
+model PasskeyCredential {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String   @db.ObjectId
+  credentialId     String   @unique
+  publicKey         Bytes
+  counter           Int      @default(0)
+  transports        String[] @default([])
+  deviceType        String
+  backedUp          Boolean  @default(false)
+  name              String
+  createdAt         DateTime @default(now())
+  lastUsedAt        DateTime?
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model AuthChallenge {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String?   @db.ObjectId
+  type          String
+  challengeHash String    @unique
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  user          User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, consumedAt, expiresAt])
+  @@index([expiresAt])
+}
+
+model UserAuthSession {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String    @db.ObjectId
+  sessionIdHash     String    @unique
+  createdAt         DateTime  @default(now())
+  lastSeenAt        DateTime  @default(now())
+  absoluteExpiresAt DateTime
+  idleExpiresAt     DateTime
+  revokedAt         DateTime?
+  revokedReason     String?
+  deviceLabel       String
+  ipDigest          String?
+  userAgentDigest   String?
+  authMethod        String
+  mfaLevel          Int       @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt, lastSeenAt])
+  @@index([absoluteExpiresAt])
+  @@index([idleExpiresAt])
 }
 
 model VerificationToken {
@@ -285,6 +377,11 @@ model Student {
   userId      String?                @db.ObjectId // Optional link to a Gmail/credentials User account
   user        User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
   loginCode   String                 @unique @default(cuid()) // Unique code for student portal login
+  loginCodeVersion Int               @default(1)
+  loginCodeRotatedAt DateTime?
+  loginCodeLastUsedAt DateTime?
+  loginCodeDisabledAt DateTime?
+  accessSessions StudentAccessSession[]
   /// แต้มพฤติกรรม / progression รวม (ครูให้-หัก, ทักษะ, EXP Negamon จากงาน+แมตช์สด ฯลฯ) — ใน BSON ยังใช้ key เดิมว่า "points"
   behaviorPoints Int                 @default(0) @map("points")
   /// ทองสะสมจาก passive income (goldRate × เวลา ตาม rank)
@@ -333,6 +430,28 @@ model Student {
   lessonCertificates LessonCertificate[]
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
+}
+
+model StudentAccessSession {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  studentId        String    @db.ObjectId
+  classId          String    @db.ObjectId
+  tokenHash        String    @unique
+  codeVersion      Int
+  scopes           String[]  @default(["student:read", "student:write"])
+  createdAt        DateTime  @default(now())
+  lastUsedAt       DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  revokedReason    String?
+  clientDigest     String?
+  userAgentDigest  String?
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, revokedAt, expiresAt])
+  @@index([classId, revokedAt, expiresAt])
+  @@index([expiresAt])
 }
 
 model EconomyTransaction {

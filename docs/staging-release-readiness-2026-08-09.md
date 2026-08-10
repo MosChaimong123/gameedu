@@ -1,6 +1,6 @@
 # Staging Release Readiness — 2026-08-09
 
-สถานะ: **Schema foundation, Identity Core, and Recovery and Verification committed; remaining phases unstaged; not pushed, not deployed**
+สถานะ: **Schema foundation, Identity Core, Recovery and Verification, and Sessions and Security Center backend committed; remaining phases unstaged; not pushed, not deployed**
 
 Branch: `codex/staging-release-readiness`
 
@@ -51,7 +51,7 @@ Branch: `codex/staging-release-readiness`
    - Remaining deployment configuration (`.env.example`, `render.yaml`, package scripts) stays unstaged until it can be reviewed with the identity code that consumes it.
 2. [x] **Identity core** — commit `cded646`; Auth.js callbacks, credentials, session registry foundation, password policy, provider-link intent, Passkey service, atomic rate limiting, environment contract, and focused tests
 3. [x] **Recovery and verification** — commit `eeb5ac1`; signup OTP lifecycle, forgot/reset password, delivery readiness, safe OAuth completion, callback validation, and focused route tests
-4. **Sessions and Security Center** — session registry, activity, revoke one/all
+4. [x] **Sessions and Security Center backend** — commit `6ffa2b7`; scoped session listing, activity minimization, revoke one/all others, rate-limited reauthentication, and focused tests. The coupled Security Center UI remains in boundary 8.
 5. **MFA and Passkeys** — enrollment, challenge, recovery, Admin reset; enforcement remains off
 6. **Student access security** — scoped Student Code sessions and migration tooling
 7. **Cross-domain authorization hardening** — Classroom/Admin/Student route guards
@@ -88,7 +88,17 @@ Do not commit/push/deploy when any of these is true:
 
 ## Next review action
 
-Review and create the **Sessions and Security Center** commit boundary: list/revoke sessions, revoke all other sessions, security activity, reauthentication, and their route tests. Keep Dashboard redesign, Negamon, LINE, Student Access, MFA UI, and unrelated classroom work unstaged. No production deployment is authorized by this document.
+Review and create the **MFA and Passkeys** commit boundary: enrollment, challenge, recovery codes, administrative reset, passkey ceremonies, enforcement safeguards, and focused tests. Keep enforcement off, and keep Dashboard redesign, Negamon, LINE, Student Access, coupled Security Center UI, and unrelated classroom work unstaged. No production deployment is authorized by this document.
+
+## Sessions and Security Center audit evidence — 2026-08-10
+
+- Commit `6ffa2b7` contains seven reviewed backend and test files for account session security; the coupled Security Center UI remains unstaged until its provider and MFA dependencies are committed.
+- Added authenticated, owner-scoped session listing and revocation, current-session detection, logout-other-devices, and minimized account auth activity responses.
+- Logout-other-devices now uses the shared strong reauthentication policy and a five-attempt per-user rate limit before password verification.
+- Focused boundary tests passed 18/18 across session routes, reauthentication, and session policy.
+- `npm.cmd run check:auth` passed: core auth 275 tests plus Phase 8B–8F suites, security guard, Prisma validation, and server TypeScript compilation.
+- `git diff --cached --check` and the staged secret-pattern scan passed before commit.
+- No push, staging deployment, schema mutation, or production change was performed.
 
 ## Recovery and Verification audit evidence — 2026-08-10
 

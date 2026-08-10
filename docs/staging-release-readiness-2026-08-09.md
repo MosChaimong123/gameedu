@@ -1,6 +1,6 @@
 # Staging Release Readiness — 2026-08-09
 
-สถานะ: **Schema foundation and Identity Core committed; remaining phases unstaged; not pushed, not deployed**
+สถานะ: **Schema foundation, Identity Core, and Recovery and Verification committed; remaining phases unstaged; not pushed, not deployed**
 
 Branch: `codex/staging-release-readiness`
 
@@ -41,7 +41,7 @@ Branch: `codex/staging-release-readiness`
 - [ ] `src/proxy.ts` — public/protected route boundary
 - [ ] `src/lib/security/rate-limit.ts` — production atomic store และ trusted proxy behavior
 - [x] `src/lib/student-login-code.ts` และ migration script — local dry run: 38 scanned, 14 legacy, 38 missing version; no mutation
-- [ ] recovery/verification routes — neutral response, OTP lifecycle และ session revocation
+- [x] recovery/verification routes — neutral response, OTP lifecycle และ session revocation reviewed in commit `eeb5ac1`
 
 ## Proposed commit boundaries
 
@@ -50,7 +50,7 @@ Branch: `codex/staging-release-readiness`
 1. [x] **Schema and migration foundation** — commit `0c4f0d9`; additive Prisma models, Student Code dry-run migration, auth metadata dry-run pruning, Prisma build fail-closed
    - Remaining deployment configuration (`.env.example`, `render.yaml`, package scripts) stays unstaged until it can be reviewed with the identity code that consumes it.
 2. [x] **Identity core** — commit `cded646`; Auth.js callbacks, credentials, session registry foundation, password policy, provider-link intent, Passkey service, atomic rate limiting, environment contract, and focused tests
-3. **Recovery and verification** — signup OTP, forgot/reset, delivery readiness/webhook
+3. [x] **Recovery and verification** — commit `eeb5ac1`; signup OTP lifecycle, forgot/reset password, delivery readiness, safe OAuth completion, callback validation, and focused route tests
 4. **Sessions and Security Center** — session registry, activity, revoke one/all
 5. **MFA and Passkeys** — enrollment, challenge, recovery, Admin reset; enforcement remains off
 6. **Student access security** — scoped Student Code sessions and migration tooling
@@ -88,7 +88,16 @@ Do not commit/push/deploy when any of these is true:
 
 ## Next review action
 
-Review and create the **Recovery and verification** commit boundary: signup verification lifecycle, forgot/reset password, delivery readiness/webhook, OAuth completion, and their route tests. Keep Dashboard redesign, Negamon, LINE, Student Access, MFA UI, and unrelated classroom work unstaged. No production deployment is authorized by this document.
+Review and create the **Sessions and Security Center** commit boundary: list/revoke sessions, revoke all other sessions, security activity, reauthentication, and their route tests. Keep Dashboard redesign, Negamon, LINE, Student Access, MFA UI, and unrelated classroom work unstaged. No production deployment is authorized by this document.
+
+## Recovery and Verification audit evidence — 2026-08-10
+
+- Commit `eeb5ac1` contains 27 reviewed recovery and verification files; UI, translations, package scripts, MFA, Student Access, Dashboard, Negamon, LINE, and unrelated classroom changes remain unstaged.
+- Focused recovery suite passed 16/16 test files and 125/125 tests, covering forgot/reset password, session revocation after reset, delivery readiness and webhook behavior, signup verification, resend, pending-state recovery, OAuth intent/completion, and callback URL validation.
+- Server TypeScript compilation passed with `npm.cmd run predev`.
+- `node scripts/check-auth-recovery-security.mjs` passed.
+- `git diff --cached --check` and the staged secret-pattern scan passed before commit.
+- No push, staging deployment, schema mutation, or production change was performed.
 
 ## Deployment/schema audit evidence — 2026-08-09
 

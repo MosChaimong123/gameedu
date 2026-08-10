@@ -1,6 +1,6 @@
 # Staging Release Readiness — 2026-08-09
 
-สถานะ: **Foundation commit created; remaining identity changes unstaged; not pushed, not deployed**
+สถานะ: **Schema foundation and Identity Core committed; remaining phases unstaged; not pushed, not deployed**
 
 Branch: `codex/staging-release-readiness`
 
@@ -49,7 +49,7 @@ Branch: `codex/staging-release-readiness`
 
 1. [x] **Schema and migration foundation** — commit `0c4f0d9`; additive Prisma models, Student Code dry-run migration, auth metadata dry-run pruning, Prisma build fail-closed
    - Remaining deployment configuration (`.env.example`, `render.yaml`, package scripts) stays unstaged until it can be reviewed with the identity code that consumes it.
-2. **Identity core** — Auth.js callbacks, credentials, OAuth, password/email/provider lifecycle
+2. [x] **Identity core** — commit `cded646`; Auth.js callbacks, credentials, session registry foundation, password policy, provider-link intent, Passkey service, atomic rate limiting, environment contract, and focused tests
 3. **Recovery and verification** — signup OTP, forgot/reset, delivery readiness/webhook
 4. **Sessions and Security Center** — session registry, activity, revoke one/all
 5. **MFA and Passkeys** — enrollment, challenge, recovery, Admin reset; enforcement remains off
@@ -88,7 +88,7 @@ Do not commit/push/deploy when any of these is true:
 
 ## Next review action
 
-Review and create the **Identity core** commit boundary: Auth.js callbacks, credentials/OAuth lifecycle, shared password policy, rate limiting, environment contract, and their tests. Keep Dashboard redesign, Negamon, LINE, and unrelated classroom work unstaged. After the identity commits are complete, provision an isolated staging URL/database. No production deployment is authorized by this document.
+Review and create the **Recovery and verification** commit boundary: signup verification lifecycle, forgot/reset password, delivery readiness/webhook, OAuth completion, and their route tests. Keep Dashboard redesign, Negamon, LINE, Student Access, MFA UI, and unrelated classroom work unstaged. No production deployment is authorized by this document.
 
 ## Deployment/schema audit evidence — 2026-08-09
 
@@ -101,6 +101,8 @@ Review and create the **Identity core** commit boundary: Auth.js callbacks, cred
 
 ## Identity Core audit evidence — 2026-08-09
 
+- Commit `cded646` contains 26 Identity Core files. Package script changes for later phases remain unstaged; only the required WebAuthn/TOTP dependencies were included.
+- Focused Identity Core suite passed 45/45 tests. Two cold-start timeouts were rerun independently five times and passed every run before the full focused suite passed; server TypeScript and staged-diff checks also passed.
 - Reviewed credentials login, OAuth intent/completion, JWT/session callbacks, security-session registry, provider lifecycle, MFA elevation, Passkey sign-in, callback URL validation, role semantics, and structured errors.
 - Fixed a critical trust-boundary issue where a browser-controlled `session.update()` payload could set `mfaLevel` and `mfaVerifiedAt`. MFA elevation now requires a 60-second HMAC proof bound to the user and active security-session record.
 - MFA verification now rejects missing or revoked security sessions instead of updating the JWT after a zero-row database update.

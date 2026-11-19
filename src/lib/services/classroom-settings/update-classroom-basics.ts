@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { parseQuizReviewModeFromRequest } from "@/lib/quiz-review-policy";
 
@@ -8,7 +8,6 @@ export type ClassroomBasicUpdateInput = {
     image?: string | null;
     emoji?: string | null;
     theme?: string | null;
-    levelConfig?: Prisma.InputJsonValue | null;
     quizReviewMode?: string | null;
 };
 
@@ -39,8 +38,6 @@ export function buildClassroomBasicUpdateData(
     if (body.image !== undefined) updateData.image = body.image;
     if (body.emoji !== undefined) updateData.emoji = body.emoji;
     if (body.theme !== undefined) updateData.theme = body.theme;
-    if (body.levelConfig !== undefined) updateData.levelConfig = body.levelConfig;
-
     if (body.quizReviewMode !== undefined) {
         const parsed = parseQuizReviewModeFromRequest(body.quizReviewMode);
         if (!parsed.ok) {

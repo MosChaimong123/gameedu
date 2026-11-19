@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { Classroom } from "@prisma/client";
+import type { Classroom } from "@prisma/client";
 import {
     Dialog,
     DialogContent,
@@ -55,11 +55,18 @@ const GRADE_PRESETS = [
 
 const CLASSROOM_QUIZ_REVIEW_INHERIT = "inherit";
 
+type ClassroomSettingsClassroom = Pick<
+    Classroom,
+    "id" | "name" | "emoji" | "theme" | "quizReviewMode"
+> & {
+    grade?: string | null;
+};
+
 interface ClassroomSettingsDialogProps {
-    classroom: Classroom;
+    classroom: ClassroomSettingsClassroom;
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSaved?: (classroom: Classroom) => void;
+    onSaved?: (classroom: ClassroomSettingsClassroom) => void;
     onPointsReset?: () => void;
 }
 
@@ -70,14 +77,13 @@ export function ClassroomSettingsDialog({
     onSaved,
     onPointsReset,
 }: ClassroomSettingsDialogProps) {
-    const classroomWithGrade = classroom as Classroom & { grade?: string | null };
     const { t, language } = useLanguage();
     const [loading, setLoading] = useState(false);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const { toast } = useToast();
 
     const [name, setName] = useState(classroom.name);
-    const [grade, setGrade] = useState(classroomWithGrade.grade || "");
+    const [grade, setGrade] = useState(classroom.grade || "");
     const [emoji, setEmoji] = useState(classroom.emoji || "🛡️");
     const [theme, setTheme] = useState(classroom.theme || THEMES[0].value);
 
@@ -176,7 +182,7 @@ export function ClassroomSettingsDialog({
                     )
                 );
             }
-            const updatedClassroom = await res.json() as Classroom;
+            const updatedClassroom = await res.json() as ClassroomSettingsClassroom;
             toast({ title: t("settingsSaved") });
             onSaved?.(updatedClassroom);
             onOpenChange(false);

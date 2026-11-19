@@ -72,8 +72,6 @@ export async function POST(
                 emoji: originalClassroom.emoji,
                 theme: originalClassroom.theme,
                 grade: originalClassroom.grade,
-                gamifiedSettings: originalClassroom.gamifiedSettings,
-                levelConfig: originalClassroom.levelConfig,
                 quizReviewMode: originalClassroom.quizReviewMode ?? null,
                 skills: {
                     create: sourceSkills.map((skill) => ({

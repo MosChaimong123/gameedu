@@ -17,6 +17,9 @@ been deployed. Production must not be assumed to include these removals.
 - Removed worksheet EXP awards, LINE submission Gold awards and rank-up notifications
   from teacher behavior-point updates. Quiz and worksheet responses no longer expose
   legacy EXP fields.
+- Classroom creation and duplication no longer initialize or copy game configuration;
+  classroom dashboard queries no longer load legacy player inventories, balances or
+  loadouts.
 - Preserved teacher behavior points, scores, submissions, attendance, certificates,
   LINE and Host/Play PIN game infrastructure.
 - Retained historical battle/economy audit reads and shared game engine code.

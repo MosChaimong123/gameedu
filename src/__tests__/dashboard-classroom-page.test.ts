@@ -48,10 +48,6 @@ vi.mock("@/components/board/ClassBoard", () => ({
   ClassBoard: () => null,
 }));
 
-vi.mock("@/components/classroom/classroom-economy-ledger-tab", () => ({
-  ClassroomEconomyLedgerTab: () => null,
-}));
-
 vi.mock("@/app/dashboard/classrooms/[id]/classroom-page-back-link", () => ({
   ClassroomPageBackLink: () => null,
 }));
@@ -152,7 +148,7 @@ describe("dashboard classroom page", () => {
     });
   });
 
-  it("keeps a bounded economy reward game pin deep-link query", async () => {
+  it("retires the economy tab while keeping the bounded audit query", async () => {
     const { normalizeClassroomPageQuery } = await import(
       "@/app/dashboard/classrooms/[id]/classroom-page-query"
     );
@@ -161,7 +157,7 @@ describe("dashboard classroom page", () => {
       rewardGamePin: "  GAME-PIN-1234567890-ABCDEFGHIJKL-extra  ",
     });
     expect(result).toEqual({
-      defaultTab: "economy",
+      defaultTab: "classroom",
       classFocus: null,
       highlightAssignmentId: null,
       studentLookup: null,

@@ -7,17 +7,16 @@ import { X, Shuffle, Trophy } from "lucide-react";
 import { StudentAvatar } from "../student-avatar";
 import useSound from "use-sound";
 import { useLanguage } from "@/components/providers/language-provider";
-import { getThemeBgStyle, getThemeHorizontalBgClass, type LevelConfigInput } from "@/lib/classroom-utils";
+import { getThemeBgStyle, getThemeHorizontalBgClass } from "@/lib/classroom-utils";
 
 interface RandomPickerProps {
     students: Student[];
     theme: string;
     onClose: () => void;
     onSelect?: (student: Student) => void;
-    levelConfig?: unknown;
 }
 
-export function RandomPicker({ students, theme, onClose, onSelect, levelConfig }: RandomPickerProps) {
+export function RandomPicker({ students, theme, onClose, onSelect }: RandomPickerProps) {
     const { t } = useLanguage();
     const [running, setRunning] = useState(false);
     const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
@@ -104,7 +103,6 @@ export function RandomPicker({ students, theme, onClose, onSelect, levelConfig }
                                 avatarSeed={currentStudent.avatar || currentStudent.id}
                                 behaviorPoints={currentStudent.behaviorPoints}
                                 academicPoints={0}
-                                levelConfig={levelConfig as LevelConfigInput}
                                 className="pointer-events-none w-full max-w-[12rem] border-amber-100/80 bg-white/95 shadow-md"
                             />
                         </div>

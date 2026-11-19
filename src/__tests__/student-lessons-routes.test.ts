@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getLessonTopicProgressVersion } from "@/lib/lessons/lesson-progress";
 
 const mockStudentFindFirst = vi.fn();
@@ -157,6 +157,10 @@ const legacyOnlyLessonContentV2 = {
 };
 
 describe("student lessons routes", () => {
+    afterEach(() => {
+        vi.unstubAllEnvs();
+    });
+
     beforeEach(() => {
         vi.clearAllMocks();
         mockStudentFindFirst.mockResolvedValue({ id: "student-1", classId: "class-1", name: "Alice" });
@@ -705,6 +709,50 @@ describe("student lessons routes", () => {
                 link: "/student/abc123",
             })
         );
+    });
+
+    it("records lesson completion without game rewards when classroom games are retired", async () => {
+        vi.stubEnv("CLASSROOM_GAME_SYSTEM_ENABLED", "false");
+        mockLessonAssessmentAttemptFindMany.mockResolvedValue([
+            {
+                questionSetId: "set-topic-1",
+                assessmentSourceType: "topic",
+                topicId: "topic-1",
+                topicAssessmentId: "topic-assessment-1",
+                score: 1,
+                maxScore: 1,
+                passed: true,
+                attemptNumber: 1,
+                rewardGrantedAt: null,
+                certificateIssuedAt: null,
+                completedAt: "2026-06-17T12:00:00.000Z",
+            },
+            {
+                questionSetId: "set-topic-2",
+                assessmentSourceType: "topic",
+                topicId: "topic-2",
+                topicAssessmentId: "topic-assessment-2",
+                score: 1,
+                maxScore: 1,
+                passed: true,
+                attemptNumber: 1,
+                rewardGrantedAt: null,
+                certificateIssuedAt: null,
+                completedAt: "2026-06-17T12:05:00.000Z",
+            },
+        ]);
+
+        const { POST } = await import("@/app/api/student/[code]/lessons/[lessonId]/complete/route");
+        const res = await POST(new Request("http://localhost", { method: "POST" }), {
+            params: Promise.resolve({ code: "abc123", lessonId: "lesson-1" }),
+        });
+        const body = await res.json();
+
+        expect(res.status).toBe(201);
+        expect(body.reward).toBeNull();
+        expect(mockLessonCompletionUpsert).toHaveBeenCalled();
+        expect(mockStudentUpdate).not.toHaveBeenCalled();
+        expect(mockSendNotification).not.toHaveBeenCalled();
     });
 
     it("blocks lesson completion when required topic assessments are still pending", async () => {

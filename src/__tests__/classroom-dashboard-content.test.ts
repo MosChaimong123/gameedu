@@ -7,7 +7,6 @@ import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashb
 const mockAddStudentDialogSpy = vi.fn();
 const mockStudentAvatarSpy = vi.fn();
 const mockClassroomTableSpy = vi.fn();
-const mockNegamonOverviewSpy = vi.fn();
 
 vi.mock("@/components/classroom/add-student-dialog", () => ({
   AddStudentDialog: (props: unknown) => {
@@ -26,13 +25,6 @@ vi.mock("@/components/classroom/student-avatar", () => ({
 vi.mock("@/components/classroom/classroom-table", () => ({
   ClassroomTable: (props: unknown) => {
     mockClassroomTableSpy(props);
-    return React.createElement("div");
-  },
-}));
-
-vi.mock("@/components/negamon/negamon-classroom-overview", () => ({
-  NegamonClassroomOverview: (props: unknown) => {
-    mockNegamonOverviewSpy(props);
     return React.createElement("div");
   },
 }));
@@ -98,7 +90,6 @@ describe("classroom dashboard content", () => {
         onStudentClick: vi.fn(),
         onHistoryStudent: vi.fn(),
         onStudentsAdded: vi.fn(),
-        onOpenNegamonSettings: vi.fn(),
       })
     );
 
@@ -120,34 +111,11 @@ describe("classroom dashboard content", () => {
         onStudentClick: vi.fn(),
         onHistoryStudent: vi.fn(),
         onStudentsAdded: vi.fn(),
-        onOpenNegamonSettings: vi.fn(),
       })
     );
 
     expect(mockStudentAvatarSpy).toHaveBeenCalledTimes(1);
     expect((mockStudentAvatarSpy.mock.calls[0][0] as { id: string }).id).toBe("student-1");
-  });
-
-  it("routes negamon view through the overview component", () => {
-    renderToStaticMarkup(
-      React.createElement(ClassroomDashboardContent, {
-        t: (key: string) => key,
-        classroom: baseClassroom,
-        viewMode: "negamon",
-        isAttendanceMode: false,
-        isSelectMultiple: false,
-        groupFilter: "all",
-        visibleStudentIds: [],
-        selectedStudentIds: [],
-        onStudentClick: vi.fn(),
-        onHistoryStudent: vi.fn(),
-        onStudentsAdded: vi.fn(),
-        onOpenNegamonSettings: vi.fn(),
-      })
-    );
-
-    expect(mockNegamonOverviewSpy).toHaveBeenCalledTimes(1);
-    expect((mockNegamonOverviewSpy.mock.calls[0][0] as { classroomId: string }).classroomId).toBe("class-1");
   });
 
   it("routes table view through classroom table", () => {
@@ -164,7 +132,6 @@ describe("classroom dashboard content", () => {
         onStudentClick: vi.fn(),
         onHistoryStudent: vi.fn(),
         onStudentsAdded: vi.fn(),
-        onOpenNegamonSettings: vi.fn(),
       })
     );
 

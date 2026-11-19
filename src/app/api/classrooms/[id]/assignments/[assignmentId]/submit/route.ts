@@ -4,8 +4,6 @@ import { createAppErrorResponse, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error"
 import { db } from "@/lib/db";
 import { sanitizeIntegrityEvents } from "@/lib/quiz-integrity";
 import { loadQuizTakeContext } from "@/lib/quiz-take-context";
-import { calcAssignmentEXP, getNegamonSettings } from "@/lib/classroom-utils";
-import { notifyNegamonRankUpIfNeeded } from "@/lib/negamon/negamon-rank-notify";
 import {
     buildRateLimitKey,
     consumeRateLimit,
@@ -88,96 +86,31 @@ export async function POST(
             integrity === undefined ? { events: [] } : integrity
         );
 
-        const classroom = await db.classroom.findUnique({
-            where: { id },
-            select: { levelConfig: true, gamifiedSettings: true },
-        });
-        const negamon = getNegamonSettings(classroom?.gamifiedSettings);
-        const maxScoreForExp = Math.max(1, ctx.maxScore);
-
-        type RankNotifyPayload = {
-            studentId: string;
-            loginCode: string | null;
-            oldPoints: number;
-            newPoints: number;
-        };
-
         const completedAt = new Date();
-
-        const { submission, rankNotifyPayload, expBonus } = await db.$transaction(async (tx) => {
-            const sub = await tx.assignmentSubmission.upsert({
-                where: {
-                    studentId_assignmentId: {
-                        studentId: ctx.studentId,
-                        assignmentId,
-                    },
-                },
-                create: {
+        const submission = await db.assignmentSubmission.upsert({
+            where: {
+                studentId_assignmentId: {
                     studentId: ctx.studentId,
                     assignmentId,
-                    score,
-                    cheatingLogs: cheatingLogs as Prisma.InputJsonValue,
-                    attemptStartedAt: completedAt,
-                    quizCompletedAt: completedAt,
-                    submittedAt: completedAt,
                 },
-                update: {
-                    score,
-                    cheatingLogs: cheatingLogs as Prisma.InputJsonValue,
-                    quizCompletedAt: completedAt,
-                    submittedAt: completedAt,
-                },
-            });
-
-            let payload: RankNotifyPayload | null = null;
-            let awardedExp = 0;
-
-            if (negamon?.enabled) {
-                const expBonus = calcAssignmentEXP(score, maxScoreForExp, negamon.expPerPoint);
-                if (expBonus > 0) {
-                    const before = await tx.student.findUnique({
-                        where: { id: ctx.studentId },
-                        select: { behaviorPoints: true, loginCode: true },
-                    });
-                    if (before) {
-                        const pct = Math.round((score / maxScoreForExp) * 100);
-                        const after = await tx.student.update({
-                            where: { id: ctx.studentId },
-                            data: {
-                                behaviorPoints: { increment: expBonus },
-                                history: {
-                                    create: {
-                                        value: expBonus,
-                                        reason: `Negamon Quest: ${ctx.assignmentName} (${pct}%)`,
-                                    },
-                                },
-                            },
-                            select: { behaviorPoints: true, loginCode: true },
-                        });
-                        payload = {
-                            studentId: ctx.studentId,
-                            loginCode: after.loginCode,
-                            oldPoints: before.behaviorPoints,
-                            newPoints: after.behaviorPoints,
-                        };
-                        awardedExp = expBonus;
-                    }
-                }
-            }
-
-            return { submission: sub, rankNotifyPayload: payload, expBonus: awardedExp };
+            },
+            create: {
+                studentId: ctx.studentId,
+                assignmentId,
+                score,
+                cheatingLogs: cheatingLogs as Prisma.InputJsonValue,
+                attemptStartedAt: completedAt,
+                quizCompletedAt: completedAt,
+                submittedAt: completedAt,
+            },
+            update: {
+                score,
+                cheatingLogs: cheatingLogs as Prisma.InputJsonValue,
+                quizCompletedAt: completedAt,
+                submittedAt: completedAt,
+            },
         });
-
-        if (rankNotifyPayload && classroom) {
-            await notifyNegamonRankUpIfNeeded({
-                studentId: rankNotifyPayload.studentId,
-                loginCode: rankNotifyPayload.loginCode,
-                oldPoints: rankNotifyPayload.oldPoints,
-                newPoints: rankNotifyPayload.newPoints,
-                levelConfig: classroom.levelConfig,
-                gamifiedSettings: classroom.gamifiedSettings,
-            });
-        }
+        const expBonus = 0;
 
         const reviewMode = ctx.reviewMode;
         if (reviewMode === "never") {

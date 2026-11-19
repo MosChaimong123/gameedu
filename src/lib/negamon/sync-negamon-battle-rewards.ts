@@ -8,6 +8,7 @@ import { notifyNegamonRankUpIfNeeded } from "@/lib/negamon/negamon-rank-notify";
 import { sendNotification } from "@/lib/notifications";
 import { encodeNegamonLiveBattleRewardReason } from "@/lib/point-history-reason";
 import { listRecentAuditEvents, logAuditEvent } from "@/lib/security/audit-log";
+import { isClassroomGameSystemEnabled } from "@/lib/classroom-game-system";
 
 function normalizePlayerKey(name: string): string {
   return name.trim().toLowerCase();
@@ -103,7 +104,7 @@ export type NegamonRewardResyncResult = {
   appliedCount: number;
   skippedCount: number;
   unresolvedCount: number;
-  reason: "applied" | "already_awarded" | "claim_already_exists" | "snapshot_missing" | "no_audit_event";
+  reason: "applied" | "already_awarded" | "claim_already_exists" | "snapshot_missing" | "no_audit_event" | "system_retired";
   appliedRecipients: {
     studentId: string;
     exp: number;
@@ -525,6 +526,8 @@ function buildSnapshotPlayersFromAudit(args: {
  * และบันทึก audit สำหรับการตรวจย้อนหลัง/แก้ identity
  */
 export async function syncNegamonBattleRewardsToClassroom(game: AbstractGameEngine): Promise<void> {
+  if (!isClassroomGameSystemEnabled()) return;
+
   if (game.gameMode !== "NEGAMON_BATTLE") return;
 
   const classroomId = game.settings.negamonRewardClassroomId;
@@ -612,6 +615,19 @@ export async function resyncNegamonBattleRewardsForGamePin(args: {
   teacherId: string;
   gamePin: string;
 }): Promise<NegamonRewardResyncResult> {
+  if (!isClassroomGameSystemEnabled()) {
+    return {
+      gamePin: args.gamePin,
+      requestedByUserId: args.teacherId,
+      appliedCount: 0,
+      skippedCount: 0,
+      unresolvedCount: 0,
+      reason: "system_retired",
+      appliedRecipients: [],
+      skippedPlayers: [],
+    };
+  }
+
   const classroom = await findRewardClassroom({
     classroomId: args.classroomId,
     teacherId: args.teacherId,

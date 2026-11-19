@@ -10,6 +10,7 @@ import {
   WORKSHEET_ERR_BAD_REQUEST,
 } from "@/lib/worksheet-take-context";
 import type { WorksheetStudentAnswers } from "@/lib/worksheet-schema";
+import { isClassroomGameSystemEnabled } from "@/lib/classroom-game-system";
 
 type SubmitWorksheetArgs = {
   classId: string;
@@ -54,6 +55,10 @@ async function awardWorksheetNegamonExpIfEligible(input: {
   hasPreviousSubmission: boolean;
   hasManualReviewItems: boolean;
 }) {
+  if (!isClassroomGameSystemEnabled()) {
+    return null;
+  }
+
   if (input.hasPreviousSubmission || input.hasManualReviewItems) {
     return null;
   }

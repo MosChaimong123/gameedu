@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { awardLineAssignmentSubmissionReward } from "@/lib/services/student-economy/line-assignment-reward";
 
 function createMockDb(input?: { existingLedger?: unknown; startingGold?: number }) {
@@ -21,6 +21,27 @@ function createMockDb(input?: { existingLedger?: unknown; startingGold?: number 
 }
 
 describe("line assignment reward", () => {
+    afterEach(() => {
+        vi.unstubAllEnvs();
+    });
+
+    it("does not create a transaction when classroom games are retired", async () => {
+        vi.stubEnv("CLASSROOM_GAME_SYSTEM_ENABLED", "false");
+        const { db, tx } = createMockDb({ startingGold: 100 });
+
+        const result = await awardLineAssignmentSubmissionReward(db as never, {
+            studentId: "student-1",
+            classId: "classroom-1",
+            assignmentId: "507f1f77bcf86cd799439011",
+            assignmentName: "Homework 1",
+            aiPreliminaryScore: null,
+        });
+
+        expect(result).toMatchObject({ awarded: false, gold: 0, reason: "system_retired" });
+        expect(db.$transaction).not.toHaveBeenCalled();
+        expect(tx.student.update).not.toHaveBeenCalled();
+    });
+
     it("awards first LINE assignment submission gold and records an idempotent ledger row", async () => {
         const { db, tx } = createMockDb({ startingGold: 100 });
 

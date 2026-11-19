@@ -4,10 +4,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Check, Star, BookOpen, History } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getStudentRank } from "@/lib/classroom-utils";
-import { getItemById } from "@/lib/shop-items";
 import { useLanguage } from "@/components/providers/language-provider";
-import { FrameCardChrome, FrameRing } from "@/components/ui/frame-visual";
 import {
     attendanceAvatarContentDimClass,
     attendanceAvatarRingClass,
@@ -19,8 +16,6 @@ import {
     normalizeAttendanceStatus,
 } from "@/lib/attendance-status";
 
-type LevelConfigInput = Record<string, number> | Array<{ name: string; minScore: number }> | null | undefined;
-
 interface StudentAvatarProps {
     id: string;
     name: string;
@@ -31,8 +26,6 @@ interface StudentAvatarProps {
     onContextMenu?: (e: React.MouseEvent) => void;
     className?: string;
     attendance?: string;
-    levelConfig?: LevelConfigInput;
-    equippedFrame?: string | null;
     isSelected?: boolean;
     isAttendanceMode?: boolean;
     isOnline?: boolean;
@@ -48,8 +41,6 @@ export function StudentAvatar({
     onContextMenu,
     className,
     attendance = "PRESENT",
-    levelConfig,
-    equippedFrame = null,
     isSelected = false,
     isAttendanceMode = false,
     isOnline = false,
@@ -62,22 +53,6 @@ export function StudentAvatar({
     const shellBorderClass = attendanceCardShellClass(attendanceStatus);
     const avatarDimClass = attendanceAvatarContentDimClass(attendanceStatus);
     const overlayClass = attendanceOverlayClass(attendanceStatus);
-
-    const rank = getStudentRank(academicPoints, levelConfig);
-
-    const getRankStyle = (rankText: string) => {
-        const r = rankText.toLowerCase();
-        if (r.includes("mythic")) return "from-red-500 to-amber-600 text-white shadow-red-200";
-        if (r.includes("legendary")) return "from-amber-400 to-orange-600 text-white shadow-orange-100";
-        if (r.includes("epic")) return "from-purple-500 to-indigo-600 text-white shadow-purple-100";
-        if (r.includes("rare")) return "from-blue-400 to-indigo-500 text-white shadow-blue-100";
-        if (r.includes("uncommon")) return "from-emerald-400 to-teal-500 text-white shadow-emerald-100";
-        return "from-slate-400 to-slate-500 text-white shadow-slate-100";
-    };
-
-    const rankStyle = getRankStyle(rank);
-    const frameItem = equippedFrame ? getItemById(equippedFrame) : undefined;
-    const framePreview = frameItem?.type === "frame" ? frameItem.preview : undefined;
 
     const cardInner = (
         <>
@@ -95,7 +70,7 @@ export function StudentAvatar({
                         title={t("tooltipAcademicPointsBadge")}
                     >
                         <BookOpen className="w-3.5 h-3.5 mr-1 fill-current" />
-                        <span className="mb-0.5 text-xs leading-none">{academicPoints}</span>
+                        <span className="mb-0.5 text-xs leading-none">{academicPoints.toFixed(2)}</span>
                     </div>
                 </div>
             )}
@@ -131,48 +106,23 @@ export function StudentAvatar({
             )}
 
             <div className="relative mb-4">
-                {framePreview ? (
-                    <FrameRing
-                        preview={framePreview}
-                        size="lg"
-                        rounded="avatar"
-                        className={cn(
-                            "shadow-inner transition-colors group-hover:bg-indigo-50/50",
-                            ringClass,
-                            avatarDimClass
-                        )}
-                    >
-                        {overlayClass && (
-                            <div className={cn("absolute inset-0 z-10 rounded-[inherit]", overlayClass)} />
-                        )}
-                        <Image
-                            src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatarSeed || id}`}
-                            alt={name}
-                            fill
-                            sizes="(max-width: 640px) 96px, 112px"
-                            unoptimized
-                            className="object-contain p-3 drop-shadow-md transition-transform duration-500 group-hover:scale-110"
-                        />
-                    </FrameRing>
-                ) : (
-                    <div
-                        className={cn(
-                            "relative h-24 w-24 overflow-hidden rounded-[1.75rem] border border-slate-100 bg-slate-50 p-3 shadow-inner transition-colors group-hover:bg-indigo-50/50 sm:h-28 sm:w-28",
-                            ringClass,
-                            avatarDimClass
-                        )}
-                    >
-                        {overlayClass && <div className={cn("absolute inset-0 z-10", overlayClass)} />}
-                        <Image
-                            src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatarSeed || id}`}
-                            alt={name}
-                            fill
-                            sizes="(max-width: 640px) 96px, 112px"
-                            unoptimized
-                            className="object-contain drop-shadow-md transition-transform duration-500 group-hover:scale-110"
-                        />
-                    </div>
-                )}
+                <div
+                    className={cn(
+                        "relative h-24 w-24 overflow-hidden rounded-[1.75rem] border border-slate-100 bg-slate-50 p-3 shadow-inner transition-colors group-hover:bg-indigo-50/50 sm:h-28 sm:w-28",
+                        ringClass,
+                        avatarDimClass
+                    )}
+                >
+                    {overlayClass && <div className={cn("absolute inset-0 z-10", overlayClass)} />}
+                    <Image
+                        src={`https://api.dicebear.com/7.x/bottts/svg?seed=${avatarSeed || id}`}
+                        alt={name}
+                        fill
+                        sizes="(max-width: 640px) 96px, 112px"
+                        unoptimized
+                        className="object-contain drop-shadow-md transition-transform duration-500 group-hover:scale-110"
+                    />
+                </div>
                 <span
                     className={cn(
                         "absolute bottom-1 right-1 z-40 h-3.5 w-3.5 rounded-full border-2 border-white shadow-sm",
@@ -183,14 +133,6 @@ export function StudentAvatar({
             </div>
 
             <div className="flex flex-col items-center w-full">
-                <div
-                    className={cn(
-                        "mb-2 rounded-full border-2 border-white bg-gradient-to-br px-4 py-1 text-xs font-black uppercase tracking-wide shadow-md",
-                        rankStyle
-                    )}
-                >
-                    {rank}
-                </div>
                 <div className="flex min-h-[44px] w-full items-center justify-center rounded-2xl border-2 border-white/10 bg-slate-800 px-4 py-2 text-center text-sm font-bold leading-snug tracking-tight text-white shadow-xl">
                     {name}
                 </div>
@@ -204,34 +146,16 @@ export function StudentAvatar({
             whileTap={{ scale: 0.95 }}
             className={cn(
                 "relative flex flex-col items-center justify-center rounded-[2rem] transition-all cursor-pointer group",
-                !framePreview &&
-                    cn(
-                        "bg-white p-4 shadow-sm hover:shadow-2xl sm:p-5",
-                        attendanceStatus === "PRESENT" ? "hover:border-indigo-100" : shellBorderClass
-                    ),
-                framePreview && "p-0 shadow-none",
-                dimmed && !framePreview && "bg-slate-50/80",
+                "bg-white p-4 shadow-sm hover:shadow-2xl sm:p-5",
+                attendanceStatus === "PRESENT" ? "hover:border-indigo-100" : shellBorderClass,
+                dimmed && "bg-slate-50/80",
                 isSelected && "bg-indigo-50 ring-4 ring-indigo-500/30 shadow-xl",
                 className
             )}
             onClick={onClick}
             onContextMenu={onContextMenu}
         >
-            {framePreview ? (
-                <FrameCardChrome
-                    preview={framePreview}
-                    outerClassName={cn(
-                        "rounded-[2rem] flex w-full flex-col items-center justify-center",
-                        attendanceStatus !== "PRESENT" && shellBorderClass
-                    )}
-                    innerRoundedClassName="rounded-[1.85rem]"
-                    innerClassName="relative flex flex-col items-center justify-center p-4 sm:p-5"
-                >
-                    {cardInner}
-                </FrameCardChrome>
-            ) : (
-                cardInner
-            )}
+            {cardInner}
         </motion.div>
     );
 }

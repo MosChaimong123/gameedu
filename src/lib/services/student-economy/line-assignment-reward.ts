@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { recordEconomyTransaction } from "@/lib/services/student-economy/economy-ledger";
+import { isClassroomGameSystemEnabled } from "@/lib/classroom-game-system";
 
 const LINE_ASSIGNMENT_BASE_GOLD = 10;
 const LINE_ASSIGNMENT_AI_BONUS_GOLD = 5;
@@ -47,7 +48,7 @@ export type LineAssignmentRewardResult =
         awarded: false;
         gold: 0;
         idempotencyKey: string;
-        reason: "already_awarded" | "model_unavailable";
+        reason: "already_awarded" | "model_unavailable" | "system_retired";
     };
 
 function buildLineAssignmentRewardIdempotencyKey(input: Pick<LineAssignmentRewardInput, "studentId" | "assignmentId">) {
@@ -67,6 +68,9 @@ export async function awardLineAssignmentSubmissionReward(
     input: LineAssignmentRewardInput
 ): Promise<LineAssignmentRewardResult> {
     const idempotencyKey = buildLineAssignmentRewardIdempotencyKey(input);
+    if (!isClassroomGameSystemEnabled()) {
+        return { awarded: false, gold: 0, idempotencyKey, reason: "system_retired" };
+    }
     const gold = calculateLineAssignmentRewardGold(input);
 
     return db.$transaction(async (tx) => {

@@ -233,13 +233,12 @@ describe("classroom dashboard component", () => {
     const toolbarProps = toolbarPropsSpy.mock.calls[0][0] as {
       viewMode: string;
       isConnected: boolean;
-      gamificationToolbarMode: string;
-      onSelectViewMode: (mode: "grid" | "table" | "negamon") => void;
+      onSelectViewMode: (mode: "grid" | "table") => void;
     };
 
     expect(toolbarProps.viewMode).toBe("grid");
     expect(toolbarProps.isConnected).toBe(true);
-    expect(toolbarProps.gamificationToolbarMode).toBe("live");
+    expect(toolbarProps).not.toHaveProperty("gamificationToolbarMode");
 
     toolbarProps.onSelectViewMode("table");
 

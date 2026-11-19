@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { BookOpen, Swords } from "lucide-react";
 import { PageBackLink } from "@/components/ui/page-back-link";
 import { LanguageToggle } from "@/components/language-toggle";
 import { SyncAccountButton } from "./sync-account-button";
@@ -10,7 +9,6 @@ import { StudentLineLinkDialog } from "./student-line-link-dialog";
 import type {
     ClassroomRecord,
     DashboardStudent,
-    StudentDashboardMode,
     StudentDashboardTranslateFn,
 } from "@/lib/services/student-dashboard/student-dashboard.types";
 
@@ -20,13 +18,11 @@ interface StudentDashboardHeaderProps {
     student: DashboardStudent;
     code: string;
     currentUserId?: string;
-    mode: StudentDashboardMode;
     classIcon: string | null;
     isImageIcon: boolean;
     themeClass: string;
     themeStyle: React.CSSProperties;
     notificationTray: React.ReactNode;
-    onToggleMode: () => void;
 }
 
 export function StudentDashboardHeader({
@@ -35,13 +31,11 @@ export function StudentDashboardHeader({
     student,
     code,
     currentUserId,
-    mode,
     classIcon,
     isImageIcon,
     themeClass,
     themeStyle,
     notificationTray,
-    onToggleMode,
 }: StudentDashboardHeaderProps) {
     return (
         <>
@@ -106,30 +100,6 @@ export function StudentDashboardHeader({
                     ) : null}
                     {notificationTray}
                     <LanguageToggle className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white" />
-                    <button
-                        data-testid="student-dashboard-mode-toggle"
-                        onClick={onToggleMode}
-                        className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-black transition-all ${
-                            mode === "learn"
-                                ? "border-white/30 bg-white/20 text-white hover:bg-white/30"
-                                : "border-amber-300/50 bg-amber-400/30 text-amber-100 hover:bg-amber-400/40"
-                        }`}
-                        title={
-                            mode === "learn"
-                                ? t("studentDashSwitchToGameTitle")
-                                : t("studentDashSwitchToLearnTitle")
-                        }
-                    >
-                        {mode === "learn" ? (
-                            <>
-                                <BookOpen className="h-3.5 w-3.5" /> {t("studentDashModeLearnShort")}
-                            </>
-                        ) : (
-                            <>
-                                <Swords className="h-3.5 w-3.5" /> {t("studentDashModeGameShort")}
-                            </>
-                        )}
-                    </button>
                     <div className="hidden h-10 w-px bg-white/10 sm:block" />
                     <div className="flex items-center gap-3">
                         <div className="text-right">

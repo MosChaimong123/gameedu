@@ -43,7 +43,6 @@ interface GroupMakerProps {
     skills: Skill[];
     theme: string;
     onClose: () => void;
-    levelConfig?: unknown;
     onSavedGroupsChange?: (groups: SavedGroupSummary[]) => void;
 }
 
@@ -73,10 +72,8 @@ export function GroupMaker({
     skills,
     theme,
     onClose,
-    levelConfig: _levelConfig,
     onSavedGroupsChange,
 }: GroupMakerProps) {
-    void _levelConfig;
     const { language, t } = useLanguage();
     const { toast } = useToast();
     const locale = language === "th" ? "th-TH" : "en-US";

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mockStudentFindFirst = vi.fn()
 const mockCourseAssignmentFindFirst = vi.fn()
@@ -7,6 +7,9 @@ const mockCourseAssessmentAttemptFindMany = vi.fn()
 const mockCourseCertificateFindUnique = vi.fn()
 const mockTransaction = vi.fn()
 const mockSendNotification = vi.fn()
+const mockStudentUpdate = vi.fn()
+const mockPointHistoryCreate = vi.fn()
+const mockStudentAchievementUpsert = vi.fn()
 
 vi.mock("@/lib/db", () => ({
     db: {
@@ -80,6 +83,10 @@ const validCourseContent = {
 }
 
 describe("student course certificate route", () => {
+    afterEach(() => {
+        vi.unstubAllEnvs()
+    })
+
     beforeEach(() => {
         vi.clearAllMocks()
         mockStudentFindFirst.mockResolvedValue({
@@ -112,6 +119,9 @@ describe("student course certificate route", () => {
             },
         ])
         mockCourseCertificateFindUnique.mockResolvedValue(null)
+        mockStudentUpdate.mockResolvedValue({})
+        mockPointHistoryCreate.mockResolvedValue({})
+        mockStudentAchievementUpsert.mockResolvedValue({})
         mockTransaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) =>
             callback({
                 courseCertificate: {
@@ -124,13 +134,13 @@ describe("student course certificate route", () => {
                     }),
                 },
                 student: {
-                    update: vi.fn().mockResolvedValue({}),
+                    update: mockStudentUpdate,
                 },
                 pointHistory: {
-                    create: vi.fn().mockResolvedValue({}),
+                    create: mockPointHistoryCreate,
                 },
                 studentAchievement: {
-                    upsert: vi.fn().mockResolvedValue({}),
+                    upsert: mockStudentAchievementUpsert,
                 },
             })
         )
@@ -166,5 +176,21 @@ describe("student course certificate route", () => {
 
         expect(res.status).toBe(403)
         expect(mockTransaction).not.toHaveBeenCalled()
+    })
+
+    it("issues the certificate without game rewards when classroom games are retired", async () => {
+        vi.stubEnv("CLASSROOM_GAME_SYSTEM_ENABLED", "false")
+        const { POST } = await import("@/app/api/student/[code]/courses/[courseId]/certificate/issue/route")
+        const res = await POST(new Request("http://localhost", { method: "POST" }), {
+            params: Promise.resolve({ code: "abc123", courseId: "course-1" }),
+        })
+        const payload = await res.json()
+
+        expect(res.status).toBe(200)
+        expect(payload.certificate.certificateCode).toBe("TPC-COURSE1-STUDEN1")
+        expect(payload.reward).toBeNull()
+        expect(mockStudentUpdate).not.toHaveBeenCalled()
+        expect(mockPointHistoryCreate).not.toHaveBeenCalled()
+        expect(mockStudentAchievementUpsert).not.toHaveBeenCalled()
     })
 })

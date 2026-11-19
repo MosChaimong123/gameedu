@@ -24,16 +24,11 @@ import {
 } from "@/components/ui/dialog";
 import { Users } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
-import { isClassroomGamificationEnabled } from "@/lib/classroom-gamification-enabled";
-import { isTeacherOrAdmin } from "@/lib/role-guards";
 import { useToast } from "@/components/ui/use-toast";
 import { useSocket } from "@/components/providers/socket-provider";
 import useSound from "use-sound";
-import { getNegamonSettings, type LevelConfigInput } from "@/lib/classroom-utils";
 import { sumAcademicTotal } from "@/lib/academic-score";
 import { fetchClassroomDashboard } from "@/lib/classroom-dashboard-actions";
-import { NegamonClassroomOverview } from "@/components/negamon/negamon-classroom-overview";
-import { NegamonSettingsDialog } from "@/components/negamon/negamon-settings";
 import {
     ClassroomAttendanceBanner,
     ClassroomSelectionBanner,
@@ -50,7 +45,6 @@ import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashb
 
 interface ClassroomDashboardProps {
     classroom: ClassroomDashboardViewModel;
-    currentUserRole: string | null | undefined;
     /** When set (e.g. from `?focus=assignments`), open table view for assignment columns. */
     initialClassFocus?: "assignments" | null;
     /** When set (e.g. from `?highlightAssignmentId=`), scroll/highlight that assignment column. */
@@ -67,7 +61,6 @@ interface ClassroomDashboardProps {
 
 export function ClassroomDashboard({
     classroom: initialClassroom,
-    currentUserRole,
     initialClassFocus = null,
     highlightAssignmentId = null,
     initialStudentLookup = null,
@@ -120,8 +113,6 @@ export function ClassroomDashboard({
         setHistoryStudentId,
         mobileToolbarOpen,
         setMobileToolbarOpen,
-        showNegamonSettings,
-        setShowNegamonSettings,
     } = useClassroomDashboardUiState({
         initialViewMode: initialClassFocus === "assignments" ? "table" : "grid",
     });
@@ -258,21 +249,6 @@ export function ClassroomDashboard({
         setActiveHighlightAssignmentId(highlightAssignmentId);
     }, [highlightAssignmentId]);
 
-    const gamificationToolbarMode =
-        isTeacherOrAdmin(currentUserRole) && isClassroomGamificationEnabled() ? "live" : "comingSoon";
-
-    useEffect(() => {
-        if (gamificationToolbarMode !== "live" && viewMode === "negamon") {
-            setViewMode("grid");
-        }
-    }, [gamificationToolbarMode, viewMode, setViewMode]);
-
-    useEffect(() => {
-        if (gamificationToolbarMode !== "live") {
-            setShowNegamonSettings(false);
-        }
-    }, [gamificationToolbarMode, setShowNegamonSettings]);
-
     return (
         <div className="flex flex-col h-full space-y-6 relative">
             {/* Toolbar */}
@@ -281,7 +257,6 @@ export function ClassroomDashboard({
                     t={t}
                     classroom={classroom}
                     onlineStudentIds={onlineStudentIds}
-                    gamificationToolbarMode={gamificationToolbarMode}
                     isConnected={isConnected}
                     viewMode={viewMode}
                     mobileToolbarOpen={mobileToolbarOpen}
@@ -299,8 +274,6 @@ export function ClassroomDashboard({
                     onOpenGroupMaker={() => setShowGroupMaker(true)}
                     onStudentsAdded={appendStudents as never}
                     onOpenStudentManager={() => setShowStudentManager(true)}
-                    onRankSettingsSaved={updateClassroomBasics as never}
-                    onOpenNegamonSettings={() => setShowNegamonSettings(true)}
                     onEnterAttendanceMode={() => {
                         enterAttendanceMode();
                         setViewMode("grid");
@@ -440,7 +413,6 @@ export function ClassroomDashboard({
                                 onClick={() => handleStudentClick(student)}
                                 onContextMenu={(e) => { e.preventDefault(); setHistoryStudentId(student.id); }}
                                 attendance={student.attendance || "PRESENT"}
-                                levelConfig={classroom.levelConfig as LevelConfigInput}
                                 isSelected={selectedStudentIds.includes(student.id)}
                                 academicPoints={sumAcademicTotal(
                                     classroom.assignments,
@@ -455,23 +427,12 @@ export function ClassroomDashboard({
                     </div>
                 )}
                 </div>
-            ) : viewMode === "negamon" ? (
-                <div className="min-h-0 flex-1 w-full animate-in slide-in-from-bottom-2 rounded-[22px] border border-[#f2f2f2] bg-[#fafafa] p-4 sm:p-6">
-                    <NegamonClassroomOverview
-                        classroomId={classroom.id}
-                        students={classroom.students as never}
-                        levelConfig={classroom.levelConfig as LevelConfigInput}
-                        gamifiedSettings={classroom.gamifiedSettings}
-                        onOpenSettings={() => setShowNegamonSettings(true)}
-                    />
-                </div>
             ) : (
                 <div className="flex-1 min-h-0 w-full animate-in slide-in-from-bottom-2">
                     <ClassroomTable 
                         classId={classroom.id}
                         students={classroom.students as never}
                         assignments={classroom.assignments as AssignmentWithChecklist[]}
-                        levelConfig={classroom.levelConfig as LevelConfigInput}
                         isAttendanceMode={isAttendanceMode}
                         onStudentClick={handleStudentClick as never}
                         highlightAssignmentId={activeHighlightAssignmentId}
@@ -547,7 +508,6 @@ export function ClassroomDashboard({
                 <RandomPicker
                     students={classroom.students as never}
                     theme={classroom.theme || ''}
-                    levelConfig={classroom.levelConfig}
                     onClose={() => setShowRandomPicker(false)}
                 />
             )}
@@ -556,7 +516,6 @@ export function ClassroomDashboard({
                     students={classroom.students as never}
                     skills={classroom.skills}
                     theme={classroom.theme || ''}
-                    levelConfig={classroom.levelConfig}
                     onSavedGroupsChange={setSavedGroups}
                     onClose={() => setShowGroupMaker(false)}
                 />
@@ -578,35 +537,6 @@ export function ClassroomDashboard({
                 onPointsReset={resetLocalBehaviorPoints}
             />
 
-            <NegamonSettingsDialog
-                open={showNegamonSettings && gamificationToolbarMode === "live"}
-                onOpenChange={setShowNegamonSettings}
-                classroomId={classroom.id}
-                students={classroom.students.map((s) => ({ id: s.id, name: s.name }))}
-                currentSettings={getNegamonSettings(classroom.gamifiedSettings)}
-                existingGamifiedSettings={
-                    classroom.gamifiedSettings &&
-                    typeof classroom.gamifiedSettings === "object" &&
-                    !Array.isArray(classroom.gamifiedSettings)
-                        ? (classroom.gamifiedSettings as Record<string, unknown>)
-                        : null
-                }
-                onSaved={(settings, gamifiedSettings) => {
-                    setClassroom((prev) => ({
-                        ...prev,
-                        gamifiedSettings: (
-                            gamifiedSettings ?? {
-                                ...(prev.gamifiedSettings &&
-                                typeof prev.gamifiedSettings === "object" &&
-                                !Array.isArray(prev.gamifiedSettings)
-                                    ? (prev.gamifiedSettings as Record<string, unknown>)
-                                    : {}),
-                                negamon: settings,
-                            }
-                        ) as ClassroomDashboardViewModel["gamifiedSettings"],
-                    }));
-                }}
-            />
 
         </div>
     );

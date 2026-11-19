@@ -7,6 +7,7 @@ import { notifyNegamonRankUpIfNeeded } from "@/lib/negamon/negamon-rank-notify";
 import { sendNotification } from "@/lib/notifications";
 import { encodeArQuestLiveRewardReason } from "@/lib/point-history-reason";
 import { logAuditEvent } from "@/lib/security/audit-log";
+import { isClassroomGameSystemEnabled } from "@/lib/classroom-game-system";
 
 type RewardSyncIdentitySource = "studentId" | "name";
 
@@ -408,6 +409,8 @@ async function notifyAwardRecipients(args: {
 }
 
 export async function syncArQuestRewardsToClassroom(game: AbstractGameEngine): Promise<void> {
+  if (!isClassroomGameSystemEnabled()) return;
+
   if (game.gameMode !== "AR_QUEST") return;
 
   const classroomId = game.settings.arQuestRewardClassroomId;

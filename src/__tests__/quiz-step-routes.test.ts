@@ -117,7 +117,7 @@ describe("quiz submit POST", () => {
     setupOpenQuiz();
   });
 
-  it("returns expBonus when a Negamon quiz reward is awarded", async () => {
+  it("records the quiz score without awarding classroom game EXP", async () => {
     mockClassroomFindUnique.mockResolvedValue({
       levelConfig: { ranks: [] },
       gamifiedSettings: { negamon: { enabled: true, expPerPoint: 6 } },
@@ -139,25 +139,12 @@ describe("quiz submit POST", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mockStudentUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "student-1" },
-        data: expect.objectContaining({
-          behaviorPoints: { increment: 12 },
-          history: {
-            create: expect.objectContaining({
-              value: 12,
-              reason: "Negamon Quest: Quiz 1 (100%)",
-            }),
-          },
-        }),
-      })
-    );
+    expect(mockStudentUpdate).not.toHaveBeenCalled();
 
     const body = await res.json();
     expect(body).toMatchObject({
       score: 10,
-      expBonus: 12,
+      expBonus: 0,
       submissionId: "submission-1",
     });
   });

@@ -15,6 +15,7 @@ import {
 import { getTopicAssessmentByTopicId, isLessonContentV2 } from "@/lib/lessons/lesson-content"
 import { sendNotification } from "@/lib/notifications"
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code"
+import { isClassroomGameSystemEnabled } from "@/lib/classroom-game-system"
 
 export type SubmitTopicAssessmentAttemptResult =
     | { ok: false; code: "INVALID_PAYLOAD" | "NOT_FOUND" | "FORBIDDEN"; message: string; status: number }
@@ -122,7 +123,9 @@ export async function submitTopicAssessmentAttempt(input: {
     }
 
     const alreadyPassed = topicAttempts.some((attempt) => attempt.passed)
-    const rewardSnapshot = normalizeLessonAssessmentReward(assessment.reward)
+    const rewardSnapshot = isClassroomGameSystemEnabled()
+        ? normalizeLessonAssessmentReward(assessment.reward)
+        : null
     const shouldAwardFirstPass = result.passed && !alreadyPassed
     const sourceMeta = buildLessonAssessmentAttemptSourceMeta({
         assessment,

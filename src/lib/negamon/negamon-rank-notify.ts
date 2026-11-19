@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { sendNotification } from "@/lib/notifications";
+import { isClassroomGameSystemEnabled } from "@/lib/classroom-game-system";
 import {
     getNegamonSettings,
     getRankIndex,
@@ -19,6 +20,8 @@ export async function notifyNegamonRankUpIfNeeded(input: {
     levelConfig: Prisma.JsonValue | null | undefined;
     gamifiedSettings: Prisma.JsonValue | null | undefined;
 }): Promise<void> {
+    if (!isClassroomGameSystemEnabled()) return;
+
     const negamon = getNegamonSettings(input.gamifiedSettings);
     if (!negamon?.enabled) return;
 

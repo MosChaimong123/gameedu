@@ -3,12 +3,12 @@
 import { useState } from "react";
 
 export function useClassroomDashboardUiState(args?: {
-    initialViewMode?: "grid" | "table" | "negamon";
+    initialViewMode?: "grid" | "table";
 }) {
     const initialViewMode = args?.initialViewMode ?? "grid";
     const [menuOpen, setMenuOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [viewMode, setViewMode] = useState<"grid" | "table" | "negamon">(initialViewMode);
+    const [viewMode, setViewMode] = useState<"grid" | "table">(initialViewMode);
     const [showTimer, setShowTimer] = useState(false);
     const [showRandomPicker, setShowRandomPicker] = useState(false);
     const [showGroupMaker, setShowGroupMaker] = useState(false);
@@ -18,7 +18,6 @@ export function useClassroomDashboardUiState(args?: {
     const [showSettings, setShowSettings] = useState(false);
     const [historyStudentId, setHistoryStudentId] = useState<string | null>(null);
     const [mobileToolbarOpen, setMobileToolbarOpen] = useState(false);
-    const [showNegamonSettings, setShowNegamonSettings] = useState(false);
 
     return {
         menuOpen,
@@ -45,7 +44,5 @@ export function useClassroomDashboardUiState(args?: {
         setHistoryStudentId,
         mobileToolbarOpen,
         setMobileToolbarOpen,
-        showNegamonSettings,
-        setShowNegamonSettings,
     };
 }

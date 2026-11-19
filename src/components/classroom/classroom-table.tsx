@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { getRankEntry, resolveRankIcon, type LevelConfigInput } from "@/lib/classroom-utils";
 import { useLanguage } from "@/components/providers/language-provider";
 import { AlertTriangle, Check, Loader2, RotateCcw } from "lucide-react";
 import {
@@ -88,7 +87,6 @@ interface ClassroomTableProps {
     classId: string;
     students: StudentWithSubmissions[];
     assignments: AssignmentWithChecklist[];
-    levelConfig: unknown;
     isAttendanceMode?: boolean;
     onStudentClick?: (student: StudentWithSubmissions) => void;
     /** Scroll to and briefly highlight this assignment (desktop column or mobile card block). */
@@ -99,7 +97,6 @@ export function ClassroomTable({
     classId, 
     students, 
     assignments, 
-    levelConfig, 
     isAttendanceMode = false,
     onStudentClick,
     highlightAssignmentId = null,
@@ -522,25 +519,6 @@ export function ClassroomTable({
         }, 0));
     };
 
-    const renderRankBlock = (studentId: string) => {
-        const rank = getRankEntry(calculateTotalAcademicPoints(studentId), levelConfig as LevelConfigInput);
-        const rankIcon = resolveRankIcon(rank);
-        return (
-            <div className="flex flex-col items-center gap-1">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center">
-                    {rankIcon.startsWith("/") || rankIcon.startsWith("data:image") || rankIcon.startsWith("http") ? (
-                        <Image src={rankIcon} alt={rank.name} width={32} height={32} className="h-full w-full object-contain" unoptimized />
-                    ) : (
-                        <span className="text-xl">{rankIcon}</span>
-                    )}
-                </div>
-                <span className="whitespace-nowrap rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold uppercase text-orange-600">
-                    {rank.name}
-                </span>
-            </div>
-        );
-    };
-
     return (
         <div className="flex h-full min-h-0 flex-col gap-3">
             {pendingWorksheetReviews.length > 0 ? (
@@ -654,7 +632,6 @@ export function ClassroomTable({
                                         )}
                                     </div>
                                 </div>
-                                <div className="shrink-0">{renderRankBlock(student.id)}</div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-2 rounded-xl bg-white/90 p-3">
@@ -919,7 +896,6 @@ export function ClassroomTable({
                         <TableRow>
                             <TableHead className="sticky left-0 top-0 z-40 w-[60px] min-w-[60px] border-r bg-slate-50 text-center">#</TableHead>
                             <TableHead className="sticky left-[60px] top-0 z-40 w-[180px] min-w-[180px] border-r bg-slate-50 shadow-[8px_0_12px_-12px_rgba(15,23,42,0.45)]">{t("studentName")}</TableHead>
-                            <TableHead className="sticky top-0 z-30 w-[100px] border-r bg-slate-50 text-center">{t("totalRank")}</TableHead>
                             <TableHead className="sticky top-0 z-30 w-[100px] border-r bg-emerald-50 text-center text-emerald-700">{t("classroomTableBehaviorShort")}</TableHead>
                             <TableHead className="sticky top-0 z-30 w-[100px] border-r bg-blue-50 text-center text-blue-700">{t("academicPointsColumnLabel")}</TableHead>
                             {assignments.map((a) => {
@@ -1015,9 +991,6 @@ export function ClassroomTable({
                                             )}
                                         </div>
                                     </div>
-                                </TableCell>
-                                <TableCell className="text-center border-r">
-                                    {renderRankBlock(student.id)}
                                 </TableCell>
                                 <TableCell className="text-center font-bold text-emerald-600 border-r bg-emerald-50/30">
                                     {student.behaviorPoints}

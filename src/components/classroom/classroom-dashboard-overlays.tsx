@@ -17,8 +17,6 @@ import { RandomPicker } from "./toolkit/random-picker";
 import { GroupMaker } from "./toolkit/group-maker";
 import { StudentHistoryModal } from "./student-history-modal";
 import { ClassroomSettingsDialog } from "./classroom-settings-dialog";
-import { NegamonSettingsDialog } from "@/components/negamon/negamon-settings";
-import { getNegamonSettings } from "@/lib/classroom-utils";
 import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 import type { DashboardTranslateFn } from "./classroom-dashboard.types";
 
@@ -44,8 +42,6 @@ interface ClassroomDashboardOverlaysProps {
     setHistoryStudentId: (studentId: string | null) => void;
     showSettings: boolean;
     setShowSettings: (open: boolean) => void;
-    showNegamonSettings: boolean;
-    setShowNegamonSettings: (open: boolean) => void;
     selectedStudentName: string;
     onSelectSkill: (skillId: string, weight: number) => void;
     onSkillsChanged: (skills: ClassroomDashboardViewModel["skills"]) => void;
@@ -55,10 +51,6 @@ interface ClassroomDashboardOverlaysProps {
     onSavedGroupsChange: (savedGroups: { id: string; name: string; studentIds: string[] }[]) => void;
     onSavedClassroom: (classroom: ClassroomDashboardViewModel) => void;
     onPointsReset: () => void;
-    onSavedNegamonSettings: (
-        settings: unknown,
-        gamifiedSettings?: Record<string, unknown> | null
-    ) => void;
 }
 
 export function ClassroomDashboardOverlays({
@@ -83,8 +75,6 @@ export function ClassroomDashboardOverlays({
     setHistoryStudentId,
     showSettings,
     setShowSettings,
-    showNegamonSettings,
-    setShowNegamonSettings,
     selectedStudentName,
     onSelectSkill,
     onSkillsChanged,
@@ -94,7 +84,6 @@ export function ClassroomDashboardOverlays({
     onSavedGroupsChange,
     onSavedClassroom,
     onPointsReset,
-    onSavedNegamonSettings,
 }: ClassroomDashboardOverlaysProps) {
     return (
         <>
@@ -191,24 +180,6 @@ export function ClassroomDashboardOverlays({
                 onPointsReset={onPointsReset}
             />
 
-            <NegamonSettingsDialog
-                open={showNegamonSettings}
-                onOpenChange={setShowNegamonSettings}
-                classroomId={classroom.id}
-                students={classroom.students.map((student) => ({
-                    id: student.id,
-                    name: student.name,
-                }))}
-                currentSettings={getNegamonSettings(classroom.gamifiedSettings)}
-                existingGamifiedSettings={
-                    classroom.gamifiedSettings &&
-                    typeof classroom.gamifiedSettings === "object" &&
-                    !Array.isArray(classroom.gamifiedSettings)
-                        ? (classroom.gamifiedSettings as Record<string, unknown>)
-                        : null
-                }
-                onSaved={onSavedNegamonSettings}
-            />
         </>
     );
 }

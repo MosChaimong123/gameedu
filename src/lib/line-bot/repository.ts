@@ -12,7 +12,6 @@ import { createMissingStudentNameResolver } from "@/lib/line-bot/missing-student
 import { getLineGroupMemberDisplayName } from "@/lib/line-bot/client";
 import { gradeLineTextSubmissionWithAi, type LineAiPreliminaryGradeResult } from "@/lib/line-bot/ai-grading";
 import { sendNotification } from "@/lib/notifications";
-import { awardLineAssignmentSubmissionReward } from "@/lib/services/student-economy/line-assignment-reward";
 import { canUseLineFeature, getLineCreatedAssignmentMonthlyLimit } from "@/lib/line-bot/plan-access";
 import {
     buildLineSubmissionContent,
@@ -502,14 +501,6 @@ async function submitResolvedLineTextAssignment(input: {
                 confidence: aiPreliminaryGrade.confidence,
             }
             : null;
-    const reward = await awardLineAssignmentSubmissionReward(db, {
-        studentId: input.student.id,
-        classId: input.classroom.id,
-        assignmentId: input.assignment.id,
-        assignmentName: input.assignment.name,
-        aiPreliminaryScore,
-    });
-
     return {
         ok: true,
         submission: {
@@ -520,10 +511,6 @@ async function submitResolvedLineTextAssignment(input: {
             revision,
             submissionState,
             aiPreliminaryScore,
-            reward: {
-                awarded: reward.awarded,
-                gold: reward.gold,
-            },
         },
     };
 }

@@ -14,6 +14,9 @@ been deployed. Production must not be assumed to include these removals.
   leaderboard and orphan Negamon classroom controls.
 - Removed game payload, rank calculation and shop frame query from student dashboard.
 - Removed quiz EXP previews and assessment reward presentation.
+- Removed worksheet EXP awards, LINE submission Gold awards and rank-up notifications
+  from teacher behavior-point updates. Quiz and worksheet responses no longer expose
+  legacy EXP fields.
 - Preserved teacher behavior points, scores, submissions, attendance, certificates,
   LINE and Host/Play PIN game infrastructure.
 - Retained historical battle/economy audit reads and shared game engine code.

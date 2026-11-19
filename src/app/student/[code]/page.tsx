@@ -24,7 +24,6 @@ export default async function StudentDashboardPage(
             academicTotal={dashboard.academicTotal}
             totalPositive={dashboard.totalPositive}
             totalNegative={dashboard.totalNegative}
-            rankEntry={dashboard.rankEntry}
             themeClass={dashboard.themeClass}
             themeStyle={dashboard.themeStyle}
             classIcon={dashboard.classIcon}

@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
-import { getThemeBgStyle, getRankEntry, type LevelConfigInput } from "@/lib/classroom-utils";
+import { getThemeBgStyle } from "@/lib/classroom-utils";
 import { sumAcademicTotal } from "@/lib/academic-score";
 import type {
     ClassroomRecord,
@@ -42,7 +42,6 @@ type StudentClassroomRecord = {
     image: string | null;
     emoji: string | null;
     theme: string | null;
-    levelConfig: unknown;
     teacherId: string;
     assignments: ClassroomAssignment[];
 };
@@ -72,7 +71,6 @@ export async function getStudentDashboard(
             behaviorPoints: true,
             lastCheckIn: true,
             streak: true,
-            equippedFrame: true,
             classroom: {
                 select: {
                     id: true,
@@ -80,7 +78,6 @@ export async function getStudentDashboard(
                     image: true,
                     emoji: true,
                     theme: true,
-                    levelConfig: true,
                     teacherId: true,
                     assignments: {
                         orderBy: { order: "asc" },
@@ -132,7 +129,6 @@ export async function getStudentDashboard(
     const history = student.history as StudentHistory[];
     const submissions = student.submissions as StudentSubmission[];
     const academicTotal = sumAcademicTotal(classroom.assignments, submissions);
-    const rankEntry = getRankEntry(academicTotal, classroom.levelConfig as LevelConfigInput);
     const studentRecord = {
         id: student.id,
         classId: student.classId,
@@ -146,7 +142,6 @@ export async function getStudentDashboard(
         lastCheckIn: student.lastCheckIn instanceof Date
             ? student.lastCheckIn.toISOString()
             : student.lastCheckIn ?? null,
-        equippedFrame: student.equippedFrame ?? null,
     } satisfies DashboardStudent;
 
     const theme = classroom.theme || "from-indigo-500 to-purple-600";
@@ -185,7 +180,6 @@ export async function getStudentDashboard(
         academicTotal,
         totalPositive,
         totalNegative,
-        rankEntry,
         themeClass,
         themeStyle,
         classIcon,

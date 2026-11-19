@@ -1,5 +1,3 @@
-import { calcAssignmentEXP } from "@/lib/classroom-utils";
-import type { NegamonSettings } from "@/lib/types/negamon";
 
 export type StudentDueWorkInput = {
     id: string;
@@ -51,15 +49,4 @@ export function getStudentDueWork(
             return a.deadlineAt!.getTime() - b.deadlineAt!.getTime();
         })
         .slice(0, limit);
-}
-
-export function estimateQuizAssignmentExpPreview(input: {
-    isQuiz: boolean;
-    maxScore: number;
-    negamonSettings?: NegamonSettings | null;
-}) {
-    if (!input.isQuiz || !input.negamonSettings?.enabled) return 0;
-    const maxScore = Math.max(1, Math.floor(input.maxScore));
-    const expPerPoint = Math.max(1, Math.floor(input.negamonSettings.expPerPoint ?? 6));
-    return calcAssignmentEXP(maxScore, maxScore, expPerPoint);
 }

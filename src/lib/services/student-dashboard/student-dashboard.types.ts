@@ -1,5 +1,4 @@
 import type { CSSProperties } from "react";
-import type { RankEntry } from "@/lib/classroom-utils";
 import type { TeachingMediaReference } from "@/lib/teaching-media-reference";
 
 export type ChecklistItem = string | { text: string; points?: number };
@@ -32,12 +31,6 @@ export interface HistoryRecord {
     reason: string;
 }
 
-export interface UnlockedAchievement {
-    achievementId: string;
-    goldRewarded: number;
-    unlockedAt: string;
-}
-
 export interface TeacherRecord {
     name?: string | null;
 }
@@ -46,9 +39,6 @@ export interface ClassroomRecord {
     id: string;
     name: string;
     teacher: TeacherRecord;
-    /** Legacy UI compatibility; the dashboard loader never supplies game settings. */
-    negamonSettings?: null;
-    levelConfig?: unknown;
     assignments?: AssignmentRecord[];
 }
 
@@ -63,7 +53,6 @@ export interface DashboardStudent {
     behaviorPoints: number;
     streak: number;
     lastCheckIn: string | null;
-    equippedFrame: string | null;
 }
 
 export type StudentDashboardMode = "learn" | "game";
@@ -81,7 +70,6 @@ export interface StudentDashboardViewModel {
     academicTotal: number;
     totalPositive: number;
     totalNegative: number;
-    rankEntry: RankEntry;
     themeClass: string;
     themeStyle: CSSProperties;
     classIcon: string | null;

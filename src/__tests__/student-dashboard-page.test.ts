@@ -103,7 +103,6 @@ describe("student dashboard page", () => {
         behaviorPoints: true,
         lastCheckIn: true,
         streak: true,
-        equippedFrame: true,
         classroom: {
           select: {
             id: true,
@@ -111,7 +110,6 @@ describe("student dashboard page", () => {
             image: true,
             emoji: true,
             theme: true,
-            levelConfig: true,
             teacherId: true,
             assignments: {
               orderBy: { order: "asc" },

@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
 import type { RankEntry } from "@/lib/classroom-utils";
-import type { NegamonSettings } from "@/lib/types/negamon";
 import type { TeachingMediaReference } from "@/lib/teaching-media-reference";
 
 export type ChecklistItem = string | { text: string; points?: number };
@@ -47,8 +46,8 @@ export interface ClassroomRecord {
     id: string;
     name: string;
     teacher: TeacherRecord;
-    gamifiedSettings: Record<string, unknown>;
-    negamonSettings?: NegamonSettings | null;
+    /** Legacy UI compatibility; the dashboard loader never supplies game settings. */
+    negamonSettings?: null;
     levelConfig?: unknown;
     assignments?: AssignmentRecord[];
 }
@@ -62,17 +61,9 @@ export interface DashboardStudent {
     avatar?: string | null;
     userId?: string | null;
     behaviorPoints: number;
-    gold: number;
     streak: number;
     lastCheckIn: string | null;
-    inventory: string[];
-    /** Preset battle consumables when defending (max 1 per category). */
-    battleLoadout: string[];
     equippedFrame: string | null;
-    /** Unlocked Negamon skill ids from progression. */
-    negamonSkills: string[];
-    /** Active Negamon battle skill slots. */
-    negamonSkillLoadout: string[];
 }
 
 export type StudentDashboardMode = "learn" | "game";

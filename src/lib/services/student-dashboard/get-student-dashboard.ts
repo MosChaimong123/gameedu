@@ -10,11 +10,6 @@ import type {
     SubmissionRecord,
 } from "./student-dashboard.types";
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
-import { normalizeStudentBattleKit } from "@/lib/shop-item-migration";
-import {
-    getNegamonSettingsFromGamification,
-    sanitizeGamificationSettingsNegamon,
-} from "@/lib/services/classroom-settings/gamification-settings";
 
 type StudentSubmission = {
     assignmentId: string;
@@ -48,7 +43,6 @@ type StudentClassroomRecord = {
     emoji: string | null;
     theme: string | null;
     levelConfig: unknown;
-    gamifiedSettings: unknown;
     teacherId: string;
     assignments: ClassroomAssignment[];
 };
@@ -58,25 +52,6 @@ export type StudentDashboardData = StudentDashboardViewModel;
 type StudentDashboardDeps = {
     db: PrismaClient;
 };
-
-function stripNegamonSpeciesPayloadForStudentView(
-    settings: Record<string, unknown>
-): Record<string, unknown> {
-    const negamon =
-        settings.negamon && typeof settings.negamon === "object" && !Array.isArray(settings.negamon)
-            ? (settings.negamon as Record<string, unknown>)
-            : null;
-
-    if (!negamon) return settings;
-
-    return {
-        ...settings,
-        negamon: {
-            ...negamon,
-            species: [],
-        },
-    };
-}
 
 export async function getStudentDashboard(
     code: string,
@@ -95,14 +70,9 @@ export async function getStudentDashboard(
             avatar: true,
             userId: true,
             behaviorPoints: true,
-            gold: true,
             lastCheckIn: true,
             streak: true,
-            inventory: true,
-            battleLoadout: true,
             equippedFrame: true,
-            negamonSkills: true,
-            negamonSkillLoadout: true,
             classroom: {
                 select: {
                     id: true,
@@ -111,7 +81,6 @@ export async function getStudentDashboard(
                     emoji: true,
                     theme: true,
                     levelConfig: true,
-                    gamifiedSettings: true,
                     teacherId: true,
                     assignments: {
                         orderBy: { order: "asc" },
@@ -164,14 +133,6 @@ export async function getStudentDashboard(
     const submissions = student.submissions as StudentSubmission[];
     const academicTotal = sumAcademicTotal(classroom.assignments, submissions);
     const rankEntry = getRankEntry(academicTotal, classroom.levelConfig as LevelConfigInput);
-    const negamonSkills = (student.negamonSkills as string[]) ?? [];
-    const negamonSkillLoadout = (student.negamonSkillLoadout as string[]) ?? [];
-
-    const battleKit = normalizeStudentBattleKit({
-        inventory: student.inventory,
-        battleLoadout: student.battleLoadout,
-    });
-
     const studentRecord = {
         id: student.id,
         classId: student.classId,
@@ -181,16 +142,11 @@ export async function getStudentDashboard(
         avatar: student.avatar,
         userId: student.userId,
         behaviorPoints: student.behaviorPoints,
-        gold: student.gold ?? 0,
         streak: student.streak ?? 0,
         lastCheckIn: student.lastCheckIn instanceof Date
             ? student.lastCheckIn.toISOString()
             : student.lastCheckIn ?? null,
-        inventory: battleKit.inventory,
-        battleLoadout: battleKit.battleLoadout,
         equippedFrame: student.equippedFrame ?? null,
-        negamonSkills,
-        negamonSkillLoadout,
     } satisfies DashboardStudent;
 
     const theme = classroom.theme || "from-indigo-500 to-purple-600";
@@ -206,19 +162,9 @@ export async function getStudentDashboard(
         timestamp: entry.timestamp instanceof Date ? entry.timestamp.toISOString() : String(entry.timestamp),
     }));
 
-    const gamified = sanitizeGamificationSettingsNegamon(classroom.gamifiedSettings);
-    const normalizedNegamonSettings = getNegamonSettingsFromGamification(gamified);
-    const studentFacingGamifiedSettings =
-        gamified !== null &&
-        typeof gamified === "object" &&
-        !Array.isArray(gamified)
-            ? stripNegamonSpeciesPayloadForStudentView(gamified as Record<string, unknown>)
-            : {};
     const classroomRecord = {
         ...classroom,
         teacher: { name: teacherUser?.name ?? null },
-        gamifiedSettings: studentFacingGamifiedSettings,
-        negamonSettings: normalizedNegamonSettings,
     } as ClassroomRecord;
 
     const totalPositive = history

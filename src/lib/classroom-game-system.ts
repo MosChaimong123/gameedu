@@ -44,11 +44,13 @@ export function isRetiredClassroomGameRequest(method: string, pathname: string):
   if (segments[0] === "api" && segments[1] === "classrooms") {
     const domain = segments[3];
     if (!domain || !CLASSROOM_GAME_API_SEGMENTS.has(domain)) return false;
-    if (domain === "battle") return normalizedMethod !== "GET";
+    if (domain === "battle") {
+      return normalizedMethod !== "GET" || segments[4] === "opponents";
+    }
     if (domain === "economy") return segments[4] === "adjust" && normalizedMethod !== "GET";
     if (domain === "events") return normalizedMethod === "POST" || normalizedMethod === "DELETE";
     if (domain === "gamification-settings") return normalizedMethod === "PATCH";
-    if (domain === "custom-achievements") return normalizedMethod === "POST" || normalizedMethod === "DELETE";
+    if (domain === "custom-achievements") return true;
     if (domain === "negamon") return segments[4] === "reward-resync" && normalizedMethod === "POST";
     return false;
   }

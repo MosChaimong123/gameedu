@@ -194,34 +194,6 @@ describe("battle read route auth", () => {
     });
   });
 
-  it("returns opponents only after student code authorization", async () => {
-    mockStudentFindFirst.mockResolvedValue({ id: "student-1" });
-    mockClassroomFindUnique.mockResolvedValue({
-      gamifiedSettings: {},
-      levelConfig: [],
-    });
-    mockStudentFindMany.mockResolvedValue([
-      { id: "student-2", name: "Bob", behaviorPoints: 10 },
-    ]);
-    const { GET } = await import("@/app/api/classrooms/[id]/battle/opponents/route");
-
-    const response = await GET(
-      new Request("http://local.test/api/classrooms/class-1/battle/opponents?studentId=student-1&studentCode=abc123") as never,
-      { params: Promise.resolve({ id: "class-1" }) }
-    );
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual([
-      {
-        id: "student-2",
-        name: "Bob",
-        formIcon: "x",
-        formName: "Rank 1",
-        rankIndex: 1,
-      },
-    ]);
-  });
-
   it("returns the latest V4 session view with diagnostics for an authorized student", async () => {
     mockStudentFindFirst.mockResolvedValue({ id: "student-1" });
     mockBattleSessionFindFirst.mockResolvedValue({

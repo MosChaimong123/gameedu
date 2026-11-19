@@ -15,7 +15,9 @@ describe("classroom game retirement boundary", () => {
   it.each([
     ["POST", "/api/classrooms/class-1/battle"],
     ["POST", "/api/classrooms/class-1/battle/v4/start"],
+    ["GET", "/api/classrooms/class-1/battle/opponents"],
     ["POST", "/api/classrooms/class-1/economy/adjust"],
+    ["GET", "/api/classrooms/class-1/custom-achievements"],
     ["POST", "/api/classrooms/class-1/events"],
     ["DELETE", "/api/classrooms/class-1/events"],
     ["PATCH", "/api/classrooms/class-1/gamification-settings"],

@@ -7,8 +7,6 @@ import { StudentDashboardMainTabs } from "@/components/student/student-dashboard
 const mockAssignmentsTabSpy = vi.fn();
 const mockBoardTabSpy = vi.fn();
 const mockHistoryTabSpy = vi.fn();
-const mockMonsterTabSpy = vi.fn();
-const mockGameTabsSpy = vi.fn();
 
 vi.mock("@/components/student/EventBanner", () => ({
     EventBanner: () => null,
@@ -39,24 +37,6 @@ vi.mock("@/components/student/student-dashboard-history-tab", () => ({
     },
 }));
 
-vi.mock("@/components/student/student-dashboard-monster-tab", () => ({
-    StudentDashboardMonsterTab: (props: unknown) => {
-        mockMonsterTabSpy(props);
-        return React.createElement("div");
-    },
-}));
-
-vi.mock("@/components/game/shell/student-game-tabs", () => ({
-    StudentGameTabs: (props: unknown) => {
-        mockGameTabsSpy(props);
-        return React.createElement("div");
-    },
-}));
-
-vi.mock("@/components/student/LeaderboardTab", () => ({
-    LeaderboardTab: () => null,
-}));
-
 vi.mock("@/components/ui/tabs", () => ({
     Tabs: ({ children }: { children: React.ReactNode }) => children,
     TabsContent: ({ children }: { children: React.ReactNode }) => children,
@@ -73,7 +53,6 @@ describe("student dashboard main tabs", () => {
         renderToStaticMarkup(
             React.createElement(StudentDashboardMainTabs, {
                 t: (key: string) => key,
-                mode: "learn",
                 activeTab: "assignments",
                 classroom: {
                     id: "class-1",
@@ -108,15 +87,9 @@ describe("student dashboard main tabs", () => {
                 totalNegative: -10,
                 history: [],
                 groupedHistory: {},
-                levelConfigResolved: null,
-                negamonSettings: {},
-                studentMonsterState: null,
-                questGold: undefined,
                 onActiveTabChange: vi.fn(),
                 onAssignmentFilterChange: vi.fn(),
                 onAssignmentSortToggle: vi.fn(),
-                onOpenStarterSelection: vi.fn(),
-                onGoldChange: vi.fn(),
             })
         );
 
@@ -129,7 +102,5 @@ describe("student dashboard main tabs", () => {
         expect(mockHistoryTabSpy).toHaveBeenCalledTimes(1);
         expect((mockHistoryTabSpy.mock.calls[0][0] as { totalPositive: number }).totalPositive).toBe(50);
 
-        expect(mockMonsterTabSpy).not.toHaveBeenCalled();
-        expect(mockGameTabsSpy).not.toHaveBeenCalled();
     });
 });

@@ -44,10 +44,6 @@ vi.mock("@/components/negamon/evolve-animation", () => ({
     }),
 }));
 
-vi.mock("@/components/negamon/StarterSelectionModal", () => ({
-    StarterSelectionModal: () => null,
-}));
-
 vi.mock("@/lib/classroom-utils", () => ({
     getNegamonSettings: vi.fn(() => ({})),
     getStudentMonsterState: vi.fn(() => null),

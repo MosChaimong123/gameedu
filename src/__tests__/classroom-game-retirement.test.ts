@@ -26,6 +26,7 @@ describe("classroom game retirement boundary", () => {
     ["POST", "/api/student/demo/checkin"],
     ["GET", "/api/student/demo/daily-quests"],
     ["POST", "/api/student/demo/shop/buy"],
+    ["POST", "/api/student/demo/negamon/unlock-skill"],
     ["POST", "/api/student/negamon/select"],
   ])("returns 410 without running a retired mutation: %s %s", async (method, pathname) => {
     vi.stubEnv("CLASSROOM_GAME_SYSTEM_ENABLED", "false");

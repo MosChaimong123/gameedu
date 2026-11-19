@@ -81,47 +81,6 @@ describe("classroom privileged routes audit logging", () => {
     mockTransaction.mockResolvedValue([{ count: 5 }, { count: 2 }, { count: 2 }]);
   });
 
-  it("logs when creating a classroom event", async () => {
-    mockAuth.mockResolvedValue({
-      user: {
-        id: "admin-1",
-        role: "ADMIN",
-      },
-    });
-    mockClassroomFindUnique.mockResolvedValue({
-      teacherId: "teacher-1",
-      gamifiedSettings: { events: [] },
-    });
-
-    const { POST } = await import("@/app/api/classrooms/[id]/events/route");
-    const response = await POST(
-      {
-        json: async () => ({
-          title: "Boost Day",
-          type: "GOLD_BOOST",
-          multiplier: 2,
-          startAt: "2026-04-02T00:00:00.000Z",
-          endAt: "2026-04-03T00:00:00.000Z",
-        }),
-      } as never,
-      { params: Promise.resolve({ id: "class-1" }) }
-    );
-
-    expect(response.status).toBe(200);
-    expect(mockLogAuditEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actorUserId: "admin-1",
-        action: "classroom.event.created",
-        targetType: "classroom",
-        targetId: "class-1",
-        metadata: expect.objectContaining({
-          eventType: "GOLD_BOOST",
-          multiplier: 2,
-        }),
-      })
-    );
-  });
-
   it("logs when duplicating a classroom", async () => {
     mockClassroomFindUnique.mockResolvedValue({
       id: "class-1",

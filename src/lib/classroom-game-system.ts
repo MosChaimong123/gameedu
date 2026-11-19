@@ -48,8 +48,7 @@ export function isRetiredClassroomGameRequest(method: string, pathname: string):
       return normalizedMethod !== "GET" || segments[4] === "opponents";
     }
     if (domain === "economy") return segments[4] === "adjust" && normalizedMethod !== "GET";
-    if (domain === "events") return normalizedMethod === "POST" || normalizedMethod === "DELETE";
-    if (domain === "gamification-settings") return normalizedMethod === "PATCH";
+    if (domain === "events" || domain === "gamification-settings" || domain === "leaderboard") return true;
     if (domain === "custom-achievements") return true;
     if (domain === "negamon") return segments[4] === "reward-resync" && normalizedMethod === "POST";
     return false;

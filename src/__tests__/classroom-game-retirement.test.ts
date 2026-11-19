@@ -18,6 +18,9 @@ describe("classroom game retirement boundary", () => {
     ["GET", "/api/classrooms/class-1/battle/opponents"],
     ["POST", "/api/classrooms/class-1/economy/adjust"],
     ["GET", "/api/classrooms/class-1/custom-achievements"],
+    ["GET", "/api/classrooms/class-1/events"],
+    ["GET", "/api/classrooms/class-1/gamification-settings"],
+    ["GET", "/api/classrooms/class-1/leaderboard"],
     ["POST", "/api/classrooms/class-1/events"],
     ["DELETE", "/api/classrooms/class-1/events"],
     ["PATCH", "/api/classrooms/class-1/gamification-settings"],
@@ -45,9 +48,6 @@ describe("classroom game retirement boundary", () => {
   it.each([
     "/api/classrooms/class-1/battle",
     "/api/classrooms/class-1/economy/ledger",
-    "/api/classrooms/class-1/events",
-    "/api/classrooms/class-1/gamification-settings",
-    "/api/classrooms/class-1/leaderboard",
     "/api/classrooms/class-1/negamon/reward-audit",
   ])("keeps authenticated historical reads reachable: %s", async (pathname) => {
     vi.stubEnv("CLASSROOM_GAME_SYSTEM_ENABLED", "false");

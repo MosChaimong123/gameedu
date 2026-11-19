@@ -20,6 +20,9 @@ been deployed. Production must not be assumed to include these removals.
 - Classroom creation and duplication no longer initialize or copy game configuration;
   classroom dashboard queries no longer load legacy player inventories, balances or
   loadouts.
+- Removed classroom Economy/Negamon report, ledger and balance routes plus their
+  dashboard panel. Historical collections remain untouched pending Phase 3 backup
+  and scoped cleanup.
 - Preserved teacher behavior points, scores, submissions, attendance, certificates,
   LINE and Host/Play PIN game infrastructure.
 - Retained historical battle/economy audit reads and shared game engine code.

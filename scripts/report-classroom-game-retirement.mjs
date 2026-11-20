@@ -1,5 +1,12 @@
 import { MongoClient } from "mongodb";
 import "./load-env-for-cli.mjs";
+import {
+  preservedCollections,
+  readRetirementSnapshot,
+  retiredClassroomFields,
+  retiredCollections,
+  retiredStudentFields,
+} from "./classroom-game-retirement-scope.mjs";
 
 const url = process.env.DATABASE_URL;
 
@@ -8,49 +15,12 @@ if (!url) {
   process.exit(1);
 }
 
-const retiredStudentFields = [
-  "gold",
-  "lastGoldAt",
-  "lastCheckIn",
-  "streak",
-  "inventory",
-  "battleLoadout",
-  "equippedFrame",
-  "negamonSkills",
-  "negamonSkillLoadout",
-  "dailyQuestsClaimed",
-  "weeklyQuestsClaimed",
-  "challengeQuestsClaimed",
-];
-
-const retiredClassroomFields = ["levelConfig", "gamifiedSettings"];
-const retiredCollections = [
-  "BattleSession",
-  "EconomyTransaction",
-  "StudentAchievement",
-  "NegamonLiveBattleRewardClaim",
-  "ArQuestRewardClaim",
-];
-
-function existsFilter(fields) {
-  return { $or: fields.map((field) => ({ [field]: { $exists: true } })) };
-}
-
 const client = new MongoClient(url);
 
 try {
   await client.connect();
   const database = client.db();
-  const [studentsWithLegacyFields, classroomsWithLegacyFields, collections] = await Promise.all([
-    database.collection("Student").countDocuments(existsFilter(retiredStudentFields)),
-    database.collection("Classroom").countDocuments(existsFilter(retiredClassroomFields)),
-    Promise.all(
-      retiredCollections.map(async (name) => ({
-        name,
-        documents: await database.collection(name).countDocuments({}),
-      }))
-    ),
-  ]);
+  const snapshot = await readRetirementSnapshot(database);
 
   const report = {
     mode: "dry-run",
@@ -58,14 +28,16 @@ try {
     generatedAt: new Date().toISOString(),
     preserved: {
       studentFields: ["points (behaviorPoints)", "attendance", "history", "submissions"],
-      collections: ["ActiveGame", "GameHistory", "AssignmentSubmission", "PointHistory"],
+      collections: preservedCollections,
+      collectionCounts: snapshot.preservedCollections,
+      studentState: snapshot.preservedStudentState,
     },
     candidateCleanup: {
       studentFields: retiredStudentFields,
-      studentsWithAtLeastOneLegacyField: studentsWithLegacyFields,
+      studentsWithAtLeastOneLegacyField: snapshot.studentsWithAtLeastOneLegacyField,
       classroomFields: retiredClassroomFields,
-      classroomsWithAtLeastOneLegacyField: classroomsWithLegacyFields,
-      collections,
+      classroomsWithAtLeastOneLegacyField: snapshot.classroomsWithAtLeastOneLegacyField,
+      collections: snapshot.collections,
     },
   };
 

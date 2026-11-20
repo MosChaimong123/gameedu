@@ -29,11 +29,37 @@ deliberately narrower than an entire database purge.
    its JSON output as the cleanup manifest.
 5. Review the manifest: `Student.points`, `PointHistory`, `ActiveGame`, and
    `GameHistory` must appear only in the preserved section.
-6. Only after explicit approval of that manifest may an apply script be introduced
-   and run. There is intentionally no apply command in this phase yet.
+6. Rehearse the apply command against a newly restored local database. It must
+   report zero failed documents, remove only the manifest candidates and show
+   unchanged counts for all preserved collections.
+7. Only after explicit approval of that manifest may the apply command run against
+   production. It requires `--apply`, an exact `--expected-database`, a manifest
+   path and `CLASSROOM_GAME_RETIREMENT_CONFIRM=REMOVE_CLASSROOM_GAME_DATA_FROM:<db>`.
 
 ## Restore Rehearsal
 
 After restoring the backup to staging, verify `/api/ready`, teacher sign-in,
 classroom details, assignments, OMR, reports and LINE readiness. Do not use the
 staging cluster as a cleanup target until the rehearsal has passed.
+
+## Evidence: 2026-11-20
+
+- Production target verified from Render: Atlas `cluster0.dimivmf.mongodb.net`,
+  database `gameedu`.
+- Full archive: `gameedu-production-20261120-192500.archive.gz`, 1,617,521 bytes.
+- Archive dry-run completed and exposed all expected namespaces.
+- Restore rehearsal database: `gameedu_restore_20261120_192500`.
+- Restore result: 18,227 documents restored, 0 failed.
+- Cleanup manifest: `docs/classroom-game-phase-3-manifest-2026-11-20.json`.
+- Cleanup rehearsal removed 199 Student legacy-field sets, 10 Classroom legacy-field
+  sets, 6 BattleSession documents, 601 EconomyTransaction documents and 3
+  NegamonLiveBattleRewardClaim documents.
+- Post-cleanup dry-run reported zero legacy fields and zero legacy documents.
+- Preserved collection counts remained unchanged: ActiveGame 0, GameHistory 47,
+  AssignmentSubmission 220 and PointHistory 10.
+- Preserved Student state remained unchanged: 206 documents and a behavior-point
+  total of 16.
+- A second apply attempt was rejected before mutation because the target no longer
+  matched the approved manifest.
+- MongoDB emitted a cross-version rehearsal warning because production is 8.0.39
+  and local MongoDB is 8.2.3. Production cleanup does not perform a restore.

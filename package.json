@@ -81,6 +81,7 @@
     "db:cleanup-rpg": "node scripts/cleanup-rpg-data.mjs",
     "db:cleanup-rpg:dry-run": "node scripts/cleanup-rpg-data.mjs --dry-run",
     "db:classroom-game-retirement:dry-run": "node scripts/report-classroom-game-retirement.mjs",
+    "db:classroom-game-retirement:apply": "node scripts/apply-classroom-game-retirement.mjs",
     "db:cleanup-negamon-legacy": "node scripts/cleanup-negamon-legacy-settings.mjs",
     "db:cleanup-negamon-legacy:dry-run": "node scripts/cleanup-negamon-legacy-settings.mjs --dry-run",
     "user:set-role": "node scripts/promote-user-role.mjs",

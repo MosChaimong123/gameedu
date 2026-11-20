@@ -63,3 +63,14 @@ staging cluster as a cleanup target until the rehearsal has passed.
   matched the approved manifest.
 - MongoDB emitted a cross-version rehearsal warning because production is 8.0.39
   and local MongoDB is 8.2.3. Production cleanup does not perform a restore.
+
+## Production Completion
+
+- Cleanup completed against `gameedu` at 2026-11-20 19:39 ICT.
+- Removed 199 Student legacy-field sets and 10 Classroom legacy-field sets.
+- Removed 6 BattleSession, 601 EconomyTransaction and 3
+  NegamonLiveBattleRewardClaim documents.
+- The post-cleanup report returned zero for every legacy field and collection.
+- Preserved state remained unchanged: 206 Student documents, behavior-point total
+  16, ActiveGame 0, GameHistory 47, AssignmentSubmission 220 and PointHistory 10.
+- Production `/api/health` and `/api/ready` both returned HTTP 200 after cleanup.

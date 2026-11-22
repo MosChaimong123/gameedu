@@ -14,7 +14,6 @@ export type ClassroomBasicsPatch = {
     image?: string | null;
     emoji?: string | null;
     theme?: string | null;
-    levelConfig?: ClassroomDashboardViewModel["levelConfig"];
     quizReviewMode?: ClassroomDashboardViewModel["quizReviewMode"];
 };
 

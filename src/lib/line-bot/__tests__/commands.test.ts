@@ -219,17 +219,8 @@ describe("line-bot commands", () => {
                 assignmentName: "Homework 1",
                 classroomName: "M1/1",
                 replacedPreviousSubmission: false,
-                reward: { awarded: true, gold: 10 },
             })
         ).toContain("Homework 1");
-        expect(
-            formatLineTextSubmissionSuccessMessage({
-                assignmentName: "Homework 1",
-                classroomName: "M1/1",
-                replacedPreviousSubmission: false,
-                reward: { awarded: true, gold: 10 },
-            })
-        ).toContain("+10 Gold");
     });
 
     it("formats classroom work summary and reminder from real classroom data shape", () => {

@@ -44,10 +44,6 @@ vi.mock("@/components/negamon/evolve-animation", () => ({
     }),
 }));
 
-vi.mock("@/components/negamon/StarterSelectionModal", () => ({
-    StarterSelectionModal: () => null,
-}));
-
 vi.mock("@/lib/classroom-utils", () => ({
     getNegamonSettings: vi.fn(() => ({})),
     getStudentMonsterState: vi.fn(() => null),
@@ -91,13 +87,6 @@ const baseProps: StudentDashboardClientProps = {
     academicTotal: 40,
     totalPositive: 50,
     totalNegative: -10,
-    rankEntry: {
-        name: "Bronze",
-        icon: "bronze",
-        minScore: 0,
-        color: "#999",
-        goldRate: 1,
-    },
     themeClass: "from-sky-500 to-indigo-500",
     themeStyle: {},
     classIcon: "icon",

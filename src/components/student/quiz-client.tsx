@@ -57,7 +57,7 @@ export function QuizClient({
 
   const [answers, setAnswers] = useState<number[]>([]);
   const [showResult, setShowResult] = useState(false);
-  const [result, setResult] = useState<{ score: number; correct?: number; total?: number; expBonus: number } | null>(
+  const [result, setResult] = useState<{ score: number; correct?: number; total?: number } | null>(
     null
   );
   const [submitting, setSubmitting] = useState(false);
@@ -217,13 +217,11 @@ export function QuizClient({
         score: number;
         correct?: number;
         total?: number;
-        expBonus?: number;
       };
       setResult({
         score: payload.score,
         correct: typeof payload.correct === "number" ? payload.correct : undefined,
         total: typeof payload.total === "number" ? payload.total : undefined,
-        expBonus: payload.expBonus ?? 0,
       });
       setShowResult(true);
     } finally {
@@ -267,11 +265,6 @@ export function QuizClient({
             <p className="text-6xl font-black">{result.score}</p>
             <p className="text-sm text-white/70">/ {assignment.maxScore}</p>
           </div>
-          {result.expBonus > 0 ? (
-            <div className="mb-6 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm font-black text-indigo-700">
-              {t("quizExpRewardLabel", { amount: result.expBonus })}
-            </div>
-          ) : null}
 
           {showBreakdown ? (
             <div className="mb-6 grid grid-cols-2 gap-3">

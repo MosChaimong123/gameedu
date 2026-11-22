@@ -201,29 +201,8 @@ export function StudentLessonAssessmentPanel({ code, lessonId, topicId, onAttemp
                     </p>
                 )}
 
-                {(payload.assessment.reward || payload.certificateStatus.enabled) ? (
+                {payload.certificateStatus.enabled ? (
                     <div className="mt-4 grid gap-2">
-                        {payload.assessment.reward ? (
-                            <div className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-600">
-                                รางวัลสอบผ่านครั้งแรก:
-                                <span className="ml-2 text-slate-800">
-                                    {(payload.assessment.reward.behaviorPoints ?? 0) > 0
-                                        ? `+${payload.assessment.reward.behaviorPoints} แต้ม`
-                                        : null}
-                                    {(payload.assessment.reward.behaviorPoints ?? 0) > 0 &&
-                                    (payload.assessment.reward.gold ?? 0) > 0
-                                        ? " • "
-                                        : null}
-                                    {(payload.assessment.reward.gold ?? 0) > 0
-                                        ? `+${payload.assessment.reward.gold} ทอง`
-                                        : null}
-                                    {payload.assessment.reward.achievementTitle
-                                        ? ` • Achievement: ${payload.assessment.reward.achievementTitle}`
-                                        : null}
-                                </span>
-                            </div>
-                        ) : null}
-
                         {payload.certificateStatus.enabled ? (
                             <div className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-600">
                                 ใบรับรอง:

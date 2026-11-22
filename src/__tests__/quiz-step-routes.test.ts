@@ -150,12 +150,11 @@ describe("quiz submit POST", () => {
     const body = await res.json();
     expect(body).toMatchObject({
       score: 10,
-      expBonus: 0,
       submissionId: "submission-1",
     });
   });
 
-  it("returns expBonus 0 for already submitted quizzes", async () => {
+  it("returns the existing score for already submitted quizzes", async () => {
     mockAssignmentSubmissionFindUnique.mockResolvedValue({
       score: 8,
       attemptStartedAt: new Date("2026-06-01T00:00:00.000Z"),
@@ -182,7 +181,6 @@ describe("quiz submit POST", () => {
     expect(await res.json()).toMatchObject({
       alreadySubmitted: true,
       score: 8,
-      expBonus: 0,
     });
   });
 });

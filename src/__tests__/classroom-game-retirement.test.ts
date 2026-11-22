@@ -15,14 +15,26 @@ describe("classroom game retirement boundary", () => {
   it.each([
     ["POST", "/api/classrooms/class-1/battle"],
     ["POST", "/api/classrooms/class-1/battle/v4/start"],
+    ["GET", "/api/classrooms/class-1/battle/opponents"],
     ["POST", "/api/classrooms/class-1/economy/adjust"],
+    ["GET", "/api/classrooms/class-1/economy/ledger"],
+    ["GET", "/api/classrooms/class-1/custom-achievements"],
+    ["GET", "/api/classrooms/class-1/events"],
+    ["GET", "/api/classrooms/class-1/gamification-settings"],
+    ["GET", "/api/classrooms/class-1/leaderboard"],
     ["POST", "/api/classrooms/class-1/events"],
     ["DELETE", "/api/classrooms/class-1/events"],
     ["PATCH", "/api/classrooms/class-1/gamification-settings"],
     ["POST", "/api/classrooms/class-1/negamon/reward-resync"],
+    ["GET", "/api/classrooms/class-1/negamon/reward-audit"],
     ["POST", "/api/student/access/checkin"],
     ["GET", "/api/student/access/daily-quests"],
     ["POST", "/api/student/access/shop/buy"],
+    ["POST", "/api/student/demo/checkin"],
+    ["GET", "/api/student/demo/daily-quests"],
+    ["POST", "/api/student/demo/shop/buy"],
+    ["POST", "/api/student/demo/negamon/unlock-skill"],
+    ["POST", "/api/student/negamon/select"],
   ])("returns 410 without running a retired mutation: %s %s", async (method, pathname) => {
     vi.stubEnv("CLASSROOM_GAME_SYSTEM_ENABLED", "false");
     const { proxy } = await import("@/proxy");
@@ -35,18 +47,11 @@ describe("classroom game retirement boundary", () => {
     });
   });
 
-  it.each([
-    "/api/classrooms/class-1/battle",
-    "/api/classrooms/class-1/economy/ledger",
-    "/api/classrooms/class-1/events",
-    "/api/classrooms/class-1/gamification-settings",
-    "/api/classrooms/class-1/leaderboard",
-    "/api/classrooms/class-1/negamon/reward-audit",
-  ])("keeps authenticated historical reads reachable: %s", async (pathname) => {
+  it("keeps the legacy battle history read reachable", async () => {
     vi.stubEnv("CLASSROOM_GAME_SYSTEM_ENABLED", "false");
     const { proxy } = await import("@/proxy");
 
-    const response = await proxy(new NextRequest(`http://localhost${pathname}`));
+    const response = await proxy(new NextRequest("http://localhost/api/classrooms/class-1/battle"));
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-middleware-next")).toBe("1");

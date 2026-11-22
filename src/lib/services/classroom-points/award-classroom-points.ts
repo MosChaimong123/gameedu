@@ -1,7 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { db } from "@/lib/db";
 import { sendNotification } from "@/lib/notifications";
-import { notifyNegamonRankUpIfNeeded } from "@/lib/negamon/negamon-rank-notify";
 import { FORBIDDEN_MESSAGE } from "@/lib/api-error";
 
 export const CLASSROOM_POINTS_STUDENT_NOT_FOUND = "classroomPointsStudentNotFound";
@@ -61,8 +60,6 @@ async function getAuthorizedClassroom(
         },
         select: {
             id: true,
-            levelConfig: true,
-            gamifiedSettings: true,
         },
     });
 }
@@ -95,7 +92,6 @@ export async function awardSingleClassroomPoint(
         return { ok: false, status: 404, message: CLASSROOM_POINTS_SKILL_NOT_FOUND };
     }
 
-    const oldPoints = student.behaviorPoints;
     const updatedStudent = await deps.db.student.update({
         where: { id: student.id },
         data: {
@@ -124,15 +120,6 @@ export async function awardSingleClassroomPoint(
             messageKey: skill.weight > 0 ? "notifPointsAwardedBody" : "notifPointsDeductedBody",
             params: { weight: Math.abs(skill.weight), skill: skill.name },
         },
-    });
-
-    await notifyNegamonRankUpIfNeeded({
-        studentId: student.id,
-        loginCode: student.loginCode ?? updatedStudent.loginCode,
-        oldPoints,
-        newPoints: updatedStudent.behaviorPoints,
-        levelConfig: classroom.levelConfig,
-        gamifiedSettings: classroom.gamifiedSettings,
     });
 
     return {
@@ -180,8 +167,6 @@ export async function awardBatchClassroomPoints(
         return { ok: false, status: 404, message: CLASSROOM_POINTS_SKILL_NOT_FOUND };
     }
 
-    const oldPointsById = new Map(validStudents.map((student) => [student.id, student.behaviorPoints] as const));
-
     await deps.db.$transaction(
         validStudents.map((student) =>
             deps.db.student.update({
@@ -226,22 +211,6 @@ export async function awardBatchClassroomPoints(
                 },
             })
         )
-    );
-
-    const updatedById = new Map(updatedStudents.map((student) => [student.id, student] as const));
-    await Promise.all(
-        validStudents.map((student) => {
-            const updated = updatedById.get(student.id);
-            if (!updated) return Promise.resolve();
-            return notifyNegamonRankUpIfNeeded({
-                studentId: student.id,
-                loginCode: updated.loginCode,
-                oldPoints: oldPointsById.get(student.id) ?? 0,
-                newPoints: updated.behaviorPoints,
-                levelConfig: classroom.levelConfig,
-                gamifiedSettings: classroom.gamifiedSettings,
-            });
-        })
     );
 
     return {

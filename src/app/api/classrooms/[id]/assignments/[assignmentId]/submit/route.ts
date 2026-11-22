@@ -53,7 +53,7 @@ export async function POST(
         }
         if (ctx.kind === "already_submitted") {
             return NextResponse.json(
-                { alreadySubmitted: true, score: ctx.score, expBonus: 0 },
+                { alreadySubmitted: true, score: ctx.score },
                 { status: 200 }
             );
         }
@@ -112,14 +112,12 @@ export async function POST(
                 submittedAt: completedAt,
             },
         });
-        const expBonus = 0;
 
         const reviewMode = ctx.reviewMode;
         if (reviewMode === "never") {
             return NextResponse.json({
                 score,
                 submissionId: submission.id,
-                expBonus,
             });
         }
 
@@ -128,7 +126,6 @@ export async function POST(
             correct,
             total: questions.length,
             submissionId: submission.id,
-            expBonus,
         });
 
     } catch (error) {

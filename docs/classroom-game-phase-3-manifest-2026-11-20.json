@@ -1,0 +1,46 @@
+{
+  "generatedAt": "2026-11-20T12:27:41.336Z",
+  "sourceDatabase": "gameedu",
+  "backup": {
+    "file": "gameedu-production-20261120-192500.archive.gz",
+    "sizeBytes": 1617521,
+    "restoreRehearsalDatabase": "gameedu_restore_20261120_192500",
+    "restoredDocuments": 18227,
+    "failedDocuments": 0
+  },
+  "preserved": {
+    "studentFields": [
+      "points (behaviorPoints)",
+      "attendance",
+      "history",
+      "submissions"
+    ],
+    "collections": [
+      "ActiveGame",
+      "GameHistory",
+      "AssignmentSubmission",
+      "PointHistory"
+    ],
+    "collectionCounts": [
+      { "name": "ActiveGame", "documents": 0 },
+      { "name": "GameHistory", "documents": 47 },
+      { "name": "AssignmentSubmission", "documents": 220 },
+      { "name": "PointHistory", "documents": 10 }
+    ],
+    "studentState": {
+      "documents": 206,
+      "behaviorPointsTotal": 16
+    }
+  },
+  "candidateCleanup": {
+    "studentsWithAtLeastOneLegacyField": 199,
+    "classroomsWithAtLeastOneLegacyField": 10,
+    "collections": [
+      { "name": "BattleSession", "documents": 6 },
+      { "name": "EconomyTransaction", "documents": 601 },
+      { "name": "StudentAchievement", "documents": 0 },
+      { "name": "NegamonLiveBattleRewardClaim", "documents": 3 },
+      { "name": "ArQuestRewardClaim", "documents": 0 }
+    ]
+  }
+}

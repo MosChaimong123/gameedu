@@ -78,7 +78,6 @@ export function useClassroomDashboardState(
             ...(updatedClassroom.image !== undefined ? { image: updatedClassroom.image ?? null } : {}),
             ...(updatedClassroom.emoji !== undefined ? { emoji: updatedClassroom.emoji ?? null } : {}),
             ...(updatedClassroom.theme !== undefined ? { theme: updatedClassroom.theme ?? null } : {}),
-            ...(updatedClassroom.levelConfig !== undefined ? { levelConfig: updatedClassroom.levelConfig } : {}),
             ...(updatedClassroom.quizReviewMode !== undefined ? { quizReviewMode: updatedClassroom.quizReviewMode ?? null } : {}),
         }));
     };

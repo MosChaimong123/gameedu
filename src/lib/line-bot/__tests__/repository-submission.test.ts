@@ -7,7 +7,6 @@ const mockLinksFindMany = vi.fn();
 const mockClassroomFindUnique = vi.fn();
 const mockStudentFindUnique = vi.fn();
 const mockGrade = vi.fn();
-const mockReward = vi.fn();
 
 vi.mock("@/lib/db", () => ({
     db: {
@@ -18,7 +17,6 @@ vi.mock("@/lib/db", () => ({
     },
 }));
 vi.mock("@/lib/line-bot/ai-grading", () => ({ gradeLineTextSubmissionWithAi: mockGrade }));
-vi.mock("@/lib/services/student-economy/line-assignment-reward", () => ({ awardLineAssignmentSubmissionReward: mockReward }));
 
 describe("linked LINE text submissions", () => {
     beforeEach(() => {
@@ -35,7 +33,6 @@ describe("linked LINE text submissions", () => {
         mockCreate.mockResolvedValue({ id: "submission-1" });
         mockUpdateMany.mockResolvedValue({ count: 1 });
         mockGrade.mockResolvedValue({ status: "unavailable", reason: "missing_api_key" });
-        mockReward.mockResolvedValue({ awarded: false, gold: 0, reason: "already_awarded" });
     });
 
     it("creates work only for the student linked to the LINE account and records revision 1", async () => {
@@ -84,7 +81,6 @@ describe("linked LINE text submissions", () => {
         mockUpdateMany.mockResolvedValue({ count: 0 });
         const { submitTextAssignmentForLinkedLineAccount } = await import("@/lib/line-bot/repository");
         await expect(submitTextAssignmentForLinkedLineAccount({ lineUserId: "line-user-1", assignmentRef: "A1", content: "My answer" })).resolves.toEqual({ ok: false, reason: "CONFLICT" });
-        expect(mockReward).not.toHaveBeenCalled();
     });
 
     it("locks submissions after the deadline", async () => {

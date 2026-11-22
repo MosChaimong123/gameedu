@@ -107,14 +107,8 @@ describe("student dashboard page", () => {
         avatar: true,
         userId: true,
         behaviorPoints: true,
-        gold: true,
         lastCheckIn: true,
         streak: true,
-        inventory: true,
-        battleLoadout: true,
-        equippedFrame: true,
-        negamonSkills: true,
-        negamonSkillLoadout: true,
         classroom: {
           select: {
             id: true,
@@ -122,8 +116,6 @@ describe("student dashboard page", () => {
             image: true,
             emoji: true,
             theme: true,
-            levelConfig: true,
-            gamifiedSettings: true,
             teacherId: true,
             assignments: {
               orderBy: { order: "asc" },

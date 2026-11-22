@@ -37,7 +37,6 @@ import type {
     SubmissionRecord,
 } from "@/lib/services/student-dashboard/student-dashboard.types";
 import {
-    estimateQuizAssignmentExpPreview,
     getStudentDueWork,
 } from "./student-dashboard-assignments.helpers";
 
@@ -92,11 +91,6 @@ export function StudentDashboardAssignmentsTab({
             : score;
         const maxValue = isChecklist ? assignment.checklists?.length || 1 : maxScore;
         const isQuiz = formType === "quiz";
-        const rewardPreviewExp = estimateQuizAssignmentExpPreview({
-            isQuiz,
-            maxScore,
-            negamonSettings: classroom.negamonSettings,
-        });
         const isQuizCompleted =
             isQuiz &&
             submission &&
@@ -132,7 +126,6 @@ export function StudentDashboardAssignmentsTab({
             maxValue,
             progress: (progressValue / maxValue) * 100,
             isCompleted,
-            rewardPreviewExp,
         };
     });
 
@@ -271,13 +264,6 @@ export function StudentDashboardAssignmentsTab({
                                                 {assignmentFormTypeLabel(t, meta.formType)}
                                             </Badge>
                                         ) : null}
-                                        {meta && meta.rewardPreviewExp > 0 ? (
-                                            <Badge className="rounded-lg border-none bg-indigo-100 px-2 py-0.5 text-[10px] font-black uppercase text-indigo-700">
-                                                {t("studentDashRewardPreview", {
-                                                    amount: meta.rewardPreviewExp,
-                                                })}
-                                            </Badge>
-                                        ) : null}
                                         {href ? (
                                             <Button asChild size="sm" className="h-8 rounded-xl font-black">
                                                 <Link href={href}>{t("studentDashDueWorkOpen")}</Link>
@@ -327,7 +313,6 @@ export function StudentDashboardAssignmentsTab({
                             maxValue,
                             progress,
                             isCompleted,
-                            rewardPreviewExp,
                         }) => {
                             const iconBoxClass =
                                 formType === "quiz"
@@ -384,15 +369,6 @@ export function StudentDashboardAssignmentsTab({
                                                         </span>
                                                     </Badge>
                                                 )}
-                                                {!isCompleted && rewardPreviewExp > 0 ? (
-                                                    <Badge className="rounded-lg border-none bg-indigo-100 px-2 py-0.5 text-indigo-700">
-                                                        <span className="text-[10px] font-black uppercase">
-                                                            {t("studentDashRewardPreview", {
-                                                                amount: rewardPreviewExp,
-                                                            })}
-                                                        </span>
-                                                    </Badge>
-                                                ) : null}
                                             </div>
                                         </div>
                                         <div className="mb-4">

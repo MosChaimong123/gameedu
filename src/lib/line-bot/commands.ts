@@ -269,10 +269,6 @@ export type LineTextSubmission = {
         maxScore: number;
         confidence: "low" | "medium" | "high";
     } | null;
-    reward?: {
-        gold: number;
-        awarded: boolean;
-    } | null;
 };
 
 export type LineStudentBindingSuccess = {
@@ -451,11 +447,6 @@ export function formatLineTextSubmissionSuccessMessage(submission: LineTextSubmi
             `AI ตรวจเบื้องต้น: ${submission.aiPreliminaryScore.suggestedScore}/${submission.aiPreliminaryScore.maxScore}`,
             `ความมั่นใจ: ${confidenceLabel[submission.aiPreliminaryScore.confidence] ?? submission.aiPreliminaryScore.confidence}`
         );
-    }
-
-    if (submission.reward?.awarded && submission.reward.gold > 0) {
-        lines.push(`รางวัล: +${submission.reward.gold} Gold`);
-        lines.push("เปิด GameEdu เพื่อใช้ Gold ในร้านค้า/Negamon ได้เลย");
     }
 
     lines.push("", "ครูสามารถตรวจคำตอบนี้ใน GameEdu ได้เลย");

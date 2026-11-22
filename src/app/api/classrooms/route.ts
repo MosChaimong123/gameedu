@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { DEFAULT_LEVEL_CONFIG } from "@/lib/classroom-utils";
 import {
     AUTH_REQUIRED_MESSAGE,
     FORBIDDEN_MESSAGE,
@@ -89,7 +88,6 @@ export async function POST(req: Request) {
                 grade,
                 image,
                 teacherId: session.user.id as string,
-                levelConfig: DEFAULT_LEVEL_CONFIG,
                 // Add default skills
                 skills: {
                     create: [

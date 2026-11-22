@@ -1,8 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { calcAssignmentEXP, getNegamonSettings } from "@/lib/classroom-utils";
 import { gradeWorksheetSubmission } from "@/lib/grade-worksheet-submission";
-import { notifyNegamonRankUpIfNeeded } from "@/lib/negamon/negamon-rank-notify";
 import { parseWorksheetDataFromAssignmentPayload } from "@/lib/worksheet-assignment";
 import { parseWorksheetSubmissionContent } from "@/lib/worksheet-review";
 import {
@@ -10,7 +8,6 @@ import {
   WORKSHEET_ERR_BAD_REQUEST,
 } from "@/lib/worksheet-take-context";
 import type { WorksheetStudentAnswers } from "@/lib/worksheet-schema";
-import { isClassroomGameSystemEnabled } from "@/lib/classroom-game-system";
 
 type SubmitWorksheetArgs = {
   classId: string;
@@ -45,76 +42,6 @@ export type ReviewWorksheetSubmissionResult =
 export type ExportWorksheetSubmissionsResult =
   | { ok: false; code: "FORBIDDEN" | "NOT_FOUND"; message: string; status: number }
   | { ok: true; csv: string };
-
-async function awardWorksheetNegamonExpIfEligible(input: {
-  classId: string;
-  studentId: string;
-  assignmentName: string;
-  score: number;
-  maxScore: number;
-  hasPreviousSubmission: boolean;
-  hasManualReviewItems: boolean;
-}) {
-  if (!isClassroomGameSystemEnabled()) {
-    return null;
-  }
-
-  if (input.hasPreviousSubmission || input.hasManualReviewItems) {
-    return null;
-  }
-
-  const classroom = await db.classroom.findUnique({
-    where: { id: input.classId },
-    select: { levelConfig: true, gamifiedSettings: true },
-  });
-  const negamon = getNegamonSettings(classroom?.gamifiedSettings);
-  if (!classroom || !negamon?.enabled) {
-    return null;
-  }
-
-  const expBonus = calcAssignmentEXP(
-    input.score,
-    Math.max(1, input.maxScore),
-    negamon.expPerPoint
-  );
-  if (expBonus <= 0) {
-    return null;
-  }
-
-  const before = await db.student.findUnique({
-    where: { id: input.studentId },
-    select: { behaviorPoints: true, loginCode: true },
-  });
-  if (!before) {
-    return null;
-  }
-
-  const pct = Math.round((input.score / Math.max(1, input.maxScore)) * 100);
-  const after = await db.student.update({
-    where: { id: input.studentId },
-    data: {
-      behaviorPoints: { increment: expBonus },
-      history: {
-        create: {
-          value: expBonus,
-          reason: `Negamon Worksheet: ${input.assignmentName} (${pct}%)`,
-        },
-      },
-    },
-    select: { behaviorPoints: true, loginCode: true },
-  });
-
-  await notifyNegamonRankUpIfNeeded({
-    studentId: input.studentId,
-    loginCode: after.loginCode,
-    oldPoints: before.behaviorPoints,
-    newPoints: after.behaviorPoints,
-    levelConfig: classroom.levelConfig,
-    gamifiedSettings: classroom.gamifiedSettings,
-  });
-
-  return { expBonus };
-}
 
 export async function submitWorksheetAssignment(
   args: SubmitWorksheetArgs
@@ -173,16 +100,6 @@ export async function submitWorksheetAssignment(
         },
       });
 
-  const reward = await awardWorksheetNegamonExpIfEligible({
-    classId: args.classId,
-    studentId: ctx.studentId,
-    assignmentName: ctx.assignmentName,
-    score: grade.score,
-    maxScore: grade.maxScore,
-    hasPreviousSubmission: ctx.hasPreviousSubmission,
-    hasManualReviewItems: grade.itemResults.some((item) => item.needsReview),
-  });
-
   return {
     ok: true,
     body: {
@@ -191,7 +108,6 @@ export async function submitWorksheetAssignment(
       submissionId: submission.id,
       showScoreToStudent: ctx.showScoreToStudent,
       replacedPreviousSubmission: ctx.hasPreviousSubmission,
-      expBonus: reward?.expBonus ?? 0,
     },
   };
 }

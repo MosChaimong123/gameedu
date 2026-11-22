@@ -44,17 +44,20 @@ export function isRetiredClassroomGameRequest(method: string, pathname: string):
   if (segments[0] === "api" && segments[1] === "classrooms") {
     const domain = segments[3];
     if (!domain || !CLASSROOM_GAME_API_SEGMENTS.has(domain)) return false;
-    if (domain === "battle") return normalizedMethod !== "GET";
-    if (domain === "economy") return segments[4] === "adjust" && normalizedMethod !== "GET";
-    if (domain === "events") return normalizedMethod === "POST" || normalizedMethod === "DELETE";
-    if (domain === "gamification-settings") return normalizedMethod === "PATCH";
-    if (domain === "custom-achievements") return normalizedMethod === "POST" || normalizedMethod === "DELETE";
-    if (domain === "negamon") return segments[4] === "reward-resync" && normalizedMethod === "POST";
+    if (domain === "battle") {
+      return normalizedMethod !== "GET" || segments[4] === "opponents";
+    }
+    if (domain === "economy" || domain === "negamon") return true;
+    if (domain === "events" || domain === "gamification-settings" || domain === "leaderboard") return true;
+    if (domain === "custom-achievements") return true;
     return false;
   }
 
-  if (segments[0] === "api" && segments[1] === "student" && segments[2] === "access") {
-    return Boolean(segments[3] && STUDENT_GAME_API_SEGMENTS.has(segments[3]));
+  if (segments[0] === "api" && segments[1] === "student") {
+    return (
+      (segments[2] === "negamon" && segments[3] === "select") ||
+      Boolean(segments[3] && STUDENT_GAME_API_SEGMENTS.has(segments[3]))
+    );
   }
 
   return false;

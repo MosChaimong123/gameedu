@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  estimateQuizAssignmentExpPreview,
   getStudentDueWork,
 } from "@/components/student/student-dashboard-assignments.helpers";
 
@@ -74,37 +73,4 @@ describe("student dashboard assignment helpers", () => {
     expect(result).toHaveLength(2);
   });
 
-  it("estimates quiz reward preview only when Negamon rewards are active", () => {
-    expect(
-      estimateQuizAssignmentExpPreview({
-        isQuiz: true,
-        maxScore: 10,
-        negamonSettings: {
-          enabled: true,
-          allowStudentChoice: true,
-          expPerPoint: 6,
-          expPerAttendance: 18,
-          species: [],
-          studentMonsters: {},
-          disabledMoves: [],
-        },
-      })
-    ).toBe(12);
-
-    expect(
-      estimateQuizAssignmentExpPreview({
-        isQuiz: false,
-        maxScore: 10,
-        negamonSettings: {
-          enabled: true,
-          allowStudentChoice: true,
-          expPerPoint: 6,
-          expPerAttendance: 18,
-          species: [],
-          studentMonsters: {},
-          disabledMoves: [],
-        },
-      })
-    ).toBe(0);
-  });
 });

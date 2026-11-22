@@ -1,12 +1,12 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { StudentDashboardSidebar, createStudentBattleRewardNotice } from "@/components/student/student-dashboard-sidebar";
+import { StudentDashboardSidebar } from "@/components/student/student-dashboard-sidebar";
 
 const mockAvatarSectionSpy = vi.fn();
 
-vi.mock("@/components/student/student-avatar-section", () => ({
-    StudentAvatarSection: (props: unknown) => {
+vi.mock("@/components/student/student-learning-profile", () => ({
+    StudentLearningProfile: (props: unknown) => {
         mockAvatarSectionSpy(props);
         return React.createElement("div", { "data-testid": "student-avatar-section" });
     },
@@ -38,38 +38,8 @@ describe("student dashboard sidebar", () => {
                 },
                 classId: "class-1",
                 academicTotal: 40,
-                totalGoldRate: 3,
-                rankEntry: {
-                    name: "Bronze",
-                    icon: "bronze",
-                    minScore: 0,
-                    color: "#999",
-                    goldRate: 1,
-                },
                 totalPositive: 50,
                 totalNegative: -10,
-                themeClass: "from-sky-500 to-indigo-500",
-                themeStyle: {},
-                levelConfigResolved: null,
-                mode: "learn",
-                questGold: 45,
-                onOpenBattleHistory: () => {},
-                onReturnToBattle: () => {},
-                battleRewardNotice: createStudentBattleRewardNotice({
-                    winnerId: "student-1",
-                    requestedGoldReward: 30,
-                    goldReward: 0,
-                    rewardBlockedReason: "pair_cooldown",
-                    reward: {
-                        gold: 0,
-                        exp: 53,
-                        grantedItemIds: [],
-                        levelUps: [],
-                        unlockedSkillIds: [],
-                        blockedReason: "pair_cooldown",
-                    },
-                    progression: null,
-                }),
             })
         );
 
@@ -78,21 +48,15 @@ describe("student dashboard sidebar", () => {
             studentId: string;
             classId: string;
             loginCode: string;
-            points: number;
-            goldRate: number;
-            externalGold: number;
-            mode: string;
+            academicPoints: number;
+            behaviorPoints: number;
         };
 
         expect(avatarProps.studentId).toBe("student-1");
         expect(avatarProps.classId).toBe("class-1");
         expect(avatarProps.loginCode).toBe("111111");
-        expect(avatarProps.points).toBe(40);
-        expect(avatarProps.goldRate).toBe(3);
-        expect(avatarProps.externalGold).toBe(45);
-        expect(avatarProps.mode).toBe("learn");
-        expect(html).toContain("ทองรอบนี้ยังไม่เข้า");
-        expect(html).toContain("ดูประวัติการต่อสู้");
-        expect(html).toContain("กลับไปหน้าต่อสู้");
+        expect(avatarProps.academicPoints).toBe(40);
+        expect(avatarProps.behaviorPoints).toBe(12);
+        expect(html).not.toContain("ทองรอบนี้ยังไม่เข้า");
     });
 });

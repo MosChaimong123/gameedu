@@ -61,7 +61,7 @@ describe("POST /api/classrooms/[id]/assignments/[assignmentId]/reminders", () =>
             expect.objectContaining({
                 studentId: "student-1",
                 type: "ASSIGNMENT",
-                link: "/student/AAA111/quiz/assignment-1",
+                link: "/student",
                 i18n: expect.objectContaining({
                     titleKey: "notifAssignmentReminderTitle",
                     messageKey: "notifAssignmentReminderBodyDue",
@@ -71,7 +71,7 @@ describe("POST /api/classrooms/[id]/assignments/[assignmentId]/reminders", () =>
         expect(mockSendNotification).toHaveBeenCalledWith(
             expect.objectContaining({
                 studentId: "student-3",
-                link: "/student/CCC333/quiz/assignment-1",
+                link: "/student",
             })
         );
         expect(await res.json()).toEqual({ success: true, targetCount: 2 });

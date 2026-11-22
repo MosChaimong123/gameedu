@@ -286,7 +286,7 @@ export async function createAssignmentForLineGroup(input: {
             sendNotification({
                 studentId: student.id,
                 type: "ASSIGNMENT",
-                link: `/student/${student.loginCode}`,
+                link: "/student",
                 i18n: dueStr
                     ? {
                           titleKey: "notifNewAssignmentTitle",
@@ -876,7 +876,7 @@ async function buildProgressSummaries(
 function getStudentDashboardUrl(loginCode: string | null | undefined): string | null {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
     if (!appUrl || !loginCode) return null;
-    return `${appUrl}/student/${encodeURIComponent(loginCode)}`;
+    return `${appUrl}/student`;
 }
 
 function parseLineAssignmentDeadline(

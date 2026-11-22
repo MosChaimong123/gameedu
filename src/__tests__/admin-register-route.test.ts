@@ -25,6 +25,8 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("bcryptjs", () => ({
+  hash: mockHash,
+  compare: mockCompare,
   default: {
     hash: mockHash,
     compare: mockCompare,
@@ -49,7 +51,7 @@ describe("admin register route", () => {
     const response = await POST(
       makeJsonRequest({
         email: "admin@example.com",
-        password: "secret123",
+        password: "strong-secret123",
       })
     );
 
@@ -68,7 +70,7 @@ describe("admin register route", () => {
     const response = await POST(
       makeJsonRequest({
         email: "admin@example.com",
-        password: "secret123",
+        password: "strong-secret123",
         adminSecret: "open-sesame",
       })
     );

@@ -11,6 +11,7 @@ const mockCanLoginCodeAccessClassroom = vi.fn();
 const mockStudentGroupFindMany = vi.fn();
 const mockStudentFindMany = vi.fn();
 const mockClassroomFindUnique = vi.fn();
+const mockGetStudentAccessCodeForClass = vi.fn();
 
 vi.mock("@/auth", () => ({
   auth: mockAuth,
@@ -35,6 +36,10 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/auth/student-access-session", () => ({
+  getStudentAccessCodeForClass: mockGetStudentAccessCodeForClass,
+}));
+
 describe("classroom group scores route authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -43,6 +48,7 @@ describe("classroom group scores route authorization", () => {
     mockClassroomFindUnique.mockResolvedValue({ assignments: [] });
     mockCanUserAccessClassroom.mockResolvedValue(false);
     mockCanLoginCodeAccessClassroom.mockResolvedValue(false);
+    mockGetStudentAccessCodeForClass.mockImplementation(async (credential: string | undefined) => credential ? "ABC123" : null);
   });
 
   it("rejects requests without a session or student code", async () => {
@@ -68,7 +74,7 @@ describe("classroom group scores route authorization", () => {
     const { GET } = await import("@/app/api/classrooms/[id]/groups/scores/route");
 
     const response = await GET(
-      new Request("http://localhost/api/classrooms/class-1/groups/scores?code=abc123") as never,
+      new Request("http://localhost/api/classrooms/class-1/groups/scores?code=access") as never,
       makeRouteParams({ id: "class-1" })
     );
 
@@ -87,7 +93,7 @@ describe("classroom group scores route authorization", () => {
     const { GET } = await import("@/app/api/classrooms/[id]/groups/scores/route");
 
     const response = await GET(
-      new Request("http://localhost/api/classrooms/class-1/groups/scores?code=abc123") as never,
+      new Request("http://localhost/api/classrooms/class-1/groups/scores?code=access") as never,
       makeRouteParams({ id: "class-1" })
     );
 

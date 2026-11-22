@@ -8,6 +8,7 @@ const mockAuth = vi.fn();
 const mockClassroomFindUnique = vi.fn();
 const mockStudentFindFirst = vi.fn();
 const mockStudentFindMany = vi.fn();
+const mockGetStudentAccessCodeForClass = vi.fn();
 
 vi.mock("@/auth", () => ({
   auth: mockAuth,
@@ -25,11 +26,16 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/auth/student-access-session", () => ({
+  getStudentAccessCodeForClass: mockGetStudentAccessCodeForClass,
+}));
+
 describe("leaderboard route authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockClassroomFindUnique.mockResolvedValue(null);
     mockStudentFindFirst.mockResolvedValue(null);
+    mockGetStudentAccessCodeForClass.mockImplementation(async (credential: string | undefined) => credential ? "ABC123" : null);
     mockStudentFindMany.mockResolvedValue([
       { id: "student-1", name: "Alice", avatar: "nova-1", behaviorPoints: 12 },
       { id: "student-2", name: "Bob", avatar: "nova-2", behaviorPoints: 20 },
@@ -59,7 +65,7 @@ describe("leaderboard route authorization", () => {
     const { GET } = await import("@/app/api/classrooms/[id]/leaderboard/route");
 
     const response = await GET(
-      new Request("http://localhost/api/classrooms/class-1/leaderboard?code=abc123") as never,
+      new Request("http://localhost/api/classrooms/class-1/leaderboard?code=access") as never,
       makeRouteParams({ id: "class-1" })
     );
 
@@ -81,7 +87,7 @@ describe("leaderboard route authorization", () => {
     const { GET } = await import("@/app/api/classrooms/[id]/leaderboard/route");
 
     const response = await GET(
-      new Request("http://localhost/api/classrooms/class-1/leaderboard?code=abc123") as never,
+      new Request("http://localhost/api/classrooms/class-1/leaderboard?code=access") as never,
       makeRouteParams({ id: "class-1" })
     );
 

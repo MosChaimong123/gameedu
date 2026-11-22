@@ -6,6 +6,10 @@ const resetFormSource = readFileSync(
   new URL("../app/forgot-password/reset/reset-password-form.tsx", import.meta.url),
   "utf8"
 );
+const forgotFormSource = readFileSync(
+  new URL("../app/forgot-password/forgot-password-form.tsx", import.meta.url),
+  "utf8"
+);
 
 describe("forgot password neutral UI copy", () => {
   it.each(["en", "th"] as const)("keeps %s confirmation conditional and exposes recovery actions", (language) => {
@@ -17,6 +21,13 @@ describe("forgot password neutral UI copy", () => {
     expect(copy.forgotPasswordUseAnother).toBeTruthy();
     expect(copy.forgotPasswordBackToLogin).toBeTruthy();
     expect(copy.forgotPasswordGoogleAction).toBeTruthy();
+    expect(copy.forgotPasswordDevDeliveryNotice).toBeTruthy();
+  });
+
+  it("shows the development OTP immediately when local email delivery is unavailable", () => {
+    expect(forgotFormSource).toContain("setDevCode(data.devCode ?? null)");
+    expect(forgotFormSource).toContain('t("forgotPasswordDevDeliveryNotice")');
+    expect(forgotFormSource).toContain("{devCode}");
   });
 
   it.each(["en", "th"] as const)("provides complete %s reset-password copy", (language) => {

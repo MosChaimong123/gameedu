@@ -7,6 +7,7 @@ import {
 const mockAuth = vi.fn();
 const mockClassroomFindUnique = vi.fn();
 const mockStudentFindFirst = vi.fn();
+const mockGetStudentAccessCodeForClass = vi.fn();
 
 vi.mock("@/auth", () => ({
   auth: mockAuth,
@@ -23,11 +24,16 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/auth/student-access-session", () => ({
+  getStudentAccessCodeForClass: mockGetStudentAccessCodeForClass,
+}));
+
 describe("GET /api/classrooms/[id]/events authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockClassroomFindUnique.mockReset();
     mockStudentFindFirst.mockReset();
+    mockGetStudentAccessCodeForClass.mockImplementation(async (credential: string | undefined) => credential ? "ABC123" : null);
   });
 
   it("returns 401 without session or student code", async () => {
@@ -54,7 +60,7 @@ describe("GET /api/classrooms/[id]/events authorization", () => {
     const { GET } = await import("@/app/api/classrooms/[id]/events/route");
 
     const response = await GET(
-      new Request("http://localhost/api/classrooms/class-1/events?code=abc123") as never,
+      new Request("http://localhost/api/classrooms/class-1/events?code=access") as never,
       makeRouteParams({ id: "class-1" })
     );
 
@@ -76,7 +82,7 @@ describe("GET /api/classrooms/[id]/events authorization", () => {
     const { GET } = await import("@/app/api/classrooms/[id]/events/route");
 
     const response = await GET(
-      new Request("http://localhost/api/classrooms/class-1/events?code=abc123") as never,
+      new Request("http://localhost/api/classrooms/class-1/events?code=access") as never,
       makeRouteParams({ id: "class-1" })
     );
 

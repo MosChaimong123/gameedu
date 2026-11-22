@@ -18,6 +18,7 @@ import {
   updateGamificationSettings,
 } from "@/lib/services/classroom-settings/gamification-settings";
 import { logAuditEvent } from "@/lib/security/audit-log";
+import { getStudentAccessCodeForClass } from "@/lib/auth/student-access-session";
 
 export interface ClassEvent {
   id: string;
@@ -43,7 +44,8 @@ export async function GET(
   try {
     const { id } = await params;
     const session = await auth();
-    const loginCode = new URL(req.url).searchParams.get("code")?.trim().toUpperCase() ?? "";
+    const routeCredential = new URL(req.url).searchParams.get("code")?.trim().toUpperCase() ?? "";
+    const loginCode = await getStudentAccessCodeForClass(routeCredential, id);
 
     if (!session?.user?.id && !loginCode) {
       return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);

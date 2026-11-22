@@ -4,10 +4,16 @@ import { auth } from "@/auth";
 import { createAppError } from "@/lib/api-error";
 import { db } from "@/lib/db";
 import { logAuditEvent } from "@/lib/security/audit-log";
-import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
+import { getStudentAccessSession } from "@/lib/auth/student-access-session";
 import { revalidatePath } from "next/cache";
+import {
+    buildRateLimitKey,
+    consumeRateLimitWithStore,
+    digestRateLimitIdentifier,
+} from "@/lib/security/rate-limit";
 
-export async function joinClassroom(loginCode: string) {
+export async function joinClassroom(_loginCode: string) {
+    void _loginCode;
     const session = await auth();
     const userId = session?.user?.id;
 
@@ -22,14 +28,41 @@ export async function joinClassroom(loginCode: string) {
         return createAppError("AUTH_REQUIRED", "Authentication required");
     }
 
-    const loginCodeVariants = getStudentLoginCodeVariants(loginCode);
+    const accessSession = await getStudentAccessSession("student:write");
+    if (!accessSession) {
+        return createAppError("INVALID_LOGIN_CODE", "Invalid or expired student access session");
+    }
+
+    const accountIdentifier = digestRateLimitIdentifier(userId);
+    const codeIdentifier = digestRateLimitIdentifier(accessSession.studentId);
+    const studentCodeLimits = await Promise.all([
+        consumeRateLimitWithStore({
+            bucket: "auth:student-code:account",
+            key: accountIdentifier,
+            limit: 20,
+            windowMs: 15 * 60_000,
+        }),
+        consumeRateLimitWithStore({
+            bucket: "auth:student-code:code",
+            key: codeIdentifier,
+            limit: 10,
+            windowMs: 15 * 60_000,
+        }),
+        consumeRateLimitWithStore({
+            bucket: "auth:student-code:account-code",
+            key: buildRateLimitKey(accountIdentifier, codeIdentifier),
+            limit: 5,
+            windowMs: 15 * 60_000,
+        }),
+    ]);
+    if (studentCodeLimits.some((limit) => !limit.allowed)) {
+        return createAppError("RATE_LIMITED", "Too many student code attempts");
+    }
 
     try {
         // 1. Find the student record with this code
-        const student = await db.student.findFirst({
-            where: {
-                OR: loginCodeVariants.map((candidate) => ({ loginCode: candidate })),
-            },
+        const student = await db.student.findUnique({
+            where: { id: accessSession.studentId },
             include: { classroom: true }
         });
 
@@ -73,10 +106,13 @@ export async function joinClassroom(loginCode: string) {
         }
 
         // 3. Link the student record to the current user
-        await db.student.update({
-            where: { id: student.id },
-            data: { userId }
+        const claim = await db.student.updateMany({
+            where: { id: student.id, userId: null },
+            data: { userId },
         });
+        if (claim.count !== 1) {
+            return createAppError("LOGIN_CODE_ALREADY_LINKED", "This classroom code is already linked to another account");
+        }
 
         logAuditEvent({
             actorUserId: userId,

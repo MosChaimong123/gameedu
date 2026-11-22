@@ -129,21 +129,7 @@ describe("student dashboard main tabs", () => {
         expect(mockHistoryTabSpy).toHaveBeenCalledTimes(1);
         expect((mockHistoryTabSpy.mock.calls[0][0] as { totalPositive: number }).totalPositive).toBe(50);
 
-        expect(mockMonsterTabSpy).toHaveBeenCalledTimes(1);
-        const monsterProps = mockMonsterTabSpy.mock.calls[0][0] as { student: { id: string }; code: string };
-        expect(monsterProps.student.id).toBe("student-1");
-        expect(monsterProps.code).toBe("ABC123");
-
-        expect(mockGameTabsSpy).toHaveBeenCalledTimes(1);
-        const gameTabsProps = mockGameTabsSpy.mock.calls[0][0] as {
-            classId: string;
-            studentId: string;
-            loginCode: string;
-            currentGold: number;
-        };
-        expect(gameTabsProps.classId).toBe("class-1");
-        expect(gameTabsProps.studentId).toBe("student-1");
-        expect(gameTabsProps.loginCode).toBe("111111");
-        expect(gameTabsProps.currentGold).toBe(30);
+        expect(mockMonsterTabSpy).not.toHaveBeenCalled();
+        expect(mockGameTabsSpy).not.toHaveBeenCalled();
     });
 });

@@ -125,13 +125,12 @@ describe("student dashboard client", () => {
         expect(mockHeaderSpy).toHaveBeenCalledTimes(1);
         const headerProps = mockHeaderSpy.mock.calls[0][0] as {
             code: string;
-            mode: string;
             classroom: { id: string };
             student: { id: string; inventory: unknown[]; battleLoadout: string[] };
             currentUserId?: string;
         };
         expect(headerProps.code).toBe("ABC123");
-        expect(headerProps.mode).toBe("learn");
+        expect(headerProps).not.toHaveProperty("mode");
         expect(headerProps.classroom.id).toBe("class-1");
         expect(headerProps.student.id).toBe("student-1");
         expect(headerProps.currentUserId).toBe("user-1");
@@ -140,28 +139,25 @@ describe("student dashboard client", () => {
         const sidebarProps = mockSidebarSpy.mock.calls[0][0] as {
             classId: string;
             academicTotal: number;
-            mode: string;
             student: { id: string };
         };
         expect(sidebarProps.classId).toBe("class-1");
         expect(sidebarProps.academicTotal).toBe(40);
-        expect(sidebarProps.mode).toBe("learn");
+        expect(sidebarProps).not.toHaveProperty("mode");
         expect(sidebarProps.student.id).toBe("student-1");
 
         expect(mockMainTabsSpy).toHaveBeenCalledTimes(1);
         const mainTabsProps = mockMainTabsSpy.mock.calls[0][0] as {
             code: string;
-            mode: string;
             activeTab: string;
-            battleResetSignal: number;
             classroom: { id: string };
             student: { id: string; inventory: unknown[]; battleLoadout: string[] };
             canAccessBoard: boolean;
         };
         expect(mainTabsProps.code).toBe("ABC123");
-        expect(mainTabsProps.mode).toBe("learn");
+        expect(mainTabsProps).not.toHaveProperty("mode");
         expect(mainTabsProps.activeTab).toBe("assignments");
-        expect(mainTabsProps.battleResetSignal).toBe(0);
+        expect(mainTabsProps).not.toHaveProperty("battleResetSignal");
         expect(mainTabsProps.classroom.id).toBe("class-1");
         expect(mainTabsProps.student.id).toBe("student-1");
         expect(mainTabsProps.student.inventory).toEqual([{ itemId: "item_buckler", quantity: 1 }]);

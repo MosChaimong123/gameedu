@@ -7,14 +7,11 @@ import {
     ChevronDown,
     ChevronUp,
     ClipboardCheck,
-    Gamepad2,
     LayoutGrid,
-    Lock,
     MessageCircleMore,
     Plus,
     Settings,
     Shuffle,
-    Swords,
     TableProperties,
     Timer,
     UserCog,
@@ -23,33 +20,26 @@ import {
 import { Button } from "@/components/ui/button";
 import { AddStudentDialog } from "./add-student-dialog";
 import { StudentLoginsDialog } from "./student-logins-dialog";
-import { EventManagerButton } from "./EventManagerButton";
-import { ClassroomRankSettingsDialog } from "./classroom-rank-settings-dialog";
 import type { ClassroomDashboardViewModel } from "@/lib/services/classroom-dashboard/classroom-dashboard.types";
 import { getThemeAccentColor } from "@/lib/classroom-utils";
-import { gamificationToolbarButtonClassName } from "./gamification-toolbar-styles";
 
 interface ClassroomDashboardToolbarProps {
     t: (key: string, params?: Record<string, string | number>) => string;
     classroom: ClassroomDashboardViewModel;
     onlineStudentIds: Set<string>;
-    /** Until session is known, avoid flashing “coming soon” for teachers. */
-    gamificationToolbarMode: "loading" | "live" | "comingSoon";
     isConnected: boolean;
-    viewMode: "grid" | "table" | "negamon";
+    viewMode: "grid" | "table";
     mobileToolbarOpen: boolean;
     isSelectMultiple: boolean;
     selectedStudentIds: string[];
     onToggleMobileToolbar: () => void;
     onOpenAddAssignment: () => void;
-    onSelectViewMode: (mode: "grid" | "table" | "negamon") => void;
+    onSelectViewMode: (mode: "grid" | "table") => void;
     onOpenTimer: () => void;
     onOpenRandomPicker: () => void;
     onOpenGroupMaker: () => void;
     onStudentsAdded: (students: ClassroomDashboardViewModel["students"]) => void;
     onOpenStudentManager: () => void;
-    onRankSettingsSaved: (classroom: unknown) => void;
-    onOpenNegamonSettings: () => void;
     onEnterAttendanceMode: () => void;
     onToggleSelectMultiple: () => void;
     onOpenLineManager: () => void;
@@ -60,7 +50,6 @@ export function ClassroomDashboardToolbar({
     t,
     classroom,
     onlineStudentIds,
-    gamificationToolbarMode,
     isConnected,
     viewMode,
     mobileToolbarOpen,
@@ -74,14 +63,11 @@ export function ClassroomDashboardToolbar({
     onOpenGroupMaker,
     onStudentsAdded,
     onOpenStudentManager,
-    onRankSettingsSaved,
-    onOpenNegamonSettings,
     onEnterAttendanceMode,
     onToggleSelectMultiple,
     onOpenLineManager,
     onOpenSettings,
 }: ClassroomDashboardToolbarProps) {
-    const gamificationLive = gamificationToolbarMode === "live";
     const totalStudents = classroom.students.length;
     const onlineCount = classroom.students.filter((student) => onlineStudentIds.has(student.id)).length;
     const offlineCount = Math.max(totalStudents - onlineCount, 0);
@@ -178,21 +164,6 @@ export function ClassroomDashboardToolbar({
                             <TableProperties className="h-4 w-4 md:mr-2" />
                             <span className="hidden sm:inline">{t("table")}</span>
                         </Button>
-                        {gamificationLive ? (
-                            <Button
-                                size="sm"
-                                className={`h-9 min-h-[44px] rounded-full px-4 text-sm font-medium transition-all touch-manipulation ${
-                                    viewMode === "negamon"
-                                        ? "bg-[#000000] text-white shadow-none hover:opacity-85"
-                                        : "bg-transparent text-[#212121] shadow-none hover:text-[color:var(--toolbar-accent)]"
-                                }`}
-                                onClick={() => onSelectViewMode("negamon")}
-                                title={t("negamonCardTitle")}
-                            >
-                                <Swords className="h-4 w-4 md:mr-2" />
-                                <span className="hidden sm:inline">{t("negamonCardTitle")}</span>
-                            </Button>
-                        ) : null}
                         {viewMode === "table" && (
                             <Button
                                 size="sm"
@@ -288,40 +259,6 @@ export function ClassroomDashboardToolbar({
                             theme={classroom.theme || ""}
                         />
                     </div>
-                </div>
-
-                <div className="relative flex flex-grow flex-col justify-center border-r border-b border-[#f2f2f2] px-5 py-4 sm:flex-grow-0">
-                    <p className="mb-2.5 flex items-center gap-2 text-xs font-normal uppercase tracking-[0.28px] text-[#93939f]">
-                        <Gamepad2 className="h-3.5 w-3.5 text-[color:var(--toolbar-accent)]" aria-hidden />
-                        {t("toolbarSectionGamification")}
-                    </p>
-                    {gamificationToolbarMode === "loading" ? (
-                        <div className="flex min-h-[36px] items-center">
-                            <div className="h-9 w-full max-w-[200px] animate-pulse rounded-full bg-[#f2f2f2]" />
-                        </div>
-                    ) : gamificationLive ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                            <ClassroomRankSettingsDialog classroom={classroom} onSaved={onRankSettingsSaved} />
-                            <EventManagerButton classId={classroom.id} theme={classroom.theme || ""} />
-                            <Button
-                                variant="default"
-                                size="sm"
-                                type="button"
-                                className={gamificationToolbarButtonClassName}
-                                onClick={onOpenNegamonSettings}
-                            >
-                                <Swords className="mr-1.5 h-4 w-4 shrink-0 opacity-95" />
-                                {t("negamonCardTitle")}
-                            </Button>
-                        </div>
-                    ) : (
-                        <div className="flex min-h-[44px] items-center rounded-2xl border border-dashed border-[#e5e7eb] bg-[#fafafa] px-4 py-2">
-                            <span className="inline-flex items-center gap-2 text-sm font-bold text-[#93939f]">
-                                <Lock className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
-                                {t("hostComingSoon")}
-                            </span>
-                        </div>
-                    )}
                 </div>
 
                 <div className="flex flex-grow flex-col justify-center border-b border-[#f2f2f2] px-5 py-4 sm:flex-grow-0">

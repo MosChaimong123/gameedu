@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select"
 import { useLanguage } from "@/components/providers/language-provider"
 import { useAuthProvidersStatus } from "@/lib/auth/use-auth-providers-status"
+import { PASSWORD_MIN_LENGTH, newPasswordSchema } from "@/lib/auth/password-policy"
 
 const MONTH_KEYS = [
     "monthJanuary",
@@ -122,6 +123,10 @@ export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
             setError(t("signupErrRoleMissing"))
             return
         }
+        if (!newPasswordSchema.safeParse(formData.password).success) {
+            setError(t("authValidationPasswordMin"))
+            return
+        }
         setIsLoading(true)
 
         try {
@@ -157,9 +162,7 @@ export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
 
             router.push(
                 appendCallbackUrl(
-                    `/verify-email?email=${encodeURIComponent(formData.email.trim())}&audience=${
-                        role === "TEACHER" ? "teacher" : "student"
-                    }`,
+                    `/verify-email?audience=${role === "TEACHER" ? "teacher" : "student"}`,
                     callbackUrl
                 )
             )
@@ -378,7 +381,7 @@ export default function SignupWizard({ presetRole = null }: SignupWizardProps) {
                                 type={showPassword ? "text" : "password"}
                                 placeholder={t("signupPlaceholderPassword")}
                                 required
-                                minLength={6}
+                                minLength={PASSWORD_MIN_LENGTH}
                                 value={formData.password}
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                 className="pr-10"

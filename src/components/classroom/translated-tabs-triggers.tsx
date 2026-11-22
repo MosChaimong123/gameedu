@@ -22,9 +22,6 @@ export function TranslatedTabsTriggers() {
             <TabsTrigger className={triggerClassName} value="analytics" suppressHydrationWarning>
                 {t("dashboardTabAnalytics")}
             </TabsTrigger>
-            <TabsTrigger className={triggerClassName} value="economy" suppressHydrationWarning>
-                {t("dashboardTabEconomy")}
-            </TabsTrigger>
             <TabsTrigger className={triggerClassName} value="lessons" suppressHydrationWarning>
                 บทเรียน
             </TabsTrigger>

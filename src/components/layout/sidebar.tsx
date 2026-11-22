@@ -5,39 +5,10 @@ import { usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { resolvePlanIdForQuota } from "@/lib/plan/plan-access"
-import {
-    LayoutDashboard,
-    BookOpen,
-    Users,
-    BarChart3,
-    Camera,
-    History,
-    Settings,
-    UserCircle,
-    Sparkles,
-    Library,
-    GraduationCap,
-    BookMarked,
-} from "lucide-react"
 import { useLanguage } from "@/components/providers/language-provider"
-import { isOmrDashboardEnabled } from "@/lib/omr-dashboard-enabled"
-import { isCoursesUiEnabled } from "@/lib/courses-ui-enabled"
+import { getSidebarNavItems, isNavItemLocked } from "@/lib/navigation/dashboard-nav"
+import { NAV_GROUP_ICON_CLASSES } from "@/lib/navigation/dashboard-nav-styles"
 import { BrandLogo } from "@/components/layout/brand-logo"
-
-const navItems = [
-    { icon: LayoutDashboard, labelKey: "dashboard", href: "/dashboard" },
-    { icon: BookOpen, labelKey: "mySets", href: "/dashboard/my-sets" },
-    { icon: Library, labelKey: "mediaLibrary", href: "/dashboard/media-library" },
-    { icon: Users, labelKey: "activeClasses", href: "/dashboard/classrooms" },
-    { icon: GraduationCap, labelKey: "lessons", href: "/dashboard/lessons" },
-    { icon: BookMarked, labelKey: "courses", href: "/dashboard/courses" },
-    { icon: BarChart3, labelKey: "viewReports", href: "/dashboard/reports" },
-    { icon: Camera, labelKey: "omrScanner", href: "/dashboard/omr" },
-    { icon: History, labelKey: "history", href: "/dashboard/history" },
-    { icon: Settings, labelKey: "settings", href: "/dashboard/settings" },
-    { icon: UserCircle, labelKey: "profile", href: "/dashboard/profile" },
-    { icon: Sparkles, labelKey: "upgradeToPlus", href: "/dashboard/upgrade" },
-] as const
 
 type SidebarProps = {
     className?: string
@@ -48,11 +19,7 @@ type SidebarProps = {
 export function Sidebar({ className, onNavigate }: SidebarProps) {
     const pathname = usePathname()
     const { t } = useLanguage()
-    const omrLive = isOmrDashboardEnabled()
-    const coursesLive = isCoursesUiEnabled()
-    const visibleNavItems = coursesLive
-        ? navItems
-        : navItems.filter((item) => item.href !== "/dashboard/courses")
+    const visibleNavItems = getSidebarNavItems()
     const { data: session } = useSession()
     const plan = resolvePlanIdForQuota(
         session?.user?.plan,
@@ -85,10 +52,9 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
                             ? pathname === "/dashboard"
                             : pathname === item.href || pathname.startsWith(`${item.href}/`)
                     const label = t(item.labelKey)
-                    const isUpgrade = item.href === "/dashboard/upgrade"
+                    const isUpgrade = item.key === "upgradeToPlus"
                     const dimmed = isUpgrade && hideUpgradeCta
-                    const omrLocked = item.href === "/dashboard/omr" && !omrLive
-                    if (omrLocked) {
+                    if (isNavItemLocked(item)) {
                         return (
                             <div
                                 key={item.href}
@@ -119,10 +85,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
                             title={dimmed ? t("sidebarUpgradeDimmedHint") : undefined}
                         >
                             <item.icon
-                                className={cn(
-                                    "h-5 w-5 shrink-0",
-                                    isActive ? "text-brand-pink" : "text-slate-400"
-                                )}
+                                className={cn("h-5 w-5 shrink-0", NAV_GROUP_ICON_CLASSES[item.group])}
                                 aria-hidden
                             />
                             <span className="truncate">{label}</span>

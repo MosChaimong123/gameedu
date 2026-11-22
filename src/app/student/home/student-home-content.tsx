@@ -5,7 +5,6 @@ import Image from "next/image";
 import { BookOpen, ClipboardList, LogOut, PanelsTopLeft, PlayCircle, Star, Trophy } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { JoinClassDialog } from "@/components/student/join-class-dialog";
-import { StudentLineLinkDialog } from "@/components/student/student-line-link-dialog";
 import { getThemeBgStyle } from "@/lib/classroom-utils";
 import {
     assignmentTypeBadgeClassName,
@@ -27,7 +26,6 @@ export type StudentHomeSerializableAssignment = {
 
 export type StudentHomeSerializableRecord = {
     id: string;
-    loginCode: string;
     behaviorPoints: number;
     classroom: {
         id: string;
@@ -157,11 +155,12 @@ export function StudentHomeContent({
                                                     const deadlinePast =
                                                         a.deadline != null && new Date(a.deadline) < new Date();
                                                     const canOpenInteractive = (isQuiz || isWorksheet) && !deadlinePast;
-                                                    const href = canOpenInteractive
+                                                    const destination = canOpenInteractive
                                                         ? isWorksheet
-                                                            ? `/student/${record.loginCode}/worksheet/${a.id}`
-                                                            : `/student/${record.loginCode}/quiz/${a.id}`
-                                                        : `/student/${record.loginCode}`;
+                                                            ? `/student/access/worksheet/${a.id}`
+                                                            : `/student/access/quiz/${a.id}`
+                                                        : "/student/access";
+                                                    const href = `/student/home/access/${record.id}?next=${encodeURIComponent(destination)}`;
                                                     return (
                                                         <Link
                                                             key={a.id}
@@ -234,15 +233,11 @@ export function StudentHomeContent({
                                     )}
 
                                     <Link
-                                        href={`/student/${record.loginCode}`}
+                                        href={`/student/home/access/${record.id}?next=${encodeURIComponent("/student/access")}`}
                                         className="block w-full rounded-xl border border-dashed border-slate-200 py-1 text-center text-xs font-bold text-slate-400 transition-colors hover:border-purple-200 hover:text-purple-600"
                                     >
                                         {t("studentHomeOpenProfile")}
                                     </Link>
-                                    <StudentLineLinkDialog
-                                        loginCode={record.loginCode}
-                                        className="w-full justify-center rounded-xl border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
-                                    />
                                 </div>
                             </div>
                         );

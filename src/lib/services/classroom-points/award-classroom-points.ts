@@ -118,7 +118,7 @@ export async function awardSingleClassroomPoint(
     await sendNotification({
         studentId: student.id,
         type: "POINT",
-        link: `/student/${student.loginCode ?? updatedStudent.loginCode}`,
+        link: "/student",
         i18n: {
             titleKey: skill.weight > 0 ? "notifPointsAwardedTitle" : "notifPointsDeductedTitle",
             messageKey: skill.weight > 0 ? "notifPointsAwardedBody" : "notifPointsDeductedBody",

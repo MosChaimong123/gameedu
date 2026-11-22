@@ -59,6 +59,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { deleteUser, updateUserSubscription, resetUserPassword } from "../admin-actions";
 import { useLanguage } from "@/components/providers/language-provider";
 import type { AppRole } from "@/lib/roles";
+import { PASSWORD_CHANGE_MIN_LENGTH } from "@/lib/auth/password-policy";
 
 interface User {
   id: string;
@@ -669,7 +670,7 @@ export function UserTable({
             </div>
             <div className="space-y-1">
               <Label className="text-xs font-bold uppercase text-slate-500">
-                ตั้งรหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)
+                ตั้งรหัสผ่านใหม่ (อย่างน้อย {PASSWORD_CHANGE_MIN_LENGTH} ตัวอักษร)
               </Label>
               <div className="relative">
                 <Input
@@ -678,6 +679,7 @@ export function UserTable({
                   placeholder="กรอกรหัสผ่านใหม่"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={PASSWORD_CHANGE_MIN_LENGTH}
                   autoFocus
                 />
                 <button
@@ -697,7 +699,7 @@ export function UserTable({
             </Button>
             <Button
               type="button"
-              disabled={newPassword.length < 6 || isPending === passwordTarget?.id}
+              disabled={newPassword.length < PASSWORD_CHANGE_MIN_LENGTH || isPending === passwordTarget?.id}
               onClick={() => void handleResetPassword()}
               className="font-bold"
             >

@@ -2,23 +2,18 @@
 
 import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-    parseStudentDashboardNegamonOpenParam,
-    studentDashboardTabToMode,
-} from "@/lib/student-dashboard-url-tabs";
 import { isCoursesUiEnabled } from "@/lib/courses-ui-enabled";
-import type { StudentDashboardMode } from "@/lib/services/student-dashboard/student-dashboard.types";
 
 type Props = {
-    code: string;
-    setMode: (mode: StudentDashboardMode) => void;
     setActiveTab: (tab: string) => void;
 };
+
+const LEARNING_TABS = new Set(["assignments", "lessons", "courses", "board", "history"]);
 
 /**
  * อ่าน query ครั้งเดียวตอนโหลด: `tab`, `open` / `negamon` แล้วซิงก์แท็บหรือไปหน้า Negamon
  */
-function StudentDashboardUrlParamsHandlerInner({ code, setMode, setActiveTab }: Props) {
+function StudentDashboardUrlParamsHandlerInner({ setActiveTab }: Props) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const appliedKey = useRef<string | null>(null);
@@ -31,30 +26,28 @@ function StudentDashboardUrlParamsHandlerInner({ code, setMode, setActiveTab }: 
         }
         if (appliedKey.current === key) return;
 
-        const openRaw = searchParams.get("open") ?? searchParams.get("negamon");
-        const negamonTarget = parseStudentDashboardNegamonOpenParam(openRaw);
-        if (negamonTarget === "codex") {
+        if (searchParams.has("open") || searchParams.has("negamon")) {
             appliedKey.current = key;
-            router.replace(`/student/${encodeURIComponent(code)}/negamon/codex`);
-            return;
-        }
-        if (negamonTarget === "profile") {
-            appliedKey.current = key;
-            router.replace(`/student/${encodeURIComponent(code)}/negamon`);
+            setActiveTab("assignments");
+            router.replace("/student/access", { scroll: false });
             return;
         }
 
         const tabParam = searchParams.get("tab");
-        if (tabParam && (tabParam !== "courses" || isCoursesUiEnabled())) {
-            const mode = studentDashboardTabToMode(tabParam);
-            if (mode) {
-                appliedKey.current = key;
-                setMode(mode);
-                setActiveTab(tabParam);
-                router.replace(`/student/${encodeURIComponent(code)}`, { scroll: false });
-            }
+        const isLearningTab = Boolean(tabParam && LEARNING_TABS.has(tabParam));
+        const isAvailableCourseTab = tabParam !== "courses" || isCoursesUiEnabled();
+        if (isLearningTab && isAvailableCourseTab && tabParam) {
+            appliedKey.current = key;
+            setActiveTab(tabParam);
+            router.replace("/student/access", { scroll: false });
+            return;
         }
-    }, [code, router, searchParams, setMode, setActiveTab]);
+        if (tabParam) {
+            appliedKey.current = key;
+            setActiveTab("assignments");
+            router.replace("/student/access", { scroll: false });
+        }
+    }, [router, searchParams, setActiveTab]);
 
     return null;
 }

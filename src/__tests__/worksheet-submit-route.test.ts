@@ -9,6 +9,7 @@ const mockStudentUpdate = vi.fn();
 const mockLoadWorksheetTakeContext = vi.fn();
 const mockGradeWorksheetSubmission = vi.fn();
 const mockNotifyNegamonRankUpIfNeeded = vi.fn();
+const mockGetStudentAccessCodeForClass = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -39,9 +40,14 @@ vi.mock("@/lib/negamon/negamon-rank-notify", () => ({
   notifyNegamonRankUpIfNeeded: mockNotifyNegamonRankUpIfNeeded,
 }));
 
+vi.mock("@/lib/auth/student-access-session", () => ({
+  getStudentAccessCodeForClass: mockGetStudentAccessCodeForClass,
+}));
+
 describe("worksheet submit route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetStudentAccessCodeForClass.mockResolvedValue("ABC123");
     mockGradeWorksheetSubmission.mockReturnValue({
       score: 4,
       maxScore: 5,

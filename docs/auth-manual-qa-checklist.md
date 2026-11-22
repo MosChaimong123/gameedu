@@ -86,7 +86,7 @@ Local/pre-deploy:
 
 Controlled rollout:
 
-- [ ] Deployed `/api/ready` reports `checks.emailDelivery: "configured"`
+- [x] Deployed `/api/ready` reports `checks.emailDelivery: "configured"`
 - [ ] Controlled credentials mailbox receives OTP from the verified sender domain
 - [ ] Controlled Google-only account receives neutral provider guidance
 - [ ] OTP works once; reuse, expiry, attempt-limit, and concurrent reuse fail safely
@@ -104,6 +104,9 @@ Controlled rollout:
 
 Completed on 2026-05-03 (dev local only):
 
+- Re-tested the local web entry points on 2026-08-03 after fixing the lazy Auth.js proxy contract: `/`, `/login`, `/forgot-password`, `/forgot-password/reset`, and `/student` render successfully; `/register` redirects to the canonical `/login?mode=register` flow.
+- Verified the forgot-password flow with a synthetic nonexistent `.invalid` address: the UI returns neutral success copy, does not confirm account existence, links to the OTP reset form, and applies `one-time-code`, numeric input, and `new-password` autocomplete contracts.
+- Verified the Student Code boundary in the running app: a legacy direct Student API path returns HTTP 410 and a nested legacy Student Code URL redirects to `/student` without retaining the code. Browser console inspection showed no runtime errors after the proxy fix.
 - Verified unauthenticated access to `/dashboard` redirects to `/login?callbackUrl=...` instead of exposing protected content.
 - Verified role selection on the login entry screen preserves `callbackUrl` (for example `/dashboard` -> `/login?callbackUrl=...` -> `/login?audience=teacher&callbackUrl=...`).
 - Verified teacher email/password login lands on `/dashboard`.
@@ -138,11 +141,22 @@ Completed on 2026-05-03 (dev local only):
 
 Open findings / remaining blockers:
 
+- Production `/api/ready` returned HTTP 200 with `checks.emailDelivery: "configured"` on 2026-08-03. After deploying the strengthened readiness contract, re-check that the status remains configured; production will then also prove that `RESEND_WEBHOOK_SECRET` is present.
+- Local `/api/ready` reports `checks.emailDelivery: "not_configured"`; real forgot-password OTP delivery cannot be verified in this environment until a controlled email provider/sender is configured.
 - Staging manual QA is blocked because no staging URL or staging credentials were provided.
-- Full production build verification for the latest auth callback fix is currently blocked by a local Prisma engine file lock during `prisma generate`, while `npm.cmd run predev` still passes.
+- Local production build verification now passes; the repository unlock script safely recovered the Windows Prisma engine lock before regeneration.
 - Production check on 2026-07-14 returned HTTP 200 from `/api/ready`, but the response did not contain `checks.emailDelivery`; the Phase 0-7 recovery revision is therefore not yet verifiable on production.
 - The currently deployed reset page still showed a 6-character password placeholder and omitted `autocomplete="new-password"`. Local code now uses an 8-character minimum, localized Thai/English copy, and password-manager attributes; deployment is required before retesting.
 - Controlled staging URL/account credentials and two controlled mailbox providers were not available in this QA run, so no OTP or password was submitted.
+
+Local browser auth pass on 2026-08-09:
+
+- Credentials login, logout, and neutral invalid-password UX passed with a disposable local teacher account.
+- MFA enrollment and a subsequent TOTP challenge passed end-to-end.
+- Fixed MongoDB missing-vs-null handling that previously made a correct OTP look invalid after it was consumed because the bound security session could not be elevated.
+- Security Center now lists current and prior active device sessions.
+- Fixed the login form's pre-hydration fallback to POST so credentials cannot be serialized into the URL.
+- Google OAuth completion, real Passkey ceremonies, and mailbox delivery remain controlled staging checks.
 
 ## Automated Preflight
 

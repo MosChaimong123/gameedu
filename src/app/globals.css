@@ -19,6 +19,25 @@
   --color-brand-gold: #facc15;
   --color-brand-orange: #fb7185;
   --color-brand-red-orange: #ff4500;
+  /* Navigation groups: one hue per kind of work, shared by the sidebar and the
+     dashboard menu tiles. `solid` is the tile background (white title text on
+     top, all >= 4.5:1), `soft` is the tile body copy, `icon` reads against the
+     dark sidebar. */
+  --color-nav-create: #166534;
+  --color-nav-create-soft: #dcfce7;
+  --color-nav-create-icon: #4ade80;
+  --color-nav-teach: #be185d;
+  --color-nav-teach-soft: #fce7f3;
+  --color-nav-teach-icon: #f472b6;
+  --color-nav-measure: #9a3412;
+  --color-nav-measure-soft: #ffedd5;
+  --color-nav-measure-icon: #fb923c;
+  --color-nav-system: #475569;
+  --color-nav-system-soft: #f1f5f9;
+  --color-nav-system-icon: #94a3b8;
+  --color-nav-premium: #6d28d9;
+  --color-nav-premium-soft: #ede9fe;
+  --color-nav-premium-icon: #a78bfa;
   --font-sans: var(--font-geist-sans), var(--font-noto-sans-thai), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);

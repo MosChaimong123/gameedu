@@ -178,7 +178,8 @@ These `.env.local` flags gate optional product features:
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `NEXT_PUBLIC_NEGAMON_BATTLE_HOST_ENABLED` | off | Enable Negamon battle launcher from classroom |
-| `NEXT_PUBLIC_CLASSROOM_GAMIFICATION_ENABLED` | on | Rank/events/Negamon settings in classroom |
+| `CLASSROOM_GAME_SYSTEM_ENABLED` | off | Temporary server-side rollback for retired classroom game mutations and rewards |
+| `NEXT_PUBLIC_CLASSROOM_GAMIFICATION_ENABLED` | off | Temporary UI rollback for retired classroom gamification controls |
 | `NEXT_PUBLIC_OMR_DASHBOARD_ENABLED` | off | Show OMR section in dashboard |
 
 ---

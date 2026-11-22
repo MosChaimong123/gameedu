@@ -100,4 +100,5 @@ export interface StudentDashboardViewModel {
 export interface StudentDashboardClientProps extends StudentDashboardViewModel {
     currentUserId?: string;
     code: string;
+    civilizationIdleEnabled?: boolean;
 }

@@ -1,12 +1,15 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import bcrypt from "bcryptjs";
 import {
     FORBIDDEN_MESSAGE,
     INTERNAL_ERROR_MESSAGE,
     createAppErrorResponse,
 } from "@/lib/api-error";
+import { newPasswordSchema } from "@/lib/auth/password-policy";
+import { validateNewPassword } from "@/lib/auth/password-policy-server";
+import { hashPassword, verifyPassword } from "@/lib/auth/password-hash";
+import { changeUserRole } from "@/lib/auth/security-mutations";
 
 export async function POST(req: Request) {
     try {
@@ -47,8 +50,11 @@ export async function POST(req: Request) {
         const existing = await db.user.findUnique({ where: { email } });
 
         if (!existing) {
+            if (!newPasswordSchema.safeParse(password).success || !(await validateNewPassword(password)).valid) {
+                return createAppErrorResponse("PASSWORD_POLICY_VIOLATION", "Password does not meet security policy", 400);
+            }
             // Create a new admin user
-            const hashedPassword = await bcrypt.hash(password, 12);
+            const hashedPassword = await hashPassword(password);
             const verifiedAt = new Date();
 
             // Generate a unique username for admin
@@ -78,19 +84,16 @@ export async function POST(req: Request) {
             return createAppErrorResponse("INVALID_PAYLOAD", "Account uses OAuth. Cannot upgrade via this method.", 400);
         }
 
-        const isValid = await bcrypt.compare(password, existing.password);
+        const isValid = await verifyPassword(password, existing.password);
         if (!isValid) {
             return createAppErrorResponse("FORBIDDEN", "Invalid credentials", 403);
         }
 
         // Upgrade existing user to ADMIN (ensure they can sign in with credentials)
-        await db.user.update({
-            where: { email },
-            data: {
-                role: "ADMIN",
-                emailVerified: existing.emailVerified ?? new Date(),
-            },
-        });
+        await changeUserRole(existing.id, "ADMIN");
+        if (!existing.emailVerified) {
+            await db.user.update({ where: { id: existing.id }, data: { emailVerified: new Date() } });
+        }
 
         return NextResponse.json({ ok: true, result: "USER_UPGRADED_TO_ADMIN" });
     } catch (error) {

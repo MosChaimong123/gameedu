@@ -5,6 +5,16 @@ export const LEGACY_STUDENT_LOGIN_CODE_LENGTH = 6;
 export const STUDENT_LOGIN_CODE_LENGTH = 12;
 export const MAX_STUDENT_LOGIN_CODE_LENGTH = 32;
 
+export function normalizeStudentLoginCode(loginCode: string) {
+    return loginCode.trim().toUpperCase();
+}
+
+export function isCurrentStudentLoginCode(loginCode: string) {
+    const normalized = normalizeStudentLoginCode(loginCode);
+    return normalized.length === STUDENT_LOGIN_CODE_LENGTH &&
+        [...normalized].every((character) => LOGIN_CODE_ALPHABET.includes(character));
+}
+
 export function getStudentLoginCodeVariants(loginCode: string) {
     const trimmedCode = loginCode.trim();
     return [...new Set([trimmedCode, trimmedCode.toUpperCase(), trimmedCode.toLowerCase()].filter(Boolean))];

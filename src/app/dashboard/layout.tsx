@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/layout/sidebar"
 import { Topbar } from "@/components/layout/topbar"
 import { SessionProvider } from "next-auth/react"
 import { redirect } from "next/navigation"
+import { PasswordUpgradeNotice } from "@/components/auth/password-upgrade-notice"
 
 export default async function DashboardLayout({
     children,
@@ -23,6 +24,7 @@ export default async function DashboardLayout({
 
                 <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                     <Topbar hideLeadingBrand />
+                    <PasswordUpgradeNotice required={session.user.passwordUpgradeRequired} />
                     <main className="min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
                         {children}
                     </main>

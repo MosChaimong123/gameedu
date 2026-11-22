@@ -162,7 +162,6 @@ export function ClassroomDashboardOverlays({
                 <RandomPicker
                     students={classroom.students as never}
                     theme={classroom.theme || ""}
-                    levelConfig={classroom.levelConfig}
                     onClose={() => setShowRandomPicker(false)}
                 />
             )}
@@ -171,7 +170,6 @@ export function ClassroomDashboardOverlays({
                     students={classroom.students as never}
                     skills={classroom.skills}
                     theme={classroom.theme || ""}
-                    levelConfig={classroom.levelConfig}
                     onSavedGroupsChange={onSavedGroupsChange}
                     onClose={() => setShowGroupMaker(false)}
                 />

@@ -16,6 +16,12 @@ export type DashboardMenuTileProps = {
     lockedLabel: string;
     itemVariants?: Variants;
     onActivate: () => void;
+    /**
+     * Runs instead of `onActivate` while the tile is locked. Without it a locked
+     * tile stays inert — with it the tile can explain why it is locked, which a
+     * `title` tooltip cannot do on touch devices.
+     */
+    onLockedActivate?: () => void;
 };
 
 export function DashboardMenuTile({
@@ -28,30 +34,44 @@ export function DashboardMenuTile({
     lockedLabel,
     itemVariants,
     onActivate,
+    onLockedActivate,
 }: DashboardMenuTileProps) {
+    const interactive = !disabled || Boolean(onLockedActivate);
+    const activate = () => {
+        if (disabled) {
+            onLockedActivate?.();
+            return;
+        }
+        onActivate();
+    };
+
     return (
         <motion.div variants={itemVariants} className="relative overflow-visible">
             <motion.div
                 role="button"
-                tabIndex={disabled ? -1 : 0}
+                aria-disabled={disabled || undefined}
+                tabIndex={interactive ? 0 : -1}
                 className={cn(
                     "group relative z-10 mt-16 flex min-h-[13rem] flex-col justify-end overflow-visible rounded-[1.75rem] border border-white/15 px-5 pb-5 pt-10 shadow-[0_18px_40px_-18px_rgb(15_23_42_/_0.45)] transition-shadow sm:mt-[4.5rem] sm:min-h-[14.5rem] sm:rounded-[2rem] sm:px-6 sm:pb-6 sm:pt-11",
                     panelClass,
-                    disabled ? "cursor-not-allowed opacity-90" : "cursor-pointer hover:shadow-[0_22px_48px_-16px_rgb(15_23_42_/_0.5)]"
+                    disabled && "opacity-90",
+                    interactive
+                        ? "cursor-pointer hover:shadow-[0_22px_48px_-16px_rgb(15_23_42_/_0.5)]"
+                        : "cursor-not-allowed"
                 )}
                 onClick={() => {
-                    if (disabled) return;
-                    onActivate();
+                    if (!interactive) return;
+                    activate();
                 }}
                 onKeyDown={(event) => {
-                    if (disabled) return;
+                    if (!interactive) return;
                     if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        onActivate();
+                        activate();
                     }
                 }}
-                whileHover={disabled ? undefined : { y: -4 }}
-                whileTap={disabled ? undefined : { scale: 0.98 }}
+                whileHover={interactive ? { y: -4 } : undefined}
+                whileTap={interactive ? { scale: 0.98 } : undefined}
             >
                 {/* กึ่งกลางขอบบนการ์ด: ครึ่งบนอยู่นอกพื้น ครึ่งล่างทับเข้าในการ์ด (ตามรูปอ้างอิง) */}
                 <div

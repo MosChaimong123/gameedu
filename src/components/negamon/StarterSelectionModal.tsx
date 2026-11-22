@@ -25,7 +25,6 @@ import type { MonsterType } from "@/lib/types/negamon";
 import { NegamonFormIcon } from "@/components/negamon/NegamonFormIcon";
 
 interface StarterSelectionModalProps {
-    loginCode: string;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
     /** species IDs ที่ classroom อนุญาต — ถ้าไม่ส่งหรือ empty แสดงทั้งหมด */
@@ -51,7 +50,7 @@ const STAT_CONFIG = [
     { key: "spd", labelKey: "monsterStatSpd",    icon: Zap,     color: "text-yellow-500",  bar: "[&>div]:bg-yellow-400"  },
 ] as const;
 
-export function StarterSelectionModal({ loginCode, isOpen, onOpenChange, allowedSpeciesIds, onDismiss }: StarterSelectionModalProps) {
+export function StarterSelectionModal({ isOpen, onOpenChange, allowedSpeciesIds, onDismiss }: StarterSelectionModalProps) {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { toast } = useToast();
@@ -69,8 +68,7 @@ export function StarterSelectionModal({ loginCode, isOpen, onOpenChange, allowed
         if (!selectedId) return;
         setIsSubmitting(true);
         try {
-            await axios.post("/api/student/negamon/select", {
-                loginCode,
+            await axios.post("/api/student/access/negamon/select", {
                 speciesId: selectedId,
             });
             toast({

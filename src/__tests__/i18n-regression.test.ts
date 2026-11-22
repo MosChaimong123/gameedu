@@ -25,6 +25,30 @@ const coreUiKeys = [
   "dashboardTabClassroom",
 ] as const;
 
+const teacherDashboardKeys = [
+  "quickActionsTeacherReady",
+  "quickActionsStudentReady",
+  "topInsightsEmptyNews",
+  "topInsightsEmptyMissions",
+  "sidebarUpgradeDimmedHint",
+  "teacherHeroDesc",
+  "hostComingSoon",
+  "omrComingSoonBody",
+  "kpiQuestionSets",
+  "kpiClassrooms",
+  "kpiStudents",
+  "kpiGamesThisWeek",
+  "heroHostGame",
+  "heroCreateSet",
+  "continueWorkingTitle",
+  "continueWorkingEmpty",
+  "pendingKindQuestionSet",
+  "pendingKindLessonDraft",
+  "recentActivityTitle",
+  "recentActivityEmpty",
+  "recentActivityPlayers",
+] as const;
+
 const classroomAttendanceUiKeys = [
   "attendanceMode",
   "attendanceDesc",
@@ -596,6 +620,17 @@ function t(language: Language) {
 describe("i18n regression guard", () => {
   it("resolves core login, register, and dashboard keys in English and Thai", () => {
     for (const key of coreUiKeys) {
+      const english = getTranslationText("en", key);
+      const thai = getTranslationText("th", key);
+
+      expect(english, `${key} should resolve in English`).not.toBe(key);
+      expect(thai, `${key} should resolve in Thai`).not.toBe(key);
+      expect(thai, `${key} should contain Thai text`).toSatisfy(hasThaiGlyph);
+    }
+  });
+
+  it("resolves teacher dashboard hero, tile, and empty-state keys in English and Thai", () => {
+    for (const key of teacherDashboardKeys) {
       const english = getTranslationText("en", key);
       const thai = getTranslationText("th", key);
 

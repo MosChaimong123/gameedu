@@ -9,7 +9,6 @@ import Link from "next/link";
 import { useLanguage } from "@/components/providers/language-provider";
 import { LanguageToggle } from "@/components/language-toggle";
 import {
-    LEGACY_STUDENT_LOGIN_CODE_LENGTH,
     MAX_STUDENT_LOGIN_CODE_LENGTH,
     STUDENT_LOGIN_CODE_LENGTH,
 } from "@/lib/student-login-code";
@@ -23,13 +22,23 @@ export function StudentLoginForm({ isLoggedIn }: { isLoggedIn: boolean }) {
     const error = searchParams.get("error");
     const invalidCode = error === "invalid_code";
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!code.trim()) return;
         
         setIsLoading(true);
         const cleanCode = code.trim().toUpperCase();
-        router.push(`/student/${cleanCode}`);
+        const response = await fetch("/api/student/access/exchange", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: cleanCode }),
+        });
+        if (!response.ok) {
+            setIsLoading(false);
+            router.replace("/student?error=invalid_code");
+            return;
+        }
+        router.replace("/student/access");
     };
 
     return (
@@ -46,7 +55,6 @@ export function StudentLoginForm({ isLoggedIn }: { isLoggedIn: boolean }) {
                     <h1 className="text-3xl font-black text-slate-800 tracking-tight">{t("studentPortalTitle")}</h1>
                     <p className="text-slate-500">
                         {t("studentPortalSubtitle", {
-                            legacyLen: LEGACY_STUDENT_LOGIN_CODE_LENGTH,
                             newLen: STUDENT_LOGIN_CODE_LENGTH,
                         })}
                     </p>
@@ -84,7 +92,7 @@ export function StudentLoginForm({ isLoggedIn }: { isLoggedIn: boolean }) {
                         className="w-full py-6 text-lg font-bold bg-indigo-600 hover:bg-indigo-700 shadow-md transition-all rounded-2xl"
                         disabled={
                             isLoading ||
-                            code.trim().length < LEGACY_STUDENT_LOGIN_CODE_LENGTH
+                            code.trim().length !== STUDENT_LOGIN_CODE_LENGTH
                         }
                     >
                         {isLoading ? t("studentPortalSubmitLoading") : t("studentPortalSubmit")}

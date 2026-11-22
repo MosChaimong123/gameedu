@@ -33,13 +33,13 @@ export function TopInsights({ role, news, missions }: TopInsightsProps) {
     void role
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="space-y-4">
             <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="lg:col-span-2 relative overflow-hidden rounded-[2rem] bg-indigo-600 p-1 shadow-xl"
+                className="relative overflow-hidden rounded-[1.75rem] bg-indigo-600 p-1 shadow-lg"
             >
-                <div className="relative h-full w-full overflow-hidden rounded-[1.9rem] bg-slate-900/10 p-6 backdrop-blur-xl">
+                <div className="relative h-full w-full overflow-hidden rounded-[1.6rem] bg-slate-900/10 p-5 backdrop-blur-xl">
                     <div className="relative z-10 flex items-center justify-between mb-4">
                         <h3 className="text-xl font-black text-white flex items-center gap-2">
                             <Newspaper className="w-5 h-5 text-indigo-300" />
@@ -50,9 +50,9 @@ export function TopInsights({ role, news, missions }: TopInsightsProps) {
                         </span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
+                    <div className="grid grid-cols-1 gap-3 relative z-10">
                         {news.length === 0 ? (
-                            <p className="text-sm font-medium text-white/70 md:col-span-2">{t("topInsightsEmptyNews")}</p>
+                            <p className="text-sm font-medium text-white/70">{t("topInsightsEmptyNews")}</p>
                         ) : (
                             news.map((item) => {
                                 const tagColor = item.tagColor?.trim() || "bg-indigo-500"
@@ -108,9 +108,9 @@ export function TopInsights({ role, news, missions }: TopInsightsProps) {
             <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="relative overflow-hidden rounded-[2rem] bg-purple-600 p-1 shadow-xl"
+                className="relative overflow-hidden rounded-[1.75rem] bg-purple-600 p-1 shadow-lg"
             >
-                <div className="relative h-full w-full overflow-hidden rounded-[1.9rem] bg-slate-900/10 p-6 backdrop-blur-xl">
+                <div className="relative h-full w-full overflow-hidden rounded-[1.6rem] bg-slate-900/10 p-5 backdrop-blur-xl">
                     <h3 className="text-xl font-black text-white flex items-center gap-2 mb-4 relative z-10">
                         <Trophy className="w-5 h-5 text-purple-300" />
                         {t("dailyMissions")}

@@ -5,7 +5,7 @@ import {
     INTERNAL_ERROR_MESSAGE,
 } from "@/lib/api-error";
 import { db } from "@/lib/db";
-import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
+import { getStudentAccessSession } from "@/lib/auth/student-access-session";
 import {
     buildRateLimitKey,
     consumeRateLimit,
@@ -32,18 +32,18 @@ export async function PATCH(
     }
 
     try {
-        const { avatar, loginCode } = await req.json() as {
+        const { avatar } = await req.json() as {
             avatar?: unknown;
             loginCode?: unknown;
         };
-        const normalizedLoginCode = typeof loginCode === "string" ? loginCode.trim().toUpperCase() : "";
+        const accessSession = await getStudentAccessSession("student:write");
 
         const student = await db.student.findUnique({
             where: { id: studentId, classId: id },
-            select: { loginCode: true }
+            select: { id: true }
         });
 
-        if (!student || !getStudentLoginCodeVariants(normalizedLoginCode).includes(student.loginCode)) {
+        if (!student || !accessSession || accessSession.studentId !== studentId || accessSession.classId !== id) {
             return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);
         }
 

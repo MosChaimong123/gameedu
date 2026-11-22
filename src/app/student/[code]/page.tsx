@@ -1,36 +1,15 @@
-import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { StudentDashboardClient } from "@/components/student/StudentDashboardClient";
-import { getStudentDashboard } from "@/lib/services/student-dashboard/get-student-dashboard";
+import { StudentCodeExchangeBridge } from "@/components/student/student-code-exchange-bridge";
+import { isCurrentStudentLoginCode, normalizeStudentLoginCode } from "@/lib/student-login-code";
 
-export default async function StudentDashboardPage(
-    props: { params: Promise<{ code: string }> }
-) {
-    const { code } = await props.params;
-    const session = await auth();
-    const currentUserId = session?.user?.id;
-    const dashboard = await getStudentDashboard(code);
+export const metadata = {
+  referrer: "no-referrer" as const,
+  robots: { index: false, follow: false },
+};
 
-    if (!dashboard) {
-        redirect("/student?error=invalid_code");
-    }
-
-    return (
-        <StudentDashboardClient
-            student={dashboard.student}
-            classroom={dashboard.classroom}
-            history={dashboard.history}
-            submissions={dashboard.submissions}
-            academicTotal={dashboard.academicTotal}
-            totalPositive={dashboard.totalPositive}
-            totalNegative={dashboard.totalNegative}
-            rankEntry={dashboard.rankEntry}
-            themeClass={dashboard.themeClass}
-            themeStyle={dashboard.themeStyle}
-            classIcon={dashboard.classIcon}
-            isImageIcon={dashboard.isImageIcon}
-            currentUserId={currentUserId}
-            code={code}
-        />
-    );
+export default async function StudentCodeEntryPage(props: { params: Promise<{ code: string }> }) {
+  const { code: rawCode } = await props.params;
+  const code = normalizeStudentLoginCode(rawCode);
+  if (!isCurrentStudentLoginCode(code)) redirect("/student?error=invalid_code");
+  return <StudentCodeExchangeBridge code={code} />;
 }

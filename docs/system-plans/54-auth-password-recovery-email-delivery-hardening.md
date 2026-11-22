@@ -609,6 +609,11 @@ Production verification:
 
 ## Definition of Done
 
+- [x] Local dev ที่ `emailDelivery: not_configured` แสดงสถานะโหมดพัฒนาและ dev OTP ทันทีบนหน้ารับคำขอ แทนการบอกให้ผู้ใช้รออีเมลที่ระบบไม่ได้ส่ง; production response ไม่คืน dev OTP
+- [x] Signup email verification ใช้ encrypted, HttpOnly flow handle ส่ง dev OTP เฉพาะ browser ที่เริ่มสมัครบน non-production; public resend response ของ unknown/verified/Google-only ยังคง neutral และ production ไม่คืน OTP
+- [x] Local development resend คืน OTP ทดสอบโดยตรงหลังออก code สำเร็จ แม้ provider ตอบรับแต่เมลไม่ถึงหรือ flow cookie สูญหาย พร้อมกรอก OTP อัตโนมัติ; production ยังคง neutral และไม่คืน OTP
+- [x] เฉพาะ `NODE_ENV=development` ข้าม resend cooldown/rate-limit เพื่อให้ทดสอบ localhost ซ้ำได้; test/production ยังคงใช้ atomic layered rate limiting ตามเดิม
+
 - [ ] ผู้ใช้ไม่เห็น false-success ว่า OTP ส่งแล้ว
 - [ ] Credentials account รับ recovery email จาก verified domain
 - [ ] Google-only และ nonexistent account ไม่ทำให้ API เปิดเผย account state

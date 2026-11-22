@@ -61,6 +61,7 @@ Use this folder for system-by-system analysis and development planning across Ga
 53. [Lesson System Correctness And Progress](./53-lesson-system-correctness-and-progress.md)
 54. [Auth Password Recovery And Email Delivery Hardening](./54-auth-password-recovery-email-delivery-hardening.md)
 55. [LINE Security, Reliability, and Product Development](./55-line-security-reliability-development-plan.md)
+56. [Identity, Login, Session, and Student Access Security](./56-identity-login-session-security-roadmap.md)
 
 ## How To Use
 

@@ -23,6 +23,7 @@ export function ForgotPasswordForm() {
     const { googleEnabled } = useAuthProvidersStatus();
     const [email, setEmail] = React.useState("");
     const [acceptedEmail, setAcceptedEmail] = React.useState<string | null>(null);
+    const [devCode, setDevCode] = React.useState<string | null>(null);
     const [cooldownLeft, setCooldownLeft] = React.useState(0);
     const [isLoading, setIsLoading] = React.useState(false);
     const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
@@ -57,6 +58,7 @@ export function ForgotPasswordForm() {
             }
 
             const data = (await response.json()) as ForgotPasswordResponse;
+            setDevCode(data.devCode ?? null);
             try {
                 if (data.referenceCode) sessionStorage.setItem("pwreset_ref", data.referenceCode);
                 else sessionStorage.removeItem("pwreset_ref");
@@ -90,6 +92,7 @@ export function ForgotPasswordForm() {
 
     function useAnotherEmail() {
         setAcceptedEmail(null);
+        setDevCode(null);
         setCooldownLeft(0);
         setErrorMsg(null);
     }
@@ -115,10 +118,17 @@ export function ForgotPasswordForm() {
                     </div>
                 ) : null}
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-                    <p>{t("forgotPasswordCheckSpam")}</p>
-                    {googleEnabled ? <p className="mt-2">{t("forgotPasswordGoogleHint")}</p> : null}
-                </div>
+                {devCode ? (
+                    <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-center text-sky-900">
+                        <p className="text-sm font-semibold">{t("forgotPasswordDevDeliveryNotice")}</p>
+                        <p className="mt-2 font-mono text-2xl font-bold tracking-[0.4em]">{devCode}</p>
+                    </div>
+                ) : (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+                        <p>{t("forgotPasswordCheckSpam")}</p>
+                        {googleEnabled ? <p className="mt-2">{t("forgotPasswordGoogleHint")}</p> : null}
+                    </div>
+                )}
 
                 <div className="grid gap-3">
                     <Button asChild className="h-11 rounded-xl bg-brand-pink font-bold text-white shadow-md hover:opacity-95">

@@ -382,6 +382,7 @@ model Student {
   loginCodeLastUsedAt DateTime?
   loginCodeDisabledAt DateTime?
   accessSessions StudentAccessSession[]
+  civilizationProfile CivilizationProfile?
   /// แต้มพฤติกรรม / progression รวม (ครูให้-หัก, ทักษะ, EXP Negamon จากงาน+แมตช์สด ฯลฯ) — ใน BSON ยังใช้ key เดิมว่า "points"
   behaviorPoints Int                 @default(0) @map("points")
   /// ทองสะสมจาก passive income (goldRate × เวลา ตาม rank)
@@ -452,6 +453,38 @@ model StudentAccessSession {
   @@index([studentId, revokedAt, expiresAt])
   @@index([classId, revokedAt, expiresAt])
   @@index([expiresAt])
+}
+
+model CivilizationProfile {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId       String   @unique @db.ObjectId
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  snapshot        Json
+  schemaVersion   Int
+  contentVersion  Int
+  revision        Int      @default(0)
+  lastSimulatedAt DateTime
+  commands        CivilizationCommand[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([updatedAt])
+}
+
+model CivilizationCommand {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  commandId      String   @unique
+  profileId      String   @db.ObjectId
+  profile        CivilizationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  commandType    String
+  payloadHash    String
+  payload        Json
+  response       Json
+  revisionBefore Int
+  revisionAfter  Int
+  createdAt      DateTime @default(now())
+
+  @@index([profileId, createdAt])
 }
 
 model EconomyTransaction {

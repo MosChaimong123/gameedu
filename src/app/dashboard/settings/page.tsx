@@ -15,7 +15,9 @@ import {
     Shield,
     Save,
     Globe,
+    LockKeyhole,
 } from "lucide-react"
+import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import { PageBackLink } from "@/components/ui/page-back-link"
 import type { UserSettings } from "@/lib/user-settings"
@@ -163,6 +165,14 @@ export default function SettingsPage() {
                         </AnimatePresence>
                     </div>
                 </div>
+
+                <Link href="/dashboard/settings/security" className="group flex items-center justify-between rounded-[2rem] border border-cyan-100 bg-gradient-to-r from-slate-950 to-slate-900 p-6 text-white shadow-xl transition-transform hover:-translate-y-0.5">
+                    <div className="flex items-center gap-4">
+                        <span className="rounded-2xl bg-cyan-400/15 p-3 text-cyan-300"><LockKeyhole className="h-6 w-6" /></span>
+                        <span className="font-black">{t("securityOpenCenter")}</span>
+                    </div>
+                    <span aria-hidden className="text-cyan-300 transition-transform group-hover:translate-x-1">→</span>
+                </Link>
 
                 <Tabs defaultValue="language" className="w-full space-y-10">
                     <div className="flex justify-center">

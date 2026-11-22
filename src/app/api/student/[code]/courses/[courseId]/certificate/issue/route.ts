@@ -10,6 +10,7 @@ import { buildCourseProgressSnapshot } from "@/lib/courses/course-progress"
 import { db } from "@/lib/db"
 import { sendNotification } from "@/lib/notifications"
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code"
+import { isClassroomGameSystemEnabled } from "@/lib/classroom-game-system"
 
 type Params = { params: Promise<{ code: string; courseId: string }> }
 
@@ -196,8 +197,11 @@ export async function POST(_req: Request, { params }: Params) {
             return createAppErrorResponse("NOT_FOUND", "Course certificate is not enabled", 404)
         }
 
-        const behaviorPointReward = Math.max(0, payload.rewardSnapshot?.behaviorPoints ?? 0)
-        const achievementId = payload.rewardSnapshot?.achievementId ?? null
+        const gameRewardsEnabled = isClassroomGameSystemEnabled()
+        const behaviorPointReward = gameRewardsEnabled
+            ? Math.max(0, payload.rewardSnapshot?.behaviorPoints ?? 0)
+            : 0
+        const achievementId = gameRewardsEnabled ? payload.rewardSnapshot?.achievementId ?? null : null
 
         const certificate = await db.$transaction(async (tx) => {
             const created = await tx.courseCertificate.create({
@@ -209,7 +213,7 @@ export async function POST(_req: Request, { params }: Params) {
                     description: payload.description,
                     certificateCode: payload.certificateCode,
                     criteriaSnapshot: payload.criteriaSnapshot,
-                    rewardSnapshot: payload.rewardSnapshot,
+                    rewardSnapshot: gameRewardsEnabled ? payload.rewardSnapshot : null,
                 },
                 select: {
                     id: true,
@@ -266,7 +270,7 @@ export async function POST(_req: Request, { params }: Params) {
 
         return NextResponse.json({
             certificate: summarizeIssuedCourseCertificate(certificate),
-            reward: payload.rewardSnapshot,
+            reward: gameRewardsEnabled ? payload.rewardSnapshot : null,
         })
     } catch (error) {
         console.error("[STUDENT_COURSE_CERTIFICATE_POST]", error)

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AbstractGameEngine } from "@/lib/game-engine/abstract-game";
 
 const mocks = vi.hoisted(() => {
@@ -84,6 +84,10 @@ function makeGame(): AbstractGameEngine {
 }
 
 describe("syncArQuestRewardsToClassroom", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.studentFindMany.mockReset();
@@ -94,6 +98,16 @@ describe("syncArQuestRewardsToClassroom", () => {
       gamifiedSettings: {},
       levelConfig: [],
     });
+  });
+
+  it("does not touch classroom data when classroom games are retired", async () => {
+    vi.stubEnv("CLASSROOM_GAME_SYSTEM_ENABLED", "false");
+    const { syncArQuestRewardsToClassroom } = await import("@/lib/ar-quest/sync-ar-quest-rewards");
+
+    await syncArQuestRewardsToClassroom(makeGame());
+
+    expect(mocks.classroomFindFirst).not.toHaveBeenCalled();
+    expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
   it("awards AR Quest EXP with a game-pin idempotency reason", async () => {

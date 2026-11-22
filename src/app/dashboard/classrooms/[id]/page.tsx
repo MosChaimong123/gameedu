@@ -6,7 +6,6 @@ import { AnalyticsDashboard } from "@/components/classroom/AnalyticsDashboard";
 import { AttendanceHistoryTab } from "@/components/classroom/attendance-history-tab";
 import { TranslatedTabsTriggers } from "@/components/classroom/translated-tabs-triggers";
 import { ClassBoard } from "@/components/board/ClassBoard";
-import { ClassroomEconomyLedgerTab } from "@/components/classroom/classroom-economy-ledger-tab";
 import { ClassroomLessonsProgressTab } from "@/components/classroom/classroom-lessons-progress-tab";
 import { ClassroomCoursesProgressTab } from "@/components/classroom/classroom-courses-progress-tab";
 import { ClassroomPageBackLink } from "./classroom-page-back-link";
@@ -76,7 +75,6 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
                     {/* Height calculation to fit within dashboard layout without double scrollbars */}
                     <ClassroomDashboard
                         classroom={classroom}
-                        currentUserRole={session.user.role}
                         initialClassFocus={classFocus}
                         highlightAssignmentId={highlightAssignmentId}
                         initialStudentLookup={studentLookup}
@@ -96,17 +94,6 @@ export default async function ClassroomPage(props: ClassroomPageProps) {
 
                 <TabsContent value="board" className="mt-0 flex-1 overflow-y-auto bg-slate-50/50 p-4">
                     <ClassBoard classId={classroom.id} userId={session.user.id} isTeacher={true} />
-                </TabsContent>
-
-                <TabsContent value="economy" className="mt-0 flex-1 overflow-y-auto">
-                    <ClassroomEconomyLedgerTab
-                        classId={classroom.id}
-                        students={classroom.students.map((student) => ({
-                            id: student.id,
-                            name: student.name,
-                            nickname: student.nickname,
-                        }))}
-                    />
                 </TabsContent>
 
                 <TabsContent value="lessons" className="mt-0 flex-1 overflow-y-auto">

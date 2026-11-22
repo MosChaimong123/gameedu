@@ -6,6 +6,9 @@ export type DashboardMenuAssetKey =
     | "activeClasses"
     | "omrScanner"
     | "mySets"
+    | "mediaLibrary"
+    | "lessons"
+    | "courses"
     | "profile"
     | "history"
     | "settings"
@@ -23,6 +26,9 @@ const DASHBOARD_MENU_IMAGE_ALTS: Record<DashboardMenuAssetKey, string> = {
     activeClasses: "Active classes and students",
     omrScanner: "OMR answer sheet scanner",
     mySets: "Question sets library",
+    mediaLibrary: "Teaching media library",
+    lessons: "Lesson builder",
+    courses: "Course library",
     profile: "Student profile and avatar",
     history: "Game and activity history",
     settings: "Account and app settings",
@@ -37,6 +43,9 @@ const DASHBOARD_MENU_FALLBACK_SRC: Record<DashboardMenuAssetKey, string> = {
     activeClasses: "/assets/cafe.png",
     omrScanner: "/assets/factory.png",
     mySets: "/assets/tower-defense.png",
+    mediaLibrary: "/assets/negamon/mekkala_rank0.png",
+    lessons: "/assets/negamon/naga_rank0.png",
+    courses: "/assets/negamon/singha_rank0.png",
     profile: "/assets/negamon/hanuman_rank0.png",
     history: "/assets/racing.png",
     settings: "/assets/negamon/kinnaree_rank0.png",

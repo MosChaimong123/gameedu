@@ -68,10 +68,10 @@ export async function POST(
         const assignmentType = String(assignment.type || "score").toLowerCase();
         const buildLink =
             assignmentType === "quiz"
-                ? (loginCode: string) => `/student/${loginCode}/quiz/${assignment.id}`
+                ? (_loginCode: string) => "/student"
                 : assignmentType === "worksheet"
-                  ? (loginCode: string) => `/student/${loginCode}/worksheet/${assignment.id}`
-                  : (loginCode: string) => `/student/${loginCode}`;
+                  ? (_loginCode: string) => "/student"
+                  : (_loginCode: string) => "/student";
 
         const due = assignment.deadline
             ? assignment.deadline.toLocaleString("en-US", {

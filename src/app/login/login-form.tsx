@@ -10,15 +10,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
-import { appendCallbackUrl } from "@/lib/auth/callback-url";
-import { resolvePostAuthDestination } from "@/lib/auth/post-auth-destination";
+import { appendCallbackUrl, getSafeSameOriginPath } from "@/lib/auth/callback-url";
+import { getDefaultPostAuthPath, resolvePostAuthDestination } from "@/lib/auth/post-auth-destination";
 import { getNextAuthResultCode } from "@/lib/auth/next-auth-result";
 import { getLocalizedAuthErrorMessage, tryLocalizeFetchNetworkFailureMessage } from "@/lib/ui-error-messages";
 import { useLanguage } from "@/components/providers/language-provider";
 import { signInWithGoogleRole } from "@/lib/auth/google-sign-in-client";
 import { useAuthProvidersStatus } from "@/lib/auth/use-auth-providers-status";
+import { loginPasswordSchema } from "@/lib/auth/password-policy";
 import { isEmailVerificationUiEnabledClient } from "@/lib/auth/signup-policy-client";
 import Link from "next/link";
+import { startAuthentication } from "@simplewebauthn/browser";
+import { getPasskeyErrorTranslationKey } from "@/lib/auth/passkey-client-errors";
 
 export type LoginAudience = "teacher" | "student";
 
@@ -47,7 +50,7 @@ export default function LoginForm({ audience }: LoginFormProps) {
         () =>
             z.object({
                 email: z.string().email(t("authValidationEmail")),
-                password: z.string().min(6, t("authValidationPasswordMin")),
+                password: loginPasswordSchema,
             }),
         [t]
     );
@@ -111,7 +114,9 @@ export default function LoginForm({ audience }: LoginFormProps) {
                     callbackUrl,
                     window.location.origin
                 );
-                window.location.href = destination;
+                window.location.href =
+                    getSafeSameOriginPath(destination, window.location.origin) ??
+                    getDefaultPostAuthPath(session?.user?.role);
             }
         } catch (error) {
             const raw = error instanceof Error ? error.message : null;
@@ -156,6 +161,25 @@ export default function LoginForm({ audience }: LoginFormProps) {
         }
     }
 
+    async function onPasskeyClick() {
+        setIsLoading(true);
+        setErrorMsg(null);
+        try {
+            const optionsResponse = await fetch("/api/auth/passkeys/authentication-options", { method: "POST" });
+            if (!optionsResponse.ok) throw new Error("PASSKEY_OPTIONS_FAILED");
+            const credential = await startAuthentication(await optionsResponse.json());
+            const result = await signIn("passkey", { response: JSON.stringify(credential), redirect: false });
+            if (!result?.ok) throw new Error("PASSKEY_VERIFICATION_FAILED");
+            const { getSession } = await import("next-auth/react");
+            const session = await getSession();
+            const destination = resolvePostAuthDestination(session?.user?.role, callbackUrl, window.location.origin);
+            window.location.href = getSafeSameOriginPath(destination, window.location.origin) ?? getDefaultPostAuthPath(session?.user?.role);
+        } catch (error) {
+            setErrorMsg(t(getPasskeyErrorTranslationKey(error, "loginPasskeyFailed")));
+            setIsLoading(false);
+        }
+    }
+
     const verifyCodeHref = appendCallbackUrl(
         `/verify-email?email=${encodeURIComponent(form.getValues("email").trim())}${
             audience ? `&audience=${audience}` : ""
@@ -174,7 +198,7 @@ export default function LoginForm({ audience }: LoginFormProps) {
             {passwordReset ? (
                 <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
                     <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    <span>ตั้งรหัสผ่านใหม่สำเร็จ กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่ของคุณ</span>
+                    <span>{t("loginPasswordResetSuccess")}</span>
                 </div>
             ) : null}
             {pendingVerify ? (
@@ -217,7 +241,9 @@ export default function LoginForm({ audience }: LoginFormProps) {
             ) : null}
 
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                {/* POST is the safe no-JavaScript fallback. Without it, a submit
+                    before hydration would place credentials in the URL query. */}
+                <form method="post" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     <FormField
                         control={form.control}
                         name="email"
@@ -226,6 +252,10 @@ export default function LoginForm({ audience }: LoginFormProps) {
                                 <FormLabel className="font-semibold text-slate-700">{t("loginLabelEmail")}</FormLabel>
                                 <FormControl>
                                     <Input
+                                        type="email"
+                                        inputMode="email"
+                                        autoCapitalize="none"
+                                        autoComplete="username webauthn"
                                         placeholder={t("loginPlaceholderEmail")}
                                         className="h-11 rounded-xl border-slate-200 focus:border-brand-pink focus:ring-brand-pink"
                                         {...field}
@@ -245,6 +275,7 @@ export default function LoginForm({ audience }: LoginFormProps) {
                                     <div className="relative">
                                         <Input
                                             type={showPassword ? "text" : "password"}
+                                            autoComplete="current-password"
                                             placeholder={t("loginPlaceholderPassword")}
                                             className="h-11 rounded-xl border-slate-200 pr-10 focus:border-brand-pink focus:ring-brand-pink"
                                             {...field}
@@ -252,6 +283,8 @@ export default function LoginForm({ audience }: LoginFormProps) {
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword((current) => !current)}
+                                            aria-label={t(showPassword ? "loginHidePassword" : "loginShowPassword")}
+                                            title={t(showPassword ? "loginHidePassword" : "loginShowPassword")}
                                             className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
                                         >
                                             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -261,7 +294,7 @@ export default function LoginForm({ audience }: LoginFormProps) {
                                 <FormMessage />
                                 <div className="flex justify-end">
                                     <Link href="/forgot-password" className="text-xs text-slate-500 hover:underline">
-                                        ลืมรหัสผ่าน?
+                                        {t("loginForgotPassword")}
                                     </Link>
                                 </div>
                             </FormItem>
@@ -277,6 +310,11 @@ export default function LoginForm({ audience }: LoginFormProps) {
                     </Button>
                 </form>
             </Form>
+
+            <Button variant="outline" type="button" disabled={isLoading} className="h-11 w-full rounded-xl border-2 font-semibold" onClick={() => void onPasskeyClick()}>
+                {t("loginPasskeyAction")}
+            </Button>
+            <p className="text-center text-xs leading-relaxed text-slate-500">{t("loginPasskeyHelp")}</p>
 
             {!providersLoading && googleEnabled ? (
                 <>

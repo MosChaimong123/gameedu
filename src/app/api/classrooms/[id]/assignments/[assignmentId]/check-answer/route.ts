@@ -12,6 +12,7 @@ import {
   createRateLimitResponse,
   getRequestClientIdentifier,
 } from "@/lib/security/rate-limit";
+import { getStudentAccessCodeForClass } from "@/lib/auth/student-access-session";
 
 export async function POST(
   req: Request,
@@ -34,13 +35,13 @@ export async function POST(
       questionIndex?: unknown;
       selectedIndex?: unknown;
     };
-    const studentCode = body.studentCode ?? "";
+    const studentCode = await getStudentAccessCodeForClass(body.studentCode, id, "student:write");
     const questionIndex =
       typeof body.questionIndex === "number" ? body.questionIndex : NaN;
     const selectedIndex =
       typeof body.selectedIndex === "number" ? body.selectedIndex : NaN;
 
-    if (!studentCode.trim() || !Number.isFinite(questionIndex) || !Number.isFinite(selectedIndex)) {
+    if (!studentCode || !Number.isFinite(questionIndex) || !Number.isFinite(selectedIndex)) {
       return new NextResponse(QUIZ_PLAIN_ERR_BAD_REQUEST, { status: 400 });
     }
     if (questionIndex < 0 || selectedIndex < 0) {

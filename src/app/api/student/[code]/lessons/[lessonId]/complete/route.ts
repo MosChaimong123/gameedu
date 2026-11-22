@@ -5,6 +5,7 @@ import { isLessonContentV2 } from "@/lib/lessons/lesson-content"
 import { summarizeStudentLessonProgress } from "@/lib/lessons/lesson-progress"
 import { sendNotification } from "@/lib/notifications"
 import { getStudentLoginCodeVariants } from "@/lib/student-login-code"
+import { isClassroomGameSystemEnabled } from "@/lib/classroom-game-system"
 
 const LESSON_COMPLETE_XP = 5
 const LESSON_COMPLETE_GOLD = 20
@@ -138,8 +139,9 @@ export async function POST(_req: Request, { params }: Params) {
             },
         })
 
-        // Award XP + Gold only on first completion
-        if (isFirstCompletion) {
+        const shouldAwardGameReward = isFirstCompletion && isClassroomGameSystemEnabled()
+
+        if (shouldAwardGameReward) {
             await db.student.update({
                 where: { id: student.id },
                 data: {
@@ -171,7 +173,7 @@ export async function POST(_req: Request, { params }: Params) {
         }
 
         return NextResponse.json(
-            { completion, reward: isFirstCompletion ? { xp: LESSON_COMPLETE_XP, gold: LESSON_COMPLETE_GOLD } : null },
+            { completion, reward: shouldAwardGameReward ? { xp: LESSON_COMPLETE_XP, gold: LESSON_COMPLETE_GOLD } : null },
             { status: 201 }
         )
     } catch (error) {

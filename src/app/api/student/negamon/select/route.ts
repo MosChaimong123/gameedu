@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { createAppErrorResponse, INTERNAL_ERROR_MESSAGE } from "@/lib/api-error";
-import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
+import { getStudentAccessSession } from "@/lib/auth/student-access-session";
 import {
     buildRateLimitKey,
     consumeRateLimit,
@@ -28,24 +28,16 @@ export async function POST(req: Request) {
     }
 
     try {
-        const body = await req.json() as { loginCode?: unknown; speciesId?: unknown };
-        const { loginCode, speciesId } = body;
-
-        if (typeof loginCode !== "string" || !loginCode.trim()) {
-            return createAppErrorResponse("INVALID_PAYLOAD", "Missing loginCode", 400);
-        }
+        const body = await req.json() as { speciesId?: unknown };
+        const { speciesId } = body;
+        const accessSession = await getStudentAccessSession("student:write");
+        if (!accessSession) return createAppErrorResponse("AUTH_REQUIRED", "Student access session required", 401);
         if (typeof speciesId !== "string" || !speciesId.trim()) {
             return createAppErrorResponse("INVALID_PAYLOAD", "Missing speciesId", 400);
         }
 
-        const normalizedCode = loginCode.trim().toUpperCase();
-
-        const student = await db.student.findFirst({
-            where: {
-                OR: getStudentLoginCodeVariants(normalizedCode).map((candidate) => ({
-                    loginCode: candidate,
-                })),
-            },
+        const student = await db.student.findUnique({
+            where: { id: accessSession.studentId },
             include: { classroom: true },
         });
 

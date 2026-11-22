@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockAuth = vi.fn();
-const mockStudentFindFirst = vi.fn();
-const mockStudentUpdate = vi.fn();
+const mockStudentFindUnique = vi.fn();
+const mockStudentUpdateMany = vi.fn();
 const mockRevalidatePath = vi.fn();
+const mockConsumeRateLimitWithStore = vi.fn();
 
 vi.mock("@/auth", () => ({
   auth: mockAuth,
@@ -12,8 +13,8 @@ vi.mock("@/auth", () => ({
 vi.mock("@/lib/db", () => ({
   db: {
     student: {
-      findFirst: mockStudentFindFirst,
-      update: mockStudentUpdate,
+      findUnique: mockStudentFindUnique,
+      updateMany: mockStudentUpdateMany,
     },
   },
 }));
@@ -22,17 +23,28 @@ vi.mock("next/cache", () => ({
   revalidatePath: mockRevalidatePath,
 }));
 
+vi.mock("@/lib/auth/student-access-session", () => ({
+  getStudentAccessSession: vi.fn().mockResolvedValue({ studentId: "student-1" }),
+}));
+
+vi.mock("@/lib/security/rate-limit", () => ({
+  buildRateLimitKey: (...parts: string[]) => parts.join(":"),
+  consumeRateLimitWithStore: mockConsumeRateLimitWithStore,
+  digestRateLimitIdentifier: (value: string) => `digest:${value}`,
+}));
+
 describe("joinClassroom", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAuth.mockResolvedValue({ user: { id: "user-1" } });
-    mockStudentUpdate.mockResolvedValue(undefined);
+    mockStudentUpdateMany.mockResolvedValue({ count: 1 });
+    mockConsumeRateLimitWithStore.mockResolvedValue({ allowed: true, retryAfterSeconds: 60 });
   });
 
   it(
     "blocks taking over a student record already linked to another account",
     async () => {
-      mockStudentFindFirst.mockResolvedValue({
+      mockStudentFindUnique.mockResolvedValue({
         id: "student-1",
         userId: "other-user",
         classroom: { name: "Class A" },
@@ -47,13 +59,13 @@ describe("joinClassroom", () => {
           message: "This classroom code is already linked to another account",
         },
       });
-      expect(mockStudentUpdate).not.toHaveBeenCalled();
+      expect(mockStudentUpdateMany).not.toHaveBeenCalled();
     },
     30_000
   );
 
   it("links an unclaimed student record to the current authenticated user", async () => {
-    mockStudentFindFirst.mockResolvedValue({
+    mockStudentFindUnique.mockResolvedValue({
       id: "student-1",
       userId: null,
       classroom: { name: "Class A" },
@@ -66,35 +78,29 @@ describe("joinClassroom", () => {
       success: true,
       className: "Class A",
     });
-    expect(mockStudentUpdate).toHaveBeenCalledWith({
-      where: { id: "student-1" },
+    expect(mockStudentUpdateMany).toHaveBeenCalledWith({
+      where: { id: "student-1", userId: null },
       data: { userId: "user-1" },
     });
     expect(mockRevalidatePath).toHaveBeenCalledWith("/student/home");
   });
 
-  it("finds legacy lowercase login codes even when the student enters uppercase", async () => {
-    mockStudentFindFirst.mockResolvedValue({
-      id: "student-legacy",
+  it("uses an atomic claim so concurrent account linking cannot take over the record", async () => {
+    mockStudentFindUnique.mockResolvedValue({
+      id: "student-1",
       userId: null,
-      classroom: { name: "Legacy Class" },
+      classroom: { name: "Class A" },
     });
+    mockStudentUpdateMany.mockResolvedValue({ count: 0 });
 
     const { joinClassroom } = await import("@/app/student/student-actions");
-    const result = await joinClassroom("CMNBSF5SX000");
+    const result = await joinClassroom("access");
 
     expect(result).toEqual({
-      success: true,
-      className: "Legacy Class",
-    });
-    expect(mockStudentFindFirst).toHaveBeenCalledWith({
-      where: {
-        OR: [
-          { loginCode: "CMNBSF5SX000" },
-          { loginCode: "cmnbsf5sx000" },
-        ],
+      error: {
+        code: "LOGIN_CODE_ALREADY_LINKED",
+        message: "This classroom code is already linked to another account",
       },
-      include: { classroom: true },
     });
   });
 });

@@ -10,6 +10,9 @@ const mockDeleteMany = vi.fn();
 const mockClassroomFindMany = vi.fn();
 const mockRevalidatePath = vi.fn();
 const mockLogAuditEvent = vi.fn();
+const mockTransaction = vi.fn();
+const mockEmailVerificationCodeUpdateMany = vi.fn();
+const mockSecuritySessionUpdateMany = vi.fn();
 
 vi.mock("@/auth", () => ({
   auth: mockAuth,
@@ -38,6 +41,8 @@ vi.mock("@/lib/db", () => ({
     session: { deleteMany: mockDeleteMany },
     account: { deleteMany: mockDeleteMany },
     folder: { deleteMany: mockDeleteMany },
+    emailVerificationCode: { updateMany: mockEmailVerificationCodeUpdateMany },
+    $transaction: mockTransaction,
   },
 }));
 
@@ -65,9 +70,20 @@ describe("admin actions audit logging", () => {
     mockQuestionSetDelete.mockResolvedValue({});
     mockDeleteMany.mockResolvedValue({ count: 0 });
     mockClassroomFindMany.mockResolvedValue([]);
+    mockEmailVerificationCodeUpdateMany.mockResolvedValue({ count: 0 });
+    mockSecuritySessionUpdateMany.mockResolvedValue({ count: 0 });
+    mockTransaction.mockImplementation(async (callback) =>
+      callback({
+        user: { findUnique: mockUserFindUnique, update: mockUserUpdate },
+        session: { deleteMany: mockDeleteMany },
+        userAuthSession: { updateMany: mockSecuritySessionUpdateMany },
+        emailVerificationCode: { updateMany: mockEmailVerificationCodeUpdateMany },
+      })
+    );
   });
 
   it("logs an audit event when updating a user role", async () => {
+    mockUserFindUnique.mockResolvedValueOnce({ authVersion: 4 });
     const { updateUserRole } = await import("@/app/admin/admin-actions");
     const result = await updateUserRole("user-1", "TEACHER");
 
@@ -77,7 +93,36 @@ describe("admin actions audit logging", () => {
       action: "admin.user.role_updated",
       targetType: "user",
       targetId: "user-1",
-      metadata: { newRole: "TEACHER" },
+      metadata: { newRole: "TEACHER", databaseSessionsDeleted: 0 },
+    });
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { role: "TEACHER", authVersion: { increment: 1 } },
+    });
+    expect(mockDeleteMany).toHaveBeenCalledWith({ where: { userId: "user-1" } });
+  });
+
+  it("resets a password through the shared revocation transaction", async () => {
+    mockUserFindUnique.mockResolvedValueOnce({ authVersion: 7 });
+    mockDeleteMany.mockResolvedValueOnce({ count: 3 });
+    const { resetUserPassword } = await import("@/app/admin/admin-actions");
+    const result = await resetUserPassword("user-1", "new-password");
+
+    expect(result).toEqual({ success: true });
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { password: expect.any(String), authVersion: { increment: 1 }, passwordChangedAt: expect.any(Date) },
+    });
+    expect(mockEmailVerificationCodeUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ userId: "user-1", purpose: "PASSWORD_RESET" }) })
+    );
+    expect(mockDeleteMany).toHaveBeenCalledWith({ where: { userId: "user-1" } });
+    expect(mockLogAuditEvent).toHaveBeenCalledWith({
+      actorUserId: "admin-1",
+      action: "admin.user.password_reset",
+      targetType: "user",
+      targetId: "user-1",
+      metadata: { databaseSessionsDeleted: 3 },
     });
   });
 

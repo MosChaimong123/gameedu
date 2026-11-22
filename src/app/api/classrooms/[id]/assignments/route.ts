@@ -152,12 +152,10 @@ export async function POST(
         const assignmentType = String(assignment.type || type || "score").toLowerCase();
         const notifyLink =
             assignmentType === "quiz"
-                ? (student: { loginCode: string }) =>
-                      `/student/${student.loginCode}/quiz/${assignment.id}`
+                ? (_student: { loginCode: string }) => "/student"
                 : assignmentType === "worksheet"
-                  ? (student: { loginCode: string }) =>
-                        `/student/${student.loginCode}/worksheet/${assignment.id}`
-                : (student: { loginCode: string }) => `/student/${student.loginCode}`;
+                  ? (_student: { loginCode: string }) => "/student"
+                : (_student: { loginCode: string }) => "/student";
 
         const dueStr = assignment.deadline
             ? assignment.deadline.toLocaleString("en-US", {

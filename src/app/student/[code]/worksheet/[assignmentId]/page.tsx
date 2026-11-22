@@ -4,16 +4,19 @@ import { sanitizeWorksheetForStudent } from "@/lib/worksheet-schema";
 import { loadWorksheetTakeContext } from "@/lib/worksheet-take-context";
 import { WorksheetClient } from "@/components/student/worksheet-client";
 import { db } from "@/lib/db";
-import { getStudentLoginCodeVariants } from "@/lib/student-login-code";
+import { getStudentAccessSession, STUDENT_ACCESS_ROUTE_KEY } from "@/lib/auth/student-access-session";
 
 export default async function WorksheetPage(props: {
   params: Promise<{ code: string; assignmentId: string }>;
 }) {
   const { code, assignmentId } = await props.params;
+  if (code !== STUDENT_ACCESS_ROUTE_KEY) redirect("/student");
+  const accessSession = await getStudentAccessSession();
+  if (!accessSession) redirect("/student?error=session_expired");
 
   const student = await db.student.findFirst({
     where: {
-      OR: getStudentLoginCodeVariants(code).map((candidate) => ({ loginCode: candidate })),
+      id: accessSession.studentId,
     },
     select: {
       loginCode: true,
@@ -28,9 +31,9 @@ export default async function WorksheetPage(props: {
 
   if (!student) return notFound();
 
-  const ctx = await loadWorksheetTakeContext(student.classroom.id, assignmentId, code);
+  const ctx = await loadWorksheetTakeContext(student.classroom.id, assignmentId, accessSession.student.loginCode);
   if (ctx.kind === "already_submitted") {
-    redirect(`/student/${code}`);
+    redirect("/student/access");
   }
   if (ctx.kind !== "ok") {
     return notFound();
@@ -52,7 +55,7 @@ export default async function WorksheetPage(props: {
         mediaReferences: ctx.mediaReferences,
       }}
       classId={student.classroom.id}
-      studentCode={student.loginCode}
+      studentCode={STUDENT_ACCESS_ROUTE_KEY}
       themeClass={themeClass}
       themeStyle={themeStyle}
       showScoreToStudent={ctx.showScoreToStudent}

@@ -11,6 +11,7 @@ import {
     getLocalizedErrorMessageFromResponse,
     tryLocalizeFetchNetworkFailureMessage,
 } from "@/lib/ui-error-messages";
+import { PASSWORD_MIN_LENGTH, newPasswordSchema } from "@/lib/auth/password-policy";
 const RESEND_COOLDOWN_SECONDS = 30;
 
 type ResetPasswordFormProps = {
@@ -66,7 +67,7 @@ export function ResetPasswordForm({ initialEmail }: ResetPasswordFormProps) {
             setErrorMsg(t("resetPasswordMismatch"));
             return;
         }
-        if (newPassword.length < 8) {
+        if (!newPasswordSchema.safeParse(newPassword).success) {
             setErrorMsg(t("resetPasswordMinimumLength"));
             return;
         }
@@ -246,7 +247,7 @@ export function ResetPasswordForm({ initialEmail }: ResetPasswordFormProps) {
                             name="newPassword"
                             autoComplete="new-password"
                             placeholder={t("resetPasswordMinimumPlaceholder")}
-                            minLength={8}
+                            minLength={PASSWORD_MIN_LENGTH}
                             className="h-11 rounded-xl border-slate-200 pr-10 focus:border-brand-pink focus:ring-brand-pink"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}

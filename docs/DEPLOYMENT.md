@@ -70,6 +70,8 @@ Pre-deploy: npx prisma db push
 | `NEXTAUTH_URL` | `https://your-app.onrender.com` | Exact public HTTPS URL — no trailing slash |
 | `NEXT_PUBLIC_APP_URL` | `https://your-app.onrender.com` | Same as `NEXTAUTH_URL` |
 | `NEXT_PUBLIC_SOCKET_URL` | `https://your-app.onrender.com` | Same origin (Socket.io same-host) |
+| `AUTH_WEBAUTHN_ORIGIN` | `https://your-app.onrender.com` | Exact HTTPS origin used for passkey verification; no path or trailing slash |
+| `AUTH_WEBAUTHN_RP_ID` | `your-app.onrender.com` | Passkey relying-party domain; changing it invalidates existing passkeys |
 | `ADMIN_SECRET` | any secret string | Required to create the first ADMIN account |
 | `AUTH_TRUST_HOST` | `true` | Required behind Render's reverse proxy |
 
@@ -79,14 +81,17 @@ Pre-deploy: npx prisma db push
 |----------|-------|
 | `SOCKET_IO_CORS_ORIGIN` | Public app URL(s) — defaults to `NEXTAUTH_URL` if unset |
 | `RATE_LIMIT_STORE` | `auto` → uses MongoDB in production, memory in dev |
+| `TRUSTED_PROXY_HOPS` | `1` on Render; selects the rightmost untrusted `X-Forwarded-For` address |
 | `AUDIT_LOG_SINK` | `auto` → `both` (DB + console) in production |
+| `AUTH_SESSION_METADATA_RETENTION_DAYS` / `AUTH_CHALLENGE_RETENTION_DAYS` | Retain revoked device metadata for 90 days and consumed challenges for 7 days by default |
+| `AUTH_ALERT_*_THRESHOLD` | Aggregate auth-alert thresholds used by the MFA-protected Admin health endpoint |
 
 ### Optional Integrations
 
 | Variable | When needed |
 |----------|------------|
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth sign-in |
-| `RESEND_API_KEY` / `EMAIL_FROM` | Email verification in production |
+| `RESEND_API_KEY` / `EMAIL_FROM` / `RESEND_WEBHOOK_SECRET` | Production verification/recovery delivery and signed Resend status webhooks |
 | `ENABLE_PUBLIC_SIGNUP` / `REQUIRE_EMAIL_VERIFICATION` | Signup policy |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Stripe billing |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe.js on client |
@@ -97,6 +102,12 @@ Pre-deploy: npx prisma db push
 | `GEMINI_API_KEY` | AI question generation |
 | `LINE_CHANNEL_SECRET` / `LINE_CHANNEL_ACCESS_TOKEN` | LINE bot |
 | `NEXT_PUBLIC_NEGAMON_BATTLE_HOST_ENABLED` | Negamon battle launcher |
+
+Auth rollout operations:
+
+- `GET /api/admin/security/auth-health?windowMinutes=15` exposes aggregate counters and alerts only to an MFA-authenticated Admin.
+- Run `npm run db:prune-auth-security` as a dry run before scheduling `npm run db:prune-auth-security -- --apply`.
+- Follow [Identity Security Controlled Rollout Runbook](identity-security-rollout-runbook.md); do not enable the next cohort without recorded staging/production evidence.
 | `NEXT_PUBLIC_OMR_DASHBOARD_ENABLED` | OMR section in dashboard |
 
 > For the full annotated list see [`.env.example`](../.env.example).
@@ -104,6 +115,8 @@ Pre-deploy: npx prisma db push
 ---
 
 ## 4. MongoDB Atlas Setup
+
+Phase 8C account security requires the `UserAuthSession` collection/indexes and the User security fields `passwordChangedAt`, `lastLoginAt`, `disabledAt`, and `disabledReason`. The normal reviewed `prisma db push` deployment must complete before enabling the Account Security Center in production.
 
 Render does **not** provision MongoDB. You must bring your own Atlas cluster.
 

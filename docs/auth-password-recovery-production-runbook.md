@@ -1,6 +1,6 @@
 # Auth Password Recovery Production Runbook
 
-Last updated: 2026-07-14
+Last updated: 2026-08-03
 
 Use this runbook to verify production email configuration and test password recovery without exposing secrets or using an uncontrolled user account.
 
@@ -125,6 +125,7 @@ Check Render logs for these non-secret reason codes:
 
 - `productionEmailDelivery:missing_api_key`
 - `productionEmailDelivery:missing_from`
+- `productionEmailDelivery:missing_webhook_secret`
 - `productionEmailDelivery:invalid_from`
 - `productionEmailDelivery:test_sender_domain`
 - `productionEmailDelivery:missing_public_url`
@@ -195,6 +196,14 @@ The first prune command is a dry run. Never use `--apply` before confirming the 
 - Matching application audits: `otp_sent` followed by `completed` for both requests.
 - Matching `[forgot-password]` errors in the 24-hour Render log window: none.
 - Secrets, OTP values, full recipient addresses, and provider message IDs are intentionally omitted from this record.
+
+## Readiness Evidence Captured on 2026-08-03
+
+- `GET https://www.teachplayedu.com/api/ready` returned HTTP 200 with `status: ready` and `checks.emailDelivery: configured`.
+- Public DNS checks found DKIM at `resend._domainkey.teachplayedu.com`, SPF/TXT and MX at `send.teachplayedu.com`, and DMARC at `_dmarc.teachplayedu.com`.
+- Local configuration intentionally contains no Resend secrets. Production secrets remain in the deployment secret store and are not copied into the repository.
+- The next deployment strengthens readiness by requiring a non-empty `RESEND_WEBHOOK_SECRET` in production. Re-run the readiness check immediately after deployment; a missing webhook secret will return `not_configured` instead of silently losing authenticated delivery telemetry.
+- This evidence confirms configuration/readiness only. A fresh controlled two-provider mailbox test is still required before completing the rollout checklist.
 
 ## Pre-rollout Evidence Captured on 2026-07-14
 

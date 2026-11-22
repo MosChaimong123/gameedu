@@ -12,6 +12,13 @@ type ApiErrorBody =
     | undefined;
 
 const DEFAULT_THAI_ERROR_MESSAGES: Record<AppErrorCode, string> = {
+    REAUTHENTICATION_REQUIRED: "กรุณายืนยันตัวตนล่าสุดก่อนดำเนินการต่อ",
+    MFA_CODE_INVALID: "รหัสยืนยันไม่ถูกต้อง ถูกใช้แล้ว หรือหมดอายุ",
+    PASSKEY_VERIFICATION_FAILED: "การยืนยัน Passkey ไม่สำเร็จ",
+    REAUTHENTICATION_FAILED: "ยืนยันตัวตนอีกครั้งไม่สำเร็จ โปรดตรวจสอบรหัสผ่านปัจจุบัน",
+    LOGIN_METHOD_REQUIRED: "ไม่สามารถดำเนินการได้ เนื่องจากบัญชีต้องเหลือวิธีเข้าสู่ระบบอย่างน้อยหนึ่งวิธี",
+    EMAIL_CHANGE_CONFLICT: "ไม่สามารถใช้อีเมลนี้ได้ หรือสถานะบัญชีมีการเปลี่ยนแปลงแล้ว",
+    PASSWORD_POLICY_VIOLATION: "รหัสผ่านไม่ผ่านนโยบายความปลอดภัย กรุณาใช้รหัสผ่านที่ยาวและคาดเดายากกว่าเดิม",
     AUTH_REQUIRED: "กรุณาเข้าสู่ระบบก่อนดำเนินการต่อ",
     FORBIDDEN: "คุณไม่มีสิทธิ์ทำรายการนี้",
     INVALID_LOGIN_CODE: "ไม่พบรหัสเข้าใช้งานนี้ กรุณาตรวจสอบอีกครั้ง",
@@ -64,6 +71,9 @@ const DEFAULT_THAI_ERROR_MESSAGES: Record<AppErrorCode, string> = {
     EMAIL_VERIFICATION_CODE_EXPIRED: "รหัสยืนยันหมดอายุแล้ว กรุณาขอรหัสใหม่",
     EMAIL_VERIFICATION_CODE_TOO_MANY_ATTEMPTS: "กรอกรหัสผิดหลายครั้งเกินไป กรุณาขอรหัสใหม่",
     EMAIL_VERIFICATION_CODE_COOLDOWN: "โปรดรอสักครู่ก่อนขอรหัสใหม่",
+    CIVILIZATION_REVISION_CONFLICT: "ข้อมูลเมืองมีการเปลี่ยนแปลง กรุณาโหลดข้อมูลล่าสุดแล้วลองใหม่",
+    CIVILIZATION_COMMAND_CONFLICT: "คำสั่งนี้ถูกใช้กับข้อมูลอื่นแล้ว กรุณาสร้างคำสั่งใหม่",
+    CIVILIZATION_COMMAND_REJECTED: "ยังไม่สามารถทำคำสั่งนี้ได้ในขณะนี้",
 };
 
 /** Ensures every AppErrorCode has a Thai message at compile time (must stay inside the literal above). */

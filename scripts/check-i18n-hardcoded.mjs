@@ -4,6 +4,8 @@ import path from "node:path";
 const ROOT = process.cwd();
 const SRC_ROOT = path.join(ROOT, "src");
 const STRICT_MODE = process.argv.includes("--strict");
+const SCOPE_ARG = process.argv.find((argument) => argument.startsWith("--scope="));
+const SCOPE = SCOPE_ARG?.slice("--scope=".length);
 
 const INCLUDED_EXTENSIONS = new Set([".ts", ".tsx"]);
 
@@ -23,6 +25,16 @@ const JSX_SCAN_ROOTS = [
 
 const PROP_NAMES = ["placeholder", "title", "aria-label", "alt"];
 
+const AUTH_UI_ROOTS = [
+  `${path.sep}app${path.sep}login${path.sep}`,
+  `${path.sep}app${path.sep}register${path.sep}`,
+  `${path.sep}app${path.sep}verify-email${path.sep}`,
+  `${path.sep}app${path.sep}forgot-password${path.sep}`,
+  `${path.sep}app${path.sep}auth${path.sep}`,
+  `${path.sep}app${path.sep}dashboard${path.sep}settings${path.sep}security${path.sep}`,
+  `${path.sep}components${path.sep}auth${path.sep}`,
+];
+
 const ALLOWED_LITERAL_PATTERNS = [
   /^https?:\/\//,
   /^mailto:/,
@@ -35,6 +47,7 @@ const ALLOWED_LITERAL_PATTERNS = [
   /^\/[A-Za-z0-9/_-]+$/,
   /^\s*$/,
   /^\d+$/,
+  /^TP-[X]+$/,
   /^[@:/?&=._%+-]+$/,
 ];
 
@@ -167,7 +180,8 @@ function scanSource(filePath, source) {
 async function main() {
   const files = (await walk(SRC_ROOT))
     .filter((filePath) => INCLUDED_EXTENSIONS.has(path.extname(filePath)))
-    .filter((filePath) => !isSkippedFile(filePath));
+    .filter((filePath) => !isSkippedFile(filePath))
+    .filter((filePath) => SCOPE !== "auth-ui" || AUTH_UI_ROOTS.some((root) => filePath.includes(root)));
 
   const findings = [];
 

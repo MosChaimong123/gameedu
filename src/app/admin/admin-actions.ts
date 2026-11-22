@@ -11,6 +11,9 @@ import {
     LEGACY_STUDENT_LOGIN_CODE_LENGTH,
     MAX_STUDENT_LOGIN_CODE_LENGTH,
 } from "@/lib/student-login-code";
+import { changeUserPassword, PasswordReuseError } from "@/lib/auth/change-user-password";
+import { isPasswordChangeAllowed } from "@/lib/auth/password-policy";
+import { changeUserRole } from "@/lib/auth/security-mutations";
 
 type UserRole = "ADMIN" | "TEACHER" | "STUDENT";
 type AdminActionResult = { success: true } | { success: false; errorKey: string };
@@ -32,16 +35,13 @@ export async function updateUserRole(userId: string, newRole: UserRole): Promise
     const session = await ensureAdmin();
     
     try {
-        await db.user.update({
-            where: { id: userId },
-            data: { role: newRole }
-        });
+        const revocation = await changeUserRole(userId, newRole);
         logAuditEvent({
             actorUserId: session.user.id,
             action: "admin.user.role_updated",
             targetType: "user",
             targetId: userId,
-            metadata: { newRole },
+            metadata: { newRole, databaseSessionsDeleted: revocation.databaseSessionsDeleted },
         });
         revalidatePath("/admin");
         revalidatePath("/admin/users");
@@ -443,26 +443,24 @@ export async function resetUserPassword(
     const session = await ensureAdmin();
 
     try {
-        if (!newPassword || newPassword.length < 6) {
+        if (!isPasswordChangeAllowed(newPassword)) {
             return { success: false, errorKey: "adminPasswordTooShort" };
         }
 
-        const bcrypt = await import("bcryptjs");
-        const hashedPassword = await bcrypt.hash(newPassword, 12);
-
-        await db.user.update({
-            where: { id: userId },
-            data: { password: hashedPassword },
-        });
+        const revocation = await changeUserPassword({ userId, newPassword });
         logAuditEvent({
             actorUserId: session.user.id,
             action: "admin.user.password_reset",
             targetType: "user",
             targetId: userId,
+            metadata: { databaseSessionsDeleted: revocation.databaseSessionsDeleted },
         });
         revalidatePath("/admin/users");
         return { success: true };
     } catch (error) {
+        if (error instanceof PasswordReuseError) {
+            return { success: false, errorKey: "adminPasswordReuseNotAllowed" };
+        }
         console.error("Failed to reset user password:", error);
         return { success: false, errorKey: "adminPasswordResetFail" };
     }

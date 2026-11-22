@@ -1,15 +1,22 @@
 "use client"
 
+import { DashboardContinueWorking } from "@/components/dashboard/dashboard-continue-working"
+import { DashboardKpiRow } from "@/components/dashboard/dashboard-kpi-row"
+import { DashboardRecentActivity } from "@/components/dashboard/dashboard-recent-activity"
 import { QuickActions } from "@/components/dashboard/quick-actions"
 import { TopInsights, type DashboardInsightMission, type DashboardInsightNews } from "@/components/dashboard/top-insights"
+import type { TeacherDashboardSummary } from "@/lib/services/teacher/get-teacher-dashboard-summary"
 import { motion } from "framer-motion"
 
 export function DashboardContent({
     role,
+    summary,
     insightsNews,
     insightsMissions,
 }: {
     role: string
+    /** Teacher headline counts; null for students. */
+    summary: TeacherDashboardSummary | null
     insightsNews: DashboardInsightNews[]
     insightsMissions: DashboardInsightMission[]
 }) {
@@ -31,8 +38,18 @@ export function DashboardContent({
             </div>
 
             <div className="relative z-10 mx-auto w-full max-w-[1600px] space-y-8">
-                <TopInsights role={role} news={insightsNews} missions={insightsMissions} />
-                <QuickActions role={role} />
+                <QuickActions
+                    role={role}
+                    kpiSlot={summary ? <DashboardKpiRow summary={summary} /> : null}
+                />
+
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                    <div className="space-y-6 lg:col-span-2">
+                        {summary ? <DashboardContinueWorking items={summary.pendingItems} /> : null}
+                        {summary ? <DashboardRecentActivity games={summary.recentGames} /> : null}
+                    </div>
+                    <TopInsights role={role} news={insightsNews} missions={insightsMissions} />
+                </div>
             </div>
         </div>
     )

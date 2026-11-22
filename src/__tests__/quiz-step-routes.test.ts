@@ -9,6 +9,7 @@ const mockAssignmentSubmissionUpsert = vi.fn();
 const mockClassroomFindUnique = vi.fn();
 const mockTransaction = vi.fn();
 const mockNotifyNegamonRankUpIfNeeded = vi.fn();
+const mockGetStudentAccessCodeForClass = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -31,6 +32,10 @@ vi.mock("@/lib/negamon/negamon-rank-notify", () => ({
   notifyNegamonRankUpIfNeeded: mockNotifyNegamonRankUpIfNeeded,
 }));
 
+vi.mock("@/lib/auth/student-access-session", () => ({
+  getStudentAccessCodeForClass: mockGetStudentAccessCodeForClass,
+}));
+
 const q1 = {
   id: "q1",
   question: "1+1",
@@ -40,6 +45,7 @@ const q1 = {
 const q2 = { ...q1, id: "q2", correctAnswer: 0 };
 
 function setupOpenQuiz() {
+  mockGetStudentAccessCodeForClass.mockResolvedValue("ABC");
   mockStudentFindFirst.mockResolvedValue({ id: "student-1" });
   mockAssignmentSubmissionFindUnique.mockResolvedValue(null);
   mockAssignmentFindUnique.mockResolvedValue({
@@ -83,7 +89,7 @@ describe("quiz question GET", () => {
     );
     const res = await GET(
       new Request(
-        "http://local.test/api/classrooms/class-1/assignments/asg-1/question?studentCode=ABC&index=0"
+        "http://local.test/api/classrooms/class-1/assignments/asg-1/question?studentCode=access&index=0"
       ),
       { params: Promise.resolve({ id: "class-1", assignmentId: "asg-1" }) }
     );
@@ -103,7 +109,7 @@ describe("quiz question GET", () => {
     );
     const res = await GET(
       new Request(
-        "http://local.test/api/classrooms/class-1/assignments/asg-1/question?studentCode=ABC&index=9"
+        "http://local.test/api/classrooms/class-1/assignments/asg-1/question?studentCode=access&index=9"
       ),
       { params: Promise.resolve({ id: "class-1", assignmentId: "asg-1" }) }
     );
@@ -117,7 +123,7 @@ describe("quiz submit POST", () => {
     setupOpenQuiz();
   });
 
-  it("returns expBonus when a Negamon quiz reward is awarded", async () => {
+  it("records the quiz score without awarding classroom game EXP", async () => {
     mockClassroomFindUnique.mockResolvedValue({
       levelConfig: { ranks: [] },
       gamifiedSettings: { negamon: { enabled: true, expPerPoint: 6 } },
@@ -139,25 +145,12 @@ describe("quiz submit POST", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mockStudentUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "student-1" },
-        data: expect.objectContaining({
-          behaviorPoints: { increment: 12 },
-          history: {
-            create: expect.objectContaining({
-              value: 12,
-              reason: "Negamon Quest: Quiz 1 (100%)",
-            }),
-          },
-        }),
-      })
-    );
+    expect(mockStudentUpdate).not.toHaveBeenCalled();
 
     const body = await res.json();
     expect(body).toMatchObject({
       score: 10,
-      expBonus: 12,
+      expBonus: 0,
       submissionId: "submission-1",
     });
   });

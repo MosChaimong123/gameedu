@@ -5,6 +5,7 @@ import {
 } from "@/lib/api-error";
 import { submitWorksheetAssignment } from "@/lib/services/assignments/worksheet-submissions";
 import type { WorksheetStudentAnswers } from "@/lib/worksheet-schema";
+import { getStudentAccessCodeForClass } from "@/lib/auth/student-access-session";
 
 export async function POST(
   req: Request,
@@ -18,10 +19,12 @@ export async function POST(
       answers?: WorksheetStudentAnswers;
     };
 
+    const studentCode = await getStudentAccessCodeForClass(body.studentCode, id, "student:write");
+    if (!studentCode) return createAppErrorResponse("AUTH_REQUIRED", "Student access session required", 401);
     const result = await submitWorksheetAssignment({
       classId: id,
       assignmentId,
-      studentCode: body.studentCode,
+      studentCode,
       answers: body.answers,
     });
 

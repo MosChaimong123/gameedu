@@ -11,6 +11,14 @@ vi.mock("@/auth", () => ({
   auth: mockAuth,
 }));
 
+vi.mock("@/lib/auth/student-access-session", () => ({
+  STUDENT_ACCESS_ROUTE_KEY: "access",
+  getStudentAccessSession: vi.fn().mockResolvedValue({
+    studentId: "student-1",
+    student: { loginCode: "ABCDEFGHJKM2" },
+  }),
+}));
+
 vi.mock("@/lib/db", () => ({
   db: {
     student: {
@@ -46,7 +54,7 @@ describe("student dashboard page", () => {
     mockStudentFindFirst.mockResolvedValue({
       id: "student-1",
       classId: "class-1",
-      loginCode: "ABC123XYZ789",
+      loginCode: "ABCDEFGHJKM2",
       name: "Student One",
       nickname: "One",
       avatar: "seed-1",
@@ -79,17 +87,15 @@ describe("student dashboard page", () => {
   });
 
   it("queries the dashboard read model without writing student state during render", async () => {
-    const StudentDashboardPage = (await import("@/app/student/[code]/page")).default;
+    const StudentDashboardPage = (await import("@/app/student/access/page")).default;
 
-    await StudentDashboardPage({
-      params: Promise.resolve({ code: "abc123xyz789" }),
-    });
+    await StudentDashboardPage();
 
     expect(mockStudentFindFirst).toHaveBeenCalledWith({
       where: {
         OR: [
-          { loginCode: "abc123xyz789" },
-          { loginCode: "ABC123XYZ789" },
+          { loginCode: "ABCDEFGHJKM2" },
+          { loginCode: "abcdefghjkm2" },
         ],
       },
       select: {

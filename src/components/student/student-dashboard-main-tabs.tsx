@@ -2,14 +2,10 @@
 
 import type { Locale } from "date-fns";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { EventBanner } from "./EventBanner";
-import { LeaderboardTab } from "./LeaderboardTab";
 import { StudentDashboardTabNav } from "./student-dashboard-tab-nav";
 import { StudentDashboardAssignmentsTab } from "./student-dashboard-assignments-tab";
 import { StudentDashboardBoardTab } from "./student-dashboard-board-tab";
 import { StudentDashboardHistoryTab } from "./student-dashboard-history-tab";
-import { StudentDashboardMonsterTab } from "./student-dashboard-monster-tab";
-import { StudentGameTabs } from "@/components/game/shell/student-game-tabs";
 import { StudentCoursesTab } from "./student-courses-tab";
 import { StudentLessonsTab } from "./student-lessons-tab";
 import { isCoursesUiEnabled } from "@/lib/courses-ui-enabled";
@@ -17,17 +13,12 @@ import type {
     ClassroomRecord,
     DashboardStudent,
     HistoryRecord,
-    StudentDashboardMode,
     StudentDashboardTranslateFn,
     SubmissionRecord,
 } from "@/lib/services/student-dashboard/student-dashboard.types";
-import type { LevelConfigInput } from "@/lib/classroom-utils";
-import type { NegamonMonsterSnapshot } from "@/lib/game-negamon";
-import type { BattleFinalRewardPayload } from "@/components/negamon/battle-tab.types";
 
 interface StudentDashboardMainTabsProps {
     t: StudentDashboardTranslateFn;
-    mode: StudentDashboardMode;
     activeTab: string;
     classroom: ClassroomRecord;
     student: DashboardStudent;
@@ -42,30 +33,13 @@ interface StudentDashboardMainTabsProps {
     totalNegative: number;
     history: HistoryRecord[];
     groupedHistory: Record<string, HistoryRecord[]>;
-    levelConfigResolved: LevelConfigInput;
-    negamonSettings: {
-        enabled?: boolean;
-        allowStudentChoice?: boolean;
-    } | null;
-    studentMonsterState: {
-        form: { icon: string; name: string };
-        rankIndex: number;
-    } | null;
-    negamonMonsterSnapshot: NegamonMonsterSnapshot | null;
-    questGold?: number;
-    battleResetSignal?: number;
     onActiveTabChange: (value: string) => void;
     onAssignmentFilterChange: (value: "all" | "pending" | "completed") => void;
     onAssignmentSortToggle: () => void;
-    onOpenStarterSelection: () => void;
-    onGoldChange: (value: number | undefined) => void;
-    onBattleConsumablesSpent?: (consumedItemIds: string[]) => void;
-    onBattleFinalized?: (final: BattleFinalRewardPayload) => void;
 }
 
 export function StudentDashboardMainTabs({
     t,
-    mode,
     activeTab,
     classroom,
     student,
@@ -80,24 +54,12 @@ export function StudentDashboardMainTabs({
     totalNegative,
     history,
     groupedHistory,
-    levelConfigResolved,
-    negamonSettings,
-    studentMonsterState,
-    negamonMonsterSnapshot,
-    questGold,
-    battleResetSignal = 0,
     onActiveTabChange,
     onAssignmentFilterChange,
     onAssignmentSortToggle,
-    onOpenStarterSelection,
-    onGoldChange,
-    onBattleConsumablesSpent,
-    onBattleFinalized,
 }: StudentDashboardMainTabsProps) {
     return (
         <div className="md:col-span-3 space-y-8">
-            <EventBanner classId={student.classId} loginCode={code} />
-
             <Tabs
                 id="student-dashboard-tabs"
                 value={activeTab}
@@ -105,7 +67,7 @@ export function StudentDashboardMainTabs({
                 className="w-full"
                 suppressHydrationWarning
             >
-                <StudentDashboardTabNav t={t} mode={mode} />
+                <StudentDashboardTabNav t={t} />
 
                 <TabsContent value="assignments" className="mt-0 border-none p-0 outline-hidden">
                     <StudentDashboardAssignmentsTab
@@ -152,46 +114,6 @@ export function StudentDashboardMainTabs({
                     />
                 </TabsContent>
 
-                <TabsContent value="leaderboard" className="mt-0 border-none p-0 outline-hidden">
-                    <LeaderboardTab
-                        classId={classroom.id}
-                        currentStudentId={student.id}
-                        studentCode={student.loginCode}
-                    />
-                </TabsContent>
-
-                <TabsContent value="monster" className="mt-0 border-none p-0 outline-hidden">
-                    <StudentDashboardMonsterTab
-                        t={t}
-                        code={code}
-                        classroom={classroom}
-                        student={student}
-                        levelConfigResolved={levelConfigResolved}
-                        negamonSettings={negamonSettings}
-                        studentMonsterState={studentMonsterState}
-                        negamonMonsterSnapshot={negamonMonsterSnapshot}
-                        onOpenStarterSelection={onOpenStarterSelection}
-                    />
-                </TabsContent>
-
-                <StudentGameTabs
-                    classId={classroom.id}
-                    studentId={student.id}
-                    loginCode={student.loginCode}
-                    questGold={questGold}
-                    battleResetSignal={battleResetSignal}
-                    currentGold={student.gold}
-                    inventory={student.inventory}
-                    myMonster={studentMonsterState ? {
-                        formIcon: studentMonsterState.form.icon,
-                        formName: studentMonsterState.form.name,
-                        rankIndex: studentMonsterState.rankIndex,
-                    } : null}
-                    history={history}
-                    onGoldChange={onGoldChange}
-                    onBattleConsumablesSpent={onBattleConsumablesSpent}
-                    onBattleFinalized={onBattleFinalized}
-                />
             </Tabs>
         </div>
     );

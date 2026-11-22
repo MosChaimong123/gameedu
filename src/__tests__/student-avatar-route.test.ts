@@ -10,6 +10,7 @@ function makeJsonRequest(body: JsonRequestBody): Request {
 
 const mockStudentFindUnique = vi.fn();
 const mockStudentUpdate = vi.fn();
+const mockGetStudentAccessSession = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -20,17 +21,22 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/auth/student-access-session", () => ({
+  getStudentAccessSession: mockGetStudentAccessSession,
+}));
+
 describe("student avatar route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockStudentFindUnique.mockResolvedValue({ loginCode: "ABC123" });
     mockStudentUpdate.mockResolvedValue({ id: "student-1", avatar: "nova-1" });
+    mockGetStudentAccessSession.mockResolvedValue({ studentId: "student-1", classId: "class-1" });
   });
 
   it("accepts login codes case-insensitively and trims the avatar seed", async () => {
     const { PATCH } = await import("@/app/api/classrooms/[id]/students/[studentId]/avatar/route");
     const response = await PATCH(
-      makeJsonRequest({ avatar: "  nova-1  ", loginCode: "abc123" }),
+      makeJsonRequest({ avatar: "  nova-1  " }),
       { params: Promise.resolve({ id: "class-1", studentId: "student-1" }) }
     );
 
@@ -45,7 +51,7 @@ describe("student avatar route", () => {
   it("rejects avatar values outside the allowed seed format", async () => {
     const { PATCH } = await import("@/app/api/classrooms/[id]/students/[studentId]/avatar/route");
     const response = await PATCH(
-      makeJsonRequest({ avatar: "https://evil.example/x.svg", loginCode: "ABC123" }),
+      makeJsonRequest({ avatar: "https://evil.example/x.svg" }),
       { params: Promise.resolve({ id: "class-1", studentId: "student-1" }) }
     );
     const body = await response.json();

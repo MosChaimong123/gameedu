@@ -11,6 +11,7 @@ import {
   createRateLimitResponse,
   getRequestClientIdentifier,
 } from "@/lib/security/rate-limit";
+import { getStudentAccessCodeForClass } from "@/lib/auth/student-access-session";
 
 export async function GET(
   req: Request,
@@ -18,7 +19,9 @@ export async function GET(
 ) {
   const { id, assignmentId } = await params;
   const url = new URL(req.url);
-  const studentCode = url.searchParams.get("studentCode") ?? "";
+  const routeCredential = url.searchParams.get("studentCode") ?? "";
+  const studentCode = await getStudentAccessCodeForClass(routeCredential, id);
+  if (!studentCode) return new NextResponse("Student access session required", { status: 401 });
   const indexRaw = url.searchParams.get("index") ?? "0";
   const index = parseInt(indexRaw, 10);
 

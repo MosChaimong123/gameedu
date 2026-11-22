@@ -34,41 +34,36 @@ export function VerifyEmailCodeForm({
   const [isVerifying, setIsVerifying] = React.useState(false);
   const [isResending, setIsResending] = React.useState(false);
   const [resendCooldownSeconds, setResendCooldownSeconds] = React.useState(0);
-  const [devCode, setDevCode] = React.useState<string | null>(null);
   const [referenceCode, setReferenceCode] = React.useState<string | null>(null);
+  const [devCode, setDevCode] = React.useState<string | null>(null);
 
-  const loadPendingReference = React.useCallback(async (targetEmail: string) => {
-    const normalized = targetEmail.trim().toLowerCase();
-    if (!normalized) {
-      setReferenceCode(null);
-      setDevCode(null);
-      return;
-    }
+  const loadPendingReference = React.useCallback(async () => {
     try {
-      const res = await fetch(
-        `/api/auth/verification-pending?email=${encodeURIComponent(normalized)}`
-      );
+      const res = await fetch("/api/auth/verification-pending");
       if (!res.ok) return;
       const body = (await res.json()) as {
         pending?: boolean;
+        email?: string;
         referenceCode?: string;
         devCode?: string;
       };
-      setReferenceCode(body.pending && body.referenceCode ? body.referenceCode : null);
-      if (body.pending && body.devCode) {
-        setDevCode(body.devCode);
-        setCode(body.devCode);
-      } else {
-        setDevCode(null);
+      if (body.pending && body.email) {
+        setEmail((current) => current || body.email || "");
       }
+      setReferenceCode(body.pending && body.referenceCode ? body.referenceCode : null);
+      const localCode = body.pending && /^\d{6}$/.test(body.devCode ?? "")
+        ? body.devCode ?? null
+        : null;
+      setDevCode(localCode);
+      if (localCode) setCode(localCode);
     } catch {
       // ignore — reference is optional UX hint
     }
   }, []);
 
   React.useEffect(() => {
-    void loadPendingReference(email);
-  }, [email, loadPendingReference]);
+    void loadPendingReference();
+  }, [loadPendingReference]);
 
   React.useEffect(() => {
     if (resendCooldownSeconds <= 0) return;
@@ -98,7 +93,6 @@ export function VerifyEmailCodeForm({
     setIsVerifying(true);
     setError(null);
     setSuccess(null);
-    setDevCode(null);
 
     try {
       const res = await fetch("/api/auth/verify-email-code", {
@@ -161,27 +155,18 @@ export function VerifyEmailCodeForm({
         return;
       }
 
-      const body = (await res.json()) as {
-        cooldownSeconds?: number;
-        sent?: boolean;
-        referenceCode?: string;
-        devCode?: string;
-      };
-      applyResendCooldown(body.cooldownSeconds ?? 30);
-      if (body.referenceCode) {
-        setReferenceCode(body.referenceCode);
-      }
-      if (body.devCode) {
-        setDevCode(body.devCode);
-        setCode(body.devCode);
-        setSuccess(t("verifyEmailCodeDevSent"));
+      const body = (await res.json()) as { devMode?: boolean; devCode?: string };
+      const localCode = /^\d{6}$/.test(body.devCode ?? "")
+        ? body.devCode ?? null
+        : null;
+      applyResendCooldown(30);
+      if (localCode) {
+        setDevCode(localCode);
+        setCode(localCode);
       } else {
-        setSuccess(
-          body.referenceCode
-            ? `${t("verifyEmailCodeResentWithRef")}: ${body.referenceCode}`
-            : t("verifyEmailCodeResent")
-        );
+        await loadPendingReference();
       }
+      setSuccess(t(localCode || body.devMode ? "verifyEmailCodeDevReady" : "verifyEmailCodeResent"));
     } catch (err) {
       const raw = err instanceof Error ? err.message : null;
       const net = tryLocalizeFetchNetworkFailureMessage(raw, t);
@@ -212,17 +197,18 @@ export function VerifyEmailCodeForm({
         </div>
       ) : null}
 
-      {devCode ? (
-        <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-center text-sm text-sky-900">
-          <p className="font-mono text-2xl font-bold tracking-[0.4em]">{devCode}</p>
-        </div>
-      ) : null}
-
       {referenceCode ? (
         <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-950">
           <p className="font-semibold">{t("verifyEmailCodeReferenceLabel")}</p>
           <p className="mt-1 font-mono text-xl font-bold tracking-widest">{referenceCode}</p>
           <p className="mt-1 text-xs text-indigo-800">{t("verifyEmailCodeReferenceHint")}</p>
+        </div>
+      ) : null}
+
+      {devCode ? (
+        <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-center text-sky-900">
+          <p className="text-sm font-semibold">{t("verifyEmailCodeDevNotice")}</p>
+          <p className="mt-2 font-mono text-2xl font-bold tracking-[0.4em]">{devCode}</p>
         </div>
       ) : null}
 

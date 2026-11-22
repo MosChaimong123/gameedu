@@ -5,6 +5,7 @@ import {
     StudentHomeContent,
     type StudentHomeSerializableRecord,
 } from "./student-home-content";
+import { PasswordUpgradeNotice } from "@/components/auth/password-upgrade-notice";
 
 export default async function StudentHomePage() {
     const session = await auth();
@@ -19,7 +20,6 @@ export default async function StudentHomePage() {
         where: { userId },
         select: {
             id: true,
-            loginCode: true,
             behaviorPoints: true,
             classroom: {
                 select: {
@@ -72,7 +72,6 @@ export default async function StudentHomePage() {
 
     const studentRecords: StudentHomeSerializableRecord[] = rows.map((r) => ({
         id: r.id,
-        loginCode: r.loginCode,
         behaviorPoints: r.behaviorPoints,
         classroom: {
             id: r.classroom.id,
@@ -94,10 +93,13 @@ export default async function StudentHomePage() {
     }));
 
     return (
-        <StudentHomeContent
-            userName={session.user.name ?? null}
-            userImage={session.user.image ?? null}
-            studentRecords={studentRecords}
-        />
+        <>
+            <PasswordUpgradeNotice required={session.user.passwordUpgradeRequired} />
+            <StudentHomeContent
+                userName={session.user.name ?? null}
+                userImage={session.user.image ?? null}
+                studentRecords={studentRecords}
+            />
+        </>
     );
 }

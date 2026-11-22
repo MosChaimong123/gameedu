@@ -1,32 +1,24 @@
 "use client"
 
+import { useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { useLanguage } from "@/components/providers/language-provider"
 import { motion, Variants } from "framer-motion"
 import { cn } from "@/lib/utils"
-import { isOmrDashboardEnabled } from "@/lib/omr-dashboard-enabled"
-import {
-    getDashboardMenuImage,
-    type DashboardMenuAssetKey,
-} from "@/lib/dashboard-menu-assets"
+import { getDashboardMenuImage } from "@/lib/dashboard-menu-assets"
+import { getDashboardTiles, isNavItemLocked } from "@/lib/navigation/dashboard-nav"
+import { NAV_GROUP_TILE_STYLES } from "@/lib/navigation/dashboard-nav-styles"
 import { DashboardMenuHeroCard } from "@/components/dashboard/dashboard-menu-hero-card"
 import { DashboardMenuTile } from "@/components/dashboard/dashboard-menu-tile"
+import { ComingSoonDialog } from "@/components/dashboard/coming-soon-dialog"
 
 interface QuickActionsProps {
     role?: string
+    /** Headline counts, rendered between the hero band and the menu tiles. */
+    kpiSlot?: ReactNode
 }
 
-type QuickActionDef = {
-    key: string
-    assetKey: DashboardMenuAssetKey
-    panelClass: string
-    textClass: string
-    path: string
-    descKey: string
-    disabled?: boolean
-}
-
-export const QuickActions = ({ role }: QuickActionsProps) => {
+export const QuickActions = ({ role, kpiSlot }: QuickActionsProps) => {
     const router = useRouter()
     const { t } = useLanguage()
     const isStudent = role === "STUDENT"
@@ -53,81 +45,10 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
         },
     }
 
-    const omrLive = isOmrDashboardEnabled()
-
-    const teacherActions: QuickActionDef[] = [
-        {
-            key: "viewReports",
-            assetKey: "viewReports",
-            panelClass: "bg-amber-600",
-            textClass: "text-amber-100/90",
-            path: "/dashboard/reports",
-            descKey: "checkProgress",
-        },
-        {
-            key: "activeClasses",
-            assetKey: "activeClasses",
-            panelClass: "bg-emerald-600",
-            textClass: "text-emerald-100/90",
-            path: "/dashboard/classrooms",
-            descKey: "manageStudents",
-        },
-        {
-            key: "omrScanner",
-            assetKey: "omrScanner",
-            panelClass: "bg-sky-600",
-            textClass: "text-sky-100/90",
-            path: "/dashboard/omr",
-            descKey: omrLive ? "scanAnswers" : "hostComingSoon",
-            disabled: !omrLive,
-        },
-        {
-            key: "mySets",
-            assetKey: "mySets",
-            panelClass: "bg-lime-600",
-            textClass: "text-lime-100/90",
-            path: "/dashboard/my-sets",
-            descKey: "manageSetsDesc",
-        },
-    ]
-
-    const studentActions: QuickActionDef[] = [
-        {
-            key: "profile",
-            assetKey: "profile",
-            panelClass: "bg-fuchsia-600",
-            textClass: "text-fuchsia-100/90",
-            path: "/dashboard/profile",
-            descKey: "profileQuickDesc",
-        },
-        {
-            key: "history",
-            assetKey: "history",
-            panelClass: "bg-sky-600",
-            textClass: "text-sky-100/90",
-            path: "/dashboard/history",
-            descKey: "pastGames",
-        },
-        {
-            key: "settings",
-            assetKey: "settings",
-            panelClass: "bg-slate-600",
-            textClass: "text-slate-100/90",
-            path: "/dashboard/settings",
-            descKey: "preferences",
-        },
-        {
-            key: "upgradeToPlus",
-            assetKey: "upgrade",
-            panelClass: "bg-amber-600",
-            textClass: "text-amber-100/90",
-            path: "/dashboard/upgrade",
-            descKey: "getMoreTokens",
-        },
-    ]
-
-    const actions = isStudent ? studentActions : teacherActions
+    const actions = getDashboardTiles(role)
     const heroImage = getDashboardMenuImage(isStudent ? "heroStudent" : "heroTeacher")
+    const [lockedTileKey, setLockedTileKey] = useState<string | null>(null)
+    const lockedTile = actions.find((action) => action.key === lockedTileKey) ?? null
 
     return (
         <motion.div
@@ -143,8 +64,21 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
                 readyLabel={isStudent ? t("quickActionsStudentReady") : t("quickActionsTeacherReady")}
                 badgeEmoji={isStudent ? "🎒" : "👑"}
                 image={heroImage}
-                onActivate={() => router.push(isStudent ? "/play" : "/dashboard/my-sets")}
+                primaryAction={{
+                    label: isStudent ? t("joinGame") : t("heroHostGame"),
+                    onActivate: () => router.push(isStudent ? "/play" : "/dashboard/my-sets"),
+                }}
+                secondaryAction={
+                    isStudent
+                        ? undefined
+                        : {
+                              label: t("heroCreateSet"),
+                              onActivate: () => router.push("/dashboard/create-set"),
+                          }
+                }
             />
+
+            {kpiSlot ? <motion.div variants={itemVariants}>{kpiSlot}</motion.div> : null}
 
             <motion.div
                 className={cn(
@@ -153,23 +87,34 @@ export const QuickActions = ({ role }: QuickActionsProps) => {
                 )}
             >
                 {actions.map((action) => {
-                    const locked = Boolean(action.disabled)
+                    const locked = isNavItemLocked(action)
+                    const style = NAV_GROUP_TILE_STYLES[action.group]
                     return (
                         <DashboardMenuTile
                             key={action.key}
                             itemVariants={itemVariants}
-                            title={locked ? t("hostComingSoon") : t(action.key)}
-                            description={locked ? t("hostComingSoon") : t(action.descKey)}
-                            panelClass={action.panelClass}
-                            textClass={action.textClass}
+                            title={t(action.labelKey)}
+                            description={t(action.descKey)}
+                            panelClass={style.panelClass}
+                            textClass={style.textClass}
                             image={getDashboardMenuImage(action.assetKey)}
                             disabled={locked}
                             lockedLabel={t("hostComingSoon")}
-                            onActivate={() => router.push(action.path)}
+                            onActivate={() => router.push(action.href)}
+                            onLockedActivate={() => setLockedTileKey(action.key)}
                         />
                     )
                 })}
             </motion.div>
+
+            <ComingSoonDialog
+                open={Boolean(lockedTile)}
+                onOpenChange={(open) => {
+                    if (!open) setLockedTileKey(null)
+                }}
+                title={lockedTile ? t(lockedTile.labelKey) : ""}
+                description={lockedTile ? t(lockedTile.comingSoonBodyKey ?? lockedTile.descKey) : ""}
+            />
         </motion.div>
     )
 }

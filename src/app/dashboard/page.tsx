@@ -2,6 +2,7 @@ import { auth } from "@/auth"
 import { DashboardContent } from "@/components/dashboard/dashboard-content"
 import { getOptionalDbModel } from "@/lib/db"
 import { resolvePlanIdForQuota } from "@/lib/plan/plan-access"
+import { getTeacherDashboardSummary } from "@/lib/services/teacher/get-teacher-dashboard-summary"
 
 type TeacherNewsRow = {
     id: string
@@ -36,7 +37,10 @@ export default async function DashboardPage() {
         findMany: (args: unknown) => Promise<TeacherMissionRow[]>
     }>("teacherMission")
 
-    const [newsRows, missionRows] = await Promise.all([
+    const [summary, newsRows, missionRows] = await Promise.all([
+        role === "STUDENT"
+            ? Promise.resolve(null)
+            : getTeacherDashboardSummary(session?.user?.id),
         teacherNewsItem?.findMany({
             where: { isActive: true, audiencePlans: { has: plan } },
             orderBy: [{ sortOrder: "asc" }, { publishedAt: "desc" }],
@@ -68,6 +72,11 @@ export default async function DashboardPage() {
     }))
 
     return (
-        <DashboardContent role={role} insightsNews={insightsNews} insightsMissions={insightsMissions} />
+        <DashboardContent
+            role={role}
+            summary={summary}
+            insightsNews={insightsNews}
+            insightsMissions={insightsMissions}
+        />
     )
 }

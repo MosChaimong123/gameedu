@@ -13,6 +13,7 @@ import {
     canUserAccessClassroom,
 } from "@/lib/authorization/resource-access";
 import { db } from "@/lib/db";
+import { getStudentAccessCodeForClass } from "@/lib/auth/student-access-session";
 
 type SubGroup = { name: string; studentIds: string[] };
 
@@ -22,7 +23,8 @@ export async function GET(
 ) {
     const { id } = await params;
     const session = await auth();
-    const loginCode = new URL(req.url).searchParams.get("code")?.trim().toUpperCase();
+    const routeCredential = new URL(req.url).searchParams.get("code")?.trim().toUpperCase();
+    const loginCode = await getStudentAccessCodeForClass(routeCredential, id);
 
     if (!session?.user?.id && !loginCode) {
         return createAppErrorResponse("AUTH_REQUIRED", AUTH_REQUIRED_MESSAGE, 401);

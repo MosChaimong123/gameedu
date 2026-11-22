@@ -74,7 +74,6 @@ describe("student home page", () => {
       where: { userId: "student-user-1" },
       select: {
         id: true,
-        loginCode: true,
         behaviorPoints: true,
         classroom: {
           select: {

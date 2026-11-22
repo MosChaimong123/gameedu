@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AbstractGameEngine } from "@/lib/game-engine/abstract-game";
 
 const mocks = vi.hoisted(() => {
@@ -93,6 +93,10 @@ function makeGame(): AbstractGameEngine {
 }
 
 describe("syncNegamonBattleRewardsToClassroom", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.studentFindMany.mockReset();
@@ -104,6 +108,16 @@ describe("syncNegamonBattleRewardsToClassroom", () => {
       gamifiedSettings: {},
       levelConfig: [],
     });
+  });
+
+  it("does not touch classroom data when classroom games are retired", async () => {
+    vi.stubEnv("CLASSROOM_GAME_SYSTEM_ENABLED", "false");
+    const { syncNegamonBattleRewardsToClassroom } = await import("@/lib/negamon/sync-negamon-battle-rewards");
+
+    await syncNegamonBattleRewardsToClassroom(makeGame());
+
+    expect(mocks.classroomFindFirst).not.toHaveBeenCalled();
+    expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
   it("awards live battle EXP with a game-pin idempotency reason", async () => {

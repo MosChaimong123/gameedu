@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
-import { Geist, Geist_Mono, Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import { SocketProvider } from "@/components/providers/socket-provider";
 import { LanguageProvider } from "@/components/providers/language-provider";
@@ -10,22 +9,6 @@ import { SoundProvider } from "@/hooks/use-sound";
 import { Toaster } from "@/components/ui/toaster";
 import { LANGUAGE_COOKIE_NAME, resolveLanguageFromCookie } from "@/lib/language-cookie";
 import { siteMetadata } from "../../content/public-pages";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const notoSansThai = Noto_Sans_Thai({
-  variable: "--font-noto-sans-thai",
-  subsets: ["latin", "thai"],
-  weight: ["400", "500", "600", "700"],
-});
 
 export const metadata: Metadata = {
   title: siteMetadata.title,
@@ -49,9 +32,7 @@ export default async function RootLayout({
 
   return (
     <html lang={initialLanguage}>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${notoSansThai.variable} antialiased`}
-      >
+      <body className="antialiased">
         <AuthProvider>
             <AccessibilityProvider>
               <LanguageProvider initialLanguage={initialLanguage}>

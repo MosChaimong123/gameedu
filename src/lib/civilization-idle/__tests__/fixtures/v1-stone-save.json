@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": 1,
+  "era": "stone",
+  "unlockedEras": ["stone"],
+  "resources": {
+    "food": { "amount": 74.5, "cap": 200 },
+    "population": { "amount": 3, "cap": 12 },
+    "wood": { "amount": 32, "cap": 100 },
+    "stone": { "amount": 18, "cap": 100 },
+    "science": { "amount": 8, "cap": 1000 },
+    "copper": { "amount": 0, "cap": 200 },
+    "bronze": { "amount": 0, "cap": 200 },
+    "iron": { "amount": 0, "cap": 200 }
+  },
+  "workers": { "forager": 1, "woodcutter": 1, "hunter": 0, "miner": 0, "scientist": 0 },
+  "idleWorkers": 1,
+  "buildings": {
+    "shelter": 1,
+    "granary": 0,
+    "stockpile": 0,
+    "hunting_ground": 0,
+    "stone_mine": 0,
+    "storytelling_circle": 0,
+    "clay_brick_house": 0,
+    "metal_warehouse": 0
+  },
+  "converters": {
+    "copper_smelter": { "count": 0, "enabled": true },
+    "bronze_foundry": { "count": 0, "enabled": true },
+    "iron_forge": { "count": 0, "enabled": true }
+  },
+  "unlockedConverters": [],
+  "researchedTechs": [],
+  "actionLevels": { "gather_fruit": 1, "chop_wood": 2, "mine_stone": 1, "pan_copper": 1, "forge_iron": 1 },
+  "activeActions": { "gather_fruit": null, "chop_wood": null, "mine_stone": null, "pan_copper": null, "forge_iron": null },
+  "populationGrowthProgressMs": 2500,
+  "bronzeCompleted": false,
+  "lastSimulatedAt": 1795640000000
+}

@@ -18,7 +18,7 @@ import {
 
 type CivilizationDb = Pick<
   PrismaClient,
-  "$transaction" | "civilizationProfile" | "civilizationCommand"
+  "$transaction" | "civilizationProfile" | "civilizationCommand" | "civilizationRunHistory"
 >;
 
 export interface CivilizationServiceDeps {
@@ -215,8 +215,8 @@ async function executeAttempt(
     try {
       state = parseCivilizationState(profile.snapshot);
       if (
-        profile.schemaVersion !== state.schemaVersion ||
-        profile.contentVersion !== state.contentVersion ||
+        profile.schemaVersion > state.schemaVersion ||
+        profile.contentVersion > state.contentVersion ||
         profile.lastSimulatedAt.getTime() !== state.lastSimulatedAt
       ) {
         return { ok: false, reason: "state_invalid" } as const;
@@ -295,6 +295,23 @@ async function executeAttempt(
         reason: "revision_conflict",
         currentRevision: current?.revision ?? profile.revision,
       } as const;
+    }
+
+    if (engineResult.ok && input.command.type === "PRESTIGE_RESET") {
+      await tx.civilizationRunHistory.create({
+        data: {
+          profileId: profile.id,
+          commandId: input.commandId,
+          runNumber: simulation.state.runNumber,
+          rewardId: input.command.rewardId,
+          startedAt: new Date(simulation.state.runStartedAt),
+          completedAt: new Date(effectiveNowMs),
+          finalSnapshot: asInputJson(simulation.state),
+          resetSnapshot: asInputJson(engineResult.state),
+          revisionBefore: profile.revision,
+          revisionAfter,
+        },
+      });
     }
 
     await tx.civilizationCommand.create({

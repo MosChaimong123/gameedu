@@ -8,6 +8,7 @@ import {
   readCivilizationState,
   type CivilizationServiceDeps,
 } from "@/lib/services/civilization-idle/civilization-state";
+import legacyStoneSave from "@/lib/civilization-idle/__tests__/fixtures/v1-stone-save.json";
 
 interface StoredProfile {
   id: string;
@@ -30,6 +31,19 @@ interface StoredCommand {
   revisionAfter: number;
 }
 
+interface StoredRun {
+  profileId: string;
+  commandId: string;
+  runNumber: number;
+  rewardId: string;
+  startedAt: Date;
+  completedAt: Date;
+  finalSnapshot: CivilizationState;
+  resetSnapshot: CivilizationState;
+  revisionBefore: number;
+  revisionAfter: number;
+}
+
 function selectProfile(profile: StoredProfile, select?: Record<string, unknown>) {
   if (!select) return structuredClone(profile);
   return Object.fromEntries(
@@ -40,6 +54,7 @@ function selectProfile(profile: StoredProfile, select?: Record<string, unknown>)
 function createHarness(now = new Date("2026-11-21T00:00:00.000Z")) {
   let profile: StoredProfile | null = null;
   const commands = new Map<string, StoredCommand>();
+  const runs = new Map<string, StoredRun>();
   let profileCreateCount = 0;
   let profileUpdateCount = 0;
 
@@ -107,21 +122,32 @@ function createHarness(now = new Date("2026-11-21T00:00:00.000Z")) {
     },
   };
 
+  const runHistoryDelegate = {
+    create: async (args: { data: StoredRun }) => {
+      runs.set(args.data.commandId, structuredClone(args.data));
+      return structuredClone(args.data);
+    },
+  };
+
   const database = {
     civilizationProfile: profileDelegate,
     civilizationCommand: commandDelegate,
+    civilizationRunHistory: runHistoryDelegate,
     $transaction: async <T>(callback: (tx: {
       civilizationProfile: typeof profileDelegate;
       civilizationCommand: typeof commandDelegate;
+      civilizationRunHistory: typeof runHistoryDelegate;
     }) => Promise<T>) => callback({
       civilizationProfile: profileDelegate,
       civilizationCommand: commandDelegate,
+      civilizationRunHistory: runHistoryDelegate,
     }),
   };
 
   return {
     deps: { db: database, now: () => now } as unknown as CivilizationServiceDeps,
     commands,
+    runs,
     getProfile: () => profile,
     setProfile: (value: StoredProfile) => {
       profile = value;
@@ -300,10 +326,10 @@ describe("Civilization Idle persistence service", () => {
     expect(harness.getProfileUpdateCount()).toBe(0);
   });
 
-  it("caps offline production at eight hours and discards the remaining gap", async () => {
+  it("caps offline production at 72 hours and discards the remaining gap", async () => {
     const now = new Date("2026-11-21T12:00:00.000Z");
     harness = createHarness(now);
-    const state = createInitialCivilizationState(now.getTime() - 9 * 60 * 60 * 1_000);
+    const state = createInitialCivilizationState(now.getTime() - 80 * 60 * 60 * 1_000);
     state.workers.woodcutter = 1;
     state.idleWorkers = 1;
     harness.setProfile({
@@ -331,9 +357,9 @@ describe("Civilization Idle persistence service", () => {
         revision: 4,
         replayed: false,
         simulation: {
-          requestedElapsedMs: 9 * 60 * 60 * 1_000,
-          simulatedElapsedMs: 8 * 60 * 60 * 1_000,
-          discardedElapsedMs: 60 * 60 * 1_000,
+          requestedElapsedMs: 80 * 60 * 60 * 1_000,
+          simulatedElapsedMs: 72 * 60 * 60 * 1_000,
+          discardedElapsedMs: 8 * 60 * 60 * 1_000,
           clockAdjusted: false,
         },
       },
@@ -344,10 +370,47 @@ describe("Civilization Idle persistence service", () => {
       value: {
         revision: 4,
         replayed: true,
-        simulation: { discardedElapsedMs: 60 * 60 * 1_000 },
+        simulation: { discardedElapsedMs: 8 * 60 * 60 * 1_000 },
       },
     });
     expect(harness.getProfileUpdateCount()).toBe(1);
+  });
+
+  it("persists a migrated version 1 snapshot as the current version on the next command", async () => {
+    const current = createInitialCivilizationState(Date.parse("2026-11-21T00:00:00.000Z"));
+    const legacy = structuredClone(legacyStoneSave) as unknown as CivilizationState & Record<string, unknown>;
+    legacy.lastSimulatedAt = current.lastSimulatedAt;
+    harness.setProfile({
+      id: "profile-1",
+      studentId: "student-1",
+      snapshot: legacy,
+      schemaVersion: 1,
+      contentVersion: 1,
+      revision: 4,
+      lastSimulatedAt: new Date(current.lastSimulatedAt),
+    });
+
+    const result = await executeCivilizationCommand(
+      {
+        studentId: "student-1",
+        commandId: "migration-command-1",
+        expectedRevision: 4,
+        command: { type: "SYNC" },
+      },
+      harness.deps
+    );
+
+    expect(result).toMatchObject({ ok: true, value: { accepted: true, revision: 5 } });
+    expect(harness.getProfile()).toMatchObject({
+      schemaVersion: 6,
+      contentVersion: 6,
+      snapshot: {
+        schemaVersion: 6,
+        contentVersion: 6,
+        policy: { id: "balanced" },
+        researchLevels: { food_storage: 0 },
+      },
+    });
   });
 
   it("handles a server clock moving backward without corrupting the snapshot", async () => {
@@ -407,5 +470,42 @@ describe("Civilization Idle persistence service", () => {
     ]);
     expect(harness.getProfileUpdateCount()).toBe(1);
     expect(harness.getProfile()?.revision).toBe(1);
+  });
+
+  it("records one atomic run history entry and does not duplicate it on replay", async () => {
+    const now = new Date("2026-11-21T12:00:00.000Z");
+    harness = createHarness(now);
+    const state = createInitialCivilizationState(now.getTime());
+    state.era = "space";
+    state.unlockedEras = ["stone", "bronze", "industrial", "information", "space"];
+    state.researchedTechs = [
+      "basic_tools", "foraging", "logging", "masonry", "animal_husbandry", "agriculture",
+      "smelting", "bronze_working", "iron_working", "writing", "steam_power", "coal_geology",
+      "steel_furnace", "steam_engine", "electrification", "conveyor_belts", "factory_priority",
+      "efficient_generator", "factory_automation", "circuitry", "computing", "networking",
+      "databases", "job_scheduling", "computational_simulation", "telecommunications", "space_science",
+      "lightweight_materials", "propulsion_systems", "navigation_systems", "life_support",
+      "spacecraft_testing", "evacuation",
+    ];
+    state.unlockedConverters = [
+      "copper_smelter", "bronze_foundry", "iron_forge", "steel_mill", "steam_generator",
+      "machine_factory", "circuit_assembler", "data_center", "digital_lab", "space_material_plant",
+      "rocket_fuel_refinery", "orbital_shipyard",
+    ];
+    state.bronzeCompleted = true;
+    state.industrialCompleted = true;
+    state.informationCompleted = true;
+    state.spaceProjectStage = 4;
+    state.spaceCompleted = true;
+    harness.setProfile({ id: "profile-1", studentId: "student-1", snapshot: state, schemaVersion: 6, contentVersion: 6, revision: 7, lastSimulatedAt: now });
+    const input = { studentId: "student-1", commandId: "prestige-command-1", expectedRevision: 7, command: { type: "PRESTIGE_RESET", rewardId: "research_archive", confirmRunNumber: 1 } as const };
+
+    const first = await executeCivilizationCommand(input, harness.deps);
+    const replay = await executeCivilizationCommand(input, harness.deps);
+
+    expect(first).toMatchObject({ ok: true, value: { accepted: true, revision: 8, state: { era: "stone", runNumber: 2, permanentRewards: { research_archive: 1 } } } });
+    expect(replay).toMatchObject({ ok: true, value: { replayed: true, revision: 8 } });
+    expect(harness.runs.size).toBe(1);
+    expect(harness.runs.get("prestige-command-1")).toMatchObject({ runNumber: 1, rewardId: "research_archive", revisionBefore: 7, revisionAfter: 8 });
   });
 });

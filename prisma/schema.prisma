@@ -465,6 +465,7 @@ model CivilizationProfile {
   revision        Int      @default(0)
   lastSimulatedAt DateTime
   commands        CivilizationCommand[]
+  runs            CivilizationRunHistory[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -485,6 +486,25 @@ model CivilizationCommand {
   createdAt      DateTime @default(now())
 
   @@index([profileId, createdAt])
+}
+
+model CivilizationRunHistory {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  profileId      String   @db.ObjectId
+  profile        CivilizationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  commandId      String   @unique
+  runNumber      Int
+  rewardId       String
+  startedAt      DateTime
+  completedAt    DateTime
+  finalSnapshot  Json
+  resetSnapshot  Json
+  revisionBefore Int
+  revisionAfter  Int
+  createdAt      DateTime @default(now())
+
+  @@unique([profileId, runNumber])
+  @@index([profileId, completedAt])
 }
 
 model EconomyTransaction {

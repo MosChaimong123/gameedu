@@ -29,7 +29,7 @@
 | 1. Engine ยุคหิน (เสร็จแล้ว) | ทำคำสั่งเก็บทรัพยากร สร้างอาคาร จัดคนงาน วิจัย และจำลองผลผลิต ประชากร และคลัง | ผ่านแล้ว: pure engine, content catalog, invariants และ focused unit tests ครบ รวมการกู้เมืองจากอาหารหมด |
 | 2. API และเซฟ (เสร็จแล้ว) | เพิ่ม `CivilizationProfile` และ `CivilizationCommand` ต่อ `Student.id`, ทำ state/command/sync API หลัง student access session, revision และ command receipt | ผ่านแล้วในระดับโค้ด: 36 focused tests ครอบคลุม session, feature flag, payload, replay, ID ชนกัน, revision ล้าสมัย, command ถูกปฏิเสธ และ snapshot เสียโดยไม่เขียนทับ; Prisma validate ผ่าน แต่ยังรอ apply schema ใน dev/staging ก่อนทดสอบ MongoDB จริง |
 | 3. หน้าทดลองเล่น (เสร็จระดับโค้ด) | ทำ UI ยุคหิน ปุ่มและสถานะทรัพยากร ไทย/อังกฤษ รองรับจอใหญ่และมือถือ พร้อม client command queue | ผ่านแล้ว: Playwright preview เล่นรอบเก็บ–สร้าง–จัดคนงาน–วิจัยต่อเนื่องได้ revision 4 ไม่มีคิวค้าง, ตรวจภาพ desktop/mobile, จอ 390px ไม่มี horizontal overflow, มี offline/retry/conflict state และ production build ผ่าน; การ reload จาก MongoDB จริงรอ apply schema บน staging |
-| 4. ยุคสำริดและ Offline (เสร็จระดับโค้ด) | เพิ่มเงื่อนไขเปลี่ยนยุค โรงแปรรูปขั้นต้น และผลผลิตเมื่อกลับเข้าเกม ตั้งเพดานเริ่มต้น 8 ชั่วโมง | ผ่านแล้ว: server simulation จำกัด 8 ชั่วโมง, ตัดเวลาส่วนเกิน, รองรับเวลาย้อน, มี command receipt ป้องกันจ่ายซ้ำ และทดสอบ sync พร้อมกันแล้วมีเพียง revision เดียวที่บันทึกสำเร็จ |
+| 4. ยุคสำริดและ Offline (เสร็จระดับโค้ด) | เพิ่มเงื่อนไขเปลี่ยนยุค โรงแปรรูปขั้นต้น และผลผลิตเมื่อกลับเข้าเกม; Phase 1 ปรับเพดานจาก 8 เป็น 72 ชั่วโมง | ผ่านแล้ว: server simulation จำกัด 72 ชั่วโมง, ตัดเวลาส่วนเกิน, รองรับเวลาย้อน, มี command receipt ป้องกันจ่ายซ้ำ และทดสอบ sync พร้อมกันแล้วมีเพียง revision เดียวที่บันทึกสำเร็จ |
 | 5. Pilot และ Deploy (พร้อม rollout) | เปิดหลัง feature flag ที่ปิดโดยค่าเริ่มต้น ทั้งหน้าและ API ทดลองใน staging ก่อนเปิดห้อง pilot | ผ่านระดับ local staging QA: มี pilot allowlist รายห้อง, dark-deploy default, rollback โดยไม่ลบเซฟ, database safety guard/runbook และ regression ระบบหลัก; การ deploy/open pilot จริงรอ staging service และ Classroom ObjectId ที่เลือก |
 | 6. ขยายหลัง Pilot | เพิ่มครูเปิดเกมรายห้อง รายงานความคืบหน้า ยุคที่เหลือ และ Specialists ตามผลทดสอบ | ครูเห็นเฉพาะห้องที่ตนมีสิทธิ์และฟีเจอร์ใหม่ไม่เปลี่ยนผลการเรียนหรือรางวัลโดยอัตโนมัติ |
 
@@ -61,9 +61,9 @@
 
 ## ผลลัพธ์ Phase 4
 
-- ทุกคำสั่งจำลองเวลาที่ผ่านไปฝั่งเซิร์ฟเวอร์ก่อนประมวลผล โดยจำกัดผลผลิต offline สูงสุด 8 ชั่วโมงและเลื่อน timestamp ไปเวลาปัจจุบันเพื่อไม่ให้ขอช่วงเวลาส่วนเกินซ้ำ
+- ทุกคำสั่งจำลองเวลาที่ผ่านไปฝั่งเซิร์ฟเวอร์ก่อนประมวลผล โดยจำกัดผลผลิต offline สูงสุด 72 ชั่วโมงและเลื่อน timestamp ไปเวลาปัจจุบันเพื่อไม่ให้ขอช่วงเวลาส่วนเกินซ้ำ
 - command receipt เก็บสรุปเวลาที่ร้องขอ เวลาที่จำลอง เวลาที่ตัดออก การตรวจเวลาย้อน และผลต่างทรัพยากร ทำให้ replay command เดิมคืนผลเดิมโดยไม่จ่ายซ้ำ
-- client ส่ง `SYNC` หลังโหลด canonical state และแสดงหน้าสรุปผลผลิตเมื่อกลับเข้าเกม รวมข้อความเพดาน 8 ชั่วโมงและกรณีเวลาระบบย้อน
+- client ส่ง `SYNC` หลังโหลด canonical state และแสดงหน้าสรุปผลผลิตเมื่อกลับเข้าเกม รวมข้อความเพดาน 72 ชั่วโมงและกรณีเวลาระบบย้อน
 - เมื่อวิจัย Agriculture สำเร็จ ผู้เล่นยืนยันเข้าสู่ยุคสำริดผ่าน `ADVANCE_ERA`; UI เปลี่ยนภาพเมือง ทรัพยากร กิจกรรม อาคาร งานวิจัย และเปิดแท็บโรงงาน
 - โรงงานทองแดง สำริด และเหล็กแสดงต้นทุน input/output ซื้อและหยุด/เปิดได้ผ่าน command queue เดิม โดย server engine เป็นผู้คำนวณผลผลิต
 - 45 focused tests, TypeScript, scoped ESLint, architecture guard และ production build ผ่าน; Playwright ตรวจ transition, ซื้อ/หยุด converter, state revision, console errors และมือถือ 390px ที่ไม่มี horizontal overflow

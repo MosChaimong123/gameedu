@@ -2,6 +2,51 @@
 
 Original prompt: **Phase 2**
 
+## Information Age Update (2026-11-27)
+
+- [x] Upgrade save schema/content to v4 with automatic v1/v2/v3 migration.
+- [x] Add circuits, data, compute, digital facilities, research, and Information Age progression.
+- [x] Add a non-stored compute grid backed by powered Data Centers.
+- [x] Add three deterministic server automation rules with capped scheduler slots.
+- [x] Add Information completion requirements and guided milestones.
+- [x] Add Thai/English UI, preview state, exact research benefits, and a dedicated hero asset.
+- [x] Pass 61 focused tests, TypeScript, scoped ESLint, and architecture checks.
+- [x] Complete production build and desktop/mobile browser QA.
+- [ ] Sign off the 125-hour Information pacing only after staging telemetry.
+
+Browser QA notes:
+- Fixed the Information preview prerequisite chain by including `efficient_generator` before `factory_automation`.
+- Verified the power/compute grid and automation rule interaction at desktop and 390x844 mobile sizes.
+- Hid the mobile resource-rail scrollbar while preserving horizontal swipe and snap behavior.
+- `render_game_to_text` now includes automation and era-completion state; the latest client artifact is under `output/phase4-qa/latest`.
+- The standalone Playwright client only reports the expected missing local Socket.IO service on port 3001; the Civilization preview itself has no console errors.
+
+Report: `docs/civilization-idle-phase-4-information-report.md`
+
+## Industrial Age Update (2026-11-26)
+
+- [x] Upgrade save schema/content to v3 with automatic v1/v2 migration.
+- [x] Add Industrial resources, action, coal worker, buildings, tech tree, repeat research, and factories.
+- [x] Add a non-stored power grid with all-or-nothing allocation and three factory priorities.
+- [x] Add Industrial completion requirements and guided milestones.
+- [x] Add Thai/English UI, responsive Industrial preview, and a dedicated Industrial hero asset.
+- [x] Pass 50 focused tests, TypeScript, scoped ESLint, architecture guard, and desktop/mobile browser QA.
+- [ ] Sign off the 105-hour Industrial pacing only after staging telemetry.
+
+Report: `docs/civilization-idle-phase-3-industrial-report.md`
+
+## Stone/Bronze Expansion Update (2026-11-26)
+
+- [x] Upgrade save schema/content to v2 with automatic v1 migration.
+- [x] Add action level 10, converter level 15, bounded repeat-building caps, job mastery, repeatable research, and city policies.
+- [x] Add 12 guided milestones and expose the next objective in the game UI.
+- [x] Require all three metal factories and 20 of each metal before Steam Power completes Bronze.
+- [x] Add Thai/English UI for mastery, policy effects, advanced research, caps, and completion requirements.
+- [x] Update deterministic baseline strategies for the mandatory metal chain.
+- [ ] Sign off the 45-hour Stone + 75-hour Bronze pacing only after staging telemetry; local baseline is not pacing evidence.
+
+Report: `docs/civilization-idle-phase-2-stone-bronze-report.md`
+
 ## Scope
 
 Persist the deterministic Civilization Idle state behind student access APIs.
@@ -48,6 +93,7 @@ applying the Prisma schema to a database, or enabling production.
 - [x] Add the Phase 5 staging, pilot, monitoring, and rollback runbook.
 - [x] Add read-only pilot classroom readiness and cleanup-safe allowlist smoke commands.
 - [x] Pass local pilot allowlist smoke with 200 for the QA classroom and 404 for a control classroom.
+- [x] Show worker production per person and total assigned output using the engine formula.
 
 ## Notes
 
@@ -86,6 +132,10 @@ applying the Prisma schema to a database, or enabling production.
 - Production remains unchanged. Render defaults the feature to disabled, and a
   real staging dark deploy plus selected pilot Classroom ObjectIds are still
   required before enabling users.
+- Worker rows previously displayed only the fixed per-person base rate, so adding
+  workers looked ineffective even though simulation multiplied production by the
+  assigned count. The UI now shows effective per-person and total output, including
+  research bonuses and the starvation multiplier.
 - Local production-mode dark-deploy smoke returned 200 from `/api/ready` and
   404 from both the Civilization page and state API while the feature was off.
 - Render CLI was not installed on this workstation, so Blueprint validation
@@ -96,3 +146,39 @@ applying the Prisma schema to a database, or enabling production.
 - No staging `DATABASE_URL` or Render API/MCP connection is configured in this
   workspace, so the real staging deploy has not been attempted. Production was
   not touched.
+## 2026-11-25 - Civilization research benefit descriptions
+
+- Added Thai and English benefit descriptions to every Stone and Bronze Age research card.
+- Research cards now state the exact production bonus, cooldown reduction, growth bonus, converter unlock, era unlock, or completion effect.
+- Kept card actions aligned and verified desktop/mobile layouts.
+
+## 2026-11-25 - Civilization converter upgrades
+
+- Exposed the existing converter count scaling as visible factory levels and upgrades.
+- Factory cards now show the current level, effective total input/output rates, next-level cost, pause/resume control, and upgrade action.
+- Shared converter-rate calculations between simulation and UI and added level-two cost/output coverage.
+
+## 2026-11-27 - Civilization Phase 5 Space Age
+
+- [x] Add schema/content v5 and migrate v1-v4 saves with safe Space defaults.
+- [x] Add Space resources, buildings, six technologies, three powered factories, and two capped repeatable upgrades.
+- [x] Add a server-authoritative four-stage evacuation ship project with no automatic reset.
+- [x] Require the test center during assembly and an evacuation port, 12 Power, and 4 Compute for the final stage.
+- [x] Add Thai/English benefit copy, Space milestones, generated hero art, preview mode, and responsive UI.
+- [x] Pass 86 focused tests, TypeScript, ESLint, architecture guard, and production build.
+- [x] Inspect desktop and 390x844 screenshots and complete a stage 2 -> 3 interaction with revision 1, queue 0, and no console errors.
+- Phase 6 follow-up completed: permanent reward preview, exactly-one selection, atomic reset, run history, audit, and replay protection.
+- Production remains untouched; the feature flag remains off and Phase 5 was not deployed.
+
+## 2026-11-27 - Civilization Phase 6 Prestige
+
+- [x] Upgrade save schema/content to v6 and migrate v1-v5 saves with zeroed permanent rewards.
+- [x] Add four capped permanent sidegrade rewards and apply their engine bonuses.
+- [x] Add an exactly-one reward dialog with a separate review and final confirmation step.
+- [x] Reset progression into the next run while preserving only run metadata and permanent rewards.
+- [x] Add atomic `CivilizationRunHistory` audit records inside the command transaction.
+- [x] Cover not-ready, stale confirmation, capped reward, reset preservation, replay, and migration behavior.
+- [x] Pass 91 Civilization tests (2 integration skips), TypeScript, ESLint, Prisma validation, architecture guard, and production build.
+- [x] Inspect desktop confirmation/reset and mobile 390x844 reward selection screenshots.
+- Next: apply schema v6 to a backed-up staging database, run real-Mongo reset/rollback QA, then begin Phase 7 pilot balance.
+- Production remains untouched; no schema push, commit, deploy, or feature-flag change was performed.

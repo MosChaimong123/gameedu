@@ -9,26 +9,34 @@ import {
   Axe,
   BookOpen,
   Brain,
+  Cog,
   Check,
   Cherry,
   CircleDot,
+  CircuitBoard,
   Clock3,
   Factory,
+  Database,
+  Flame,
   FlaskConical,
   Hammer,
   House,
   LoaderCircle,
+  Network,
   Minus,
   Pickaxe,
   Plus,
   ScrollText,
+  Server,
   Sparkles,
   Sprout,
   TentTree,
   Trees,
   Users,
+  Warehouse,
   WifiOff,
   Wheat,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -39,18 +47,42 @@ import {
   CIVILIZATION_BUILDINGS,
   CIVILIZATION_CONVERTERS,
   CIVILIZATION_JOBS,
+  CIVILIZATION_MAX_ACTION_LEVEL,
+  CIVILIZATION_MAX_CONVERTER_LEVEL,
+  CIVILIZATION_PERMANENT_REWARD_MAX_LEVEL,
+  CIVILIZATION_REPEATABLE_RESEARCH,
   CIVILIZATION_TECHS,
+  canCompleteCivilizationBronze,
+  canCompleteCivilizationIndustrial,
+  canCompleteCivilizationInformation,
   getCivilizationActionCooldownMs,
   getCivilizationActionReward,
   getCivilizationActionUpgradeCost,
   getCivilizationBuildingCost,
   getCivilizationConverterCost,
+  getCivilizationConverterPowerDemand,
+  getCivilizationConverterRates,
+  getCivilizationBottlenecks,
+  getCivilizationJobMasteryLevel,
+  getCivilizationMilestones,
+  getNextCivilizationMilestone,
+  getCivilizationRepeatableResearchCost,
+  getCivilizationResourceFlows,
+  getCivilizationPowerStatus,
+  getCivilizationComputeStatus,
+  getCivilizationAutomationSlots,
+  getCivilizationSpaceProjectStageRequirements,
+  getCivilizationWorkerProductionRate,
   type CivilizationActionId,
+  type CivilizationAutomationRuleId,
   type CivilizationBuildingId,
   type CivilizationCommand,
   type CivilizationConverterId,
   type CivilizationEngineEvent,
   type CivilizationJobId,
+  type CivilizationPolicyId,
+  type CivilizationPermanentRewardId,
+  type CivilizationRepeatableResearchId,
   type CivilizationResourceId,
   type CivilizationState,
   type CivilizationTechId,
@@ -58,12 +90,21 @@ import {
 import { cn } from "@/lib/utils";
 import {
   civilizationActionNames,
+  civilizationAutomationRuleNames,
   civilizationBuildingNames,
   civilizationConverterNames,
   civilizationErrorNames,
   civilizationJobNames,
+  civilizationMilestoneNames,
+  civilizationPermanentRewardBenefits,
+  civilizationPermanentRewardNames,
+  civilizationPolicyBenefits,
+  civilizationPolicyNames,
+  civilizationRepeatableResearchBenefits,
+  civilizationRepeatableResearchNames,
   civilizationResourceNames,
   civilizationTechNames,
+  civilizationTechBenefits,
   getCivilizationCopy,
 } from "./civilization-copy";
 import {
@@ -119,6 +160,50 @@ const BRONZE_CONVERTERS: CivilizationConverterId[] = [
   "bronze_foundry",
   "iron_forge",
 ];
+const INDUSTRIAL_RESOURCES: CivilizationResourceId[] = ["coal", "steel", "electricity", "machinery"];
+const INDUSTRIAL_ACTIONS: CivilizationActionId[] = ["mine_coal"];
+const INDUSTRIAL_BUILDINGS: CivilizationBuildingId[] = [
+  "coal_mine",
+  "worker_housing",
+  "industrial_warehouse",
+  "power_station",
+  "industrial_institute",
+];
+const INDUSTRIAL_JOBS: CivilizationJobId[] = ["coal_miner"];
+const INDUSTRIAL_TECHS: CivilizationTechId[] = [
+  "coal_geology",
+  "steel_furnace",
+  "steam_engine",
+  "electrification",
+  "conveyor_belts",
+  "factory_priority",
+  "efficient_generator",
+  "factory_automation",
+];
+const INDUSTRIAL_CONVERTERS: CivilizationConverterId[] = ["steel_mill", "steam_generator", "machine_factory"];
+const INFORMATION_RESOURCES: CivilizationResourceId[] = ["circuits", "data", "compute"];
+const INFORMATION_ACTIONS: CivilizationActionId[] = ["audit_system"];
+const INFORMATION_BUILDINGS: CivilizationBuildingId[] = ["electronics_warehouse", "network_station", "scheduler_center"];
+const INFORMATION_TECHS: CivilizationTechId[] = ["circuitry", "computing", "networking", "databases", "job_scheduling", "computational_simulation", "telecommunications", "space_science"];
+const INFORMATION_CONVERTERS: CivilizationConverterId[] = ["circuit_assembler", "data_center", "digital_lab"];
+const SPACE_RESOURCES: CivilizationResourceId[] = ["advanced_alloy", "rocket_fuel", "ship_parts"];
+const SPACE_BUILDINGS: CivilizationBuildingId[] = ["space_warehouse", "test_center", "evacuation_port"];
+const SPACE_TECHS: CivilizationTechId[] = ["lightweight_materials", "propulsion_systems", "navigation_systems", "life_support", "spacecraft_testing", "evacuation"];
+const SPACE_CONVERTERS: CivilizationConverterId[] = ["space_material_plant", "rocket_fuel_refinery", "orbital_shipyard"];
+const AUTOMATION_RULES: CivilizationAutomationRuleId[] = ["protect_copper", "protect_steel", "prioritize_data_center"];
+const POLICIES: CivilizationPolicyId[] = ["balanced", "sustenance", "scholarship", "industry"];
+const REPEATABLE_RESEARCH: CivilizationRepeatableResearchId[] = [
+  "food_storage",
+  "labor_organization",
+  "precision_casting",
+  "metal_reserves",
+  "fuel_efficiency",
+  "machine_efficiency",
+  "data_compression",
+  "computer_efficiency",
+  "material_efficiency",
+  "propulsion_efficiency",
+];
 
 const resourceIcons: Record<CivilizationResourceId, LucideIcon> = {
   food: Apple,
@@ -129,6 +214,16 @@ const resourceIcons: Record<CivilizationResourceId, LucideIcon> = {
   copper: CircleDot,
   bronze: CircleDot,
   iron: CircleDot,
+  coal: Flame,
+  steel: Hammer,
+  electricity: Zap,
+  machinery: Cog,
+  circuits: CircuitBoard,
+  data: Database,
+  compute: Server,
+  advanced_alloy: Hammer,
+  rocket_fuel: Flame,
+  ship_parts: Cog,
 };
 const actionIcons: Record<CivilizationActionId, LucideIcon> = {
   gather_fruit: Cherry,
@@ -136,6 +231,8 @@ const actionIcons: Record<CivilizationActionId, LucideIcon> = {
   mine_stone: Pickaxe,
   pan_copper: CircleDot,
   forge_iron: Hammer,
+  mine_coal: Pickaxe,
+  audit_system: Network,
 };
 const buildingIcons: Record<CivilizationBuildingId, LucideIcon> = {
   shelter: TentTree,
@@ -146,6 +243,17 @@ const buildingIcons: Record<CivilizationBuildingId, LucideIcon> = {
   storytelling_circle: ScrollText,
   clay_brick_house: House,
   metal_warehouse: Hammer,
+  coal_mine: Pickaxe,
+  worker_housing: House,
+  industrial_warehouse: Warehouse,
+  power_station: Zap,
+  industrial_institute: Factory,
+  electronics_warehouse: CircuitBoard,
+  network_station: Network,
+  scheduler_center: Server,
+  space_warehouse: Warehouse,
+  test_center: FlaskConical,
+  evacuation_port: Factory,
 };
 
 function formatAmount(value: number) {
@@ -181,20 +289,51 @@ function CostLine({
 }
 
 function ResourceRail({ state, language }: { state: CivilizationState; language: "th" | "en" }) {
-  const resources = state.era === "bronze"
-    ? [...STONE_RESOURCES, ...BRONZE_RESOURCES]
-    : STONE_RESOURCES;
+  const text = getCivilizationCopy(language);
+  const resources = state.era === "space"
+    ? [...STONE_RESOURCES, ...BRONZE_RESOURCES, ...INDUSTRIAL_RESOURCES, ...INFORMATION_RESOURCES, ...SPACE_RESOURCES]
+    : state.era === "information"
+    ? [...STONE_RESOURCES, ...BRONZE_RESOURCES, ...INDUSTRIAL_RESOURCES, ...INFORMATION_RESOURCES]
+    : state.era === "industrial"
+    ? [...STONE_RESOURCES, ...BRONZE_RESOURCES, ...INDUSTRIAL_RESOURCES]
+    : state.era === "bronze"
+      ? [...STONE_RESOURCES, ...BRONZE_RESOURCES]
+      : STONE_RESOURCES;
+  const flows = getCivilizationResourceFlows(state);
+  const bottlenecks = getCivilizationBottlenecks(state).slice(0, 2);
   return (
     <aside className="min-w-0 max-w-full overflow-hidden border-b border-stone-200 bg-[#f7f4eb] lg:border-b-0 lg:border-r">
-      <div className="flex max-w-full gap-2 overflow-x-auto px-3 py-3 lg:block lg:space-y-0 lg:px-4 lg:py-5">
+      {bottlenecks.length > 0 ? (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-[11px] font-bold text-amber-900">
+          <p className="mb-1 uppercase text-amber-700">{text.bottleneck}</p>
+          {bottlenecks.map((item, index) => {
+            const message = item.type === "STARVING"
+              ? text.starving
+              : item.type === "RESOURCE_FULL"
+              ? `${civilizationResourceNames[language][item.resource]}: ${text.storageFull}`
+              : item.type === "CONVERTER_INPUT"
+                ? `${civilizationConverterNames[language][item.converterId]}: ${text.converterNeeds} ${civilizationResourceNames[language][item.resource]}`
+                : item.type === "CONVERTER_OUTPUT"
+                  ? `${civilizationConverterNames[language][item.converterId]}: ${text.converterOutputFull} ${civilizationResourceNames[language][item.resource]}`
+                  : item.type === "POWER_SHORTAGE"
+                    ? `${civilizationConverterNames[language][item.converterId]}: ${text.powerShortage}`
+                    : item.type === "COMPUTE_SHORTAGE"
+                      ? `${civilizationConverterNames[language][item.converterId]}: ${text.computeShortage}`
+                      : `${civilizationConverterNames[language][item.converterId]}: ${text.automationPaused}`;
+            return <p key={`${item.type}-${index}`} className="truncate">{message}</p>;
+          })}
+        </div>
+      ) : null}
+      <div className="flex max-w-full snap-x snap-mandatory gap-2 overflow-x-auto px-3 py-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:block lg:space-y-0 lg:px-4 lg:py-5">
         {resources.map((id) => {
           const resource = state.resources[id];
           const Icon = resourceIcons[id];
           const percent = Math.min(100, (resource.amount / Math.max(1, resource.cap)) * 100);
+          const netRate = flows[id].netPerSecond;
           return (
             <div
               key={id}
-              className="min-w-36 border-r border-stone-200 px-3 py-2 last:border-r-0 lg:min-w-0 lg:border-b lg:border-r-0 lg:px-1 lg:py-4"
+              className="min-w-36 snap-start border-r border-stone-200 px-3 py-2 last:border-r-0 lg:min-w-0 lg:border-b lg:border-r-0 lg:px-1 lg:py-4"
             >
               <div className="flex items-center justify-between gap-4">
                 <span className="flex items-center gap-2 text-xs font-bold text-stone-600">
@@ -208,12 +347,37 @@ function ResourceRail({ state, language }: { state: CivilizationState; language:
               <div className="mt-2 h-1.5 overflow-hidden bg-stone-200">
                 <div className="h-full bg-emerald-600 transition-[width] duration-500" style={{ width: `${percent}%` }} />
               </div>
-              <p className="mt-1 text-right font-mono text-[10px] text-stone-400">/ {formatAmount(resource.cap)}</p>
+              <div className="mt-1 flex items-center justify-between gap-2 font-mono text-[10px]">
+                <span className={netRate > 0.0001 ? "text-emerald-700" : netRate < -0.0001 ? "text-rose-700" : "text-stone-400"}>
+                  {text.netRate} {netRate > 0.0001 ? "+" : ""}{formatAmount(netRate)}/s
+                </span>
+                <span className="text-stone-400">/ {formatAmount(resource.cap)}</span>
+              </div>
             </div>
           );
         })}
       </div>
     </aside>
+  );
+}
+
+function MilestoneStrip({ state, language }: { state: CivilizationState; language: "th" | "en" }) {
+  const text = getCivilizationCopy(language);
+  const milestones = getCivilizationMilestones(state);
+  const completed = milestones.filter((item) => item.completed).length;
+  const next = getNextCivilizationMilestone(state);
+  return (
+    <section className="border-b border-stone-200 bg-emerald-50 px-4 py-3 sm:px-6" aria-label={text.milestones}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-black text-emerald-950">{text.milestones} {completed}/{milestones.length}</p>
+        <p className="text-xs font-bold text-emerald-800">
+          {next ? `${text.nextGoal}: ${civilizationMilestoneNames[language][next.id]}` : state.era === "space" ? text.currentSpaceComplete : state.era === "information" ? text.currentInformationComplete : state.era === "industrial" ? text.currentIndustrialComplete : text.currentContentComplete}
+        </p>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden bg-emerald-100">
+        <div className="h-full bg-emerald-700 transition-[width]" style={{ width: `${(completed / milestones.length) * 100}%` }} />
+      </div>
+    </section>
   );
 }
 
@@ -231,7 +395,13 @@ function ActionsPanel({
   onCommand: (command: CivilizationCommand) => void;
 }) {
   const text = getCivilizationCopy(language);
-  const actions = state.era === "bronze" ? [...STONE_ACTIONS, ...BRONZE_ACTIONS] : STONE_ACTIONS;
+  const actions = state.era === "space"
+    ? [...STONE_ACTIONS, ...BRONZE_ACTIONS, ...INDUSTRIAL_ACTIONS, ...INFORMATION_ACTIONS]
+    : state.era === "information"
+    ? [...STONE_ACTIONS, ...BRONZE_ACTIONS, ...INDUSTRIAL_ACTIONS, ...INFORMATION_ACTIONS]
+    : state.era === "industrial"
+    ? [...STONE_ACTIONS, ...BRONZE_ACTIONS, ...INDUSTRIAL_ACTIONS]
+    : state.era === "bronze" ? [...STONE_ACTIONS, ...BRONZE_ACTIONS] : STONE_ACTIONS;
   return (
     <section aria-labelledby="actions-title">
       <div className="mb-4">
@@ -251,7 +421,7 @@ function ActionsPanel({
                 <div className="flex h-10 w-10 items-center justify-center bg-emerald-50 text-emerald-700">
                   <Icon className="h-5 w-5" />
                 </div>
-                <span className="text-[11px] font-bold text-stone-500">{text.level} {level}/5</span>
+                <span className="text-[11px] font-bold text-stone-500">{text.level} {level}/{CIVILIZATION_MAX_ACTION_LEVEL}</span>
               </div>
               <h3 className="mt-3 text-sm font-black text-stone-900">{civilizationActionNames[language][id]}</h3>
               <p className="mt-1 text-xs text-stone-500">
@@ -260,7 +430,7 @@ function ActionsPanel({
               <button
                 type="button"
                 data-testid={`action-start-${id}`}
-                disabled={busy || Boolean(active)}
+                disabled={busy || Boolean(active) || (id === "audit_system" && state.buildings.network_station <= 0)}
                 onClick={() => onCommand({ type: "START_ACTION", actionId: id })}
                 className="mt-4 h-10 w-full bg-emerald-700 px-3 text-sm font-black text-white transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-stone-300"
               >
@@ -269,11 +439,11 @@ function ActionsPanel({
               <button
                 type="button"
                 data-testid={`action-upgrade-${id}`}
-                disabled={busy || level >= 5 || !canAfford(state, [upgradeCost])}
+                disabled={busy || level >= CIVILIZATION_MAX_ACTION_LEVEL || !canAfford(state, [upgradeCost])}
                 onClick={() => onCommand({ type: "UPGRADE_ACTION", actionId: id })}
                 className="mt-2 h-9 w-full border border-stone-300 bg-white px-2 text-xs font-bold text-stone-700 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {level >= 5 ? text.max : `${text.upgrade} · ${civilizationResourceNames[language][upgradeCost.resource]} ${formatAmount(upgradeCost.amount)}`}
+                {level >= CIVILIZATION_MAX_ACTION_LEVEL ? text.max : `${text.upgrade} · ${civilizationResourceNames[language][upgradeCost.resource]} ${formatAmount(upgradeCost.amount)}`}
               </button>
               {active ? (
                 <div className="absolute bottom-0 left-0 h-1 bg-amber-500 transition-[width]" style={{ width: `${Math.max(0, 100 - (remaining / getCivilizationActionCooldownMs(state, id)) * 100)}%` }} />
@@ -288,9 +458,13 @@ function ActionsPanel({
 
 function BuildingsPanel({ state, busy, language, onCommand }: { state: CivilizationState; busy: boolean; language: "th" | "en"; onCommand: (command: CivilizationCommand) => void }) {
   const text = getCivilizationCopy(language);
-  const buildings = state.era === "bronze"
-    ? [...STONE_BUILDINGS, ...BRONZE_BUILDINGS]
-    : STONE_BUILDINGS;
+  const buildings = state.era === "space"
+    ? [...STONE_BUILDINGS, ...BRONZE_BUILDINGS, ...INDUSTRIAL_BUILDINGS, ...INFORMATION_BUILDINGS, ...SPACE_BUILDINGS]
+    : state.era === "information"
+    ? [...STONE_BUILDINGS, ...BRONZE_BUILDINGS, ...INDUSTRIAL_BUILDINGS, ...INFORMATION_BUILDINGS]
+    : state.era === "industrial"
+    ? [...STONE_BUILDINGS, ...BRONZE_BUILDINGS, ...INDUSTRIAL_BUILDINGS]
+    : state.era === "bronze" ? [...STONE_BUILDINGS, ...BRONZE_BUILDINGS] : STONE_BUILDINGS;
   return (
     <section aria-labelledby="buildings-title">
       <h2 id="buildings-title" className="mb-4 text-lg font-black text-stone-900">{text.buildTitle}</h2>
@@ -328,25 +502,49 @@ function BuildingsPanel({ state, busy, language, onCommand }: { state: Civilizat
 
 function WorkersPanel({ state, busy, language, onCommand }: { state: CivilizationState; busy: boolean; language: "th" | "en"; onCommand: (command: CivilizationCommand) => void }) {
   const text = getCivilizationCopy(language);
+  const jobs = state.era === "industrial" || state.era === "information" || state.era === "space" ? [...STONE_JOBS, ...INDUSTRIAL_JOBS] : STONE_JOBS;
   return (
     <section aria-labelledby="workers-title">
       <div className="mb-4 flex items-end justify-between gap-4">
         <h2 id="workers-title" className="text-lg font-black text-stone-900">{text.workersTitle}</h2>
         <p className="text-sm font-black text-emerald-700">{text.idle} {state.idleWorkers}</p>
       </div>
+      <div className="mb-5 border border-stone-200 bg-white p-4">
+        <h3 className="text-sm font-black text-stone-900">{text.cityPolicy}</h3>
+        <p className="mt-1 text-xs text-stone-500">{text.policyHint}</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {POLICIES.map((id) => (
+            <button
+              key={id}
+              type="button"
+              data-testid={`policy-${id}`}
+              disabled={busy || state.policy.id === id}
+              onClick={() => onCommand({ type: "SET_POLICY", policyId: id })}
+              className={cn("min-h-20 border p-3 text-left disabled:cursor-default", state.policy.id === id ? "border-emerald-600 bg-emerald-50" : "border-stone-200 bg-white hover:bg-stone-50")}
+            >
+              <span className="block text-xs font-black text-stone-900">{civilizationPolicyNames[language][id]}</span>
+              <span className="mt-1 block text-[11px] leading-4 text-stone-500">{civilizationPolicyBenefits[language][id]}</span>
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="divide-y divide-stone-200 border-y border-stone-200 bg-white">
-        {STONE_JOBS.map((id) => {
+        {jobs.map((id) => {
           const job = CIVILIZATION_JOBS[id];
           const unlocked = !job.buildingRequired || state.buildings[job.buildingRequired] > 0;
+          const perWorkerRate = getCivilizationWorkerProductionRate(state, id, 1);
+          const totalRate = getCivilizationWorkerProductionRate(state, id);
+          const masteryLevel = getCivilizationJobMasteryLevel(state, id);
           return (
             <div key={id} className="flex min-h-20 items-center justify-between gap-4 px-4 py-3">
               <div className="min-w-0">
                 <h3 className="truncate text-sm font-black text-stone-900">{civilizationJobNames[language][id]}</h3>
                 <p className="mt-1 text-xs text-stone-500">
                   {unlocked
-                    ? `+${job.baseRate}/s ${civilizationResourceNames[language][job.produces]}`
+                    ? `+${formatAmount(perWorkerRate)}/s ${civilizationResourceNames[language][job.produces]} ${text.perWorker} · ${text.total} +${formatAmount(totalRate)}/s`
                     : `${text.requires}: ${civilizationBuildingNames[language][job.buildingRequired!]}`}
                 </p>
+                <p className="mt-1 text-[11px] font-bold text-amber-700">{text.mastery} {masteryLevel}/10</p>
               </div>
               <div className="flex h-10 shrink-0 items-center border border-stone-300">
                 <button type="button" data-testid={`worker-remove-${id}`} aria-label={`Remove ${id}`} disabled={busy || state.workers[id] <= 0} onClick={() => onCommand({ type: "ASSIGN_WORKER", jobId: id, delta: -1 })} className="flex h-full w-10 items-center justify-center hover:bg-stone-100 disabled:opacity-30"><Minus className="h-4 w-4" /></button>
@@ -363,7 +561,13 @@ function WorkersPanel({ state, busy, language, onCommand }: { state: Civilizatio
 
 function ResearchPanel({ state, busy, language, onCommand }: { state: CivilizationState; busy: boolean; language: "th" | "en"; onCommand: (command: CivilizationCommand) => void }) {
   const text = getCivilizationCopy(language);
-  const techs = state.era === "bronze" ? [...STONE_TECHS, ...BRONZE_TECHS] : STONE_TECHS;
+  const techs = state.era === "space"
+    ? [...STONE_TECHS, ...BRONZE_TECHS, ...INDUSTRIAL_TECHS, ...INFORMATION_TECHS, ...SPACE_TECHS]
+    : state.era === "information"
+    ? [...STONE_TECHS, ...BRONZE_TECHS, ...INDUSTRIAL_TECHS, ...INFORMATION_TECHS]
+    : state.era === "industrial"
+    ? [...STONE_TECHS, ...BRONZE_TECHS, ...INDUSTRIAL_TECHS]
+    : state.era === "bronze" ? [...STONE_TECHS, ...BRONZE_TECHS] : STONE_TECHS;
   return (
     <section aria-labelledby="research-title">
       <h2 id="research-title" className="mb-4 text-lg font-black text-stone-900">{text.researchTitle}</h2>
@@ -373,18 +577,105 @@ function ResearchPanel({ state, busy, language, onCommand }: { state: Civilizati
           const complete = state.researchedTechs.includes(id);
           const prerequisitesMet = tech.prerequisites.every((item) => state.researchedTechs.includes(item));
           const affordable = state.resources.science.amount >= tech.scienceCost;
+          const completionRequirementsMet = id === "steam_power"
+            ? canCompleteCivilizationBronze(state)
+            : id === "factory_automation" ? canCompleteCivilizationIndustrial(state)
+            : id === "space_science" ? canCompleteCivilizationInformation(state) : true;
           return (
-            <article key={id} className={cn("border p-4", complete ? "border-emerald-300 bg-emerald-50" : "border-stone-200 bg-white")}>
+            <article key={id} className={cn("flex min-h-52 flex-col border p-4", complete ? "border-emerald-300 bg-emerald-50" : "border-stone-200 bg-white")}>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex h-9 w-9 items-center justify-center bg-stone-100 text-stone-700">{complete ? <Check className="h-5 w-5 text-emerald-700" /> : <Brain className="h-5 w-5" />}</div>
                 <span className="font-mono text-xs font-black text-cyan-700">{tech.scienceCost} {civilizationResourceNames[language].science}</span>
               </div>
               <h3 className="mt-3 text-sm font-black text-stone-900">{civilizationTechNames[language][id]}</h3>
+              <p className="mt-2 text-xs font-bold text-emerald-800">
+                {text.benefit}: {civilizationTechBenefits[language][id]}
+              </p>
               {tech.prerequisites.length > 0 ? (
                 <p className="mt-1 text-xs text-stone-500">{text.requires}: {tech.prerequisites.map((item) => civilizationTechNames[language][item]).join(", ")}</p>
               ) : <div className="h-5" />}
-              <button type="button" data-testid={`research-${id}`} disabled={busy || complete || !prerequisitesMet || !affordable} onClick={() => onCommand({ type: "BUY_RESEARCH", techId: id })} className="mt-3 h-9 w-full bg-cyan-800 px-3 text-xs font-black text-white hover:bg-cyan-900 disabled:cursor-not-allowed disabled:bg-stone-300">
+              {id === "steam_power" ? <p className="mt-1 text-xs font-bold text-amber-700">{text.bronzeRequirements}</p> : null}
+              {id === "factory_automation" ? <p className="mt-1 text-xs font-bold text-amber-700">{text.industrialRequirements}</p> : null}
+              {id === "space_science" ? <p className="mt-1 text-xs font-bold text-amber-700">{text.informationRequirements}</p> : null}
+              <button type="button" data-testid={`research-${id}`} disabled={busy || complete || !prerequisitesMet || !affordable || !completionRequirementsMet} onClick={() => onCommand({ type: "BUY_RESEARCH", techId: id })} className="mt-auto h-9 w-full bg-cyan-800 px-3 text-xs font-black text-white hover:bg-cyan-900 disabled:cursor-not-allowed disabled:bg-stone-300">
                 {complete ? text.completed : prerequisitesMet ? text.researchNow : text.locked}
+              </button>
+            </article>
+          );
+        })}
+      </div>
+      <h3 className="mb-3 mt-6 text-base font-black text-stone-900">{text.repeatableResearch}</h3>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {REPEATABLE_RESEARCH.map((id) => {
+          const definition = CIVILIZATION_REPEATABLE_RESEARCH[id];
+          const level = state.researchLevels[id];
+          const eraAvailable = definition.era === "stone" || state.era === definition.era ||
+            (state.era === "industrial" && definition.era !== "information" && definition.era !== "space") ||
+            (state.era === "information" && definition.era !== "space") || state.era === "space";
+          const unlocked = state.researchedTechs.includes(definition.prerequisite) && eraAvailable;
+          const cost = getCivilizationRepeatableResearchCost(state, id);
+          const atMax = level >= definition.maxLevel;
+          return (
+            <article key={id} className="flex min-h-40 flex-col border border-stone-200 bg-white p-4">
+              <div className="flex items-start justify-between gap-3">
+                <h4 className="text-sm font-black text-stone-900">{civilizationRepeatableResearchNames[language][id]}</h4>
+                <span className="font-mono text-xs font-black text-cyan-700">{text.level} {level}/{definition.maxLevel}</span>
+              </div>
+              <p className="mt-2 text-xs text-emerald-800">{civilizationRepeatableResearchBenefits[language][id]}</p>
+              <button type="button" data-testid={`repeatable-research-${id}`} disabled={busy || !unlocked || atMax || state.resources.science.amount < cost} onClick={() => onCommand({ type: "BUY_REPEATABLE_RESEARCH", researchId: id })} className="mt-auto h-9 bg-cyan-800 px-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:bg-stone-300">
+                {atMax ? text.max : unlocked ? `${text.researchNow} · ${cost} ${civilizationResourceNames[language].science}` : text.locked}
+              </button>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function SpaceProjectPanel({ state, busy, language, onCommand }: { state: CivilizationState; busy: boolean; language: "th" | "en"; onCommand: (command: CivilizationCommand) => void }) {
+  const text = getCivilizationCopy(language);
+  const stageNames = language === "th"
+    ? ["โครงยาน", "ระบบขับดัน", "ระบบยังชีพ", "เตรียมอพยพ"]
+    : ["Ship frame", "Propulsion", "Life support", "Evacuation readiness"];
+
+  return (
+    <section className="mb-6 border border-sky-300 bg-sky-50 p-4 sm:p-5" aria-labelledby="space-project-title">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 id="space-project-title" className="text-base font-black text-sky-950">{text.spaceProjectTitle}</h3>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-sky-900/75">{text.spaceProjectBody}</p>
+        </div>
+        <span className="border border-sky-300 bg-white px-3 py-1 font-mono text-xs font-black text-sky-900">
+          {text.spaceProjectStage} {state.spaceProjectStage}/4
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-4">
+        {([1, 2, 3, 4] as const).map((stage) => {
+          const requirements = getCivilizationSpaceProjectStageRequirements(state, stage);
+          const complete = state.spaceProjectStage >= stage;
+          const ready = requirements.isNextStage && requirements.techReady && requirements.testCenterReady &&
+            requirements.evacuationPortReady && requirements.powerReady && requirements.computeReady &&
+            canAfford(state, requirements.costs);
+          return (
+            <article key={stage} className={cn("flex min-h-52 flex-col border p-3", complete ? "border-emerald-300 bg-emerald-50" : requirements.isNextStage ? "border-sky-500 bg-white" : "border-stone-200 bg-stone-100") }>
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex h-8 w-8 items-center justify-center bg-sky-100 font-mono text-xs font-black text-sky-900">{stage}</span>
+                {complete ? <Check className="h-5 w-5 text-emerald-700" /> : null}
+              </div>
+              <h4 className="mt-3 text-sm font-black text-stone-900">{stageNames[stage - 1]}</h4>
+              <p className="mt-1 text-xs text-stone-500">{text.requires}: {civilizationTechNames[language][["lightweight_materials", "propulsion_systems", "life_support", "evacuation"][stage - 1] as CivilizationTechId]}</p>
+              <div className="mt-3"><CostLine state={state} costs={requirements.costs} language={language} /></div>
+              {stage === 2 ? <p className="mt-2 text-[11px] font-bold text-amber-700">{text.requires}: {civilizationBuildingNames[language].test_center}</p> : null}
+              {stage === 4 ? <p className="mt-2 text-[11px] font-bold text-amber-700">{text.spaceFinalRequirements}</p> : null}
+              <button
+                type="button"
+                data-testid={`space-project-stage-${stage}`}
+                disabled={busy || complete || !ready}
+                onClick={() => onCommand({ type: "COMPLETE_SPACE_PROJECT_STAGE", stage })}
+                className="mt-auto h-9 bg-sky-800 px-2 text-xs font-black text-white hover:bg-sky-900 disabled:cursor-not-allowed disabled:bg-stone-300"
+              >
+                {complete ? text.spaceStageComplete : requirements.isNextStage ? text.completeSpaceStage : text.locked}
               </button>
             </article>
           );
@@ -396,34 +687,118 @@ function ResearchPanel({ state, busy, language, onCommand }: { state: Civilizati
 
 function ConvertersPanel({ state, busy, language, onCommand }: { state: CivilizationState; busy: boolean; language: "th" | "en"; onCommand: (command: CivilizationCommand) => void }) {
   const text = getCivilizationCopy(language);
+  const converterIds = state.era === "space"
+    ? [...BRONZE_CONVERTERS, ...INDUSTRIAL_CONVERTERS, ...INFORMATION_CONVERTERS, ...SPACE_CONVERTERS]
+    : state.era === "information"
+    ? [...BRONZE_CONVERTERS, ...INDUSTRIAL_CONVERTERS, ...INFORMATION_CONVERTERS]
+    : state.era === "industrial"
+    ? [...BRONZE_CONVERTERS, ...INDUSTRIAL_CONVERTERS]
+    : BRONZE_CONVERTERS;
+  const power = getCivilizationPowerStatus(state);
+  const compute = getCivilizationComputeStatus(state);
+  const automationSlots = getCivilizationAutomationSlots(state);
+  const priorityLabels = [text.priorityHigh, text.priorityNormal, text.priorityLow] as const;
   return (
     <section aria-labelledby="converters-title">
-      <h2 id="converters-title" className="mb-4 text-lg font-black text-stone-900">{text.converterTitle}</h2>
+      <h2 id="converters-title" className="mb-4 text-lg font-black text-stone-900">{state.era === "space" ? text.spaceConverterTitle : state.era === "information" ? text.informationConverterTitle : state.era === "industrial" ? text.industrialConverterTitle : text.converterTitle}</h2>
+      {state.era === "space" ? <SpaceProjectPanel state={state} busy={busy} language={language} onCommand={onCommand} /> : null}
+      {state.researchedTechs.includes("electrification") ? (
+        <div className="mb-5 border-y border-cyan-200 bg-cyan-50 px-4 py-4">
+          <div className="flex items-center gap-2 text-sm font-black text-cyan-950"><Zap className="h-4 w-4" />{text.powerGrid}</div>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+            <div><span className="block text-stone-500">{text.powerSupply}</span><strong className="font-mono text-cyan-900">{formatAmount(power.supply)}</strong></div>
+            <div><span className="block text-stone-500">{text.powerUsed}</span><strong className="font-mono text-cyan-900">{formatAmount(power.used)}</strong></div>
+            <div><span className="block text-stone-500">{text.powerAvailable}</span><strong className="font-mono text-cyan-900">{formatAmount(power.available)}</strong></div>
+          </div>
+        </div>
+      ) : null}
+      {state.era === "information" || state.era === "space" ? (
+        <div className="mb-5 grid gap-3 lg:grid-cols-[1fr_2fr]">
+          <div className="border-y border-emerald-200 bg-emerald-50 px-4 py-4">
+            <div className="flex items-center gap-2 text-sm font-black text-emerald-950"><Server className="h-4 w-4" />{text.computeGrid}</div>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+              <div><span className="block text-stone-500">{text.powerSupply}</span><strong className="font-mono text-emerald-900">{formatAmount(compute.supply)}</strong></div>
+              <div><span className="block text-stone-500">{text.powerUsed}</span><strong className="font-mono text-emerald-900">{formatAmount(compute.used)}</strong></div>
+              <div><span className="block text-stone-500">{text.powerAvailable}</span><strong className="font-mono text-emerald-900">{formatAmount(compute.available)}</strong></div>
+            </div>
+          </div>
+          <div className="border-y border-violet-200 bg-violet-50 px-4 py-4">
+            <div className="flex items-center justify-between gap-3 text-sm font-black text-violet-950"><span className="flex items-center gap-2"><Network className="h-4 w-4" />{text.automation}</span><span className="font-mono text-xs">{state.automationRules.length}/{automationSlots} {text.automationSlots}</span></div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {AUTOMATION_RULES.map((ruleId) => {
+                const active = state.automationRules.includes(ruleId);
+                return <button key={ruleId} type="button" data-testid={`automation-${ruleId}`} disabled={busy || (!active && state.automationRules.length >= automationSlots)} onClick={() => onCommand({ type: "TOGGLE_AUTOMATION_RULE", ruleId })} className={cn("min-h-10 border px-2 text-xs font-black disabled:opacity-40", active ? "border-violet-700 bg-violet-700 text-white" : "border-violet-300 bg-white text-violet-900")}>{civilizationAutomationRuleNames[language][ruleId]}</button>;
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {BRONZE_CONVERTERS.map((id) => {
-          const definition = CIVILIZATION_CONVERTERS[id];
+        {converterIds.map((id) => {
           const converter = state.converters[id];
+          const definition = CIVILIZATION_CONVERTERS[id];
           const unlocked = state.unlockedConverters.includes(id);
           const costs = getCivilizationConverterCost(state, id);
+          const displayedLevel = Math.max(1, converter.count);
+          const rates = getCivilizationConverterRates(state, id, displayedLevel);
+          const atMax = converter.count >= CIVILIZATION_MAX_CONVERTER_LEVEL;
+          const powerDemand = getCivilizationConverterPowerDemand(state, id);
+          const canPrioritize = converter.count > 0 && Boolean(definition.powerDemand) && state.researchedTechs.includes("factory_priority");
           return (
             <article key={id} className={cn("flex min-h-56 flex-col border p-4", unlocked ? "border-stone-200 bg-white" : "border-stone-200 bg-stone-100 opacity-70")}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex h-10 w-10 items-center justify-center bg-orange-50 text-orange-700"><Factory className="h-5 w-5" /></div>
-                <span className="font-mono text-xs font-black text-stone-500">x{converter.count}</span>
+                <span className="font-mono text-xs font-black text-stone-500">{text.level} {converter.count}</span>
               </div>
               <h3 className="mt-3 text-sm font-black text-stone-900">{civilizationConverterNames[language][id]}</h3>
+              <p className="mt-1 text-[11px] font-bold uppercase text-stone-400">
+                {converter.count > 0 ? `${text.total} (${text.level} ${converter.count})` : text.perLevel}
+              </p>
               <p className="mt-1 text-xs text-stone-500">
-                {text.input}: {definition.inputs.map((item) => `${formatAmount(item.amount)}/s ${civilizationResourceNames[language][item.resource]}`).join(", ")}
+                {text.input}: {rates.inputs.map((item) => `${formatAmount(item.amount)}/s ${civilizationResourceNames[language][item.resource]}`).join(", ")}
               </p>
               <p className="mt-1 text-xs font-bold text-emerald-700">
-                {text.output}: {definition.outputs.map((item) => `${formatAmount(item.amount)}/s ${civilizationResourceNames[language][item.resource]}`).join(", ")}
+                {text.output}: {definition.powerSupply
+                  ? `${formatAmount(definition.powerSupply * displayedLevel)} ${civilizationResourceNames[language].electricity}`
+                  : definition.computeSupply
+                    ? `${rates.outputs.map((item) => `${formatAmount(item.amount)}/s ${civilizationResourceNames[language][item.resource]}`).join(", ")} + ${formatAmount(definition.computeSupply * displayedLevel)} ${civilizationResourceNames[language].compute}`
+                    : rates.outputs.map((item) => `${formatAmount(item.amount)}/s ${civilizationResourceNames[language][item.resource]}`).join(", ")}
               </p>
-              {converter.count === 0 ? <div className="mt-3"><CostLine state={state} costs={costs} language={language} /></div> : null}
+              {powerDemand > 0 ? <p className="mt-1 text-xs font-bold text-cyan-800">{text.powerUsed}: {formatAmount(powerDemand)} {civilizationResourceNames[language].electricity}</p> : null}
+              {definition.computeDemand ? <p className="mt-1 text-xs font-bold text-emerald-800">{text.powerUsed}: {formatAmount(definition.computeDemand * displayedLevel)} {civilizationResourceNames[language].compute}</p> : null}
+              {canPrioritize ? (
+                <div className="mt-3">
+                  <p className="mb-1 text-[11px] font-bold text-stone-500">{text.priority}</p>
+                  <div className="grid grid-cols-3 border border-stone-300">
+                    {([1, 2, 3] as const).map((priority, index) => (
+                      <button
+                        key={priority}
+                        type="button"
+                        data-testid={`converter-priority-${id}-${priority}`}
+                        disabled={busy || converter.priority === priority}
+                        onClick={() => onCommand({ type: "SET_CONVERTER_PRIORITY", converterId: id, priority })}
+                        className={cn("h-8 border-r border-stone-300 px-1 text-[10px] font-black last:border-r-0", converter.priority === priority ? "bg-cyan-800 text-white" : "bg-white text-stone-600 hover:bg-stone-100")}
+                      >
+                        {priorityLabels[index]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {unlocked ? (
+                <div className="mt-3">
+                  <p className="mb-1 text-[11px] font-bold text-stone-500">{text.nextUpgradeCost}</p>
+                  <CostLine state={state} costs={costs} language={language} />
+                </div>
+              ) : null}
               <div className="mt-auto pt-4">
                 {converter.count > 0 ? (
-                  <button type="button" data-testid={`converter-toggle-${id}`} disabled={busy} onClick={() => onCommand({ type: "TOGGLE_CONVERTER", converterId: id })} className={cn("h-9 w-full px-3 text-xs font-black text-white disabled:opacity-40", converter.enabled ? "bg-rose-700 hover:bg-rose-800" : "bg-emerald-700 hover:bg-emerald-800")}>{converter.enabled ? text.pause : text.resume}</button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" data-testid={`converter-toggle-${id}`} disabled={busy} onClick={() => onCommand({ type: "TOGGLE_CONVERTER", converterId: id })} className={cn("h-9 px-3 text-xs font-black text-white disabled:opacity-40", converter.enabled ? "bg-rose-700 hover:bg-rose-800" : "bg-emerald-700 hover:bg-emerald-800")}>{converter.enabled ? text.pause : text.resume}</button>
+                    <button type="button" data-testid={`converter-upgrade-${id}`} disabled={busy || atMax || !canAfford(state, costs)} onClick={() => onCommand({ type: "BUY_CONVERTER", converterId: id })} className="h-9 bg-orange-700 px-2 text-xs font-black text-white hover:bg-orange-800 disabled:cursor-not-allowed disabled:bg-stone-300">{atMax ? text.max : `${text.upgrade} ${text.level} ${converter.count + 1}`}</button>
+                  </div>
                 ) : (
-                  <button type="button" data-testid={`converter-buy-${id}`} disabled={busy || !unlocked || !canAfford(state, costs)} onClick={() => onCommand({ type: "BUY_CONVERTER", converterId: id })} className="h-9 w-full bg-stone-900 px-3 text-xs font-black text-white hover:bg-stone-700 disabled:cursor-not-allowed disabled:bg-stone-300">{unlocked ? text.build : text.locked}</button>
+                  <button type="button" data-testid={`converter-buy-${id}`} disabled={busy || !unlocked || !canAfford(state, costs)} onClick={() => onCommand({ type: "BUY_CONVERTER", converterId: id })} className="h-9 w-full bg-stone-900 px-3 text-xs font-black text-white hover:bg-stone-700 disabled:cursor-not-allowed disabled:bg-stone-300">{unlocked ? `${text.build} ${text.level} 1` : text.locked}</button>
                 )}
               </div>
             </article>
@@ -457,6 +832,33 @@ function OfflineSummaryDialog({ summary, language, onClose }: { summary: Civiliz
   );
 }
 
+const PERMANENT_REWARD_IDS: CivilizationPermanentRewardId[] = ["abundant_harvest", "research_archive", "founder_stockpile", "efficient_industry"];
+
+function PrestigeDialog({ state, language, busy, onClose, onCommand }: { state: CivilizationState; language: "th" | "en"; busy: boolean; onClose: () => void; onCommand: (command: CivilizationCommand) => void }) {
+  const text = getCivilizationCopy(language);
+  const [selected, setSelected] = useState<CivilizationPermanentRewardId | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const runHours = Math.max(0, Math.floor((state.lastSimulatedAt - state.runStartedAt) / 3_600_000));
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-3 sm:p-5" role="dialog" aria-modal="true" aria-labelledby="prestige-title">
+      <div className="max-h-[calc(100vh-1.5rem)] w-full max-w-3xl overflow-y-auto border border-amber-300 bg-[#fbfaf6] shadow-2xl">
+        <div className="flex items-start justify-between border-b border-stone-200 p-5 sm:p-6">
+          <div><p className="text-xs font-black uppercase text-amber-700">{text.prestigeRun} {state.runNumber} · {runHours}h</p><h2 id="prestige-title" className="mt-1 text-2xl font-black text-stone-950">{confirming ? text.prestigeConfirmTitle : text.prestigeTitle}</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">{confirming ? text.prestigeConfirmBody : text.prestigeBody}</p></div>
+          <button type="button" onClick={onClose} aria-label={language === "th" ? "ปิด" : "Close"} className="h-10 w-10 shrink-0 border border-stone-300 text-xl text-stone-600 hover:bg-stone-100">×</button>
+        </div>
+        <div className="p-5 sm:p-6">
+          {!confirming ? <div className="grid gap-3 sm:grid-cols-2">{PERMANENT_REWARD_IDS.map((rewardId) => {
+            const level = state.permanentRewards[rewardId];
+            const maxed = level >= CIVILIZATION_PERMANENT_REWARD_MAX_LEVEL;
+            return <button key={rewardId} type="button" data-testid={`prestige-reward-${rewardId}`} disabled={maxed} onClick={() => setSelected(rewardId)} className={cn("min-h-36 border p-4 text-left transition-colors", selected === rewardId ? "border-amber-600 bg-amber-50" : "border-stone-300 bg-white hover:border-amber-400", maxed && "cursor-not-allowed opacity-50")}><div className="flex items-center justify-between gap-3"><span className="font-black text-stone-900">{civilizationPermanentRewardNames[language][rewardId]}</span><span className="shrink-0 font-mono text-xs font-black text-amber-800">{level}/{CIVILIZATION_PERMANENT_REWARD_MAX_LEVEL}</span></div><p className="mt-3 text-sm leading-6 text-stone-600">{civilizationPermanentRewardBenefits[language][rewardId]}</p><p className="mt-3 text-xs font-black text-amber-800">{maxed ? text.prestigeMaxed : text.prestigeChoose}</p></button>;
+          })}</div> : selected ? <div><div className="border border-amber-400 bg-amber-50 p-4"><p className="font-black text-stone-950">{civilizationPermanentRewardNames[language][selected]}</p><p className="mt-2 text-sm leading-6 text-stone-700">{civilizationPermanentRewardBenefits[language][selected]}</p><p className="mt-2 font-mono text-xs font-black text-amber-800">{state.permanentRewards[selected]} → {state.permanentRewards[selected] + 1}</p></div><div className="mt-4 space-y-2 text-sm leading-6"><p className="border-l-4 border-emerald-600 bg-emerald-50 px-4 py-3 font-bold text-emerald-950">{text.prestigeKeeps}</p><p className="border-l-4 border-rose-600 bg-rose-50 px-4 py-3 font-bold text-rose-950">{text.prestigeResets}</p></div></div> : null}
+          <div className="mt-6 grid grid-cols-2 gap-3"><button type="button" onClick={confirming ? () => setConfirming(false) : onClose} className="h-12 border border-stone-300 bg-white text-sm font-black text-stone-700 hover:bg-stone-100">{confirming ? text.prestigeBack : text.later}</button>{confirming && selected ? <button type="button" data-testid="prestige-confirm" disabled={busy} onClick={() => onCommand({ type: "PRESTIGE_RESET", rewardId: selected, confirmRunNumber: state.runNumber })} className="h-12 bg-rose-700 px-3 text-sm font-black text-white hover:bg-rose-800 disabled:opacity-40">{text.prestigeConfirm}</button> : <button type="button" data-testid="prestige-continue" disabled={!selected || busy} onClick={() => setConfirming(true)} className="h-12 bg-amber-700 px-3 text-sm font-black text-white hover:bg-amber-800 disabled:opacity-40">{text.prestigeContinue}</button>}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EventList({ events, language }: { events: CivilizationEngineEvent[]; language: "th" | "en" }) {
   const text = getCivilizationCopy(language);
   return (
@@ -479,8 +881,9 @@ export function CivilizationGame({ previewState, previewOfflineSummary }: { prev
   const text = getCivilizationCopy(language);
   const { state, revision, connection, queuedCount, events, lastError, enqueue, retry, refresh, offlineSummary, dismissOfflineSummary } = useCivilizationGame(previewState, previewOfflineSummary);
   const [tab, setTab] = useState<GameTab>("actions");
-  const [eraPromptDismissed, setEraPromptDismissed] = useState(false);
+  const [dismissedEraPrompt, setDismissedEraPrompt] = useState<"bronze" | "industrial" | "information" | "space" | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [dismissedPrestigeRun, setDismissedPrestigeRun] = useState<number | null>(null);
   const timeOffsetRef = useRef(0);
 
   useEffect(() => {
@@ -506,6 +909,14 @@ export function CivilizationGame({ previewState, previewOfflineSummary }: { prev
       activeActions: state?.activeActions,
       converters: state?.converters,
       unlockedConverters: state?.unlockedConverters,
+      automationRules: state?.automationRules,
+      industrialCompleted: state?.industrialCompleted,
+      informationCompleted: state?.informationCompleted,
+      spaceProjectStage: state?.spaceProjectStage,
+      spaceCompleted: state?.spaceCompleted,
+      runNumber: state?.runNumber,
+      permanentRewards: state?.permanentRewards,
+      prestigeDialogOpen: Boolean(state?.spaceCompleted && dismissedPrestigeRun !== state.runNumber),
       offlineSummary,
       coordinateSystem: "DOM layout; no world coordinates",
     });
@@ -517,7 +928,7 @@ export function CivilizationGame({ previewState, previewOfflineSummary }: { prev
       delete testWindow.render_game_to_text;
       delete testWindow.advanceTime;
     };
-  }, [connection, offlineSummary, queuedCount, revision, state, tab]);
+  }, [connection, dismissedPrestigeRun, offlineSummary, queuedCount, revision, state, tab]);
 
   const tabs = useMemo<Array<{ id: GameTab; label: string; icon: LucideIcon }>>(() => {
     const items: Array<{ id: GameTab; label: string; icon: LucideIcon }> = [
@@ -526,7 +937,7 @@ export function CivilizationGame({ previewState, previewOfflineSummary }: { prev
       { id: "workers", label: text.workers, icon: Users },
       { id: "research", label: text.research, icon: BookOpen },
     ];
-    if (state?.era === "bronze") items.push({ id: "converters", label: text.converters, icon: Factory });
+    if (state?.era !== "stone") items.push({ id: "converters", label: text.converters, icon: Factory });
     return items;
   }, [state?.era, text]);
 
@@ -543,10 +954,19 @@ export function CivilizationGame({ previewState, previewOfflineSummary }: { prev
   }
 
   const busy = connection === "syncing" || queuedCount > 0;
+  const showPrestige = state.spaceCompleted && dismissedPrestigeRun !== state.runNumber;
   const statusLabel = connection === "syncing" ? text.syncing : connection === "offline" ? text.offline : text.saved;
   const StatusIcon = connection === "offline" ? WifiOff : connection === "syncing" ? LoaderCircle : Check;
   const isBronze = state.era === "bronze";
-  const showEraPrompt = !isBronze && state.unlockedEras.includes("bronze") && !eraPromptDismissed;
+  const isIndustrial = state.era === "industrial";
+  const isInformation = state.era === "information";
+  const isSpace = state.era === "space";
+  const targetEra = state.era === "stone" && state.unlockedEras.includes("bronze")
+    ? "bronze"
+    : state.era === "bronze" && state.unlockedEras.includes("industrial") ? "industrial"
+    : state.era === "industrial" && state.unlockedEras.includes("information") ? "information"
+    : state.era === "information" && state.unlockedEras.includes("space") ? "space" : null;
+  const showEraPrompt = targetEra !== null && dismissedEraPrompt !== targetEra;
   const bannerMessage = connection === "offline"
     ? text.commandFailed
     : lastError === "CONFLICT"
@@ -562,7 +982,7 @@ export function CivilizationGame({ previewState, previewOfflineSummary }: { prev
           <Link href="/student/access" aria-label={text.back} title={text.back} className="flex h-10 w-10 shrink-0 items-center justify-center border border-white/20 hover:bg-white/10"><ArrowLeft className="h-5 w-5" /></Link>
           <div className="min-w-0">
             <h1 className="truncate text-base font-black sm:text-lg">{text.title}</h1>
-            <p className="text-[10px] font-bold uppercase text-emerald-200">{isBronze ? text.bronzeEra : text.era}</p>
+            <p className="text-[10px] font-bold uppercase text-emerald-200">{isSpace ? text.spaceEra : isInformation ? text.informationEra : isIndustrial ? text.industrialEra : isBronze ? text.bronzeEra : text.era}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -583,13 +1003,13 @@ export function CivilizationGame({ previewState, previewOfflineSummary }: { prev
       ) : null}
 
       <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative h-64 overflow-hidden border-b border-stone-300 sm:h-80">
-        <Image src={isBronze ? "/civilization-idle/bronze-village.webp" : "/civilization-idle/stone-village.webp"} alt="" fill priority sizes="100vw" className="object-cover object-center" />
+        <Image src={isSpace ? "/civilization-idle/space-city.png" : isInformation ? "/civilization-idle/information-city.png" : isIndustrial ? "/civilization-idle/industrial-city.webp" : isBronze ? "/civilization-idle/bronze-village.webp" : "/civilization-idle/stone-village.webp"} alt="" fill priority sizes="100vw" className="object-cover object-center" />
         <div className="absolute inset-0 bg-black/10" />
         <div className="absolute inset-x-0 bottom-0 bg-black/55 px-5 py-4 text-white backdrop-blur-[2px] sm:px-8">
           <motion.div initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}>
-            <p className="text-xs font-bold uppercase text-emerald-200">{isBronze ? text.bronzeStatus : text.villageStatus}</p>
-            <h2 className="mt-1 text-2xl font-black sm:text-3xl">{isBronze ? text.bronzeVillage : text.village}</h2>
-            <p className="mt-1 text-xs text-white/80">{isBronze ? text.bronzeGoalActive : text.bronzeGoal}</p>
+            <p className="text-xs font-bold uppercase text-emerald-200">{isSpace ? text.spaceStatus : isInformation ? text.informationStatus : isIndustrial ? text.industrialStatus : isBronze ? text.bronzeStatus : text.villageStatus}</p>
+            <h2 className="mt-1 text-2xl font-black sm:text-3xl">{isSpace ? text.spaceVillage : isInformation ? text.informationVillage : isIndustrial ? text.industrialVillage : isBronze ? text.bronzeVillage : text.village}</h2>
+            <p className="mt-1 text-xs text-white/80">{isSpace ? text.spaceGoalActive : isInformation ? text.informationGoalActive : isIndustrial ? text.industrialGoalActive : isBronze ? text.bronzeGoalActive : text.bronzeGoal}</p>
           </motion.div>
         </div>
       </motion.section>
@@ -599,6 +1019,7 @@ export function CivilizationGame({ previewState, previewOfflineSummary }: { prev
       <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[190px_minmax(0,1fr)] xl:grid-cols-[190px_minmax(0,1fr)_220px]">
         <ResourceRail state={state} language={language} />
         <div className="min-w-0 bg-[#fbfaf6]">
+          <MilestoneStrip state={state} language={language} />
           <nav aria-label="Game sections" className="sticky top-16 z-30 grid border-b border-stone-200 bg-[#fbfaf6]" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
             {tabs.map(({ id, label, icon: Icon }) => (
               <button key={id} type="button" data-testid={`tab-${id}`} onClick={() => setTab(id)} className={cn("relative flex h-14 items-center justify-center gap-2 px-2 text-xs font-black transition-colors sm:text-sm", tab === id ? "text-emerald-800" : "text-stone-500 hover:bg-stone-100") }>
@@ -613,7 +1034,7 @@ export function CivilizationGame({ previewState, previewOfflineSummary }: { prev
             {tab === "workers" ? <WorkersPanel state={state} busy={busy} language={language} onCommand={enqueue} /> : null}
             {tab === "research" ? <ResearchPanel state={state} busy={busy} language={language} onCommand={enqueue} /> : null}
             {tab === "converters" ? <ConvertersPanel state={state} busy={busy} language={language} onCommand={enqueue} /> : null}
-            {state.bronzeCompleted ? <div className="mt-5 border border-amber-300 bg-amber-50 p-4 text-sm font-black text-amber-900">{text.currentContentComplete}</div> : null}
+            {state.spaceCompleted ? <div className="mt-5 border border-sky-300 bg-sky-50 p-4 text-sm font-black text-sky-950"><p>{text.currentSpaceComplete}</p><button type="button" data-testid="prestige-open" onClick={() => setDismissedPrestigeRun(null)} className="mt-3 h-10 bg-sky-900 px-4 text-xs font-black text-white hover:bg-sky-950">{text.prestigeOpen}</button></div> : state.informationCompleted && state.era === "information" ? <div className="mt-5 border border-violet-300 bg-violet-50 p-4 text-sm font-black text-violet-950">{text.currentInformationComplete}</div> : state.industrialCompleted && state.era === "industrial" ? <div className="mt-5 border border-cyan-300 bg-cyan-50 p-4 text-sm font-black text-cyan-950">{text.currentIndustrialComplete}</div> : state.era === "bronze" && state.bronzeCompleted ? <div className="mt-5 border border-amber-300 bg-amber-50 p-4 text-sm font-black text-amber-900">{text.currentContentComplete}</div> : null}
           </motion.div>
         </div>
         <div className="xl:block"><EventList events={events} language={language} /></div>
@@ -622,15 +1043,16 @@ export function CivilizationGame({ previewState, previewOfflineSummary }: { prev
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-4" role="dialog" aria-modal="true" aria-labelledby="era-prompt-title">
           <div className="w-full max-w-md border border-stone-300 bg-[#fbfaf6] p-5 shadow-2xl sm:p-6">
             <div className="flex h-11 w-11 items-center justify-center bg-orange-100 text-orange-800"><Factory className="h-5 w-5" /></div>
-            <h2 id="era-prompt-title" className="mt-4 text-xl font-black text-stone-900">{text.enterBronzeTitle}</h2>
-            <p className="mt-2 text-sm leading-6 text-stone-600">{text.enterBronzeBody}</p>
+            <h2 id="era-prompt-title" className="mt-4 text-xl font-black text-stone-900">{targetEra === "space" ? text.enterSpaceTitle : targetEra === "information" ? text.enterInformationTitle : targetEra === "industrial" ? text.enterIndustrialTitle : text.enterBronzeTitle}</h2>
+            <p className="mt-2 text-sm leading-6 text-stone-600">{targetEra === "space" ? text.enterSpaceBody : targetEra === "information" ? text.enterInformationBody : targetEra === "industrial" ? text.enterIndustrialBody : text.enterBronzeBody}</p>
             <div className="mt-5 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setEraPromptDismissed(true)} className="h-11 border border-stone-300 bg-white text-sm font-black text-stone-700 hover:bg-stone-100">{text.later}</button>
-              <button type="button" data-testid="advance-era-bronze" disabled={busy} onClick={() => enqueue({ type: "ADVANCE_ERA", eraId: "bronze" })} className="h-11 bg-orange-700 text-sm font-black text-white hover:bg-orange-800 disabled:opacity-40">{text.enterBronze}</button>
+              <button type="button" onClick={() => setDismissedEraPrompt(targetEra)} className="h-11 border border-stone-300 bg-white text-sm font-black text-stone-700 hover:bg-stone-100">{text.later}</button>
+              <button type="button" data-testid={`advance-era-${targetEra}`} disabled={busy || !targetEra} onClick={() => targetEra && enqueue({ type: "ADVANCE_ERA", eraId: targetEra })} className="h-11 bg-orange-700 text-sm font-black text-white hover:bg-orange-800 disabled:opacity-40">{targetEra === "space" ? text.enterSpace : targetEra === "information" ? text.enterInformation : targetEra === "industrial" ? text.enterIndustrial : text.enterBronze}</button>
             </div>
           </div>
         </div>
       ) : null}
+      {showPrestige ? <PrestigeDialog state={state} language={language} busy={busy} onClose={() => setDismissedPrestigeRun(state.runNumber)} onCommand={enqueue} /> : null}
       {offlineSummary ? <OfflineSummaryDialog summary={offlineSummary} language={language} onClose={dismissOfflineSummary} /> : null}
     </main>
   );

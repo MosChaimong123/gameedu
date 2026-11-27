@@ -4,6 +4,12 @@ import {
   CIVILIZATION_CONVERTERS,
   CIVILIZATION_ERA_ORDER,
   CIVILIZATION_JOBS,
+  CIVILIZATION_MASTERY_THRESHOLDS_SECONDS,
+  CIVILIZATION_MAX_ACTION_LEVEL,
+  CIVILIZATION_MAX_CONVERTER_LEVEL,
+  CIVILIZATION_PERMANENT_REWARD_MAX_LEVEL,
+  CIVILIZATION_POLICIES,
+  CIVILIZATION_REPEATABLE_RESEARCH,
   CIVILIZATION_TECHS,
 } from "./content";
 import {
@@ -25,6 +31,17 @@ export function getCivilizationInvariantViolations(state: CivilizationState): st
   }
   if (!Number.isFinite(state.populationGrowthProgressMs) || state.populationGrowthProgressMs < 0) {
     violations.push("populationGrowthProgressMs must be finite and non-negative");
+  }
+  if (!Number.isInteger(state.runNumber) || state.runNumber < 1) {
+    violations.push("runNumber must be a positive integer");
+  }
+  if (!Number.isFinite(state.runStartedAt) || state.runStartedAt < 0 || state.runStartedAt > state.lastSimulatedAt) {
+    violations.push("runStartedAt must be finite, non-negative, and not after lastSimulatedAt");
+  }
+  for (const [rewardId, level] of Object.entries(state.permanentRewards)) {
+    if (!Number.isInteger(level) || level < 0 || level > CIVILIZATION_PERMANENT_REWARD_MAX_LEVEL) {
+      violations.push(`${rewardId} permanent reward level must be from 0 to ${CIVILIZATION_PERMANENT_REWARD_MAX_LEVEL}`);
+    }
   }
   if (!state.unlockedEras.includes(state.era)) {
     violations.push("current era must be unlocked");
@@ -84,7 +101,9 @@ export function getCivilizationInvariantViolations(state: CivilizationState): st
       violations.push(`${id} building count must be a non-negative integer`);
     }
     const maxCount = CIVILIZATION_BUILDINGS[id].maxCount;
-    if (maxCount !== undefined && count > maxCount) {
+    // Repeated buildings were uncapped in v1. Preserve legacy cities above the new
+    // Phase 2 cap, while singleton unlock buildings remain strict.
+    if (maxCount === 1 && count > maxCount) {
       violations.push(`${id} building count must not exceed ${maxCount}`);
     }
   }
@@ -92,12 +111,17 @@ export function getCivilizationInvariantViolations(state: CivilizationState): st
     const converter = state.converters[id];
     if (!converter || !Number.isInteger(converter.count) || converter.count < 0) {
       violations.push(`${id} converter count must be a non-negative integer`);
+    } else if (converter.count > CIVILIZATION_MAX_CONVERTER_LEVEL) {
+      violations.push(`${id} converter count must not exceed ${CIVILIZATION_MAX_CONVERTER_LEVEL}`);
+    }
+    if (![1, 2, 3].includes(converter?.priority)) {
+      violations.push(`${id} converter priority must be 1, 2, or 3`);
     }
   }
   for (const id of CIVILIZATION_ACTION_IDS) {
     const level = state.actionLevels[id];
-    if (!Number.isInteger(level) || level < 1 || level > 5) {
-      violations.push(`${id} action level must be an integer from 1 to 5`);
+    if (!Number.isInteger(level) || level < 1 || level > CIVILIZATION_MAX_ACTION_LEVEL) {
+      violations.push(`${id} action level must be an integer from 1 to ${CIVILIZATION_MAX_ACTION_LEVEL}`);
     }
     const action = state.activeActions[id];
     if (action && (!Number.isFinite(action.readyAt) || action.readyAt < 0)) {
@@ -123,6 +147,15 @@ export function getCivilizationInvariantViolations(state: CivilizationState): st
   if (state.researchedTechs.includes("agriculture") && !state.unlockedEras.includes("bronze")) {
     violations.push("Agriculture must unlock Bronze");
   }
+  if (state.researchedTechs.includes("steam_power") && !state.unlockedEras.includes("industrial")) {
+    violations.push("Steam Power must unlock Industrial");
+  }
+  if (state.researchedTechs.includes("factory_automation") && !state.unlockedEras.includes("information")) {
+    violations.push("Factory Automation must unlock Information");
+  }
+  if (state.researchedTechs.includes("space_science") && !state.unlockedEras.includes("space")) {
+    violations.push("Space Science must unlock Space");
+  }
   for (const converterId of state.unlockedConverters) {
     const requiredTech = CIVILIZATION_CONVERTERS[converterId].unlockedByTech;
     if (!state.researchedTechs.includes(requiredTech)) {
@@ -131,6 +164,47 @@ export function getCivilizationInvariantViolations(state: CivilizationState): st
   }
   if (state.bronzeCompleted && !state.researchedTechs.includes("steam_power")) {
     violations.push("Bronze completion requires Steam Power");
+  }
+  if (state.industrialCompleted && !state.researchedTechs.includes("factory_automation")) {
+    violations.push("Industrial completion requires Factory Automation");
+  }
+  if (state.informationCompleted && !state.researchedTechs.includes("space_science")) {
+    violations.push("Information completion requires Space Science");
+  }
+  if (![0, 1, 2, 3, 4].includes(state.spaceProjectStage)) {
+    violations.push("space project stage must be from 0 to 4");
+  }
+  if (state.spaceProjectStage > 0 && !state.unlockedEras.includes("space")) {
+    violations.push("space project requires Space to be unlocked");
+  }
+  if (state.spaceCompleted && (state.spaceProjectStage !== 4 || !state.researchedTechs.includes("evacuation"))) {
+    violations.push("Space completion requires project stage 4 and Evacuation research");
+  }
+  if (new Set(state.automationRules).size !== state.automationRules.length) {
+    violations.push("automation rules must not contain duplicates");
+  }
+  const automationSlots = state.researchedTechs.includes("job_scheduling")
+    ? Math.min(3, 1 + state.buildings.scheduler_center)
+    : 0;
+  if (state.automationRules.length > automationSlots) {
+    violations.push("automation rules must not exceed available slots");
+  }
+
+  for (const id of CIVILIZATION_JOB_IDS) {
+    const seconds = state.jobMasterySeconds[id];
+    if (!Number.isFinite(seconds) || seconds < 0 || seconds > CIVILIZATION_MASTERY_THRESHOLDS_SECONDS.at(-1)!) {
+      violations.push(`${id} mastery seconds must be within the supported range`);
+    }
+  }
+  for (const [id, definition] of Object.entries(CIVILIZATION_REPEATABLE_RESEARCH)) {
+    const level = state.researchLevels[id as keyof typeof state.researchLevels];
+    if (!Number.isInteger(level) || level < 0 || level > definition.maxLevel) {
+      violations.push(`${id} research level must be from 0 to ${definition.maxLevel}`);
+    }
+  }
+  if (!CIVILIZATION_POLICIES[state.policy.id]) violations.push("policy must be recognized");
+  if (!Number.isFinite(state.policy.changedAt) || state.policy.changedAt < 0) {
+    violations.push("policy changedAt must be finite and non-negative");
   }
 
   return violations;

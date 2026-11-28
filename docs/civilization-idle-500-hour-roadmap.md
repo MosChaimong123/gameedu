@@ -1,6 +1,6 @@
 # Civilization Idle: แผนห้ายุค รอบแรกเฉลี่ย 500 ชั่วโมง
 
-สถานะ: Phase 0-6 เสร็จระดับโค้ดและ local QA; ขั้นถัดไป Phase 7 staging pilot/balance | 27 พฤศจิกายน 2026
+สถานะ: Phase 0-6 เสร็จระดับโค้ดและ local QA; Phase 7 local balance gate ผ่านแล้ว และรอ remote staging pilot | 27 พฤศจิกายน 2026
 
 ## คำจำกัดความและเป้าหมาย
 
@@ -93,7 +93,7 @@ Baseline เดิมจำกัด offline **8 ชั่วโมงต่อ�
 | Real-Mongo Prestige QA | ยังไม่ทำ | ทดสอบ reset สำเร็จ, retry, command replay, สองคำสั่ง revision เดียว และ rollback จาก snapshot |
 | Dark deploy | ยังไม่ทำ | deploy โดย feature flag ปิด ตรวจ health/readiness/log ก่อนเปิดผู้ใช้ |
 | Staging pilot | ยังไม่ทำ | เปิดเฉพาะ classroom allowlist กลุ่มเล็ก พร้อม rollback ด้วย feature flag |
-| Scripted balance simulation | ยังไม่ทำ | จำลองอย่างน้อย 4 กลยุทธ์: อาหาร/ประชากร, วิทยาศาสตร์, โรงงาน และสมดุล |
+| Scripted balance simulation | ผ่าน local QA | 4 กลยุทธ์จบครบ 288-752 ชม. ค่าเฉลี่ย 570 ชม.; ดู `civilization-idle-phase-7-pilot-balance-report.md` |
 | Pacing sign-off 500 ชั่วโมง | ยังไม่ทำ | เก็บเวลาถึง milestone แยกยุค และยืนยันค่ากลางรอบแรก 400-600 ชั่วโมง |
 | Permanent reward balance | ยังไม่ทำ | ตรวจว่ารางวัลทั้ง 4 มีอัตราเลือกแข่งขันกันและไม่มีตัวเลือกเดียวเด่นทุกยุค |
 | Production rollout | ยังไม่อนุมัติ | ทำหลัง staging backup/restore rehearsal, pilot review และ owner sign-off เท่านั้น |

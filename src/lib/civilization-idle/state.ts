@@ -63,7 +63,7 @@ export function createInitialCivilizationState(nowMs: number): CivilizationState
       population: { amount: 2, cap: 10 },
       wood: { amount: 20, cap: 100 },
       stone: { amount: 10, cap: 100 },
-      science: { amount: 0, cap: 1_000 },
+      science: { amount: 0, cap: 2_000 },
       copper: { amount: 0, cap: 200 },
       bronze: { amount: 0, cap: 200 },
       iron: { amount: 0, cap: 200 },

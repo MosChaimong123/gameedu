@@ -180,5 +180,8 @@ applying the Prisma schema to a database, or enabling production.
 - [x] Cover not-ready, stale confirmation, capped reward, reset preservation, replay, and migration behavior.
 - [x] Pass 91 Civilization tests (2 integration skips), TypeScript, ESLint, Prisma validation, architecture guard, and production build.
 - [x] Inspect desktop confirmation/reset and mobile 390x844 reward selection screenshots.
-- Next: apply schema v6 to a backed-up staging database, run real-Mongo reset/rollback QA, then begin Phase 7 pilot balance.
+- Phase 7 local balance gate passes all four strategies: industry 288h, balanced 512h, science 728h, population 752h (570h average).
+- Fixed science-cap progression locks, full-data compute shutdown, unsupported population growth, starvation recovery, and QA simulation granularity; save schema is now v7.
+- Pilot access now fails closed when the classroom allowlist is empty; global rollout requires the explicit `*` value.
+- Next: provide a backed-up staging database target, apply schema v7, run real-Mongo reset/rollback QA, then open the classroom allowlist pilot.
 - Production remains untouched; no schema push, commit, deploy, or feature-flag change was performed.

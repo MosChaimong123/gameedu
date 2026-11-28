@@ -5,8 +5,8 @@
 ## Rollout Controls
 
 - `CIVILIZATION_IDLE_ENABLED=false` ปิด dashboard entry, page และ API ทั้งหมดด้วย 404 โดยไม่ลบ profile หรือ command receipt
-- `CIVILIZATION_IDLE_ENABLED=true` เปิดระบบ แต่ยังถูกจำกัดด้วย allowlist หากตั้ง `CIVILIZATION_IDLE_PILOT_CLASSROOM_IDS`
-- `CIVILIZATION_IDLE_PILOT_CLASSROOM_IDS` รับ Classroom ObjectId คั่นด้วย comma เช่น `id-a,id-b`; เว้นว่างหมายถึงทุกห้อง จึงห้ามเว้นว่างใน pilot
+- `CIVILIZATION_IDLE_ENABLED=true` เปิดระบบเฉพาะห้องที่อยู่ใน `CIVILIZATION_IDLE_PILOT_CLASSROOM_IDS`; allowlist ว่างจะปิดทุกห้องแบบ fail-closed
+- `CIVILIZATION_IDLE_PILOT_CLASSROOM_IDS` รับ Classroom ObjectId คั่นด้วย comma เช่น `id-a,id-b`; ใช้ `*` เฉพาะเมื่อตั้งใจเปิดทุกห้องหลังจบ pilot
 - ค่าใน `render.yaml` ตั้ง `CIVILIZATION_IDLE_ENABLED=false` เพื่อให้ deploy โค้ดได้ก่อนเปิดผู้ใช้จริง
 
 ## 1. Preflight
@@ -66,6 +66,8 @@ Remove-Item Env:CIVILIZATION_SMOKE_BASE_URL
 ```
 
 ผลที่ถูกต้องคือ `pilotStatus=200`, `controlStatus=404` และไม่มี session ที่มี `clientDigest=civilization-pilot-smoke` ค้างอยู่
+
+ห้ามใช้ `*` ระหว่าง pilot; ค่านี้สงวนไว้สำหรับ global rollout ที่ได้รับอนุมัติแล้ว
 
 ## 5. Monitoring
 

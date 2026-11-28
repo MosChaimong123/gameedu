@@ -1,5 +1,5 @@
-export const CIVILIZATION_SCHEMA_VERSION = 6 as const;
-export const CIVILIZATION_CONTENT_VERSION = 6 as const;
+export const CIVILIZATION_SCHEMA_VERSION = 7 as const;
+export const CIVILIZATION_CONTENT_VERSION = 7 as const;
 
 export type CivilizationEraId = "stone" | "bronze" | "industrial" | "information" | "space";
 export type CivilizationResourceId =

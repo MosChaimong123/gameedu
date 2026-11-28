@@ -110,7 +110,7 @@ describe("Civilization Idle initial state", () => {
     expect(state.resources).toMatchObject({
       food: { amount: 50, cap: 200 },
       population: { amount: 2, cap: 10 },
-      science: { amount: 0, cap: 1_000 },
+      science: { amount: 0, cap: 2_000 },
     });
     expect(state.idleWorkers).toBe(2);
     expect(getCivilizationInvariantViolations(state)).toEqual([]);
@@ -325,7 +325,7 @@ describe("Civilization Idle simulation", () => {
     expect(getCivilizationWorkerProductionRate(initial, "forager")).toBeCloseTo(2.76);
 
     initial.resources.food.amount = 0;
-    expect(getCivilizationWorkerProductionRate(initial, "forager")).toBeCloseTo(0.69);
+    expect(getCivilizationWorkerProductionRate(initial, "forager")).toBeCloseTo(2.76);
   });
 
   it("produces resources and consumes food deterministically", () => {
@@ -355,11 +355,42 @@ describe("Civilization Idle simulation", () => {
     expect(simulated.populationGrowthProgressMs).toBe(0);
   });
 
-  it("grows population every eight seconds and grants an idle worker", () => {
-    const simulated = simulateCivilization(createInitialCivilizationState(0), 8_000).state;
+  it("lets assigned food workers recover a starving settlement", () => {
+    const initial = createInitialCivilizationState(0);
+    initial.resources.food.amount = 0;
+    initial.buildings.hunting_ground = 1;
+    initial.workers.forager = 1;
+    initial.workers.hunter = 1;
+    initial.idleWorkers = 0;
+
+    const simulated = simulateCivilization(initial, 1_000).state;
+
+    expect(simulated.resources.food.amount).toBeGreaterThan(0);
+    expect(simulated.resources.food.amount).toBeCloseTo(1.3);
+  });
+
+  it("grows population when food production can support the next person", () => {
+    const initial = createInitialCivilizationState(0);
+    initial.buildings.hunting_ground = 1;
+    initial.workers.forager = 1;
+    initial.workers.hunter = 1;
+    initial.idleWorkers = 0;
+    const simulated = simulateCivilization(initial, 8_000).state;
     expect(simulated.resources.population.amount).toBe(3);
-    expect(simulated.idleWorkers).toBe(3);
+    expect(simulated.idleWorkers).toBe(1);
     expect(simulated.populationGrowthProgressMs).toBe(0);
+  });
+
+  it("pauses population growth instead of creating unsupported offline consumers", () => {
+    const initial = createInitialCivilizationState(0);
+    initial.workers.forager = 1;
+    initial.idleWorkers = 1;
+
+    const simulated = simulateCivilization(initial, 8_000).state;
+
+    expect(simulated.resources.population.amount).toBe(2);
+    expect(simulated.idleWorkers).toBe(1);
+    expect(simulated.populationGrowthProgressMs).toBe(8_000);
   });
 
   it("applies population and production Tech bonuses", () => {
@@ -371,6 +402,9 @@ describe("Civilization Idle simulation", () => {
     const oneSecond = simulateCivilization(initial, 1_000).state;
     expect(oneSecond.resources.food.amount).toBeCloseTo(49.92);
 
+    initial.workers.hunter = 1;
+    initial.buildings.hunting_ground = 1;
+    initial.idleWorkers = 0;
     const growth = simulateCivilization(initial, 5_334).state;
     expect(growth.resources.population.amount).toBe(3);
   });
@@ -476,7 +510,7 @@ describe("Civilization Idle research and eras", () => {
     );
     expect(state.bronzeCompleted).toBe(true);
     expect(state.resources.science.amount).toBe(0);
-    expect(state.resources.science.cap).toBe(1_000);
+    expect(state.resources.science.cap).toBe(2_000);
   });
 
   it("rejects research with missing prerequisites", () => {
@@ -708,6 +742,18 @@ describe("Civilization Idle Information Age", () => {
     expect(state.resources.data.amount).toBeCloseTo(20.05);
     expect(state.resources.science.amount).toBeCloseTo(0.3);
     expect(state.resources.compute).toEqual({ amount: 1, cap: 2 });
+  });
+
+  it("keeps data-center compute online when data storage is full", () => {
+    const state = enterInformation(createInitialCivilizationState(0));
+    state.converters.steam_generator.count = 3;
+    state.converters.data_center.count = 1;
+    state.resources.coal.amount = 20;
+    state.resources.circuits.amount = 20;
+    state.resources.data.amount = state.resources.data.cap;
+
+    expect(getCivilizationComputeStatus(state)).toMatchObject({ supply: 2 });
+    expect(getCivilizationPowerStatus(state).poweredConverters).toContain("data_center");
   });
 
   it("uses scheduler capacity and pauses factories at configured reserves", () => {

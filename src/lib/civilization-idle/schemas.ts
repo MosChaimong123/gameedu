@@ -310,11 +310,11 @@ const civilizationStateV5Schema = civilizationStateV4Schema
   })
   .strict();
 
-export const civilizationStateSchema = civilizationStateV5Schema
+const civilizationStateV6Schema = civilizationStateV5Schema
   .omit({ schemaVersion: true, contentVersion: true })
   .extend({
-    schemaVersion: z.literal(CIVILIZATION_SCHEMA_VERSION),
-    contentVersion: z.literal(CIVILIZATION_CONTENT_VERSION),
+    schemaVersion: z.literal(6),
+    contentVersion: z.literal(6),
     runNumber: z.number().int().positive(),
     runStartedAt: z.number().finite().nonnegative(),
     permanentRewards: z.object({
@@ -323,6 +323,14 @@ export const civilizationStateSchema = civilizationStateV5Schema
       founder_stockpile: z.number().int().min(0).max(5),
       efficient_industry: z.number().int().min(0).max(5),
     }).strict(),
+  })
+  .strict();
+
+export const civilizationStateSchema = civilizationStateV6Schema
+  .omit({ schemaVersion: true, contentVersion: true })
+  .extend({
+    schemaVersion: z.literal(CIVILIZATION_SCHEMA_VERSION),
+    contentVersion: z.literal(CIVILIZATION_CONTENT_VERSION),
   })
   .strict();
 
@@ -590,23 +598,28 @@ export function parseCivilizationState(value: unknown): CivilizationState {
   if (current.success) {
     state = current.data as CivilizationState;
   } else {
-    const version5 = civilizationStateV5Schema.safeParse(value);
-    if (version5.success) {
-      state = migrateCivilizationStateV5(version5.data);
+    const version6 = civilizationStateV6Schema.safeParse(value);
+    if (version6.success) {
+      state = migrateCivilizationStateV6(version6.data);
     } else {
-      const version4 = civilizationStateV4Schema.safeParse(value);
-      if (version4.success) {
-        state = migrateCivilizationStateV5(migrateCivilizationStateV4(version4.data));
+      const version5 = civilizationStateV5Schema.safeParse(value);
+      if (version5.success) {
+        state = migrateCivilizationStateV6(migrateCivilizationStateV5(version5.data));
       } else {
-        const version3 = civilizationStateV3Schema.safeParse(value);
-        if (version3.success) {
-          state = migrateCivilizationStateV5(migrateCivilizationStateV4(migrateCivilizationStateV3(version3.data)));
+        const version4 = civilizationStateV4Schema.safeParse(value);
+        if (version4.success) {
+          state = migrateCivilizationStateV6(migrateCivilizationStateV5(migrateCivilizationStateV4(version4.data)));
         } else {
-          const version2 = civilizationStateV2Schema.safeParse(value);
-          const migratedV3 = version2.success
-            ? migrateCivilizationStateV2(version2.data)
-            : migrateCivilizationStateV2(migrateCivilizationStateV1(civilizationStateV1Schema.parse(value)));
-          state = migrateCivilizationStateV5(migrateCivilizationStateV4(migrateCivilizationStateV3(migratedV3)));
+          const version3 = civilizationStateV3Schema.safeParse(value);
+          if (version3.success) {
+            state = migrateCivilizationStateV6(migrateCivilizationStateV5(migrateCivilizationStateV4(migrateCivilizationStateV3(version3.data))));
+          } else {
+            const version2 = civilizationStateV2Schema.safeParse(value);
+            const migratedV3 = version2.success
+              ? migrateCivilizationStateV2(version2.data)
+              : migrateCivilizationStateV2(migrateCivilizationStateV1(civilizationStateV1Schema.parse(value)));
+            state = migrateCivilizationStateV6(migrateCivilizationStateV5(migrateCivilizationStateV4(migrateCivilizationStateV3(migratedV3))));
+          }
         }
       }
     }
@@ -731,11 +744,13 @@ function migrateCivilizationStateV4(value: z.infer<typeof civilizationStateV4Sch
   };
 }
 
-function migrateCivilizationStateV5(value: z.infer<typeof civilizationStateV5Schema>): CivilizationState {
+function migrateCivilizationStateV5(
+  value: z.infer<typeof civilizationStateV5Schema>
+): z.infer<typeof civilizationStateV6Schema> {
   return {
     ...value,
-    schemaVersion: CIVILIZATION_SCHEMA_VERSION,
-    contentVersion: CIVILIZATION_CONTENT_VERSION,
+    schemaVersion: 6,
+    contentVersion: 6,
     runNumber: 1,
     runStartedAt: value.lastSimulatedAt,
     permanentRewards: {
@@ -743,6 +758,26 @@ function migrateCivilizationStateV5(value: z.infer<typeof civilizationStateV5Sch
       research_archive: 0,
       founder_stockpile: 0,
       efficient_industry: 0,
+    },
+  } as z.infer<typeof civilizationStateV6Schema>;
+}
+
+function migrateCivilizationStateV6(value: z.infer<typeof civilizationStateV6Schema>): CivilizationState {
+  return {
+    ...value,
+    schemaVersion: CIVILIZATION_SCHEMA_VERSION,
+    contentVersion: CIVILIZATION_CONTENT_VERSION,
+    resources: {
+      ...value.resources,
+      science: {
+        ...value.resources.science,
+        cap: Math.max(
+          2_000,
+          value.resources.science.cap +
+            value.buildings.network_station * 20_000 +
+            value.buildings.test_center * 30_000
+        ),
+      },
     },
   };
 }

@@ -14,5 +14,5 @@ export function getCivilizationIdlePilotClassroomIds(): string[] {
 export function isCivilizationIdleEnabledForClass(classId: string): boolean {
   if (!isCivilizationIdleEnabled()) return false;
   const pilotClassroomIds = getCivilizationIdlePilotClassroomIds();
-  return pilotClassroomIds.length === 0 || pilotClassroomIds.includes(classId);
+  return pilotClassroomIds.includes("*") || pilotClassroomIds.includes(classId);
 }

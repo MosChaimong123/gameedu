@@ -93,7 +93,7 @@ services:
       - key: NEXT_PUBLIC_NEGAMON_BATTLE_HOST_ENABLED
         value: "true"
       # Civilization Idle stays dark after deploy. Enable only for staging/pilot,
-      # and set the allowed classroom ObjectIds before changing this to true.
+      # and set allowed classroom ObjectIds first. Empty denies all; '*' opens all.
       - key: CIVILIZATION_IDLE_ENABLED
         value: "false"
       - key: CIVILIZATION_IDLE_PILOT_CLASSROOM_IDS

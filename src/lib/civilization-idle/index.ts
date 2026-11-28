@@ -3,6 +3,7 @@ export * from "./engine";
 export * from "./feature-flag";
 export * from "./invariants";
 export * from "./progression";
+export * from "./balance";
 export * from "./schemas";
 export * from "./serialization";
 export * from "./simulation";

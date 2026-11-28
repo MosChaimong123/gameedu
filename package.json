@@ -72,6 +72,7 @@
     "qa:civilization-db": "node scripts/run-civilization-db-qa.mjs",
     "qa:civilization-pilot-readiness": "node scripts/run-civilization-db-qa.mjs --readiness",
     "qa:civilization-pilot-smoke": "node --experimental-strip-types scripts/smoke-civilization-pilot.mjs",
+    "qa:civilization-balance": "node ./node_modules/vitest/vitest.mjs run --config vitest.config.mts --pool threads --disableConsoleIntercept src/lib/civilization-idle/__tests__/balance.test.ts",
     "governance:check": "node scripts/check-governance.mjs",
     "smoke:build": "node scripts/smoke-build.mjs",
     "pr:body:asn": "node scripts/pr-body-asn-prepare.mjs",

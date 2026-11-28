@@ -16,9 +16,16 @@ describe("Civilization Idle rollout flags", () => {
     expect(isCivilizationIdleEnabledForClass("class-1")).toBe(false);
   });
 
-  it("allows every classroom when enabled without an allowlist", () => {
+  it("fails closed when enabled without an allowlist", () => {
     process.env.CIVILIZATION_IDLE_ENABLED = "true";
+    expect(isCivilizationIdleEnabledForClass("class-1")).toBe(false);
+  });
+
+  it("requires an explicit wildcard for a global rollout", () => {
+    process.env.CIVILIZATION_IDLE_ENABLED = "true";
+    process.env.CIVILIZATION_IDLE_PILOT_CLASSROOM_IDS = "*";
     expect(isCivilizationIdleEnabledForClass("class-1")).toBe(true);
+    expect(isCivilizationIdleEnabledForClass("class-2")).toBe(true);
   });
 
   it("normalizes the pilot allowlist and restricts access to exact classroom ids", () => {

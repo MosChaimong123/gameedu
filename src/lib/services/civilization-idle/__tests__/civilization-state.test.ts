@@ -402,11 +402,11 @@ describe("Civilization Idle persistence service", () => {
 
     expect(result).toMatchObject({ ok: true, value: { accepted: true, revision: 5 } });
     expect(harness.getProfile()).toMatchObject({
-      schemaVersion: 6,
-      contentVersion: 6,
+      schemaVersion: 7,
+      contentVersion: 7,
       snapshot: {
-        schemaVersion: 6,
-        contentVersion: 6,
+        schemaVersion: 7,
+        contentVersion: 7,
         policy: { id: "balanced" },
         researchLevels: { food_storage: 0 },
       },

@@ -403,7 +403,10 @@ export const CIVILIZATION_BUILDINGS: Record<
       { resource: "circuits", amount: 80 },
     ],
     costScaling: 1.45,
-    effects: [{ type: "storage_cap", resource: "data", amount: 250 }],
+    effects: [
+      { type: "storage_cap", resource: "data", amount: 250 },
+      { type: "storage_cap", resource: "science", amount: 20_000 },
+    ],
     maxCount: 10,
   },
   scheduler_center: {
@@ -431,7 +434,9 @@ export const CIVILIZATION_BUILDINGS: Record<
   test_center: {
     id: "test_center", era: "space",
     baseCost: [{ resource: "advanced_alloy", amount: 180 }, { resource: "circuits", amount: 160 }],
-    costScaling: 1.5, effects: [], maxCount: 5,
+    costScaling: 1.5,
+    effects: [{ type: "storage_cap", resource: "science", amount: 30_000 }],
+    maxCount: 5,
   },
   evacuation_port: {
     id: "evacuation_port", era: "space",

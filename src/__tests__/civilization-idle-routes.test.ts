@@ -26,7 +26,7 @@ describe("Civilization Idle student access routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.CIVILIZATION_IDLE_ENABLED = "true";
-    delete process.env.CIVILIZATION_IDLE_PILOT_CLASSROOM_IDS;
+    process.env.CIVILIZATION_IDLE_PILOT_CLASSROOM_IDS = "class-1";
     mockGetStudentAccessSession.mockResolvedValue({ classId: "class-1", student: { id: "student-1" } });
   });
 

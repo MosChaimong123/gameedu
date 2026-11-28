@@ -116,7 +116,9 @@ export function getCivilizationWorkerProductionRate(
   workerCount: number = state.workers[jobId]
 ): number {
   const job = CIVILIZATION_JOBS[jobId];
-  const workerMultiplier = state.resources.food.amount <= EPSILON
+  // Food workers must retain a recovery path when storage reaches zero.
+  // Starvation still reduces every other job so ignoring food has a real cost.
+  const workerMultiplier = state.resources.food.amount <= EPSILON && job.produces !== "food"
     ? STARVATION_WORKER_MULTIPLIER
     : 1;
   const bonus = getCivilizationProductionBonus(state, job.produces);
@@ -192,6 +194,15 @@ function converterHasInputsAndCapacity(
     rates.outputs.every((output) => state.resources[output.resource].amount + output.amount <= state.resources[output.resource].cap + EPSILON);
 }
 
+function converterHasInputs(
+  state: CivilizationState,
+  converterId: CivilizationConverterId
+): boolean {
+  return getCivilizationConverterRates(state, converterId).inputs.every(
+    (input) => state.resources[input.resource].amount + EPSILON >= input.amount
+  );
+}
+
 export function getCivilizationConverterPowerDemand(
   state: CivilizationState,
   converterId: CivilizationConverterId
@@ -247,7 +258,10 @@ export function getCivilizationPowerStatus(state: CivilizationState): Civilizati
     .filter((id) => {
       const converter = state.converters[id];
       return getCivilizationConverterPowerDemand(state, id) > 0 && converter.count > 0 && converter.enabled &&
-        state.unlockedConverters.includes(id) && converterHasInputsAndCapacity(state, id) &&
+        state.unlockedConverters.includes(id) &&
+        (id === "data_center"
+          ? converterHasInputs(state, id)
+          : converterHasInputsAndCapacity(state, id)) &&
         automationAllowsConverter(state, id);
     })
     .sort((left, right) => getCivilizationEffectivePriority(state, left) - getCivilizationEffectivePriority(state, right) || left.localeCompare(right));
@@ -271,7 +285,7 @@ export function getCivilizationComputeStatus(state: CivilizationState): Civiliza
   const power = getCivilizationPowerStatus(state);
   const center = state.converters.data_center;
   const centerAvailable = center.count > 0 && center.enabled &&
-    state.unlockedConverters.includes("data_center") && converterHasInputsAndCapacity(state, "data_center") &&
+    state.unlockedConverters.includes("data_center") && converterHasInputs(state, "data_center") &&
     automationAllowsConverter(state, "data_center") &&
     (getCivilizationConverterPowerDemand(state, "data_center") <= 0 || power.poweredConverters.includes("data_center"));
   const networkBonus = 1 + state.buildings.network_station * 0.05;
@@ -442,12 +456,15 @@ function getNextActionBoundary(state: CivilizationState, cursorMs: number): numb
   return next;
 }
 
-function getSimulationStepMs(state: CivilizationState): number {
+function getSimulationStepMs(
+  state: CivilizationState,
+  converterStepMs: number
+): number {
   const hasRunningConverter = CIVILIZATION_CONVERTER_IDS.some((id) => {
     const converter = state.converters[id];
     return converter.count > 0 && converter.enabled && state.unlockedConverters.includes(id);
   });
-  if (hasRunningConverter) return CIVILIZATION_MAX_SIMULATION_STEP_MS;
+  if (hasRunningConverter) return converterStepMs;
   let stableStepMs = CIVILIZATION_MAX_STABLE_SIMULATION_STEP_MS;
   for (const jobId of CIVILIZATION_JOB_IDS) {
     const workers = state.workers[jobId];
@@ -570,9 +587,13 @@ function simulateStep(
   state.populationGrowthProgressMs +=
     elapsedMs * (1 + getCivilizationPopulationGrowthBonus(state));
 
+  const foodProductionPerSecond = getCivilizationResourceFlows(state).food.productionPerSecond;
+
   while (
     state.populationGrowthProgressMs + EPSILON >= POPULATION_GROWTH_INTERVAL_MS &&
-    state.resources.population.amount < state.resources.population.cap
+    state.resources.population.amount < state.resources.population.cap &&
+    foodProductionPerSecond + EPSILON >=
+      (state.resources.population.amount + 1) * FOOD_CONSUMPTION_PER_PERSON_PER_SECOND
   ) {
     state.populationGrowthProgressMs -= POPULATION_GROWTH_INTERVAL_MS;
     state.resources.population.amount += 1;
@@ -588,7 +609,8 @@ function simulateStep(
 export function simulateCivilization(
   input: CivilizationState,
   requestedNowMs: number,
-  maxElapsedMs: number = CIVILIZATION_MAX_ONLINE_ELAPSED_MS
+  maxElapsedMs: number = CIVILIZATION_MAX_ONLINE_ELAPSED_MS,
+  converterStepMs: number = CIVILIZATION_MAX_SIMULATION_STEP_MS
 ): CivilizationSimulationResult {
   assertCivilizationInvariants(input);
   if (!Number.isFinite(requestedNowMs) || requestedNowMs < input.lastSimulatedAt) {
@@ -596,6 +618,9 @@ export function simulateCivilization(
   }
   if (!Number.isFinite(maxElapsedMs) || maxElapsedMs < 0) {
     throw new RangeError("maxElapsedMs must be finite and non-negative");
+  }
+  if (!Number.isFinite(converterStepMs) || converterStepMs <= 0) {
+    throw new RangeError("converterStepMs must be finite and positive");
   }
 
   const state = cloneCivilizationState(input);
@@ -606,7 +631,10 @@ export function simulateCivilization(
   settleCompletedActions(state, cursorMs, events);
   while (cursorMs < targetMs) {
     const actionBoundary = getNextActionBoundary(state, cursorMs);
-    let nextMs = Math.min(targetMs, cursorMs + getSimulationStepMs(state));
+    let nextMs = Math.min(
+      targetMs,
+      cursorMs + getSimulationStepMs(state, converterStepMs)
+    );
     if (actionBoundary !== null) nextMs = Math.min(nextMs, actionBoundary);
 
     simulateStep(state, nextMs - cursorMs, events);

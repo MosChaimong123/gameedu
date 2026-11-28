@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createInitialCivilizationState } from "@/lib/civilization-idle";
 import { CivilizationGame } from "./civilization-game";
 
-export function CivilizationPreviewClient({ mode = "stone" }: { mode?: "stone" | "transition" | "bronze" | "industrial" | "information" | "space" | "prestige" | "offline" }) {
+export function CivilizationPreviewClient({ mode = "stone", tab = "actions" }: { mode?: "stone" | "transition" | "bronze" | "industrial" | "information" | "space" | "prestige" | "offline"; tab?: "actions" | "workers" }) {
   const [initialState] = useState(() => {
     const state = createInitialCivilizationState(Date.now());
     state.resources.wood.amount = 90;
@@ -134,5 +134,5 @@ export function CivilizationPreviewClient({ mode = "stone" }: { mode?: "stone" |
     clockAdjusted: false,
     resourceDeltas: { food: 36, population: 0, wood: 72, stone: 18, science: 12, copper: 0, bronze: 0, iron: 0, coal: 0, steel: 0, electricity: 0, machinery: 0, circuits: 0, data: 0, compute: 0, advanced_alloy: 0, rocket_fuel: 0, ship_parts: 0 },
   } : undefined;
-  return <CivilizationGame previewState={initialState} previewOfflineSummary={offlineSummary} />;
+  return <CivilizationGame previewState={initialState} previewOfflineSummary={offlineSummary} previewTab={tab} />;
 }

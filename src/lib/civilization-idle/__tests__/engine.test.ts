@@ -14,6 +14,7 @@ import {
   getCivilizationJobMasteryLevel,
   getCivilizationMilestones,
   getCivilizationPowerStatus,
+  getCivilizationPopulationGrowthStatus,
   getCivilizationComputeStatus,
   getCivilizationAutomationSlots,
   getCivilizationRepeatableResearchCost,
@@ -391,6 +392,30 @@ describe("Civilization Idle simulation", () => {
     expect(simulated.resources.population.amount).toBe(2);
     expect(simulated.idleWorkers).toBe(1);
     expect(simulated.populationGrowthProgressMs).toBe(8_000);
+  });
+
+  it("explains the food threshold and progress for the next population", () => {
+    const state = createInitialCivilizationState(0);
+    state.workers.forager = 1;
+    state.idleWorkers = 1;
+    state.populationGrowthProgressMs = 4_000;
+
+    expect(getCivilizationPopulationGrowthStatus(state)).toMatchObject({
+      atCap: false,
+      foodReady: false,
+      foodProductionPerSecond: 0.8,
+      requiredFoodProductionPerSecond: 1.5,
+      progressRatio: 0.5,
+      growthIntervalMs: 8_000,
+    });
+
+    state.buildings.hunting_ground = 1;
+    state.workers.hunter = 1;
+    state.idleWorkers = 0;
+    expect(getCivilizationPopulationGrowthStatus(state).foodReady).toBe(true);
+
+    state.resources.population.amount = state.resources.population.cap;
+    expect(getCivilizationPopulationGrowthStatus(state).atCap).toBe(true);
   });
 
   it("applies population and production Tech bonuses", () => {

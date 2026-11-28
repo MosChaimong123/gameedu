@@ -66,6 +66,7 @@ import {
   getCivilizationJobMasteryLevel,
   getCivilizationMilestones,
   getNextCivilizationMilestone,
+  getCivilizationPopulationGrowthStatus,
   getCivilizationRepeatableResearchCost,
   getCivilizationResourceFlows,
   getCivilizationPowerStatus,
@@ -503,11 +504,63 @@ function BuildingsPanel({ state, busy, language, onCommand }: { state: Civilizat
 function WorkersPanel({ state, busy, language, onCommand }: { state: CivilizationState; busy: boolean; language: "th" | "en"; onCommand: (command: CivilizationCommand) => void }) {
   const text = getCivilizationCopy(language);
   const jobs = state.era === "industrial" || state.era === "information" || state.era === "space" ? [...STONE_JOBS, ...INDUSTRIAL_JOBS] : STONE_JOBS;
+  const populationGrowth = getCivilizationPopulationGrowthStatus(state);
+  const populationProgress = Math.round(populationGrowth.progressRatio * 100);
   return (
     <section aria-labelledby="workers-title">
       <div className="mb-4 flex items-end justify-between gap-4">
         <h2 id="workers-title" className="text-lg font-black text-stone-900">{text.workersTitle}</h2>
         <p className="text-sm font-black text-emerald-700">{text.idle} {state.idleWorkers}</p>
+      </div>
+      <div className={cn(
+        "mb-5 border-y px-4 py-4",
+        populationGrowth.atCap
+          ? "border-amber-300 bg-amber-50"
+          : populationGrowth.foodReady
+            ? "border-emerald-300 bg-emerald-50"
+            : "border-rose-300 bg-rose-50"
+      )}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="flex items-center gap-2 text-sm font-black text-stone-900">
+              <Users className="h-4 w-4" />
+              {text.populationGrowthTitle}
+            </h3>
+            <p className={cn(
+              "mt-1 text-xs font-bold",
+              populationGrowth.atCap
+                ? "text-amber-800"
+                : populationGrowth.foodReady ? "text-emerald-800" : "text-rose-800"
+            )}>
+              {populationGrowth.atCap
+                ? text.populationGrowthAtCap
+                : populationGrowth.foodReady
+                  ? text.populationGrowthReady
+                  : text.populationGrowthBlocked}
+            </p>
+          </div>
+          <span className="font-mono text-sm font-black text-stone-800">
+            {formatAmount(state.resources.population.amount)} / {formatAmount(state.resources.population.cap)}
+          </span>
+        </div>
+        {!populationGrowth.atCap ? (
+          <>
+            <div className="mt-3 h-2 overflow-hidden bg-white/80" aria-label={`${text.populationGrowthTitle} ${populationProgress}%`}>
+              <div
+                className={cn("h-full", populationGrowth.foodReady ? "bg-emerald-600" : "bg-rose-600")}
+                style={{ width: `${populationProgress}%` }}
+              />
+            </div>
+            <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+              <p className="text-stone-700">
+                {text.populationGrowthRequirement}: <strong className="font-mono">{formatAmount(populationGrowth.foodProductionPerSecond)} / {formatAmount(populationGrowth.requiredFoodProductionPerSecond)}/s</strong>
+              </p>
+              <p className="text-stone-700 sm:text-right">
+                {text.populationGrowthInterval}: <strong className="font-mono">{formatAmount(populationGrowth.growthIntervalMs / 1_000)}s</strong>
+              </p>
+            </div>
+          </>
+        ) : null}
       </div>
       <div className="mb-5 border border-stone-200 bg-white p-4">
         <h3 className="text-sm font-black text-stone-900">{text.cityPolicy}</h3>
@@ -876,11 +929,11 @@ function EventList({ events, language }: { events: CivilizationEngineEvent[]; la
   );
 }
 
-export function CivilizationGame({ previewState, previewOfflineSummary }: { previewState?: CivilizationState; previewOfflineSummary?: CivilizationSimulationSummary } = {}) {
+export function CivilizationGame({ previewState, previewOfflineSummary, previewTab = "actions" }: { previewState?: CivilizationState; previewOfflineSummary?: CivilizationSimulationSummary; previewTab?: GameTab } = {}) {
   const { language } = useLanguage();
   const text = getCivilizationCopy(language);
   const { state, revision, connection, queuedCount, events, lastError, enqueue, retry, refresh, offlineSummary, dismissOfflineSummary } = useCivilizationGame(previewState, previewOfflineSummary);
-  const [tab, setTab] = useState<GameTab>("actions");
+  const [tab, setTab] = useState<GameTab>(previewTab);
   const [dismissedEraPrompt, setDismissedEraPrompt] = useState<"bronze" | "industrial" | "information" | "space" | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [dismissedPrestigeRun, setDismissedPrestigeRun] = useState<number | null>(null);

@@ -44,6 +44,15 @@ export interface CivilizationResourceFlow {
   netPerSecond: number;
 }
 
+export interface CivilizationPopulationGrowthStatus {
+  atCap: boolean;
+  foodReady: boolean;
+  foodProductionPerSecond: number;
+  requiredFoodProductionPerSecond: number;
+  progressRatio: number;
+  growthIntervalMs: number;
+}
+
 export type CivilizationBottleneck =
   | { type: "STARVING" }
   | { type: "RESOURCE_FULL"; resource: CivilizationResourceId }
@@ -108,6 +117,25 @@ export function getCivilizationPopulationGrowthBonus(state: CivilizationState): 
     }
   }
   return bonus;
+}
+
+export function getCivilizationPopulationGrowthStatus(
+  state: CivilizationState
+): CivilizationPopulationGrowthStatus {
+  const population = state.resources.population;
+  const growthMultiplier = 1 + getCivilizationPopulationGrowthBonus(state);
+  const foodProductionPerSecond = getCivilizationResourceFlows(state).food.productionPerSecond;
+  const requiredFoodProductionPerSecond =
+    (population.amount + 1) * FOOD_CONSUMPTION_PER_PERSON_PER_SECOND;
+
+  return {
+    atCap: population.amount >= population.cap,
+    foodReady: foodProductionPerSecond + EPSILON >= requiredFoodProductionPerSecond,
+    foodProductionPerSecond,
+    requiredFoodProductionPerSecond,
+    progressRatio: Math.min(1, state.populationGrowthProgressMs / POPULATION_GROWTH_INTERVAL_MS),
+    growthIntervalMs: POPULATION_GROWTH_INTERVAL_MS / growthMultiplier,
+  };
 }
 
 export function getCivilizationWorkerProductionRate(

@@ -58,14 +58,15 @@ npm run qa:civilization-balance
 - Backup SHA256: `4A973357333645EEC3C667D1699141C239CCDF6DDC4B5F992D6C921ED8F3ECA5`
 - `npx prisma db push` สร้าง `CivilizationRunHistory` และ indexes สำเร็จ
 - Remote Mongo persistence QA ผ่าน 1/1: create, command replay และ reload โดยไม่เขียนซ้ำ
+- Restore rehearsal ไปฐานแยก `gamedu_restore_rehearsal` สำเร็จ 260 documents และล้มเหลว 0 documents
+- Remote Mongo persistence QA บนฐาน restore ผ่าน 1/1 ก่อนสลับ `DATABASE_URL` กลับ `gamedu_staging`
 - Allowlist smoke ผ่าน: pilot status 200 และ control status 404
 
 ## งานที่ยังต้องทำใน Staging
 
-1. ทำ restore rehearsal จาก archive ไปฐานทดสอบแยก
-2. รัน remote prestige reset/retry/replay/rollback QA
-3. ทดสอบเล่นจริงด้วย Pilot Student: initial state, command, reload, offline progress และเปลี่ยนยุค
-4. ยืนยัน Control Student ยังไม่เห็นทางเข้าและเข้าหน้า/API ไม่ได้
-5. เก็บ pacing, error และ feedback ระหว่าง pilot ก่อน Production sign-off
+1. รัน remote prestige reset/retry/replay/rollback QA บนฐาน restore
+2. ทดสอบเล่นจริงด้วย Pilot Student: initial state, command, reload, offline progress และเปลี่ยนยุค
+3. ยืนยัน Control Student ยังไม่เห็นทางเข้าและเข้าหน้า/API ไม่ได้
+4. เก็บ pacing, error และ feedback ระหว่าง pilot ก่อน Production sign-off
 
-สถานะ Phase 7: local balance gate และ Staging allowlist smoke ผ่านแล้ว; manual pilot และ rollback rehearsal ยังดำเนินต่อ
+สถานะ Phase 7: local balance gate, Staging allowlist smoke และ restore rehearsal ผ่านแล้ว; remote Prestige QA และ manual pilot ยังดำเนินต่อ

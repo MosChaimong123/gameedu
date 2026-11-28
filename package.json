@@ -70,6 +70,7 @@
     "qa:negamon-battle-v4-full": "node scripts/negamon-battle-v4-full-qa.mjs",
     "qa:negamon-battle-v4-audit": "node scripts/negamon-battle-v4-formula-audit.mjs",
     "qa:civilization-db": "node scripts/run-civilization-db-qa.mjs",
+    "qa:civilization-prestige-db": "node scripts/run-civilization-db-qa.mjs --prestige",
     "qa:civilization-pilot-readiness": "node scripts/run-civilization-db-qa.mjs --readiness",
     "qa:civilization-pilot-smoke": "node --experimental-strip-types scripts/smoke-civilization-pilot.mjs",
     "qa:civilization-balance": "node ./node_modules/vitest/vitest.mjs run --config vitest.config.mts --pool threads --disableConsoleIntercept src/lib/civilization-idle/__tests__/balance.test.ts",

@@ -22,9 +22,12 @@ if (!isLocal && process.env.CIVILIZATION_DB_QA_ALLOW_REMOTE !== "true") {
 
 console.log(`Civilization persistence QA target: ${hostname}/${databaseName}`);
 const readinessOnly = process.argv.includes("--readiness");
+const prestigeOnly = process.argv.includes("--prestige");
 const testPath = readinessOnly
   ? "src/lib/services/civilization-idle/__tests__/civilization-pilot-readiness.integration.test.ts"
-  : "src/lib/services/civilization-idle/__tests__/civilization-persistence.integration.test.ts";
+  : prestigeOnly
+    ? "src/lib/services/civilization-idle/__tests__/civilization-prestige.integration.test.ts"
+    : "src/lib/services/civilization-idle/__tests__/civilization-persistence.integration.test.ts";
 const result = spawnSync(
   process.execPath,
   [

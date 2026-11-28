@@ -89,7 +89,7 @@ Baseline เดิมจำกัด offline **8 ชั่วโมงต่อ�
 | --- | --- | --- |
 | Phase 0-5: ระบบห้ายุค | เสร็จระดับโค้ดและ local QA | รายงานแยกแต่ละ Phase ใน `docs/civilization-idle-phase-*-report.md` |
 | Phase 6: Prestige | เสร็จระดับโค้ดและ local QA | ดู `civilization-idle-phase-6-prestige-report.md` |
-| Schema v7 บน Staging | ผ่าน | backup + checksum, `db push` และ indexes สำเร็จเมื่อ 28 พ.ย. 2026; restore rehearsal ยังเหลือ |
+| Schema v7 บน Staging | ผ่าน | backup + checksum, `db push`, indexes และ restore rehearsal 260/260 documents สำเร็จเมื่อ 28 พ.ย. 2026 |
 | Real-Mongo Prestige QA | บางส่วน | persistence create/replay/reload ผ่าน; reset/retry/rollback จาก snapshot ยังเหลือ |
 | Staging deploy | ผ่าน | commit `1347a61` deploy จาก branch Phase 7 และ health ผ่าน |
 | Staging pilot | กำลังดำเนินการ | allowlist smoke ผ่าน pilot 200/control 404; เหลือ manual gameplay และ monitoring |
@@ -100,12 +100,10 @@ Baseline เดิมจำกัด offline **8 ชั่วโมงต่อ�
 
 ### ลำดับงานถัดไป
 
-1. ทำ restore rehearsal จาก backup Staging ไปฐานทดสอบแยก
-2. รัน real-Mongo complete -> prestige -> retry -> replay -> reload QA
-3. ทดสอบ rollback จาก `CivilizationRunHistory.finalSnapshot` และยืนยันว่าไม่กระทบคะแนน, Gold หรือข้อมูลห้องเรียน
-4. Dark deploy โดยยังปิด `CIVILIZATION_IDLE_ENABLED` และตรวจ health, readiness, error log และ latency
-5. เปิด pilot classroom allowlist ขนาดเล็ก พร้อม telemetry ที่ไม่เก็บข้อมูลระบุตัวนักเรียนเกินจำเป็น
-6. เก็บข้อมูล pacing/softlock/reward choice แล้วปรับ balance ก่อนขยาย pilot หรือ production
+1. รัน real-Mongo complete -> prestige -> retry -> replay -> reload QA บนฐาน restore
+2. ทดสอบ rollback จาก `CivilizationRunHistory.finalSnapshot` และยืนยันว่าไม่กระทบคะแนน, Gold หรือข้อมูลห้องเรียน
+3. ทดสอบ Pilot Student และ Control Student แบบ manual พร้อมตรวจ error log และ latency
+4. เก็บข้อมูล pacing/softlock/reward choice แล้วปรับ balance ก่อนขยาย pilot หรือ production
 
 ## การวัดว่า “สนุก” ไม่ใช่แค่ “นาน”
 

@@ -186,6 +186,7 @@ applying the Prisma schema to a database, or enabling production.
 - Phase 7 commit `1347a61` is deployed to Staging with classroom `6b0a9b01e1469bb9b37b7807` allowlisted.
 - Backed up `gamedu_staging` with SHA256 `4A973357333645EEC3C667D1699141C239CCDF6DDC4B5F992D6C921ED8F3ECA5`, applied schema/indexes, and passed remote persistence QA.
 - Restored the archive into isolated `gamedu_restore_rehearsal` with 260 documents restored and 0 failures, then passed persistence QA there and switched the shell target back to `gamedu_staging`.
+- Passed remote Prestige QA 1/1 on the restore database: atomic reset, retry/replay protection, revision conflict, history restore, and unchanged classroom economy.
 - Staging allowlist smoke passes with pilot status 200 and control status 404.
-- Next: remote prestige reset/retry/replay/rollback QA and manual Pilot Student gameplay monitoring.
+- Next: manual Pilot/Control Student gameplay, pacing collection, and monitoring before Production sign-off.
 - Production remains untouched; its feature flag remains off.

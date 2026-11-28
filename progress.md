@@ -183,5 +183,8 @@ applying the Prisma schema to a database, or enabling production.
 - Phase 7 local balance gate passes all four strategies: industry 288h, balanced 512h, science 728h, population 752h (570h average).
 - Fixed science-cap progression locks, full-data compute shutdown, unsupported population growth, starvation recovery, and QA simulation granularity; save schema is now v7.
 - Pilot access now fails closed when the classroom allowlist is empty; global rollout requires the explicit `*` value.
-- Next: provide a backed-up staging database target, apply schema v7, run real-Mongo reset/rollback QA, then open the classroom allowlist pilot.
-- Production remains untouched; no schema push, commit, deploy, or feature-flag change was performed.
+- Phase 7 commit `1347a61` is deployed to Staging with classroom `6b0a9b01e1469bb9b37b7807` allowlisted.
+- Backed up `gamedu_staging` with SHA256 `4A973357333645EEC3C667D1699141C239CCDF6DDC4B5F992D6C921ED8F3ECA5`, applied schema/indexes, and passed remote persistence QA.
+- Staging allowlist smoke passes with pilot status 200 and control status 404.
+- Next: restore rehearsal, remote prestige reset/rollback QA, and manual Pilot Student gameplay monitoring.
+- Production remains untouched; its feature flag remains off.

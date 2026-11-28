@@ -89,10 +89,10 @@ Baseline เดิมจำกัด offline **8 ชั่วโมงต่อ�
 | --- | --- | --- |
 | Phase 0-5: ระบบห้ายุค | เสร็จระดับโค้ดและ local QA | รายงานแยกแต่ละ Phase ใน `docs/civilization-idle-phase-*-report.md` |
 | Phase 6: Prestige | เสร็จระดับโค้ดและ local QA | ดู `civilization-idle-phase-6-prestige-report.md` |
-| Schema v6 บน Staging | ยังไม่ทำ | สำรอง MongoDB staging, ตรวจ target, apply schema และตรวจ indexes |
-| Real-Mongo Prestige QA | ยังไม่ทำ | ทดสอบ reset สำเร็จ, retry, command replay, สองคำสั่ง revision เดียว และ rollback จาก snapshot |
-| Dark deploy | ยังไม่ทำ | deploy โดย feature flag ปิด ตรวจ health/readiness/log ก่อนเปิดผู้ใช้ |
-| Staging pilot | ยังไม่ทำ | เปิดเฉพาะ classroom allowlist กลุ่มเล็ก พร้อม rollback ด้วย feature flag |
+| Schema v7 บน Staging | ผ่าน | backup + checksum, `db push` และ indexes สำเร็จเมื่อ 28 พ.ย. 2026; restore rehearsal ยังเหลือ |
+| Real-Mongo Prestige QA | บางส่วน | persistence create/replay/reload ผ่าน; reset/retry/rollback จาก snapshot ยังเหลือ |
+| Staging deploy | ผ่าน | commit `1347a61` deploy จาก branch Phase 7 และ health ผ่าน |
+| Staging pilot | กำลังดำเนินการ | allowlist smoke ผ่าน pilot 200/control 404; เหลือ manual gameplay และ monitoring |
 | Scripted balance simulation | ผ่าน local QA | 4 กลยุทธ์จบครบ 288-752 ชม. ค่าเฉลี่ย 570 ชม.; ดู `civilization-idle-phase-7-pilot-balance-report.md` |
 | Pacing sign-off 500 ชั่วโมง | ยังไม่ทำ | เก็บเวลาถึง milestone แยกยุค และยืนยันค่ากลางรอบแรก 400-600 ชั่วโมง |
 | Permanent reward balance | ยังไม่ทำ | ตรวจว่ารางวัลทั้ง 4 มีอัตราเลือกแข่งขันกันและไม่มีตัวเลือกเดียวเด่นทุกยุค |
@@ -100,8 +100,8 @@ Baseline เดิมจำกัด offline **8 ชั่วโมงต่อ�
 
 ### ลำดับงานถัดไป
 
-1. สร้าง backup ของฐานข้อมูล Staging และยืนยัน `DATABASE_URL`/ชื่อฐานข้อมูลก่อนทุกคำสั่ง
-2. Apply Prisma schema v6 เฉพาะ Staging แล้วรัน real-Mongo create -> complete -> prestige -> replay -> reload QA
+1. ทำ restore rehearsal จาก backup Staging ไปฐานทดสอบแยก
+2. รัน real-Mongo complete -> prestige -> retry -> replay -> reload QA
 3. ทดสอบ rollback จาก `CivilizationRunHistory.finalSnapshot` และยืนยันว่าไม่กระทบคะแนน, Gold หรือข้อมูลห้องเรียน
 4. Dark deploy โดยยังปิด `CIVILIZATION_IDLE_ENABLED` และตรวจ health, readiness, error log และ latency
 5. เปิด pilot classroom allowlist ขนาดเล็ก พร้อม telemetry ที่ไม่เก็บข้อมูลระบุตัวนักเรียนเกินจำเป็น

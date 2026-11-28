@@ -1,6 +1,8 @@
 # Civilization Idle Phase 7: Staging Pilot and Balance
 
-วันที่: 27 พฤศจิกายน 2026
+วันที่เริ่ม: 27 พฤศจิกายน 2026
+
+อัปเดต Staging Pilot: 28 พฤศจิกายน 2026
 
 ## ขอบเขต
 
@@ -50,17 +52,20 @@ npm run qa:civilization-balance
 
 - Dark deploy Production สำเร็จที่ commit `c477756`; health ผ่านและ feature flag ยังปิด
 - Staging `https://teach-play-edu-line-staging.onrender.com/api/health` ตอบ 200 เมื่อ 27 พฤศจิกายน 2026
-- Staging Civilization state endpoint ตอบ 401 เมื่อไม่ล็อกอิน แสดงว่า global feature flag เปิดอยู่; ต้องตรวจว่ามี classroom allowlist ก่อนเชิญผู้ทดสอบ
-- Local `DATABASE_URL` ชี้ `localhost/gamedu` แต่ MongoDB local ไม่ตอบภายใน 20 วินาที
-- ยังไม่มี Staging `DATABASE_URL` ใน local environment จึงยังไม่รัน backup, schema push หรือ remote persistence QA
+- Staging deploy commit `1347a61` จาก branch `codex/staging-release-readiness`
+- Pilot classroom `6b0a9b01e1469bb9b37b7807` อยู่ใน allowlist และ feature flag เปิดเฉพาะ Staging
+- สำรองฐาน `gamedu_staging` เป็น `gamedu-staging-20261128-162304.archive.gz` ขนาด 50,625 bytes
+- Backup SHA256: `4A973357333645EEC3C667D1699141C239CCDF6DDC4B5F992D6C921ED8F3ECA5`
+- `npx prisma db push` สร้าง `CivilizationRunHistory` และ indexes สำเร็จ
+- Remote Mongo persistence QA ผ่าน 1/1: create, command replay และ reload โดยไม่เขียนซ้ำ
+- Allowlist smoke ผ่าน: pilot status 200 และ control status 404
 
-## งานที่ต้องทำใน Staging
+## งานที่ยังต้องทำใน Staging
 
-1. ตั้ง `DATABASE_URL` ของฐาน Staging ใน shell แบบชั่วคราว
-2. รัน `npm run db:print-target` และยืนยัน host/database
-3. สร้าง backup พร้อม checksum และ restore rehearsal
-4. รัน `npx prisma db push` เฉพาะหลัง backup ผ่าน
-5. รัน remote persistence/prestige QA และ allowlist smoke test
-6. เปิด pilot เฉพาะ classroom ObjectId ที่อนุมัติ
+1. ทำ restore rehearsal จาก archive ไปฐานทดสอบแยก
+2. รัน remote prestige reset/retry/replay/rollback QA
+3. ทดสอบเล่นจริงด้วย Pilot Student: initial state, command, reload, offline progress และเปลี่ยนยุค
+4. ยืนยัน Control Student ยังไม่เห็นทางเข้าและเข้าหน้า/API ไม่ได้
+5. เก็บ pacing, error และ feedback ระหว่าง pilot ก่อน Production sign-off
 
-สถานะ Phase 7: local balance gate ผ่านแล้ว; remote staging pilot ยังรอขั้นตอนข้างต้น
+สถานะ Phase 7: local balance gate และ Staging allowlist smoke ผ่านแล้ว; manual pilot และ rollback rehearsal ยังดำเนินต่อ
